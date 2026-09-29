@@ -1,0 +1,441 @@
+case: gemini-legacy-app
+after_file_is: none
+what_it_exercises: >-
+  A believable small application on google-generativeai 0.8.6 -- module-level `configure` in one
+  module, a `GenerativeModel` with `generation_config`/`safety_settings`/`system_instruction` in
+  another, a `self`-held model and a chat session in a third, `response.text`, mock patch targets in
+  the test suite, a pinned manifest and one file excluded by `.obelize.yml` -- used as the end-to-end
+  subject. Its tests mock the SDK boundary, so they run with no API key and no network.
+
+findings:
+  # ---- summarizer/config.py: the module that owns the client source ----
+  - file: summarizer/config.py
+    line: 9
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: summarizer/config.py
+    line: 22
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      This is the module's -- and the package's -- only `configure(...)` call, so D3's module-wide
+      ClientSource resolves here and only here. `api_key=` is an allowed kwarg and the value
+      expression carries over verbatim, so the rewrite to `genai.Client(api_key=API_KEY)` is
+      automatic. Recorded behaviour change, verified against google-genai 2.23.0 on 2026-09-17:
+      `API_KEY` is `""` whenever `GEMINI_API_KEY` is unset (line 20), legacy `configure(api_key="")`
+      returns without error, and `genai.Client(api_key="")` raises
+      `ValueError: No API key was provided. Please pass a valid API key.` at construction. The test
+      suite is unaffected because `conftest.py` sets the variable (a dummy key constructs fine --
+      `Client(api_key="test-key-not-a-real-credential")` was confirmed to build), but
+      `python -m summarizer.cli` with no key imports today and would raise after migration. ADR-010
+      F-6 settles the verdict: `auto` with the mandatory warning `client_constructed_eagerly`, and
+      C-20's limitation wording widens from "absent" to "absent or empty". Grading it
+      `needs_review` would mean treating every non-literal `api_key=` expression as possibly empty,
+      which is every real repository, for no safety gain in the common case.
+      The scan grades this row `auto` and the run withholds it: `summarize.py` and
+      `conversation.py` have no `configure` of their own and run on this one, so
+      `obelize fix` leaves the file alone under `configure_consumed_elsewhere`
+      (ADR-031 D11, T54). The warning stays on the withheld row.
+
+  # ---- summarizer/summarize.py: no configure in this module ----
+  - file: summarizer/summarize.py
+    line: 3
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [client_source_unresolved]
+    note: >-
+      ADR-010 F-1. The import resolves perfectly and, on its own, would rewrite to
+      `from google import genai`. It is withheld because line 27 in this same file bails: rewriting
+      the import while `genai.GenerativeModel(...)` survives produces a module that imports cleanly
+      and raises `AttributeError` on first use -- `hasattr(google.genai, "GenerativeModel")` is
+      False, verified -- and it also silently breaks `tests/test_summarize.py`, whose
+      `patch("google.generativeai.GenerativeModel")` would no longer intercept the call the code
+      makes. This row was graded `auto` when the fixture was first written; the audit that produced
+      ADR-010 caught it.
+  - file: summarizer/summarize.py
+    line: 27
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      Two bails. `client_source_unresolved` (D3): this module contains no `configure(...)` call, so
+      its call rewrites are needs_review even though `summarizer/config.py` is migrated. There is
+      also no binding to close over: `_model()` returns the constructor's result directly and it is
+      never assigned to a name, which is `receiver_unresolved` at the use site (line 39), not
+      `model_object_escapes` -- ADR-006 defines that escape over references to a BOUND name, and
+      this file has none. The note said `model_object_escapes` before ADR-010; the direction was
+      conservative either way, but the code was being used outside its definition.
+      What WOULD map, if a client existed and C-31 landed: `config.MODEL_NAME` is the positional
+      `model_name` at index 0; both `safety_settings` keys are canonical long forms with identity
+      rows, and both were confirmed present in `google.genai.types.HarmCategory.__members__` with
+      their thresholds (`BLOCK_ONLY_HIGH`, `BLOCK_MEDIUM_AND_ABOVE`) in
+      `types.HarmBlockThreshold.__members__` on 2026-09-17; `system_instruction` moves onto
+      `GenerateContentConfig`. The qualifier matters: `generation_config=GENERATION_CONFIG` and
+      `safety_settings=SAFETY_SETTINGS` are bare Names, not literals, so reading their three keys
+      at all needs C-31 (same-scope constant promotion), which ADR-008 lists as NOT landed, and the
+      `static_kwargs` precondition does not hold for a Name today. This is the fixture set's only
+      instance of the C-31 shape, and it is a second, independent reason this group cannot go
+      automatic.
+  - file: summarizer/summarize.py
+    line: 39
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_unresolved
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      The receiver is the call `_model()`, not a name, so no binding resolves it; bails
+      `receiver_unresolved` and `client_source_unresolved`. The `.text` access on line 40 is not a
+      separate finding: `google.genai.types.GenerateContentResponse.text` exists and is a property
+      (verified, google-genai 2.23.0), so the response access is unchanged.
+
+  # ---- summarizer/conversation.py: self-held model, chat session ----
+  - file: summarizer/conversation.py
+    line: 3
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [attribute_removed, client_source_unresolved]
+    note: >-
+      ADR-010 F-1, same shape as `summarizer/summarize.py:3`: lines 13, 14, 23 and 28 all bail, so
+      the import rename is withheld and the file is left exactly as it was. `caused_by` carries both
+      codes that fired here, sorted -- `attribute_removed` at line 28 and `client_source_unresolved`
+      at lines 13, 14 and 23 -- because a report that says only "this file was skipped" is the one
+      thing the evidence trail exists to prevent (ADR-012).
+  - file: summarizer/conversation.py
+    line: 13
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      Bail `client_source_unresolved` (D3): no `configure(...)` in this module. The binding itself is
+      resolvable -- see the `self_attr` entry under bindings -- so this is the D2 shape, not a
+      binding failure.
+  - file: summarizer/conversation.py
+    line: 14
+    symbol: google.generativeai.GenerativeModel.start_chat
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      Bail `client_source_unresolved` only. The `history` argument is inside D4's rewritable shape --
+      a list literal of dict literals whose `parts` are string literals and whose roles are literally
+      `user` and `model` -- so each part must be rewritten to `{"text": <the string>}` and must NOT
+      be passed through: `google.genai` rejects the legacy shape with a pydantic ValidationError.
+      This is the one place in the app that proves the D4 rewrite rather than the
+      `history_parts_shape_incompatible` bail.
+  - file: summarizer/conversation.py
+    line: 23
+    symbol: google.generativeai.ChatSession.send_message
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      Bail `client_source_unresolved` only. The argument is positional, so it passes through
+      unchanged (C-17); the `content=` -> `message=` rename does not apply here. Confirmed against
+      google-genai 2.23.0: `Chat.send_message(self, message, config=None)`.
+  - file: summarizer/conversation.py
+    line: 28
+    symbol: google.generativeai.ChatSession.history
+    kind: attribute
+    confidence_reason: receiver_bound_self_attr
+    verdict: unsupported
+    bail: attribute_removed
+    note: >-
+      The new SDK's chat object has no `history` attribute. Verified on 2026-09-17: the public
+      surface of `google.genai.chats.Chat` is exactly
+      `['get_history', 'record_history', 'send_message', 'send_message_stream']` and
+      `hasattr(Chat, "history")` is False. The equivalent is the method `get_history(curated=False)`,
+      which is an attribute-to-method change, not a rename, so this is `flag_only`. Deliberate trap:
+      `tests/test_conversation.py::test_turns_reports_the_session_history_length` passes both before
+      and after a migration because the chat object is a MagicMock, so a green `obelize verify` does
+      not catch this line. That is the fixture's evidence that verification is evidence, not proof.
+
+  # ---- tests: patch targets move with the code ----
+  - file: tests/test_summarize.py
+    line: 16
+    symbol: '"google.generativeai.GenerativeModel"'
+    kind: text_mention
+    confidence_reason: mock_patch_target
+    verdict: needs_review
+    bail: flag_only_surface
+    note: >-
+      Raw string matching, not QualifiedNameProvider: the `SimpleString` inside `mock.patch(...)`
+      resolves to an empty qualified-name set (C-26). After migration nothing imports
+      `GenerativeModel`, so this target is stale and the test would patch a name the code no longer
+      calls -- while still passing, because the patch itself succeeds. There is no mechanical
+      replacement (the new boundary is `google.genai.Client` or `Models.generate_content`), so it is
+      reported, never rewritten.
+  - file: tests/test_conversation.py
+    line: 18
+    symbol: '"google.generativeai.GenerativeModel"'
+    kind: text_mention
+    confidence_reason: mock_patch_target
+    verdict: needs_review
+    bail: flag_only_surface
+    note: Same as tests/test_summarize.py:16.
+  - file: tests/test_cli.py
+    line: 12
+    symbol: '"google.generativeai.GenerativeModel"'
+    kind: text_mention
+    confidence_reason: mock_patch_target
+    verdict: needs_review
+    bail: flag_only_surface
+    note: Same as tests/test_summarize.py:16.
+  - file: tests/test_summarize.py
+    line: 3
+    symbol: google.generativeai.GenerativeModel
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: >-
+      Inside the module docstring. Informational only; it must never become an edit. Contrast
+      C-26: a *string annotation* that resolves to a legacy qualified name is a real finding, but
+      this is prose in a docstring and resolves to nothing.
+  - file: tests/test_conversation.py
+    line: 4
+    symbol: google.generativeai.GenerativeModel
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: Inside the module docstring, as tests/test_summarize.py:3.
+
+  # ---- the manifest ----
+  - file: requirements.txt
+    line: 3
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: >-
+      ADR-010 F-2, first half: ADD the new distribution. `google-genai>=1` is inserted after line 3
+      because at least one in-scope file -- `summarizer/config.py` -- was migrated, and without the
+      pin that file imports a package the environment does not have. Measured: with the two
+      `config.py` edits applied and this line missing, `import summarizer.config` raises
+      `ImportError: cannot import name 'genai' from 'google'`; with it, the app's own suite reports
+      `12 passed, 1 warning`. `python-dotenv==1.0.1` (line 7), `pytest==8.3.4` (line 8) and both
+      comment blocks keep their exact text.
+  - file: requirements.txt
+    line: 3
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      ADR-010 F-2, second half: do NOT remove the legacy pin. `summarizer/summarize.py` and
+      `summarizer/conversation.py` still import the legacy distribution, so both pins stay and the
+      repository runs on two SDKs until those files migrate -- which the Phase 0 coexistence spike
+      exists to make safe. Un-pinning it now turns the next `pip install -r requirements.txt` into
+      `ModuleNotFoundError` at import for every entry point at once. This row was graded `auto`
+      when the fixture was first written, and the whole manifest edit was withheld in ADR-010's
+      first draft; both were wrong in opposite directions.
+      `scripts/oneoff_backfill.py` also imports the legacy SDK but is excluded by `.obelize.yml`,
+      so it does not block the removal -- it is named in the report instead, because the install it
+      breaks is not excluded.
+      `confidence_reason: manifest_dependency` is the attested member (ADR-010 F-4); these rows
+      carried none at all before, while `../../tests/fixtures/scan/basic/ground_truth.yaml`
+      invented `manifest_declaration` for the same shape. Two oracles, two answers, now one.
+
+bindings:
+  - file: summarizer/conversation.py
+    kind: self_attr
+    name: self.model
+    scope: class:FollowUp
+    ctor_line: 13
+    use_lines: [14]
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      The binding resolves under D2 -- matched on the tuple (enclosing ClassDef `FollowUp`,
+      first-parameter name `self`, attribute name `model`), never on the qualified-name string,
+      which libcst renders as `FollowUp.__init__.<locals>.self.model`. It is closed-world: one
+      constructor, one use, no escape. The `needs_review` comes from the module's missing
+      `configure(...)` (`client_source_unresolved`), not from the binding.
+      `scope` is the enclosing CLASS, not the method the assignment happens to sit in: D2 matches on
+      the ClassDef node, and `__init__` is only the assignment site. This row said
+      `method:FollowUp.__init__` before ADR-010, disagreeing with the identical binding kind in
+      `../../tests/fixtures/scan/chat_async_self/ground_truth.yaml`.
+  - file: summarizer/conversation.py
+    kind: self_attr
+    name: self.chat
+    scope: class:FollowUp
+    ctor_line: 14
+    use_lines: [23, 28]
+    verdict: needs_review
+    bail: model_object_escapes
+    note: >-
+      The chat object gets the same treatment as the model object (ADR-006: "Chat objects use the
+      same mechanism"), so it is a binding in its own right and was missing from this table
+      entirely. It is NOT closed-world: line 28 reads `len(self.chat.history)`, an attribute read of
+      the bound object rather than a receiver position, which is an escape. The group would
+      therefore bail on `model_object_escapes` even if the module had a client. No verdict changes
+      -- everything in this module is `needs_review` for `client_source_unresolved` anyway -- but
+      the binding table is the authoritative record and it has to be complete.
+
+must_not_report:
+  - file: scripts/oneoff_backfill.py
+    line: 11
+    why: >-
+      `.obelize.yml` excludes `scripts/**`. A scanner that ignores repository configuration reports
+      four confident findings in this file (lines 11, 13, 15 and 19 -- an import, a `configure`, a
+      constructor and a `generate_content`) and, worse, would rewrite a dead script that has no test
+      to verify the result against. The exclusion is the case this file exists for.
+  - file: scripts/oneoff_backfill.py
+    line: 13
+    why: Excluded by `.obelize.yml`; see line 11. This is also a second `configure(...)` in the repository, which must not be confused with the package's one -- D3's ClientSource is per module, not per repository, so it does not make `summarizer/config.py:22` a `multiple_configure_calls` bail.
+  - file: scripts/oneoff_backfill.py
+    line: 15
+    why: Excluded by `.obelize.yml`; see line 11.
+  - file: scripts/oneoff_backfill.py
+    line: 19
+    why: Excluded by `.obelize.yml`; see line 11.
+  - file: summarizer/__init__.py
+    line: 3
+    why: >-
+      The docstring names the distribution `google-generativeai` with a hyphen. It is not a module
+      path and not an importable symbol, so it is not a `text_mention` of the legacy module; a
+      scanner that matches the bare prefilter token `generativeai` in text rather than matching a
+      dotted path will report it.
+  - file: conftest.py
+    line: 16
+    why: >-
+      `GEMINI_API_KEY` must survive the migration untouched: it is still a valid variable for
+      google-genai, which reads `GOOGLE_API_KEY` first and `GEMINI_API_KEY` second (the precedence is
+      inverted relative to legacy, C-20). The value is a dummy string, not a credential, and must not
+      be reported as a leaked secret.
+  - file: requirements.txt
+    line: 6
+    why: >-
+      The comment above the unrelated pins spells the distribution name `google-generativeai`
+      exactly, one line below the real declaration on line 3. `manifest_dependency` parses
+      requirement lines; a substring, line-order or "first match wins" heuristic rewrites the
+      comment too. `../../tests/fixtures/scan/basic/ground_truth.yaml` lists its unrelated pin for
+      the same reason; this is the harder version, because the text is character-identical to the
+      target.
+  - file: README.md
+    line: 6
+    why: >-
+      `README.md` is not matched by `include: "**/*.py"` and is never parsed, but it names
+      `google-generativeai==0.8.6`, `google.generativeai` and `genai.configure` many times. A scanner
+      that byte-prefilters before applying `include` will surface it.
+
+notes: |
+  RUN THE TESTS. Verified on 2026-09-17 in a throwaway venv (CPython 3.12.9, macOS arm64) built only
+  from `requirements.txt`, never in the obelize project venv:
+
+      python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/pytest -q
+      -> 12 passed, 1 warning in 0.40s
+
+  The one warning is google-generativeai 0.8.6's own `FutureWarning` about the package being
+  unsupported. It is not filtered; it is the reason the app is here. The suite makes no network call,
+  needs no API key, and takes well under a second, which is what `obelize verify` needs.
+
+  `pytest.ini` exists so this app is its own pytest rootdir. Without it, pytest walks up out of
+  `examples/` and adopts the obelize repository's `pyproject.toml` -- a different project with
+  `testpaths`, `addopts` and `--strict-config` of its own -- so the app would behave one way in the
+  repository and another way after being copied into a benchmark or e2e temp directory. It is a
+  `pytest.ini` and not a `pyproject.toml` because the app is installed from `requirements.txt` and is
+  not a distribution. Verified both ways: in place, and from a copy under a temp directory, the suite
+  reports the same 12 passed.
+
+  THE CLIENT SOURCE IS THE STORY. `configure()` is called in `summarizer/config.py` and nowhere else
+  in the package. Under D3 that module is migrated, while `summarize.py` and `conversation.py` bail
+  with `client_source_unresolved` and become `needs_review`. That is not a defect in the fixture: it
+  is the corpus shape ADR-008 describes under "The honest one", and an end-to-end test that shows this
+  app going fully automatic would be measuring something the rules do not claim.
+
+  WHAT `obelize fix --apply` DOES TO THIS APP, since T54: nothing. The scan still grades the
+  three rows below `auto` -- the import and the `configure` in `summarizer/config.py`, and one
+  added line in `requirements.txt` -- and the run withholds all three. `summarize.py` and
+  `conversation.py` stay on the legacy SDK with no `configure` of their own, so they run on
+  `config.py`'s, and the codemod driver leaves that file alone under
+  `configure_consumed_elsewhere` (ADR-031 D11); with nothing migrated, F-2 owes the manifest no new
+  line. The run exits `4` with fourteen rows for a person and verifies nothing, because it wrote
+  nothing. The three paragraphs below record what the run did before T54, and why that was wrong.
+
+  WHAT `obelize fix --apply` DID TO THIS APP, after ADR-010 and until T54. Three edits: the import
+  and the `configure` in `summarizer/config.py`, and one added line in `requirements.txt`.
+  Everything else was left untouched -- `summarize.py`, `conversation.py`, and the legacy pin --
+  with six withheld items in the report. The suite still passed: the migrated `config.py` no longer
+  called `configure()`, but every test patches `google.generativeai.GenerativeModel` wholesale, so
+  no real call is made, and the legacy package was still installed because its pin survived.
+  `obelize verify` therefore reported `pass`.
+
+  MEASURED, not reasoned. Those three edits were applied by hand to a copy of this app in a
+  throwaway venv outside the repository (CPython 3.12, `uv pip install -r requirements.txt`), and
+  the suite reported `12 passed, 1 warning in 1.41s`. The same experiment WITHOUT the added
+  `google-genai` line reports three collection errors and
+  `ImportError: cannot import name 'genai' from 'google'` -- which is how ADR-010's first draft of
+  F-2, withholding the whole manifest edit, was caught. Also measured on the migrated module:
+  `env -i python -c "import summarizer.config"` raises
+  `ValueError: No API key was provided.` (the F-6 warning, live), and the same import with
+  `GEMINI_API_KEY=dummy-key` set succeeds and builds a `Client`.
+
+  That is a PARTIAL migration whose tests pass, and it must never be counted as a success. In
+  docs/BENCHMARK.md's outcome tiers this is `partial`, never `verified_success`, and it is the
+  concrete instance of the risk register's "tests pass but the application is semantically broken":
+  at runtime the surviving legacy `GenerativeModel` in `summarize.py` now has no `configure()` behind
+  it. The report says so; the green test suite does not. Under the fixture's ORIGINAL grading the
+  same command rewrote all three imports and the manifest, and produced three collection errors.
+
+  TESTS THE FULL MIGRATION WOULD INVALIDATE. None of these fire today, because the code they cover
+  bails, but they are what a future C-31 or cross-module client would walk into, and they are the
+  reason `obelize verify` is evidence rather than proof:
+
+  - `tests/test_conversation.py:30` asserts `history[0]["parts"] == ["You are reviewing a summary I
+    wrote."]`. The D4 rewrite of `conversation.py:14` turns that into `[{"text": "..."}]`, so proving
+    D4 in this app breaks a currently green test.
+  - `tests/test_summarize.py:35-36` assert the constructor received `generation_config` and
+    `safety_settings` as dicts. After a full migration those arguments are gone: they live on
+    `types.GenerateContentConfig` on the call.
+  - `tests/test_conversation.py:55` (`turns()`) passes before AND after, because the chat object is a
+    MagicMock -- while `conversation.py:28` is graded `unsupported`. A green suite hides it.
+
+  THE TWO GAPS THIS FIXTURE FOUND, both now closed by ADR-010:
+
+  1. No `confidence_reason` covered a manifest match, so this file left the field empty while
+     `../../tests/fixtures/scan/basic/ground_truth.yaml` invented `manifest_declaration`. The closed
+     sets are now in `docs/SCAN_VOCABULARY.md` (F-4) and the attested member is
+     `manifest_dependency`, which the row above uses.
+  2. ADR-008's C-20 limitation said the new `Client()` raises `ValueError` at construction "when
+     neither variable is present". This app showed a second path: `configure(api_key=API_KEY)` where
+     `API_KEY` is the empty string. Verified against google-genai 2.23.0: `genai.Client(api_key="")`
+     raises `ValueError: No API key was provided.` while legacy `configure(api_key="")` returns
+     quietly. F-6 widens the wording to "absent or empty" and attaches the warning
+     `client_constructed_eagerly` to every `configure_to_client` edit.
+
+  VERIFIED NEW-SDK FACTS used above, all measured on 2026-09-17 against google-genai 2.23.0 in a
+  throwaway probe venv (nothing was installed into the project venv):
+
+  - `google.genai.chats.Chat` public surface is exactly
+    `['get_history', 'record_history', 'send_message', 'send_message_stream']`;
+    `hasattr(Chat, "history")` is False.
+  - `Chat.send_message(self, message, config=None)`; `Chats.create(*, model, config=None, history=None)`.
+  - `types.GenerateContentResponse.text` exists and is a property.
+  - `types.GenerateContentConfig` has `safety_settings` and `system_instruction`, and all three
+    `generation_config` keys used here (`temperature`, `top_p`, `max_output_tokens`).
+  - `HARM_CATEGORY_HARASSMENT` and `HARM_CATEGORY_HATE_SPEECH` are in
+    `types.HarmCategory.__members__`; `BLOCK_ONLY_HIGH` and `BLOCK_MEDIUM_AND_ABOVE` are in
+    `types.HarmBlockThreshold.__members__`. Membership, never construction (C-02).
+  - `genai.Client(api_key="")` and `genai.Client()` with no key in the environment both raise
+    `ValueError: No API key was provided.`
+
+  No `expected.json` here on purpose: the Finding JSON schema does not exist until Phase 1 task T3.
+  This file records the semantic facts; T3's harness translates them.

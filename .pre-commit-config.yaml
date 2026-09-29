@@ -1,0 +1,62 @@
+# Run `uv run pre-commit install` once after cloning.
+# Byte-rewriting hooks skip fixtures: they are byte-exact expected outputs.
+---
+default_language_version:
+  python: python3
+
+exclude: '^\.venv/'
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        # Invalid on purpose: the loader owes a field-level error for each.
+        exclude: '^tests/packs/_negative/'
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: end-of-file-fixer
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+      - id: ruff-format
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+
+  # Fixture builders are code inside `tests/fixtures/`, which everything above treats as data.
+  # One mypy hook per builder: two `_build.py` modules in one run are refused as duplicates.
+  - repo: local
+    hooks:
+      - id: fixture-builders-ruff
+        name: ruff (fixture builders)
+        entry: ruff check --no-force-exclude
+        language: system
+        files: '^tests/fixtures/.+/_build\.py$'
+      - id: fixture-builders-ruff-format
+        name: ruff format (fixture builders)
+        entry: ruff format --check --no-force-exclude
+        language: system
+        files: '^tests/fixtures/.+/_build\.py$'
+      - id: fixture-builder-encoding-mypy
+        name: mypy (tests/fixtures/scan/encoding/_build.py)
+        entry: mypy
+        language: system
+        files: '^tests/fixtures/scan/encoding/_build\.py$'
+      - id: fixture-builder-walker-mypy
+        name: mypy (tests/fixtures/walker/_build.py)
+        entry: mypy
+        language: system
+        files: '^tests/fixtures/walker/_build\.py$'

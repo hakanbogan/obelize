@@ -1,0 +1,28 @@
+{
+  "tier": "partial",
+  "error": null,
+  "measurements": {
+    "detected": 8,
+    "false_positive": 0,
+    "missed_call_site": 0,
+    "unmigrated": 5,
+    "patch_applied": true,
+    "patch_compiles": true,
+    "false_positive_edit": 0,
+    "tests_baseline": {"status": "pass", "passed": null, "failed": null, "skipped": null},
+    "tests_after": {"status": "pass", "passed": null, "failed": null, "skipped": null},
+    "human_edits": null,
+    "patch_correct": true,
+    "pr_opened": null,
+    "pr_merged": null,
+    "llm_tokens_in": 0,
+    "llm_tokens_out": 0,
+    "llm_cost_usd": 0.0
+  },
+  "steps": [
+    ["baseline", 0],
+    ["fix", 6],
+    ["compile", 0],
+    ["after", 0]
+  ]
+}

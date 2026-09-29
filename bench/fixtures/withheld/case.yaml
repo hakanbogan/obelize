@@ -1,0 +1,65 @@
+id: withheld
+origin: fixture
+control: false
+provider: gemini
+change: google-generativeai-to-google-genai
+install: []
+test_cmd: null
+tests_require_network: false
+review:
+  human_edits: null
+  patch_correct: null
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+ground_truth:
+  what_it_is: One module that calls `configure()` twice, once in each branch of an `if`.
+    Which of the two keys the client is built from is a decision the code does not make,
+    so the whole file is withheld and the pin with it.
+  files_read:
+  - bot.py
+  - requirements.txt
+  call_sites:
+  - path: bot.py
+    line: 5
+    kind: import
+    symbol: google.generativeai
+    label: manual
+    why: Withheld with the rest of the file. The import cannot be rewritten while a usage
+      in the same file is not (ADR-010 F-1).
+  - path: bot.py
+    line: 8
+    kind: call
+    symbol: google.generativeai.configure
+    label: manual
+    why: One of two configure calls. The new SDK has no global to configure, so a person
+      has to decide whether the two branches build one client or two.
+  - path: bot.py
+    line: 10
+    kind: call
+    symbol: google.generativeai.configure
+    label: manual
+    why: The other one.
+  - path: bot.py
+    line: 12
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    label: manual
+    why: There is no resolved client to hang it on until the decision above is made.
+  - path: bot.py
+    line: 16
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    label: manual
+    why: Same reason.
+  manifests:
+  - path: requirements.txt
+    line: 1
+    symbol: google-generativeai
+    label: manual
+    why: Nothing in the repository migrated, so the pin stays where it is (ADR-010 F-2).
+  must_not_report: []
+  tests_cover_change: false
+  tests_cover_change_why: There is no test command. The fixture exists to prove that a
+    correct refusal is graded `unsupported` and not `error`, which needs no suite.
+notes: The fail-closed case. Nothing is written, the exit code is the ordinary review-items
+  one, and the tier is the tool being right.

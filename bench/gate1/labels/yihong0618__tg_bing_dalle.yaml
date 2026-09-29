@@ -1,0 +1,101 @@
+# Answer key, written by hand before `obelize scan` was run against this
+# repository. Oracle discipline: the key comes first, or it is not a key.
+repository: yihong0618/tg_bing_dalle
+url: https://github.com/yihong0618/tg_bing_dalle
+sha: 9d0866cdb1f7de468b9e3009cbd8a8740f81b22f
+band: size:4000..16000
+license: MIT
+labeller: Hakan Bogan
+labelled_at: '2026-09-18'
+what_it_is: >-
+  A Telegram bot with four providers behind it, of which Gemini is one. It is
+  the only repository in the five that uses the **chat** surface, and the census
+  in `spikes/FINDINGS.md` says chat is more common in real code than
+  `generate_content` -- so a sample without one would be a sample about the
+  wrong surface. It also contains the sharpest false-positive trap of the five:
+  the name `client` is a Gemini `ChatSession` in one function of `utils.py` and
+  an `openai.OpenAI` in another.
+files_read:
+  - tg.py
+  - utils.py
+  - responder.py
+  - requirements.txt
+call_sites:
+  - path: tg.py
+    line: 6
+    kind: import
+    symbol: google.generativeai
+  - path: tg.py
+    line: 67
+    kind: call
+    symbol: google.generativeai.configure
+    note: >-
+      `genai.configure(**gemini_conf)` -- the keyword arguments are a spread, so
+      nothing about them is a literal. It is still a `configure` call site.
+  - path: utils.py
+    line: 7
+    kind: import
+    symbol: google.generativeai
+  - path: utils.py
+    line: 37
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    note: With a four-key `generation_config` and a four-entry `safety_settings` list.
+  - path: utils.py
+    line: 42
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.start_chat
+    note: >-
+      The chat is returned from `make_gemini_client`, so the object escapes the
+      function that built it.
+  - path: utils.py
+    line: 123
+    kind: method_call
+    symbol: google.generativeai.ChatSession.send_message
+    note: >-
+      The receiver is an untyped function parameter. A reader with the module in
+      front of them knows it is the chat from line 42; a static resolver has
+      nothing to follow. Labelled as a call site because a migration must change
+      it, whatever the scanner can prove about it.
+  - path: utils.py
+    line: 124
+    kind: attribute
+    symbol: google.generativeai.ChatSession.last
+    note: >-
+      `client.last.text`. The pack names `ChatSession.last` in its symbol list, so
+      this is in scope, and `google-genai` has no counterpart for it.
+  - path: utils.py
+    line: 166
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    note: The second model, local to `pro_prompt_by_gemini_vision`.
+  - path: utils.py
+    line: 177
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Receiver bound on line 166 in the same scope.
+expected_other:
+  - path: requirements.txt
+    line: 6
+    kind: manifest
+    symbol: google-generativeai
+    note: Unpinned, while every other line in the same file carries a pin.
+must_not_report:
+  - path: utils.py
+    line: 113
+    why: >-
+      `client.chat.completions.create(...)` where `client` is annotated `OpenAI`.
+      The same name is a Gemini `ChatSession` eight lines further down, so a
+      resolver that keys on the name rather than on the binding reports this.
+  - path: utils.py
+    line: 161
+    why: >-
+      `client` passed on to the OpenAI helper, in a function with no Gemini object
+      at all.
+notes: >-
+  Nine actionable sites across two files, and the two that matter most for the
+  measurement are lines 123 and 124: the whole chat surface in this repository
+  is reached through a parameter. The file also cannot be fully migrated whatever
+  happens, because `make_gemini_client` returns the chat -- so under ADR-010 F-1
+  neither `utils.py` nor, through the repository-wide rule, its manifest line is
+  expected to be migratable.

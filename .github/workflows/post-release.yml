@@ -1,0 +1,116 @@
+# Installs a published release on Linux, macOS and Windows in each way the README gives, then runs
+# it. Run it by hand after an upload to PyPI or TestPyPI; it never runs on a push.
+name: post-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      index:
+        description: The index the release was uploaded to
+        type: choice
+        options: [pypi, testpypi]
+        default: pypi
+      version:
+        description: The version to install, such as 0.1.0
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.index }}-${{ inputs.version }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    name: install (${{ matrix.os }}, ${{ matrix.installer }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        installer: [uvx, pipx, pip]
+    defaults:
+      run:
+        shell: bash
+    env:
+      INDEX: ${{ inputs.index }}
+      VERSION: ${{ inputs.version }}
+      INSTALLER: ${{ matrix.installer }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # The release comes from the index, never from a cache.
+          enable-cache: false
+
+      - name: Choose what to install
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*((a|b|rc)[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a version in PEP 440 normal form, such as 0.1.0"
+            exit 1
+          fi
+          case "$INDEX" in
+            pypi) spec="obelize==$VERSION" ;;
+            testpypi)
+              # Only obelize's wheel comes from TestPyPI; its dependencies come from PyPI.
+              spec=$(curl -sSf "https://test.pypi.org/pypi/obelize/$VERSION/json" \
+                | uv run --no-project -- python -c 'import json, sys; print(*[f["url"] for f in json.load(sys.stdin)["urls"] if f["packagetype"] == "bdist_wheel"])' \
+                | tr -d '\r')
+              ;;
+            *) echo "::error::unknown index '$INDEX'"; exit 1 ;;
+          esac
+          if [ -z "$spec" ] || [[ "$spec" == *" "* ]]; then
+            echo "::error::found no single wheel of obelize $VERSION on $INDEX"
+            exit 1
+          fi
+          echo "SPEC=$spec" >> "$GITHUB_ENV"
+
+      - name: Install obelize with ${{ matrix.installer }}
+        run: |
+          set -euo pipefail
+          case "$INSTALLER" in
+            uvx)
+              # uvx installs on first use.
+              uvx --from "$SPEC" obelize --version ;;
+            pipx)
+              uv python install 3.12
+              pipx install --python "$(uv python find 3.12)" "$SPEC"
+              echo "OBELIZE=$(pipx environment --value PIPX_BIN_DIR)/obelize" >> "$GITHUB_ENV" ;;
+            pip)
+              uv python install 3.12
+              "$(uv python find 3.12)" -m venv "$RUNNER_TEMP/venv"
+              if [ "$RUNNER_OS" = Windows ]; then bin="$RUNNER_TEMP/venv/Scripts"; else bin="$RUNNER_TEMP/venv/bin"; fi
+              "$bin/python" -m pip install "$SPEC"
+              echo "OBELIZE=$bin/obelize" >> "$GITHUB_ENV" ;;
+          esac
+
+      - name: Run --version, --help, pack validate and a scan of the example
+        run: |
+          set -euo pipefail
+          obelize() {
+            if [ "$INSTALLER" = uvx ]; then uvx --from "$SPEC" obelize "$@"; else "$OBELIZE" "$@"; fi
+          }
+          printed=$(obelize --version | tr -d '\r')
+          if [ "$printed" != "obelize $VERSION" ]; then
+            echo "::error::obelize --version printed '$printed', expected 'obelize $VERSION'"
+            exit 1
+          fi
+          obelize --help > /dev/null
+          obelize pack validate gemini/google-generativeai-to-google-genai
+          cp -R examples/quickstart "$RUNNER_TEMP/quickstart"
+          obelize scan --repo "$RUNNER_TEMP/quickstart" --json > "$RUNNER_TEMP/scan.json"
+          findings=$(uv run --no-project -- python -c 'import json, sys; print(json.load(sys.stdin)["counts"]["findings"])' < "$RUNNER_TEMP/scan.json" | tr -d '\r')
+          if [ "$findings" -eq 0 ]; then
+            echo "::error::obelize scan found nothing in examples/quickstart"
+            exit 1
+          fi
+          echo "obelize $VERSION from $INDEX with $INSTALLER found $findings legacy usages in examples/quickstart"

@@ -1,0 +1,620 @@
+# The answer key for the verification runner, the trust ladder and the status
+# machine (T18), written by hand before the modules it grades existed.
+#
+# WHAT A CASE IS. One invocation of the verification phase against a copy of
+# `tools/`: where the commands came from, what this machine looks like to
+# ADR-007's trust ladder, and what the run is entitled to conclude. The unit is
+# a *decision over real processes* -- every command below is a real program
+# that really runs, because a runner tested against a fake `subprocess` proves
+# that the fake behaves, and the three threats this task closes (TM-5, TM-9,
+# TM-10) are all about what a real process can do.
+#
+# `{python}` is replaced with the interpreter running the tests, quoted. It is
+# the one thing in this file that a machine decides, and it is here because a
+# command has to be a real program, and the interpreter running the tests is
+# the one program certain to exist. `{marker}` is a file in the case's own
+# copy, quoted the same way.
+#
+# THE TWO LISTS ARE NOT THE SAME LIST. `cli` is `--verify "<cmd>"`, level 1 of
+# ADR-007's ladder; `repo` is `verify.commands` in the repository's
+# `.obelize.yml`, level 3. `docs/CLI.md` says `--verify` *replaces* rather than
+# appends, so a case with both is a case where the repository's command must
+# not run -- not one where two commands run in some order.
+#
+# THE BASELINE IS DECLARED SEPARATELY, AND IN A REAL RUN IT IS NOT. `fix
+# --apply` runs the same commands twice, before and after the patch, and what
+# differs is the tree. A fixture cannot change the tree between two phases of
+# one call, so the key names the two lists apart. What is being graded is the
+# *gate* -- what a run may conclude when the before-phase did not pass -- and
+# that is a property of the two verdicts, not of the commands being equal.
+#
+# EXIT CODES ARE NOT GUESSED HERE. Each `exit` is the row of
+# `docs/CLI.md`'s status-to-exit table that this case's `status` and `reason`
+# select, and `null` is that table's last row: no verdict was expected, so the
+# plan decides and verification contributes nothing.
+#
+# `exit_code: killed` means the program did not choose its code: on POSIX a
+# negative value, because a signal ended the process, and on Windows
+# 3221225786, which is 0xC000013A (STATUS_CONTROL_C_EXIT) read unsigned, the
+# code every process in a terminated job object exits with.
+
+cases:
+  # --- level 1: commands the user typed ------------------------------------
+
+  - case: cli_passes
+    what_it_is: >-
+      The control. One command from the command line, which exits 0. If this
+      case does not pass then a `pass` anywhere else in this file means the
+      runner never ran anything.
+    cli: ["{python} tools/ok.py"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/ok.py", source: cli}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+
+  - case: cli_fails
+    what_it_is: >-
+      A command that exits non-zero, which is what a failing test suite is. The
+      recorded exit code is the program's own 3 and not a truthy default, and
+      the message it wrote to stderr is in the output, because ADR-007 captures
+      the two streams together.
+    cli: ["{python} tools/fail.py"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/fail.py", source: cli}
+    commands:
+      - {status: fail, reason: command_failed, exit_code: 3}
+    status: fail
+    reason: command_failed
+    exit: 3
+    output:
+      present: ["boom"]
+      absent: []
+
+  - case: cli_every_command_runs_and_the_worst_one_decides
+    what_it_is: >-
+      Three commands, the failing one in the middle. All three run -- the list
+      is a script the user wrote, and a phase that stopped at the first failure
+      could never have two verdicts to be the worst of. The phase's status is
+      the worst of the three and its reason is that command's reason.
+    cli:
+      - "{python} tools/ok.py"
+      - "{python} tools/fail.py"
+      - "{python} tools/ok.py"
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/ok.py", source: cli}
+      - {command: "{python} tools/fail.py", source: cli}
+      - {command: "{python} tools/ok.py", source: cli}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+      - {status: fail, reason: command_failed, exit_code: 3}
+      - {status: pass, reason: null, exit_code: 0}
+    status: fail
+    reason: command_failed
+    exit: 3
+
+  - case: cli_times_out
+    what_it_is: >-
+      TM-10, in its simplest shape. A command that outlasts the timeout is
+      killed and the run learns nothing, which is `inconclusive` and never
+      `fail`: the patch is not what went wrong. What the command printed before
+      it was killed is kept, because that is the only thing its report can say.
+    cli: ["{python} tools/slow.py 30"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 1
+    resolution:
+      - {command: "{python} tools/slow.py 30", source: cli}
+    commands:
+      - {status: inconclusive, reason: timeout, exit_code: killed}
+    status: inconclusive
+    reason: timeout
+    exit: 6
+    output:
+      present: ["started"]
+      absent: []
+
+  - case: cli_command_cannot_be_started
+    what_it_is: >-
+      There is no such program. Nothing was learned about the patch, so this is
+      `inconclusive` and not `fail` -- reporting "verification failed after
+      patch" over a missing test runner would tell a reader the migration broke
+      their suite when it did not. There is no process, so there is no exit
+      code either.
+    cli: ["obelize-no-such-program --please"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "obelize-no-such-program --please", source: cli}
+    commands:
+      - {status: inconclusive, reason: command_not_executable, exit_code: null}
+    status: inconclusive
+    reason: command_not_executable
+    exit: 6
+
+  - case: cli_replaces_the_repository_list
+    what_it_is: >-
+      Both lists are non-empty and this is CI with no trust flag, which is
+      exactly the mode that refuses a repository command. Nothing is refused,
+      because `--verify` replaces rather than appends: every command in the run
+      is level 1, so no trust decision is taken at all. The repository's
+      command would have failed, and the run passes.
+    cli: ["{python} tools/ok.py"]
+    repo: ["{python} tools/fail.py"]
+    allowlist: []
+    approved: []
+    mode: {ci: true, tty: false, non_interactive: true, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/ok.py", source: cli}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+
+  - case: the_command_environment
+    what_it_is: >-
+      ADR-007's execution mechanics, asked of a real process. `OBELIZE_RUN=1`
+      is added, everything else is inherited, the working directory is the
+      repository root and stdin is closed, so a command that prompts meets an
+      EOF instead of hanging a run nobody is watching.
+    cli: ["{python} tools/environ.py"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    env: {OBELIZE_SAMPLE_INHERITED: "carried"}
+    resolution:
+      - {command: "{python} tools/environ.py", source: cli}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+    cwd_is_root: true
+    output:
+      present: ["OBELIZE_RUN=1", "STDIN=''", "INHERITED=carried"]
+      absent: ["OBELIZE_RUN=<unset>"]
+
+  # --- level 3: commands the repository carries ----------------------------
+
+  - case: repo_command_in_ci_is_refused
+    what_it_is: >-
+      TM-5. A repository is remote text, and in CI reading one must not become
+      running one. The refusal is the whole phase and not the one command, so
+      `commands` is empty: a run that executed a subset and reported `pass`
+      would be claiming a verification it did not perform.
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: []
+    approved: []
+    mode: {ci: true, tty: false, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    refused: "{python} tools/ok.py"
+    commands: []
+    status: not_run
+    reason: policy_refused
+    exit: 5
+
+  - case: repo_command_non_interactively_is_refused
+    what_it_is: >-
+      The other half of the same rule, and the reason it is two conditions
+      rather than one. This machine has a terminal and is not CI; the user
+      asked for no prompts, so there is nobody to approve anything.
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: true, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    refused: "{python} tools/ok.py"
+    commands: []
+    status: not_run
+    reason: policy_refused
+    exit: 5
+
+  - case: repo_command_without_a_terminal_is_refused
+    what_it_is: >-
+      The third condition. Nobody passed `--non-interactive` and `CI` is unset,
+      but there is no terminal, so the prompt has no one to ask. A run that
+      treated "no answer" as "yes" would be the blanket trust flag ADR-007
+      refuses, arrived at by accident.
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: false, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    refused: "{python} tools/ok.py"
+    commands: []
+    status: not_run
+    reason: policy_refused
+    exit: 5
+
+  - case: repo_command_with_the_trust_flag_runs
+    what_it_is: >-
+      The deliberate, auditable act. Same repository, same CI, one explicit
+      flag on this invocation, and the command runs as what it is: level 3.
+      `run.json` records the flag in `argv`, which is what makes it auditable.
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: []
+    approved: []
+    mode: {ci: true, tty: false, non_interactive: true, trust_repo_config: true}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/ok.py", source: repo_config}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+
+  - case: repo_command_on_the_user_allowlist_runs
+    what_it_is: >-
+      Level 2 beats level 3 for the same text. The user wrote this command down
+      outside any repository, so a repository that happens to name it is not
+      asking for anything new. The recorded source is the level it ran under
+      and not the level it was read from, because the evidence answers "why was
+      this allowed", not "where was it typed".
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: ["{python} tools/ok.py"]
+    approved: []
+    mode: {ci: true, tty: false, non_interactive: true, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/ok.py", source: user_allowlist}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+
+  - case: repo_command_approved_at_the_prompt
+    what_it_is: >-
+      Local, interactive, nothing on the allowlist and nothing approved before:
+      the command is shown and confirmed once. The approval is recorded against
+      this repository and the sha256 of this command text, so the next run does
+      not ask again and a run in a different checkout does.
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: true
+    asked: true
+    stored: ["{python} tools/ok.py"]
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/ok.py", source: repo_config}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+
+  - case: repo_command_declined_at_the_prompt
+    what_it_is: >-
+      The same prompt, answered no. A refusal is a refusal whoever made it, so
+      the reason is `policy_refused` and the exit code is 5 exactly as in CI --
+      and nothing is written to the approval store, because the store records
+      approvals and a "no" is not one.
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: false
+    asked: true
+    stored: []
+    timeout_s: 30
+    refused: "{python} tools/ok.py"
+    commands: []
+    status: not_run
+    reason: policy_refused
+    exit: 5
+
+  - case: repo_command_remembered_from_last_time
+    what_it_is: >-
+      The approval store, read. This command was approved in this repository
+      before, so the prompt is not reached at all -- which is the whole point
+      of storing it, and the assertion that proves the store is read rather
+      than merely written.
+    cli: []
+    repo: ["{python} tools/ok.py"]
+    allowlist: []
+    approved: ["{python} tools/ok.py"]
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/ok.py", source: repo_config}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+
+  - case: one_refused_command_refuses_the_phase
+    what_it_is: >-
+      Two repository commands in CI, the first on the user allowlist and the
+      second not. Running the first and refusing the second would produce a
+      `pass` over half a verification, which is worse than no verification
+      because it reads as one. The phase is refused whole and the refusal names
+      the command that caused it.
+    cli: []
+    repo:
+      - "{python} tools/ok.py"
+      - "{python} tools/fail.py"
+    allowlist: ["{python} tools/ok.py"]
+    approved: []
+    mode: {ci: true, tty: false, non_interactive: true, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    refused: "{python} tools/fail.py"
+    commands: []
+    status: not_run
+    reason: policy_refused
+    exit: 5
+
+  - case: no_command_anywhere
+    what_it_is: >-
+      Nothing to run and nothing to refuse. This is the sharpest edge in
+      ADR-011: a first-time user whose repository has no test suite applies a
+      migration and gets a non-zero exit. It is intended -- source files were
+      rewritten and nothing checked them -- and the message names `--verify`.
+      The trust ladder is never consulted, because there is no command to place
+      on it.
+    cli: []
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution: []
+    commands: []
+    status: not_run
+    reason: no_verify_commands
+    exit: 6
+
+  # --- what the evidence may carry -----------------------------------------
+
+  - case: a_command_that_prints_secrets
+    what_it_is: >-
+      TM-9. The program prints two values it was handed: one whose *name* says
+      nothing and whose shape does, and one whose name does. Each is removed by
+      a different rule and leaves a different marker, and the harness proves
+      the raw output contained both before asserting the recorded output does
+      not -- a redaction test that cannot fail vacuously.
+    cli: ["{python} tools/leak.py"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    resolution:
+      - {command: "{python} tools/leak.py", source: cli}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+    secrets_removed: true
+    output:
+      present: ["[REDACTED]", "[REDACTED:OBELIZE_TEST_TOKEN]"]
+      absent: []
+
+  - case: output_over_the_cap
+    what_it_is: >-
+      A command that writes more than the 1 MiB cap. The first 256 KiB and the
+      last 768 KiB are kept with a marker between them, so both ends of a very
+      long build log survive: the first thing that went wrong is usually at the
+      top and the summary is always at the bottom.
+    cli: ["{python} tools/noisy.py 1500000"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 60
+    resolution:
+      - {command: "{python} tools/noisy.py 1500000", source: cli}
+    commands:
+      - {status: pass, reason: null, exit_code: 0}
+    status: pass
+    reason: null
+    exit: 0
+    truncated: true
+    output:
+      present: ["HEAD-MARKER", "TAIL-MARKER", "output_truncated"]
+      absent: []
+
+  - case: a_runaway_that_spawned_a_child
+    what_it_is: >-
+      TM-10 in the shape that decides whether the kill is a process-group kill.
+      The command starts a child, prints its pid and sleeps; the child inherits
+      the pipe, so killing only the command would leave a reader waiting for an
+      EOF that cannot come, and the child would go on to write its marker.
+      Neither happens.
+    cli: ["{python} tools/orphan.py 30 {marker}"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 1
+    resolution:
+      - {command: "{python} tools/orphan.py 30 {marker}", source: cli}
+    commands:
+      - {status: inconclusive, reason: timeout, exit_code: killed}
+    status: inconclusive
+    reason: timeout
+    exit: 6
+    group_is_gone: true
+
+  - case: a_runaway_that_closed_its_output
+    what_it_is: >-
+      The other shape of a runaway, and the one a reader of the code would not
+      think of. The command writes a line, closes both descriptors and keeps
+      running, so the reader is handed an end-of-file while the process is
+      still there. Treating that as "it finished" would wait for this program
+      for ever; the deadline is the deadline whether or not the pipe is still
+      open.
+    cli: ["{python} tools/deaf.py 30"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 1
+    resolution:
+      - {command: "{python} tools/deaf.py 30", source: cli}
+    commands:
+      - {status: inconclusive, reason: timeout, exit_code: killed}
+    status: inconclusive
+    reason: timeout
+    exit: 6
+    output:
+      present: ["before"]
+      absent: []
+
+  # --- the baseline gate ----------------------------------------------------
+
+  - case: baseline_fails
+    what_it_is: >-
+      The user's suite was already failing before obelize touched anything. The
+      after-phase cannot be evidence about the patch, so it is not run at all
+      and the run is `inconclusive` with `baseline_failed` -- never `fail`, and
+      never exit 3, which would tell a reader the migration broke their tests.
+    cli: ["{python} tools/ok.py"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    baseline: ["{python} tools/fail.py"]
+    resolution:
+      - {command: "{python} tools/ok.py", source: cli}
+    commands: []
+    baseline_result:
+      status: fail
+      reason: command_failed
+      commands:
+        - {status: fail, reason: command_failed, exit_code: 3}
+    status: inconclusive
+    reason: baseline_failed
+    exit: 6
+
+  - case: baseline_times_out
+    what_it_is: >-
+      A baseline that did not pass and did not fail either. The next action is
+      different -- raise the timeout, not fix your tests -- so the reason is
+      different: the baseline keeps its own. `baseline_failed` means the suite
+      failed, and saying it here would send the reader to the wrong file.
+    cli: ["{python} tools/ok.py"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 1
+    baseline: ["{python} tools/slow.py 30"]
+    resolution:
+      - {command: "{python} tools/ok.py", source: cli}
+    commands: []
+    baseline_result:
+      status: inconclusive
+      reason: timeout
+      commands:
+        - {status: inconclusive, reason: timeout, exit_code: killed}
+    status: inconclusive
+    reason: timeout
+    exit: 6
+
+  - case: baseline_passes_and_the_patch_breaks_it
+    what_it_is: >-
+      The one case in this file where exit 3 is right. The suite passed before
+      and fails after, so the after-phase is evidence and the run says so. Both
+      phases are recorded, because "it was green before" is the whole claim.
+    cli: ["{python} tools/fail.py"]
+    repo: []
+    allowlist: []
+    approved: []
+    mode: {ci: false, tty: true, non_interactive: false, trust_repo_config: false}
+    answer: null
+    asked: false
+    timeout_s: 30
+    baseline: ["{python} tools/ok.py"]
+    resolution:
+      - {command: "{python} tools/fail.py", source: cli}
+    commands:
+      - {status: fail, reason: command_failed, exit_code: 3}
+    baseline_result:
+      status: pass
+      reason: null
+      commands:
+        - {status: pass, reason: null, exit_code: 0}
+    status: fail
+    reason: command_failed
+    exit: 3

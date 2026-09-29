@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "ConsultationSkip": {
+      "additionalProperties": false,
+      "description": "One withheld row a model was not asked about, and the reason why.",
+      "properties": {
+        "line": {
+          "minimum": 1,
+          "title": "Line",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "atomicity_only",
+            "consumed_elsewhere",
+            "context_too_large",
+            "not_a_source_file",
+            "not_needs_review",
+            "pack_refused"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "line",
+        "reason"
+      ],
+      "title": "ConsultationSkip",
+      "type": "object"
+    },
+    "RunModel": {
+      "additionalProperties": false,
+      "description": "The `model` object of `run.json`: what a run that consulted a model asked and got back.",
+      "properties": {
+        "accepted": {
+          "minimum": 0,
+          "title": "Accepted",
+          "type": "integer"
+        },
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "proposals": {
+          "minimum": 0,
+          "title": "Proposals",
+          "type": "integer"
+        },
+        "provider": {
+          "enum": [
+            "none",
+            "openai_compat"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "tokens_in": {
+          "minimum": 0,
+          "title": "Tokens In",
+          "type": "integer"
+        },
+        "tokens_out": {
+          "minimum": 0,
+          "title": "Tokens Out",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "provider",
+        "host",
+        "model",
+        "proposals",
+        "accepted",
+        "tokens_in",
+        "tokens_out"
+      ],
+      "title": "RunModel",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The `model/model.json` index: the run's model summary and the rows never put to a model.",
+  "properties": {
+    "consulted": {
+      "minimum": 0,
+      "title": "Consulted",
+      "type": "integer"
+    },
+    "obelize_version": {
+      "title": "Obelize Version",
+      "type": "string"
+    },
+    "skipped": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ConsultationSkip"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "summary": {
+      "$ref": "#/$defs/RunModel"
+    }
+  },
+  "required": [
+    "obelize_version",
+    "summary",
+    "consulted",
+    "skipped"
+  ],
+  "title": "ModelDocument",
+  "type": "object"
+}

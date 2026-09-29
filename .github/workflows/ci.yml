@@ -1,0 +1,262 @@
+# Actions are SHA-pinned (docs/THREAT_MODEL.md, TM-7); Dependabot bumps each SHA and tag comment.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    # A release tag passes the same gates as main, not only `release.yml`.
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: lint (ruff + mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Install uv.lock as-is; the `lock` job proves it matches pyproject.toml.
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        # setup-uv caches by default, but not on a tag push: another ref may have written the cache.
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Sync the dev environment
+        run: uv sync
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+      - name: mypy
+        # Paths come from `files` in pyproject.toml.
+        run: uv run mypy
+
+      - name: mypy --platform win32
+        # The same files as Windows sees them: a `sys.platform` branch is checked only here.
+        run: uv run mypy --platform win32
+
+  lock:
+    name: lock (uv.lock is in sync)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: uv lock --check
+        # Fix a stale uv.lock with `uv lock` and commit it.
+        run: uv lock --check
+
+  test:
+    name: test (ubuntu, py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      UV_FROZEN: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Sync the environment
+        run: uv sync --python "${{ matrix.python-version }}"
+
+      - name: pytest
+        run: uv run --python "${{ matrix.python-version }}" pytest
+
+  # macOS bills at 10x while private (ADR-004): then only manual runs and tags; once public,
+  # every push and pull request. tests/unit/test_workflows.py evaluates this `if:`.
+  test-macos:
+    name: test (macos, py${{ matrix.python-version }})
+    if: github.event.repository.visibility == 'public' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      UV_FROZEN: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        # Ends only: the ubuntu matrix covers 3.13.
+        python-version: ["3.12", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Sync the environment
+        run: uv sync --python "${{ matrix.python-version }}"
+
+      - name: pytest
+        run: uv run --python "${{ matrix.python-version }}" pytest
+
+  # Windows bills at 2x while private (ADR-004), so it runs on the events macOS does.
+  test-windows:
+    name: test (windows, py${{ matrix.python-version }})
+    if: github.event.repository.visibility == 'public' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    # Not yet measured: Windows starts processes and opens files slower.
+    timeout-minutes: 40
+    env:
+      UV_FROZEN: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Sync the environment
+        run: uv sync --python "${{ matrix.python-version }}"
+
+      - name: pytest
+        # -ra gives the reason for every skip and failure. A module that fails to import stops
+        # only itself, and a test still running after 5 minutes prints every thread's stack.
+        run: uv run --python "${{ matrix.python-version }}" pytest -ra --continue-on-collection-errors -o faulthandler_timeout=300
+
+  smoke:
+    name: smoke (built wheel, clean venv)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      UV_FROZEN: "1"
+      UV_BUILD_CONSTRAINT: ".github/build-constraints.txt"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Build the wheel
+        run: uv build
+
+      - name: Install the wheel into a clean venv (not editable)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if [ "${#wheels[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one wheel in dist/, found ${#wheels[@]}"
+            exit 1
+          fi
+          uv venv --python 3.12 "$RUNNER_TEMP/smoke"
+          uv pip install --python "$RUNNER_TEMP/smoke/bin/python" "${wheels[0]}"
+
+      - name: obelize --version and obelize --help
+        # Console script and startup budget from a clean venv; e2e.yml runs the commands.
+        run: |
+          set -euo pipefail
+          obelize="$RUNNER_TEMP/smoke/bin/obelize"
+
+          expected_version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/obelize/__init__.py)
+          if [ -z "$expected_version" ]; then
+            echo "::error::could not read __version__ from src/obelize/__init__.py"
+            exit 1
+          fi
+
+          version_output=$("$obelize" --version)
+          echo "obelize --version -> $version_output"
+          if [ "$version_output" != "obelize $expected_version" ]; then
+            echo "::error::--version printed '$version_output', expected 'obelize $expected_version'"
+            exit 1
+          fi
+
+          "$obelize" --help > /dev/null
+
+          # docs/CLI.md targets <300 ms; 1000 ms catches a top-level libcst/pydantic import.
+          start=$(date +%s%N)
+          "$obelize" --help > /dev/null
+          end=$(date +%s%N)
+          elapsed_ms=$(( (end - start) / 1000000 ))
+          echo "obelize --help took ${elapsed_ms} ms"
+          if [ "$elapsed_ms" -ge 1000 ]; then
+            echo "::error::obelize --help took ${elapsed_ms} ms (budget: <1000 ms). Move heavy imports into the command body."
+            exit 1
+          fi
+
+      - name: obelize pack validate, from the installed wheel
+        # Only a wheel install proves pack.yaml ships (an editable checkout passes regardless);
+        # exit codes: `0` on the bundled pack, `7` on a rejected one.
+        run: |
+          set -euo pipefail
+          obelize="$RUNNER_TEMP/smoke/bin/obelize"
+          pack_id="gemini/google-generativeai-to-google-genai"
+
+          "$obelize" pack validate "$pack_id"
+
+          negative=tests/packs/_negative/seed_is_not_a_legacy_config_key.yaml
+          status=0
+          "$obelize" pack validate "$negative" || status=$?
+          echo "obelize pack validate $negative -> exit $status"
+          if [ "$status" -ne 7 ]; then
+            echo "::error::an invalid pack exited $status, expected 7 (docs/CLI.md, ADR-011)"
+            exit 1
+          fi
+
+  schema-drift:
+    name: schema-drift (JSON Schemas match the models)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Regenerate the JSON Schemas and fail on drift
+        # Committed schemas must match the models; a new schema is a row in the generator's
+        # SCHEMAS. Deliberately unguarded (ADR-014): a missing generator must fail the build.
+        run: |
+          set -euo pipefail
+          uv sync
+          uv run python src/obelize/schemas/generate.py
+          if ! git diff --exit-code -- src/obelize/schemas; then
+            echo "::error::src/obelize/schemas is out of date. Run 'uv run python src/obelize/schemas/generate.py' and commit the result."
+            exit 1
+          fi

@@ -1,0 +1,232 @@
+# obelize
+
+[![PyPI](https://img.shields.io/pypi/v/obelize)](https://pypi.org/project/obelize/)
+[![Python](https://img.shields.io/pypi/pyversions/obelize)](https://pypi.org/project/obelize/)
+[![Licence](https://img.shields.io/pypi/l/obelize)](https://github.com/hakanbogan/obelize/blob/main/LICENSE)
+[![CI](https://github.com/hakanbogan/obelize/actions/workflows/ci.yml/badge.svg)](https://github.com/hakanbogan/obelize/actions/workflows/ci.yml)
+
+obelize migrates Python code from `google-generativeai`, the deprecated Gemini SDK, to
+`google-genai`.
+
+It finds every legacy call it can resolve, rewrites what it can prove, and leaves the rest with a
+reason. It runs on your machine, changes none of your files until you pass `--apply`, and can run
+your tests before and after the change. Google has ended support for the old SDK, which now warns
+on import that "All support for the `google.generativeai` package has ended".
+
+## Install
+
+Run it once, in your project's directory, with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uvx obelize scan
+```
+
+Or keep it installed, with uv or pipx:
+
+```bash
+uv tool install obelize
+pipx install --python python3.12 obelize
+```
+
+obelize is a command-line tool, so install it as one and not into your project's environment. It
+needs Python 3.12 or newer: uv finds or downloads one for it, and pipx takes the one `--python`
+names. The project it migrates needs Python 3.10 or newer, as `google-genai` does.
+
+## Quickstart
+
+In a git repository with everything committed:
+
+```bash
+uvx obelize scan
+uvx obelize fix
+```
+
+`scan` lists each import, call and dependency line of the old SDK that it can resolve, and
+whether it can migrate it. `fix` is a dry run until you pass `--apply`: it prints the plan and the
+diff, and writes only its own record under `.obelize/`, which git ignores.
+
+To apply the change and have your tests check it, first install `google-genai` into your
+project's environment beside the old SDK, without changing a tracked file. `uv pip` works
+whether pip or uv made the environment. Your tests then run once before the change and once
+after:
+
+```bash
+uv pip install --python .venv/bin/python google-genai
+uvx obelize fix --apply --verify ".venv/bin/python -m pytest -q"
+git diff
+```
+
+Name your project's own interpreter in `--verify`, so the tests run with its dependencies. The run
+ends with a `Next:` line, and after a clean apply that line names `obelize undo --run <id>`, which
+puts the files back.
+
+## Example
+
+[examples/quickstart/](examples/quickstart/) is a small script on the old SDK. `obelize fix`
+prints this diff for it:
+
+```diff
+diff --git a/app.py b/app.py
+--- a/app.py
++++ b/app.py
+@@ -3,14 +3,18 @@
+ import os
+ import sys
+
+-import google.generativeai as genai
++from google import genai
++from google.genai import types
+
+-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+-model = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.2})
++client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+
+ def summarise(text):
+-    response = model.generate_content(f"Summarise this in two sentences:\n\n{text}")
++    response = client.models.generate_content(
++        model="gemini-2.5-flash",
++        contents=f"Summarise this in two sentences:\n\n{text}",
++        config=types.GenerateContentConfig(temperature=0.2),
++    )
+     return response.text
+
+
+diff --git a/requirements.txt b/requirements.txt
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1 +1 @@
+-google-generativeai==0.8.6
++google-genai>=1
+```
+
+The model object has no counterpart in `google-genai`, so its model name and generation config
+move into the call, and the dependency line moves to the new package.
+
+## After a run
+
+`fix --apply` exits with a code that says what is left, and most runs end with a `Next:` line
+naming the command to run:
+
+- `0`: everything it found is migrated and your tests passed. Read `git diff`, then commit it or
+  undo it.
+- `4`: some places are left for you. `.obelize/runs/<id>/REPORT.md` lists each one with its
+  [reason](docs/SCAN_VOCABULARY.md#4-bail-codes-editreason). Migrate them by hand with
+  [Google's migration guide](https://ai.google.dev/gemini-api/docs/migrate), then run
+  `uvx obelize scan` again.
+- `3`: your tests failed after the change. `obelize undo --run <id>` puts the files back.
+- `5`: obelize refused an apply over uncommitted changes, or a verification command it does not
+  trust.
+- `6`: the change is written but your tests gave no verdict, as happens without `--verify` or
+  when they already failed before the change.
+
+obelize writes a file only when it can migrate all of it, and keeps the old dependency line
+until nothing in the repository uses the old SDK. On a real project the usual result is `4`: some
+files migrated and the rest listed in the report. All the codes are in
+[docs/CLI.md](docs/CLI.md#exit-codes).
+
+## Safety
+
+`scan`, and `fix` without `--apply`, change none of your files. obelize never commits, branches,
+pushes or merges, and it refuses to apply over uncommitted changes unless you pass `--allow-dirty`,
+so `git diff` shows the migration alone. In the repository it writes only its own `.obelize/` folder
+and the files on its plan, each through a temporary file and a rename, and follows no symbolic link.
+It runs the verification commands you pass with `--verify` or allow in your own configuration. A
+command from the repository's `.obelize.yml` runs only once you approve it at a prompt, and in CI
+only if your allowlist holds it or you pass `--trust-repo-config`. A command that runs past your
+timeout is stopped, and its output is redacted before it is recorded. There is no telemetry, and no
+network access unless you configure a model in your own `~/.config/obelize/config.yml` or with
+`--model`.
+
+Run obelize in a repository that is committed or backed up, and pass only verification commands
+you trust. These gaps are known in 0.1.0:
+
+- A git command obelize runs can start a program that the repository's git configuration names,
+  such as `core.fsmonitor`.
+- Running `obelize verify` again on a run, or `obelize undo` twice, can overwrite the record of
+  the earlier attempt.
+- Redaction misses common credential shapes, the recorded command line is not redacted, and a
+  key can reach a traceback. Read a run folder before you share it.
+- Ctrl-C leaves the verification command's processes running, and a child process that ignores
+  `SIGTERM` or has closed its output can outlive the command.
+
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) has the details, and
+[docs/PRIVACY.md](docs/PRIVACY.md) lists what a run folder holds.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `obelize scan` | Lists the imports, calls and dependency lines the migration affects, and edits nothing. |
+| `obelize fix` | Plans the migration and prints its diff. `--apply` writes it, and `--verify` runs your tests before and after. |
+| `obelize verify` | Runs the verification again for an applied run. |
+| `obelize undo` | Puts back the files a run wrote, unless they were edited since. |
+| `obelize pack validate` | Checks a migration pack against the [pack format](docs/PACK_SPEC.md). |
+
+`scan` and `fix` use the bundled pack, `gemini/google-generativeai-to-google-genai`. It declares the
+16 changes the migration makes and 20 limitations. The limitations say what it reports instead of
+rewriting, such as every tool declaration, because automatic function calling is on by default in
+`google-genai`; what it cannot find; and what it rewrites without having checked it against a live
+API call. [docs/CLI.md](docs/CLI.md) has every flag and exit code. Every format, from the flags to
+the run folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability) lists each
+change.
+
+## Testing
+
+Each case under [tests/fixtures/scan/](tests/fixtures/scan/) has an answer key written by hand,
+all but one before the scanner existed, that grades every usage: migrated, or left and why. The
+suite reproduces every key, and each rewritten file matches its expected file byte for byte.
+[tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 36 gaps the fixtures do
+not cover, 18 of them closed. CI runs the suite on Linux for every supported Python and on macOS,
+with 100% branch coverage.
+
+## Benchmark
+
+Each number comes from [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), which has the
+method and every case behind it. I measure them again before each release.
+
+| Measure | obelize | n |
+|---|---|---|
+| Scan precision | 100.0% | 63 usages reported in 5 repositories labelled by hand |
+| Scan recall | 98.4% | 64 usages labelled by hand |
+| Usages migrated | 34 (12.3%) | 277 usages in 20 public repositories |
+| Repositories with a wrong edit | 0 | 20 |
+| Repositories migrated and verified by their own tests | 0 | 20, of which 16 have no test command |
+
+The second table puts obelize beside a general-purpose coding agent that was given Google's
+migration guide and one fixed prompt.
+
+| Against a coding agent | obelize | The agent | n |
+|---|---|---|---|
+| Usages migrated | 21 (12.1%) | 154 (88.5%) | 174 usages in 13 of those repositories |
+| Repositories with a wrong edit | 0 | 2 | 13 |
+
+The agent migrated far more, so I do not claim obelize is more accurate. Each change obelize
+makes was measured against both SDKs installed side by side, and each place it leaves has a
+written reason.
+
+## Limits
+
+- It keeps model names as they are. Google has retired the `gemini-1.5` models, so change a name
+  such as `gemini-1.5-flash` yourself.
+- It finds notebooks (`.ipynb`) that use the old SDK but does not migrate them, and while one
+  does, the old dependency line stays.
+- It does not find every use. Code that reaches the SDK through a function's return value, a star
+  import in another file or a container is missed, and the benchmark counts those misses.
+- It handles this one migration. There is no pack registry, hosted service, dashboard, GitHub App
+  or automatic pull request.
+
+## Documents
+
+- [docs/CLI.md](docs/CLI.md): commands, flags and exit codes.
+- [docs/RUN_FOLDER.md](docs/RUN_FOLDER.md): what a run writes under `.obelize/`.
+- [docs/PACK_SPEC.md](docs/PACK_SPEC.md): the migration pack format.
+- [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) and [docs/PRIVACY.md](docs/PRIVACY.md): what can
+  go wrong, and what leaves your machine.
+- [docs/BENCHMARK.md](docs/BENCHMARK.md) and
+  [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md): the method and the results.
+- [docs/DECISIONS.md](docs/DECISIONS.md): the design decisions and their reasons.
+- [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and
+  [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+Licensed under the [Apache License 2.0](LICENSE).

@@ -1,0 +1,1055 @@
+case: escapes
+after_file_is: none
+what_it_exercises: >-
+  Fourteen shapes where the legacy SDK really is in use but the closed world
+  breaks: every one must land on `needs_review` with a named bail code, never
+  on a silent rewrite and never on a clean report.
+
+findings:
+  # =====================================================================
+  # alias_rebound.py - C-05. The module's only resolvable legacy trace is
+  # the right-hand side of `g = genai`. Verified with libcst: lines 13, 17
+  # and 21 carry NOTHING under the legacy prefix.
+  # =====================================================================
+  - file: alias_rebound.py
+    line: 8
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      The import itself resolves cleanly, but the alias escapes at line 11, so
+      the whole file is needs_review under bail `module_alias_rebound`.
+      Renaming the import alone would leave `g.GenerativeModel` pointing at a
+      module that no longer exists.
+  - file: alias_rebound.py
+    line: 11
+    symbol: google.generativeai
+    kind: attribute
+    confidence_reason: module_alias_rebound
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      `g = genai`. Verified resolution of the right-hand `Name`:
+      [('google.generativeai', IMPORT)]. Its parent is an `Assign`, not an
+      `Attribute`, which is exactly ADR-008's alias-escape trigger (C-05).
+      Bail `module_alias_rebound`, file-wide.
+
+  # =====================================================================
+  # name_shadowed.py - C-04. Every `genai.X` node carries BOTH a LOCAL and
+  # an IMPORT qualified name because QNP is flow-insensitive.
+  # =====================================================================
+  - file: name_shadowed.py
+    line: 9
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: Bail `module_alias_rebound`; the name is reassigned at line 14.
+  - file: name_shadowed.py
+    line: 16
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: module_alias_rebound
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      Verified resolution: [('genai.configure', LOCAL),
+      ('google.generativeai.configure', IMPORT)]. A LOCAL name alongside the
+      IMPORT name means the binding was rebound - never auto-fix (C-04).
+  - file: name_shadowed.py
+    line: 18
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: module_alias_rebound
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      Verified resolution: [('genai.GenerativeModel', LOCAL),
+      ('google.generativeai.GenerativeModel', IMPORT)].
+  - file: name_shadowed.py
+    line: 24
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      Receiver `MODEL` is the module-level binding from line 18. Bail
+      `module_alias_rebound` governs the whole file. See `notes` item 2 for why
+      this row reads `receiver_bound_module_const`.
+
+  # =====================================================================
+  # conditional_import.py - two IMPORT names on one node.
+  # =====================================================================
+  - file: conditional_import.py
+    line: 10
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: conditional_binding
+    verdict: needs_review
+    bail: conditional_binding
+    note: >-
+      The try/except double import binds `genai` twice. Bail
+      `conditional_binding`.
+  - file: conditional_import.py
+    line: 16
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: conditional_binding
+    verdict: needs_review
+    bail: conditional_binding
+    note: >-
+      Verified resolution: [('google.genai.configure', IMPORT),
+      ('google.generativeai.configure', IMPORT)] - two IMPORT names on one
+      node, which is branch (b) of ADR-008's resolution rule.
+  - file: conditional_import.py
+    line: 21
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: conditional_binding
+    verdict: needs_review
+    bail: conditional_binding
+    note: >-
+      Verified resolution: [('google.genai.GenerativeModel', IMPORT),
+      ('google.generativeai.GenerativeModel', IMPORT)]. Note the second name
+      does not exist at run time under the new SDK - which is precisely why
+      this shape must not be rewritten mechanically.
+  - file: conditional_import.py
+    line: 25
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_unresolved
+    verdict: needs_review
+    bail: conditional_binding
+    note: >-
+      The receiver is the result of `make_model()`; no binding record exists.
+      `conditional_binding` applies to the module as well.
+
+  # =====================================================================
+  # star_import.py - C-06. QNP returns an EMPTY set for every node in this
+  # file (verified); detection is via scope accesses.
+  # =====================================================================
+  - file: star_import.py
+    line: 8
+    symbol: google.generativeai
+    kind: star_import
+    confidence_reason: star_import
+    verdict: needs_review
+    bail: star_import
+    note: >-
+      `from google.generativeai import *`. The pack never rewrites a star
+      import; it is reported so the reader knows the file uses the SDK.
+  - file: star_import.py
+    line: 10
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: star_import_candidate
+    verdict: needs_review
+    bail: star_import
+    note: >-
+      Verified via ScopeProvider: GlobalScope access `configure` at line 10
+      with NO assignment record anywhere in the scope chain, in a module
+      containing a legacy ImportStar (C-06). QNP gives {} here.
+  - file: star_import.py
+    line: 12
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: star_import_candidate
+    verdict: needs_review
+    bail: star_import
+    note: >-
+      Verified: GlobalScope access `GenerativeModel` at line 12, no assignment
+      record. These two are the ENTIRE candidate set for this file.
+  - file: star_import.py
+    line: 18
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: needs_review
+    bail: star_import
+    note: >-
+      Receiver `MODEL` is the module-level binding from line 12, itself a
+      star-import candidate, so the group cannot be rewritten.
+
+  # =====================================================================
+  # model_escapes.py - one binding, four different escapes.
+  # =====================================================================
+  - file: model_escapes.py
+    line: 8
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [model_object_escapes, receiver_unresolved]
+    note: >-
+      ADR-010 F-1, ADR-012. The import resolves cleanly and its own binding has
+      no defect; it is withheld because the MODEL group at line 12 bails, and
+      the file is the atomic unit. Renaming the import while line 12 still
+      reads `genai.GenerativeModel` produces a module that imports cleanly and
+      raises `AttributeError` on first use. The bail names the rule that
+      actually withheld this line and `caused_by` names the one that fired
+      elsewhere in the file; this row read `bail: model_object_escapes` until
+      ADR-012, which reported a model-object escape on a line that contains no
+      model object.
+  - file: model_escapes.py
+    line: 10
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [model_object_escapes, receiver_unresolved]
+    note: >-
+      This module's single `configure(...)`, so its ClientSource is
+      unambiguous (D3) and this group has no bail of its own. It is withheld
+      by F-1's second half -- "the file is left exactly as it was" -- because
+      line 12 bails. Introducing `genai.Client(...)` here while the legacy
+      import stays would leave the module holding a client nothing uses.
+  - file: model_escapes.py
+    line: 12
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: model_object_escapes
+    note: >-
+      Verified resolution: [('google.generativeai.GenerativeModel', IMPORT)].
+      The constructor of the escaping binding - bail `model_object_escapes`.
+  - file: model_escapes.py
+    line: 22
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_unresolved
+    verdict: needs_review
+    bail: receiver_unresolved
+    note: >-
+      `model` here is a function PARAMETER, not the module binding. The
+      receiver cannot be resolved to a constructor, so the model name that
+      `generate_content(model=...)` needs is unknown. This row read
+      `bail: model_object_escapes` until ADR-012: the MODEL group's bail cannot
+      be this line's, because this line is not in that group - the `bindings`
+      entry for MODEL lists `use_lines: [14, 18, 26, 33]` and 22 is not among
+      them. `receiver_unresolved` is this finding's own defect, and under
+      ADR-012 D4 a finding names the most specific rule that fired for it. The
+      two sibling rows are the contrast: `conditional_import.py:25` and
+      `two_configures.py:25` are also `receiver_unresolved` and correctly keep
+      their file-wide and module-client codes, which outrank the group rung.
+  - file: model_escapes.py
+    line: 26
+    symbol: google.generativeai.GenerativeModel.model_name
+    kind: attribute
+    confidence_reason: receiver_bound_module_const
+    verdict: needs_review
+    bail: model_object_escapes
+    note: >-
+      `MODEL.model_name` is an attribute read of the model object. The new SDK
+      has no model object at all, so there is nothing to read - bail
+      `model_object_escapes`.
+
+  # =====================================================================
+  # class_attr.py - the binding lives in the class body.
+  # =====================================================================
+  - file: class_attr.py
+    line: 8
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [class_attr_binding]
+    note: >-
+      ADR-010 F-1, ADR-012. The import resolves; the class-attribute group at
+      line 17 is what bails, so the atomic unit is the file and the import is
+      withheld with the atomicity code, not with the other group's.
+  - file: class_attr.py
+    line: 10
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [class_attr_binding]
+    note: >-
+      The module's single `configure(...)`; the ClientSource is resolved (D3)
+      and this group has no bail of its own. Withheld by F-1 because line 17
+      bails -- not by `class_attr_binding`, which is a fact about the model
+      binding three lines below the class statement, not about this call.
+  - file: class_attr.py
+    line: 17
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: class_attr_binding
+    note: >-
+      Verified resolution: [('google.generativeai.GenerativeModel', IMPORT)].
+      Assigned in the CLASS BODY, so the binding kind is `class_attr` and v0
+      bails with `class_attr_binding`.
+  - file: class_attr.py
+    line: 23
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: needs_review
+    bail: class_attr_binding
+    note: >-
+      `self.model` matches D2's tuple (enclosing ClassDef, first-parameter
+      name, attribute name) against the CLASS-body assignment on line 17. A
+      D2 implementation will match it and must still bail with
+      `class_attr_binding`: a class attribute is shared by every instance and
+      is not what D2 was verified for.
+  - file: class_attr.py
+    line: 27
+    symbol: google.generativeai.GenerativeModel.start_chat
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: needs_review
+    bail: class_attr_binding
+    note: Same receiver, same bail `class_attr_binding`.
+
+  # =====================================================================
+  # dynamic.py - four dynamic forms plus one real alias escape.
+  # =====================================================================
+  - file: dynamic.py
+    line: 9
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      The alias escapes at line 24 (`getattr(genai, ...)`), so the file is
+      needs_review under `module_alias_rebound` (C-05).
+  - file: dynamic.py
+    line: 14
+    symbol: google.generativeai
+    kind: dynamic
+    confidence_reason: dynamic_access
+    verdict: needs_review
+    bail: flag_only_surface
+    note: >-
+      `importlib.import_module("google.generativeai")`. Verified: QNP resolves
+      nothing on this line, so detection is raw string matching.
+      `dynamic_access` (SCAN_VOCABULARY section 2) is the recorded reason and
+      `kind: dynamic` distinguishes it from a real mention; see `notes` item 1.
+  - file: dynamic.py
+    line: 20
+    symbol: google.generativeai
+    kind: dynamic
+    confidence_reason: dynamic_access
+    verdict: needs_review
+    bail: flag_only_surface
+    note: '`__import__("google.generativeai")`. Same mechanism as line 14.'
+  - file: dynamic.py
+    line: 24
+    symbol: google.generativeai.GenerativeModel
+    kind: dynamic
+    confidence_reason: module_alias_rebound
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      `getattr(genai, "GenerativeModel")`. Verified: the `Name` genai at line
+      24 column 19 resolves to [('google.generativeai', IMPORT)] and its
+      parent is a `Call` argument, not an `Attribute` - a C-05 alias escape.
+      The attribute itself is only a string and is never resolved.
+  - file: dynamic.py
+    line: 28
+    symbol: google.generativeai
+    kind: dynamic
+    confidence_reason: dynamic_access
+    verdict: needs_review
+    bail: flag_only_surface
+    note: >-
+      `sys.modules["google.generativeai"] = stub`. Heuristic string match; the
+      false-positive rate of this heuristic is explicitly unmeasured
+      (FINDINGS, still-open item 17).
+
+  # =====================================================================
+  # mock_target.py - raw string matching, NOT resolution (C-26).
+  # =====================================================================
+  - file: mock_target.py
+    line: 7
+    symbol: google.generativeai.GenerativeModel
+    kind: text_mention
+    confidence_reason: mock_patch_target
+    verdict: needs_review
+    bail: flag_only_surface
+    note: >-
+      Verified: the `SimpleString` resolves to {} - QNP finds nothing in this
+      file at all. `mock_patch_target` really is raw string matching (C-26).
+      The patch target dies with the import rewrite, so a human must retarget
+      it; this is the single most frequent pattern in the corpus (10
+      occurrences across 3 files).
+  - file: mock_target.py
+    line: 22
+    symbol: google.generativeai.configure
+    kind: text_mention
+    confidence_reason: mock_patch_target
+    verdict: needs_review
+    bail: flag_only_surface
+    note: >-
+      `monkeypatch.setattr("google.generativeai.configure", ...)` - the same
+      raw-string shape reached through a different API. A rule that matches
+      only the literal `mock.patch(` call misses it.
+
+  # =====================================================================
+  # two_configures.py - D3 ambiguity.
+  # =====================================================================
+  - file: two_configures.py
+    line: 4
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [multiple_configure_calls]
+    note: >-
+      ADR-010 F-1, ADR-012. `multiple_configure_calls` is a fact about the
+      module's client, and the import rewrite needs no client, so it cannot be
+      this row's bail. The import is withheld because every other finding in
+      the file is.
+  - file: two_configures.py
+    line: 8
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: multiple_configure_calls
+    note: >-
+      First of two `configure(...)` calls in this module. Bail
+      `multiple_configure_calls` (D3: exactly one per module becomes the
+      ClientSource).
+  - file: two_configures.py
+    line: 12
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: multiple_configure_calls
+    note: >-
+      Second `configure(...)`. Both are inside plain functions, which under
+      D3 would otherwise be a perfectly good ClientSource - it is the count,
+      not the location, that bails.
+  - file: two_configures.py
+    line: 20
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: multiple_configure_calls
+    note: >-
+      The constructor resolves, but folding it into
+      `client.models.generate_content(model=...)` needs a client, and this
+      module has two candidate sources. Bail `multiple_configure_calls`.
+  - file: two_configures.py
+    line: 25
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_unresolved
+    verdict: needs_review
+    bail: multiple_configure_calls
+    note: >-
+      The receiver comes from `build(env)`, a call result with no binding
+      record. `multiple_configure_calls` applies to the module as well.
+
+  # =====================================================================
+  # no_configure.py - D3 zero case.
+  # =====================================================================
+  - file: no_configure.py
+    line: 6
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [client_source_unresolved]
+    note: >-
+      ADR-010 F-1, ADR-012. This is the same shape as
+      `examples/gemini-legacy-app/summarizer/summarize.py:3` -- a clean aliased
+      import in a module with no `configure(...)` -- and the two answer keys
+      graded it two different ways until ADR-012. The cause is
+      `client_source_unresolved` at lines 12 and 13; the rule that withholds
+      this line is F-1. The module that does hold the `configure` is still
+      migrated (D3).
+  - file: no_configure.py
+    line: 12
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      Verified resolution: [('google.generativeai.GenerativeModel', IMPORT)].
+      Closed-world within `classify`, but bail `client_source_unresolved`.
+  - file: no_configure.py
+    line: 13
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      The receiver is bound two lines up in the same function scope - the one
+      shape v0 resolves perfectly - and it is still needs_review, because the
+      rewrite needs a client this module cannot name. Bail
+      `client_source_unresolved`.
+
+  # =====================================================================
+  # two_assignments.py - the name is assigned twice in one scope, and only
+  # one of the two assignments builds a legacy object. `len(scope["model"])`
+  # is 2, which is the detector; counting the constructors finds one and
+  # calls the group closed-world.
+  # =====================================================================
+  - file: two_assignments.py
+    line: 10
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [multiple_assignments]
+    note: >-
+      The import resolves and the module has exactly one `configure`, so
+      nothing about this statement or this file is wrong. It is withheld by
+      F-1 because the one binding group below it is not writable.
+  - file: two_assignments.py
+    line: 13
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [multiple_assignments]
+    note: >-
+      The module-wide client source (D3), and the second row in this
+      directory that carries atomicity on a `configure` call with no defect
+      of its own.
+  - file: two_assignments.py
+    line: 17
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: multiple_assignments
+    note: >-
+      The constructor of the group. Rewriting it alone would leave line 20
+      calling the new SDK's surface on whatever `registry.default_model()`
+      returns.
+  - file: two_assignments.py
+    line: 20
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: needs_review
+    bail: multiple_assignments
+    note: >-
+      The receiver is bound in the same function scope, twice. Which of the
+      two assignments this line refers to is a question a flow-insensitive
+      resolver does not answer, and the answer decides whether the rewrite is
+      correct.
+
+  # =====================================================================
+  # local_import.py - the legacy import is inside a function body. Every
+  # use in that function resolves; the statement is the one thing v0 does
+  # not rewrite, and F-1 withholds the rest.
+  # =====================================================================
+  - file: local_import.py
+    line: 13
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: local_import
+    note: >-
+      `import google.generativeai as genai` inside `def build()`. The
+      statement resolves and binds cleanly - the two uses below it are
+      reported through this import's alias - and it is still withheld,
+      because v0 rewrites an import where it stands and this one is not a
+      module-level statement.
+  - file: local_import.py
+    line: 15
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [local_import]
+    note: >-
+      One `configure` in the module, inside a function, which D3 accepts as
+      the module's client source. Withheld by F-1 and by nothing else.
+  - file: local_import.py
+    line: 16
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [local_import]
+    note: >-
+      The constructor result is returned rather than bound, so this file
+      declares no binding at all: the group rung is silent here and
+      atomicity is the only rule that fires.
+
+  # =====================================================================
+  # self_reassigned.py - scan:SCAN-02. A self_attr binding that two other
+  # methods reassign to something that is not a legacy object.
+  # =====================================================================
+  - file: self_reassigned.py
+    line: 10
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [multiple_assignments]
+    note: >-
+      The import resolves; F-1 withholds it because the one group below it is
+      not writable.
+  - file: self_reassigned.py
+    line: 15
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [multiple_assignments]
+    note: The module-wide client source (D3), withheld by F-1 like the import.
+  - file: self_reassigned.py
+    line: 16
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: multiple_assignments
+    note: >-
+      The only one of three assignments to `self.model` that builds a legacy
+      object. Counting constructors finds one; counting assignments finds
+      three, which is what `multiple_assignments` has always meant for a
+      name (`two_assignments.py`) and now means for an attribute too.
+  - file: self_reassigned.py
+    line: 19
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: needs_review
+    bail: multiple_assignments
+    note: >-
+      Which of the three values `self.model` holds when this runs depends on
+      which methods ran first, and the rewrite would answer that question with
+      the constructor's model name every time.
+
+  # =====================================================================
+  # imported_model.py - the cross-module half of scan:SCAN-03. Closed-world
+  # inside its own file, and imported by name from imports_the_model.py.
+  # =====================================================================
+  - file: imported_model.py
+    line: 7
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [model_object_read_elsewhere]
+    note: F-1, over the one group another module reaches.
+  - file: imported_model.py
+    line: 9
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [model_object_read_elsewhere]
+    note: The module-wide client source (D3), withheld by F-1 like the import.
+  - file: imported_model.py
+    line: 11
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: model_object_read_elsewhere
+    note: >-
+      The constructor this file's group would delete, and the name
+      `imports_the_model.py` imports.
+  - file: imported_model.py
+    line: 15
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: needs_review
+    bail: model_object_read_elsewhere
+    note: >-
+      Writable on its own. The group is atomic, and part of it is in another
+      module that no rule rewrites.
+
+bindings:
+  - file: name_shadowed.py
+    kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 18
+    use_lines: [22, 24]
+    verdict: needs_review
+    bail: module_alias_rebound
+    note: >-
+      name_shadowed.py. Bail `module_alias_rebound`: the constructor's own
+      receiver was rebound at line 14. Line 22 (`if MODEL is None`) is a
+      comparison, not an escape - the object is not captured anywhere - so
+      `model_object_escapes` does NOT apply to this binding.
+  - file: star_import.py
+    kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 12
+    use_lines: [18]
+    verdict: needs_review
+    bail: star_import
+    note: >-
+      star_import.py. Bail `star_import`: the constructor came from an
+      unresolvable star-imported name.
+  - file: model_escapes.py
+    kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 12
+    use_lines: [14, 18, 26, 33]
+    verdict: needs_review
+    bail: model_object_escapes
+    note: >-
+      model_escapes.py. Bail `model_object_escapes`, four distinct escapes:
+      line 14 stored in a dict literal, line 18 returned from a helper, line
+      26 read for `.model_name`, line 33 passed as an argument. The group is
+      atomic - none of the four may be rewritten in isolation.
+  - file: class_attr.py
+    kind: class_attr
+    name: model
+    scope: class:Classifier
+    ctor_line: 17
+    use_lines: [23, 27]
+    verdict: needs_review
+    bail: class_attr_binding
+    note: >-
+      class_attr.py. Bail `class_attr_binding`; not supported in v0. The uses
+      are reached through `self.model` from two different methods.
+  - file: no_configure.py
+    kind: name
+    name: model
+    scope: function:classify
+    ctor_line: 12
+    use_lines: [13]
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      no_configure.py. The binding itself is closed-world and would be
+      automatic; the bail is `client_source_unresolved` at module level.
+
+  - file: two_assignments.py
+    kind: name
+    name: model
+    scope: function:summarise
+    ctor_line: 17
+    use_lines: [20]
+    verdict: needs_review
+    bail: multiple_assignments
+    note: >-
+      two_assignments.py. Bail `multiple_assignments`: `len(scope["model"])`
+      is 2. Nothing about the group escapes - line 20 is a receiver position
+      and the only reference there is - so `model_object_escapes` does not
+      apply, and the binding is still unwritable.
+  - file: self_reassigned.py
+    kind: self_attr
+    name: self.model
+    scope: class:Desk
+    ctor_line: 16
+    use_lines: [19]
+    verdict: needs_review
+    bail: multiple_assignments
+    note: >-
+      self_reassigned.py. Bail `multiple_assignments`: three assignments to
+      `self.model` across the class's methods, two of them not legacy objects.
+      Before scan:SCAN-02 only the one that built a legacy object was counted,
+      the group was graded closed-world, and the rewrite changed what `switch`
+      and `close` do.
+  - file: imported_model.py
+    kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 11
+    use_lines: [15]
+    verdict: needs_review
+    bail: model_object_read_elsewhere
+    note: >-
+      imported_model.py. Nothing in this file lets `MODEL` escape, so
+      `escape_lines` is empty and `model_object_escapes` does not apply: the
+      reader is `imports_the_model.py`, which only a pass over the whole
+      repository sees (scan:SCAN-03).
+
+must_not_report:
+  - file: alias_rebound.py
+    line: 13
+    why: >-
+      `g.configure(...)` resolves ONLY to a LOCAL name - verified, QNP returns
+      nothing under the legacy prefix for lines 13, 17 and 21. It must not be
+      reported as an `auto` configure-to-client rewrite. The file-level
+      `needs_review` is what covers it.
+  - file: alias_rebound.py
+    line: 17
+    why: >-
+      `g.GenerativeModel("gemini-1.5-pro").generate_content(prompt)` - the
+      whole legacy chain, invisible to resolution. Reporting nothing for this
+      LINE is correct; reporting nothing for the FILE is the bug C-05 exists
+      to prevent.
+  - file: alias_rebound.py
+    line: 21
+    why: Same as line 17, through a named local variable.
+  - file: alias_rebound.py
+    line: 22
+    why: >-
+      `model.generate_content("%d bullets:\n%s" % (n, prompt))` - the one line in this file a
+      binding pass is most likely to rewrite on its own, because `model` IS bound in this scope and
+      the method name matches. It must not be reported, because the constructor it is bound to
+      (line 21) went through `g` and is invisible to resolution, so there is no `ctor_symbol` and
+      no model name to emit. Reporting it would mean inventing one.
+  - file: name_shadowed.py
+    line: 14
+    why: >-
+      `genai = None`. Verified: the assignment target resolves to
+      [('genai', LOCAL)] - no legacy qualified name - so this line is not a
+      finding of its own. It is the CAUSE of the file's bail, recorded in the
+      notes of lines 9, 16 and 18.
+  - file: conditional_import.py
+    line: 3
+    why: >-
+      The docstring contains the hyphenated distribution name
+      `google-generativeai`. It trips the prefilter token but is not the
+      dotted module path, so it is not a `text_mention` either.
+  - file: conditional_import.py
+    line: 12
+    why: >-
+      `from google import genai` is the NEW SDK, in the except branch. It must
+      not be reported as a legacy import and must not be rewritten; its
+      presence is only what makes line 21 carry two IMPORT names.
+  - file: star_import.py
+    line: 10
+    symbol: os
+    why: >-
+      The `os` in `os.environ` is also an unresolved-looking bare name on this
+      line, but ScopeProvider gives it an assignment record (verified), so it
+      is not a star-import candidate. Only `configure` on this line is.
+  - file: star_import.py
+    line: 16
+    why: >-
+      `len(prompt)`. Measured with libcst 1.9.0: `len` DOES have an assignment
+      record through the builtin scope, so the ADR-008 candidate rule excludes
+      it. A hand-rolled scope-chain walk that stops at the module scope would
+      wrongly report every builtin in the file.
+  - file: model_escapes.py
+    line: 21
+    why: >-
+      The parameter named `model` in `run_with(model, prompt)` is a different
+      binding from the module-level `MODEL`. A binding pass that keys on the
+      variable name rather than on the scope record would merge them and
+      report line 22 as an automatic rewrite with the wrong model name.
+  - file: class_attr.py
+    line: 20
+    why: >-
+      `self.labels = labels` is a `self_attr` assignment that has nothing to
+      do with the SDK. A D2 implementation that records every `self.X = ...`
+      must key on the constructor call, not on the assignment shape.
+  - file: mock_target.py
+    line: 9
+    why: >-
+      `model_cls.return_value.generate_content.return_value.text` - a
+      `.generate_content` attribute chain on a Mock. This module has no legacy
+      import at all, so a name-based `.generate_content` heuristic must be
+      gated on the module importing the SDK.
+  - file: mock_target.py
+    line: 13
+    why: >-
+      `@mock.patch("myapp.summariser.genai")` patches the application's own
+      module. The string ends in `.genai`, so an alias-level substring matcher
+      flags it. It is also a known MISS, not a false positive - see notes.
+  - file: mock_target.py
+    line: 15
+    why: >-
+      `genai_mod.GenerativeModel...` resolves to
+      ('test_summarise_through_our_module.<locals>.genai_mod.GenerativeModel',
+      LOCAL) - verified. LOCAL source, so the resolution rule rejects it.
+  - file: two_configures.py
+    line: 24
+    why: >-
+      `model = build(env)` binds a name called `model` with no constructor in
+      sight. A binding pass keyed on the name would invent a binding group
+      here.
+  - file: no_configure.py
+    line: 3
+    why: >-
+      The docstring says "`configure()` is called once in app/bootstrap.py".
+      A raw-string search for `configure` would report a client source that
+      does not exist in this file - the opposite of the intended verdict.
+  - file: two_assignments.py
+    line: 19
+    why: >-
+      `model = registry.default_model()`. The right-hand side resolves to
+      nothing under the legacy prefix, so there is no symbol to report and no
+      constructor to rewrite. It is the reason the group bails: a scanner that
+      skipped this line as uninteresting would see one constructor, one use
+      and a closed world.
+  - file: two_assignments.py
+    line: 11
+    why: >-
+      `from myapp import registry`. A `from ... import` of a module that is
+      not the legacy one, on the line directly below the import that is.
+  - file: local_import.py
+    line: 21
+    why: >-
+      `import json`, inside a function body. A rule keyed on "an import that
+      is not at module level" rather than on the module it names reports this
+      line, which is how `local_import` turns from a bail into a false
+      positive in every repository that imports anything lazily.
+  - file: local_import.py
+    line: 23
+    why: >-
+      `json.dumps(rows, indent=2)`. A method call on a receiver with no
+      binding record, in a file that demonstrably builds a legacy object,
+      which is ADR-019 D5's shape. It must not be reported because `dumps` is
+      not a method of any receiver the pack declares.
+  - file: self_reassigned.py
+    line: 22
+    why: >-
+      `self.model = model`. Nothing on the right resolves under the legacy
+      prefix, so there is nothing to report; it is one of the two assignments
+      that make the group unwritable.
+  - file: self_reassigned.py
+    line: 25
+    why: >-
+      `self.model = None`, the other one.
+  - file: imports_the_model.py
+    line: 2
+    why: >-
+      `from imported_model import MODEL`. Nothing on it resolves under the
+      legacy prefix, so this file has no finding at all; it is why
+      `imported_model.py`'s group is withheld.
+
+notes: |
+  Line numbers were checked against `cat -n` for every file, and every
+  resolution claim in this document was measured by running libcst 1.9.0's
+  QualifiedNameProvider and ScopeProvider over the fixture
+  (`MetadataWrapper(module, unsafe_skip_copy=True)`). All eleven files also
+  round-trip byte-identically and pass `compile()`, so none of them is
+  confounded by `roundtrip_mismatch` or `parse_error`.
+
+  The measured resolutions, verbatim:
+
+    alias_rebound.py      L11 Name       -> [('google.generativeai', IMPORT)]
+                          L13/L17/L21    -> nothing under the legacy prefix
+    name_shadowed.py      L16, L18       -> LOCAL + IMPORT on the same node
+                          L14 Name genai -> [('genai', LOCAL)] only
+    conditional_import.py L16, L21       -> two IMPORT names, google.genai.* and
+                                            google.generativeai.*
+    star_import.py        every node     -> {} ; GlobalScope accesses with no
+                                            assignment record: configure (L10),
+                                            GenerativeModel (L12). `os` and `len`
+                                            DO have assignment records.
+    dynamic.py            L24 Name genai -> [('google.generativeai', IMPORT)];
+                                            L14, L20, L28 resolve to nothing
+    mock_target.py        every node     -> {} except the LOCAL `genai_mod` chain
+    model_escapes.py      L10, L12       -> single IMPORT names
+    class_attr.py         L10, L17       -> single IMPORT names
+    two_configures.py     L8, L12, L20   -> single IMPORT names
+    no_configure.py       L12            -> single IMPORT name
+
+  Why every verdict here is `needs_review`. In several of these files one
+  finding would be automatic on its own - the import rename in
+  `model_escapes.py`, the `configure` rewrite in `class_attr.py`. They are
+  recorded as `needs_review` because the edits are not independent: renaming
+  `import google.generativeai as genai` to `from google import genai` while
+  any `genai.GenerativeModel(...)` in the file survives produces a file that
+  imports cleanly and then raises `AttributeError` on first use. That is
+  ADR-010 F-1, and the file - not the import statement - is the atomic unit.
+
+  Which code those rows name is ADR-012. Six of them (`model_escapes.py:8,10`,
+  `class_attr.py:8,10`, `two_configures.py:4`, `no_configure.py:6`) originally
+  carried the *other* group's bail: `model_object_escapes` on a line holding no
+  model object, `client_source_unresolved` on a line needing no client. They now
+  carry `file_not_fully_migrated` with `caused_by` naming the codes that actually
+  fired, which is what `examples/gemini-legacy-app/ground_truth.yaml` already did
+  for the identical shape. A seventh row, `model_escapes.py:22`, moved the other
+  way for the same reason: its receiver is a function parameter, so the MODEL
+  group's bail was never its own and `receiver_unresolved` is. No verdict moved.
+
+  The five import rows that did NOT change - `alias_rebound.py:8`,
+  `name_shadowed.py:9`, `conditional_import.py:10`, `dynamic.py:9`,
+  `star_import.py:8` - are the contrast case: there the defect is in the
+  binding the import itself creates, so the import's own code outranks
+  atomicity. If Phase 1 decides to emit dual imports instead (ADR-010's
+  strongest v0.2 candidate), this whole block is the assumption to revisit,
+  deliberately.
+
+  Two vocabulary claims this file used to get wrong, corrected against
+  `docs/SCAN_VOCABULARY.md` section 2:
+
+  1. `dynamic.py` reaches the SDK four ways and three of them are graded
+     `dynamic_access`: line 14 `importlib.import_module(...)` and line 20
+     `__import__(...)` are named verbatim by section 2, and line 28
+     `sys.modules["google.generativeai"] = stub` is the stub form, which
+     section 4 lists under `flag_only_surface` and which is recorded under the
+     same reason because it is the same act - reaching the module by name at
+     run time. The fourth form, line 24 `getattr(genai, ...)`, is NOT
+     `dynamic_access`: it goes through the resolvable alias, so it is graded
+     `module_alias_rebound` (C-05), which is why that row differs from the
+     other three. This note previously claimed no member covered a dynamic
+     import and that the rows used `string_or_comment_mention`; both were
+     written before ADR-010 F-4 put the closed vocabularies in the repository,
+     and neither matched the rows.
+  2. A receiver bound at MODULE level and read inside a function
+     (name_shadowed.py:24, star_import.py:18, model_escapes.py:26) is
+     `receiver_bound_module_const`, which `docs/SCAN_VOCABULARY.md` section 2
+     defines as "The receiver is a module-level constant, used inside a
+     function or method of the same module", and which
+     `../basic/ground_truth.yaml` uses for the identical shape. Those three
+     rows originally read `receiver_bound_same_scope` because this note was
+     written before ADR-010 F-4, when the member was not visible in the
+     repository. The `bindings` entry's `kind: module_const` says the same
+     thing about the binding itself. Spike case 14 used `receiver_unresolved`
+     for a module global, but only because a `global` statement had rebound it,
+     which is not the case here.
+
+  Schema deviation, deliberate: each `bindings` entry carries a `file` key.
+  The block in the assignment has no file field, which is unambiguous only in
+  a one-file case; this directory has six binding-bearing files and three
+  bindings all named `MODEL`. The key is additive, so a parser that reads only
+  the specified fields is unaffected.
+
+  The two files T4 added are the Phase 1 half of `COVERAGE.md` gap 10, and each
+  pins one thing no other file here does. `two_assignments.py` separates
+  `len(scope["model"]) > 1` from counting legacy constructors: only the first of
+  its two assignments builds one, so a detector that counted constructors finds
+  exactly one, calls the group closed-world, and rewrites line 20 - which may
+  refer to whatever `registry.default_model()` returned. `local_import.py` is
+  the only file in the oracle withheld by atomicity **alone**: its import
+  resolves and binds cleanly, the two uses below it resolve through that alias,
+  the module has one `configure` and D3 accepts it, and the file is still
+  unwritable because v0 rewrites an import where it stands. Its constructor
+  result is returned rather than bound on purpose - a binding there would have
+  to be graded either `auto` in a file nothing may touch or with a code that
+  `Binding` refuses, and choosing between those before the rule existed is the
+  defect ADR-010 F-4 traces three fixture errors to. The rule is in
+  `tests/unit/test_planner.py` instead, where inventing the answer is what a
+  unit test is for.
+
+  `alias_rebound.py` is the file to check first in any regression run. It is
+  the one where a correct scanner and a broken scanner differ by the entire
+  file: three real legacy call chains (lines 13, 17, 21) carry no legacy
+  qualified name at all, and the only surviving trace is a two-token statement
+  on line 11.
+
+  `mock_target.py` line 13 is a documented MISS as well as a must-not-report.
+  A patch through the application's own module path is invisible to a
+  per-file scan, and C-57 measured exactly this: the one genuine miss in 320
+  corpus files was a test file that patches through its own module and never
+  contains the string `generativeai`. This file does contain the string, so it
+  is scanned; a test file that used only line 13's form would not be.

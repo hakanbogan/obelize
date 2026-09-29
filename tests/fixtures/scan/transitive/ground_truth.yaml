@@ -1,0 +1,99 @@
+case: transitive
+after_file_is: none
+what_it_exercises: >-
+  A repository whose one legacy module migrates whole and whose other module
+  never names the legacy SDK -- it imports google-api-core, which the legacy
+  SDK installed and the new one does not, and which the manifest never
+  declares. Nothing still imports the legacy distribution, so without the
+  other module F-2 would replace the pin, and the next install would drop
+  google-api-core and break `retry.py` at import (critic:CRIT-01).
+
+findings:
+  # =====================================================================
+  # app.py - migrates whole, so F-2's first half fires.
+  # =====================================================================
+  - file: app.py
+    line: 7
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: Nothing in this file bails, so F-1 leaves the import rewritable.
+  - file: app.py
+    line: 9
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      The module's one `configure`, at module level, so ADR-010 F-6 makes the
+      warning mandatory in the scan's key.
+  - file: app.py
+    line: 11
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: The constructor of the `MODEL` binding below.
+  - file: app.py
+    line: 15
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: auto
+    note: The module constant assigned once at line 11.
+
+  # =====================================================================
+  # requirements.txt - the new pin is added and the legacy one kept, for a
+  # module that needs what only the legacy one installs.
+  # =====================================================================
+  - file: requirements.txt
+    line: 1
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: >-
+      ADR-010 F-2, first half: `app.py` migrated, so the new distribution is
+      owed.
+  - file: requirements.txt
+    line: 1
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: transitive_dependency_in_use
+    note: >-
+      Nothing imports the legacy distribution any more, and the pin stays
+      anyway: `retry.py` imports `google.api_core`, which arrives with
+      google-generativeai and not with google-genai, and no manifest here
+      declares google-api-core. The code names that, where
+      `repo_not_fully_migrated` would claim an import of the legacy SDK that is
+      not there.
+
+bindings:
+  - file: app.py
+    kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 11
+    use_lines: [15]
+    verdict: auto
+    note: Single assignment at module scope, one reference, a supported method.
+
+must_not_report:
+  - file: retry.py
+    line: 8
+    why: >-
+      `from google.api_core import retry` is not a legacy usage and never an
+      edit. It is what keeps the legacy pin, and F-2 names the file in the
+      manifest plan's `transitive` list rather than as a finding.
+  - file: requirements.txt
+    line: 2
+    why: An unrelated pin.
+
+notes: |
+  The case is the smallest repository in which `transitive_dependency_in_use`
+  is the only reason the legacy pin stays. `transforms/codemod/transitive/` is
+  the same repository run through the driver.

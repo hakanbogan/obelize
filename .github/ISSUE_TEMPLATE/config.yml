@@ -1,0 +1,14 @@
+---
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/hakanbogan/obelize/blob/main/SECURITY.md
+    about: >-
+      Please report privately; see SECURITY.md for the process and the
+      72-hour acknowledgement.
+
+  - name: Questions and discussion
+    url: https://github.com/hakanbogan/obelize/blob/main/CONTRIBUTING.md
+    about: >-
+      Check CONTRIBUTING.md first.

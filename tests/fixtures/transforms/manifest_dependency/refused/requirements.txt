@@ -1,0 +1,4 @@
+# A direct reference: the URL is the distribution, and there is no version span
+# to replace and nothing that would still point at the same file afterwards.
+google-generativeai @ https://example.invalid/google_generativeai-0.8.6-py3-none-any.whl
+requests>=2.31

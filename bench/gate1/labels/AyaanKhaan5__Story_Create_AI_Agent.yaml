@@ -1,0 +1,69 @@
+# Answer key, written by hand before `obelize scan` was run against this
+# repository. Oracle discipline: the key comes first, or it is not a key.
+repository: AyaanKhaan5/Story_Create_AI_Agent
+url: https://github.com/AyaanKhaan5/Story_Create_AI_Agent
+sha: 81fa6dc173010ed22a0aa3d53f5d9ab3b7684a63
+band: size:1000..4000
+license: none
+labeller: Hakan Bogan
+labelled_at: '2026-09-18'
+what_it_is: >-
+  A two-file Chainlit chatbot. Both files import the SDK, configure it once at
+  module level and construct a model -- `backend.py` as a module constant read
+  inside a function, `ui.py` as a local inside the handler that uses it. It is
+  the shape the `basic` fixture was written from, found in the wild twice.
+files_read:
+  - backend.py
+  - ui.py
+  - requirements.txt
+call_sites:
+  - path: backend.py
+    line: 1
+    kind: import
+    symbol: google.generativeai
+  - path: backend.py
+    line: 4
+    kind: call
+    symbol: google.generativeai.configure
+    note: Module level, and the module's only one.
+  - path: backend.py
+    line: 6
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    note: A module constant, one positional argument, no generation config.
+  - path: backend.py
+    line: 38
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Receiver is the module constant, read inside `generate_story`.
+  - path: ui.py
+    line: 3
+    kind: import
+    symbol: google.generativeai
+  - path: ui.py
+    line: 8
+    kind: call
+    symbol: google.generativeai.configure
+  - path: ui.py
+    line: 42
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    note: Local to the async handler, used two lines later and never escaping it.
+  - path: ui.py
+    line: 44
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+expected_other:
+  - path: requirements.txt
+    line: 3
+    kind: manifest
+    symbol: google-generativeai
+    note: Unpinned, bare `requirements.txt`.
+must_not_report: []
+notes: >-
+  Nothing in either file bails under any rule the scanner has: one `configure`
+  per module, a receiver that resolves in both files, no escape and no dynamic
+  access. If this repository does not come back with two zero-bail files, the
+  measurement has found a scanner defect rather than a property of the corpus.
+  The repository also commits a `.env` and its `__pycache__`; neither is a Python
+  source file and neither is expected in the selection.

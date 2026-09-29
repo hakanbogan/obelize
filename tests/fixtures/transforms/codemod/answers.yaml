@@ -1,0 +1,305 @@
+# The answer key for the codemod driver, written by hand before the driver.
+#
+# Seven small repositories, because the unit this grades is a **run** and not a
+# file. Every corpus beside this one runs one file through the rules and grades
+# what they produce; this one asks the question that comes after: of the bytes
+# the rules produced, which ones may be written, and what does the repository
+# look like once that is decided.
+#
+# Four things are graded here and nowhere else.
+#
+# **[ADR-010](../../../../docs/adr/ADR-010-fixture-oracle-and-atomicity.md) F-1
+# at fix time.** The scan's F-1 is over the codes a *scan* can raise. A rule can
+# refuse a group the scan graded `eligible`, and a row can turn out to be one no
+# rule claims at all; either way the file is left exactly as it was and the rows
+# that were ready carry `file_not_fully_migrated` naming the ones that were not.
+# `blocked/refused.py` is the first, `unclaimed/app.py` is the second.
+#
+# **The order between the two registry tables.** Every `Rule` over every parsed
+# file, then F-2's survey, then every `ManifestRule` over every manifest --
+# because the second reads what the first decided
+# ([ADR-030](../../../../docs/adr/ADR-030-flagged-surfaces-dependency-line.md)
+# D5). `clear/` and `blocked/` are the measurement: a *scan* grades the two
+# repositories the same way and grades both manifests as a replacement, and the
+# run writes two different manifests, because `blocked/refused.py` still imports
+# the legacy distribution once the rules have had their say.
+#
+# **What a run does not write.** `refused/` is a repository whose every row the
+# scan withheld before a rule was asked about any of them. The driver adds no
+# code of its own there, and writes no file at all.
+#
+# **A file nothing in it refuses, withheld for another file's sake.**
+# `configure` sets a process-wide default, so a module that stays on the legacy
+# SDK and has no `configure` of its own runs on somebody else's. Deleting that
+# call breaks the other module when it runs, whatever its tests say
+# (e2e:E2E-02). `consumed_elsewhere/` is that repository and the driver
+# withholds its `configure` whole; `blocked/refused.py` has a `configure` of its
+# own, which is why `good.py` beside it is still written (ADR-031 D11).
+#
+# `edits` is every row the run reports for that file, in line order; two rows at
+# one line keep the order the rules ran in, which is the order the pack declares
+# them. `after: present` means the file has a `.after` key beside it and must
+# come out byte for byte that key; `after: absent` means it must come out
+# exactly as it went in.
+case: codemod
+pack: gemini/google-generativeai-to-google-genai
+
+cases:
+  # =====================================================================
+  # clear -- nothing refuses, so the run writes every file in the
+  # repository and F-2's two halves are both clear.
+  # =====================================================================
+  - case: clear
+    what_it_is: >-
+      The repository a run migrates whole. Every eligible row is claimed, no
+      rule refuses, the produced bytes pass both output gates, and nothing is
+      left importing the legacy distribution -- so the manifest's legacy pin is
+      replaced rather than joined.
+    migrated: [app.py]
+    blocking: []
+    files:
+      - file: app.py
+        written: true
+        after: present
+        why: >-
+          Four rows and four rules' worth of agreement: the import rule binds
+          `genai` to the new module, the client rule spells `client` against it,
+          and the model rule reads both. The constructor goes with the blank
+          line above it and what it held is copied into the one call.
+        edits:
+          - {line: 15, rule: rename-import, status: auto}
+          - {line: 17, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+          - {line: 19, rule: generative-model-calls, status: auto}
+          - {line: 23, rule: generative-model-calls, status: auto}
+      - file: requirements.txt
+        written: true
+        after: present
+        why: >-
+          Something migrated and nothing blocks, so both halves of F-2 are one
+          rewrite of one line.
+        edits:
+          - {line: 1, rule: manifest-dependency, status: auto}
+
+  # =====================================================================
+  # blocked -- a rule refuses a file the scan graded eligible, so the
+  # repository's F-2 verdict is not the one a scan of it produces.
+  # =====================================================================
+  - case: blocked
+    what_it_is: >-
+      The same manifest, reached the other way. A scan of this repository grades
+      every row of both modules `eligible` and would replace the legacy pin;
+      `generative_model_calls` then refuses `refused.py`'s mapping, that file is
+      left alone, and it still imports the legacy distribution -- so the new pin
+      is *added* and the legacy one is kept, naming the file that keeps it.
+      `refused.py` runs on a `configure` of its own, so nothing it still does
+      needs the one `good.py` deletes.
+    migrated: [good.py]
+    blocking: [refused.py]
+    files:
+      - file: good.py
+        written: true
+        after: present
+        why: >-
+          A refusal in another file is not this file's defect. F-1 is a property
+          of a file, and `refused.py` is a different one.
+        edits:
+          - {line: 8, rule: rename-import, status: auto}
+          - {line: 10, rule: configure-to-client, status: auto}
+          - {line: 12, rule: generative-model-calls, status: auto}
+          - {line: 16, rule: generative-model-calls, status: auto}
+      - file: refused.py
+        written: false
+        after: absent
+        why: >-
+          One bailing usage, and the file is left byte-identical. The two rows
+          that were ready name the one that was not, which is what `caused_by`
+          is for: without it the report says a file was skipped and not why.
+        edits:
+          - {line: 13, rule: rename-import, status: needs_review, reason: file_not_fully_migrated, caused_by: [generation_config_not_static]}
+          - {line: 15, rule: configure-to-client, status: needs_review, reason: file_not_fully_migrated, caused_by: [generation_config_not_static]}
+          - {line: 17, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+          - {line: 21, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - file: requirements.txt
+        written: true
+        after: present
+        why: >-
+          F-2's insertion. The new declaration is the legacy line with both of
+          its spans swapped, so it inherits the comment and the spacing of the
+          line it was copied from; the legacy line keeps its pin and its code
+          names the file that blocks the removal.
+        edits:
+          - {line: 2, rule: manifest-dependency, status: auto}
+          - {line: 2, rule: manifest-dependency, status: needs_review, reason: repo_not_fully_migrated}
+
+  # =====================================================================
+  # unclaimed -- an eligible row no rule claims, which is the half of F-1
+  # that is not a refusal.
+  # =====================================================================
+  - case: unclaimed
+    what_it_is: >-
+      A legacy function referenced and never called. The scan resolves it and
+      grades it `eligible` -- there is nothing wrong with it -- and the rule
+      that owns the symbol is written for a call, so no rule claims the row. A
+      run that wrote this file would rewrite the import out from under a name it
+      had left behind.
+    migrated: []
+    blocking: [app.py]
+    files:
+      - file: app.py
+        written: false
+        after: absent
+        why: >-
+          The unclaimed row names its own defect, `usage_unmapped`, and the two
+          rows that were ready name it in turn. The driver is what reports the
+          third row: no rule claimed it, so no rule could have.
+        edits:
+          - {line: 14, rule: rename-import, status: needs_review, reason: file_not_fully_migrated, caused_by: [usage_unmapped]}
+          - {line: 16, rule: configure-to-client, status: needs_review, reason: file_not_fully_migrated, caused_by: [usage_unmapped]}
+          - {line: 18, rule: null, status: needs_review, reason: usage_unmapped}
+      - file: requirements.txt
+        written: false
+        after: absent
+        why: >-
+          Nothing migrated and something still imports the distribution, so F-2
+          withholds the only edit this manifest has and the file is left alone.
+        edits:
+          - {line: 1, rule: manifest-dependency, status: needs_review, reason: repo_not_fully_migrated}
+
+  # =====================================================================
+  # refused -- the scan withheld every row before a rule was asked, and
+  # there is no manifest at all.
+  # =====================================================================
+  - case: refused
+    what_it_is: >-
+      A rebound module alias withholds every row in the file at scan time. The
+      rules claim the rows and record nothing, because a rule rewrites what is
+      eligible; the driver adds no code of its own, and a repository with no
+      dependency declaration gives the manifest pass nothing to run over.
+    migrated: []
+    blocking: [app.py]
+    files:
+      - file: app.py
+        written: false
+        after: absent
+        why: >-
+          No edit at all, which is what a file the scan already refused looks
+          like from the rules' side. The report of this file is its findings,
+          and they carry the codes the scan wrote.
+        edits: []
+
+  # =====================================================================
+  # consumed_elsewhere -- nothing in the file refuses, and the file is
+  # still left alone, because another module runs on its `configure`.
+  # =====================================================================
+  - case: consumed_elsewhere
+    what_it_is: >-
+      Two modules and one `configure`. `config.py` would migrate whole on its
+      own; `answer.py` has no `configure`, so its calls stay on the legacy SDK
+      and run on the default `config.py` sets. Deleting that call breaks
+      `answer.py` the first time it calls the API, so the driver withholds
+      `config.py` and names the reason on the `configure` itself.
+    migrated: []
+    blocking: [answer.py, config.py]
+    files:
+      - file: answer.py
+        written: false
+        after: absent
+        why: >-
+          Withheld by the scan before a rule was asked: no `configure` in the
+          module, so no client for its calls to be made against.
+        edits: []
+      - file: config.py
+        written: false
+        after: absent
+        why: >-
+          Nothing here is wrong and nothing here is written. The `configure`
+          carries the code that names the other module's need, and the import
+          names the `configure`, as F-1 names any row that withheld a file.
+        edits:
+          - {line: 9, rule: rename-import, status: needs_review, reason: file_not_fully_migrated, caused_by: [configure_consumed_elsewhere]}
+          - {line: 11, rule: configure-to-client, status: needs_review, reason: configure_consumed_elsewhere}
+      - file: requirements.txt
+        written: false
+        after: absent
+        why: >-
+          Nothing migrated and both modules still import the distribution, so
+          F-2 withholds the manifest's only edit and the file is left alone.
+        edits:
+          - {line: 1, rule: manifest-dependency, status: needs_review, reason: repo_not_fully_migrated}
+
+  # =====================================================================
+  # transitive -- nothing blocks the legacy pin but a distribution the
+  # legacy SDK installed and the repository never declared.
+  # =====================================================================
+  - case: transitive
+    what_it_is: >-
+      A repository that migrates whole, and a module that imports
+      google-api-core, which came with the legacy SDK and does not come with
+      the new one (critic:CRIT-01).
+    migrated: [app.py]
+    blocking: []
+    transitive: [retry.py]
+    files:
+      - file: app.py
+        written: true
+        after: present
+        why: >-
+          Nothing in it refuses, so it migrates as `clear/app.py` does.
+        edits:
+          - {line: 7, rule: rename-import, status: auto}
+          - {line: 9, rule: configure-to-client, status: auto}
+          - {line: 11, rule: generative-model-calls, status: auto}
+          - {line: 15, rule: generative-model-calls, status: auto}
+      - file: requirements.txt
+        written: true
+        after: present
+        why: >-
+          The new pin is added and the legacy one kept, under the code that
+          names why: removing it removes google-api-core, which `retry.py`
+          imports and nothing declares.
+        edits:
+          - {line: 1, rule: manifest-dependency, status: auto}
+          - {line: 1, rule: manifest-dependency, status: needs_review, reason: transitive_dependency_in_use}
+      - file: retry.py
+        written: false
+        after: absent
+        why: >-
+          Not a legacy file, so no rule reads it; F-2 reads its imports.
+        edits: []
+
+  # =====================================================================
+  # notebook -- a legacy import in a file `include` does not take.
+  # =====================================================================
+  - case: notebook
+    what_it_is: >-
+      A repository that migrates whole under the default `include`, and a
+      notebook beside it that imports the legacy SDK (scan:SCAN-08).
+    migrated: [app.py]
+    blocking: [analysis.ipynb]
+    files:
+      - file: analysis.ipynb
+        written: false
+        after: absent
+        why: >-
+          Not analysed, because `**/*.py` does not take it, and read for the
+          byte prefilter only, which it matches. That is enough to keep the
+          pin the notebook needs.
+        edits: []
+      - file: app.py
+        written: true
+        after: present
+        why: >-
+          Nothing in it refuses.
+        edits:
+          - {line: 7, rule: rename-import, status: auto}
+          - {line: 9, rule: configure-to-client, status: auto}
+          - {line: 11, rule: generative-model-calls, status: auto}
+          - {line: 15, rule: generative-model-calls, status: auto}
+      - file: requirements.txt
+        written: true
+        after: present
+        why: >-
+          The new pin is added and the legacy one kept, naming the notebook.
+        edits:
+          - {line: 1, rule: manifest-dependency, status: auto}
+          - {line: 1, rule: manifest-dependency, status: needs_review, reason: repo_not_fully_migrated}

@@ -1,0 +1,432 @@
+# Round one's failure causes and their dispositions, hand-written after reading each row.
+# The collected half, bench/results/errors/round-1.json, is never edited by hand.
+# `causes`: one entry per distinct reason a key row did not migrate.
+#   class        withheld (the row's own bail), derived (an atomicity code another row caused),
+#                missed (the scan delivered nothing there) or unexpected (a row no key claims).
+#   disposition  rule_change, scan_change or limitation only, as docs/BENCHMARK.md promises.
+#   recorded     a limitation names its ADR; a change names an open numbered gap in
+#                tests/fixtures/scan/COVERAGE.md.
+# `misses`: a cause for every undelivered row (they carry no bail code);
+# tests/unit/test_bench_errors.py asserts it is exactly the round's misses.
+round: 1
+reviewer: Hakan Bogan
+reviewed_at: '2026-09-22'
+record: bench/results/errors/round-1.json
+
+causes:
+
+  file_not_fully_migrated:
+    class: derived
+    disposition: limitation
+    recorded: ADR-010
+    why: >-
+      F-1. Not a failure of its own: the row is ready and the file is not, so it
+      is withheld with the rest of the file. It is the commonest code in the
+      round by a factor of four and it means only that the round's blocked files
+      each hold several rows. Every one of these rows is attributed to the bails
+      its `caused_by` names, which is where the lever is computed.
+  repo_not_fully_migrated:
+    class: derived
+    disposition: limitation
+    recorded: ADR-010
+    why: >-
+      F-2. The legacy pin stays until the code that imports it has gone, so
+      thirteen of the twenty repositories keep a pin that would be wrong to
+      remove. Thirteen of thirteen, in fact -- every case with a manifest row
+      and an unmigrated file -- which is the rule working and not a finding.
+
+  multiple_configure_calls:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-020
+    why: >-
+      D3. The second largest code in the round and a lever of **zero**: every
+      row it withheld sits in a file that also carries `local_import`, so a rule
+      that resolved two `configure` calls would unblock nothing by itself. The
+      count says how often the shape occurs and the lever says what fixing it is
+      worth, and here they disagree completely.
+  local_import:
+    class: withheld
+    disposition: rule_change
+    recorded: COVERAGE 28
+    why: >-
+      Eighteen rows and the joint-largest lever in the round, +26. Every one is
+      `import google.generativeai as genai` or a `from ... import` inside a
+      function body, in a diagnostic script or a lazy importer. v0 rewrites an
+      import where it stands and refuses one that is not module-level, which is
+      a scope decision rather than a statement about what the code means.
+  module_alias_rebound:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-019
+    why: >-
+      Seventeen rows, lever +18, and in this corpus the shape is always the
+      same one -- the module object itself handed to somebody else, as
+      `ChatGoogleGenerativeAI(client=genai)` or a `return genai` from a factory.
+      The new SDK has no module to hand over, so the rewrite is not a rename but
+      a change to a second library's call, and following the value out of the
+      file is not a question a per-file scan asks.
+  generation_config_not_static:
+    class: withheld
+    disposition: rule_change
+    recorded: COVERAGE 29
+    why: >-
+      Fifteen rows and the other joint-largest lever, +26. In all three
+      repositories the argument is a **name assigned once and readable** -- a
+      module-level `genai.GenerationConfig(...)`, a module-level dict literal
+      read inside a function, or a local built two lines above the call. This
+      is the correction `spikes/FINDINGS.md` records as C-31, which ADR-012 D6
+      traced through the three-repository development corpus and predicted would
+      buy zero additional edits. Twenty repositories say otherwise, and that reversal is the single
+      most useful thing the round produced.
+  flag_only_surface:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-030
+    why: >-
+      Eleven rows, lever +12, and every one of them is the pack doing what it
+      says: a `mock.patch` target, a `sys.modules` stub, a dynamic import. The
+      lever is real and taking it would mean editing strings that name a module
+      by hand-written convention, which is the thing `flag_only` exists not to
+      do.
+  receiver_unresolved:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-019
+    why: >-
+      D5. Eight rows, lever +12. A supported method called on something with no
+      binding record -- a parameter, a container element, a value from another
+      module. Resolving it needs a return-type analysis the scan does not have,
+      and the same rule is what produced the round's one non-chained false
+      positive, so narrowing it is not free either.
+  history_parts_shape_incompatible:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-028
+    why: >-
+      Six rows, lever +10, and two lines. Both are
+      `model.start_chat(history=str(time.time()))`, in two near-identical copies
+      of one file: a float rendered as a string, which is not a history in
+      either SDK. The refusal is right and a rule that rewrote it would be
+      migrating a defect, so the lever here is the clearest case in the round of
+      a number that must not be acted on.
+  client_placement_ambiguous:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-026
+    why: >-
+      D3. Five rows, lever zero. The `configure(...)` is inside a function and
+      the calls it would serve are not, so no single placement reaches them all
+      and moving the author's setup is a change the rule will not make.
+  model_object_escapes:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-027
+    why: >-
+      Five rows, lever zero. A bound legacy object referenced somewhere that is
+      not the receiver of a supported method, so what it becomes depends on code
+      this file cannot see.
+  attribute_removed:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-030
+    why: >-
+      Four rows, lever zero. An attribute the new SDK does not have. There is no
+      rule to write: what the code does with the value has to be rethought,
+      which is what the flag is for.
+  multiple_assignments:
+    class: withheld
+    disposition: rule_change
+    recorded: COVERAGE 30
+    why: >-
+      Four rows, lever +9, all four in one file where `model` is assigned twice
+      in one scope -- `gemini-pro-vision` and then `gemini-pro` -- and read once
+      after each. The bail is `len(scope[name]) > 1` exactly, so it fires on a
+      name reused for two legacy models as readily as on a name that means two
+      different things. Whether a second assignment that is also a legacy
+      constructor is the same question as a second assignment that is not is a
+      decision nobody has taken.
+  client_source_unresolved:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-020
+    why: >-
+      D2. Two rows, lever zero. No `configure(...)` in the module, so there is
+      nothing to build a client out of here. This is the cross-module client
+      setup the pack already publishes as a limitation.
+  response_shape_changed:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-029
+    why: >-
+      D5. One row, lever zero -- an `embed_content(...)` whose result is read
+      the way the legacy one allowed. The two correct rewrites differ by whether
+      the content was a batch, and the call does not say which.
+  alias_collision:
+    class: withheld
+    disposition: rule_change
+    recorded: COVERAGE 31
+    why: >-
+      One row, lever +6, and the best ratio in the round. The file imports the
+      legacy module **twice** -- `from google.generativeai import upload_file,
+      get_file` on one line and `import google.generativeai as genai` on the
+      next -- and rewriting the first asks for the default alias the second
+      already binds.
+  from_import_unmigrated_symbol:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-025
+    why: >-
+      One row, lever zero. `from google.generativeai import ChatCompletion`, a
+      symbol the legacy SDK does not export either, in a file whose own comment
+      says "or the correct import from the library you are". Nothing can be
+      migrated to a name that was never there.
+  usage_unmapped:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-031
+    why: >-
+      D3. One row, lever zero, and the same file as the entry above -- the
+      `ChatCompletion(...)` call that import feeds. The pack detects the usage
+      and no change rewrites it, so no rule claims the row.
+
+  star_import_binding:
+    class: missed
+    disposition: limitation
+    recorded: ADR-019
+    why: >-
+      Three rows in one file. `genai` is bound by `from Skills import *`, and
+      `Skills.py` calls `configure` at module level on its own account. Nothing
+      in the importing file says where the name came from, and obelize's own
+      `star_import` bail cannot fire because the star import is in the module it
+      would have to follow.
+  prefilter_token_absent:
+    class: missed
+    disposition: limitation
+    recorded: ADR-022
+    why: >-
+      Two rows, and pre-registered as misses in the key before the round ran.
+      The file reaches the SDK entirely through the project's own wrapper module
+      and contains no token the byte prefilter looks for, so it is never opened.
+      Widening the prefilter would report the Vertex SDK as legacy usage, which
+      the pack already publishes as a limitation -- recall here cannot be
+      bought.
+  attribute_read_via_getattr:
+    class: missed
+    disposition: scan_change
+    recorded: COVERAGE 22
+    why: >-
+      One row. `getattr(m, "supported_generation_methods", [])` on a
+      `list_models` result -- gap 22's shape found in the wild, and out of reach
+      twice over: the receiver is a value no projection entry produces, and the
+      attribute name is a string argument rather than an attribute node.
+  module_returned_from_function:
+    class: missed
+    disposition: limitation
+    recorded: ADR-019
+    why: >-
+      Twelve rows across two repositories, and the largest single miss shape in
+      the round. Both files bind the legacy module to a local from a function
+      that returns it -- `_import_genai()` in one, a `configure`-and-`return
+      genai` helper in the other -- so every call on that local, and everything
+      built from it, resolves to nothing. Following a module object out of a
+      function is a return-type analysis, which is the same wall
+      `receiver_unresolved` stops at from the other side.
+  module_from_subscript:
+    class: missed
+    disposition: limitation
+    recorded: ADR-019
+    why: >-
+      Two rows. The module is read out of a dictionary of providers, so the
+      receiver is a subscript and no binding record exists. One of the two rows
+      is also `await model.generate_content(...)` on a synchronous method, which
+      is a defect in the repository rather than something a migration
+      introduces.
+  chained_constructor_one_row:
+    class: missed
+    disposition: scan_change
+    recorded: COVERAGE 25
+    why: >-
+      Two rows, and the other half of the round's false positives.
+      `genai.GenerativeModel('gemini-pro').start_chat(history=[])` is reported
+      as one finding and the key records two, so the constructor row matches
+      nothing. Which convention is right is a specification gap, not a defect.
+  text_mention_not_flagged:
+    class: missed
+    disposition: scan_change
+    recorded: COVERAGE 32
+    why: >-
+      One row. `"google.generativeai",` as an element of a list a test asserts
+      is absent from `sys.modules`. The five other legacy-module strings in the
+      same repository are flagged, because each sits in a position a
+      `flag_only` pattern names -- `types.ModuleType(...)`,
+      `monkeypatch.setitem(sys.modules, ...)`. A bare element sits in none, so
+      the same string is a flagged shape in one line and `not_a_usage` in the
+      next.
+  manifest_filename_case:
+    class: missed
+    disposition: scan_change
+    recorded: COVERAGE 33
+    why: >-
+      One row. The file is `Requirements.txt` and the manifest set is matched on
+      an exact lowercase name, so it is never opened. Pre-registered as a miss.
+  method_name_collision:
+    class: unexpected
+    disposition: limitation
+    recorded: ADR-019
+    why: >-
+      One finding, and the round's only false positive that is not the chained
+      constructor. `self.client.count_tokens(content)` in an
+      `AnthropicTokenCounter` whose `self.client` is `Anthropic()`, in a file
+      whose *next* class builds a legacy model -- so D5's rule fires, because a
+      method name the pack declares was called on an unresolved receiver in a
+      file that has a resolved legacy import. Narrowing it needs a return-type
+      analysis, and the same rule earns eight correctly reported rows with a
+      lever of +12, so the trade is not obviously worth making. Nothing was
+      written -- the finding is withheld under `client_source_unresolved` --
+      which is the difference between a false positive and a false-positive
+      edit.
+  manifest_filename_unknown:
+    class: missed
+    disposition: limitation
+    recorded: ADR-021
+    why: >-
+      One row, and the only one in the round nothing mechanical could reach.
+      The file is `requirments.txt` -- a misspelling -- so it is not in the
+      manifest set under any casing rule; and it is UTF-16 with a BOM, so a
+      reader that found it would still see a null between every character.
+      Pre-registered as a miss. Chasing typos is not a rule anybody can write,
+      and the second half is only worth reading if the first is solved.
+
+misses:
+- case: AmineChr54__CleanVision-Futury_AI-Hackathon
+  path: backend/data/gemini_helpers.py
+  line: 40
+  symbol: google.generativeai.types.Model.supported_generation_methods
+  cause: attribute_read_via_getattr
+- case: AmineChr54__CleanVision-Futury_AI-Hackathon
+  path: backend/src/evaluation.py
+  line: 41
+  symbol: google.generativeai.GenerativeModel.generate_content
+  cause: prefilter_token_absent
+- case: AmineChr54__CleanVision-Futury_AI-Hackathon
+  path: backend/src/deep_evaluation.py
+  line: 94
+  symbol: google.generativeai.GenerativeModel.generate_content
+  cause: prefilter_token_absent
+- case: Arnav3241__Jarvis-v13
+  path: main.py
+  line: 242
+  symbol: google.generativeai.configure
+  cause: star_import_binding
+- case: Arnav3241__Jarvis-v13
+  path: main.py
+  line: 244
+  symbol: google.generativeai.GenerativeModel
+  cause: star_import_binding
+- case: Arnav3241__Jarvis-v13
+  path: main.py
+  line: 245
+  symbol: google.generativeai.GenerativeModel.generate_content
+  cause: star_import_binding
+- case: grapeot__devin.cursorrules
+  path: tools/llm_api.py
+  line: 221
+  symbol: google.generativeai.GenerativeModel
+  cause: module_returned_from_function
+- case: grapeot__devin.cursorrules
+  path: tools/llm_api.py
+  line: 224
+  symbol: google.generativeai.GenerativeModel.start_chat
+  cause: module_returned_from_function
+- case: grapeot__devin.cursorrules
+  path: tools/llm_api.py
+  line: 231
+  symbol: google.generativeai.GenerativeModel.start_chat
+  cause: module_returned_from_function
+- case: grapeot__devin.cursorrules
+  path: tools/llm_api.py
+  line: 237
+  symbol: google.generativeai.ChatSession.send_message
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 31
+  symbol: google.generativeai.configure
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 32
+  symbol: google.generativeai.GenerativeModel
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 40
+  symbol: google.generativeai.GenerativeModel.generate_content
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 42
+  symbol: google.generativeai.types.GenerationConfig
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 54
+  symbol: google.generativeai.configure
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 55
+  symbol: google.generativeai.GenerativeModel
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 59
+  symbol: google.generativeai.GenerativeModel.generate_content
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: src/humanbound_firewall/llm/gemini.py
+  line: 61
+  symbol: google.generativeai.types.GenerationConfig
+  cause: module_returned_from_function
+- case: humanbound__humanbound-firewall
+  path: tests/test_import_time.py
+  line: 21
+  symbol: google.generativeai
+  cause: text_mention_not_flagged
+- case: Sharukesh3__LLM-for-hydrogen-storage
+  path: requirments.txt
+  line: 19
+  symbol: google-generativeai
+  cause: manifest_filename_unknown
+- case: LJX2017__A-Song-of-Ice-and-Fire
+  path: basic_game.py
+  line: 27
+  symbol: google.generativeai.GenerativeModel
+  cause: chained_constructor_one_row
+- case: LJX2017__A-Song-of-Ice-and-Fire
+  path: reconstruct_timeline.py
+  line: 10
+  symbol: google.generativeai.GenerativeModel
+  cause: chained_constructor_one_row
+- case: Satheesh2908__AI-Assistant-for-Satheesh
+  path: Requirements.txt
+  line: 8
+  symbol: google-generativeai
+  cause: manifest_filename_case
+- case: Zierax__HackerHelper
+  path: api/core/ai_assistant.py
+  line: 213
+  symbol: google.generativeai.GenerativeModel
+  cause: module_from_subscript
+- case: Zierax__HackerHelper
+  path: api/core/ai_assistant.py
+  line: 214
+  symbol: google.generativeai.GenerativeModel.generate_content
+  cause: module_from_subscript
+
+# One entry per finding no key row claims, keyed `<case>:<path>:<line>`.
+unexpected:
+  ImprintLab__Medical-Graph-RAG:camel/utils/token_counting.py:422: method_name_collision
+  LJX2017__A-Song-of-Ice-and-Fire:basic_game.py:27: chained_constructor_one_row
+  LJX2017__A-Song-of-Ice-and-Fire:reconstruct_timeline.py:10: chained_constructor_one_row

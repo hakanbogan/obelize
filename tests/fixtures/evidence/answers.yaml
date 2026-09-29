@@ -1,0 +1,354 @@
+# The answer key for what a run folder says, written by hand before the writer.
+#
+# Five small repositories and six runs. Every corpus before this one graded
+# what obelize *decided*; this one grades what it **records**, which is the
+# half a reviewer reads and the half another command reads back.
+#
+# What is hand-written here and what is not. The `after` bytes of every file
+# are T16's answer and T17's, already graded by two corpora of their own, and
+# the scan's findings are T3's and T4's. This key takes all of that as given
+# and states the things only an evidence writer decides: which artefacts land,
+# what `plan.json` says a run would write, how many hunks the patch groups
+# those changes into, what `file_edits` says it really wrote, which snapshots
+# exist, what `refused[]` says when nothing was written, and which sections of
+# `REPORT.md` a reader gets.
+#
+# Four things are graded here and nowhere else.
+#
+# **A plan and an apply over the same repository.** `again/` is run twice. The
+# first run writes two files; the second finds nothing, writes nothing and
+# reports `idempotent: true` with nothing left to verify. `dry_run/` is the
+# same shape as a plan: `plan.json` full, `file_edits` empty, no snapshots.
+# The difference between the two lists is the whole meaning of `--apply`, and
+# it is stated by two documents rather than by a flag.
+#
+# **Hunk grouping.** `again/app.py` has ten unchanged lines between its second
+# change and its third, which is more than three lines of context either side
+# can bridge, so it is the one file in the corpus whose patch is two hunks.
+# Every other changed file is one. A writer that emitted a whole file as a
+# single hunk would pass every other case here.
+#
+# **A refusal is not a success.** `dirty/` is committed, then edited in a file
+# nothing planned to touch, and the apply is refused over the tree. The run
+# folder is written anyway -- with the plan and the patch in it, which is the
+# useful half of a refusal -- and `refused[]` carries the one row that keeps
+# `file_edits: []` and `idempotent: true` from reading as a clean migration.
+#
+# **Findings with no edits.** `atomic/refused.py` and the whole of `nothing/`
+# are files no rule ever got to try: the scan withheld their rows a rung
+# higher, so they produce findings and no `Edit` at all
+# ([ADR-031](../../../docs/adr/ADR-031-codemod-driver.md)
+# finding 7, `tests/fixtures/scan/COVERAGE.md` gap 24). The report has to show
+# them, or a reader is shown nothing for most of a real repository.
+#
+# The verification is an **input** to this corpus, not a subject of it: real
+# processes are graded by `tests/fixtures/verify/`, and what is graded here is
+# that the output reaches a file under `verify/` and the record points at it.
+# So is `exit_code` -- but it is no longer an arbitrary one. T21 shipped the
+# mapping and `tests/fixtures/commands/` grades it, so the numbers below were
+# corrected to the ones `obelize fix` really produces for these runs. Two
+# moved: a dry run exits `0` whatever it withheld (ADR-011 D3), and an apply
+# that wrote nothing exits `4`.
+
+case: evidence
+pack: gemini/google-generativeai-to-google-genai
+
+# Every artefact a mode writes, which is `docs/RUN_FOLDER.md`'s table read as
+# a list of file names. `snapshots/` and `verify/` are directories and are
+# graded by their own keys below.
+artefacts:
+  scan: [REPORT.md, findings.json, pack.sha256, pack.yaml, run.json]
+  plan: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
+  apply: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
+
+cases:
+  # =====================================================================
+  # dry_run -- the plan a run writes when it is not allowed to write code.
+  # =====================================================================
+  - case: dry_run
+    what_it_is: >-
+      Everything in this repository migrates and none of it is written. The
+      plan names both files and their hunks, the patch carries the change, and
+      `file_edits` is empty -- so the two lists together say "this is what I
+      would do" without anything having been done.
+    git: {init: false}
+    runs:
+      - mode: plan
+        exit_code: 0
+        git_dirty: false
+        is_repository: false
+        counts:
+          files_selected: 1
+          files_parsed: 1
+          findings: 5
+          auto: 5
+          needs_review: 0
+          unsupported: 0
+          not_a_usage: 0
+          warnings: 0
+        plan_files:
+          - path: app.py
+            hunks: 1
+            rules: [configure-to-client, generative-model-calls, rename-import]
+          - path: requirements.txt
+            hunks: 1
+            rules: [manifest-dependency]
+        plan_edits:
+          - {path: app.py, line: 8, status: auto, rule: rename-import}
+          - {path: app.py, line: 10, status: auto, rule: configure-to-client}
+          - {path: app.py, line: 12, status: auto, rule: generative-model-calls}
+          - {path: app.py, line: 16, status: auto, rule: generative-model-calls}
+          - {path: requirements.txt, line: 1, status: auto, rule: manifest-dependency}
+        file_edits: []
+        idempotent: null
+        refused: []
+        withheld: []
+        snapshots: {before: 0, after: 0}
+        verify: {status: not_run, reason: dry_run, commands: 0, baseline: null}
+        verify_files: []
+        patch_hunks: 2
+        patch_paths: [app.py, requirements.txt]
+        report_sections: [Changes, Edits, Findings, Dependency manifests, Verification, Limitations]
+
+  # =====================================================================
+  # again -- the same repository twice, and the file with two hunks.
+  # =====================================================================
+  - case: again
+    what_it_is: >-
+      A committed tree, applied and then applied again. The first run writes
+      both files, records a passing verification with a baseline beside it and
+      is not idempotent; the second finds nothing at all, writes nothing and
+      has nothing to verify. `app.py` is the file whose two changes are too far
+      apart to share a hunk.
+    git: {init: true}
+    runs:
+      - mode: apply
+        exit_code: 0
+        git_dirty: false
+        is_repository: true
+        verification: pass_with_baseline
+        counts:
+          files_selected: 1
+          files_parsed: 1
+          findings: 5
+          auto: 5
+          needs_review: 0
+          unsupported: 0
+          not_a_usage: 0
+          warnings: 1
+        plan_files:
+          - path: app.py
+            hunks: 2
+            rules: [configure-to-client, generative-model-calls, rename-import]
+          - path: requirements.txt
+            hunks: 1
+            rules: [manifest-dependency]
+        plan_edits:
+          - {path: app.py, line: 12, status: auto, rule: rename-import}
+          - {path: app.py, line: 14, status: auto, rule: configure-to-client}
+          - {path: app.py, line: 16, status: auto, rule: generative-model-calls}
+          - {path: app.py, line: 28, status: auto, rule: generative-model-calls}
+          - {path: requirements.txt, line: 1, status: auto, rule: manifest-dependency}
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        withheld: []
+        snapshots: {before: 2, after: 2}
+        verify:
+          status: pass
+          reason: null
+          commands: 1
+          baseline: pass
+        verify_files: [verify/after/1.log, verify/baseline/1.log, verify/verify.json]
+        patch_hunks: 3
+        patch_paths: [app.py, requirements.txt]
+        report_sections: [Changes, Edits, Findings, Dependency manifests, Verification, Limitations]
+
+      # `--allow-dirty`, because the first run left the tree dirty and the
+      # dirty-tree gate is asked before the plan is: without the flag this run
+      # would be refused over the tree, which is `dirty/`'s subject and not
+      # this one. `e2e.yml` reaches the same tree by committing in between;
+      # both are real, and the flag is the one that keeps the case about
+      # idempotence. An input, like `git:` above -- no answer below moves.
+      - mode: apply
+        allow_dirty: true
+        exit_code: 4
+        git_dirty: true
+        is_repository: true
+        counts:
+          files_selected: 1
+          files_parsed: 0
+          findings: 0
+          auto: 0
+          needs_review: 0
+          unsupported: 0
+          not_a_usage: 0
+          warnings: 0
+        plan_files: []
+        plan_edits: []
+        file_edits: []
+        idempotent: true
+        refused: []
+        withheld: []
+        snapshots: {before: 0, after: 0}
+        verify: {status: not_run, reason: no_changes_to_verify, commands: 0, baseline: null}
+        verify_files: []
+        patch_hunks: 0
+        patch_paths: []
+        report_sections: [Changes, Edits, Findings, Dependency manifests, Verification, Limitations]
+
+  # =====================================================================
+  # dirty -- the apply that is refused, and records what it would have done.
+  # =====================================================================
+  - case: dirty
+    what_it_is: >-
+      Committed and then edited in `notes.py`, which nothing planned to touch.
+      The refusal is over the tree, so no file is written and the plan is
+      written anyway. `refused[]` is the row that stops `file_edits: []` and
+      `idempotent: true` from reading as a repository that needed no work.
+    git: {init: true, appended: {notes.py: "MORE = \"still notes\"\n"}}
+    runs:
+      - mode: apply
+        exit_code: 5
+        git_dirty: true
+        is_repository: true
+        counts:
+          files_selected: 2
+          files_parsed: 1
+          findings: 5
+          auto: 5
+          needs_review: 0
+          unsupported: 0
+          not_a_usage: 0
+          warnings: 0
+        plan_files:
+          - path: app.py
+            hunks: 1
+            rules: [configure-to-client, generative-model-calls, rename-import]
+          - path: requirements.txt
+            hunks: 1
+            rules: [manifest-dependency]
+        plan_edits:
+          - {path: app.py, line: 9, status: auto, rule: rename-import}
+          - {path: app.py, line: 11, status: auto, rule: configure-to-client}
+          - {path: app.py, line: 13, status: auto, rule: generative-model-calls}
+          - {path: app.py, line: 17, status: auto, rule: generative-model-calls}
+          - {path: requirements.txt, line: 1, status: auto, rule: manifest-dependency}
+        file_edits: []
+        idempotent: true
+        refused:
+          - {code: tree_dirty, path: null}
+        withheld: []
+        snapshots: {before: 0, after: 0}
+        verify: {status: not_run, reason: no_changes_to_verify, commands: 0, baseline: null}
+        verify_files: []
+        patch_hunks: 2
+        patch_paths: [app.py, requirements.txt]
+        report_sections: [Changes, Edits, Not written, Findings, Dependency manifests, Verification, Limitations]
+
+  # =====================================================================
+  # atomic -- one file migrates, one produces findings and refused edits.
+  # =====================================================================
+  - case: atomic
+    what_it_is: >-
+      `refused.py` carries a `generation_config` key the legacy class never
+      had, so a rule refuses the group and F-1 withholds the import with it.
+      Four of its rows reach the report as refused edits -- two under the
+      rule's own code and two under `file_not_fully_migrated` naming it -- and
+      the manifest keeps the legacy pin beside the new one, which is one
+      declaration graded twice.
+    git: {init: false}
+    runs:
+      - mode: plan
+        exit_code: 0
+        git_dirty: false
+        is_repository: false
+        counts:
+          files_selected: 2
+          files_parsed: 2
+          findings: 10
+          auto: 5
+          needs_review: 5
+          unsupported: 0
+          not_a_usage: 0
+          warnings: 0
+        plan_files:
+          - path: good.py
+            hunks: 1
+            rules: [configure-to-client, generative-model-calls, rename-import]
+          - path: requirements.txt
+            hunks: 1
+            rules: [manifest-dependency]
+        plan_edits:
+          - {path: good.py, line: 7, status: auto, rule: rename-import}
+          - {path: good.py, line: 9, status: auto, rule: configure-to-client}
+          - {path: good.py, line: 11, status: auto, rule: generative-model-calls}
+          - {path: good.py, line: 15, status: auto, rule: generative-model-calls}
+          - {path: refused.py, line: 9, status: needs_review, reason: file_not_fully_migrated,
+             caused_by: [generation_config_not_static]}
+          - {path: refused.py, line: 11, status: needs_review, reason: file_not_fully_migrated,
+             caused_by: [generation_config_not_static]}
+          - {path: refused.py, line: 13, status: needs_review, reason: generation_config_not_static}
+          - {path: refused.py, line: 17, status: needs_review, reason: generation_config_not_static}
+          - {path: requirements.txt, line: 1, status: auto, rule: manifest-dependency}
+          - {path: requirements.txt, line: 1, status: needs_review, reason: repo_not_fully_migrated}
+        file_edits: []
+        idempotent: null
+        refused: []
+        withheld:
+          - {path: refused.py, line: 9, bail: file_not_fully_migrated}
+          - {path: refused.py, line: 11, bail: file_not_fully_migrated}
+          - {path: refused.py, line: 13, bail: generation_config_not_static}
+          - {path: refused.py, line: 17, bail: generation_config_not_static}
+          - {path: requirements.txt, line: 1, bail: repo_not_fully_migrated}
+        snapshots: {before: 0, after: 0}
+        verify: {status: not_run, reason: dry_run, commands: 0, baseline: null}
+        verify_files: []
+        patch_hunks: 2
+        patch_paths: [good.py, requirements.txt]
+        report_sections: [Changes, Edits, Findings, Withheld, Dependency manifests, Verification,
+                          Limitations]
+
+  # =====================================================================
+  # nothing -- a plan with rows in it and not one file to write.
+  # =====================================================================
+  - case: nothing
+    what_it_is: >-
+      No client is configured anywhere, so every usage is withheld, F-2 leaves
+      the manifest alone and the run would write nothing. `patch.diff` is
+      written and is empty, which is the honest length of a diff of no
+      changes; `plan.json` still carries the one edit a manifest rule refused,
+      and `app.py` carries three findings and no edit at all.
+    git: {init: false}
+    runs:
+      - mode: plan
+        exit_code: 0
+        git_dirty: false
+        is_repository: false
+        counts:
+          files_selected: 1
+          files_parsed: 1
+          findings: 4
+          auto: 0
+          needs_review: 4
+          unsupported: 0
+          not_a_usage: 0
+          warnings: 0
+        plan_files: []
+        plan_edits:
+          - {path: requirements.txt, line: 1, status: needs_review, reason: repo_not_fully_migrated}
+        file_edits: []
+        idempotent: null
+        refused: []
+        withheld:
+          - {path: app.py, line: 9, bail: file_not_fully_migrated}
+          - {path: app.py, line: 11, bail: client_source_unresolved}
+          - {path: app.py, line: 15, bail: client_source_unresolved}
+          - {path: requirements.txt, line: 1, bail: repo_not_fully_migrated}
+        snapshots: {before: 0, after: 0}
+        verify: {status: not_run, reason: dry_run, commands: 0, baseline: null}
+        verify_files: []
+        patch_hunks: 0
+        patch_paths: []
+        report_sections: [Changes, Edits, Findings, Withheld, Dependency manifests, Verification,
+                          Limitations]

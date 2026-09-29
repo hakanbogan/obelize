@@ -1,0 +1,11 @@
+# Single maintainer: the catch-all covers everything; the explicit lines mark must-review areas.
+
+* @hakanbogan
+
+# Pack rules are applied to other people's code (CONTRIBUTING.md).
+/src/obelize/packs/ @hakanbogan
+
+/docs/adr/ @hakanbogan
+
+# Workflows hold release credentials and repository permissions.
+/.github/workflows/ @hakanbogan

@@ -1,0 +1,2716 @@
+{
+  "arms": [
+    "general_agent",
+    "obelize"
+  ],
+  "cases": {
+    "000wan__ara-ai-bot": {
+      "changes": [
+        {
+          "added": 1,
+          "path": "Pipfile",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 21,
+          "path": "ai.py",
+          "removed": 9,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "Pipfile",
+            7,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "ai.py",
+            8,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "ai.py",
+            9,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "ai.py",
+            30,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "ai.py",
+            38,
+            "call",
+            "google.generativeai.types.GenerationConfig"
+          ],
+          [
+            "ai.py",
+            44,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "ai.py",
+            46,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "ai.py",
+            47,
+            "call",
+            "google.generativeai.types.GenerationConfig"
+          ],
+          [
+            "ai.py",
+            53,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "Pipfile",
+            7,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "ai.py",
+            8,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "ai.py",
+            9,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "ai.py",
+            30,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "ai.py",
+            38,
+            "call",
+            "google.generativeai.types.GenerationConfig"
+          ],
+          [
+            "ai.py",
+            44,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "ai.py",
+            46,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "ai.py",
+            47,
+            "call",
+            "google.generativeai.types.GenerationConfig"
+          ],
+          [
+            "ai.py",
+            53,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ]
+      },
+      "finished_at": 1790062187,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 30,
+      "slug": "8b6c4701",
+      "started_at": 1790062157,
+      "tests_after": null,
+      "written": [
+        "ai.py"
+      ]
+    },
+    "Arnav3241__Jarvis-v13": {
+      "changes": [
+        {
+          "added": 4,
+          "path": "Chat/PDF_Chat.py",
+          "removed": 4,
+          "status": "M"
+        },
+        {
+          "added": 25,
+          "path": "Chat/response.py",
+          "removed": 25,
+          "status": "M"
+        },
+        {
+          "added": 4,
+          "path": "Functions/PDFchat copy.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 4,
+          "path": "Functions/PDFchat.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 4,
+          "path": "Skills.py",
+          "removed": 6,
+          "status": "M"
+        },
+        {
+          "added": 4,
+          "path": "Tests/a.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 23,
+          "path": "Tests/test.py",
+          "removed": 19,
+          "status": "M"
+        },
+        {
+          "added": 2,
+          "path": "main.py",
+          "removed": 3,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 1,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "Chat/PDF_Chat.py",
+            4,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Chat/PDF_Chat.py",
+            42,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Chat/PDF_Chat.py",
+            43,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Chat/PDF_Chat.py",
+            51,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "Chat/response.py",
+            1,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Chat/response.py",
+            618,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Chat/response.py",
+            620,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Chat/response.py",
+            621,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "Chat/response.py",
+            622,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "Functions/PDFchat copy.py",
+            6,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Functions/PDFchat copy.py",
+            15,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Functions/PDFchat copy.py",
+            58,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "Functions/PDFchat.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Functions/PDFchat.py",
+            11,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Functions/PDFchat.py",
+            52,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "Skills.py",
+            8,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Skills.py",
+            46,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Skills.py",
+            248,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Skills.py",
+            249,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "Skills.py",
+            320,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Skills.py",
+            321,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "Tests/a.py",
+            6,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/a.py",
+            12,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/a.py",
+            45,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "Tests/r1.py",
+            3,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/r1.py",
+            423,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/r1.py",
+            425,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Tests/r1.py",
+            426,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "Tests/r1.py",
+            427,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "Tests/test.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/test.py",
+            10,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/test.py",
+            42,
+            "call",
+            "google.generativeai.GenerativeModel.from_cached_content"
+          ],
+          [
+            "requirements.txt",
+            59,
+            "manifest",
+            "google-genai"
+          ],
+          [
+            "requirements.txt",
+            59,
+            "manifest",
+            "google-generativeai"
+          ]
+        ],
+        "general_agent": [
+          [
+            "Tests/r1.py",
+            3,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/r1.py",
+            423,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/r1.py",
+            425,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Tests/r1.py",
+            426,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "Tests/r1.py",
+            427,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ],
+        "obelize": [
+          [
+            "Chat/response.py",
+            1,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Chat/response.py",
+            618,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Chat/response.py",
+            620,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Chat/response.py",
+            621,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "Chat/response.py",
+            622,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "Functions/PDFchat copy.py",
+            6,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Functions/PDFchat copy.py",
+            15,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Functions/PDFchat copy.py",
+            58,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "Functions/PDFchat.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Functions/PDFchat.py",
+            11,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Functions/PDFchat.py",
+            52,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "Tests/a.py",
+            6,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/a.py",
+            12,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/a.py",
+            45,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "Tests/r1.py",
+            3,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/r1.py",
+            423,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/r1.py",
+            425,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Tests/r1.py",
+            426,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "Tests/r1.py",
+            427,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "Tests/test.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/test.py",
+            10,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/test.py",
+            42,
+            "call",
+            "google.generativeai.GenerativeModel.from_cached_content"
+          ],
+          [
+            "requirements.txt",
+            59,
+            "manifest",
+            "google-generativeai"
+          ]
+        ]
+      },
+      "finished_at": 1790062347,
+      "missing_key_files": [],
+      "obelize_changes": [
+        {
+          "added": 3,
+          "path": "Chat/PDF_Chat.py",
+          "removed": 4,
+          "status": "M"
+        },
+        {
+          "added": 12,
+          "path": "Skills.py",
+          "removed": 9,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 0,
+          "status": "M"
+        }
+      ],
+      "repeat": {
+        "changes": [
+          {
+            "added": 4,
+            "path": "Chat/PDF_Chat.py",
+            "removed": 4,
+            "status": "M"
+          },
+          {
+            "added": 4,
+            "path": "Chat/response.py",
+            "removed": 5,
+            "status": "M"
+          },
+          {
+            "added": 0,
+            "path": "Functions/PDFchat copy.py",
+            "removed": 3,
+            "status": "M"
+          },
+          {
+            "added": 1,
+            "path": "Functions/PDFchat.py",
+            "removed": 4,
+            "status": "M"
+          },
+          {
+            "added": 8,
+            "path": "Skills.py",
+            "removed": 6,
+            "status": "M"
+          },
+          {
+            "added": 1,
+            "path": "Tests/a.py",
+            "removed": 4,
+            "status": "M"
+          },
+          {
+            "added": 23,
+            "path": "Tests/test.py",
+            "removed": 19,
+            "status": "M"
+          },
+          {
+            "added": 4,
+            "path": "main.py",
+            "removed": 3,
+            "status": "M"
+          },
+          {
+            "added": 1,
+            "path": "requirements.txt",
+            "removed": 1,
+            "status": "M"
+          }
+        ],
+        "findings": [
+          [
+            "Tests/r1.py",
+            3,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Tests/r1.py",
+            423,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "Tests/r1.py",
+            425,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "Tests/r1.py",
+            426,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "Tests/r1.py",
+            427,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ],
+        "finished_at": 1790062821,
+        "runtime_seconds": 176,
+        "started_at": 1790062645
+      },
+      "runtime_seconds": 113,
+      "slug": "6337c725",
+      "started_at": 1790062234,
+      "tests_after": null,
+      "written": [
+        "Chat/PDF_Chat.py",
+        "Chat/response.py",
+        "Functions/PDFchat copy.py",
+        "Functions/PDFchat.py",
+        "Skills.py",
+        "Tests/a.py",
+        "Tests/test.py",
+        "main.py"
+      ]
+    },
+    "LotusSerene__Gemini-Novel-Maker": {
+      "changes": [
+        {
+          "added": 1,
+          "path": "app.py",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 41,
+          "path": "chapter_generator.py",
+          "removed": 20,
+          "status": "M"
+        },
+        {
+          "added": 3,
+          "path": "main.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 10,
+          "path": "utils.py",
+          "removed": 7,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "app.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "chapter_generator.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "chapter_generator.py",
+            17,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "chapter_generator.py",
+            18,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "chapter_generator.py",
+            19,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "chapter_generator.py",
+            36,
+            "call",
+            "google.generativeai.GenerationConfig"
+          ],
+          [
+            "chapter_generator.py",
+            41,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            134,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            160,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            180,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            201,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            291,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            304,
+            "call",
+            "google.generativeai.embed_content"
+          ],
+          [
+            "chapter_generator.py",
+            341,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "main.py",
+            4,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "main.py",
+            18,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "requirements.txt",
+            2,
+            "manifest",
+            "google-genai"
+          ],
+          [
+            "requirements.txt",
+            2,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "utils.py",
+            40,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "utils.py",
+            41,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "utils.py",
+            42,
+            "call",
+            "google.generativeai.embed_content"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "chapter_generator.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "chapter_generator.py",
+            17,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "chapter_generator.py",
+            18,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "chapter_generator.py",
+            19,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "chapter_generator.py",
+            36,
+            "call",
+            "google.generativeai.GenerationConfig"
+          ],
+          [
+            "chapter_generator.py",
+            41,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            134,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            160,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            180,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            201,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            291,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "chapter_generator.py",
+            304,
+            "call",
+            "google.generativeai.embed_content"
+          ],
+          [
+            "chapter_generator.py",
+            341,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "requirements.txt",
+            2,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "utils.py",
+            40,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "utils.py",
+            41,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "utils.py",
+            42,
+            "call",
+            "google.generativeai.embed_content"
+          ]
+        ]
+      },
+      "finished_at": 1790061987,
+      "missing_key_files": [],
+      "obelize_changes": [
+        {
+          "added": 0,
+          "path": "app.py",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 2,
+          "path": "main.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 0,
+          "status": "M"
+        }
+      ],
+      "repeat": {
+        "changes": [
+          {
+            "added": 0,
+            "path": "app.py",
+            "removed": 1,
+            "status": "M"
+          },
+          {
+            "added": 23,
+            "path": "chapter_generator.py",
+            "removed": 20,
+            "status": "M"
+          },
+          {
+            "added": 0,
+            "path": "main.py",
+            "removed": 2,
+            "status": "M"
+          },
+          {
+            "added": 1,
+            "path": "requirements.txt",
+            "removed": 1,
+            "status": "M"
+          },
+          {
+            "added": 10,
+            "path": "utils.py",
+            "removed": 7,
+            "status": "M"
+          }
+        ],
+        "findings": [],
+        "finished_at": 1790062584,
+        "runtime_seconds": 57,
+        "started_at": 1790062527
+      },
+      "runtime_seconds": 64,
+      "slug": "11007f02",
+      "started_at": 1790061923,
+      "tests_after": null,
+      "written": [
+        "app.py",
+        "chapter_generator.py",
+        "main.py",
+        "utils.py"
+      ]
+    },
+    "LucasHJin__vit": {
+      "changes": [
+        {
+          "added": 1,
+          "path": "CLAUDE.md",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "docs/AI_MERGE_DETAILS.md",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "setup.py",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 40,
+          "path": "vit/ai_merge.py",
+          "removed": 13,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "setup.py",
+            10,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "vit/ai_merge.py",
+            302,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "vit/ai_merge.py",
+            314,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "vit/ai_merge.py",
+            316,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "vit/ai_merge.py",
+            352,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            395,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            426,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "vit/ai_merge.py",
+            436,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "vit/ai_merge.py",
+            443,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "vit/ai_merge.py",
+            447,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            718,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            821,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            874,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            919,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "setup.py",
+            10,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "vit/ai_merge.py",
+            302,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "vit/ai_merge.py",
+            314,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "vit/ai_merge.py",
+            316,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "vit/ai_merge.py",
+            352,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            395,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            426,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "vit/ai_merge.py",
+            436,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "vit/ai_merge.py",
+            443,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "vit/ai_merge.py",
+            447,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            718,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            821,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            874,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "vit/ai_merge.py",
+            919,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ]
+      },
+      "finished_at": 1790062291,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 84,
+      "slug": "d23adaa9",
+      "started_at": 1790062207,
+      "tests_after": {
+        "failed": 0,
+        "passed": 100,
+        "sdk_to": "2.24.0",
+        "skipped": 0,
+        "status": "pass"
+      },
+      "written": [
+        "setup.py",
+        "vit/ai_merge.py"
+      ]
+    },
+    "Momen2410__Question-Answering-ChatBot-Using-Gemini1.5": {
+      "changes": [
+        {
+          "added": 11,
+          "path": "app.py",
+          "removed": 12,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 1,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "app.py",
+            1,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "app.py",
+            5,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "app.py",
+            16,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "app.py",
+            19,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "app.py",
+            22,
+            "method_call",
+            "google.generativeai.ChatSession.send_message"
+          ],
+          [
+            "requirements.txt",
+            6,
+            "manifest",
+            "google-generativeai"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "app.py",
+            1,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "app.py",
+            5,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "app.py",
+            16,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "app.py",
+            19,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "app.py",
+            22,
+            "method_call",
+            "google.generativeai.ChatSession.send_message"
+          ],
+          [
+            "requirements.txt",
+            6,
+            "manifest",
+            "google-generativeai"
+          ]
+        ]
+      },
+      "finished_at": 1790062182,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 33,
+      "slug": "b465aeab",
+      "started_at": 1790062149,
+      "tests_after": null,
+      "written": [
+        "app.py"
+      ]
+    },
+    "Omadithya07__Phidata-Multimodal-Video-Summarizer-Using-AI-Agents": {
+      "changes": [
+        {
+          "added": 1,
+          "path": "README.md",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 15,
+          "path": "app.py",
+          "removed": 6,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 1,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "app.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "app.py",
+            6,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "app.py",
+            20,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "app.py",
+            70,
+            "call",
+            "google.generativeai.upload_file"
+          ],
+          [
+            "app.py",
+            73,
+            "call",
+            "google.generativeai.get_file"
+          ],
+          [
+            "requirements.txt",
+            3,
+            "manifest",
+            "google-generativeai"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "app.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "app.py",
+            6,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "app.py",
+            20,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "app.py",
+            70,
+            "call",
+            "google.generativeai.upload_file"
+          ],
+          [
+            "app.py",
+            73,
+            "call",
+            "google.generativeai.get_file"
+          ],
+          [
+            "requirements.txt",
+            3,
+            "manifest",
+            "google-generativeai"
+          ]
+        ]
+      },
+      "finished_at": 1790062001,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 31,
+      "slug": "5b43b4dc",
+      "started_at": 1790061970,
+      "tests_after": null,
+      "written": [
+        "app.py"
+      ]
+    },
+    "RuntimeAI__silly-merchants-for-safe-hackathon": {
+      "changes": [
+        {
+          "added": 1,
+          "path": "pyproject.toml",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 19,
+          "path": "src/utils/llm_providers/gemini.py",
+          "removed": 12,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "pyproject.toml",
+            24,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            3,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            24,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            27,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            28,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            62,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "pyproject.toml",
+            24,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            3,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            24,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            27,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            28,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "src/utils/llm_providers/gemini.py",
+            62,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ]
+      },
+      "finished_at": 1790062276,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 51,
+      "slug": "c55a1e88",
+      "started_at": 1790062225,
+      "tests_after": null,
+      "written": [
+        "src/utils/llm_providers/gemini.py"
+      ]
+    },
+    "Satheesh2908__AI-Assistant-for-Satheesh": {
+      "changes": [
+        {
+          "added": 1,
+          "path": "App.py",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "README.md",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "Requirements.txt",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 2,
+          "path": "Test.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 6,
+          "path": "src/Helper.py",
+          "removed": 6,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "App.py",
+            3,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Test.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Test.py",
+            7,
+            "call",
+            "google.generativeai.ChatCompletion"
+          ],
+          [
+            "src/Helper.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "src/Helper.py",
+            5,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "src/Helper.py",
+            40,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "src/Helper.py",
+            42,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "src/Helper.py",
+            44,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "Test.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "Test.py",
+            7,
+            "call",
+            "google.generativeai.ChatCompletion"
+          ],
+          [
+            "src/Helper.py",
+            5,
+            "text_mention",
+            "google.generativeai"
+          ]
+        ]
+      },
+      "finished_at": 1790062144,
+      "missing_key_files": [],
+      "obelize_changes": [
+        {
+          "added": 0,
+          "path": "App.py",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 3,
+          "path": "src/Helper.py",
+          "removed": 5,
+          "status": "M"
+        }
+      ],
+      "repeat": null,
+      "runtime_seconds": 28,
+      "slug": "693a3e25",
+      "started_at": 1790062116,
+      "tests_after": null,
+      "written": [
+        "App.py",
+        "Test.py",
+        "src/Helper.py"
+      ]
+    },
+    "Sharukesh3__LLM-for-hydrogen-storage": {
+      "changes": [
+        {
+          "added": 37,
+          "path": "dataset_prep/gemini.py",
+          "removed": 33,
+          "status": "M"
+        },
+        {
+          "added": 37,
+          "path": "dataset_prep/test.py",
+          "removed": 33,
+          "status": "M"
+        },
+        {
+          "added": null,
+          "path": "requirments.txt",
+          "removed": null,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "dataset_prep/gemini.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            9,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            38,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            42,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            67,
+            "method_call",
+            "google.generativeai.ChatSession.send_message"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            70,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            71,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ],
+          [
+            "dataset_prep/test.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "dataset_prep/test.py",
+            7,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "dataset_prep/test.py",
+            36,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "dataset_prep/test.py",
+            40,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "dataset_prep/test.py",
+            65,
+            "method_call",
+            "google.generativeai.ChatSession.send_message"
+          ],
+          [
+            "dataset_prep/test.py",
+            68,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ],
+          [
+            "dataset_prep/test.py",
+            69,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "dataset_prep/gemini.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            9,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            38,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            42,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            67,
+            "method_call",
+            "google.generativeai.ChatSession.send_message"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            70,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ],
+          [
+            "dataset_prep/gemini.py",
+            71,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ],
+          [
+            "dataset_prep/test.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "dataset_prep/test.py",
+            7,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "dataset_prep/test.py",
+            36,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "dataset_prep/test.py",
+            40,
+            "method_call",
+            "google.generativeai.GenerativeModel.start_chat"
+          ],
+          [
+            "dataset_prep/test.py",
+            65,
+            "method_call",
+            "google.generativeai.ChatSession.send_message"
+          ],
+          [
+            "dataset_prep/test.py",
+            68,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ],
+          [
+            "dataset_prep/test.py",
+            69,
+            "attribute",
+            "google.generativeai.ChatSession.last"
+          ]
+        ]
+      },
+      "finished_at": 1790062007,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 71,
+      "slug": "014132b4",
+      "started_at": 1790061936,
+      "tests_after": null,
+      "written": [
+        "dataset_prep/gemini.py",
+        "dataset_prep/test.py"
+      ]
+    },
+    "Zierax__HackerHelper": {
+      "changes": [
+        {
+          "added": 6,
+          "path": "api/core/ai_assistant.py",
+          "removed": 5,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "api/requirements.txt",
+          "removed": 1,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "api/core/ai_assistant.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "api/core/ai_assistant.py",
+            139,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "api/core/ai_assistant.py",
+            140,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "api/requirements.txt",
+            67,
+            "manifest",
+            "google-generativeai"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "api/core/ai_assistant.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "api/core/ai_assistant.py",
+            139,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "api/core/ai_assistant.py",
+            140,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "api/requirements.txt",
+            67,
+            "manifest",
+            "google-generativeai"
+          ]
+        ]
+      },
+      "finished_at": 1790062151,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 21,
+      "slug": "ad630192",
+      "started_at": 1790062130,
+      "tests_after": null,
+      "written": [
+        "api/core/ai_assistant.py"
+      ]
+    },
+    "ashishkumar5de__PDF-QL": {
+      "changes": [
+        {
+          "added": 1,
+          "path": "README.md",
+          "removed": 1,
+          "status": "M"
+        },
+        {
+          "added": 4,
+          "path": "app.py",
+          "removed": 4,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 1,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "app.py",
+            5,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "app.py",
+            14,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "requirements.txt",
+            2,
+            "manifest",
+            "google-generativeai"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": []
+      },
+      "finished_at": 1790061905,
+      "missing_key_files": [],
+      "obelize_changes": [
+        {
+          "added": 2,
+          "path": "app.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 1,
+          "path": "requirements.txt",
+          "removed": 1,
+          "status": "M"
+        }
+      ],
+      "repeat": {
+        "changes": [
+          {
+            "added": 1,
+            "path": "README.md",
+            "removed": 1,
+            "status": "M"
+          },
+          {
+            "added": 10,
+            "path": "app.py",
+            "removed": 3,
+            "status": "M"
+          },
+          {
+            "added": 1,
+            "path": "requirements.txt",
+            "removed": 1,
+            "status": "M"
+          }
+        ],
+        "findings": [],
+        "finished_at": 1790062577,
+        "runtime_seconds": 61,
+        "started_at": 1790062516
+      },
+      "runtime_seconds": 72,
+      "slug": "12f8a71b",
+      "started_at": 1790061833,
+      "tests_after": null,
+      "written": [
+        "app.py"
+      ]
+    },
+    "dongxnb__gupiao": {
+      "changes": [
+        {
+          "added": 12,
+          "path": "tests/check_gemini_models.py",
+          "removed": 10,
+          "status": "M"
+        },
+        {
+          "added": 6,
+          "path": "tests/diagnose_gemini_25.py",
+          "removed": 4,
+          "status": "M"
+        },
+        {
+          "added": 11,
+          "path": "tests/test_gemini.py",
+          "removed": 9,
+          "status": "M"
+        },
+        {
+          "added": 9,
+          "path": "tests/test_gemini_25.py",
+          "removed": 9,
+          "status": "M"
+        },
+        {
+          "added": 6,
+          "path": "tests/test_gemini_correct.py",
+          "removed": 4,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "tests/check_gemini_models.py",
+            24,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            32,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            36,
+            "call",
+            "google.generativeai.list_models"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            68,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            72,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            75,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            81,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            47,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            48,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            50,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            51,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/test_gemini.py",
+            34,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini.py",
+            57,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini.py",
+            61,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini.py",
+            64,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/test_gemini.py",
+            70,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            32,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            40,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            44,
+            "call",
+            "google.generativeai.list_models"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            76,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            81,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            86,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            87,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            32,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            37,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            42,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            43,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "tests/check_gemini_models.py",
+            24,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            32,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            36,
+            "call",
+            "google.generativeai.list_models"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            68,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            72,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            75,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/check_gemini_models.py",
+            81,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            47,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            48,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            50,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/diagnose_gemini_25.py",
+            51,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/test_gemini.py",
+            34,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini.py",
+            57,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini.py",
+            61,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini.py",
+            64,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/test_gemini.py",
+            70,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            32,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            40,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            44,
+            "call",
+            "google.generativeai.list_models"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            76,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            81,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            86,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/test_gemini_25.py",
+            87,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            32,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            37,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            42,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "tests/test_gemini_correct.py",
+            43,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
+          ]
+        ]
+      },
+      "finished_at": 1790062413,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 141,
+      "slug": "db0d684c",
+      "started_at": 1790062272,
+      "tests_after": null,
+      "written": [
+        "tests/check_gemini_models.py",
+        "tests/diagnose_gemini_25.py",
+        "tests/test_gemini.py",
+        "tests/test_gemini_25.py",
+        "tests/test_gemini_correct.py"
+      ]
+    },
+    "humanbound__humanbound-firewall": {
+      "changes": [
+        {
+          "added": 9,
+          "path": "CHANGELOG.md",
+          "removed": 0,
+          "status": "M"
+        },
+        {
+          "added": 2,
+          "path": "pyproject.toml",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 21,
+          "path": "src/humanbound_firewall/llm/gemini.py",
+          "removed": 13,
+          "status": "M"
+        },
+        {
+          "added": 2,
+          "path": "tests/test_import_time.py",
+          "removed": 2,
+          "status": "M"
+        },
+        {
+          "added": 13,
+          "path": "tests/test_llm_providers.py",
+          "removed": 14,
+          "status": "M"
+        }
+      ],
+      "compiles": true,
+      "findings": {
+        "base": [
+          [
+            "pyproject.toml",
+            54,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "pyproject.toml",
+            64,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "src/humanbound_firewall/llm/gemini.py",
+            17,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "src/humanbound_firewall/llm/gemini.py",
+            19,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_import_time.py",
+            21,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            6,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            141,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            147,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            157,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            212,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            218,
+            "text_mention",
+            "google.generativeai"
+          ]
+        ],
+        "general_agent": [],
+        "obelize": [
+          [
+            "pyproject.toml",
+            54,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "pyproject.toml",
+            64,
+            "manifest",
+            "google-generativeai"
+          ],
+          [
+            "src/humanbound_firewall/llm/gemini.py",
+            17,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "src/humanbound_firewall/llm/gemini.py",
+            19,
+            "attribute",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_import_time.py",
+            21,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            6,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            141,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            147,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            157,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            212,
+            "text_mention",
+            "google.generativeai"
+          ],
+          [
+            "tests/test_llm_providers.py",
+            218,
+            "text_mention",
+            "google.generativeai"
+          ]
+        ]
+      },
+      "finished_at": 1790062314,
+      "missing_key_files": [],
+      "obelize_changes": [],
+      "repeat": null,
+      "runtime_seconds": 118,
+      "slug": "7d946eaf",
+      "started_at": 1790062196,
+      "tests_after": {
+        "failed": 1,
+        "passed": 13,
+        "sdk_to": "2.24.0",
+        "skipped": 0,
+        "status": "fail"
+      },
+      "written": [
+        "src/humanbound_firewall/llm/gemini.py",
+        "tests/test_import_time.py",
+        "tests/test_llm_providers.py"
+      ]
+    }
+  },
+  "guide": {
+    "bytes_html": 544179,
+    "bytes_text": 62029,
+    "fetched_at": "2026-09-22T07:20:07Z",
+    "sha256_html": "441edd504d9813ee4180b13ad85275816049909d742dfc84d0afa61027435d15",
+    "sha256_text": "223b9cd7aabfef0e66d90ad19c2047f0a18866886b7f8210e259246603d06aa6",
+    "url": "https://ai.google.dev/gemini-api/docs/migrate"
+  },
+  "prepared_at": "2026-09-22T07:20:07Z",
+  "round": 1,
+  "schema_version": 1
+}

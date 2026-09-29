@@ -1,0 +1,289 @@
+drawn_at: '2026-09-21T14:01:56Z'
+corpus: bench/candidates.yaml
+scan: bench/results/cases/scan.json
+examine_cap: 50
+clone_cap: 8
+tests_clone_cap: 12
+test_suites:
+  query: generativeai path:tests language:python
+  hits: 4232
+  examined: 10
+  outcome: drawn
+  keep: 5
+  drawn:
+  - grapeot/devin.cursorrules
+  - Arnav3241/Jarvis-v13
+  - humanbound/humanbound-firewall
+  - navamai/navamai
+  - dongxnb/gupiao
+  skipped:
+  - full_name: oracle/oci-python-sdk
+    reason: unlicensed
+  - full_name: eli64s/readme-ai
+    reason: development_corpus
+  - full_name: wassimj/topologicpy
+    reason: larger_than_cap
+  - full_name: TheDesignFounder/DreamLayer-Eval
+    reason: larger_than_cap
+  - full_name: omroy07/AgriTech
+    reason: unlicensed
+controls:
+- control: already-migrated
+  shape: already on the new SDK
+  query: '"from google import genai" language:python'
+  hits: 168192
+  examined: 3
+  outcome: drawn
+  drawn: ParamveerSinghS/alex-ai-assistant
+  witness: ai.py:1
+  skipped:
+  - full_name: QwenAudio/FunCineForge
+    reason: larger_than_cap
+  - full_name: Anish-Ramesh/Amazon-Product-Recommender
+    reason: unlicensed
+- control: vertex-generative-models
+  shape: vertexai.generative_models
+  query: '"from vertexai.generative_models import" language:python'
+  hits: 9632
+  examined: 1
+  outcome: drawn
+  drawn: GoogleCloudPlatform/Open_Data_QnA
+  witness: agents/BuildSQLAgent.py:3
+  skipped: []
+- control: vertex-preview
+  shape: vertexai.preview.generative_models
+  query: '"vertexai.preview.generative_models" language:python'
+  hits: 5160
+  examined: 4
+  outcome: drawn
+  drawn: pfnet-research/japanese-lm-fin-harness
+  witness: api_models.py:17
+  skipped:
+  - full_name: carlini/yet-another-applied-llm-benchmark
+    reason: not_a_control
+  - full_name: web-arena-x/visualwebarena
+    reason: larger_than_cap
+  - full_name: kohjingyu/search-agents
+    reason: not_a_control
+- control: prose-only
+  shape: named only in prose
+  query: '"google-generativeai" language:markdown'
+  hits: 48384
+  examined: 50
+  outcome: no_eligible_result
+  drawn: null
+  witness: null
+  skipped:
+  - full_name: GenielabsOpenSource/spine-animation-ai
+    reason: unlicensed
+  - full_name: mllm-ts/VisualTimeAnomaly
+    reason: not_a_control
+  - full_name: rod-trent/GarminChatDesktop
+    reason: larger_than_cap
+  - full_name: Papr-ai/memory-opensource
+    reason: not_a_control
+  - full_name: borrrrring/xcstrings
+    reason: not_a_control
+  - full_name: mojtaba217/MeetMinder
+    reason: not_a_control
+  - full_name: uniqueww/daily_stock_analysis_ql
+    reason: not_a_control
+  - full_name: flancian/agora-server
+    reason: not_a_control
+  - full_name: WildVision-AI/WildVision-Arena
+    reason: not_a_control
+  - full_name: infovpcs/odoo18_mcp_project
+    reason: not_a_control
+  - full_name: Supervertaler/Supervertaler-Workbench
+    reason: larger_than_cap
+  - full_name: atharva-shinde7/JARVIS-AI
+    reason: clone_budget_spent
+  - full_name: Guettaf-hossam/SuperDiagnosticTool
+    reason: unlicensed
+  - full_name: funtusov/mcp-server-architect
+    reason: clone_budget_spent
+  - full_name: gopiashokan/Apple-Inspired-AI-Calculator-using-Computer-Vision-and-Generative-AI
+    reason: clone_budget_spent
+  - full_name: SurajSanap/College.ai-main
+    reason: clone_budget_spent
+  - full_name: Froot-NetSys/MeshAgent
+    reason: unlicensed
+  - full_name: Sanjeev-Kumar78/Travel-Itinerary-Generator
+    reason: clone_budget_spent
+  - full_name: sunny-kobe/ai_sentiney
+    reason: clone_budget_spent
+  - full_name: yasir13001/QuizAI
+    reason: clone_budget_spent
+  - full_name: Brajesh31/Mini-Gemini
+    reason: unlicensed
+  - full_name: for-just-we/CodeAnalyzer
+    reason: unlicensed
+  - full_name: mr-beaver/tokencost
+    reason: unlicensed
+  - full_name: 1997MarsRover/GeminiPRO-Tiny
+    reason: unlicensed
+  - full_name: adu0502/cosmo-pdf-chat
+    reason: clone_budget_spent
+  - full_name: snsupratim/MultiModalRag
+    reason: unlicensed
+  - full_name: xuchenxu168/ComfyUI_LLM_Banana
+    reason: clone_budget_spent
+  - full_name: collinear-ai/tau-trait
+    reason: clone_budget_spent
+  - full_name: Ramsbaby/openclaw-self-healing
+    reason: clone_budget_spent
+  - full_name: GitCoder052023/Build-with-Gemini
+    reason: unlicensed
+  - full_name: admincodes7/Gemini-ChatBot
+    reason: unlicensed
+  - full_name: qpulsar/MantiPDF
+    reason: clone_budget_spent
+  - full_name: awekakwe/json-ghost-mannequin-pipeline
+    reason: clone_budget_spent
+  - full_name: AndyLiu0330/Automatic-Receipt-Statistics-Analyzer
+    reason: clone_budget_spent
+  - full_name: TusharAMD/SuperSpeechSaga
+    reason: unlicensed
+  - full_name: KalWardin-Dronzer/Political_Alpha_Tracker
+    reason: clone_budget_spent
+  - full_name: scottcjx/we-whacked
+    reason: clone_budget_spent
+  - full_name: devansh0703/chip_design_agent
+    reason: unlicensed
+  - full_name: Sohail-I-H/Mind_Lab
+    reason: clone_budget_spent
+  - full_name: dmkhlnk/IAP_RAS_Generators_OCT_public
+    reason: clone_budget_spent
+  - full_name: aniket-0-cyber/docgen-cli
+    reason: clone_budget_spent
+  - full_name: SandeshSatishhNaik/Ai_Voting_system
+    reason: unlicensed
+  - full_name: davido-noowin/Fragrance-Max
+    reason: unlicensed
+  - full_name: sanjayravichander/Applicant-Tracking-System-using-GenAI
+    reason: clone_budget_spent
+  - full_name: Satheesh2908/AI-Assistant-for-Satheesh
+    reason: already_a_candidate
+  - full_name: TalenMud/ai-cooking-assistant
+    reason: unlicensed
+  - full_name: HebaF/CYBERFUN1001
+    reason: clone_budget_spent
+  - full_name: Nitya-Mehta/AlertAid
+    reason: clone_budget_spent
+  - full_name: Mainakgit0/ai_powered_food_detection_and_calorie_estimation
+    reason: clone_budget_spent
+  - full_name: amuhak/UGAclassAvailability
+    reason: clone_budget_spent
+drawn:
+- full_name: grapeot/devin.cursorrules
+  owner: grapeot
+  url: https://github.com/grapeot/devin.cursorrules
+  sha: 284b743cca749a290bfe726e2e40466d207d7c9b
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-05-27T00:04:15Z'
+  stars: 5966
+  size_kb: 4823
+  source: tests
+  tests:
+    test_files: tests/__init__.py
+    ci_workflow: .github/workflows/tests.yml
+    manifest: requirements.txt
+- full_name: Arnav3241/Jarvis-v13
+  owner: Arnav3241
+  url: https://github.com/Arnav3241/Jarvis-v13
+  sha: 1ffa819c739832e8d3c39a01786cd02786c5dbf9
+  license: AGPL-3.0
+  fork: false
+  archived: false
+  pushed_at: '2024-09-07T16:16:37Z'
+  stars: 42
+  size_kb: 23340
+  source: tests
+  tests:
+    test_files: Tests/test_re.py
+    manifest: requirements.txt
+- full_name: humanbound/humanbound-firewall
+  owner: humanbound
+  url: https://github.com/humanbound/humanbound-firewall
+  sha: 7b5a331bf45c4a09f225b1deb4a55f5e3557111b
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2026-09-16T04:13:37Z'
+  stars: 53
+  size_kb: 208
+  source: tests
+  tests:
+    test_files: tests/__init__.py
+    ci_workflow: .github/workflows/ci.yml
+    manifest: pyproject.toml
+- full_name: navamai/navamai
+  owner: navamai
+  url: https://github.com/navamai/navamai
+  sha: 8b43206f8fd657d3e725fb4198c354217007b003
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2024-10-15T02:28:49Z'
+  stars: 26
+  size_kb: 34432
+  source: tests
+  tests:
+    test_files: tests/test_auditor.py
+    manifest: pyproject.toml
+- full_name: dongxnb/gupiao
+  owner: dongxnb
+  url: https://github.com/dongxnb/gupiao
+  sha: fae9f9ad88310778d333b5eb85aa58cc8ea7ed85
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2025-07-13T15:14:27Z'
+  stars: 45
+  size_kb: 43166
+  source: tests
+  tests:
+    test_files: scripts/test_docker_pdf.py
+    manifest: pyproject.toml
+- full_name: ParamveerSinghS/alex-ai-assistant
+  owner: ParamveerSinghS
+  url: https://github.com/ParamveerSinghS/alex-ai-assistant
+  sha: 675ceff4b3f64df5801d4a17f3f1075a09b7ae67
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2026-08-01T17:43:32Z'
+  stars: 2
+  size_kb: 276
+  source: control:already-migrated
+  tests:
+    manifest: requirements.txt
+- full_name: GoogleCloudPlatform/Open_Data_QnA
+  owner: GoogleCloudPlatform
+  url: https://github.com/GoogleCloudPlatform/Open_Data_QnA
+  sha: 19960bb38ba2624525ef732a2c3a354efe8cd892
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2026-06-23T07:11:21Z'
+  stars: 233
+  size_kb: 84332
+  source: control:vertex-generative-models
+  tests:
+    manifest: pyproject.toml
+- full_name: pfnet-research/japanese-lm-fin-harness
+  owner: pfnet-research
+  url: https://github.com/pfnet-research/japanese-lm-fin-harness
+  sha: 55d967750fec1f9ab1ee15554de96390a67531d4
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2026-06-17T07:11:07Z'
+  stars: 80
+  size_kb: 3284
+  source: control:vertex-preview
+  tests:
+    ci_workflow: .github/workflows/api-runner-test.yaml
+    manifest: pyproject.toml

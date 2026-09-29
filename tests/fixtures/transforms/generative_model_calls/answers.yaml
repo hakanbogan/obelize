@@ -1,0 +1,1324 @@
+# The answer key for `generative_model_calls`, written by hand before the rule.
+#
+# This corpus runs **every** implemented rule, in the order the pack declares
+# them, because this rule depends on both of the others: it emits calls against
+# the client `configure_to_client` placed, and it reaches the configuration
+# class through the name `rename_import` bound. A corpus that ran it alone
+# would be grading it against two names no file contains.
+#
+# `complete` is the claim that `obelize fix --apply` writes `<name>.after.py`:
+# every eligible finding in the file is claimed by a rule that exists, every
+# edit is `auto`, and there is at least one. That last clause is not pedantry --
+# `escaping_model` and `chat_chained` have nothing eligible at all, so a run
+# writes nothing and the file each leaves behind is the file it found. When
+# `complete` is false the key is still what the rules produce; one of them may
+# have succeeded while this one refused, and ADR-010 F-1 leaves the file
+# untouched in a real run. Those files say so in their own docstrings, so the
+# caveat travels with the bytes.
+#
+# Every one of the fifteen bails this rule raises is graded here, and all but
+# one of them is a code no `ground_truth.yaml` could grade. `ScanSpec` carries
+# no `generation_config_keys`, no `default_model_name`, no safety table, no
+# history shape, no rewrite map and no response table by construction, so
+# `obelize scan` grades those files `eligible` with no bail and only a rewrite
+# can see the defect. Seven of the cases here are the ones
+# `tests/fixtures/scan/COVERAGE.md` gaps 2, 3, 4, 6, 10, 11 and 12 name.
+case: generative_model_calls
+rules:
+  - rename-import
+  - configure-to-client
+  - generative-model-calls
+pack: gemini/google-generativeai-to-google-genai
+
+cases:
+  # --- complete: the file a run would write ---------------------------------
+  - file: model_constant
+    what_it_is: >-
+      The whole of the easy migration reduced to what this rule owns: a module
+      constant, an inline configuration, one call that generates and one that
+      counts.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 25, rule: generative-model-calls, status: auto, warnings: [count_tokens_config_dropped]}
+    notes: >-
+      Line 14 is the constructor and line 16 the configuration written inside
+      it; both are claimed, and the second is what makes `from google.genai
+      import types` appear. The token count carries the warning and the
+      generation does not, because the new count takes no configuration at all
+      and the generation takes the same one.
+
+  - file: dict_config
+    what_it_is: >-
+      The configuration as a mapping literal, which is the form the legacy SDK
+      did not validate.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+    notes: >-
+      Every key is checked against the legal fifteen before it becomes a field
+      of a class that would accept it. The client edit carries no warning: the
+      key is a non-empty string literal, which is ADR-013 D5's one exemption.
+
+  - file: system_instruction
+    what_it_is: >-
+      A constructor keyword that becomes a field of the configuration, with no
+      configuration object anywhere in the source.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto}
+    notes: >-
+      The emitted call is invented rather than rebuilt, which is the one case
+      where the layout rule has no earlier decision to respect. The
+      constructor is written across two lines and the configuration it
+      produces is not: what decides the emitted layout is the node the
+      arguments came from, and here there is none.
+
+  - file: call_config
+    what_it_is: >-
+      A configuration on the constructor and another on the call.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto}
+    notes: >-
+      The legacy SDK merged the two and let the call win key by key, so
+      `temperature` is the call's value in the constructor's position and
+      `top_p` survives. The call's own mapping is what the emitted layout
+      follows, because that is the later of the two decisions the author made.
+
+  - file: stream_flags
+    what_it_is: >-
+      The streaming flag in both of the two spellings a literal can have.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+    notes: >-
+      `True` goes to a differently named method and `False` is the legacy
+      default written out, so the keyword goes and the call does not move. The
+      streaming call is in the header of a `for`, which is why the width it is
+      measured at is read off the source line rather than off a statement.
+
+  - file: positional_config
+    what_it_is: >-
+      C-22's own example: three positional arguments with the middle one
+      written as `None`.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 13, rule: generative-model-calls, status: auto, warnings: [positional_args_mapped_by_index]}
+      - {line: 17, rule: generative-model-calls, status: auto}
+    notes: >-
+      The second positional is the safety table and the third is the
+      configuration, which is the mapping a reader has to be able to check --
+      hence the warning. `None` is how a caller reaches a later positional
+      parameter and says exactly what leaving it out says, so it is not given.
+
+  - file: prefixed_model_name
+    what_it_is: >-
+      A model named as a resource rather than as a bare name.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto, warnings: [model_name_looks_prefixed]}
+      - {line: 16, rule: generative-model-calls, status: auto}
+    notes: >-
+      Both SDKs accept it, so the string is carried across exactly as written.
+      The warning is on the constructor's row and not on the call's: the
+      literal is the constructor's, however many calls it is folded into.
+
+  - file: local_model
+    what_it_is: >-
+      A model built and read inside one function, with the client above it.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+    notes: >-
+      A local binding rather than a module constant, which is a different row
+      of the resolution table and the same rewrite. The client stays at module
+      level, because the `configure` is there.
+
+  - file: self_attr_model
+    what_it_is: >-
+      A model on the instance, read from two other methods, with the client on
+      the same instance.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 17, rule: configure-to-client, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 24, rule: generative-model-calls, status: auto}
+    notes: >-
+      This rule writes `self.client.models...` without knowing how `self.`
+      was decided: ADR-026 D3's table chose it and recorded the expression,
+      and this rule spells its calls against whatever is there. The two calls
+      are laid out differently -- one fits on its line and the other does not
+      -- which is the width clause deciding two lines of one class.
+
+  - file: comment_above_the_model
+    what_it_is: >-
+      A comment written about the statement this rule deletes.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto}
+    notes: >-
+      The comment moves onto the statement that now comes first, after that
+      statement's own blank lines. The blank line that separated the comment
+      from the client does not move: the statement it lands on has blank lines
+      of its own, and two sets of them would be a gap nobody wrote.
+
+  - file: model_defined_last
+    what_it_is: >-
+      The deleted statement is the last one in its block, so there is nothing
+      after it for the comment to move onto.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto}
+    notes: >-
+      The comment goes to the end of the block and keeps the blank lines that
+      separated it from what is above, because nothing else is going to supply
+      them -- and it lands **in front of** the note the file already ended
+      with, because that is the order they were written in. Defining the model
+      after the function that reads it is legal and unusual; the point of the
+      case is where the prose lands.
+
+  - file: two_statements_on_one_line
+    what_it_is: >-
+      The constructor shares its line with a statement that is not this rule's.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+    notes: >-
+      What is deleted is the statement and not the line, so the line survives
+      with what is left on it -- and the semicolon goes, because a semicolon
+      belongs to the statement that follows it and that statement is gone.
+
+  - file: from_import_model
+    what_it_is: >-
+      Both legacy names on one `from` line, and both of them consumed.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 13, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto}
+    notes: >-
+      `../rename_import/top_level_symbol.before.py` is this shape graded by one
+      rule, where the honest answer is `from_import_unmigrated_symbol`. Here
+      three rules run, both names are consumed, and the line becomes the module
+      import the new calls are reached through -- which is ADR-026 D5's
+      mechanism reaching its second and third symbols.
+
+  - file: types_config_symbol
+    what_it_is: >-
+      The configuration class reached through the submodule the import rule
+      owns.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 15, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto}
+    notes: >-
+      Line 15 carries two rows and they belong to two rules: the import rule
+      claims the configuration, because the name it is reached by is one of
+      the names that rule rewrites, and this rule claims the constructor. The
+      submodule is already bound by the time this rule asks for it, which is
+      the branch of the import manager the other configuration cases do not
+      reach. The rows are in rule order rather than line order, because each
+      rule reports its own in document order and the corpus concatenates them.
+
+  - file: count_tokens_only
+    what_it_is: >-
+      A configuration that reaches no call at all, because the only call drops
+      it.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 13, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto, warnings: [count_tokens_config_dropped]}
+    notes: >-
+      The pair with `model_constant`, and what separates them is the import:
+      nothing here mentions the submodule, so no import of it is written. A
+      rule that decided which imports it needs before deciding which arguments
+      survive would leave an unused line in this file.
+
+  - file: types_name_taken
+    what_it_is: >-
+      A module that already binds the submodule's own name, but not the
+      fallback.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto}
+    notes: >-
+      The middle rung of the same ladder `types_names_taken` grades the bottom
+      of. The emitted configuration is spelled `genai_types.GenerateContentConfig`,
+      because the name a rule writes is the one the import manager handed back
+      and not the one the pack prefers.
+
+  - file: safety_settings_kwarg
+    what_it_is: >-
+      A constructor keyword that is rebuilt rather than carried.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto}
+    notes: >-
+      The second argument this rule generates rather than moves. The row this
+      file used to carry graded it `unknown_ctor_kwarg`, because the pack
+      declared the keyword for the scan and gave it no destination; the pack
+      has one now and the refusal moved with it, which is what "the refusal is
+      the pack's" meant.
+
+  - file: safety_table
+    what_it_is: >-
+      Four categories and four thresholds, at four of the spellings the legacy
+      lookup accepted.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 26, rule: generative-model-calls, status: auto}
+    notes: >-
+      The canonical long form, a short alias, a shorter one and a mixed-case
+      one, against four thresholds written the same four ways. The legacy
+      lookup was `value.lower()` into a closed dictionary, so all eight are
+      rows of the pack's tables and none of them is a rule reading a name. The
+      emitted order is the order the author wrote, because a table is data.
+
+  - file: safety_enum_members
+    what_it_is: >-
+      The same table written as enum members, including one that is a member
+      and never was a string.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 16, rule: rename-import, status: auto}
+      - {line: 16, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+    notes: >-
+      A member carries across under its own name, so the member lists and the
+      string tables are two different sets and the pack declares both.
+      `HarmBlockThreshold.OFF` is the case that makes the difference visible:
+      it is a member of both enums and `"off"` was never a key of the legacy
+      lookup, which is why one is rewritten here and the other is refused two
+      files down. The two rename-import rows on line 16 are the two enum
+      spellings, which that rule claims and maps to themselves.
+
+  - file: safety_list_of_dicts
+    what_it_is: >-
+      The other shape the legacy SDK took: a list of one-row mappings.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 13, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto}
+    notes: >-
+      Both forms become the same list of objects. The two keys a row is read
+      by are pack data and not knowledge: they are spelled the way the new
+      class spells its arguments in this pair of SDKs, and a rule that assumed
+      that would pass here and fail against the invented SDK in
+      `tests/unit/`.
+
+  - file: safety_on_the_call
+    what_it_is: >-
+      A safety table on the constructor and another on the call, merged by
+      category.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 13, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto}
+    notes: >-
+      `merged_ss.update(safety_settings)` over a mapping keyed by category,
+      read off the installed 0.8.6, so the call wins **per category** and not
+      wholesale: the shared category takes the call's threshold in the
+      constructor's position and the category only the call names is appended.
+      A rule that replaced the whole table would drop a category the author
+      set and never mention it.
+
+  - file: count_tokens_safety
+    what_it_is: >-
+      A safety table, and a call that counts tokens rather than generating
+      them.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto, warnings: [count_tokens_config_dropped]}
+    notes: >-
+      `types.CountTokensConfig` has no safety field and a threshold does not
+      change how many tokens a prompt is, so the table goes the way the
+      sampling configuration goes (ADR-010 F-3) and the edit says so. The
+      keyword that refuses instead is `system_instruction`, which is next
+      door in `count_tokens_semantics`.
+
+  - file: chat_surface
+    what_it_is: >-
+      A model read through the chat surface, and a chat read through its own.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto}
+    notes: >-
+      The file that made `receiver_method_unmapped` necessary, now that the
+      methods have rewrites. Four edits from this rule over two bindings: the
+      constructor, one model call, the `start_chat` that produces the chat and
+      the chat's own `send_message`. The last of those is the one rewrite in
+      the pack that is rooted on the receiver rather than on the client, so it
+      keeps the name the author bound and gains neither a model nor a
+      configuration.
+
+  - file: chat_history
+    what_it_is: >-
+      A literal chat history, and the one argument whose value is rewritten.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto, warnings: [history_parts_rewritten]}
+      - {line: 25, rule: generative-model-calls, status: auto}
+    notes: >-
+      Each string part becomes `{"text": ...}` and the list keeps its own
+      layout, because only the parts are rebuilt and everything around them is
+      the node the author wrote. The generated key is quoted the way the key
+      beside it is. The warning is on the `start_chat` row only: it is the
+      edit that reshapes a data literal, and the model's configuration
+      reaching `chats.create` is not a reshaping. `send_message(content=)`
+      becomes `send_message(message=)` on line 25, which is C-17 and is a
+      `TypeError` after migration if it is missed. The second part is an
+      f-string, which is a value that is certainly a string and is wrapped for
+      that reason and no other.
+
+  - file: chat_history_already_text
+    what_it_is: >-
+      A history already written the way the new SDK wants it.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 13, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto}
+    notes: >-
+      Nothing is reshaped, so there is no warning -- which is what separates
+      this row from its neighbour's and is why the warning is emitted from
+      what happened rather than from what was asked for. The positional
+      `send_message(text)` is lifted onto the renamed keyword, because a
+      rewritten call names its arguments and C-17's rename is the thing a
+      reviewer has to be able to see.
+
+  - file: chat_send_stream
+    what_it_is: >-
+      Streaming on the chat, which is a different method rather than a
+      keyword.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto}
+    notes: >-
+      The same literal-flag rule as the model's own streaming call, one object
+      further along, and the same refusal beside it: a non-literal flag is
+      `dynamic_stream_flag` wherever it is written.
+
+  - file: async_calls
+    what_it_is: >-
+      The async methods, where the `await` the author wrote is left alone.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+    notes: >-
+      Both sides are coroutine functions, so the rewrite is the service and
+      the method name and nothing else. The `await` survives because this rule
+      replaces the call and never the expression around it, which is the same
+      mechanism that keeps `return `, `.total_tokens` and a trailing comment
+      where they are. No warning on either row: the warning belongs to the
+      streaming branch, where dropping the `await` is the mistake that
+      compiles.
+
+  - file: async_stream
+    what_it_is: >-
+      The async streaming branch, and the `await` that has to survive it.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto, warnings: [async_stream_await_preserved]}
+    notes: >-
+      ADR-008 wrote this shape with no `await` and called the fix an inserted
+      one; ADR-010 F-8 corrected it on a measurement, and this is the file that
+      pins the correction. The warning is what makes the preserved `await`
+      visible in the report, because an implementation that derived this from
+      the sync streaming rule would drop it and the file would fail at runtime
+      rather than at import.
+
+  - file: chat_send_config
+    what_it_is: >-
+      A configuration on the chat's own call, and the merge the new SDK does
+      not do.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+    notes: >-
+      The legacy SDK merged the model's configuration into the call's; the new
+      `Chat.send_message` is `config if config else self._config`, read off the
+      installed 2.23.0, so it **replaces**. A call that overrides one key has
+      to restate all of them, and `top_p` reaching line 21 is the whole of
+      that: a rewrite that moved only what the call named would drop a setting
+      the author made and say nothing. The chat's own `config=` on line 20 is
+      the same merge with nothing to merge.
+
+  # --- not complete: what this rule refuses ----------------------------------
+  - file: spread_constructor
+    what_it_is: >-
+      A constructor whose keywords are not written down anywhere.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: unknown_ctor_kwarg}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: unknown_ctor_kwarg}
+    notes: >-
+      Legal legacy code the rule cannot read, which is what separates it from a
+      keyword that is simply wrong: `GenerativeModel("m", nonsense=1)` raises
+      `TypeError` before any migration and is not a file worth a code of its
+      own. Every constructor parameter has one destination in the pack or none,
+      and a mapping spread across the call has neither.
+
+  - file: none_guard_self
+    what_it_is: >-
+      A model on the instance that a method compares with `None` before it
+      uses it.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 17, rule: configure-to-client, status: auto}
+      - {line: 18, rule: generative-model-calls, status: needs_review, reason: model_object_escapes}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: model_object_escapes}
+    notes: >-
+      ADR-019 D9 put this check at the rule, because only the rule deletes the
+      constructor: a comparison is not an escape, so the scan grades the group
+      eligible, and every other reference to the model is a use this rule
+      rewrites. Line 21 is neither. The rule refuses the group when a line the
+      binding is used on carries no use of it, or more references than uses
+      (scan:SCAN-01).
+
+  - file: none_guard_module
+    what_it_is: >-
+      A module-level model that a function compares with `None` before it
+      uses it.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 11, rule: generative-model-calls, status: needs_review, reason: model_object_escapes}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: model_object_escapes}
+    notes: >-
+      The same check on a name. With the constructor gone, line 15 raises
+      `NameError`.
+
+  - file: none_guard_same_line
+    what_it_is: >-
+      The comparison and the use on one line.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: needs_review, reason: model_object_escapes}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: model_object_escapes}
+    notes: >-
+      Line 16 carries a use, so a check that asked only whether each line has
+      one would pass it. It carries two references to `MODEL` for that one
+      use, and the second outlives the rewrite.
+
+  - file: client_parameter
+    what_it_is: >-
+      A function with a parameter called `client`, whose model call becomes a
+      call on the module's client.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 13, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto}
+    notes: >-
+      transforms:CODEMOD-02. The client is `genai_client` because a parameter
+      binds `client`; the rewritten call inside `answer` would read the
+      parameter.
+
+  - file: types_under_type_checking
+    what_it_is: >-
+      A `types` import under `if TYPE_CHECKING:`, and a model whose configuration
+      needs one at runtime.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 15, rule: rename-import, status: auto}
+      - {line: 17, rule: configure-to-client, status: auto}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: types_import_typing_only}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: types_import_typing_only}
+    notes: >-
+      transforms:CODEMOD-04. The one `types` this file binds never runs, so the
+      configuration has no name to be spelled with at runtime.
+
+  - file: ctor_init_params
+    what_it_is: >-
+      A model on the instance built from a parameter of `__init__`, used in
+      another method.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: needs_review, reason: ctor_argument_not_portable}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: ctor_argument_not_portable}
+    notes: >-
+      transforms:CODEMOD-01. `model_name` would be a `NameError` in `answer`.
+
+  - file: ctor_call_argument
+    what_it_is: >-
+      A model name read from a file when the model is built, used by two
+      calls.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: needs_review, reason: ctor_argument_not_portable}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: ctor_argument_not_portable}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: ctor_argument_not_portable}
+    notes: >-
+      transforms:CODEMOD-01. A call pasted into two calls runs twice, and later.
+
+  - file: ctor_rebound_after
+    what_it_is: >-
+      A model built from a local that is rebound before the model is used.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: needs_review, reason: ctor_argument_not_portable}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: ctor_argument_not_portable}
+    notes: >-
+      transforms:CODEMOD-01. `name` holds another value by the time the call
+      would read it.
+
+  - file: bare_constructor
+    what_it_is: >-
+      C-21: a constructor with no model name at all. COVERAGE.md gap 4.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: default_model_name_required}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: default_model_name_required}
+    notes: >-
+      The legacy signature defaults the name and the new call requires it. The
+      pack carries that default because a pack has to be able to say what the
+      old one was; the rule does not apply it, because the model it names is
+      itself retired.
+
+  - file: unknown_config_key
+    what_it_is: >-
+      C-23: a configuration key the legacy class never had. COVERAGE.md gap 3.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+    notes: >-
+      `seed` exists on the new configuration object and on neither legacy one,
+      so an implementation that skipped the check would produce a clean-looking
+      wrong answer. The schema refuses a pack that lists it and the rule
+      refuses a file that uses it, which is the same fact enforced from both
+      ends.
+
+  - file: response_text_guard
+    what_it_is: >-
+      C-56: a handler for an exception the new object no longer raises.
+      COVERAGE.md gap 12.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      Nothing about the call is wrong, which is why the refusal is about what
+      is done with the answer: the handler still compiles, never runs, and the
+      branch it guarded is gone. Only a handler that **names** the exception
+      counts. `model_constant` is the contrast, and it is the one two
+      `must_not_report` rows in the scan fixtures point at: a bare
+      `response.text` is not a finding and not a refusal.
+
+  - file: dynamic_stream
+    what_it_is: >-
+      A streaming flag that is not a literal. COVERAGE.md gap 10's last third.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: dynamic_stream_flag}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: dynamic_stream_flag}
+    notes: >-
+      The two values go to two differently named methods, so this is not a
+      default the rule could pick: it is two rewrites, and which one is right
+      is a question about a value that does not exist until the program runs.
+
+  - file: count_tokens_semantics
+    what_it_is: >-
+      C-35: a constructor setting that really does change a token count.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: count_tokens_config_carries_semantics}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: count_tokens_config_carries_semantics}
+    notes: >-
+      The pair with `model_constant`, and the reason the dropped configuration
+      there is a warning rather than a bail: a sampling temperature does not
+      change how many tokens a prompt is, and a system instruction is part of
+      what is counted. The pack says which keywords are which.
+
+  - file: tools_kwarg
+    what_it_is: >-
+      Tools on the constructor, where the default flipped between the SDKs.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: afc_semantics_differ}
+      - {line: 26, rule: generative-model-calls, status: needs_review, reason: afc_semantics_differ}
+    notes: >-
+      The arguments would move cleanly and the behaviour would not: automatic
+      function calling is off by default in the old SDK and on by default in
+      the new one, so a tool declaration carried across unchanged starts
+      calling the author's functions.
+
+  - file: request_options
+    what_it_is: >-
+      A call keyword with no counterpart on the new method.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: unsupported_kwarg}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: unsupported_kwarg}
+    notes: >-
+      The new methods are keyword-only and take a fixed set, so a keyword
+      outside it is not something to move: the per-request options it carried
+      are configured a different way entirely.
+
+  - file: standalone_config
+    what_it_is: >-
+      A configuration object that lives on its own and is handed over by name.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+    notes: >-
+      Three rows and two reasons that are the same reason from two ends. Line
+      19 is the constructor, which was handed a name rather than a shape it can
+      read; line 17 is the object itself, which no group consumed because the
+      only place a rewrite can put a configuration is inside the call it
+      configures.
+
+  - file: discarded_constructor
+    what_it_is: >-
+      A constructor whose result nobody keeps.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 18, rule: generative-model-calls, status: needs_review, reason: receiver_unresolved}
+    notes: >-
+      There is no binding, so there is no group and nothing to fold the model
+      name into. `receiver_unresolved`'s own definition names this case in as
+      many words: a constructor result that is never bound to a name.
+
+  - file: duplicate_model_name
+    what_it_is: >-
+      The model named twice, once by position and once by keyword.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: positional_arg_ambiguous}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: positional_arg_ambiguous}
+    notes: >-
+      The legacy call raises `TypeError` for this, so the file is already
+      broken -- which is why the rule refuses rather than picking one of the
+      two. This is the one bail here that can only ever be graded against code
+      that does not run, and it is worth saying so: the alternative is a
+      rewrite that turns a loud failure into a silent wrong model.
+
+  - file: types_names_taken
+    what_it_is: >-
+      A module that already binds both names the configuration could be
+      imported as.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 18, rule: configure-to-client, status: auto}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: alias_collision}
+      - {line: 24, rule: generative-model-calls, status: needs_review, reason: alias_collision}
+    notes: >-
+      The name is taken through the same manager the import rule reserves
+      through, and the code is the one that manager raises. The import rule
+      itself succeeds here, because nothing in this file needs the submodule
+      until this rule asks for it.
+
+  - file: client_refused
+    what_it_is: >-
+      The client rule refused, so there is nothing to spell these calls
+      against.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: needs_review, reason: configure_kwargs_unsupported}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: configure_kwargs_unsupported}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: configure_kwargs_unsupported}
+    notes: >-
+      The one code in this corpus that this rule does not raise of its own:
+      the defect is the `transport=` keyword, it is reported on the line that
+      carries it, and repeating it here is what keeps one defect from being
+      counted twice under two names.
+
+  - file: self_reassigned
+    what_it_is: >-
+      A model on the instance that two other methods reassign to something
+      that is not a legacy object, which the scan withholds before any rule
+      sees it.
+    complete: false
+    after: none
+    unclaimed: []
+    edits: []
+    notes: >-
+      `tests/fixtures/scan/escapes/self_reassigned.py` grades the scan's half
+      (scan:SCAN-02). This is the half a run would write: nothing, because the
+      constructor finding is withheld with the binding and no group forms.
+
+  - file: escaping_model
+    what_it_is: >-
+      A model handed to something else, which the scan withholds before any
+      rule sees it.
+    complete: false
+    after: none
+    unclaimed: []
+    edits: []
+    notes: >-
+      The one case here with no edits at all: every finding in the file is
+      already `needs_review`, so nothing is eligible, no rule is asked about
+      any of it, and the file comes back exactly as it was. It is in the
+      corpus because this rule still walks the file's bindings, and a binding
+      the scan refused must not become a group -- which it cannot, because the
+      scan withheld the constructor finding along with the binding and there is
+      no eligible finding left to name it.
+
+  - file: safety_unknown_category
+    what_it_is: >-
+      A safety category the legacy lookup raised `KeyError` for.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+    notes: >-
+      `DANGEROUS_CONTENT` is the plausible spelling that was never a key, and
+      it is refused from both ends: the schema rejects a pack that lists it and
+      the rule rejects a file that uses it. Code using it was already broken,
+      so there is nothing to carry.
+
+  - file: safety_unknown_threshold
+    what_it_is: >-
+      A threshold spelled the way the enum member is, as a string.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+    notes: >-
+      The other half of `safety_enum_members`. `HarmBlockThreshold.OFF` is a
+      member of both enums and is rewritten; `"off"` is a string the legacy
+      table never held. Two files, one table, and the difference between them
+      is the form and not the name.
+
+  - file: safety_not_static
+    what_it_is: >-
+      A safety table this rule cannot read, because it is a name.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 18, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+    notes: >-
+      Every category and every threshold is resolved against a closed table
+      before one is emitted, because the new enums fabricate an unknown member
+      with only a `warnings.warn` and nothing downstream will ever raise. A
+      name is a value this rule would have to run the program to know.
+
+  - file: chat_role_unknown
+    what_it_is: >-
+      A history entry whose role neither SDK accepts.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+    notes: >-
+      `assistant` is the spelling every other chat API uses and the one real
+      code gets wrong; the new SDK raises `ValueError: Role must be user or
+      model`. The accepted roles are pack data, so this is a row of a table
+      rather than a name the rule knows -- and the refusal takes the model's
+      own call with it, because the closure is atomic.
+
+  - file: chat_history_not_static
+    what_it_is: >-
+      A history this rule cannot read, because it is a name.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 24, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+    notes: >-
+      The parts of every entry have to be reshaped, so the shape has to be
+      visible. Passing the list through unexamined is what ADR-008 calls the
+      worst outcome available: the file imports cleanly and raises a pydantic
+      `ValidationError` at the first message.
+
+  - file: chat_history_part_not_a_string
+    what_it_is: >-
+      A part that is neither a string nor the mapping the new SDK wants.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+    notes: >-
+      A name could hold a `Part` object, and wrapping one of those produces a
+      mapping with an object inside it. Two node types are rewritten and no
+      third: a string literal and an f-string, because both are certainly
+      strings at runtime.
+
+  - file: chat_history_content_objects
+    what_it_is: >-
+      A history whose entries are built rather than written.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 25, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 26, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+    notes: >-
+      The entries are calls, so their parts are a shape this rule cannot see
+      into. Both SDKs accept a list of built objects, which is exactly why
+      passing this through would be tempting and wrong: the rule cannot tell
+      one that is already the new shape from one that is not.
+
+  - file: chat_automatic_calling
+    what_it_is: >-
+      A chat that asked for automatic function calling.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: afc_semantics_differ}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: afc_semantics_differ}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: afc_semantics_differ}
+    notes: >-
+      The same fact that refuses `tools=` on the constructor, one object
+      further along: the legacy default is off and the new one is on, so
+      neither moving the keyword nor dropping it leaves the behaviour where
+      the author put it. The keywords a call refuses on these grounds are
+      declared per method, because this one is not a constructor parameter.
+
+  - file: chat_async_send
+    what_it_is: >-
+      A chat read through a method the pack declares and does not rewrite.
+    complete: false
+    after: present
+    unclaimed: [22]
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: receiver_method_unmapped}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: receiver_method_unmapped}
+    notes: >-
+      What `chat_surface` used to be, one binding further along: the unmapped
+      method is on the chat rather than on the model, and the closure is
+      atomic in both directions. The async chat hangs off a different service
+      of the client than the one a `start_chat` becomes, so `chats.create`
+      would hand back an object this call cannot be made on. Line 22 is
+      claimed by nobody, which is the other half of the same fact.
+
+  - file: async_stream_no_await
+    what_it_is: >-
+      An async stream iterated with no `await`, which never ran.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: async_stream_await_missing}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: async_stream_await_missing}
+    notes: >-
+      `generate_content_async` is a coroutine function whatever `stream` is,
+      so this file raises `TypeError: 'coroutine' object is not async
+      iterable` before any migration -- which is the shape ADR-008 wrote C-18
+      with and ADR-010 F-8 corrected. There is nothing to preserve and nothing
+      to infer. Its neighbour `async_stream` is the runnable form and keeps its
+      `await`.
+
+  - file: chat_chained
+    what_it_is: >-
+      A chat nothing binds, which the scan refuses before this rule sees it.
+    complete: false
+    after: none
+    unclaimed: []
+    edits: []
+    notes: >-
+      The second case here with no edits at all, and it is in the corpus for
+      the opposite reason to `escaping_model`. This rule says nothing about a
+      producing call whose result is not assigned, and this file is why that
+      silence is safe rather than lucky: a chat reached through an expression
+      is a receiver the scan cannot resolve, the `send_message` bails, and
+      file atomicity withholds everything else. If that ever stopped being
+      true, this file would start being rewritten and the `.after.py` beside
+      it would stop matching.
+
+  # --- what is done with a stream (transforms:CODEMOD-06) -------------------
+  - file: stream_then_resolve
+    what_it_is: >-
+      A stream resolved and then read whole.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      A generator has no `resolve()` and no `text`.
+
+  - file: stream_then_text_after_loop
+    what_it_is: >-
+      A stream walked by a loop, and then read whole.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      The loop is the part the new call keeps; the read after it is not.
+
+  - file: chat_stream_resolve
+    what_it_is: >-
+      A chat's stream resolved and then read whole.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 11, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+      - {line: 15, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      The whole group goes with the one call, as it does for every refusal
+      here: the model, the chat and the message are one rewrite.
+
+  - file: stream_returned_to_caller
+    what_it_is: >-
+      A stream handed back to whoever called for it.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 11, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+      - {line: 15, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      Nothing here reads it, and the caller may read `text` off it.
+
+  - file: stream_bound_then_iterated
+    what_it_is: >-
+      A stream bound to a name that only a loop ever reads.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 11, rule: generative-model-calls, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+    notes: >-
+      The second of the two shapes a stream is written in; a loop's header is
+      the first, in `stream_flags`.
+
+  # --- what the model is asked, in the legacy turn shape (transforms:CODEMOD-08)
+  - file: contents_turns
+    what_it_is: >-
+      A list of turns with a bare-string part, written as the model's input.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [history_parts_rewritten]}
+    notes: >-
+      Reshaped the way a chat history is. The call no longer fits on its line,
+      so it wraps.
+
+  - file: contents_single_turn
+    what_it_is: >-
+      One turn, not a list of them, as the model's input.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 11, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 15, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+
+  - file: contents_appended
+    what_it_is: >-
+      A list of turns built with `append` and handed to the model by name.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 11, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+
+  - file: send_message_turn
+    what_it_is: >-
+      A chat message written as a turn.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 11, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 15, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+
+  # --- the exceptions the legacy SDK raised (critic:CRIT-01) -----------------
+  - file: api_core_handler
+    what_it_is: >-
+      Calls inside handlers for `google.api_core.exceptions`, in both
+      spellings of the class.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: error_class_changed}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: error_class_changed}
+      - {line: 25, rule: generative-model-calls, status: needs_review, reason: error_class_changed}
+      - {line: 30, rule: generative-model-calls, status: needs_review, reason: error_class_changed}
+    notes: >-
+      The retry inside the first handler is not itself inside the `try` it
+      belongs to; the group goes with the calls that are.

@@ -1,0 +1,169 @@
+# The answer key for what leaves the machine, written by hand before
+# `src/obelize/providers/openai_compat.py` existed.
+#
+# `docs/PRIVACY.md` makes a promise about the payload in prose -- "only the
+# relevant slice of code is sent", "the API key never appears anywhere" -- and
+# prose is not something a test can read back. This file is that promise as
+# bytes: the exact message obelize sends for one consultation, written out in
+# full, so that a reader can check the claim rather than believe it.
+#
+# The question. `tests/fixtures/providers/deep/nested.py` line 31 is the row
+# `answers.yaml` grades and `proposals.yaml` answers, and it is chosen again
+# here for the reason it exists: the context it sends carries a credential of
+# TM-3's own shape, on line 30, in a comment. What the key below records is
+# that the credential is not in the message and `[REDACTED]` is.
+#
+# What is taken as given. The selection, the range and the redaction are
+# `answers.yaml`'s and are graded there. What is hand-written here is the
+# rendering: which facts are stated, in which order, under which labels, where
+# the context begins and ends, and that nothing else is in the request.
+#
+# What is quoted rather than retyped. The eighteen paragraphs under "What this
+# pack does not automate" are the pack's own `limitations`, spliced in from
+# `src/obelize/packs/gemini/*.yaml` when this file was written. They are 3 477
+# of the message's 4 352 characters, and that is the measurement rather than an
+# accident: a payload whose largest part is the pack's own published text and
+# whose smallest is the eight lines of somebody's code it is about
+# ([ADR-038](../../../docs/adr/ADR-038-one-endpoint.md)
+# D3).
+#
+# The other four consultations this repository makes are graded on their
+# header lines only, under `others`. One message is written out in full
+# because one is what a reader will actually read; five would be four copies
+# of the same eighteen paragraphs.
+
+case: requests
+pack: gemini/google-generativeai-to-google-genai
+repository: tests/fixtures/providers/deep
+
+# The consultation the message below answers, named so that a change to
+# `answers.yaml` that moved it fails here instead of re-pointing this key at a
+# different question.
+question:
+  path: nested.py
+  line: 31
+
+# The request itself, around the two messages. `temperature` is zero because
+# two runs of obelize over one repository have to be able to produce the same
+# report, and `response_format` is the structured-output request whose being
+# ignored is what the fenced-JSON fallback in `replies.yaml` is for.
+body:
+  model: fixture-model
+  temperature: 0
+  stream: false
+  response_format: json_object
+  roles: [system, user]
+
+# Where the request goes: `base_url` with this appended, and never
+# `urllib.parse.urljoin`, which against a base ending in `/v1` and no slash
+# returns `http://host/chat/completions` and throws the `/v1` away.
+endpoint:
+  appended: /chat/completions
+
+# What the request says about itself. The key is sent as a bearer token and
+# never anywhere else; `user_agent` is a prefix because the version moves.
+headers:
+  content_type: application/json
+  accept: application/json
+  user_agent: "obelize/"
+  authorization: "Bearer "
+
+# The two lines that delimit somebody else's file inside the message. They are
+# a formatting convention and not a security boundary -- the boundary is
+# `providers/guard.py`, which is measured against fifteen hostile proposals in
+# `proposals.yaml`.
+markers:
+  begin: "<<<OBELIZE CONTEXT BEGIN>>>"
+  end: "<<<OBELIZE CONTEXT END>>>"
+
+# Every label the message carries, in the order it carries them. A fact added
+# to the payload without a line here is a fact that left the machine without
+# anybody writing it down.
+labels:
+  - "pack: "
+  - "target package: "
+  - "modules a proposal may import: "
+  - "file: "
+  - "lines sent: "
+  - "line to change: "
+  - "symbol at that line: "
+  - "the rules refused with: "
+
+# The user message, byte for byte. The system message is fixed and
+# pack-independent and is graded in `tests/unit/test_providers_openai_compat.py`
+# against the guard's own vocabulary; it is not repeated here.
+message: |-
+  pack: gemini/google-generativeai-to-google-genai
+  target package: google-genai
+  modules a proposal may import: google.genai
+  file: nested.py
+  lines sent: 28 to 35
+  line to change: 31
+  symbol at that line: google.generativeai.GenerativeModel
+  the rules refused with: generation_config_not_static
+
+  What this pack does not automate. Background, and not a list of things to do:
+  a call site this pack refuses on purpose is never sent to you at all, so
+  nothing below describes the change you are being asked for.
+
+  - Automatic function calling is off by default in google-generativeai and on by default in google-genai, so every tool declaration is reported for review and never rewritten.
+  - Safety setting names are mapped from a closed table and an unmapped name is refused. They are validated statically because google-genai will not: its enums fabricate an unknown member with only a warning, so a wrong category name never raises.
+  - Cross-module client setup is reported, not rewritten: a configure() call in another module leaves this module's client source unresolved.
+  - Two or more configure() calls in one module leave the client source ambiguous, and the module is reported rather than rewritten.
+  - The environment-variable precedence is inverted between the two SDKs: google-generativeai read GEMINI_API_KEY first and google-genai reads GOOGLE_API_KEY first. A repository with two different keys set changes behaviour silently, and a bare configure() is therefore reported.
+  - google.genai.Client validates the API key when it is constructed, where configure() did not, so a module-level client whose key can be empty turns a first-call failure into an import-time failure.
+  - Dynamic access, star imports and mock patch targets are reported, never rewritten.
+  - Chat history is rewritten only when it is a list literal of dict literals with string-literal parts and user or model roles; every other shape is refused, because google-genai rejects the legacy shape with a validation error rather than accepting it.
+  - Attribute reads that became method calls, chat.history above all, are reported and not rewritten.
+  - The protos, caching, tuning, operations, answer, permission and notebook surfaces have no v0 rule.
+  - The PaLM-era generate_text and chat functions have no rule because they are already absent from google-generativeai 0.8.6; there is nothing left to migrate and no target to migrate it to.
+  - A file whose round trip through the parser is not byte-identical, a bare-CR terminated file above all, is reported and never edited.
+  - The rules for function calling, embed_content, the files surface and the models surface ship in v0, but the development corpus exercised them zero times: their mappings are verified against the installed SDKs and not against real migrated repositories.
+  - get_model is rewritten only when its argument is a string literal beginning with models/. The legacy call dispatched on that prefix and returned one of two different dataclasses where the new call always returns a Model, so a tunedModels/ name and a name that is not a literal are both reported rather than rewritten.
+  - A file handle passed to get_file or delete_file carries across unchanged: the new calls accept a google.genai File object as well as a name string. A handle built by code this run did not migrate is a legacy File, which the new call rejects with a ValueError.
+  - A model reached only through a patch target, with the token generativeai nowhere in the file, is not found. Widening the prefilter to catch it would report the Vertex SDK as a legacy usage, so recall here cannot be bought.
+  - response.text returns None in google-genai where it raised ValueError in google-generativeai, so code that catches that error is reported rather than rewritten.
+  - A call inside a handler that names an exception of google.api_core is refused, because google-genai raises google.genai.errors.APIError, with a status code and no class per status, and never the legacy classes. Handlers are seen where they are written: one in a caller of the function that makes the call is not.
+  - A conversation the model is asked about is reshaped only where it is written as a list literal of turns in the call itself; one built up under a name, or a single turn, is reported rather than rewritten, and a chat message written as a turn is refused because the new chat takes parts.
+  - output_dimensionality truncation, the supported_actions vocabulary and File.sha256_hash are unverified against a live API call, and code that relies on them is rewritten without a warning; response_schema built from a protos.Schema object is unverified too. A read of supported_generation_methods or base_model_id on what list_models or get_model returns refuses the call: google.genai's Model has neither.
+
+  <<<OBELIZE CONTEXT BEGIN>>>
+      def run(body):
+          # Rotated on 2026-09-01; the key this used to read was
+          # [REDACTED], which the audit log still names.
+          model = genai.GenerativeModel(
+              "gemini-1.5-flash",
+              generation_config={"seed": 7},
+          )
+          return model.generate_content(prefix + body).text
+  <<<OBELIZE CONTEXT END>>>
+
+# The header lines of the other four consultations this repository makes.
+# `spread.py` line 24 is the one worth reading: its group reaches line 20, so
+# the range it is sent is the whole module and not `def talk`.
+others:
+  - path: nested.py
+    line: 35
+    symbol: google.generativeai.GenerativeModel.generate_content
+    lines_sent: 28 to 35
+    refused_with: generation_config_not_static
+  - path: spread.py
+    line: 20
+    symbol: google.generativeai.GenerativeModel
+    lines_sent: 1 to 25
+    refused_with: generation_config_not_static
+  - path: spread.py
+    line: 24
+    symbol: google.generativeai.GenerativeModel.start_chat
+    lines_sent: 1 to 25
+    refused_with: generation_config_not_static
+  - path: spread.py
+    line: 25
+    symbol: google.generativeai.ChatSession.send_message
+    lines_sent: 23 to 25
+    refused_with: generation_config_not_static
+
+# The credential on line 30 of `nested.py`, which the message above must not
+# contain and the file above it does.
+must_not_appear:
+  - AIzaSyD00000000000000000000000000000000

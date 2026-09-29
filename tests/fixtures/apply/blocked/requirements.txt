@@ -1,0 +1,3 @@
+# The legacy pin stays while refused.py still imports it.
+google-generativeai==0.8.6
+requests>=2.31

@@ -1,0 +1,161 @@
+# Answer key, written by hand before `obelize scan` was run against this
+# repository. Oracle discipline: the key comes first, or it is not a key.
+repository: Vaibhav8299/Conversational_AI_App
+url: https://github.com/Vaibhav8299/Conversational_AI_App
+sha: 228c62b15ad562cac33f01434481715827b08886
+band: size:4000..16000
+license: none
+labeller: Hakan Bogan
+labelled_at: '2026-09-18'
+what_it_is: 'A multilingual voice assistant kept as five near-identical copies of one script
+  -- `3.py`, `4.py`, `5.py`, `app.py` and `s3.py` -- which is why it carries twenty of the
+  sixty-four actionable sites in the five keys and only one distinct shape. It is in the sample
+  because that is what the frame returned, and because its `requirements.txt` is the best
+  manifest trap in the five: the legacy distribution is declared once for real and three times
+  in comments, one of those pinned, and `langchain-google-genai` is declared beside it in
+  two manifests.'
+files_read:
+- 3.py
+- 4.py
+- 5.py
+- app.py
+- s3.py
+- setup.py
+- requirements.txt
+call_sites:
+- path: 3.py
+  line: 6
+  kind: import
+  symbol: google.generativeai
+- path: 3.py
+  line: 67
+  kind: call
+  symbol: google.generativeai.configure
+  note: Inside `load_api_key()`, and the file's only `configure`.
+- path: 3.py
+  line: 110
+  kind: call
+  symbol: google.generativeai.GenerativeModel
+  note: Local to `llm_model_object`, one positional argument.
+- path: 3.py
+  line: 111
+  kind: method_call
+  symbol: google.generativeai.GenerativeModel.generate_content
+  note: Receiver bound one line above, in the same scope.
+- path: 4.py
+  line: 6
+  kind: import
+  symbol: google.generativeai
+- path: 4.py
+  line: 66
+  kind: call
+  symbol: google.generativeai.configure
+  note: Inside `load_api_key()`, and the file's only `configure`.
+- path: 4.py
+  line: 107
+  kind: call
+  symbol: google.generativeai.GenerativeModel
+  note: Local to `llm_model_object`, one positional argument.
+- path: 4.py
+  line: 108
+  kind: method_call
+  symbol: google.generativeai.GenerativeModel.generate_content
+  note: Receiver bound one line above, in the same scope.
+- path: 5.py
+  line: 6
+  kind: import
+  symbol: google.generativeai
+- path: 5.py
+  line: 66
+  kind: call
+  symbol: google.generativeai.configure
+  note: Inside `load_api_key()`, and the file's only `configure`.
+- path: 5.py
+  line: 109
+  kind: call
+  symbol: google.generativeai.GenerativeModel
+  note: Local to `llm_model_object`, one positional argument.
+- path: 5.py
+  line: 110
+  kind: method_call
+  symbol: google.generativeai.GenerativeModel.generate_content
+  note: Receiver bound one line above, in the same scope.
+- path: app.py
+  line: 6
+  kind: import
+  symbol: google.generativeai
+- path: app.py
+  line: 67
+  kind: call
+  symbol: google.generativeai.configure
+  note: Inside `load_api_key()`, and the file's only `configure`.
+- path: app.py
+  line: 110
+  kind: call
+  symbol: google.generativeai.GenerativeModel
+  note: Local to `llm_model_object`, one positional argument.
+- path: app.py
+  line: 111
+  kind: method_call
+  symbol: google.generativeai.GenerativeModel.generate_content
+  note: Receiver bound one line above, in the same scope.
+- path: s3.py
+  line: 6
+  kind: import
+  symbol: google.generativeai
+- path: s3.py
+  line: 67
+  kind: call
+  symbol: google.generativeai.configure
+  note: Inside `load_api_key()`, and the file's only `configure`.
+- path: s3.py
+  line: 110
+  kind: call
+  symbol: google.generativeai.GenerativeModel
+  note: Local to `llm_model_object`, one positional argument.
+- path: s3.py
+  line: 111
+  kind: method_call
+  symbol: google.generativeai.GenerativeModel.generate_content
+  note: Receiver bound one line above, in the same scope.
+expected_other:
+- path: requirements.txt
+  line: 41
+  kind: manifest
+  symbol: google-generativeai
+  note: The one real declaration, unpinned, in a file of sixty lines that is mostly commented
+    out.
+- path: setup.py
+  line: 11
+  kind: manifest
+  symbol: google-generativeai
+  note: '`install_requires`. Two manifests declare it, so ADR-010 F-2 adds the new pin in
+    both.'
+must_not_report:
+- path: requirements.txt
+  line: 4
+  why: '`# google-generativeai` -- a commented-out declaration.'
+- path: requirements.txt
+  line: 12
+  why: The same comment again, twelve lines later.
+- path: requirements.txt
+  line: 26
+  why: '`# google-generativeai==0.3.2` -- a commented-out *pinned* declaration, which is the
+    shape most likely to read as real.'
+- path: requirements.txt
+  line: 29
+  why: '`langchain-google-genai==0.0.5`. Canonicalised it is `langchain-google-genai`; a substring
+    match on `google-genai` reports the repository as already migrated and the code as a `manifest_code_mismatch`.'
+- path: setup.py
+  line: 16
+  why: '`langchain_google_genai` in `install_requires` -- the same trap in the underscore
+    spelling.'
+- path: app.py
+  line: 9
+  why: '`from langchain_google_genai import ChatGoogleGenerativeAI` -- a different distribution
+    with a confusable name, in a file that really does import the legacy SDK three lines above.
+    The same line exists in all five copies.'
+notes: 'Twenty actionable sites, one shape. Every file has a single `configure`, a model built
+  and used inside one function and no escape, so all five are expected to be zero-bail --
+  and F-2 then expects the new pin in both manifests. The interesting half of this key is
+  what must **not** come back: six positions, four of them in a manifest.'

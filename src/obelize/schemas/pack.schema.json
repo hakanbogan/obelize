@@ -1,0 +1,1306 @@
+{
+  "$defs": {
+    "ChatHistory": {
+      "additionalProperties": false,
+      "description": "A chat history, whose bare-string parts are wrapped under `text_key` for the new SDK.",
+      "properties": {
+        "parts_key": {
+          "title": "Parts Key",
+          "type": "string"
+        },
+        "role_key": {
+          "title": "Role Key",
+          "type": "string"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "array"
+        },
+        "text_key": {
+          "title": "Text Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role_key",
+        "parts_key",
+        "text_key",
+        "roles"
+      ],
+      "title": "ChatHistory",
+      "type": "object"
+    },
+    "ConfigureToClientChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "configure_to_client",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/ConfigureToClientParams"
+        },
+        "preconditions": {
+          "default": [],
+          "items": {
+            "enum": [
+              "import_resolved",
+              "receiver_resolved",
+              "closed_world_binding",
+              "client_available",
+              "static_kwargs",
+              "literal_stream_flag",
+              "no_unknown_kwargs"
+            ],
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "replacement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "ConfigureToClientChange",
+      "type": "object"
+    },
+    "ConfigureToClientParams": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_kwargs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Kwargs",
+          "type": "array"
+        },
+        "client_name": {
+          "title": "Client Name",
+          "type": "string"
+        },
+        "client_name_fallback": {
+          "title": "Client Name Fallback",
+          "type": "string"
+        },
+        "client_symbol": {
+          "title": "Client Symbol",
+          "type": "string"
+        },
+        "credential_kwarg": {
+          "title": "Credential Kwarg",
+          "type": "string"
+        },
+        "credentials_object_kwarg": {
+          "title": "Credentials Object Kwarg",
+          "type": "string"
+        },
+        "legacy_symbol": {
+          "title": "Legacy Symbol",
+          "type": "string"
+        }
+      },
+      "required": [
+        "legacy_symbol",
+        "client_symbol",
+        "client_name",
+        "client_name_fallback",
+        "allowed_kwargs",
+        "credential_kwarg",
+        "credentials_object_kwarg"
+      ],
+      "title": "ConfigureToClientParams",
+      "type": "object"
+    },
+    "FlagOnlyChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "flag_only",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/FlagOnlyParams"
+        },
+        "preconditions": {
+          "default": [],
+          "items": {
+            "enum": [
+              "import_resolved",
+              "receiver_resolved",
+              "closed_world_binding",
+              "client_available",
+              "static_kwargs",
+              "literal_stream_flag",
+              "no_unknown_kwargs"
+            ],
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "replacement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "FlagOnlyChange",
+      "type": "object"
+    },
+    "FlagOnlyParams": {
+      "additionalProperties": false,
+      "description": "Symbols, string patterns and removed attributes a pack refuses, and what it says instead.",
+      "properties": {
+        "attributes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Attributes",
+          "type": "array"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "patterns": {
+          "default": [],
+          "items": {
+            "enum": [
+              "mock_patch_target",
+              "dynamic_access",
+              "sys_modules_stub"
+            ],
+            "type": "string"
+          },
+          "title": "Patterns",
+          "type": "array"
+        },
+        "suggestion": {
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "symbols": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Symbols",
+          "type": "array"
+        }
+      },
+      "required": [
+        "message",
+        "suggestion"
+      ],
+      "title": "FlagOnlyParams",
+      "type": "object"
+    },
+    "GenerativeModelCallsChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "generative_model_calls",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/GenerativeModelCallsParams"
+        },
+        "preconditions": {
+          "default": [],
+          "items": {
+            "enum": [
+              "import_resolved",
+              "receiver_resolved",
+              "closed_world_binding",
+              "client_available",
+              "static_kwargs",
+              "literal_stream_flag",
+              "no_unknown_kwargs"
+            ],
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "replacement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "GenerativeModelCallsChange",
+      "type": "object"
+    },
+    "GenerativeModelCallsParams": {
+      "additionalProperties": false,
+      "properties": {
+        "config_class": {
+          "title": "Config Class",
+          "type": "string"
+        },
+        "ctor_afc_kwargs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Ctor Afc Kwargs",
+          "type": "array"
+        },
+        "ctor_config_fields": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Ctor Config Fields",
+          "type": "array"
+        },
+        "ctor_model_kwarg": {
+          "title": "Ctor Model Kwarg",
+          "type": "string"
+        },
+        "ctor_order": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ctor Order",
+          "type": "array"
+        },
+        "ctor_symbol": {
+          "title": "Ctor Symbol",
+          "type": "string"
+        },
+        "default_model_name": {
+          "title": "Default Model Name",
+          "type": "string"
+        },
+        "generation_config_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Generation Config Keys",
+          "type": "array"
+        },
+        "history": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChatHistory"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "legacy_config_aliases": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Legacy Config Aliases",
+          "type": "array"
+        },
+        "legacy_config_kwarg": {
+          "title": "Legacy Config Kwarg",
+          "type": "string"
+        },
+        "legacy_config_symbol": {
+          "title": "Legacy Config Symbol",
+          "type": "string"
+        },
+        "legacy_error_modules": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Legacy Error Modules",
+          "type": "array"
+        },
+        "method_returns": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Method Returns",
+          "type": "object"
+        },
+        "methods": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Methods",
+          "type": "object"
+        },
+        "model_kwarg": {
+          "title": "Model Kwarg",
+          "type": "string"
+        },
+        "model_name_prefix": {
+          "title": "Model Name Prefix",
+          "type": "string"
+        },
+        "response_attrs_now_none": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Response Attrs Now None",
+          "type": "array"
+        },
+        "response_legacy_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Legacy Error"
+        },
+        "rewrites": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MethodRewrite"
+          },
+          "title": "Rewrites",
+          "type": "object"
+        },
+        "safety": {
+          "$ref": "#/$defs/SafetySettings"
+        },
+        "stream_kwarg": {
+          "title": "Stream Kwarg",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ctor_symbol",
+        "methods",
+        "generation_config_keys",
+        "safety",
+        "config_class",
+        "default_model_name",
+        "legacy_config_symbol",
+        "legacy_config_kwarg",
+        "ctor_order",
+        "ctor_model_kwarg",
+        "model_kwarg",
+        "stream_kwarg",
+        "model_name_prefix"
+      ],
+      "title": "GenerativeModelCallsParams",
+      "type": "object"
+    },
+    "Layout": {
+      "additionalProperties": false,
+      "description": "The maximum line width the pack's rules emit; match it to the user's formatter.",
+      "properties": {
+        "line_length": {
+          "default": 100,
+          "maximum": 320,
+          "minimum": 40,
+          "title": "Line Length",
+          "type": "integer"
+        }
+      },
+      "title": "Layout",
+      "type": "object"
+    },
+    "ManifestDependencyChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "manifest_dependency",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/ManifestDependencyParams"
+        },
+        "preconditions": {
+          "default": [],
+          "items": {
+            "enum": [
+              "import_resolved",
+              "receiver_resolved",
+              "closed_world_binding",
+              "client_available",
+              "static_kwargs",
+              "literal_stream_flag",
+              "no_unknown_kwargs"
+            ],
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "replacement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "ManifestDependencyChange",
+      "type": "object"
+    },
+    "ManifestDependencyParams": {
+      "additionalProperties": false,
+      "properties": {
+        "from_name": {
+          "title": "From Name",
+          "type": "string"
+        },
+        "to_name": {
+          "title": "To Name",
+          "type": "string"
+        },
+        "to_spec": {
+          "title": "To Spec",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_name",
+        "to_name",
+        "to_spec"
+      ],
+      "title": "ManifestDependencyParams",
+      "type": "object"
+    },
+    "Match": {
+      "additionalProperties": false,
+      "description": "What the scanner looks for before any rule runs.",
+      "properties": {
+        "imports": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Imports",
+          "type": "array"
+        },
+        "prefilter_tokens": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Prefilter Tokens",
+          "type": "array"
+        },
+        "symbols": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Symbols",
+          "type": "array"
+        },
+        "transitive": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Transitive",
+          "type": "object"
+        }
+      },
+      "required": [
+        "imports",
+        "prefilter_tokens"
+      ],
+      "title": "Match",
+      "type": "object"
+    },
+    "MethodRewrite": {
+      "additionalProperties": false,
+      "description": "How one legacy method of a declared receiver becomes a call in the new SDK.",
+      "properties": {
+        "afc_kwargs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Afc Kwargs",
+          "type": "array"
+        },
+        "arg_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Arg Map",
+          "type": "object"
+        },
+        "config_kwarg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Kwarg"
+        },
+        "contents_kwarg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contents Kwarg"
+        },
+        "coroutine": {
+          "default": false,
+          "title": "Coroutine",
+          "type": "boolean"
+        },
+        "history_kwarg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "History Kwarg"
+        },
+        "new_call": {
+          "title": "New Call",
+          "type": "string"
+        },
+        "positional_to_kw": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Positional To Kw",
+          "type": "array"
+        },
+        "root": {
+          "default": "client",
+          "enum": [
+            "client",
+            "receiver"
+          ],
+          "title": "Root",
+          "type": "string"
+        },
+        "semantic_kwargs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Semantic Kwargs",
+          "type": "array"
+        },
+        "stream_call": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stream Call"
+        }
+      },
+      "required": [
+        "new_call"
+      ],
+      "title": "MethodRewrite",
+      "type": "object"
+    },
+    "PackSource": {
+      "additionalProperties": false,
+      "description": "Where and when the migration facts were read; the optional `sha256` hashes that page.",
+      "properties": {
+        "retrieved_at": {
+          "format": "date",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "type": {
+          "enum": [
+            "official_guide",
+            "sdk_reference"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "url",
+        "retrieved_at"
+      ],
+      "title": "PackSource",
+      "type": "object"
+    },
+    "RenameImportChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rename_import",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RenameImportParams"
+        },
+        "preconditions": {
+          "default": [],
+          "items": {
+            "enum": [
+              "import_resolved",
+              "receiver_resolved",
+              "closed_world_binding",
+              "client_available",
+              "static_kwargs",
+              "literal_stream_flag",
+              "no_unknown_kwargs"
+            ],
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "replacement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "RenameImportChange",
+      "type": "object"
+    },
+    "RenameImportParams": {
+      "additionalProperties": false,
+      "properties": {
+        "default_alias": {
+          "title": "Default Alias",
+          "type": "string"
+        },
+        "from_module": {
+          "title": "From Module",
+          "type": "string"
+        },
+        "submodule_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Submodule Map",
+          "type": "object"
+        },
+        "to_module": {
+          "title": "To Module",
+          "type": "string"
+        },
+        "types_alias_fallback": {
+          "title": "Types Alias Fallback",
+          "type": "string"
+        },
+        "types_symbol_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Types Symbol Map",
+          "type": "object"
+        }
+      },
+      "required": [
+        "from_module",
+        "to_module",
+        "default_alias",
+        "types_alias_fallback"
+      ],
+      "title": "RenameImportParams",
+      "type": "object"
+    },
+    "RewriteCallChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rewrite_call",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RewriteCallParams"
+        },
+        "preconditions": {
+          "default": [],
+          "items": {
+            "enum": [
+              "import_resolved",
+              "receiver_resolved",
+              "closed_world_binding",
+              "client_available",
+              "static_kwargs",
+              "literal_stream_flag",
+              "no_unknown_kwargs"
+            ],
+            "type": "string"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "replacement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "RewriteCallChange",
+      "type": "object"
+    },
+    "RewriteCallParams": {
+      "additionalProperties": false,
+      "description": "One legacy free function and the client call it becomes; unlisted parameters are refused.",
+      "properties": {
+        "arg_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Arg Map",
+          "type": "object"
+        },
+        "config_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Class"
+        },
+        "config_kwarg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Kwarg"
+        },
+        "config_kwargs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Config Kwargs",
+          "type": "array"
+        },
+        "dispatch_prefixes": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Dispatch Prefixes",
+          "type": "object"
+        },
+        "legacy_error_modules": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Legacy Error Modules",
+          "type": "array"
+        },
+        "legacy_symbol": {
+          "title": "Legacy Symbol",
+          "type": "string"
+        },
+        "new_call": {
+          "title": "New Call",
+          "type": "string"
+        },
+        "positional_to_kw": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Positional To Kw",
+          "type": "array"
+        },
+        "result_access_flags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Result Access Flags",
+          "type": "array"
+        },
+        "result_attribute_flags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Result Attribute Flags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "legacy_symbol",
+        "new_call"
+      ],
+      "title": "RewriteCallParams",
+      "type": "object"
+    },
+    "SafetySettings": {
+      "additionalProperties": false,
+      "description": "The safety table: legacy safety strings and enum members, and the new members they become.",
+      "properties": {
+        "category_class": {
+          "title": "Category Class",
+          "type": "string"
+        },
+        "category_kwarg": {
+          "title": "Category Kwarg",
+          "type": "string"
+        },
+        "category_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Category Map",
+          "type": "object"
+        },
+        "category_members": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Category Members",
+          "type": "array"
+        },
+        "config_field": {
+          "title": "Config Field",
+          "type": "string"
+        },
+        "legacy_category_class": {
+          "title": "Legacy Category Class",
+          "type": "string"
+        },
+        "legacy_category_key": {
+          "title": "Legacy Category Key",
+          "type": "string"
+        },
+        "legacy_kwarg": {
+          "title": "Legacy Kwarg",
+          "type": "string"
+        },
+        "legacy_threshold_class": {
+          "title": "Legacy Threshold Class",
+          "type": "string"
+        },
+        "legacy_threshold_key": {
+          "title": "Legacy Threshold Key",
+          "type": "string"
+        },
+        "setting_class": {
+          "title": "Setting Class",
+          "type": "string"
+        },
+        "threshold_class": {
+          "title": "Threshold Class",
+          "type": "string"
+        },
+        "threshold_kwarg": {
+          "title": "Threshold Kwarg",
+          "type": "string"
+        },
+        "threshold_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Threshold Map",
+          "type": "object"
+        },
+        "threshold_members": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Threshold Members",
+          "type": "array"
+        }
+      },
+      "required": [
+        "legacy_kwarg",
+        "legacy_category_key",
+        "legacy_threshold_key",
+        "legacy_category_class",
+        "legacy_threshold_class",
+        "category_map",
+        "threshold_map",
+        "category_members",
+        "threshold_members",
+        "setting_class",
+        "category_class",
+        "threshold_class",
+        "category_kwarg",
+        "threshold_kwarg",
+        "config_field"
+      ],
+      "title": "SafetySettings",
+      "type": "object"
+    },
+    "Verification": {
+      "additionalProperties": false,
+      "description": "Commands a pack suggests as display text; obelize never runs them, under any flag.",
+      "properties": {
+        "suggestions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggestions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "suggestions"
+      ],
+      "title": "Verification",
+      "type": "object"
+    },
+    "VersionRange": {
+      "additionalProperties": false,
+      "description": "One side of the migration: a distribution and a PEP 440 range of it.",
+      "properties": {
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package",
+        "version"
+      ],
+      "title": "VersionRange",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One migration between two versions of one SDK, as declarative data.",
+  "properties": {
+    "changes": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "configure_to_client": "#/$defs/ConfigureToClientChange",
+            "flag_only": "#/$defs/FlagOnlyChange",
+            "generative_model_calls": "#/$defs/GenerativeModelCallsChange",
+            "manifest_dependency": "#/$defs/ManifestDependencyChange",
+            "rename_import": "#/$defs/RenameImportChange",
+            "rewrite_call": "#/$defs/RewriteCallChange"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/RenameImportChange"
+          },
+          {
+            "$ref": "#/$defs/ConfigureToClientChange"
+          },
+          {
+            "$ref": "#/$defs/GenerativeModelCallsChange"
+          },
+          {
+            "$ref": "#/$defs/RewriteCallChange"
+          },
+          {
+            "$ref": "#/$defs/FlagOnlyChange"
+          },
+          {
+            "$ref": "#/$defs/ManifestDependencyChange"
+          }
+        ]
+      },
+      "title": "Changes",
+      "type": "array"
+    },
+    "from": {
+      "$ref": "#/$defs/VersionRange"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "language": {
+      "const": "python",
+      "title": "Language",
+      "type": "string"
+    },
+    "layout": {
+      "$ref": "#/$defs/Layout"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "match": {
+      "$ref": "#/$defs/Match"
+    },
+    "pack_version": {
+      "title": "Pack Version",
+      "type": "string"
+    },
+    "provider": {
+      "title": "Provider",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/PackSource"
+    },
+    "to": {
+      "$ref": "#/$defs/VersionRange"
+    },
+    "verification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Verification"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "pack_version",
+    "provider",
+    "language",
+    "source",
+    "from",
+    "to",
+    "match",
+    "changes",
+    "limitations"
+  ],
+  "title": "PackDocument",
+  "type": "object"
+}

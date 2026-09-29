@@ -1,0 +1,16 @@
+[project]
+name = "manifests-fixture"
+version = "0.1.0"
+description = "Helpers around google-generativeai, pinned four different ways."
+dependencies = [
+  # the declaration is the line below, not this one: "Google_GenerativeAI==0.8.6"
+  "Google_GenerativeAI==0.8.6",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[tool.poetry.group.test.dependencies]
+google-generativeai = "^0.8.6"
+pytest = "^8.3"

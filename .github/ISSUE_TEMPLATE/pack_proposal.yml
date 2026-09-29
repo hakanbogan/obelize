@@ -1,0 +1,108 @@
+---
+name: Migration pack proposal
+description: Propose a new migration (a from-package to to-package move).
+title: "[pack] "
+labels:
+  - pack
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A migration pack declaratively describes one SDK migration and carries
+        no executable content: it selects rule kinds from a Python registry and
+        supplies parameters. See
+        [docs/PACK_SPEC.md](https://github.com/hakanbogan/obelize/blob/main/docs/PACK_SPEC.md)
+        and the pack section of
+        [CONTRIBUTING.md](https://github.com/hakanbogan/obelize/blob/main/CONTRIBUTING.md).
+
+        Only the Gemini pack is planned for now; a proposal gets the `roadmap`
+        label and is kept for later.
+
+  - type: input
+    id: from-package
+    attributes:
+      label: From package
+      description: The distribution name and the version range being migrated away from.
+      placeholder: "google-generativeai (<=0.8.6)"
+    validations:
+      required: true
+
+  - type: input
+    id: to-package
+    attributes:
+      label: To package
+      description: The distribution name and the version range being migrated to.
+      placeholder: "google-genai (>=2.0)"
+    validations:
+      required: true
+
+  - type: input
+    id: guide-url
+    attributes:
+      label: Official migration guide URL
+      description: >-
+        A page on the vendor's own domain: every rule must trace to an official
+        source, not a blog post or a model's recollection.
+      placeholder: "https://ai.google.dev/gemini-api/docs/migrate"
+    validations:
+      required: true
+
+  - type: input
+    id: eol-date
+    attributes:
+      label: Deprecation / EOL date
+      description: >-
+        When the old package was deprecated and when support ends; link a source
+        if the guide does not say.
+      placeholder: "deprecated 2025-08, EOL 2025-11-30"
+    validations:
+      required: true
+
+  - type: textarea
+    id: corpus
+    attributes:
+      label: Rough corpus size
+      description: >-
+        How much code is affected and how you counted it (GitHub code search for
+        the main import and calls is fine). Name the query behind each number;
+        approximate is expected.
+      placeholder: |
+        `import old_package`: ~N files
+        `old_package.MainClass(`: ~N files
+        in `test_*.py`: ~N files
+    validations:
+      required: true
+
+  - type: textarea
+    id: mechanical
+    attributes:
+      label: Which patterns are mechanical
+      description: >-
+        Deterministic 1:1 rewrites a pack can automate: renamed imports or
+        keywords, a call moved onto a client object.
+    validations:
+      required: true
+
+  - type: textarea
+    id: semantic
+    attributes:
+      label: Which patterns are semantic
+      description: >-
+        Behaviour changes: new defaults, different response shapes, enum values
+        whose meaning changed, anything a person has to decide. These go in the
+        pack's `limitations` and are reported for review rather than guessed at.
+        If most of the migration is like this, a pack probably isn't the right
+        tool for it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: >-
+        Known false-positive traps (a class with the same name in another SDK, a
+        shared alias), whether both versions can be installed side by side,
+        candidate repositories for benchmark cases.
+    validations:
+      required: false

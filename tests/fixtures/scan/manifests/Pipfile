@@ -1,0 +1,14 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple/google-generativeai/"
+verify_ssl = true
+
+[packages]
+requests = ">=2.31"
+
+[dev-packages]
+google-generativeai = "==0.8.6"
+pytest = ">=8.3"
+
+[requires]
+python_version = "3.10"

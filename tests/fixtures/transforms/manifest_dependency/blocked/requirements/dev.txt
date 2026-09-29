@@ -1,0 +1,5 @@
+# Both distributions are already declared here, so there is nothing to add and
+# the legacy line is withheld exactly as it is everywhere else.
+google-generativeai==0.8.6
+google-genai>=1
+pytest>=8.3

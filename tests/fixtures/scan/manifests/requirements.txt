@@ -1,0 +1,6 @@
+# Pinned to the deprecated SDK: this repository is the thing being migrated.
+google-generativeai==0.8.6
+requests>=2.31
+
+# Only the line above is rewritten: google-generativeai==0.8.6
+-e .

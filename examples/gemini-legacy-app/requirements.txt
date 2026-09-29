@@ -1,0 +1,8 @@
+# Deliberately pinned to the deprecated SDK: this application is the migration
+# subject for `obelize`, so the "before" state has to stay reproducible.
+google-generativeai==0.8.6
+
+# Unrelated to the migration. The manifest rewrite must leave these two alone
+# and touch only the google-generativeai line above.
+python-dotenv==1.0.1
+pytest==8.3.4

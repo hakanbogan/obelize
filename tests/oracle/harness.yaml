@@ -1,0 +1,27 @@
+# Per-case scan exclusions, one `why` each, kept out of the answer keys; each must match a file.
+# `exclude` values are `.obelize.yml` patterns, matched by the product's own `pathspec` code.
+
+# Every case: an answer key is scan output, never input (`encoding/` has four `.py` ones).
+all:
+  exclude:
+    - "**/*.after.*"
+  why:
+    "**/*.after.*": >-
+      The migrated form of a fixture. Scanning it would grade the scanner
+      against the output it is supposed to generate, and `already_new.py` in
+      the negative case already covers "reads the new SDK, reports nothing".
+      The pattern is not `*.after.py`: since T15 a *manifest* has an answer key
+      too, and `basic/requirements.after.txt` is a file the manifest pass would
+      otherwise read as a second declaration of the new distribution.
+
+encoding:
+  exclude:
+    - "_build.py"
+  why:
+    "_build.py": >-
+      The generator for the directory, not a scan input. Its byte literals
+      contain `import google.generativeai as genai` six times, so a scan of
+      this directory reports six mentions inside a file that is part of the
+      test harness. `encoding/ground_truth.yaml` names line 71 under
+      `must_not_report` for exactly this reason, and excluding the file is how
+      that row is satisfied.

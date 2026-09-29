@@ -1,0 +1,245 @@
+# The answer key for what reaches a disk, written by hand before the writer.
+#
+# Eleven small repositories. Every corpus before this one graded bytes a
+# function returned; this one grades bytes that are on a filesystem when the
+# run is over, and the state of the git tree that decided whether they were
+# allowed to get there.
+#
+# Three things are graded here and nowhere else.
+#
+# **TM-8, the dirty tree.** `clean/`, `dirty_worktree/`, `dirty_target/`,
+# `staged/`, `untracked/`, `untracked_target/`, `allowed/` and `no_repo/` are
+# the whole truth table of one question: may this run write at all. The five
+# that refuse must leave every file in the repository byte for byte as it was
+# -- which is a stronger statement than "wrote nothing", and is the one the key
+# asserts.
+#
+# **A directory of a larger repository asks the same question.**
+# `subdirectory_dirty/` and `subdirectory_clean/` are placed at
+# `packages/app/` of a repository initialised above them, and `--repo` names
+# the directory. git answers for the whole repository, and so does the gate:
+# `dirty` is spelled from the top of it, the way git spells it.
+#
+# **`--untracked-files=no`, which is not taste.** `untracked/` and `staged/`
+# hold the same file and differ by a `git add`. Obelize writes
+# `.obelize/runs/<id>/` itself, so a rule that counted untracked paths would
+# make every run after the first one refuse; and work somebody has staged is
+# work somebody has not committed, so the index column counts. An untracked
+# file on the plan is the exception, in `untracked_target/`: git holds no copy
+# of it, so `git diff` could not show its rewrite.
+#
+# **[ADR-010](../../../docs/adr/ADR-010-fixture-oracle-and-atomicity.md) F-1 on
+# a disk.** `blocked/refused.py` has been graded byte-identical since T16, in
+# memory. Here it has to come back off the filesystem unchanged after two other
+# files in the same directory were replaced.
+#
+# `written` is every path whose bytes the run replaced, in the order
+# `fsutil.apply` reports them, which is path order. `dirty` is every tracked
+# path git called modified and every path on the plan git does not track, in
+# path order, and it is non-empty only when that is why nothing was written.
+# `after: present` means the file has a `.after` key beside it and must come
+# out byte for byte that key; `after: absent` means it must come out exactly as
+# it went in -- including, in the three cases that append one, the hand edit
+# this key asked for.
+case: apply
+pack: gemini/google-generativeai-to-google-genai
+
+cases:
+  # =====================================================================
+  # clean -- the ordinary case, and the first time a corpus grades a disk.
+  # =====================================================================
+  - case: clean
+    what_it_is: >-
+      A committed tree with nothing outstanding. Both files the run produces
+      are replaced in place, and the bytes are compared after they have been
+      through a temporary file, an fsync, a chmod and a rename.
+    git: {init: true}
+    allow_dirty: false
+    dirty: []
+    refused: []
+    written: [app.py, requirements.txt]
+    files:
+      - {file: app.py, after: present}
+      - {file: requirements.txt, after: present}
+
+  # =====================================================================
+  # blocked -- F-1's promise, kept on a filesystem rather than in memory.
+  # =====================================================================
+  - case: blocked
+    what_it_is: >-
+      One file migrates, one is refused by a rule the scan could not
+      anticipate, and the manifest keeps the legacy pin beside the new one.
+      The refused file must be byte-identical when the run is over, in a
+      directory where two other files were just replaced.
+    git: {init: true}
+    allow_dirty: false
+    dirty: []
+    refused: []
+    written: [good.py, requirements.txt]
+    files:
+      - {file: good.py, after: present}
+      - {file: refused.py, after: absent}
+      - {file: requirements.txt, after: present}
+
+  # =====================================================================
+  # dirty_worktree -- the refusal is over the tree, not over the plan.
+  # =====================================================================
+  - case: dirty_worktree
+    what_it_is: >-
+      A tracked file this run would never touch carries an uncommitted change.
+      The apply is refused anyway: what a clean tree buys a reviewer is a
+      `git diff` that is the migration and nothing else.
+    git: {init: true, appended: {notes.py: "EXTRA = 2\n"}}
+    allow_dirty: false
+    dirty: [notes.py]
+    refused: []
+    written: []
+    files:
+      - {file: app.py, after: absent}
+      - {file: notes.py, after: absent}
+      - {file: requirements.txt, after: absent}
+
+  # =====================================================================
+  # dirty_target -- TM-8 stated literally.
+  # =====================================================================
+  - case: dirty_target
+    what_it_is: >-
+      The file the run would write is the one with the hand edit. Nothing is
+      written, and the refusal names the path both as dirty and as one the
+      plan wanted.
+    git: {init: true, appended: {app.py: "\n# touched by hand, not committed\n"}}
+    allow_dirty: false
+    dirty: [app.py]
+    refused: []
+    written: []
+    files:
+      - {file: app.py, after: absent}
+      - {file: requirements.txt, after: absent}
+
+  # =====================================================================
+  # allowed -- the same dirty tree, with the permission given.
+  # =====================================================================
+  - case: allowed
+    what_it_is: >-
+      `--allow-dirty` is what makes the refusal a policy rather than an
+      inability. Both files are written, and the hand edit in `notes.py` is
+      still there afterwards, because obelize writes only what is on the plan.
+    git: {init: true, appended: {notes.py: "EXTRA = 2\n"}}
+    allow_dirty: true
+    dirty: []
+    refused: []
+    written: [app.py, requirements.txt]
+    files:
+      - {file: app.py, after: present}
+      - {file: notes.py, after: absent}
+      - {file: requirements.txt, after: present}
+
+  # =====================================================================
+  # untracked -- what obelize's own run folder is, and why it cannot count.
+  # =====================================================================
+  - case: untracked
+    what_it_is: >-
+      A committed tree with two untracked files beside it, one of them the
+      pointer obelize writes itself. Neither is on the plan, and an untracked
+      file off the plan is not uncommitted work, so the run writes.
+    git:
+      init: true
+      untracked:
+        scratch.txt: "notes to self\n"
+        .obelize/latest: "20260920T101500Z-ab12cd34\n"
+    allow_dirty: false
+    dirty: []
+    refused: []
+    written: [app.py, requirements.txt]
+    files:
+      - {file: app.py, after: present}
+      - {file: requirements.txt, after: present}
+
+  # =====================================================================
+  # untracked_target -- a file on the plan that git holds no copy of.
+  # =====================================================================
+  - case: untracked_target
+    what_it_is: >-
+      `app.py` was never added, so git has no copy of it: `git diff` would
+      not show its rewrite and `git checkout` could not bring it back. An
+      untracked file on the plan is dirt, so nothing is written, and the
+      committed `requirements.txt` stays as it was too.
+    git: {init: true, never_added: [app.py]}
+    allow_dirty: false
+    dirty: [app.py]
+    refused: []
+    written: []
+    files:
+      - {file: app.py, after: absent}
+      - {file: requirements.txt, after: absent}
+
+  # =====================================================================
+  # staged -- the same change as dirty_worktree, one column to the left.
+  # =====================================================================
+  - case: staged
+    what_it_is: >-
+      The change is in the index rather than the working tree, so
+      `git status --porcelain` reports it in the first of the two status
+      columns. A reader who looks at one column sees a clean tree; staged work
+      is uncommitted work, so this refuses.
+    git: {init: true, appended: {notes.py: "EXTRA = 2\n"}, staged: [notes.py]}
+    allow_dirty: false
+    dirty: [notes.py]
+    refused: []
+    written: []
+    files:
+      - {file: app.py, after: absent}
+      - {file: notes.py, after: absent}
+      - {file: requirements.txt, after: absent}
+
+  # =====================================================================
+  # no_repo -- nothing to be dirty, and nothing to diff afterwards either.
+  # =====================================================================
+  - case: no_repo
+    what_it_is: >-
+      Not a git repository at all. `RUN_FOLDER.md` says `git_dirty` is false
+      here and says out loud that this is the case in which TM-8 cannot
+      protect anybody. The run writes.
+    git: {init: false}
+    allow_dirty: false
+    dirty: []
+    refused: []
+    written: [app.py, requirements.txt]
+    files:
+      - {file: app.py, after: present}
+      - {file: requirements.txt, after: present}
+
+  # =====================================================================
+  # subdirectory_dirty -- the gate is not blind below the top of a repository.
+  # =====================================================================
+  - case: subdirectory_dirty
+    what_it_is: >-
+      `dirty_worktree` one level down: the repository is initialised above the
+      directory `--repo` names, and a tracked file inside it carries an
+      uncommitted change. The gate reads the whole repository from its top,
+      so this refuses exactly as it would there.
+    git: {init: true, subdirectory: packages/app, appended: {notes.py: "EXTRA = 2\n"}}
+    allow_dirty: false
+    dirty: [packages/app/notes.py]
+    refused: []
+    written: []
+    files:
+      - {file: app.py, after: absent}
+      - {file: notes.py, after: absent}
+      - {file: requirements.txt, after: absent}
+
+  # =====================================================================
+  # subdirectory_clean -- and it does not refuse a directory that is clean.
+  # =====================================================================
+  - case: subdirectory_clean
+    what_it_is: >-
+      `clean` one level down. Nothing outstanding anywhere in the repository,
+      so both files are written.
+    git: {init: true, subdirectory: packages/app}
+    allow_dirty: false
+    dirty: []
+    refused: []
+    written: [app.py, requirements.txt]
+    files:
+      - {file: app.py, after: present}
+      - {file: requirements.txt, after: present}

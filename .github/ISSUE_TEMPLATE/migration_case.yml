@@ -1,0 +1,94 @@
+---
+name: Migration case
+description: A real repository that obelize migrated wrongly, or refused to migrate.
+title: "[case] "
+labels:
+  - migration-case
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These are the most useful reports: the rules are built and tested against
+        real repositories at real commits.
+
+        A case may be added to the benchmark, which stores only the repository
+        URL, commit SHA, license, ground-truth line references and metrics, never
+        the code itself. Diffs are kept only for MIT, BSD, Apache and ISC
+        repositories, and every case in a round is published, failures included.
+
+        Publicly readable repositories only.
+
+  - type: input
+    id: repo-url
+    attributes:
+      label: Repository URL
+      placeholder: "https://github.com/owner/name"
+    validations:
+      required: true
+
+  - type: input
+    id: commit-sha
+    attributes:
+      label: Commit SHA
+      description: The full 40-character SHA.
+      placeholder: "0000000000000000000000000000000000000000"
+    validations:
+      required: true
+
+  - type: input
+    id: license
+    attributes:
+      label: License
+      description: >-
+        SPDX identifier (MIT, Apache-2.0, GPL-3.0-only; NOASSERTION if there is
+        no license file).
+      placeholder: "MIT"
+    validations:
+      required: true
+
+  - type: textarea
+    id: pattern
+    attributes:
+      label: Which SDK pattern
+      description: >-
+        The old-SDK symbols and their file:line, e.g. `genai.configure` inside a
+        function, `start_chat` + `send_message`, `safety_settings` as a dict, a
+        `mock.patch("google.generativeai...")` target.
+    validations:
+      required: true
+
+  - type: textarea
+    id: obelize-reported
+    attributes:
+      label: What obelize reported
+      description: >-
+        The findings, edits or `needs_review` reasons; a redacted `run.json` or
+        `REPORT.md` excerpt is ideal. Check it for secrets first.
+    validations:
+      required: true
+
+  - type: textarea
+    id: correct-migration
+    attributes:
+      label: What the correct migration is
+      description: >-
+        The code that should have been produced, with a link to the official
+        migration guide section that says so. If the right answer needs a human
+        decision, say so; a case obelize should refuse is just as useful as one
+        it should rewrite.
+      render: python
+    validations:
+      required: true
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: What went wrong
+      options:
+        - obelize produced a wrong edit
+        - obelize missed a call site
+        - obelize flagged something that is not a real usage (false positive)
+        - obelize refused something it could have handled automatically
+        - obelize crashed
+    validations:
+      required: true

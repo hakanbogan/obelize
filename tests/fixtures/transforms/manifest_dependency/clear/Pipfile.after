@@ -1,0 +1,6 @@
+[packages]
+google-genai = ">=1"
+requests = ">=2.31"
+
+[dev-packages]
+pytest = ">=8.3"

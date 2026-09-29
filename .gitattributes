@@ -1,0 +1,11 @@
+# Every file checks out with the LF bytes the index holds, whatever core.autocrlf says: keys and
+# fixtures are compared byte for byte. tests/unit/test_line_endings.py checks every tracked file.
+* text=auto eol=lf
+
+# Encoding fixtures and their `*.after.py` keys exist for their exact bytes (ADR-008): `-text`
+# stops any line-ending conversion, `-diff` stops text diffs.
+# tests/unit/test_fixture_encoding.py catches any alteration.
+tests/fixtures/scan/encoding/*.py -text -diff
+
+# Overrides the glob above: the generator is ordinary source.
+tests/fixtures/scan/encoding/_build.py text diff

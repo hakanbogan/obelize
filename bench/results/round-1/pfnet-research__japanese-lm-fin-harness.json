@@ -1,0 +1,221 @@
+{
+  "case": "pfnet-research__japanese-lm-fin-harness",
+  "control": true,
+  "error": null,
+  "measurements": {
+    "detected": 0,
+    "false_positive": 0,
+    "false_positive_edit": 0,
+    "human_edits": null,
+    "llm_cost_usd": 0.0,
+    "llm_tokens_in": 0,
+    "llm_tokens_out": 0,
+    "missed_call_site": 0,
+    "patch_applied": false,
+    "patch_compiles": null,
+    "patch_correct": null,
+    "pr_merged": null,
+    "pr_opened": null,
+    "runtime_seconds": 1.504,
+    "tests_after": {
+      "failed": null,
+      "passed": null,
+      "skipped": null,
+      "status": "not_run"
+    },
+    "tests_baseline": {
+      "failed": null,
+      "passed": null,
+      "skipped": null,
+      "status": "not_run"
+    },
+    "tests_cover_change": false,
+    "unmigrated": 0
+  },
+  "origin": "corpus",
+  "provenance": {
+    "machine": "arm64",
+    "obelize_commit": "814617028f9137d953d5805a3e8d52f11ee5be2c",
+    "obelize_version": "0.1.0.dev0",
+    "os": "Darwin",
+    "pack": "gemini/google-generativeai-to-google-genai",
+    "pack_sha256": "58f94367c119ae4c5977d3802511995db18443af4afc9f003f8f79d9006cc245",
+    "python": "cpython-3.12.9-macos-aarch64-none",
+    "python_build": "3.12.9 (main, Feb 4 2025, 14:38:38) [Clang 16.0.0 (clang-1600.0.26.6)]",
+    "python_executable": "/private<work>/round-1/pfnet-research__japanese-lm-fin-harness/.venv/bin/python",
+    "run_at": "2026-09-21T21:34:26Z",
+    "sdk_from": "0.8.6",
+    "sdk_to": "2.24.0",
+    "spec_sha256": "e7aac7b4947cf87b085fa45eea9032fb610e349fba06bc9aae156ac9e61e93fc"
+  },
+  "schema_version": 2,
+  "split": null,
+  "steps": [
+    {
+      "argv": [
+        "git",
+        "-C",
+        "<case>",
+        "init",
+        "-q"
+      ],
+      "duration_s": 0.033,
+      "exit_code": 0,
+      "name": "fetch",
+      "number": 1,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "<case>",
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/pfnet-research/japanese-lm-fin-harness"
+      ],
+      "duration_s": 0.025,
+      "exit_code": 0,
+      "name": "fetch",
+      "number": 1,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "<case>",
+        "fetch",
+        "-q",
+        "--depth",
+        "1",
+        "origin",
+        "55d967750fec1f9ab1ee15554de96390a67531d4"
+      ],
+      "duration_s": 1.546,
+      "exit_code": 0,
+      "name": "fetch",
+      "number": 1,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "<case>",
+        "checkout",
+        "-q",
+        "FETCH_HEAD"
+      ],
+      "duration_s": 0.604,
+      "exit_code": 0,
+      "name": "fetch",
+      "number": 1,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "uv",
+        "venv",
+        "--python",
+        "cpython-3.12.9-macos-aarch64-none",
+        "<case>/.venv"
+      ],
+      "duration_s": 0.031,
+      "exit_code": 0,
+      "name": "venv",
+      "number": 2,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "<case>/.venv/bin/python",
+        "-c",
+        "import sys;print(sys.executable);print(' '.join(sys.version.split()))"
+      ],
+      "duration_s": 0.051,
+      "exit_code": 0,
+      "name": "resolve",
+      "number": 2,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        "/private<case>/.venv/bin/python",
+        "google-generativeai==0.8.6"
+      ],
+      "duration_s": 0.162,
+      "exit_code": 0,
+      "name": "install-from",
+      "number": 4,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "/private<case>/.venv/bin/python",
+        "-c",
+        "import importlib.metadata as m,sys;print(m.version(sys.argv[1]))\n",
+        "google-generativeai"
+      ],
+      "duration_s": 0.105,
+      "exit_code": 0,
+      "name": "install-from-check",
+      "number": 4,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "<harness-python>",
+        "-m",
+        "obelize.cli",
+        "fix",
+        "--repo",
+        "<case>",
+        "--pack",
+        "gemini/google-generativeai-to-google-genai",
+        "--apply",
+        "--non-interactive",
+        "--json"
+      ],
+      "duration_s": 1.504,
+      "exit_code": 4,
+      "name": "fix",
+      "number": 6,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        "/private<case>/.venv/bin/python",
+        "google-genai==2.24.0"
+      ],
+      "duration_s": 0.113,
+      "exit_code": 0,
+      "name": "install-to",
+      "number": 7,
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "/private<case>/.venv/bin/python",
+        "-c",
+        "import importlib.metadata as m,sys;print(m.version(sys.argv[1]))\n",
+        "google-genai"
+      ],
+      "duration_s": 0.104,
+      "exit_code": 0,
+      "name": "install-to-check",
+      "number": 7,
+      "timed_out": false
+    }
+  ],
+  "tier": "unsupported"
+}

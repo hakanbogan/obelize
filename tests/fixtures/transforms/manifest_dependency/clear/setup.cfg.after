@@ -1,0 +1,8 @@
+[metadata]
+name = clear-fixture
+description = helpers around google-generativeai
+
+[options]
+install_requires =
+    google-genai>=1
+    requests>=2.31

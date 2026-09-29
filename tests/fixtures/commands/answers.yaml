@@ -1,0 +1,584 @@
+# The answer key for the three commands, written by hand before their bodies.
+#
+# Five repositories and the cases below. Every corpus before this one graded a
+# decision or a document; this one grades an **invocation**: what the process
+# exits with, what is on the disk when it returns, and in which order the
+# phases of `obelize fix --apply` happened.
+#
+# What is taken as given. The findings are T3's and T4's, the rewrite is
+# T10-T15's, the atomicity is T16's, the writing and the tree gate are T17's,
+# the verification runner is T18's and the run folder is T19's. All of that is
+# graded by five corpora of its own. What is hand-written here is only what a
+# command decides:
+#
+# **The exit code.** `docs/CLI.md`'s table has eight rows and six of them are
+# reachable from these three commands; each is a case below. The pack rows
+# (`7`, and `2` for a reference with nothing behind it) are `obelize scan`'s
+# already and are asserted in `tests/unit/test_fix_command.py` rather than
+# here, because they need no repository.
+#
+# **The order of the phases.** `dirty/` is the measurement: an apply refused
+# over the tree must not have started the user's test suite first, so the
+# refusal is asked before the baseline and `verify` is `not_run` with no
+# baseline recorded. `red/` is the other half -- a baseline that fails gates
+# the after-phase and does **not** stop the patch.
+#
+# **What a refusal leaves behind.** `configured/` is refused by ADR-007 and
+# the files are written anyway. Refusing the write instead would leave
+# `file_edits: []`, `idempotent: true` and `refused: []`, which is exactly
+# what a repository needing no work looks like -- the shape
+# [ADR-034](../../../docs/adr/ADR-034-fix-evidence.md) D6
+# added `refused[]` to make impossible, and `refused[]`'s vocabulary is about
+# files and has no word for a command.
+#
+# **Undo.** Which files come back, which are skipped, and what `undo.json`
+# says about each.
+#
+# **What a dry run shows.** The change itself, printed after the file lines:
+# `patch.diff`, cut at `diff.lines` lines, then one line naming the file. A
+# run with `diff_lines` prints `patch.diff`, which has that many lines; a
+# `fix` run without it prints none of it.
+#
+# **What comes next.** A `fix` run's `next` is the last line it prints, the
+# step after it, chosen by the code an apply exits with: `0` how to review and
+# undo the change, `4` how many findings are left and where they are listed,
+# `5` what refused it and the flag that permits it, `6` a verification to run,
+# or, when the baseline already settled the run, the undo that makes a new one
+# possible. `null` is a run with no such line: a dry run, a `3`, and a `4` with
+# nothing left. `{run}` is the run id, `{repo}` the `--repo` the harness
+# passed and `{tests}` the suggested tests, each quoted as this system's shell
+# reads it, and `{report}` the run folder's `REPORT.md` as the `Evidence:` line
+# spells the folder.
+#
+# **Where the evidence is.** Every run names its run folder under the
+# `--repo` it was given, so the path opens from where the command ran. Only
+# the diff a dry run quotes may carry a backtick, from the user's own code:
+# a terminal shows Markdown literally.
+#
+# `{python}` is this interpreter, quoted, substituted by the harness: a
+# verification command has to be a real process (ADR-033) and the path to one
+# is not something a committed file can know.
+
+case: commands
+pack: gemini/google-generativeai-to-google-genai
+
+# Commands, spelled once. The third passes before the patch and fails after
+# it, which is the only way to reach `fail` from a suite that is not simply
+# broken -- and the shape a migration tool is most often accused of.
+commands:
+  quiet: "{python} -c pass"
+  noisy: "{python} -c \"print('ok')\""
+  legacy_only: "{python} -c \"import pathlib, sys; sys.exit(0 if 'generativeai' in pathlib.Path('app.py').read_text() else 1)\""
+  red: "{python} -c \"print('boom'); raise SystemExit(1)\""
+  # Leaves a file behind, which is how a case grades that a command did **not**
+  # run. A baseline that was skipped leaves no trace in the record -- its
+  # output would have gone to a scratch directory the run then discarded -- so
+  # without a side effect `dirty/`'s measurement would be an absence that a
+  # writer could produce either way. `{marker}` is a path outside the
+  # repository, supplied by the harness with forward slashes.
+  marker: "{python} -c \"open('{marker}', 'w').close()\""
+
+# The line after the diff. `{patch}` is the run folder's `patch.diff` as the
+# `Evidence:` line spells the folder, and `{total}` counts its lines.
+diff:
+  lines: 200
+  whole: "Diff: {patch}"
+  cut: "Diff: {patch} ({lines} of {total} lines shown)"
+  # What the terminal shows in place of what `patch.diff` holds. The printed
+  # diff is redacted as command output is, since a terminal can be a CI log;
+  # the file is the user's own bytes and is not.
+  redacted:
+    'api_key="AIzaNotARealKey"': 'api_key="[REDACTED]"'
+
+# Every artefact each mode writes at the top level of the folder, which is
+# `docs/RUN_FOLDER.md`'s table read as a list of names. `snapshots/` and
+# `verify/` are directories and are graded by their own keys.
+artefacts:
+  plan: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
+  apply: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
+
+cases:
+  # =====================================================================
+  # clean -- the four commands over the repository where everything
+  # migrates, in the order a person would type them.
+  # =====================================================================
+  - case: clean
+    repository: app
+    what_it_is: >-
+      A dry run, an apply, a re-verification and an undo, against one working
+      copy. This is the only case that reaches exit `0` from `--apply`,
+      because it is the only repository in the corpus with nothing withheld.
+    git: {init: true}
+    runs:
+      - what: the default, which writes nothing and shows what it would write
+        argv: [fix]
+        next: null
+        exit_code: 0
+        mode: plan
+        diff_lines: 25
+        file_edits: []
+        idempotent: null
+        refused: []
+        verify: {status: not_run, reason: dry_run, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: legacy
+
+      - what: the apply, with a command that passes on both sides
+        argv: [fix, --apply, --verify, '{noisy}']
+        next: &written "Next: git -C {repo} diff shows the change; obelize undo --run {run} --repo {repo} puts it back."
+        exit_code: 0
+        mode: apply
+        # `false`, although the tree is dirty by the time the run ends: the
+        # field is whether it **had** uncommitted changes when obelize looked,
+        # and an apply that answered afterwards would call every successful
+        # migration dirty.
+        git_dirty: false
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify: {status: pass, reason: null, commands: 1, baseline: {status: pass, commands: 1}}
+        verify_files: [verify/after/1.log, verify/baseline/1.log, verify/verify.json]
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+      - what: the same phase again, over the folder the apply wrote
+        argv: [verify, --verify, '{noisy}']
+        updates: 1
+        exit_code: 0
+        # `obelize verify` creates no run folder and moves no pointer. It
+        # replaces what it re-measured -- `run.json`'s verdict and the files
+        # under `verify/after/` -- and keeps everything else, including the
+        # baseline, which no second measurement was taken of. The baseline is
+        # not carried into the new record for the reason `VerifyResult`
+        # states: it and the after-phase it gated are one measurement, and
+        # there is no before-state left to take another against.
+        verify: {status: pass, reason: null, commands: 1, baseline: null}
+        keeps: [findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, snapshots,
+                verify/baseline/1.log]
+        superseded: true
+        tree: migrated
+
+      - what: putting it back
+        argv: [undo]
+        undo_of: 1
+        exit_code: 0
+        undo:
+          - {path: app.py, outcome: reverted, reason: null}
+          - {path: requirements.txt, outcome: reverted, reason: null}
+        tree: legacy
+
+      # Both files hold the original again, so neither is what the run wrote:
+      # skipped as `hash_mismatch`, and `4`, as any undo that put nothing back.
+      # The terminal says that what is there is already the original, which a
+      # file edited by hand (`stale/`) is not.
+      - what: putting it back a second time
+        argv: [undo]
+        undo_of: 1
+        exit_code: 4
+        undo:
+          - {path: app.py, outcome: skipped, reason: hash_mismatch}
+          - {path: requirements.txt, outcome: skipped, reason: hash_mismatch}
+        already: [app.py, requirements.txt]
+        tree: legacy
+
+  # =====================================================================
+  # twice -- the second apply, which is idempotence as an exit code.
+  # =====================================================================
+  - case: twice
+    repository: app
+    what_it_is: >-
+      The same pack over the same tree twice, committing in between the way
+      `.github/workflows/e2e.yml` does. The second run finds nothing, writes
+      nothing and reports `idempotent: true`; it exits `4` and not `0`,
+      because `4` is an apply that wrote nothing and that is what happened.
+    git: {init: true}
+    runs:
+      - argv: [fix, --apply, --verify, '{quiet}']
+        next: *written
+        exit_code: 0
+        mode: apply
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify: {status: pass, reason: null, commands: 1, baseline: {status: pass, commands: 1}}
+        verify_files: [verify/verify.json]
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+      - commit: true
+        argv: [fix, --apply]
+        next: null
+        exit_code: 4
+        mode: apply
+        file_edits: []
+        idempotent: true
+        refused: []
+        # Nothing was written, so ADR-011 D1.3 never asks whether a command
+        # may run -- which is the clause that keeps this invocation off
+        # exit `5` in a repository that configures one.
+        verify: {status: not_run, reason: no_changes_to_verify, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: migrated
+
+  # =====================================================================
+  # partial -- an apply that worked and still needs a person.
+  # =====================================================================
+  - case: partial
+    repository: partial
+    what_it_is: >-
+      Two files written, a passing suite, and exit `4`. `held.py` leaves five
+      rows withheld, and `docs/CLI.md` narrows `4` to an apply that wrote
+      nothing *or left review items outstanding*. This is the outcome the
+      bundled example application produces, so it is the outcome the
+      end-to-end workflow has to accept.
+    git: {init: true}
+    runs:
+      # ADR-011 D3: a dry run exits `0` whether or not its plan leaves review
+      # items, and this is the only repository in the corpus where those two
+      # readings differ.
+      - argv: [fix]
+        next: null
+        exit_code: 0
+        mode: plan
+        # `held.py` is not on the plan, so it is not in the diff either.
+        diff_lines: 25
+        counts: {findings: 10, auto: 5, needs_review: 5}
+        file_edits: []
+        idempotent: null
+        refused: []
+        verify: {status: not_run, reason: dry_run, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: legacy
+
+      - argv: [fix, --apply, --verify, '{quiet}']
+        next: "Next: 5 finding(s) are left for you to review, listed in {report}."
+        exit_code: 4
+        mode: apply
+        counts: {findings: 10, auto: 5, needs_review: 5}
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify: {status: pass, reason: null, commands: 1, baseline: {status: pass, commands: 1}}
+        verify_files: [verify/verify.json]
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+  # =====================================================================
+  # blocked -- a repository that cannot install the new SDK.
+  # =====================================================================
+  - case: blocked
+    repository: blocked
+    what_it_is: >-
+      A project whose `requires-python = ">=3.8"` admits interpreters
+      google-genai does not support, beside a module that would migrate
+      whole. The run reports what it found and proposes no migration: no
+      change in the plan, nothing written, and `4` from `--apply` because it
+      wrote nothing (scan:SCAN-07).
+    git: {init: true}
+    runs:
+      - argv: [fix]
+        next: null
+        exit_code: 0
+        mode: plan
+        blocked: runtime_unsupported
+        # An empty `patch.diff` is not shown, and no line names it.
+        diff_lines: 0
+        plan_files: []
+        file_edits: []
+        idempotent: null
+        refused: []
+        verify: {status: not_run, reason: dry_run, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: legacy
+
+      - argv: [fix, --apply, --verify, '{quiet}']
+        next: null
+        exit_code: 4
+        mode: apply
+        blocked: runtime_unsupported
+        # Reported, and none of it written: the four rows of `app.py` and the
+        # legacy pin.
+        counts: {findings: 5, auto: 5}
+        plan_files: []
+        file_edits: []
+        idempotent: true
+        refused: []
+        verify: {status: not_run, reason: no_changes_to_verify, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: legacy
+
+  # =====================================================================
+  # long -- a change longer than a terminal should be shown whole.
+  # =====================================================================
+  - case: long
+    repository: long
+    what_it_is: >-
+      45 call sites in one module, so the dry run's `patch.diff` has 245
+      lines. The first 200 are printed and the line after them says how many
+      of how many; the rest, the dependency line among them, is only in the
+      file.
+    git: {init: true}
+    runs:
+      - argv: [fix]
+        next: null
+        exit_code: 0
+        mode: plan
+        diff_lines: 245
+        plan_files: [app.py, requirements.txt]
+        file_edits: []
+        idempotent: null
+        refused: []
+        verify: {status: not_run, reason: dry_run, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: legacy
+
+  # =====================================================================
+  # dirty -- the refusal that must not have run anybody's tests first.
+  # =====================================================================
+  - case: dirty
+    repository: app
+    what_it_is: >-
+      A file the plan does not touch carries an uncommitted change, so T17's
+      gate refuses the whole apply. The measurement is the **empty**
+      verification: a baseline has to be taken before the patch, so a command
+      that ran one here would have spent the user's test suite on an apply
+      that was already refused. `VerifyResult` states the same rule from the
+      other end -- a `not_run` carries a baseline only when the tests ran and
+      the write after them was refused.
+    git: {init: true, appended: {notes.md: "\nA change nothing planned.\n"}}
+    runs:
+      - argv: [fix, --apply, --verify, '{marker}']
+        next: "Next: commit or stash your changes, or run again with --allow-dirty."
+        exit_code: 5
+        mode: apply
+        file_edits: []
+        idempotent: true
+        refused: [tree_dirty]
+        verify: {status: not_run, reason: no_changes_to_verify, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: legacy
+        # The measurement, and it is on a disk rather than in the record: the
+        # command leaves a file behind when it runs, and it did not run.
+        started: false
+
+  # =====================================================================
+  # allowed -- the same tree, with the flag that says go on.
+  # =====================================================================
+  - case: allowed
+    repository: app
+    what_it_is: >-
+      `dirty/` with `--allow-dirty`, which is the other half of the gate and
+      the one flag TM-8 still owed. The apply goes through and `git_dirty` is
+      recorded, so a reviewer of the evidence can tell that the `git diff`
+      beside it is not only the migration.
+    git: {init: true, appended: {notes.md: "\nA change nothing planned.\n"}}
+    runs:
+      - argv: [fix, --apply, --allow-dirty, --verify, '{quiet}']
+        next: *written
+        exit_code: 0
+        mode: apply
+        git_dirty: true
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify: {status: pass, reason: null, commands: 1, baseline: {status: pass, commands: 1}}
+        verify_files: [verify/verify.json]
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+  # =====================================================================
+  # red -- a suite that was already failing.
+  # =====================================================================
+  - case: red
+    repository: app
+    what_it_is: >-
+      The baseline fails, so the after-phase is not run at all (ADR-033 D7)
+      and the run is `inconclusive` with reason `baseline_failed`, exit `6`
+      and never `3`. The patch is still written: the user asked for a
+      migration, and what the baseline established is that their tests were
+      red before obelize touched anything. A second `obelize verify` over the
+      same folder is refused by the same gate and re-runs nothing.
+    git: {init: true}
+    runs:
+      - argv: [fix, --apply, --verify, '{red}']
+        next: "Next: obelize undo --run {run} --repo {repo}, then obelize fix --apply --repo {repo} --verify {tests}, with tests that pass before the change."
+        exit_code: 6
+        mode: apply
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify:
+          status: inconclusive
+          reason: baseline_failed
+          commands: 0
+          baseline: {status: fail, commands: 1}
+        verify_files: [verify/baseline/1.log, verify/verify.json]
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+      - what: re-verifying a run the baseline already settled
+        argv: [verify, --verify, '{quiet}']
+        updates: 0
+        exit_code: 6
+        # Nothing is re-run, so nothing is rewritten. A command that replaced
+        # two documents to make them say what they already said would be
+        # reporting work it did not do.
+        verify:
+          status: inconclusive
+          reason: baseline_failed
+          commands: 0
+          baseline: {status: fail, commands: 1}
+        keeps: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json,
+                run.json, snapshots, verify]
+        superseded: false
+        tree: migrated
+
+  # =====================================================================
+  # broken -- the migration the suite says no to.
+  # =====================================================================
+  - case: broken
+    repository: app
+    what_it_is: >-
+      A command that passes before the patch and fails after it, which is the
+      only honest way to reach `fail`. Exit `3`, and the files stay written:
+      obelize reports what its patch did and does not decide for you that it
+      should be taken back -- `obelize undo --run <id>` is the command that
+      does, and it is one line away in the report.
+    git: {init: true}
+    runs:
+      - argv: [fix, --apply, --verify, '{legacy_only}']
+        next: null
+        exit_code: 3
+        mode: apply
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify:
+          status: fail
+          reason: command_failed
+          commands: 1
+          baseline: {status: pass, commands: 1}
+        verify_files: [verify/verify.json]
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+  # =====================================================================
+  # silent -- files written and nothing configured to check them.
+  # =====================================================================
+  - case: silent
+    repository: app
+    what_it_is: >-
+      An apply with no `--verify` and no `verify.commands`. ADR-011 calls this
+      the sharpest edge in its decision: a first-time user whose repository
+      has no tests gets a non-zero exit from a migration that worked. It is
+      `6` on purpose -- something was written and nothing checked it -- and
+      the message names the flag that fixes it.
+    git: {init: true}
+    runs:
+      - argv: [fix, --apply]
+        next: "Next: obelize verify --run {run} --repo {repo} --verify {tests} checks the change with your tests."
+        exit_code: 6
+        mode: apply
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify: {status: not_run, reason: no_verify_commands, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+  # =====================================================================
+  # configured -- a command the repository asked for, in a mode that will
+  # not take a repository's word for it.
+  # =====================================================================
+  - case: configured
+    repository: configured
+    what_it_is: >-
+      `.obelize.yml` names a verification command, `--non-interactive` means
+      nothing may be asked, and no allowlist entry covers it, so ADR-007
+      refuses it -- and one refused command refuses the whole phase. Exit `5`.
+      The patch is written: the refusal is about running somebody else's
+      program, not about the migration, and a run that wrote nothing here
+      would be indistinguishable from a repository that needed no work.
+    git: {init: true}
+    runs:
+      - argv: [fix, --apply, --non-interactive]
+        next: "Next: obelize verify --run {run} --repo {repo} --trust-repo-config runs the commands in .obelize.yml."
+        exit_code: 5
+        mode: apply
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify: {status: not_run, reason: policy_refused, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+      # ADR-011 D1.3, which is the clause that reference implementation was
+      # written for: a run that writes nothing never asks whether somebody
+      # else's command may run, so it never refuses one. Without it this
+      # invocation -- the second `--apply` in `.github/workflows/e2e.yml`,
+      # over a repository that configures a command, under
+      # `--non-interactive` -- would exit `5` and turn that job red.
+      - commit: true
+        argv: [fix, --apply, --non-interactive]
+        next: null
+        exit_code: 4
+        mode: apply
+        file_edits: []
+        idempotent: true
+        refused: []
+        verify: {status: not_run, reason: no_changes_to_verify, commands: 0, baseline: null}
+        verify_files: []
+        snapshots: {before: 0, after: 0}
+        tree: migrated
+
+  # =====================================================================
+  # stale -- somebody edited a file obelize wrote.
+  # =====================================================================
+  - case: stale
+    repository: app
+    what_it_is: >-
+      After the apply, `app.py` is edited by hand. `obelize verify` finds a
+      hash that is not the one the run recorded and refuses to run anything,
+      because it would be verifying something else; `obelize undo` puts back
+      the file nobody touched and skips the one that was, naming both hashes
+      and the snapshot that holds the original. Neither command ever
+      overwrites content obelize did not write.
+    git: {init: true}
+    runs:
+      - argv: [fix, --apply, --verify, '{quiet}']
+        next: *written
+        exit_code: 0
+        mode: apply
+        file_edits: [app.py, requirements.txt]
+        idempotent: false
+        refused: []
+        verify: {status: pass, reason: null, commands: 1, baseline: {status: pass, commands: 1}}
+        verify_files: [verify/verify.json]
+        snapshots: {before: 2, after: 2}
+        tree: migrated
+
+      - what: a hand edit, and then the two commands that notice it
+        appended: {app.py: "\n# a line obelize did not write\n"}
+        argv: [verify, --verify, '{quiet}']
+        updates: 0
+        exit_code: 6
+        verify: {status: inconclusive, reason: tree_changed, commands: 0, baseline: null}
+        keeps: [findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, snapshots]
+        superseded: true
+        tree: migrated
+
+      - argv: [undo]
+        undo_of: 0
+        exit_code: 4
+        undo:
+          - {path: app.py, outcome: skipped, reason: hash_mismatch}
+          - {path: requirements.txt, outcome: reverted, reason: null}

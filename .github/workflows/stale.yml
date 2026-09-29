@@ -1,0 +1,50 @@
+# Closes `needs-repro` issues that never got a reproduction; nothing else expires on a timer
+# (CONTRIBUTING.md, "Issues and triage"). `bug` is not exempt: bug_report.yml labels every report.
+name: stale
+
+on:
+  schedule:
+    - cron: "40 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Not cancelled: a half-done sweep leaves the tracker half-labelled.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    name: stale (needs-repro issues only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: Mark and close stale needs-repro issues
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          only-labels: needs-repro
+          days-before-issue-stale: 14
+          days-before-issue-close: 16
+          # -1 disables the pull request side.
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          exempt-issue-labels: roadmap
+          stale-issue-label: stale
+          remove-stale-when-updated: true
+          # Oldest first, so the operations quota never starves old issues.
+          ascending: true
+          operations-per-run: 100
+          stale-issue-message: >
+            This issue is labelled `needs-repro` and has had no activity for 14 days.
+            A reproduction usually means a redacted `.obelize/runs/<id>/run.json`, or the
+            smallest file that shows the behaviour, plus the obelize and Python versions.
+            Without one it will be closed in 16 days. Commenting removes the stale label,
+            and a closed issue can be reopened at any time with the missing detail.
+          close-issue-message: >
+            Closing after 30 days without a reproduction. This is not a judgement about
+            the report -- there is just nothing actionable to work from. Comment with the
+            details and this can be reopened.

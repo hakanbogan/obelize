@@ -1,0 +1,2792 @@
+round: 1
+reviewer: Hakan Bogan
+reviewed_at: '2026-09-21'
+from_version: 0.8.6
+to_version: 2.24.0
+corpus: bench/candidates.yaml
+draws: bench/cases_draws.yaml
+scans:
+- bench/results/gate1/scan.json
+- bench/results/candidates/scan.json
+- bench/results/cases/scan.json
+cases:
+- id: AmineChr54__CleanVision-Futury_AI-Hackathon
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: AmineChr54/CleanVision-Futury_AI-Hackathon
+  owner: AmineChr54
+  repo: https://github.com/AmineChr54/CleanVision-Futury_AI-Hackathon
+  sha: 6548f86510e9646d2f5f5208721c3527cc3baa95
+  license: MIT
+  split: holdout
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.delete_file
+  - google.generativeai.list_models
+  - google.generativeai.types.Model.supported_generation_methods
+  - google.generativeai.upload_file
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A waste-detection hackathon project whose backend reaches Gemini through two
+      of its own wrapper modules. It is the only repository in the corpus that uses the **files**
+      surface -- upload and delete -- and one of two that read a model attribute the new SDK
+      does not have.
+    files_read:
+    - backend/src/client.py
+    - backend/data/gemini_helpers.py
+    - backend/src/evaluation.py
+    - backend/src/deep_evaluation.py
+    - backend/bootstrap_dataset.py
+    - backend/app.py
+    - backend/requirements.txt
+    - UI/requirements.txt
+    - frontend/requirements.txt
+    - frontend/scripts/smoke_test.py
+    call_sites:
+    - path: backend/src/client.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: backend/src/client.py
+      line: 14
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: '`initialize_gemini()` configures global state and returns nothing; three other
+        modules call it and then call a second function for the model. The new SDK has no
+        global state, so the client has to become a value that crosses four modules, and nothing
+        about that follows from this line.'
+    - path: backend/src/client.py
+      line: 26
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: Returned to callers in three other modules.
+    - path: backend/src/client.py
+      line: 39
+      kind: call
+      symbol: google.generativeai.upload_file
+      label: manual
+      why: '`genai.upload_file(path=...)` becomes `client.files.upload(file=...)`, which is
+        mechanical -- but there is no client in this module and the keyword changes name,
+        so the edit needs the decision above first.'
+    - path: backend/src/client.py
+      line: 55
+      kind: call
+      symbol: google.generativeai.delete_file
+      label: manual
+      why: Same shape as the upload, and the corpus's only `delete_file`.
+    - path: backend/data/gemini_helpers.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: backend/data/gemini_helpers.py
+      line: 15
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: A second `initialize_gemini`, in a second module, with the same shape. Two modules
+        configure the same global.
+    - path: backend/data/gemini_helpers.py
+      line: 32
+      kind: call
+      symbol: google.generativeai.list_models
+      label: manual
+      why: The corpus's only `list_models`. `client.models.list()` is the counterpart and
+        there is no client here.
+    - path: backend/data/gemini_helpers.py
+      line: 40
+      kind: attribute
+      symbol: google.generativeai.types.Model.supported_generation_methods
+      label: manual
+      why: 'Read through `getattr(m, "supported_generation_methods", [])`. The attribute has
+        no counterpart in the new SDK, so there is no edit to make: what this function is
+        for has to be rethought, which is exactly what a `flag_only` change is for.'
+    - path: backend/data/gemini_helpers.py
+      line: 78
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: One of three returns from a fallback ladder.
+    - path: backend/data/gemini_helpers.py
+      line: 98
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: The second return from the fallback ladder, same shape.
+    - path: backend/data/gemini_helpers.py
+      line: 107
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: The last resort of the same ladder, with a hard-coded model name.
+    - path: backend/src/evaluation.py
+      line: 41
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: 'The receiver is a parameter, and **this file contains no token the pack''s prefilter
+        looks for**: it reaches the SDK entirely through the project''s own `client` module.
+        A scanner that only parses files carrying `generativeai` cannot see this line, and
+        recall cannot be bought by widening the prefilter without taking every `upload_file`
+        in Python with it. Pre-registered as a miss.'
+    - path: backend/src/deep_evaluation.py
+      line: 94
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: The same shape, in the second consumer module. Also pre-registered.
+    manifests: []
+    must_not_report:
+    - path: backend/src/evaluation.py
+      line: 36
+      why: '`client.upload_file(image_path)` calls **this project''s** wrapper, not `genai.upload_file`.
+        The method name matches a legacy free function exactly and the receiver is a local
+        module; reporting it is a false positive. `deep_evaluation.py:88` and the two `client.delete_file`
+        calls at `evaluation.py:44` and `deep_evaluation.py:110` are the same trap.'
+    - path: backend/src/evaluation.py
+      line: 44
+      why: '`client.delete_file(...)`, the project''s own wrapper.'
+    - path: backend/src/deep_evaluation.py
+      line: 88
+      why: '`client.upload_file(...)`, the project''s own wrapper.'
+    - path: backend/src/deep_evaluation.py
+      line: 110
+      why: '`client.delete_file(...)`, the project''s own wrapper.'
+    - path: backend/bootstrap_dataset.py
+      line: 87
+      why: '`model.generate_content(...)` in a module that cannot be imported: line 5 is `from
+        src.client import Gemini` and `src/client.py` has no `Gemini`. The name `model` is
+        never bound in the enclosing function either. Dead code, and a migration that leaves
+        it alone is not wrong.'
+    tests_cover_change: false
+    tests_cover_change_why: 'The two files the corpus counted as a test suite are `UI/scripts/smoke_test.py`
+      and `frontend/scripts/smoke_test.py`: Kivy application smoke scripts that build a window,
+      import no test runner and touch none of the Gemini code. This case is the proof that
+      the `Tests` column in `bench/CANDIDATES.md` is path evidence and not a judgement.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'Three of the fifteen call sites are in files that contain no token the prefilter
+    looks for, because the SDK is reached through the project''s own `client` module -- the
+    same hole gate 1 pre-registered for `readme-ai/tests/models/test_gemini.py`, met again
+    and now three times over in one repository. **No manifest in this repository declares
+    the SDK at all**: three `requirements.txt` files, none naming it, so the migration has
+    no pin to move and the dependency it needs would have to be added rather than rewritten.'
+- id: Arnav3241__Jarvis-v13
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: Arnav3241/Jarvis-v13
+  owner: Arnav3241
+  repo: https://github.com/Arnav3241/Jarvis-v13
+  sha: 1ffa819c739832e8d3c39a01786cd02786c5dbf9
+  license: AGPL-3.0
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.from_cached_content
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.GenerativeModel.start_chat
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A desktop assistant in seven SDK-touching files, and the corpus''s only **star
+      import**: `main.py` calls `genai.configure` and `genai.GenerativeModel` without importing
+      the SDK at all, because line 15 is `from Skills import *`. It is also the only AGPL-3.0
+      case, so no patch of it may be published.'
+    files_read:
+    - Skills.py
+    - Functions/PDFchat.py
+    - Functions/PDFchat copy.py
+    - main.py
+    - Chat/response.py
+    - Chat/PDF_Chat.py
+    - Tests/a.py
+    - Tests/r1.py
+    - Tests/test.py
+    - requirements.txt
+    call_sites:
+    - path: Skills.py
+      line: 8
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: Skills.py
+      line: 46
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: Skills.py
+      line: 248
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: Skills.py
+      line: 249
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: Skills.py
+      line: 320
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: Skills.py
+      line: 321
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: main.py
+      line: 242
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: '`genai` is not bound by any import in this file. It arrives through `from Skills
+        import *` at line 15, which also runs `Skills.py`''s own module-level `configure`.
+        Migrating this line means deciding where the client lives across a star import, which
+        is the shape `star_import` refuses for a reason.'
+    - path: main.py
+      line: 244
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: Same star-imported name.
+    - path: main.py
+      line: 245
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the local at 244, built from the star-imported module.
+    - path: Chat/PDF_Chat.py
+      line: 4
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Aliased `genAI`, with a capital I. The alias differs from every other file in the
+        repository, which is what an alias-driven rewrite gets wrong.
+    - path: Chat/PDF_Chat.py
+      line: 42
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Module level, the file's only one, with the key read from `api_keys.json` four
+        lines above.
+    - path: Chat/PDF_Chat.py
+      line: 43
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A module constant used once, in `generate_answer`.
+    - path: Chat/PDF_Chat.py
+      line: 51
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: Functions/PDFchat.py
+      line: 5
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: Functions/PDFchat.py
+      line: 11
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: '`genai.configure(api_key="" )` -- an empty literal key.'
+    - path: Functions/PDFchat.py
+      line: 52
+      kind: attribute
+      symbol: google.generativeai
+      label: manual
+      why: '`ChatGoogleGenerativeAI(model="gemini-pro", client=genai, ...)`. The legacy **module**
+        is handed to a LangChain class as its client. Nothing in the new SDK accepts a module
+        there, so what this argument becomes is a question about LangChain and not about the
+        SDK.'
+    - path: Functions/PDFchat copy.py
+      line: 6
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: Functions/PDFchat copy.py
+      line: 15
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: Functions/PDFchat copy.py
+      line: 58
+      kind: attribute
+      symbol: google.generativeai
+      label: manual
+      why: The same `client=genai`, in a file whose name ends `copy.py`.
+    - path: Tests/a.py
+      line: 45
+      kind: attribute
+      symbol: google.generativeai
+      label: manual
+      why: A third `client=genai`, in the scratch directory.
+    - path: Chat/response.py
+      line: 1
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: Chat/response.py
+      line: 618
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: Chat/response.py
+      line: 620
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: Chat/response.py
+      line: 621
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: manual
+      why: '`model.start_chat(history=str(time.time()))` -- a timestamp string where a list
+        of contents belongs, and the returned chat is thrown away. The call is already wrong;
+        a faithful migration carries the defect across and a correct one deletes the line,
+        and choosing between those is not a rewrite.'
+    - path: Chat/response.py
+      line: 622
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+      why: '`safety_settings` is a list of dictionaries declared at line 575.'
+    - path: Tests/a.py
+      line: 6
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: Tests/a.py
+      line: 12
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: '`api_key=""` -- an empty literal, and the file''s only SDK use.'
+    - path: Tests/r1.py
+      line: 3
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: Tests/r1.py
+      line: 423
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: Tests/r1.py
+      line: 425
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: Tests/r1.py
+      line: 426
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: manual
+      why: The same discarded `start_chat` with a timestamp for a history.
+    - path: Tests/r1.py
+      line: 427
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: Tests/test.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: Tests/test.py
+      line: 10
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: Tests/test.py
+      line: 42
+      kind: call
+      symbol: google.generativeai.GenerativeModel.from_cached_content
+      label: manual
+      why: '`GenerativeModel.from_cached_content(cached_content=cache)`. Context caching is
+        one of the eleven surfaces the pack flags as out of scope, and the only one reached
+        in this corpus outside a vendored framework.'
+    manifests:
+    - path: requirements.txt
+      line: 59
+      symbol: google-generativeai
+      label: auto
+      why: '`google-generativeai==0.7.2`, an exact pin.'
+    must_not_report:
+    - path: Functions/PDFchat.py
+      line: 4
+      why: '`from langchain_google_genai import GoogleGenerativeAIEmbeddings`, one line above
+        the real import. Line 7 imports `ChatGoogleGenerativeAI` from the same distribution,
+        and both files under `Functions/` carry the pair.'
+    - path: Functions/PDFchat.py
+      line: 7
+      why: '`from langchain_google_genai import ChatGoogleGenerativeAI`.'
+    - path: Tests/test.py
+      line: 13
+      why: A commented `curl` line containing `storage.googleapis.com/generativeai-downloads/...`.
+        The prefilter token appears in a **URL path**, in a file that really does import the
+        module eleven lines above.
+    - path: Tests/test.py
+      line: 18
+      why: A commented-out `genai.upload_file(path=...)`. Prose about a call, not a call.
+    - path: Tests/test.py
+      line: 25
+      why: '`genai.get_file(video_file.name)` inside a `''''''...''''''` block that runs from
+        line 21 to line 28. The first draft of this key recorded it as a call site; the agreement
+        table said the scanner had not reported it, the file was re-read, and the scanner
+        was right. A string mention is a legitimate `text_mention` and never a call.'
+    tests_cover_change: false
+    tests_cover_change_why: '`Tests/` is a scratch directory, not a suite: `a.py`, `r1.py`
+      and `test.py` are scripts that hit the live API, and the three files whose names made
+      the corpus record `test_files` -- `test1.py`, `test_re.py`, `test_time.py` -- do not
+      touch the SDK at all.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'Two files under `Functions/` were missing from the first draft of this key because
+    the reviewer''s own grep output was truncated; the agreement table named them, the files
+    were re-read, and the eight rows were added. No row was removed for being one the scanner
+    did not report. The only AGPL-3.0 case in the corpus, so under [BENCHMARK.md](../docs/BENCHMARK.md#licensing-and-publication-rules)
+    only its metrics may be published and never its `patch.diff`. Twenty-seven call sites
+    across seven files, one star import, two aliases with different capitalisation, and a
+    `from_cached_content` nothing else in the corpus reaches. The reviewer was wrong once
+    here too, in the other direction: a `get_file` inside a triple-quoted block was recorded
+    as a call and is not one.'
+- id: LucasHJin__vit
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: LucasHJin/vit
+  owner: LucasHJin
+  repo: https://github.com/LucasHJin/vit
+  sha: 472b94039b5c314bda67136432ea70be5f516215
+  license: MIT
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install:
+  - uv pip install pytest
+  test_cmd: python -m pytest tests -q
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A command-line tool that version-controls video-editing timelines. One module
+      of thirty-five touches the SDK, and it touches it twice in two different shapes: a factory
+      function that configures the SDK and **returns** a model object to six callers, and
+      one self-contained function that configures, constructs and calls in eleven lines.'
+    files_read:
+    - setup.py
+    - vit/ai_merge.py
+    - tests/test_ai_merge.py
+    call_sites:
+    - path: vit/ai_merge.py
+      line: 302
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Inside `_get_genai_model` and inside a `try/except ImportError`. The statement
+        itself rewrites mechanically; the sentence in the `except` branch that tells the user
+        to `pip install google-generativeai` does not, and a migration leaves it stale.
+    - path: vit/ai_merge.py
+      line: 314
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: The enclosing function returns the model object it builds. The new SDK has no model
+        object, so the client has to be hoisted and the function's contract rewritten; nothing
+        about that follows from this line.
+    - path: vit/ai_merge.py
+      line: 316
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: '`return genai.GenerativeModel(...)`. The object escapes to six callers, which
+        is the shape `model_object_escapes` names.'
+    - path: vit/ai_merge.py
+      line: 352
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the return value of `_get_genai_model`.
+    - path: vit/ai_merge.py
+      line: 395
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the return value of `_get_genai_model`.
+    - path: vit/ai_merge.py
+      line: 426
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: A second local import, same shape as line 302.
+    - path: vit/ai_merge.py
+      line: 436
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: The module's second `configure`, in a different function, with the same argument.
+        Two calls in one module is what `multiple_configure_calls` refuses; read by a person
+        the correct edit is unambiguous, so this row is a pre-registered disagreement with
+        the scanner rather than a hard case.
+    - path: vit/ai_merge.py
+      line: 443
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A local, used four lines later and never escaping the function.
+    - path: vit/ai_merge.py
+      line: 447
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+      why: Receiver is the local bound at 443.
+    - path: vit/ai_merge.py
+      line: 718
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the return value of `_get_genai_model`.
+    - path: vit/ai_merge.py
+      line: 821
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the return value of `_get_genai_model`.
+    - path: vit/ai_merge.py
+      line: 874
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the return value of `_get_genai_model`.
+    - path: vit/ai_merge.py
+      line: 919
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the return value of `_get_genai_model`.
+    manifests:
+    - path: setup.py
+      line: 10
+      symbol: google-generativeai
+      label: auto
+      why: An unpinned entry in `install_requires`. Withheld while any file in the repository
+        still imports the legacy distribution, which here is every file that imports it at
+        all.
+    must_not_report:
+    - path: tests/test_ai_merge.py
+      line: 263
+      why: '`@patch("vit.ai_merge._get_genai_model")`. The target names this project''s own
+        factory and contains the token `genai`; it is not a legacy module path and nothing
+        may be reported at it. Seven decorators in this file have the same shape.'
+    - path: tests/test_ai_merge.py
+      line: 284
+      why: The same decorator.
+    - path: tests/test_ai_merge.py
+      line: 295
+      why: The same decorator.
+    - path: tests/test_ai_merge.py
+      line: 304
+      why: The same decorator.
+    - path: tests/test_ai_merge.py
+      line: 333
+      why: The same decorator.
+    - path: tests/test_ai_merge.py
+      line: 350
+      why: The same decorator.
+    - path: tests/test_ai_merge.py
+      line: 379
+      why: The same decorator.
+    tests_cover_change: true
+    tests_cover_change_why: '`tests/test_ai_merge.py` exercises `ai_analyze_merge` and `ai_resolve_clarifications`,
+      which contain six of the thirteen call sites, and it does it by patching the project''s
+      own factory rather than the SDK -- so the migrated code runs under the tests, and a
+      migration that changes what `_get_genai_model` returns breaks them. It does not reach
+      `ai_resolve_merge`, which holds the other shape.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'The two shapes in one module are what makes this case worth its key: the same repository
+    holds an eleven-line migration that follows from the code and a factory whose return value
+    is a model object, which does not. Nothing in the suite needs a network or an API key
+    -- the SDK is never imported under test, because both imports are inside functions the
+    tests do not reach with a real key.'
+- id: RuntimeAI__silly-merchants-for-safe-hackathon
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: RuntimeAI/silly-merchants-for-safe-hackathon
+  owner: RuntimeAI
+  repo: https://github.com/RuntimeAI/silly-merchants-for-safe-hackathon
+  sha: c10281c51f8b43fccebccde94ffe5a34cc24446e
+  license: BSD-3-Clause
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A trading-game arena with one provider class per LLM vendor. The Gemini provider
+      is a hundred and forty lines and holds the whole shape the `chat_async_self` fixture
+      was written for: a `configure` inside `__init__`, two models stored on `self`, and a
+      method that picks between them at runtime.'
+    files_read:
+    - pyproject.toml
+    - requirements.txt
+    - src/utils/llm_providers/gemini.py
+    - tests/test_gemini_provider.py
+    - pytest.ini
+    call_sites:
+    - path: src/utils/llm_providers/gemini.py
+      line: 3
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Module level, aliased, the module's only import of the SDK.
+    - path: src/utils/llm_providers/gemini.py
+      line: 24
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Inside `__init__`, one per module, its argument a local. The client belongs on
+        `self` beside the two models it configures.
+    - path: src/utils/llm_providers/gemini.py
+      line: 27
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: '`self.default_model`, one positional argument, no generation config.'
+    - path: src/utils/llm_providers/gemini.py
+      line: 28
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A second `self_attr` binding in the same constructor.
+    - path: src/utils/llm_providers/gemini.py
+      line: 62
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: The receiver is a local chosen at runtime between the two models, which carry **different
+        model names**. In the new SDK the name is an argument to the call, so a correct migration
+        has to replace the object at line 49 with its name -- and line 49 is not a legacy
+        call site, so no rule scoped to this one can reach it. The inline `generation_config`
+        dict is the easy half and its four keys are all legal.
+    manifests:
+    - path: pyproject.toml
+      line: 24
+      symbol: google-generativeai
+      label: auto
+      why: A Poetry `^0.8.4` caret range in `[tool.poetry.dependencies]`. `requirements.txt`
+        does not declare it, so this is the repository's only pin and the only manifest edit.
+        This row said line 23 until T30's error analysis, which is the line above it -- the
+        `google-cloud-aiplatform` caret range. The scan reported the pin at 24 and the key
+        recorded it at 23, so the two never matched and the row was counted as a miss the
+        scanner had in fact found. Nothing the round published moves -- the row is unmigrated
+        either way, because `repo_not_fully_migrated` withholds it.
+    must_not_report:
+    - path: pyproject.toml
+      line: 22
+      why: '`google-cloud-aiplatform = "^1.80.0"` sits one line above the legacy pin. It is
+        the Vertex SDK, a different distribution, and a substring match on `google-` would
+        take it.'
+    tests_cover_change: false
+    tests_cover_change_why: '`tests/test_gemini_provider.py` is the only test that reaches
+      the provider and it cannot pass: it constructs `GeminiProvider` with `project_id=` and
+      `location=`, which the constructor does not accept, and then calls the live API with
+      no key. The baseline is broken before the migration, so there is no command that could
+      verify this case and `test_cmd` is null.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'The case is worth its key for the manifest as much as for the code: the Vertex distribution
+    is declared on the line above the legacy one, which is the closest thing in the corpus
+    to the decoy every `manifests/` fixture carries. `poetry.lock` is committed and is **not**
+    a manifest the scanner reads; the pin it would need to move is the one in `pyproject.toml`.'
+- id: dongxnb__gupiao
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: dongxnb/gupiao
+  owner: dongxnb
+  repo: https://github.com/dongxnb/gupiao
+  sha: fae9f9ad88310778d333b5eb85aa58cc8ea7ed85
+  license: Apache-2.0
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.list_models
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A stock-analysis application whose **entire** SDK usage is in five scripts
+      under `tests/`, each of which configures a key from the environment and calls the live
+      API to find out which models the account can reach. Neither manifest declares the SDK.
+    files_read:
+    - tests/test_gemini.py
+    - tests/test_gemini_25.py
+    - tests/test_gemini_correct.py
+    - tests/check_gemini_models.py
+    - tests/diagnose_gemini_25.py
+    - requirements.txt
+    - pyproject.toml
+    call_sites:
+    - path: tests/check_gemini_models.py
+      line: 24
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tests/check_gemini_models.py
+      line: 32
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: tests/check_gemini_models.py
+      line: 36
+      kind: call
+      symbol: google.generativeai.list_models
+      label: auto
+      why: The corpus's second `list_models`, and the only one where a client is already in
+        the same function scope.
+    - path: tests/check_gemini_models.py
+      line: 68
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tests/check_gemini_models.py
+      line: 72
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: tests/check_gemini_models.py
+      line: 75
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: tests/check_gemini_models.py
+      line: 81
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: tests/diagnose_gemini_25.py
+      line: 47
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tests/diagnose_gemini_25.py
+      line: 48
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: tests/diagnose_gemini_25.py
+      line: 50
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: tests/diagnose_gemini_25.py
+      line: 51
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: tests/test_gemini.py
+      line: 34
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: An import inside a `try` whose only purpose is to print whether the library is
+        installed. Nothing uses the name.
+    - path: tests/test_gemini.py
+      line: 57
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tests/test_gemini.py
+      line: 61
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: tests/test_gemini.py
+      line: 64
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: tests/test_gemini.py
+      line: 70
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: tests/test_gemini_25.py
+      line: 32
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tests/test_gemini_25.py
+      line: 40
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: tests/test_gemini_25.py
+      line: 44
+      kind: call
+      symbol: google.generativeai.list_models
+      label: auto
+    - path: tests/test_gemini_25.py
+      line: 76
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tests/test_gemini_25.py
+      line: 81
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: tests/test_gemini_25.py
+      line: 86
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: tests/test_gemini_25.py
+      line: 87
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: tests/test_gemini_correct.py
+      line: 32
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tests/test_gemini_correct.py
+      line: 37
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: tests/test_gemini_correct.py
+      line: 42
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: tests/test_gemini_correct.py
+      line: 43
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    manifests: []
+    must_not_report:
+    - path: tests/test_gemini.py
+      line: 38
+      why: '`print("💡 运行: pip install google-generativeai")`. The hyphenated distribution
+        name inside a string, in a file that also imports the module four lines above. Lines
+        35 and 37 are the same shape.'
+    tests_cover_change: false
+    tests_cover_change_why: 'Every one of the five files is a live API probe: each reads `GOOGLE_API_KEY`
+      from the environment, calls the service and prints what came back. None asserts anything,
+      and none can pass without a credential, so there is no command that verifies this migration
+      and `test_cmd` is null.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'The clearest case in the corpus of path evidence over-reading: five files under
+    `tests/`, every one of them named `test_*`, and not one of them is a test. It is also
+    the only repository here whose code imports the SDK while **neither** `requirements.txt`
+    nor `pyproject.toml` declares it, so the migration has 27 call sites and no pin to move.'
+- id: grapeot__devin.cursorrules
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: grapeot/devin.cursorrules
+  owner: grapeot
+  repo: https://github.com/grapeot/devin.cursorrules
+  sha: 284b743cca749a290bfe726e2e40466d207d7c9b
+  license: MIT
+  split: holdout
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.ChatSession.send_message
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.start_chat
+  - google.generativeai.configure
+  - google.generativeai.upload_file
+  python: cpython-3.12.9-macos-aarch64-none
+  install:
+  - uv pip install -r requirements.txt
+  test_cmd: python -m pytest tests/test_llm_api.py -q
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A multi-vendor LLM helper behind one `create_llm_client` factory. For Gemini
+      the factory **returns the module**, so every later use is `client.GenerativeModel(...)`
+      on a name nothing static resolves. The most-starred repository in the corpus by two
+      orders of magnitude.
+    files_read:
+    - tools/llm_api.py
+    - tests/test_llm_api.py
+    - requirements.txt
+    call_sites:
+    - path: tools/llm_api.py
+      line: 3
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: tools/llm_api.py
+      line: 114
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: One branch of a five-provider factory, followed by `return genai`. The new SDK's
+        client is a value, so this branch becomes `return genai.Client(api_key=api_key)` --
+        which changes what the function returns for one provider out of five.
+    - path: tools/llm_api.py
+      line: 115
+      kind: attribute
+      symbol: google.generativeai
+      label: manual
+      why: '`return genai`. One branch of the factory returns the module itself, so `client`
+        below is a module and not a client.'
+    - path: tools/llm_api.py
+      line: 221
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: '`client.GenerativeModel(model)`, where `client` is the module.'
+    - path: tools/llm_api.py
+      line: 223
+      kind: call
+      symbol: google.generativeai.upload_file
+      label: manual
+      why: '`genai.upload_file(image_path, mime_type="image/png")` -- positional path and
+        a keyword that both move in `client.files.upload`.'
+    - path: tools/llm_api.py
+      line: 224
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: manual
+      why: '`history=[{"role": "user", "parts": [file, prompt]}]` -- a literal history holding
+        an uploaded **file object**, which is the one history shape the `chat_async_self`
+        fixture does not cover.'
+    - path: tools/llm_api.py
+      line: 231
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: manual
+      why: The same call on the other branch, with a text-only history.
+    - path: tools/llm_api.py
+      line: 237
+      kind: method_call
+      symbol: google.generativeai.ChatSession.send_message
+      label: manual
+      why: Receiver is one of the two chats above.
+    - path: tests/test_llm_api.py
+      line: 5
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Imported by the test module and never used in it.
+    manifests:
+    - path: requirements.txt
+      line: 19
+      symbol: google-generativeai
+      label: auto
+    must_not_report:
+    - path: tests/test_llm_api.py
+      line: 208
+      why: '`@patch(''tools.llm_api.genai'')` patches the **project''s** module attribute,
+        not a legacy dotted path. It is the patch target `docs/BENCHMARK.md` says to prefer,
+        it survives the migration untouched because `from google import genai` keeps the name,
+        and reporting it would be a false positive.'
+    tests_cover_change: true
+    tests_cover_change_why: '`test_create_gemini_client` runs the factory with `tools.llm_api.genai`
+      mocked and asserts `configure` was called with the key, so line 114 is covered and the
+      assertion has to move when it does. The call sites inside `query_llm` are covered only
+      for the non-Gemini providers, so this suite proves the client change and not the chat
+      change.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'The one case in the corpus where the mock target is already the right one. Everything
+    else about it is hard: a factory that returns a module, a history containing a `File`
+    object, and an `upload_file` whose result goes straight into that history.'
+- id: humanbound__humanbound-firewall
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: humanbound/humanbound-firewall
+  owner: humanbound
+  repo: https://github.com/humanbound/humanbound-firewall
+  sha: 7b5a331bf45c4a09f225b1deb4a55f5e3557111b
+  license: Apache-2.0
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.types.GenerationConfig
+  python: cpython-3.12.9-macos-aarch64-none
+  install:
+  - uv pip install -e ".[gemini,dev]"
+  test_cmd: python -m pytest tests/test_llm_providers.py tests/test_import_time.py -q
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A prompt-firewall library with one provider module per vendor and a real
+      test suite that **fakes the SDK module** rather than mocking a client. It is the corpus''s
+      best case: the tests cover the change, need no network, and would break on a correct
+      migration -- which is what `tests_touched_by_migration` was written for.'
+    files_read:
+    - src/humanbound_firewall/llm/gemini.py
+    - tests/test_llm_providers.py
+    - tests/test_import_time.py
+    - pyproject.toml
+    call_sites:
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 17
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Inside `_import_genai()`, which **returns the module**. The statement rewrites
+        mechanically; what it does to everything below is the case.
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 19
+      kind: attribute
+      symbol: google.generativeai
+      label: manual
+      why: '`return genai` -- the factory hands the **module** back to its callers, which
+        is what makes every row below unresolvable. Recorded the same way as `grapeot`''s
+        `return genai` and `Zierax`''s `self.clients[provider] = genai`.'
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 31
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: The receiver is a local bound from `_import_genai()`, so nothing static says it
+        is the legacy module. Three methods repeat the same two lines.
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 32
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: Constructed from the escaped module and stored on `self`.
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 40
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: '`stream=True`, receiver a `self_attr` built from the escaped module.'
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 42
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: manual
+      why: '`genai.types.GenerationConfig(...)` on the same unresolvable local.'
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 54
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: The second class repeats the two lines of the first.
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 55
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: The second `self_attr` model, same shape.
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 59
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: The non-streaming call, receiver the second `self_attr`.
+    - path: src/humanbound_firewall/llm/gemini.py
+      line: 61
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: manual
+      why: The second config, on the same unresolvable local.
+    - path: tests/test_llm_providers.py
+      line: 141
+      kind: dynamic
+      symbol: google.generativeai
+      label: auto
+      why: '`types.ModuleType("google.generativeai")`. The test builds a fake module under
+        the legacy dotted name; a migration that leaves the string alone leaves a test that
+        stubs a module nothing imports and still passes.'
+    - path: tests/test_llm_providers.py
+      line: 147
+      kind: dynamic
+      symbol: google.generativeai
+      label: auto
+      why: '`monkeypatch.setitem(sys.modules, "google.generativeai", fake)`.'
+    - path: tests/test_llm_providers.py
+      line: 157
+      kind: dynamic
+      symbol: google.generativeai
+      label: auto
+      why: The same stub, set to `None` to prove the import error path.
+    - path: tests/test_llm_providers.py
+      line: 212
+      kind: dynamic
+      symbol: google.generativeai
+      label: auto
+    - path: tests/test_llm_providers.py
+      line: 218
+      kind: dynamic
+      symbol: google.generativeai
+      label: auto
+    - path: tests/test_import_time.py
+      line: 21
+      kind: dynamic
+      symbol: google.generativeai
+      label: auto
+      why: A module name in a list the test asserts is **absent** from `sys.modules` after
+        an import. Left unchanged it asserts something true for a reason the author did not
+        mean.
+    manifests:
+    - path: pyproject.toml
+      line: 54
+      symbol: google-generativeai
+      label: auto
+      why: '`gemini = ["google-generativeai>=0.3"]`, a PEP 621 extra.'
+    - path: pyproject.toml
+      line: 64
+      symbol: google-generativeai
+      label: auto
+      why: The same pin a second time, inside the `all` extra. Two rows in one file, which
+        is the shape the `manifests/` fixture covers across five files and not twice within
+        one.
+    must_not_report: []
+    tests_cover_change: true
+    tests_cover_change_why: '`tests/test_llm_providers.py` constructs both provider classes
+      with the SDK faked and asserts `configure` and `GenerativeModel` were called with the
+      right arguments, so every line of `gemini.py` above runs under the suite. It also means
+      the suite **fails** after a correct migration until the six strings and two assertions
+      move with it: the baseline passes, the after run does not, and a case that reports `verified_success`
+      without touching these files has not migrated the repository.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Six of the sixteen rows are the legacy module named as a **string** -- `flag-legacy-module-reached-indirectly`,
+    which T26's targeted draw looked for over 18 528 hits and did not find. The test-suite
+    draw found it on the first page, which says something about where that shape actually
+    lives.
+- id: navamai__navamai
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: navamai/navamai
+  owner: navamai
+  repo: https://github.com/navamai/navamai
+  sha: 8b43206f8fd657d3e725fb4198c354217007b003
+  license: Apache-2.0
+  split: holdout
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.types.GenerationConfig
+  python: cpython-3.12.9-macos-aarch64-none
+  install:
+  - uv pip install . pytest pytest-asyncio
+  test_cmd: python -m pytest tests/test_gemini.py -q
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A CLI over several model vendors, with one small Gemini provider class and
+      a test file that patches the legacy module **by dotted string** in three places. The
+      clean version of the shape `humanbound` does with `sys.modules`.
+    files_read:
+    - src/navamai/gemini.py
+    - tests/test_gemini.py
+    - pyproject.toml
+    call_sites:
+    - path: src/navamai/gemini.py
+      line: 10
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: src/navamai/gemini.py
+      line: 22
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Inside `__init__`, the module's only one, argument a local read from the environment.
+        The client belongs on `self`.
+    - path: src/navamai/gemini.py
+      line: 52
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A local in `_stream_response`, model name taken from a dict. The new SDK wants
+        that name at the call instead, which is one move up the same expression.
+    - path: src/navamai/gemini.py
+      line: 53
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+      why: '`stream=True`, receiver the local one line above.'
+    - path: src/navamai/gemini.py
+      line: 56
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: auto
+    - path: tests/test_gemini.py
+      line: 16
+      kind: dynamic
+      symbol: google.generativeai.configure
+      label: auto
+      why: '`patch("google.generativeai.configure")` in the fixture every test in the file
+        uses. After the migration that path does not exist and `patch` raises, so the suite
+        cannot silently keep passing -- which makes this the one case in the corpus where
+        the tests **force** the patch targets to move.'
+    - path: tests/test_gemini.py
+      line: 95
+      kind: dynamic
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: '`patch("google.generativeai.GenerativeModel", return_value=mock_model)`.'
+    - path: tests/test_gemini.py
+      line: 117
+      kind: dynamic
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: The same patch in the second streaming test.
+    manifests:
+    - path: pyproject.toml
+      line: 21
+      symbol: google-generativeai
+      label: auto
+      why: A Poetry `^0.7.2` caret range.
+    must_not_report:
+    - path: pyproject.toml
+      line: 18
+      why: '`google-api-python-client = "^2.142.0"`, three lines above the real pin. A different
+        distribution sharing the `google-` prefix.'
+    - path: src/navamai/metrics.py
+      line: 20
+      why: '`def count_tokens(text)` -- the project''s own token counter, which shares its
+        name with `GenerativeModel.count_tokens` and is called from two other modules and
+        two test files. Nothing here touches the SDK.'
+    tests_cover_change: true
+    tests_cover_change_why: Every test in `tests/test_gemini.py` goes through a fixture that
+      patches `google.generativeai.configure`, and two of them patch `GenerativeModel`. The
+      provider's five call sites all run under it with no network, and the three patch strings
+      have to move in the same change.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Five `auto` call sites in the source and three patch targets in the tests. If any
+    case in this corpus can reach `verified_success`, it is this one -- and it can only do
+    so if the migration rewrites the test file too.
+- id: ImprintLab__Medical-Graph-RAG
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: ImprintLab/Medical-Graph-RAG
+  owner: ImprintLab
+  repo: https://github.com/ImprintLab/Medical-Graph-RAG
+  sha: d8040c7485ffbc74ef3cce07492beabb68ae150b
+  license: MIT
+  split: holdout
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.count_tokens
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.protos
+  - google.generativeai.protos.Schema
+  - google.generativeai.types
+  - google.generativeai.types.ContentsType
+  - google.generativeai.types.GenerateContentResponse
+  - google.generativeai.types.GenerationConfig
+  - google.generativeai.types.content_types
+  - google.generativeai.types.content_types.FunctionLibraryType
+  - google.generativeai.types.content_types.ToolConfigType
+  - google.generativeai.types.generation_types
+  - google.generativeai.types.generation_types.GenerationConfig
+  - google.generativeai.types.helper_types
+  - google.generativeai.types.helper_types.RequestOptionsType
+  - google.generativeai.types.safety_types
+  - google.generativeai.types.safety_types.SafetySettingOptions
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A medical graph-RAG system that **vendors two third-party frameworks**, and
+      every legacy call site it has is inside one of them: `camel/`, a copy of CAMEL-AI carrying
+      its own Apache-2.0 headers. It is the corpus''s only witness for the out-of-scope surfaces,
+      and it reaches nine legacy names no rule in the pack rewrites.'
+    files_read:
+    - camel/models/gemini_model.py
+    - camel/configs/gemini_config.py
+    - camel/utils/token_counting.py
+    - README.md
+    call_sites:
+    - path: camel/models/gemini_model.py
+      line: 32
+      kind: import
+      symbol: google.generativeai.types
+      label: manual
+      why: '`from google.generativeai.types import ContentsType, GenerateContentResponse`,
+        under `if TYPE_CHECKING:`. The module path maps, and one of the two names does: `GenerateContentResponse`
+        is in `google.genai.types` and `ContentsType` is nowhere, so the statement cannot
+        be rewritten without deciding what the second annotation becomes.'
+    - path: camel/models/gemini_model.py
+      line: 64
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: camel/models/gemini_model.py
+      line: 65
+      kind: import
+      symbol: google.generativeai.types.generation_types
+      label: manual
+      why: Imported from the private `types.generation_types` module, which the new SDK does
+        not have. The class it is standing in for is `types.GenerateContentConfig`, and saying
+        so is a decision.
+    - path: camel/models/gemini_model.py
+      line: 71
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: camel/models/gemini_model.py
+      line: 72
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: camel/models/gemini_model.py
+      line: 78
+      kind: attribute
+      symbol: google.generativeai.types.generation_types.GenerationConfig
+      label: manual
+      why: '`hasattr(GenerationConfig, k)` filters a user''s config dict against the legacy
+        class''s fields. The new class has different fields, so the line changes meaning rather
+        than spelling.'
+    - path: camel/models/gemini_model.py
+      line: 80
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: auto
+    - path: camel/models/gemini_model.py
+      line: 112
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: camel/models/gemini_model.py
+      line: 145
+      kind: attribute
+      symbol: google.generativeai.types.ContentsType
+      label: manual
+      why: A string annotation naming the type that has no counterpart.
+    - path: camel/models/gemini_model.py
+      line: 173
+      kind: attribute
+      symbol: google.generativeai.types.GenerateContentResponse
+      label: auto
+      why: A string annotation naming a type that does have one.
+    - path: camel/configs/gemini_config.py
+      line: 99
+      kind: import
+      symbol: google.generativeai.protos
+      label: manual
+      why: '`protos` is the generated protobuf layer, which the pack flags as out of scope
+        precisely because nothing in the new SDK corresponds to it one for one.'
+    - path: camel/configs/gemini_config.py
+      line: 100
+      kind: import
+      symbol: google.generativeai.types.content_types
+      label: manual
+      why: '`types.content_types` is private to the legacy package and has no counterpart.'
+    - path: camel/configs/gemini_config.py
+      line: 104
+      kind: import
+      symbol: google.generativeai.types.helper_types
+      label: manual
+      why: '`types.helper_types` is private to the legacy package and has no counterpart.'
+    - path: camel/configs/gemini_config.py
+      line: 107
+      kind: import
+      symbol: google.generativeai.types.safety_types
+      label: manual
+      why: Four private `types` submodules imported inside one `if` branch. None of the four
+        exists in the new SDK and three of the five names they carry do not either.
+    - path: camel/configs/gemini_config.py
+      line: 113
+      kind: attribute
+      symbol: google.generativeai.protos.Schema
+      label: manual
+      why: '`isinstance(response_schema, Schema)`. The five `isinstance` guards below are
+        what those four imports are **for**, and each of them reads a legacy type that has
+        no counterpart to compare against.'
+    - path: camel/configs/gemini_config.py
+      line: 120
+      kind: attribute
+      symbol: google.generativeai.types.safety_types.SafetySettingOptions
+      label: manual
+      why: '`isinstance(safety_settings, SafetySettingOptions)` -- the type is gone.'
+    - path: camel/configs/gemini_config.py
+      line: 129
+      kind: attribute
+      symbol: google.generativeai.types.content_types.FunctionLibraryType
+      label: manual
+      why: '`isinstance(tool, FunctionLibraryType)` -- the type is gone.'
+    - path: camel/configs/gemini_config.py
+      line: 134
+      kind: attribute
+      symbol: google.generativeai.types.content_types.ToolConfigType
+      label: manual
+      why: '`isinstance(tool_config, ToolConfigType)` -- the type is gone.'
+    - path: camel/configs/gemini_config.py
+      line: 140
+      kind: attribute
+      symbol: google.generativeai.types.helper_types.RequestOptionsType
+      label: manual
+      why: '`isinstance(request_options, RequestOptionsType)` -- the type is gone.'
+    - path: camel/utils/token_counting.py
+      line: 429
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: camel/utils/token_counting.py
+      line: 432
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: camel/utils/token_counting.py
+      line: 457
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.count_tokens
+      label: auto
+      why: The corpus's only `count_tokens`. `client.models.count_tokens` is the counterpart
+        and `.total_tokens` survives.
+    manifests: []
+    must_not_report:
+    - path: camel/utils/token_counting.py
+      line: 422
+      why: '`self.client.count_tokens(content)` in a **different** token counter class whose
+        client is not a Gemini model. The method name matches exactly and the file contains
+        a real legacy import 35 lines below, which is what makes it the sharpest false positive
+        in the corpus.'
+    - path: camel/models/gemini_model.py
+      line: 156
+      why: A documentation URL in a comment that spells out `google/generativeai/protos/Content`.
+        Prose about the SDK, in a file that also uses it.
+    tests_cover_change: false
+    tests_cover_change_why: The repository has no test file of its own, and the vendored framework's
+      tests were not vendored with it.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Keeping this case is a judgement and it is recorded as one. Every call site is inside
+    somebody else's library, so a migration here migrates CAMEL and not the application, and
+    a maintainer would bump the dependency instead. It stays because dropping it leaves `flag-out-of-scope-surfaces`
+    with **no** witness at all -- and because "the SDK usage is in a vendored framework" is
+    a rule the next draw should have, one step out from the `vendors_the_sdk` rule the first
+    draw earned.
+- id: LotusSerene__Gemini-Novel-Maker
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: LotusSerene/Gemini-Novel-Maker
+  owner: LotusSerene
+  repo: https://github.com/LotusSerene/Gemini-Novel-Maker
+  sha: 8da04df2b881ad5874300a8d582695c25b495dc5
+  license: Apache-2.0
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerationConfig
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.embed_content
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A novel-writing assistant, and the corpus's only user of the embeddings surface.
+      It reaches it twice, and both times the legacy response is subscripted like a dictionary
+      on the next line -- which is where the migration actually bites.
+    files_read:
+    - app.py
+    - main.py
+    - utils.py
+    - chapter_generator.py
+    - context_manager.py
+    - requirements.txt
+    call_sites:
+    - path: app.py
+      line: 5
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Imported and never used in this file.
+    - path: main.py
+      line: 4
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: main.py
+      line: 18
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: A configure with nothing in the module to configure. It exists so that the other
+        modules inherit the global key -- and they each call `configure` themselves anyway.
+        The new SDK has no global, so the correct edit is to delete the line, which is a judgement
+        rather than a rewrite.
+    - path: utils.py
+      line: 40
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: A function-local import inside `get_embedding`.
+    - path: utils.py
+      line: 41
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Same scope as the one call that needs it, three lines above it.
+    - path: utils.py
+      line: 42
+      kind: call
+      symbol: google.generativeai.embed_content
+      label: manual
+      why: '`client.models.embed_content(model=..., contents=...)` is the counterpart and
+        `task_type` and `title` move into an `EmbedContentConfig`. What makes it manual is
+        line 48: the legacy result is subscripted `result[''embedding'']`, and the new response
+        is an object. Migrating the call without migrating its consumer leaves a `TypeError`
+        behind.'
+    - path: chapter_generator.py
+      line: 5
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: chapter_generator.py
+      line: 17
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Inside `__init__`, beside the two models it configures.
+    - path: chapter_generator.py
+      line: 18
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: chapter_generator.py
+      line: 19
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: chapter_generator.py
+      line: 36
+      kind: call
+      symbol: google.generativeai.GenerationConfig
+      label: auto
+      why: The top-level `GenerationConfig`, which the pack does name -- unlike the `types.GenerationConfig`
+        four other cases use.
+    - path: chapter_generator.py
+      line: 41
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+      why: '`stream=True`, on a `self_attr` receiver.'
+    - path: chapter_generator.py
+      line: 134
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: chapter_generator.py
+      line: 160
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: chapter_generator.py
+      line: 180
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: chapter_generator.py
+      line: 201
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: chapter_generator.py
+      line: 291
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: chapter_generator.py
+      line: 304
+      kind: call
+      symbol: google.generativeai.embed_content
+      label: manual
+      why: The second embedding call, with the same dictionary subscript one line below it
+        at 310.
+    - path: chapter_generator.py
+      line: 341
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    manifests:
+    - path: requirements.txt
+      line: 2
+      symbol: google-generativeai
+      label: auto
+      why: '`google-generativeai==0.1.0`. The round installs `from_version` 0.8.6 rather than
+        what the repository pins, so this case measures a migration from the version the pack
+        targets and not from the one its author last tested against.'
+    must_not_report:
+    - path: chapter_generator.py
+      line: 303
+      why: '`def embed_content(self, content)` -- the class defines a method with the exact
+        name of the legacy free function it wraps. Its two call sites at 313 and 316 are the
+        same trap read from the other side.'
+    - path: chapter_generator.py
+      line: 313
+      why: '`self.embed_content(query)`, the project''s own method.'
+    - path: chapter_generator.py
+      line: 316
+      why: '`self.embed_content(chapter)`, in a comprehension.'
+    tests_cover_change: false
+    tests_cover_change_why: No tests.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'Nineteen call sites, sixteen of them `auto`, and the three that are not are all
+    the same shape: a response whose type changed, read one line after the call. A patch that
+    rewrites only the call sites would leave this repository broken in three places and every
+    one of them would look like a success to a tier that counts edits.'
+- id: Omadithya07__Phidata-Multimodal-Video-Summarizer-Using-AI-Agents
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents
+  owner: Omadithya07
+  repo: https://github.com/Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents
+  sha: b615a993d9b8fb74dbdaa6adeb4f5dd3a05553f5
+  license: MIT
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.configure
+  - google.generativeai.get_file
+  - google.generativeai.upload_file
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A 112-line Streamlit page that uploads a video to the Files API, polls it
+      until it is processed and hands it to a phidata agent. The corpus's only `get_file`,
+      and the only case where the SDK is imported twice in two different spellings in the
+      same file.
+    files_read:
+    - app.py
+    - requirements.txt
+    call_sites:
+    - path: app.py
+      line: 5
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: '`from google.generativeai import upload_file,get_file` binds two legacy free functions
+        by bare name, so both call sites below read like ordinary local calls. One row, because
+        the symbol on an import is the module the statement imports **from** -- the convention
+        the `import_forms` fixture fixes.'
+    - path: app.py
+      line: 6
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: The same module imported a second time, aliased.
+    - path: app.py
+      line: 20
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: Inside `if API_KEY:` at module level. A client built here may not exist at the
+        two call sites below, and deciding what those do when it does not is a decision, not
+        an edit.
+    - path: app.py
+      line: 70
+      kind: call
+      symbol: google.generativeai.upload_file
+      label: manual
+      why: '`upload_file(video_path)` -- a bare name, so nothing on the line says it belongs
+        to the SDK. It becomes `client.files.upload(file=...)`, which needs the client the
+        conditional above may not have made.'
+    - path: app.py
+      line: 73
+      kind: call
+      symbol: google.generativeai.get_file
+      label: manual
+      why: '`get_file(name)` becomes `client.files.get(name=...)`. Same blocker.'
+    manifests:
+    - path: requirements.txt
+      line: 3
+      symbol: google-generativeai
+      label: auto
+      why: Unpinned, in a four-line bare `requirements.txt`.
+    must_not_report:
+    - path: app.py
+      line: 3
+      why: '`from phi.model.google import Gemini` -- a third-party wrapper''s own class, imported
+        two lines above the real thing.'
+    tests_cover_change: false
+    tests_cover_change_why: The repository has one Python file and no tests.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'Both file-surface calls are bare names bound by a `from` import, which is the spelling
+    C-27 and the `import_forms` fixture exist for: a reader skimming lines 70 and 73 sees
+    two local functions.'
+- id: Sharukesh3__LLM-for-hydrogen-storage
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: Sharukesh3/LLM-for-hydrogen-storage
+  owner: Sharukesh3
+  repo: https://github.com/Sharukesh3/LLM-for-hydrogen-storage
+  sha: a9480de70efdd2e158da556aa072f2003282ff7e
+  license: MIT
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.ChatSession.last
+  - google.generativeai.ChatSession.send_message
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.start_chat
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: Two batch scripts that drive one chat session over a CSV. They are near copies
+      of one another, and both read `convo.last` -- the corpus's only use of an attribute
+      the new SDK removed outright.
+    files_read:
+    - dataset_prep/gemini.py
+    - dataset_prep/test.py
+    - requirments.txt
+    - Model.py
+    - Model_QA.py
+    - app.py
+    call_sites:
+    - path: dataset_prep/gemini.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: dataset_prep/gemini.py
+      line: 9
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: dataset_prep/gemini.py
+      line: 38
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A module constant with both `generation_config` and a positional list of four safety
+        dictionaries. All four categories and the one threshold are in the closed tables,
+        so the mapping is decided.
+    - path: dataset_prep/gemini.py
+      line: 42
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: auto
+      why: '`history=[]`, an empty literal.'
+    - path: dataset_prep/gemini.py
+      line: 67
+      kind: method_call
+      symbol: google.generativeai.ChatSession.send_message
+      label: auto
+    - path: dataset_prep/gemini.py
+      line: 70
+      kind: attribute
+      symbol: google.generativeai.ChatSession.last
+      label: manual
+      why: '`ChatSession.last` has no counterpart in the new SDK. The loop uses it as the
+        response, so migrating it means keeping the return value of `send_message` instead
+        -- a rewrite of the loop, not of the line.'
+    - path: dataset_prep/gemini.py
+      line: 71
+      kind: attribute
+      symbol: google.generativeai.ChatSession.last
+      label: manual
+      why: The same attribute read a second time, one line down.
+    - path: dataset_prep/test.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: dataset_prep/test.py
+      line: 7
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: dataset_prep/test.py
+      line: 36
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: dataset_prep/test.py
+      line: 40
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: auto
+    - path: dataset_prep/test.py
+      line: 65
+      kind: method_call
+      symbol: google.generativeai.ChatSession.send_message
+      label: auto
+    - path: dataset_prep/test.py
+      line: 68
+      kind: attribute
+      symbol: google.generativeai.ChatSession.last
+      label: manual
+      why: The same removed attribute as `gemini.py:70`, in the second copy of the script.
+    - path: dataset_prep/test.py
+      line: 69
+      kind: attribute
+      symbol: google.generativeai.ChatSession.last
+      label: manual
+      why: The same attribute read a second time, one line down.
+    manifests:
+    - path: requirments.txt
+      line: 19
+      symbol: google-generativeai
+      label: auto
+      why: '`google-generativeai==0.4.1`, and the pin is out of reach twice over: the filename
+        is misspelled, so it is not one of the fixed manifest names a scanner looks for, and
+        the file is UTF-16 with a BOM, so a reader that assumes UTF-8 sees nulls between every
+        character. A correct migration moves this pin; nothing mechanical finds it. Pre-registered
+        as a miss.'
+    must_not_report:
+    - path: requirments.txt
+      line: 16
+      why: '`google-ai-generativelanguage==0.4.0`, the lower-level package `docs/BENCHMARK.md`
+        names as a false-positive trap, three lines above the real pin.'
+    tests_cover_change: false
+    tests_cover_change_why: There is no test suite. `dataset_prep/test.py` is a second copy
+      of the batch script, and the corpus's `Tests` column is empty for this repository because
+      the path heuristic -- correctly -- does not count it.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: '`dataset_prep/test.py` is a batch script called `test.py`: no runner, no assertion,
+    a live API key at line 7. Fourteen call sites across two near-identical files is the shape
+    the `pattern_key` denominator exists for: the second file adds no pattern the first does
+    not already have, and a case count would score it twice.'
+- id: LJX2017__A-Song-of-Ice-and-Fire
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: LJX2017/A-Song-of-Ice-and-Fire
+  owner: LJX2017
+  repo: https://github.com/LJX2017/A-Song-of-Ice-and-Fire
+  sha: b7596d5686000e9df1a219f3b3d922905832f9c5
+  license: Apache-2.0
+  split: holdout
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.ChatSession.send_message
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.GenerativeModel.start_chat
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: Six scripts around a book-lore chatbot. Two of them build a chat by calling
+      `start_chat` **on a temporary model** -- `genai.GenerativeModel ('gemini-pro').start_chat(history=[])`
+      -- and four import the SDK for a `configure` and nothing else. No manifest of any kind.
+    files_read:
+    - QA.py
+    - main.py
+    - basic_game.py
+    - reconstruct_timeline.py
+    - run_chroma.py
+    - enhance_dataset.py
+    - english_ver.py
+    call_sites:
+    - path: QA.py
+      line: 8
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: QA.py
+      line: 14
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: A `configure` with no model in the module. The new SDK has no global to set, so
+        the correct edit is to delete it, and deciding that is a judgement. Three other files
+        have the same shape.
+    - path: main.py
+      line: 3
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: main.py
+      line: 5
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: As QA.py.
+    - path: run_chroma.py
+      line: 10
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: run_chroma.py
+      line: 19
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: As QA.py.
+    - path: enhance_dataset.py
+      line: 3
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Imported and never used -- no configure, no model, no call.
+    - path: basic_game.py
+      line: 11
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: basic_game.py
+      line: 22
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Module level, one per module, with two models below it.
+    - path: basic_game.py
+      line: 25
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A module constant used at lines 77 and 97.
+    - path: basic_game.py
+      line: 27
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: '`genai.GenerativeModel(''gemini-pro'').start_chat(history=[])`. The model is a
+        temporary that is never named, so the model name the new SDK needs at `client.chats.create(model=...)`
+        has to be lifted out of a call the rule is not rewriting.'
+    - path: basic_game.py
+      line: 27
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: manual
+      why: The other half of the same chained call.
+    - path: basic_game.py
+      line: 62
+      kind: method_call
+      symbol: google.generativeai.ChatSession.send_message
+      label: auto
+      why: '`stream=True` and a `safety_settings` list of four dictionaries declared at line
+        28. All four categories and the threshold are in the closed tables.'
+    - path: basic_game.py
+      line: 77
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: basic_game.py
+      line: 97
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: reconstruct_timeline.py
+      line: 3
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: reconstruct_timeline.py
+      line: 8
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: reconstruct_timeline.py
+      line: 9
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A module constant that is bound and never used.
+    - path: reconstruct_timeline.py
+      line: 10
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: The same chained temporary as `basic_game.py:27`.
+    - path: reconstruct_timeline.py
+      line: 10
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: manual
+      why: The other half of the same chained call, and the chat it returns is discarded.
+    - path: reconstruct_timeline.py
+      line: 54
+      kind: method_call
+      symbol: google.generativeai.ChatSession.send_message
+      label: auto
+    manifests: []
+    must_not_report:
+    - path: basic_game.py
+      line: 12
+      why: '`from langchain_google_genai import ChatGoogleGenerativeAI`, one line after the
+        real import. `run_chroma.py` lines 8 and 11 are the same trap twice over, and one
+        of them is `GoogleGenerativeAIEmbeddings`.'
+    - path: run_chroma.py
+      line: 8
+      why: '`from langchain_google_genai import GoogleGenerativeAIEmbeddings`.'
+    - path: run_chroma.py
+      line: 11
+      why: '`from langchain_google_genai import ChatGoogleGenerativeAI`.'
+    tests_cover_change: false
+    tests_cover_change_why: No tests and no manifest.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: The chained `GenerativeModel(...).start_chat(...)` appears in the corpus exactly
+    twice and both are here. It is the one shape where the model's **name** -- which every
+    new-SDK call needs -- exists only as a positional literal inside a call the chat rule
+    is not looking at.
+- id: Momen2410__Question-Answering-ChatBot-Using-Gemini1.5
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: Momen2410/Question-Answering-ChatBot-Using-Gemini1.5
+  owner: Momen2410
+  repo: https://github.com/Momen2410/Question-Answering-ChatBot-Using-Gemini1.5
+  sha: 626a979c9504ed3a293216e1e64307f7cfe3c3b4
+  license: MIT
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.ChatSession.send_message
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.start_chat
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A 36-line Streamlit chatbot: one module-level `configure`, a `generation_config`
+      dict read by a local model inside a function, and the chat surface in three lines. The
+      simplest complete migration in the corpus and the closest thing in it to the `basic`
+      fixture.'
+    files_read:
+    - app.py
+    - requirements.txt
+    call_sites:
+    - path: app.py
+      line: 1
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: app.py
+      line: 5
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Module level, the module's only one, argument a module-level local.
+    - path: app.py
+      line: 16
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A local inside `get_model_respose`, with `generation_config` passed **by name**
+        rather than as a literal. The name is a module constant of four keys, all four legal,
+        so the edit still follows from the file.
+    - path: app.py
+      line: 19
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.start_chat
+      label: auto
+      why: No arguments; becomes `client.chats.create(model=...)`.
+    - path: app.py
+      line: 22
+      kind: method_call
+      symbol: google.generativeai.ChatSession.send_message
+      label: auto
+      why: Receiver is the local bound three lines up; the name is unchanged.
+    manifests:
+    - path: requirements.txt
+      line: 6
+      symbol: google-generativeai
+      label: auto
+    must_not_report: []
+    tests_cover_change: false
+    tests_cover_change_why: The repository has one Python file and no tests.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Every one of the five call sites is `auto`, which makes this the corpus's best chance
+    of a fully automatic migration -- and the file still cannot run unattended, because line
+    4 reads the API key from `input()`.
+- id: Satheesh2908__AI-Assistant-for-Satheesh
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: Satheesh2908/AI-Assistant-for-Satheesh
+  owner: Satheesh2908
+  repo: https://github.com/Satheesh2908/AI-Assistant-for-Satheesh
+  sha: b4c50edc3a7da97278256ef8bc2a83c7642cc32d
+  license: MIT
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.ChatCompletion
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A five-file voice assistant. One file does the migration in four lines; two
+      others import the SDK for names that do not exist in it, which is the corpus's clearest
+      example of code written against an SDK the author had not read.
+    files_read:
+    - App.py
+    - Main.py
+    - Test.py
+    - src/Helper.py
+    - Requirements.txt
+    call_sites:
+    - path: App.py
+      line: 3
+      kind: import
+      symbol: google.generativeai
+      label: auto
+      why: Imported and never used in this file.
+    - path: Test.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: manual
+      why: '`from google.generativeai import ChatCompletion`. There is no `ChatCompletion`
+        in google-generativeai 0.8.6 and there never was; the trailing comment on the line
+        says "or the correct import from the library you are using". There is no counterpart
+        to migrate to, so the honest outcome is a refusal with a reason.'
+    - path: Test.py
+      line: 7
+      kind: call
+      symbol: google.generativeai.ChatCompletion
+      label: manual
+      why: The same non-existent name, called.
+    - path: src/Helper.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: src/Helper.py
+      line: 40
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Inside `llm_model_object`, the module's only one, and the model it configures is
+        two lines below it in the same scope.
+    - path: src/Helper.py
+      line: 42
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+    - path: src/Helper.py
+      line: 44
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    manifests:
+    - path: Requirements.txt
+      line: 8
+      symbol: google-generativeai
+      label: auto
+      why: The filename is capitalised. The pin is a plain unpinned line and the edit follows
+        from reading it; a tool that matches manifests on an exact lowercase filename will
+        not open the file at all. Pre-registered as a miss.
+    must_not_report: []
+    tests_cover_change: false
+    tests_cover_change_why: '`Test.py` is not a test: it defines one function, asserts nothing,
+      and imports a name the SDK does not export.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'This repository commits a credential-shaped literal in its source. Neither its value
+    nor its position is recorded here, and the case is kept for a reason beyond its call sites:
+    it is the corpus''s live test that the evidence chain redacts what it quotes. `src/Helper.py`
+    also carries a commented-out import of the same non-existent `ChatCompletion`, which is
+    prose about the SDK and not a usage of it.'
+- id: Zierax__HackerHelper
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: Zierax/HackerHelper
+  owner: Zierax
+  repo: https://github.com/Zierax/HackerHelper
+  sha: 5f3b88bcad03262f32fbab6bc8f586dad9f45d7f
+  license: MIT
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A security-tooling API with one provider registry. It is in the corpus for
+      one line: it stores the **legacy module object itself** in a dictionary and reaches
+      every later use through a subscript.'
+    files_read:
+    - api/core/ai_assistant.py
+    - api/requirements.txt
+    call_sites:
+    - path: api/core/ai_assistant.py
+      line: 5
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: api/core/ai_assistant.py
+      line: 139
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: Inside a per-provider setup branch, beside three other vendors' clients. The new
+        SDK's client would have to be the value stored on the line below, which changes what
+        `self.clients` holds.
+    - path: api/core/ai_assistant.py
+      line: 140
+      kind: attribute
+      symbol: google.generativeai
+      label: manual
+      why: '`self.clients[provider] = genai` stores the module. Nothing static follows a module
+        through a dictionary, and this is the shape that makes every use below unresolvable.
+        Recorded as a call site because a migration must change it; the `kind` is the reviewer''s
+        judgement, since the vocabulary has no word for a module escaping into a container.'
+    - path: api/core/ai_assistant.py
+      line: 213
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: '`client.GenerativeModel(''gemini-pro'')`, where `client` came out of that dictionary.
+        The receiver is a module read from a subscript.'
+    - path: api/core/ai_assistant.py
+      line: 214
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: '`await model.generate_content(message)`. The legacy method is synchronous, so
+        the `await` is a defect in the repository and not something a migration introduces
+        -- the async counterpart is `generate_content_async`. A rule that rewrote this line
+        to the new SDK''s sync call would leave the `await` in place and the bug with it.'
+    manifests:
+    - path: api/requirements.txt
+      line: 67
+      symbol: google-generativeai
+      label: auto
+      why: '`google-generativeai>=0.3.0`, in a 74-line file that declares `pytest` twice and
+        `flask` twice.'
+    must_not_report: []
+    tests_cover_change: false
+    tests_cover_change_why: '`api/requirements.txt` declares `pytest` and `pytest-cov`, and
+      there is no test file anywhere in the tree. Declaring a runner is not having a suite,
+      which is why the corpus''s `Tests` column records the manifest and nothing else for
+      this repository.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'The `await` on a synchronous method is worth the case on its own: it is a pre-existing
+    defect that a successful migration must not silently carry forward, and no tier in `docs/BENCHMARK.md`
+    would notice it, because the repository has no tests to fail.'
+- id: kvcops__Virtual-Herbal-Garden
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: kvcops/Virtual-Herbal-Garden
+  owner: kvcops
+  repo: https://github.com/kvcops/Virtual-Herbal-Garden
+  sha: 4df82e3211620b8f4761f7d2cf6d46e72a96480b
+  license: MIT
+  split: holdout
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.types
+  - google.generativeai.types.GenerationConfig
+  - google.generativeai.types.HarmBlockThreshold.BLOCK_NONE
+  - google.generativeai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT
+  - google.generativeai.types.HarmCategory.HARM_CATEGORY_HARASSMENT
+  - google.generativeai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH
+  - google.generativeai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A 665-line Flask application with one model and seven calls on it. It is the
+      corpus's only user of the safety enums **as enums** -- a dictionary of four `HarmCategory`
+      members mapped to `HarmBlockThreshold.BLOCK_NONE` -- and the only repository that names
+      nine symbols the pack does not.
+    files_read:
+    - app.py
+    - readme.md
+    call_sites:
+    - path: app.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: app.py
+      line: 17
+      kind: import
+      symbol: google.generativeai.types
+      label: auto
+      why: Three names from `google.generativeai.types` on one line. All three exist in `google.genai.types`
+        under the same spelling, so the module path is the whole edit.
+    - path: app.py
+      line: 29
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: auto
+    - path: app.py
+      line: 38
+      kind: attribute
+      symbol: google.generativeai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH
+      label: auto
+    - path: app.py
+      line: 38
+      kind: attribute
+      symbol: google.generativeai.types.HarmBlockThreshold.BLOCK_NONE
+      label: auto
+    - path: app.py
+      line: 39
+      kind: attribute
+      symbol: google.generativeai.types.HarmCategory.HARM_CATEGORY_HARASSMENT
+      label: auto
+    - path: app.py
+      line: 39
+      kind: attribute
+      symbol: google.generativeai.types.HarmBlockThreshold.BLOCK_NONE
+      label: auto
+    - path: app.py
+      line: 40
+      kind: attribute
+      symbol: google.generativeai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT
+      label: auto
+    - path: app.py
+      line: 40
+      kind: attribute
+      symbol: google.generativeai.types.HarmBlockThreshold.BLOCK_NONE
+      label: auto
+    - path: app.py
+      line: 41
+      kind: attribute
+      symbol: google.generativeai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT
+      label: auto
+    - path: app.py
+      line: 41
+      kind: attribute
+      symbol: google.generativeai.types.HarmBlockThreshold.BLOCK_NONE
+      label: auto
+    - path: app.py
+      line: 47
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+    - path: app.py
+      line: 48
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: '`safety_settings=safety`, where `safety` is a **dictionary** of category to threshold.
+        The legacy SDK accepts that mapping; the new one wants a list of `SafetySetting` objects,
+        so the four lines above have to be rebuilt as a list -- and those lines are not call
+        sites, so no rule scoped to this one reaches them.'
+    - path: app.py
+      line: 249
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: app.py
+      line: 253
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: app.py
+      line: 506
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: app.py
+      line: 543
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: app.py
+      line: 597
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: app.py
+      line: 628
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    - path: app.py
+      line: 661
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    manifests: []
+    must_not_report: []
+    tests_cover_change: false
+    tests_cover_change_why: 'No tests, and no manifest either: the repository ships a `readme.md`,
+      a `Readme.txt` and 665 lines of Flask with nothing declaring what it needs.'
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Twelve distinct symbols, nine of which no change in the pack names, and one `manual`
+    row out of twenty-two. It is the clearest case in the corpus of a migration that is almost
+    entirely mechanical and still cannot finish, because the one thing that blocks it -- a
+    dictionary that has to become a list -- is four lines that contain no legacy call at all.
+- id: taitran501__dashboard_app
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: taitran501/dashboard_app
+  owner: taitran501
+  repo: https://github.com/taitran501/dashboard_app
+  sha: b222f63dc7469ae66cd10b919acf7e2d0b5170f5
+  license: Apache-2.0
+  split: holdout
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.types
+  - google.generativeai.types.GenerationConfig
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A 785-line Streamlit dashboard that caches its model in `st.session_state`
+      behind its own factory. The corpus's only import of the two safety enums by name, and
+      both of them are imported and never used.
+    files_read:
+    - app.py
+    - requirements.txt
+    call_sites:
+    - path: app.py
+      line: 2
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: app.py
+      line: 3
+      kind: import
+      symbol: google.generativeai.types
+      label: auto
+      why: '`from google.generativeai.types import HarmCategory, HarmBlockThreshold`. Both
+        names exist in the new SDK''s `types` under the same spelling, so the edit is the
+        module path -- but neither name is used anywhere in the file, so a correct migration
+        could also delete the line.'
+    - path: app.py
+      line: 162
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: Inside `initialize_model`, whose result is memoised in `st.session_state.models`.
+        A client would have to be cached beside it, which changes what the cache holds.
+    - path: app.py
+      line: 164
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: manual
+      why: The model is stored in session state and returned, so it escapes to every caller.
+        `system_instruction` is a constructor keyword here and moves to the config in the
+        new SDK.
+    - path: app.py
+      line: 283
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: auto
+    - path: app.py
+      line: 288
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: manual
+      why: Receiver is the local at line 243, which is the return value of the project's own
+        `initialize_model`.
+    manifests:
+    - path: requirements.txt
+      line: 2
+      symbol: google-generativeai
+      label: auto
+    must_not_report: []
+    tests_cover_change: false
+    tests_cover_change_why: No tests.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Two of the seven call sites are an unused import. A migration that deletes line 3
+    and one that rewrites it are both correct, which is why the key labels them `auto` and
+    says so rather than pretending there is one answer.
+- id: 000wan__ara-ai-bot
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: 000wan/ara-ai-bot
+  owner: 000wan
+  repo: https://github.com/000wan/ara-ai-bot
+  sha: ca492efadfbc0ccbb104f72b9d591f7389e7e520
+  license: MIT
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.GenerativeModel
+  - google.generativeai.GenerativeModel.generate_content
+  - google.generativeai.configure
+  - google.generativeai.types.GenerationConfig
+  python: cpython-3.10.21-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: 'A Discord bot with one 82-line SDK module: two branches, each building a
+      model and a `GenerationConfig` object and calling it once. The interpreter is not the
+      default because the `Pipfile` pins `python_version = "3.10"`.'
+    files_read:
+    - ai.py
+    - Pipfile
+    call_sites:
+    - path: ai.py
+      line: 8
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: ai.py
+      line: 9
+      kind: call
+      symbol: google.generativeai.configure
+      label: auto
+      why: Module level, one per module, argument a module constant.
+    - path: ai.py
+      line: 30
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: A local on the vision branch, used fourteen lines later.
+    - path: ai.py
+      line: 38
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: auto
+      why: Constructed as an object rather than passed as a dict. `types.GenerateContentConfig`
+        is the counterpart and the keywords carry over, so the edit follows -- **and no change
+        in the pack names this symbol**, which makes the row error-analysis material rather
+        than a defect in the key.
+    - path: ai.py
+      line: 44
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+      why: Receiver is the local at line 30; the config is passed by name.
+    - path: ai.py
+      line: 46
+      kind: call
+      symbol: google.generativeai.GenerativeModel
+      label: auto
+      why: The text branch, same shape.
+    - path: ai.py
+      line: 47
+      kind: call
+      symbol: google.generativeai.types.GenerationConfig
+      label: auto
+    - path: ai.py
+      line: 53
+      kind: method_call
+      symbol: google.generativeai.GenerativeModel.generate_content
+      label: auto
+    manifests:
+    - path: Pipfile
+      line: 7
+      symbol: google-generativeai
+      label: auto
+      why: A `[packages]` table entry with a `"*"` version. The corpus's only `Pipfile`, and
+        the layout the `manifests/` fixture covers with a `[dev-packages]` table rather than
+        this one.
+    must_not_report: []
+    tests_cover_change: false
+    tests_cover_change_why: No tests.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'Every call site is `auto` and two of the eight name a symbol the pack does not:
+    `google.generativeai.types.GenerationConfig` is the most common unnamed symbol in the
+    whole corpus, at nine call sites over five repositories.'
+- id: ashishkumar5de__PDF-QL
+  provider: gemini
+  change: google-generativeai-to-google-genai
+  from_version: 0.8.6
+  to_version: 2.24.0
+  full_name: ashishkumar5de/PDF-QL
+  owner: ashishkumar5de
+  repo: https://github.com/ashishkumar5de/PDF-QL
+  sha: 581d11c03f4d1efe6e2f21532ed1ced0e2a17ca5
+  license: Apache-2.0
+  split: dev
+  pattern_key:
+  - google.generativeai
+  - google.generativeai.configure
+  python: cpython-3.12.9-macos-aarch64-none
+  install: []
+  test_cmd: null
+  tests_require_network: false
+  ground_truth:
+    what_it_is: A LangChain retrieval app. Everything it does with Gemini it does through
+      `langchain_google_genai`; the legacy SDK is imported and configured and then never used
+      again. The smallest migration in the corpus and the one with the most decoys per line.
+    files_read:
+    - app.py
+    - requirements.txt
+    call_sites:
+    - path: app.py
+      line: 5
+      kind: import
+      symbol: google.generativeai
+      label: auto
+    - path: app.py
+      line: 14
+      kind: call
+      symbol: google.generativeai.configure
+      label: manual
+      why: '`configure_genai()` sets a global that nothing in this repository reads: the LangChain
+        classes take `google_api_key=` explicitly. The correct migration is to delete the
+        import and the function, and deciding that is a judgement rather than a rewrite --
+        a client object built here would be as unused as the call it replaced.'
+    manifests:
+    - path: requirements.txt
+      line: 2
+      symbol: google-generativeai
+      label: auto
+    must_not_report:
+    - path: app.py
+      line: 4
+      why: '`from langchain_google_genai import GoogleGenerativeAIEmbeddings`. A different
+        distribution whose module name contains `genai` and whose class names contain `GenerativeAI`;
+        line 7 imports a second one, and lines 36, 55 and 62 construct them.'
+    - path: app.py
+      line: 7
+      why: '`from langchain_google_genai import ChatGoogleGenerativeAI`.'
+    - path: app.py
+      line: 36
+      why: '`GoogleGenerativeAIEmbeddings(...)`, LangChain''s class.'
+    - path: app.py
+      line: 55
+      why: '`ChatGoogleGenerativeAI(...)`, LangChain''s class.'
+    - path: app.py
+      line: 62
+      why: The second `GoogleGenerativeAIEmbeddings(...)`.
+    - path: requirements.txt
+      line: 6
+      why: '`langchain_google_genai`. Canonicalised it is `langchain-google-genai`, which
+        is neither the legacy distribution nor the new one, and a substring match on either
+        would take it.'
+    tests_cover_change: false
+    tests_cover_change_why: No tests.
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Two call sites and six positions where nothing may be reported. If a migration tool
+    has a false positive anywhere in the corpus, this is where it will be.
+controls:
+- control: already-migrated
+  shape: already on the new SDK
+  full_name: ParamveerSinghS/alex-ai-assistant
+  owner: ParamveerSinghS
+  repo: https://github.com/ParamveerSinghS/alex-ai-assistant
+  sha: 675ceff4b3f64df5801d4a17f3f1075a09b7ae67
+  license: MIT
+  witness: ai.py:1
+  query: '"from google import genai" language:python'
+  must_produce: no finding of an actionable kind and no dependency pin
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'The whole repository is already on the new SDK: `ai.py` opens with `from google
+    import genai` and no file imports the legacy module. It is the shape the alias trap is
+    about -- both SDKs bind the name `genai`, and only the import origin tells them apart.'
+- control: vertex-generative-models
+  shape: vertexai.generative_models
+  full_name: GoogleCloudPlatform/Open_Data_QnA
+  owner: GoogleCloudPlatform
+  repo: https://github.com/GoogleCloudPlatform/Open_Data_QnA
+  sha: 19960bb38ba2624525ef732a2c3a354efe8cd892
+  license: Apache-2.0
+  witness: agents/BuildSQLAgent.py:3
+  query: '"from vertexai.generative_models import" language:python'
+  must_produce: no finding of an actionable kind and no dependency pin
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: Google's own sample application, on Vertex. `agents/BuildSQLAgent.py` imports `GenerativeModel`
+    from `vertexai.generative_models`, whose constructor takes a near-superset of the legacy
+    keyword arguments and whose methods match one for one. Nothing but the import origin distinguishes
+    it, and a migration of this repository would be wrong in every line it touched.
+- control: vertex-preview
+  shape: vertexai.preview.generative_models
+  full_name: pfnet-research/japanese-lm-fin-harness
+  owner: pfnet-research
+  repo: https://github.com/pfnet-research/japanese-lm-fin-harness
+  sha: 55d967750fec1f9ab1ee15554de96390a67531d4
+  license: MIT
+  witness: api_models.py:17
+  query: '"vertexai.preview.generative_models" language:python'
+  must_produce: no finding of an actionable kind and no dependency pin
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+  notes: 'The second Vertex origin, which correction C-24 says has to be exercised in its
+    own right: `vertexai.preview.generative_models` exports a **separate** live `GenerativeModel`.
+    `api_models.py` imports the module itself rather than the name.'

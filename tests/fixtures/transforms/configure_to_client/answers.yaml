@@ -1,0 +1,485 @@
+# The answer key for `configure_to_client`, written by hand before the rule.
+#
+# This corpus runs **every** implemented rule, in the order the pack declares
+# them, and `rename_import` is not incidental to that: the client rule emits
+# `genai.Client(...)` and the name `genai` is whatever the import rule bound
+# the new module to in this file. A corpus that ran the client rule alone would
+# be grading it against a name no file contains. That is the difference from
+# `../rename_import/answers.yaml`, which grades one rule because one rule is
+# all its cases need.
+#
+# "Every implemented rule" is a moving set on purpose, and T12 moved it: three
+# of these cases carry a model constructor that nothing claimed when they were
+# written, and two of them are now files a run writes whole. Their rows and
+# their docstrings moved with the code rather than being pinned to the state
+# the corpus was born in, which is what makes `complete` a claim about the
+# product and not about one rule.
+#
+# So `complete` is the stronger claim here than it was there: it is `true` when
+# every eligible finding in the file is claimed by a rule that exists, which is
+# exactly when `<name>.after.py` is what `obelize fix --apply` writes. When it
+# is `false` the key is still what the two rules produce -- one of them may have
+# succeeded while the other bailed -- and ADR-010 F-1 leaves the file untouched
+# in a real run. Those files say so in their own docstrings, so the caveat
+# travels with the bytes.
+#
+# Three bails are graded that no `ground_truth.yaml` could: `client_name_collision`
+# (COVERAGE.md gap 8's last third), `configure_kwargs_unsupported` and
+# `credentials_shape_differs` (gap 5). All three are properties of the rewrite --
+# the projection carries no `allowed_kwargs` and no client name by construction --
+# so `obelize scan` grades every one of these files `eligible` with no bail.
+case: configure_to_client
+rules:
+  - rename-import
+  - configure-to-client
+  - generative-model-calls
+  - embed-content
+  - upload-file
+pack: gemini/google-generativeai-to-google-genai
+
+cases:
+  # --- complete: the file a run would write ---------------------------------
+  - file: module_level
+    what_it_is: >-
+      One module-level `configure` and nothing else legacy. The canonical shape
+      and the only one the pack's own positive fixture also has.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      The client is named `client`, the first rung of the ladder, because the
+      module binds neither it nor the fallback. The warning is mandatory here:
+      the key is an environment lookup, so it can be absent or empty and the
+      new client raises where the legacy call returned quietly.
+
+  - file: literal_key
+    what_it_is: >-
+      The one shape ADR-013 D5 exempts, and the case no fixture covered.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+    notes: >-
+      A non-empty string literal cannot be absent and cannot be empty, so the
+      behaviour change F-6 warns about cannot happen and the edit carries no
+      warning. This is the only `configure` row in the whole repository that
+      does not.
+
+  - file: empty_literal_key
+    what_it_is: >-
+      The other side of the same boundary: a string literal that is empty.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      Measured against google-genai 2.23.0 in the example application's key:
+      `configure(api_key="")` returns and `Client(api_key="")` raises
+      `ValueError: No API key was provided.` D5 says non-empty for this row.
+
+  - file: trailing_comment
+    what_it_is: >-
+      `basic/app.py:7`'s shape, with a comment above the call and one after it.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      Both comments belong to the statement *line* and the rule replaces the
+      statement inside it, so neither has to be carried by hand. A rewrite that
+      rebuilt the line instead would eat the leading comment and the trailing
+      one together, which is the measurement ADR-025's plan recorded.
+
+  - file: multiline_call
+    what_it_is: >-
+      A call the author had already split across lines.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      The layout rule keeps a rewritten call multi-line when the source call
+      was, and emits the canonical form: one argument per line, one indent unit
+      past the statement, trailing comma. Nothing here is about width.
+
+  - file: width_trigger
+    what_it_is: >-
+      A call that fits on one line before the rewrite and does not after it.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      97 columns in, 103 out, against the pack's `layout.line_length` of 100.
+      This is the clause note 4 never had, and without it the codemod emits a
+      line the user's own formatter immediately rewraps.
+
+  - file: name_fallback
+    what_it_is: >-
+      The middle rung of the naming ladder, which no fixture had exercised.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      The module binds `client` on line 11 for something of its own, so the
+      rewrite takes `client_name_fallback`. A codemod that shadowed the name
+      would leave the file importable and wrong.
+
+  - file: credentials_object
+    what_it_is: >-
+      The allowed `credentials=`, and a module-level client with no `api_key=`.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      The value carries over verbatim, which is the whole of the rewrite for an
+      allowed keyword. D5's exemption is about a non-empty `api_key=` literal
+      and there is no `api_key=` at all, so the warning fires -- the absent key
+      is exactly the case C-20 measured.
+
+  - file: from_import_configure
+    what_it_is: >-
+      ADR-025 D10's prediction, discharged: a consumed name, not a rewritten one.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      `../rename_import/top_level_symbol.before.py` still bails, and correctly:
+      it imports `GenerativeModel` beside `configure` and nothing consumes that
+      name yet. Here the only entry is consumed, so the statement is replaced by
+      the module import -- which the client rule then needs, because
+      `genai.Client` is reached through it.
+
+  # --- the rules' output, in a file a run would still leave alone ------------
+  - file: same_scope_local
+    what_it_is: >-
+      Placement row 2: the `configure` is in a function and so are its uses.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 17, rule: configure-to-client, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto}
+    notes: >-
+      A local where the `configure` was. No warning: D5's rule is about a
+      module-level client and this one is not, so nothing is constructed at
+      import time. The two rows below the client were unclaimed until T12 and
+      are the model constructor and its call; the file is now one a run writes
+      whole, which is what a corpus that runs every implemented rule is for.
+
+  - file: self_attr
+    what_it_is: >-
+      Placement row 3: the `configure` is in a method and the uses are in others.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 18, rule: configure-to-client, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto}
+    notes: >-
+      `self.client`, with `self` read off the method's own first parameter
+      rather than assumed. `chat_async_self/ground_truth.yaml` called this "the
+      single largest inference in the answer key and the thing to overrule first
+      if it is wrong"; it is now a decision with a table behind it. T12 turned
+      the two unclaimed rows into edits and the file into one a run writes:
+      the model rule spells `self.client.models...` against the expression this
+      rule recorded, without knowing how it was chosen.
+
+  - file: placement_ambiguous
+    what_it_is: >-
+      Placement row 4: the `configure` is in one function and the uses in another.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 14, rule: rename-import, status: auto}
+      - {line: 18, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      A local in `setup()` is invisible in `answer()`, `setup()` is not a method
+      so there is no attribute to hang the client on, and a module-level client
+      would move the author's setup out of the function they wrote it in. The
+      import edit still applies, and F-1 is what makes that safe. The two rows
+      below repeat this rule's code rather than adding one of their own: there
+      is no client to spell a call against, the reason is already reported on
+      line 18, and one defect gets one name.
+
+  - file: name_taken
+    what_it_is: >-
+      Both rungs of the naming ladder are bound, which is `client_name_collision`.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: needs_review, reason: client_name_collision}
+    notes: >-
+      COVERAGE.md gap 8's last third, and the one of the three that is still in
+      the rewrite path of every migrated file. The pack offers two names and
+      neither is free; inventing a third is what the bail exists to prevent.
+
+  - file: unsupported_kwarg
+    what_it_is: >-
+      `client_info=`, the fourth refused keyword, which the spikes found.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 16, rule: configure-to-client, status: needs_review, reason: configure_kwargs_unsupported}
+    notes: >-
+      The keyword is refused whatever its value, because it is the *transport*
+      that has no equivalent and not the expression. COVERAGE.md gap 5, and
+      `tests/oracle/test_configure_to_client_against_the_oracle.py` enumerates
+      all four against the pack so that dropping one from `allowed_kwargs`
+      cannot go unnoticed.
+
+  - file: credentials_dict
+    what_it_is: >-
+      C-19: an allowed keyword whose *shape* the new client will not accept.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: needs_review, reason: credentials_shape_differs}
+    notes: >-
+      `Client.credentials` is typed for a credentials object. The legacy call
+      accepted a mapping, so this is the one place where a keyword on the
+      allowed list still refuses, and it is why the code is separate from
+      `configure_kwargs_unsupported`. COVERAGE.md gap 5.
+
+  # --- withheld by both rules: the file comes back byte-identical ------------
+  - file: module_alias_taken
+    what_it_is: >-
+      A repository with a package of its own called `genai`, so no name is left.
+    complete: false
+    after: none
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: needs_review, reason: alias_collision}
+      - {line: 13, rule: configure-to-client, status: needs_review, reason: alias_collision}
+    notes: >-
+      The client rule reports the import rule's code rather than one of its
+      own, and that is the honest answer rather than a shortcut: `genai.Client`
+      is reached through a name the file cannot introduce, so what this rule
+      cannot do is exactly what the other one could not. Inventing a second
+      code for one defect is what `caused_by` was added to avoid.
+
+  # --- T52: where the readers are, and what the class already holds -------
+  # critic:NEW-01, critic:NEW-02, transforms:CODEMOD-03, -10 and -25. Each
+  # was written as `auto` before the rule, and a run wrote a file that
+  # fails when it runs.
+  - file: free_function_other_scope
+    what_it_is: >-
+      A `configure` in one function and a free function's call in another.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 16, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 20, rule: upload-file, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      critic:NEW-01. The upload borrows the client rule's code, as every reader does.
+
+  - file: model_plus_helper
+    what_it_is: >-
+      The model and the `configure` in one function, a free function in another.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 15, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 20, rule: upload-file, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      critic:NEW-01's shape (c): a script's `main()` and a helper.
+
+  - file: free_function_self_attr
+    what_it_is: >-
+      A free function's rewrite in another method of the configuring class.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 16, rule: configure-to-client, status: auto}
+      - {line: 19, rule: embed-content, status: auto}
+    notes: >-
+      critic:NEW-01, the half that writes: row 3, once the reader is counted.
+
+  - file: staticmethod_reader
+    what_it_is: >-
+      A reader in a static method.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 18, rule: upload-file, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      critic:NEW-02. A static method has no `self` to read a client off.
+
+  - file: classmethod_configure
+    what_it_is: >-
+      A `configure` in a class method, with a reader in an instance method.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 18, rule: upload-file, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      transforms:CODEMOD-03. The receiver would be `cls`, which the reader does not have.
+
+  - file: main_guard
+    what_it_is: >-
+      A `configure` under `if __name__ == "__main__":`.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 18, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 13, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 14, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      transforms:CODEMOD-10. Row 1 is a statement directly in the module body.
+
+  - file: if_key
+    what_it_is: >-
+      A `configure` that runs only when a key is set.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 15, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      transforms:CODEMOD-10.
+
+  - file: try_configure
+    what_it_is: >-
+      A `configure` inside a `try`.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 16, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      transforms:CODEMOD-10.
+
+  - file: use_before_configure
+    what_it_is: >-
+      A module-level use of the model above the `configure`.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 11, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 12, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+      - {line: 18, rule: generative-model-calls, status: needs_review, reason: client_placement_ambiguous}
+    notes: >-
+      transforms:CODEMOD-10. A reader at module level above row 1's client is read before it is bound.
+
+  - file: self_attr_inherited_client
+    what_it_is: >-
+      A base class in the same module that already keeps a `self.client`.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 22, rule: configure-to-client, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto}
+      - {line: 26, rule: generative-model-calls, status: auto}
+    notes: >-
+      transforms:CODEMOD-25. The base's `self.client` is taken, so the ladder moves to `genai_client`.
+
+  - file: self_attr_imported_base
+    what_it_is: >-
+      A base class from another module.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: needs_review, reason: client_name_collision}
+      - {line: 15, rule: generative-model-calls, status: needs_review, reason: client_name_collision}
+      - {line: 18, rule: generative-model-calls, status: needs_review, reason: client_name_collision}
+    notes: >-
+      transforms:CODEMOD-25. A base this rule cannot read takes both names.
+
+  - file: self_attr_client_property
+    what_it_is: >-
+      A property called `client` on the class the client would be put on.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+    notes: >-
+      transforms:CODEMOD-25. A name the class body defines is taken.
+
+notes: |
+  Every line number above was checked against `cat -n` and against a scan of
+  the twenty-eight `.before.py` files, all of which grade `eligible` with no bail:
+  the scan sees nothing wrong with any of them. What is withheld here is
+  withheld by the rewrite.
+
+  The twenty-seven `.after.py` keys were written by hand before
+  `src/obelize/transforms/kinds/configure_to_client.py` existed, and
+  `module_alias_taken`, the one file with `after: none`, is the stronger claim
+  of the two: both rules must hand back the module they were given, byte for
+  byte.
+
+  What this corpus does not add. No `multiple_configure_calls` and no
+  `client_source_unresolved`: both are graded by `tests/fixtures/scan/escapes/`
+  and withheld before a rule is ever constructed, so a file here carrying one
+  would be testing the planner a second time. No manifest, because a manifest
+  is not a parsed source file and its rule is T15's. No second legacy import
+  statement in one file: two of them are `conditional_binding` or
+  `module_alias_rebound` and the scan withholds the file, which
+  `tests/unit/test_rename_import.py` already pins.

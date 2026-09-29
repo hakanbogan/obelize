@@ -1,0 +1,11 @@
+[project]
+name = "clear-fixture"
+version = "0.1.0"
+dependencies = [
+  "google-genai>=1",
+  "requests>=2.31",
+]
+
+[tool.poetry.group.test.dependencies]
+google-genai = ">=1"
+pytest = "^8.3"

@@ -1,0 +1,198 @@
+# scan -> fix --apply on the bundled example app from a built wheel in a clean venv, asserting
+# docs/CLI.md exit codes and docs/RUN_FOLDER.md evidence; `tests/e2e/` runs the flow in-process.
+# The app's own suite is not run: the flow writes nothing to verify (ADR-031 D11).
+name: e2e
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so a dependency release that breaks a fresh install shows (ADR-004).
+    - cron: "43 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  e2e:
+    name: e2e (example app, installed wheel)
+    # A schedule runs only on a public repository (ADR-004); tests/unit/test_workflows.py
+    # evaluates this `if:`.
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event.repository.visibility == 'public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      UV_FROZEN: "1"
+      UV_BUILD_CONSTRAINT: ".github/build-constraints.txt"
+      PACK_ID: gemini/google-generativeai-to-google-genai
+      EXAMPLE_DIR: examples/gemini-legacy-app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Decide whether the end-to-end flow can run
+        id: guard
+        # Skips, and says why, unless the example app and every probed command exist.
+        run: |
+          set -euo pipefail
+          missing=()
+          if [ ! -f "$EXAMPLE_DIR/pyproject.toml" ] && [ ! -f "$EXAMPLE_DIR/requirements.txt" ]; then
+            missing+=("the example application at $EXAMPLE_DIR")
+          fi
+          for cmd in scan fix verify; do
+            if ! uv run --frozen obelize "$cmd" --help >/dev/null 2>&1; then
+              missing+=("the \`obelize $cmd\` command")
+            fi
+          done
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "OBELIZE_VENV=$RUNNER_TEMP/obelize-venv"
+              echo "APP_DIR=$RUNNER_TEMP/app"
+            } >> "$GITHUB_ENV"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "SKIPPED: the end-to-end flow needs things that do not exist yet:"
+            for m in "${missing[@]}"; do echo "  - $m"; done
+            echo "No wheel was built and no scan/fix/verify flow was executed."
+          fi
+
+      - name: Build the wheel and install it into a clean venv (not editable)
+        if: steps.guard.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          uv build
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if [ "${#wheels[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one wheel in dist/, found ${#wheels[@]}"
+            exit 1
+          fi
+          uv venv --python 3.12 "$OBELIZE_VENV"
+          uv pip install --python "$OBELIZE_VENV/bin/python" "${wheels[0]}"
+          "$OBELIZE_VENV/bin/obelize" --version
+
+      - name: Copy the example app into a scratch git repo
+        if: steps.guard.outputs.present == 'true'
+        # --apply refuses a dirty tree (docs/THREAT_MODEL.md, TM-8) and must never touch this
+        # checkout, so the example is migrated in its own committed repo.
+        run: |
+          set -euo pipefail
+          cp -R "$EXAMPLE_DIR" "$APP_DIR"
+          git -C "$APP_DIR" init -q
+          git -C "$APP_DIR" config user.name "obelize ci"
+          git -C "$APP_DIR" config user.email "ci@obelize.invalid"
+          git -C "$APP_DIR" add -A
+          git -C "$APP_DIR" commit -q -m "example app before migration"
+
+      - name: obelize scan
+        if: steps.guard.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          "$OBELIZE_VENV/bin/obelize" scan --repo "$APP_DIR" --pack "$PACK_ID" --json \
+            > "$RUNNER_TEMP/scan.json"
+          jq -e '(.findings | length) > 0' "$RUNNER_TEMP/scan.json" > /dev/null \
+            || { echo "::error::scan found no legacy SDK usage in the example app"; exit 1; }
+
+      - name: obelize fix --apply
+        if: steps.guard.outputs.present == 'true'
+        # `4` (wrote nothing or left review items, docs/CLI.md) is correct here, not a failure.
+        run: |
+          set -euo pipefail
+          set +e
+          "$OBELIZE_VENV/bin/obelize" fix \
+            --repo "$APP_DIR" \
+            --pack "$PACK_ID" \
+            --apply \
+            --non-interactive
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ] && [ "$status" -ne 4 ]; then
+            echo "::error::fix --apply exited $status (expected 0 or 4)"
+            exit 1
+          fi
+
+      - name: Assert the run.json evidence
+        if: steps.guard.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          run_id=$(cat "$APP_DIR/.obelize/latest")
+          run_json="$APP_DIR/.obelize/runs/$run_id/run.json"
+          echo "run id: $run_id"
+          test -f "$run_json"
+
+          # No edit (ADR-031 D11): summarize.py and conversation.py run on summarizer/config.py's
+          # `configure`, so that file is withheld as `configure_consumed_elsewhere`. A more
+          # automatic result is a rules change to argue, not to absorb.
+          jq -e --arg pack "$PACK_ID" '
+            (.run_id      | type == "string" and (length > 0))
+            and (.obelize_version | type == "string" and (length > 0))
+            and (.mode         == "apply")
+            and (.pack.id      == $pack)
+            and (.pack.sha256  | test("^[0-9a-f]{64}$"))
+            and (.git_dirty    == false)
+            and (.verify.status == "not_run")
+            and (.verify.reason == "no_changes_to_verify")
+            and (.exit_code     == 4)
+            and (.idempotent    == true)
+            and ((.file_edits  | length) == 0)
+            and (.counts.auto   == 0)
+            and ((.withheld    | length) == 14)
+            and (([.withheld[].bail] | map(select(. == "configure_consumed_elsewhere")) | length) == 1)
+          ' "$run_json" > /dev/null \
+            || { echo "::error::run.json did not match the expected shape"; jq . "$run_json"; exit 1; }
+
+          for artefact in findings.json plan.json patch.diff pack.yaml pack.sha256 REPORT.md; do
+            test -f "$APP_DIR/.obelize/runs/$run_id/$artefact" \
+              || { echo "::error::missing evidence artefact: $artefact"; exit 1; }
+          done
+
+      - name: Second fix changes nothing (idempotence)
+        if: steps.guard.outputs.present == 'true'
+        # A second apply must leave the tree byte-identical. No commit first: the first run
+        # wrote nothing, and `git commit` refuses an empty commit.
+        run: |
+          set -euo pipefail
+          set +e
+          "$OBELIZE_VENV/bin/obelize" fix \
+            --repo "$APP_DIR" \
+            --pack "$PACK_ID" \
+            --apply \
+            --non-interactive
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ] && [ "$status" -ne 4 ]; then
+            echo "::error::second fix exited $status (expected 0 or 4)"
+            exit 1
+          fi
+
+          if ! git -C "$APP_DIR" diff --exit-code; then
+            echo "::error::second fix modified tracked files; the migration is not idempotent"
+            exit 1
+          fi
+
+          run_id=$(cat "$APP_DIR/.obelize/latest")
+          jq -e '(.idempotent == true) and ((.file_edits | length) == 0)' \
+            "$APP_DIR/.obelize/runs/$run_id/run.json" > /dev/null \
+            || { echo "::error::second run.json did not report idempotent=true with zero file edits"; exit 1; }
+
+      - name: Upload the evidence directory
+        if: always() && steps.guard.outputs.present == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-evidence
+          path: ${{ runner.temp }}/app/.obelize/
+          if-no-files-found: warn
+          retention-days: 7

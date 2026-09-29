@@ -1,0 +1,54 @@
+# Measures `obelize.scan.runner.POOL_THRESHOLD` on a CI runner (ADR-022 D6). Not a gate: timings
+# are noisy, so it only prints a table.
+# Actions are SHA-pinned (docs/THREAT_MODEL.md, TM-7); Dependabot bumps each SHA and tag comment.
+name: crossover
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "bench/crossover.py"
+      - "src/obelize/scan/runner.py"
+      - ".github/workflows/crossover.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  crossover:
+    name: crossover (pool threshold sweep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Sync the environment
+        run: uv sync
+
+      - name: Record the runner
+        run: |
+          set -euo pipefail
+          echo "cores: $(nproc)"
+          uv run python -c "import platform, sys; print('machine:', platform.machine()); print('python:', sys.version)"
+
+      - name: Sweep, at the worker count the default picks
+        run: uv run python bench/crossover.py --sizes 4,8,12,16,20,24,32,48,64,96,128 --jobs auto,2 --repeat 3
+
+      - name: Sweep, over-subscribed
+        # What `--jobs 8` gets on a two-core runner: the flag promises it, so it is measured.
+        run: uv run python bench/crossover.py --sizes 16,32,64,128 --jobs 8 --repeat 2

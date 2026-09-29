@@ -1,0 +1,13 @@
+Release 4.2.0 -- 14 March 2025
+
+The scheduler no longer holds the job table lock while it writes the audit row,
+which was the cause of the nightly stalls reported by three customers. Jobs that
+were stuck in the "starting" state are recovered on boot instead of being left
+for an operator.
+
+Two smaller fixes: the CSV export now quotes fields containing a semicolon, and
+the health endpoint reports the database connection pool size rather than a
+hard-coded value.
+
+Known issue: on PostgreSQL 13 the new recovery pass can take up to 40 seconds on
+a table with more than two million rows. A fix is planned for 4.2.1.

@@ -1,0 +1,246 @@
+# A v* tag builds and checks the release, waits for my approval in the `pypi` environment, uploads
+# it to PyPI with Trusted Publishing and creates the GitHub release. A manual run rehearses: it
+# builds a numbered dev version and uploads it to TestPyPI only. The approval and the rule that
+# only I push v* tags are settings the repository gets when it goes public; until then a pushed
+# tag reaches PyPI with no approval. Setup: docs/RELEASING.md.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build (checked before any upload)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # the first step reads ci.yml's runs
+    env:
+      UV_BUILD_CONSTRAINT: ".github/build-constraints.txt"
+    steps:
+      - name: Require a green ci run on main for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # A pull request from a fork's own main is listed under branch=main too; only a push
+        # run shows the commit reached this repository's main. Anything but a count stops it.
+        run: |
+          set -euo pipefail
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=main&event=push&status=success" --jq .total_count)
+          if ! [[ "$runs" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::ci.yml has not passed on main for $GITHUB_SHA. Push the commit to main, wait for ci, then release it."
+            exit 1
+          fi
+          echo "ci.yml passed on main for $GITHUB_SHA"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # What is uploaded is built from nothing another run could have written.
+          enable-cache: false
+
+      - name: Number the rehearsal build
+        if: github.event_name == 'workflow_dispatch'
+        # TestPyPI takes each file name once, so every rehearsal builds its own .dev number.
+        run: |
+          set -euo pipefail
+          file=src/obelize/__init__.py
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$file")
+          rehearsal="${version%.dev*}.dev$GITHUB_RUN_NUMBER"
+          sed "s/^__version__ = \".*\"$/__version__ = \"$rehearsal\"/" "$file" > "$RUNNER_TEMP/__init__.py"
+          mv "$RUNNER_TEMP/__init__.py" "$file"
+          echo "building $rehearsal for TestPyPI"
+
+      - name: Check that the version is canonical PEP 440
+        id: version
+        # The PyPI page links files at the tag of the normalised version, and file names use it
+        # too, while the tag check below compares the text as written.
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/obelize/__init__.py)
+          if [ -z "$version" ]; then
+            echo "::error::could not read __version__ from src/obelize/__init__.py"
+            exit 1
+          fi
+          if ! canonical=$(uv run --no-project --with packaging==26.3 -- python -c 'import sys; from packaging.version import Version; print(Version(sys.argv[1]))' "$version"); then
+            echo "::error::__version__ '$version' is not a PEP 440 version."
+            exit 1
+          fi
+          if [ "$canonical" != "$version" ]; then
+            echo "::error::__version__ '$version' is not in normal form; write it as '$canonical'."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check that the tag matches the version
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        # hatchling reads the version from __init__.py; a mismatched tag publishes misnamed files.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "::error::tag '$GITHUB_REF_NAME' does not match src/obelize/__init__.py, whose version '$VERSION' is tagged 'v$VERSION'."
+            echo "::error::Bump the version, commit it, delete the tag and tag again. Nothing was built or published."
+            exit 1
+          fi
+          echo "tag $GITHUB_REF_NAME matches __version__ $VERSION"
+
+      - name: Take this version's section from CHANGELOG.md
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        # Before the build, so a release without notes stops before anything is uploaded.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/notes"
+          notes="$RUNNER_TEMP/notes/release-notes.md"
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "$notes"
+          if ! grep -q '[^[:space:]]' "$notes"; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section with text in it. Nothing was built or uploaded."
+            exit 1
+          fi
+
+      - name: uv build
+        run: uv build
+
+      - name: Check the built files
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          built=(dist/*)
+          wheel="dist/obelize-$VERSION-py3-none-any.whl"
+          sdist="dist/obelize-$VERSION.tar.gz"
+          if [ "${#built[@]}" -ne 2 ] || [ ! -f "$wheel" ] || [ ! -f "$sdist" ]; then
+            echo "::error::dist/ must hold $wheel and $sdist and nothing else; it holds: ${built[*]}"
+            exit 1
+          fi
+
+      - name: twine check --strict, with the upload action's twine
+        run: uvx --from twine==7.0.0 --with packaging==26.2 twine check --strict dist/*
+
+      - name: Upload dist/
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload the release notes
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes/release-notes.md
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: publish (PyPI, Trusted Publishing)
+    needs: build
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/p/obelize
+    permissions:
+      contents: read
+      id-token: write # OIDC for Trusted Publishing and the attestations
+    steps:
+      - name: Download dist/
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist
+
+  publish-testpypi:
+    name: publish-testpypi (rehearsal, TestPyPI)
+    needs: build
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/obelize
+    permissions:
+      contents: read
+      id-token: write # OIDC for Trusted Publishing and the attestations
+    steps:
+      - name: Download dist/
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist
+          repository-url: https://test.pypi.org/legacy/
+
+  github-release:
+    name: github-release (CHANGELOG section + dist/)
+    needs: publish
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # creates the release and attaches dist/
+    steps:
+      - name: Download dist/
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - name: Download the release notes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: notes
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+
+          # a/b/rc/dev are pre-releases, never shown as latest.
+          flags=(--verify-tag)
+          case "${tag#v}" in
+            *a*|*b*|*rc*|*dev*) flags+=(--prerelease) ;;
+          esac
+
+          gh release create "$tag" dist/* \
+            --title "$tag" \
+            --notes-file notes/release-notes.md \
+            "${flags[@]}"

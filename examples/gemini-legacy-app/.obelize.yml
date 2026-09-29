@@ -1,0 +1,21 @@
+# .obelize.yml: repository configuration for migrating this example app.
+#
+# `verify.commands` below is *repository* configuration, which is level 3 in the
+# trust precedence obelize applies to verification commands (docs/CLI.md):
+# obelize prints each command and asks once when it is run interactively, and
+# refuses to run it in CI or with --non-interactive unless the command is on the
+# user allowlist or --trust-repo-config was passed. Nothing here is executed
+# just because it is written here.
+
+include: "**/*.py"
+
+exclude:
+  # A dead one-off script. It uses the legacy SDK, it has no tests, and nobody
+  # runs it: migrating it would be churn with no way to verify the result.
+  - "scripts/**"
+
+verify:
+  commands:
+    - "pytest -q"
+  timeout_s: 300
+  junit: true

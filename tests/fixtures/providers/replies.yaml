@@ -1,0 +1,286 @@
+# The answer key for what an endpoint can say back, written by hand before
+# `src/obelize/providers/openai_compat.py` existed.
+#
+# [ADR-003](../../../docs/adr/ADR-003-model-adapter.md) names one endpoint
+# shape and then names the thing that makes it awkward: "Structured output is
+# not uniformly available. The Anthropic compatibility layer ignores
+# `response_format` and `strict`, so the fenced-JSON fallback is not optional
+# and must be tested." That is one row below. The other twenty-two are there
+# because an adapter graded only on the endpoint behaving is an adapter whose
+# failure path is written from imagination.
+#
+# What is graded. One word per case, from `models.ProviderFailure`, or one of
+# the two answers that are not failures: `proposal` and `no_proposal`. The
+# three outcomes are deliberately three and not two --
+# [ADR-036](../../../docs/adr/ADR-036-model-requests-answers.md)
+# D5 says a proposal too malformed to hold makes the case *unanswered* rather
+# than refused, and a model that says it has nothing to propose has answered.
+#
+# How the cases run. One local HTTP server for the whole file, on 127.0.0.1
+# and a port the operating system picks. The case name is the first segment of
+# the path, so a case is selected by the `base_url` the adapter is built with
+# and every request is a real socket, a real `urllib` call and a real
+# response. Two cases have no server on purpose.
+#
+# What is not graded here. Whether the proposal is any good: that is
+# `providers/guard.py` and `proposals.yaml`. The adapter's job ends at
+# producing an `EditProposal` the guard can refuse by name.
+
+case: replies
+model: fixture-model
+
+# The two numbers the adapter bounds an answer with.
+# `response_bytes` is an order of magnitude above the largest replacement the
+# guard can accept, so reaching it means the endpoint is not answering the
+# question. `request_timeout_s` is the module default; the one case that has
+# to exceed it is given a deadline of its own instead of making the suite wait
+# two minutes.
+limits:
+  response_bytes: 1048576
+  request_timeout_s: 120
+
+# The key the environment holds while these cases run, so that the one case
+# whose endpoint echoes it back can be graded on the echo.
+api_key: sk-fixture-secret-value
+
+cases:
+  # -- the answer arrived -------------------------------------------------
+  - case: structured_output
+    what_it_is: >-
+      The endpoint honoured `response_format`, so the content is the object
+      and nothing else. This is the path every other case here is a departure
+      from.
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
+    usage: {prompt_tokens: 1234, completion_tokens: 56}
+    outcome: proposal
+    tokens_in: 1234
+    tokens_out: 56
+
+  - case: the_fence_the_compatibility_layer_returns
+    what_it_is: >-
+      ADR-003's named case. The endpoint ignored `response_format` and
+      answered the way a chat model answers: a sentence, a fenced block, and
+      another sentence. Without this row the adapter works against Ollama and
+      OpenAI and fails against the layer ADR-003 chose the wire format for.
+      The closing sentence carries a brace on purpose, so that the span from
+      the first brace to the last cannot answer this case and the fenced
+      reading is the only one that can.
+    content: |-
+      Here is the edit:
+
+      ```json
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
+      ```
+
+      Let me know if you would like the config written as {**options} instead.
+    outcome: proposal
+    tokens_in: 0
+    tokens_out: 0
+
+  - case: a_fence_with_no_language
+    what_it_is: >-
+      The same shape without the `json` after the backticks, which is what a
+      smaller model tends to emit.
+    content: |-
+      ```
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
+      ```
+    outcome: proposal
+
+  - case: two_fenced_blocks
+    what_it_is: >-
+      A model that shows the old code and then the new. The first block is not
+      JSON and carries a brace of its own, so the span reading is poisoned and
+      the fenced reading has to take the blocks one at a time; a fence pattern
+      that matched greedily would swallow both into one and answer nothing.
+    content: |-
+      Here is what the call site does now:
+
+      ```python
+      config = {"seed": 7}
+      ```
+
+      and here is the edit:
+
+      ```json
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
+      ```
+    outcome: proposal
+
+  - case: a_fence_inside_the_replacement
+    what_it_is: >-
+      The case that says why reading the fence is not enough on its own. The
+      replacement contains three backticks -- a docstring with a code block in
+      it is an ordinary thing for a model to write -- so the first closing
+      fence is inside the JSON string and the fenced candidate is cut in half.
+      The whole span from the first brace to the last is what rescues it.
+    content: |-
+      ```json
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        # ```\n        model = None", "rationale": "the client is built where the model was"}}
+      ```
+    outcome: proposal
+
+  - case: prose_around_the_object
+    what_it_is: >-
+      No fence at all, just a sentence either side. The braces candidate again,
+      and the reason it is the last one tried rather than the first: it would
+      happily take the first brace of a sentence that merely mentions one.
+    content: 'Sure! {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}} Hope that helps.'
+    outcome: proposal
+
+  - case: no_usage_block
+    what_it_is: >-
+      A local runner that does not report token counts. Zero is the honest
+      answer and not an error: the proposal is unaffected and the evidence
+      says nought rather than guessing.
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
+    outcome: proposal
+    tokens_in: 0
+    tokens_out: 0
+
+  - case: usage_that_is_not_two_counts
+    what_it_is: >-
+      An endpoint that reports the prompt in words and the completion as a
+      negative number. Neither is a count, both become nought, and the answer
+      still stands.
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
+    usage: {prompt_tokens: "many", completion_tokens: -3}
+    outcome: proposal
+    tokens_in: 0
+    tokens_out: 0
+
+  - case: nothing_to_propose
+    what_it_is: >-
+      The answer the system prompt asks for when the model is not sure, and
+      the reason `Reply.proposal` is optional. It is an answer: the tokens are
+      counted, the row stays `needs_review`, and nothing is recorded as having
+      gone wrong.
+    content: '{"proposal": null}'
+    usage: {prompt_tokens: 900, completion_tokens: 7}
+    outcome: no_proposal
+    tokens_in: 900
+    tokens_out: 7
+
+  # -- the endpoint answered and the answer was not one --------------------
+  - case: prose_and_nothing_else
+    what_it_is: >-
+      ADR-003: "The model must return a structured edit proposal as JSON;
+      prose is a failure." A refusal in words is still prose.
+    content: I cannot help with that request.
+    outcome: answer_not_json
+
+  - case: a_bare_proposal_without_the_envelope
+    what_it_is: >-
+      The likeliest wrong shape of all: the model answered with the proposal
+      itself rather than with the object holding it. It is refused. The
+      envelope is what distinguishes "here is an edit" from "I have none", and
+      a reader guessing which one an object without it meant would be guessing
+      on behalf of a model that was told.
+    content: '{"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = None", "rationale": "guessing"}'
+    outcome: answer_not_a_proposal
+
+  - case: an_envelope_holding_something_else
+    what_it_is: >-
+      The key is there and its value is a sentence. One word for both shapes,
+      because the fact the reader needs is the same: the model did not answer
+      in the form it was asked for.
+    content: '{"proposal": "I would rewrite lines 31 to 34."}'
+    outcome: answer_not_a_proposal
+
+  - case: a_proposal_that_cannot_be_held
+    what_it_is: >-
+      Well-formed JSON, the right envelope, and a proposal that names nothing:
+      an empty path and a line number below one. ADR-036 D5's distinction --
+      unanswered, not refused -- and the case that keeps `EditProposal`'s own
+      validation from being dead code.
+    content: '{"proposal": {"path": "", "start_line": 0, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = None", "rationale": "guessing"}}'
+    outcome: proposal_does_not_hold
+
+  # -- the endpoint answered and it was not a completion -------------------
+  - case: an_error_object_with_a_200
+    what_it_is: >-
+      A gateway that reports its errors in the body and keeps the status at
+      two hundred. Reading `choices[0]` off this would be an `IndexError` in
+      the middle of a run.
+    body: '{"error": {"message": "model not found", "type": "invalid_request_error"}}'
+    outcome: response_not_a_completion
+
+  - case: an_empty_choices_list
+    what_it_is: >-
+      The shape is right and there is nothing in it. A separate row from the
+      one above because it is a separate mistake to make.
+    body: '{"choices": []}'
+    outcome: response_not_a_completion
+
+  - case: a_choice_with_no_content
+    what_it_is: >-
+      One choice, a message, and no content -- which is what a tool-calling
+      endpoint returns when it decides to call a tool instead of answering.
+    body: '{"choices": [{"message": {"role": "assistant"}}]}'
+    outcome: response_not_a_completion
+
+  - case: a_gateway_page
+    what_it_is: >-
+      The classic wrong `base_url`: something on that host answered, and it
+      was a web page. Two hundred, HTML, and no JSON anywhere in it.
+    body: "<html><head><title>It works</title></head><body>It works</body></html>"
+    outcome: response_not_json
+
+  - case: exactly_the_cap
+    what_it_is: >-
+      A body of exactly the cap, holding a real answer. The boundary belongs in
+      the corpus for the reason the guard's two limits do: a cap written with
+      the comparison one step out would refuse an answer it was built to
+      accept, and only a case sitting on the number can tell.
+    generated: {kind: completion_bytes, count: 1048576}
+    outcome: proposal
+
+  - case: more_than_the_cap
+    what_it_is: >-
+      An endpoint streaming something that is not going to end. The body is
+      one byte over the cap and the read stops there; nothing asks for
+      compression, so the cap is a count of bytes on the wire and not of bytes
+      after somebody else's decompressor.
+    generated: {kind: bytes, count: 1048577}
+    outcome: response_too_large
+
+  # -- the endpoint did not answer -----------------------------------------
+  - case: unauthorised
+    what_it_is: >-
+      The commonest real failure, and the one that decides whether the
+      endpoint's own words can be recorded at all: this gateway quotes the key
+      it rejected straight back. The detail keeps the status and the sentence
+      and loses the key, through the same redactor the evidence uses.
+    status: 401
+    body: '{"error": {"message": "Incorrect API key provided: sk-fixture-secret-value"}}'
+    outcome: endpoint_refused
+    detail_holds: "401"
+    detail_redacts_the_key: true
+
+  - case: moved_elsewhere
+    what_it_is: >-
+      A redirect is refused rather than followed, and this is the row that
+      says why: the payload and the `Authorization` header would arrive at a
+      host nobody configured and nothing printed. The second location must
+      never be requested, and the server records whether it was.
+    status: 302
+    location: /moved_elsewhere_target/chat/completions
+    outcome: endpoint_redirected
+    detail_holds: "302"
+    second_request: false
+
+  - case: nothing_listening
+    what_it_is: >-
+      A port with no server on it: the local runner that is not running, which
+      is the first thing that happens to anybody configuring Ollama.
+    transport: closed_port
+    outcome: endpoint_unreachable
+
+  - case: slower_than_the_deadline
+    what_it_is: >-
+      A model too slow to answer. The deadline here is a quarter of a second
+      rather than the module's two minutes, because what is being graded is
+      the word and not the patience.
+    transport: slow
+    deadline_s: 0.25
+    outcome: endpoint_unreachable

@@ -1,0 +1,6 @@
+# A command this repository would like run after a migration. It is never
+# executed by this corpus: under `--non-interactive` with nothing on the user
+# allowlist, ADR-007 refuses it, and one refused command refuses the phase.
+verify:
+  commands:
+    - pytest -q

@@ -1,0 +1,4 @@
+# The dependency declaration the migration has to move with the code.
+google-genai>=1
+python-dotenv>=1.0
+requests>=2.31

@@ -1,0 +1,110 @@
+---
+name: Bug report
+description: obelize crashed, or did something other than what it documents.
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        When obelize refuses to rewrite something, that's usually intended: the
+        refusal names a reason code, and quoting that code helps most.
+
+        **Do not report security issues here.** Use
+        [SECURITY.md](https://github.com/hakanbogan/obelize/blob/main/SECURITY.md).
+
+        A report without a redacted `run.json` or a minimal reproduction is labelled
+        `needs-repro`. I try to reply within 7 days, but I can't promise when a fix
+        will land.
+
+  - type: input
+    id: obelize-version
+    attributes:
+      label: obelize version
+      description: Output of `obelize --version`, or the commit SHA if you run from a clone.
+      placeholder: "obelize 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      description: Output of `python --version`.
+      placeholder: "3.12.6"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows (untested, unsupported)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      description: The exact command line, including every flag.
+      render: shell
+      placeholder: "obelize scan --repo . --pack gemini/google-generativeai-to-google-genai --json"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: >-
+        The output, traceback or edit obelize produced, as text rather than a
+        screenshot where you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What you expected instead
+      description: >-
+        The correct behaviour and its source (the README, `docs/CLI.md`, the
+        vendor's migration guide).
+    validations:
+      required: true
+
+  - type: textarea
+    id: run-json
+    attributes:
+      label: Redacted run.json
+      description: >-
+        `.obelize/runs/<id>/run.json` from the failing run. WARNING: it can hold
+        source snippets and verification output with API keys or tokens, and
+        redaction misses unknown secret formats: remove anything private first.
+        No `run.json` written? Say so and paste the full terminal output instead.
+      render: json
+    validations:
+      required: false
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >-
+        A public repository with a commit SHA, or the smallest snippet that
+        triggers the problem. No proprietary code.
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Workarounds you found, related issues, notes.
+    validations:
+      required: false

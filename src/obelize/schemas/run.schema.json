@@ -1,0 +1,1074 @@
+{
+  "$defs": {
+    "CommandRecord": {
+      "additionalProperties": false,
+      "description": "One command in `run.json`'s `verify.commands[]`, with its output as a log path.",
+      "properties": {
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Code"
+        },
+        "in_obelize_environment": {
+          "default": false,
+          "title": "In Obelize Environment",
+          "type": "boolean"
+        },
+        "junit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Junit"
+        },
+        "log": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Log"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "baseline_failed",
+                "changed_file_does_not_compile",
+                "command_failed",
+                "command_not_executable",
+                "dry_run",
+                "no_changes_to_verify",
+                "no_verify_commands",
+                "policy_refused",
+                "timeout",
+                "tree_changed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "source": {
+          "enum": [
+            "cli",
+            "user_allowlist",
+            "repo_config"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive",
+            "not_run"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "command",
+        "source",
+        "status",
+        "reason",
+        "exit_code",
+        "duration_ms",
+        "truncated",
+        "log",
+        "junit",
+        "in_obelize_environment"
+      ],
+      "title": "CommandRecord",
+      "type": "object"
+    },
+    "FileEdit": {
+      "additionalProperties": false,
+      "description": "One file whose bytes a run would change (`plan.json`) or changed (`run.json`).",
+      "properties": {
+        "after_sha256": {
+          "title": "After Sha256",
+          "type": "string"
+        },
+        "before_sha256": {
+          "title": "Before Sha256",
+          "type": "string"
+        },
+        "hunks": {
+          "minimum": 1,
+          "title": "Hunks",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "proposals": {
+          "default": [],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Proposals",
+          "type": "array"
+        },
+        "rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "before_sha256",
+        "after_sha256",
+        "hunks",
+        "rules",
+        "proposals"
+      ],
+      "title": "FileEdit",
+      "type": "object"
+    },
+    "RunConfig": {
+      "additionalProperties": false,
+      "description": "The configuration the run used, flags over file, without the exclusions every run applies.",
+      "properties": {
+        "exclude": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclude",
+          "type": "array"
+        },
+        "include": {
+          "title": "Include",
+          "type": "string"
+        },
+        "max_file_bytes": {
+          "exclusiveMinimum": 0,
+          "title": "Max File Bytes",
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "file",
+            "defaults"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "include",
+        "exclude",
+        "max_file_bytes"
+      ],
+      "title": "RunConfig",
+      "type": "object"
+    },
+    "RunCounts": {
+      "additionalProperties": false,
+      "description": "The finding counts of a run by status, plus its warning count.",
+      "properties": {
+        "auto": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Auto",
+          "type": "integer"
+        },
+        "eligible": {
+          "minimum": 0,
+          "title": "Eligible",
+          "type": "integer"
+        },
+        "files_parsed": {
+          "minimum": 0,
+          "title": "Files Parsed",
+          "type": "integer"
+        },
+        "files_selected": {
+          "minimum": 0,
+          "title": "Files Selected",
+          "type": "integer"
+        },
+        "findings": {
+          "minimum": 0,
+          "title": "Findings",
+          "type": "integer"
+        },
+        "needs_review": {
+          "minimum": 0,
+          "title": "Needs Review",
+          "type": "integer"
+        },
+        "not_a_usage": {
+          "minimum": 0,
+          "title": "Not A Usage",
+          "type": "integer"
+        },
+        "unsupported": {
+          "minimum": 0,
+          "title": "Unsupported",
+          "type": "integer"
+        },
+        "warnings": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Warnings",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "files_selected",
+        "files_parsed",
+        "findings",
+        "eligible",
+        "needs_review",
+        "unsupported",
+        "not_a_usage",
+        "auto",
+        "warnings"
+      ],
+      "title": "RunCounts",
+      "type": "object"
+    },
+    "RunLimitation": {
+      "additionalProperties": false,
+      "description": "One thing the run could not look at, so a small count never reads as a clean repository.",
+      "properties": {
+        "code": {
+          "enum": [
+            "file_too_large",
+            "input_does_not_parse",
+            "missing",
+            "not_a_file",
+            "outside_root",
+            "submodule",
+            "symlink",
+            "unreadable",
+            "unusable_name"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "detail"
+      ],
+      "title": "RunLimitation",
+      "type": "object"
+    },
+    "RunModel": {
+      "additionalProperties": false,
+      "description": "The `model` object of `run.json`: what a run that consulted a model asked and got back.",
+      "properties": {
+        "accepted": {
+          "minimum": 0,
+          "title": "Accepted",
+          "type": "integer"
+        },
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "proposals": {
+          "minimum": 0,
+          "title": "Proposals",
+          "type": "integer"
+        },
+        "provider": {
+          "enum": [
+            "none",
+            "openai_compat"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "tokens_in": {
+          "minimum": 0,
+          "title": "Tokens In",
+          "type": "integer"
+        },
+        "tokens_out": {
+          "minimum": 0,
+          "title": "Tokens Out",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "provider",
+        "host",
+        "model",
+        "proposals",
+        "accepted",
+        "tokens_in",
+        "tokens_out"
+      ],
+      "title": "RunModel",
+      "type": "object"
+    },
+    "RunPack": {
+      "additionalProperties": false,
+      "description": "The pack a run used: which one, its own version, and its exact bytes.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "pack_version": {
+          "title": "Pack Version",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "bundled",
+            "file"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "pack_version",
+        "sha256",
+        "source"
+      ],
+      "title": "RunPack",
+      "type": "object"
+    },
+    "RunPlatform": {
+      "additionalProperties": false,
+      "description": "The operating system and machine the run used, as Python's `platform` module reports them.",
+      "properties": {
+        "machine": {
+          "title": "Machine",
+          "type": "string"
+        },
+        "release": {
+          "title": "Release",
+          "type": "string"
+        },
+        "system": {
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "release",
+        "machine"
+      ],
+      "title": "RunPlatform",
+      "type": "object"
+    },
+    "RunPython": {
+      "additionalProperties": false,
+      "description": "The interpreter that ran, deliberately without its path, which would name the machine.",
+      "properties": {
+        "implementation": {
+          "title": "Implementation",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "implementation"
+      ],
+      "title": "RunPython",
+      "type": "object"
+    },
+    "RunRefusal": {
+      "additionalProperties": false,
+      "description": "One file the run planned to write and did not, and the code for why.",
+      "properties": {
+        "code": {
+          "enum": [
+            "file_changed_since_read",
+            "missing",
+            "not_a_file",
+            "outside_root",
+            "symlink",
+            "tree_dirty",
+            "tree_unknown",
+            "unreadable"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "detail"
+      ],
+      "title": "RunRefusal",
+      "type": "object"
+    },
+    "RunTimings": {
+      "additionalProperties": false,
+      "description": "The run's wall-clock times, kept here alone so everything else compares between two runs.",
+      "properties": {
+        "apply_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Apply Ms"
+        },
+        "finished_at": {
+          "title": "Finished At",
+          "type": "string"
+        },
+        "model_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Ms"
+        },
+        "plan_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Ms"
+        },
+        "scan_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scan Ms"
+        },
+        "started_at": {
+          "title": "Started At",
+          "type": "string"
+        },
+        "total_ms": {
+          "minimum": 0,
+          "title": "Total Ms",
+          "type": "integer"
+        },
+        "verify_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verify Ms"
+        }
+      },
+      "required": [
+        "started_at",
+        "finished_at",
+        "total_ms",
+        "scan_ms",
+        "plan_ms",
+        "apply_ms",
+        "verify_ms",
+        "model_ms"
+      ],
+      "title": "RunTimings",
+      "type": "object"
+    },
+    "VerifyPhaseRecord": {
+      "additionalProperties": false,
+      "description": "One verification phase as `run.json` records it, with command output as log paths.",
+      "properties": {
+        "commands": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommandRecord"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "baseline_failed",
+                "changed_file_does_not_compile",
+                "command_failed",
+                "command_not_executable",
+                "dry_run",
+                "no_changes_to_verify",
+                "no_verify_commands",
+                "policy_refused",
+                "timeout",
+                "tree_changed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive",
+            "not_run"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "reason",
+        "commands"
+      ],
+      "title": "VerifyPhaseRecord",
+      "type": "object"
+    },
+    "VerifyRecord": {
+      "additionalProperties": false,
+      "description": "The `verify` object of `run.json`: the after-patch phase plus the baseline that gates it.",
+      "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VerifyPhaseRecord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "commands": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommandRecord"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "baseline_failed",
+                "changed_file_does_not_compile",
+                "command_failed",
+                "command_not_executable",
+                "dry_run",
+                "no_changes_to_verify",
+                "no_verify_commands",
+                "policy_refused",
+                "timeout",
+                "tree_changed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive",
+            "not_run"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "reason",
+        "commands",
+        "baseline"
+      ],
+      "title": "VerifyRecord",
+      "type": "object"
+    },
+    "Withheld": {
+      "additionalProperties": false,
+      "description": "One finding the run withheld, with its bail, so `run.json` alone answers why not.",
+      "properties": {
+        "bail": {
+          "enum": [
+            "roundtrip_mismatch",
+            "input_does_not_parse",
+            "output_does_not_parse",
+            "output_names_unresolved",
+            "file_too_large",
+            "runtime_unsupported",
+            "conditional_binding",
+            "module_alias_rebound",
+            "model_object_escapes",
+            "model_object_read_elsewhere",
+            "multiple_assignments",
+            "class_attr_binding",
+            "receiver_unresolved",
+            "receiver_method_unmapped",
+            "multiple_configure_calls",
+            "client_source_unresolved",
+            "client_name_collision",
+            "client_placement_ambiguous",
+            "configure_kwargs_unsupported",
+            "credentials_shape_differs",
+            "alias_collision",
+            "type_symbol_unmapped",
+            "from_import_unmigrated_symbol",
+            "local_import",
+            "star_import",
+            "file_not_fully_migrated",
+            "repo_not_fully_migrated",
+            "transitive_dependency_in_use",
+            "manifest_code_mismatch",
+            "manifest_pin_shape_unsupported",
+            "unknown_ctor_kwarg",
+            "positional_arg_ambiguous",
+            "default_model_name_required",
+            "generation_config_not_static",
+            "safety_settings_not_static",
+            "history_parts_shape_incompatible",
+            "dynamic_stream_flag",
+            "async_stream_await_missing",
+            "unsupported_kwarg",
+            "afc_semantics_differ",
+            "response_shape_changed",
+            "count_tokens_config_carries_semantics",
+            "ctor_argument_not_portable",
+            "attribute_removed",
+            "flag_only_surface",
+            "file_object_fields_not_verified",
+            "types_import_typing_only",
+            "error_class_changed",
+            "usage_unmapped",
+            "configure_consumed_elsewhere"
+          ],
+          "title": "Bail",
+          "type": "string"
+        },
+        "caused_by": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "roundtrip_mismatch",
+                  "input_does_not_parse",
+                  "output_does_not_parse",
+                  "output_names_unresolved",
+                  "file_too_large",
+                  "runtime_unsupported",
+                  "conditional_binding",
+                  "module_alias_rebound",
+                  "model_object_escapes",
+                  "model_object_read_elsewhere",
+                  "multiple_assignments",
+                  "class_attr_binding",
+                  "receiver_unresolved",
+                  "receiver_method_unmapped",
+                  "multiple_configure_calls",
+                  "client_source_unresolved",
+                  "client_name_collision",
+                  "client_placement_ambiguous",
+                  "configure_kwargs_unsupported",
+                  "credentials_shape_differs",
+                  "alias_collision",
+                  "type_symbol_unmapped",
+                  "from_import_unmigrated_symbol",
+                  "local_import",
+                  "star_import",
+                  "file_not_fully_migrated",
+                  "repo_not_fully_migrated",
+                  "transitive_dependency_in_use",
+                  "manifest_code_mismatch",
+                  "manifest_pin_shape_unsupported",
+                  "unknown_ctor_kwarg",
+                  "positional_arg_ambiguous",
+                  "default_model_name_required",
+                  "generation_config_not_static",
+                  "safety_settings_not_static",
+                  "history_parts_shape_incompatible",
+                  "dynamic_stream_flag",
+                  "async_stream_await_missing",
+                  "unsupported_kwarg",
+                  "afc_semantics_differ",
+                  "response_shape_changed",
+                  "count_tokens_config_carries_semantics",
+                  "ctor_argument_not_portable",
+                  "attribute_removed",
+                  "flag_only_surface",
+                  "file_object_fields_not_verified",
+                  "types_import_typing_only",
+                  "error_class_changed",
+                  "usage_unmapped",
+                  "configure_consumed_elsewhere"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caused By"
+        },
+        "line": {
+          "minimum": 1,
+          "title": "Line",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol"
+        }
+      },
+      "required": [
+        "path",
+        "line",
+        "symbol",
+        "bail",
+        "caused_by"
+      ],
+      "title": "Withheld",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The `run.json` document: the index of one run folder.",
+  "properties": {
+    "argv": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Argv",
+      "type": "array"
+    },
+    "blocked": {
+      "anyOf": [
+        {
+          "const": "runtime_unsupported",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Blocked"
+    },
+    "config": {
+      "$ref": "#/$defs/RunConfig"
+    },
+    "counts": {
+      "$ref": "#/$defs/RunCounts"
+    },
+    "exit_code": {
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "file_edits": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FileEdit"
+      },
+      "title": "File Edits",
+      "type": "array"
+    },
+    "git_branch": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Git Branch"
+    },
+    "git_dirty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "title": "Git Dirty"
+    },
+    "git_sha": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Git Sha"
+    },
+    "idempotent": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotent"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RunLimitation"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "mode": {
+      "enum": [
+        "scan",
+        "plan",
+        "apply"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunModel"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "obelize_version": {
+      "title": "Obelize Version",
+      "type": "string"
+    },
+    "pack": {
+      "$ref": "#/$defs/RunPack"
+    },
+    "platform": {
+      "$ref": "#/$defs/RunPlatform"
+    },
+    "python": {
+      "$ref": "#/$defs/RunPython"
+    },
+    "refused": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RunRefusal"
+      },
+      "title": "Refused",
+      "type": "array"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "timings": {
+      "$ref": "#/$defs/RunTimings"
+    },
+    "verify": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VerifyRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "withheld": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Withheld"
+      },
+      "title": "Withheld",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "obelize_version",
+    "mode",
+    "exit_code",
+    "blocked",
+    "argv",
+    "python",
+    "platform",
+    "git_sha",
+    "git_branch",
+    "git_dirty",
+    "pack",
+    "config",
+    "counts",
+    "file_edits",
+    "refused",
+    "idempotent",
+    "withheld",
+    "verify",
+    "model",
+    "limitations",
+    "timings"
+  ],
+  "title": "RunRecord",
+  "type": "object"
+}

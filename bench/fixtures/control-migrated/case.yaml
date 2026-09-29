@@ -1,0 +1,39 @@
+id: control-migrated
+origin: fixture
+control: true
+provider: gemini
+change: google-generativeai-to-google-genai
+install: []
+test_cmd: null
+tests_require_network: false
+review:
+  human_edits: null
+  patch_correct: null
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+ground_truth:
+  what_it_is: A repository already on the new SDK. It is the alias trap in miniature -- both
+    distributions bind the name `genai`, and only the import origin tells them apart -- and
+    the correct output is nothing at all.
+  files_read:
+  - assistant.py
+  - requirements.txt
+  call_sites: []
+  manifests: []
+  must_not_report:
+  - path: assistant.py
+    line: 5
+    why: '`from google import genai` is the new SDK. The alias matches the legacy one and the
+      origin does not; resolution follows the origin.'
+  - path: assistant.py
+    line: 10
+    why: '`client.models.generate_content(...)` is the new call, not the old one.'
+  - path: requirements.txt
+    line: 1
+    why: '`google-genai` is the distribution being migrated **to**. A pin on it is not a pin
+      to move.'
+  tests_cover_change: false
+  tests_cover_change_why: There is no change to cover. A control that produced a test result
+    would be measuring something other than the refusal.
+notes: A negative control. It feeds the false-positive table and is excluded from the success
+  rate; any applied edit here is a false positive by definition.

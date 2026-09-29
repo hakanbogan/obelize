@@ -1,0 +1,278 @@
+case: chat_async_self
+after_file_is: fix_apply_output
+what_it_exercises: The shapes that decide whether v0 is useful - a self_attr binding (D2) whose client comes from a configure() inside a method (D3), a positional safety_settings argument (C-22), a literal chat history with string parts (C-01), the send_message argument rename (C-17), sync streaming, non-streaming async, and async streaming whose await must survive the method rename (C-18) - plus an unrelated class that also stores something on self.model.
+findings:
+  - file: assistant.py
+    line: 3
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      `import google.generativeai as genai` -> `from google import genai`, plus an added
+      `from google.genai import types` because the rewritten file references `types.*`. The module
+      binds no `types`, so `types_alias_fallback` (`genai_types`) is not used.
+  - file: assistant.py
+    line: 12
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      Exactly one `configure(...)` in the module, so D3 resolves this module's ClientSource and
+      neither `multiple_configure_calls` nor `client_source_unresolved` fires. It sits in
+      `__init__` of the same class that holds the `self.model` binding, which is exactly the shape
+      C-30 measured in two of three corpus repositories. The `Expr` becomes an `Assign`
+      (`self.client = genai.Client(api_key=api_key)`) so the statement's leading lines and
+      trailing whitespace are never rebuilt. See `notes` for why the target is `self.client` and
+      not a bare local `client`.
+  - file: assistant.py
+    line: 13
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [positional_args_mapped_by_index]
+    note: >-
+      C-22. The call is `GenerativeModel(<str>, <dict literal>, system_instruction=...)`: the
+      second POSITIONAL argument is `safety_settings`, because the real legacy order is
+      `(model_name, safety_settings, generation_config, tools, tool_config, system_instruction)`
+      and every parameter is POSITIONAL_OR_KEYWORD. A scanner that assumes "the second positional
+      is generation_config" emits `GenerateContentConfig(temperature=...)` from a safety dict and
+      is silently wrong. ADR-008 left C-22 as an open either/or ("map positional arguments by index
+      against exactly that order, OR bail on any positional beyond index 0"); ADR-010 F-7 settles it
+      on the first branch, because the order was verified against the installed 0.8.6 and the
+      mapping is therefore unambiguous. The edit is `auto` and carries the warning
+      `positional_args_mapped_by_index` so the index-to-name mapping is visible in the report.
+      The three safety keys are the canonical long forms, which are legacy keys in their own right
+      and need the identity rows (C-16 / C-32); `HARM_CATEGORY_DANGEROUS_CONTENT` is one of them,
+      while the bare `DANGEROUS_CONTENT` this fixture deliberately avoids is not a legacy key at
+      all. `system_instruction` and the safety list both fold into the `config=` of every call made
+      through this model; the statement itself is deleted, since the object has no counterpart.
+  - file: assistant.py
+    line: 24
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: auto
+    note: >-
+      D2. The receiver matches on the tuple (enclosing ClassDef node, first-parameter name,
+      attribute name) - never on the qualified-name string, which here would be
+      `SupportAssistant.answer.<locals>.self.model` against
+      `SupportAssistant.__init__.<locals>.self.model`. Becomes
+      `self.client.models.generate_content(model=..., contents=..., config=...)`; the positional
+      argument is promoted to `contents=` before `model=` is prepended (C-25).
+  - file: assistant.py
+    line: 28
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: auto
+    note: >-
+      `stream=True` is a literal, so `literal_stream_flag` holds: the method becomes
+      `self.client.models.generate_content_stream(...)` and the `stream=` argument is dropped, the
+      new sync stream method being an ordinary iterator. A non-literal flag would be
+      `dynamic_stream_flag` -> needs_review.
+  - file: assistant.py
+    line: 32
+    symbol: google.generativeai.GenerativeModel.start_chat
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: auto
+    note: >-
+      C-01 / D4. Becomes `self.client.chats.create(model=..., history=..., config=...)`. The
+      history on lines 33-36 is the fully literal case - a list literal of dict literals whose
+      `parts` are string literals and whose roles are literally `user` and `model` - so each string
+      part is rewritten to `{"text": <the string>}` (lines 34 and 35). The bail
+      `history_parts_shape_incompatible` does NOT fire here; it is what fires for every other
+      shape. Pass-through is not an option: `history=[{"role":"user","parts":["hi"]}]` raises a
+      pydantic `ValidationError` in google-genai, so the unrewritten file would import cleanly and
+      throw on first use. `auto`, because ADR-008's D4 - the later, binding correction - says the
+      fully literal case is rewritten and everything else bails. The spike mapping table's older
+      row graded this shape `needs_review`; D4 supersedes it. The rewrite reshapes a data literal
+      the SDK never validated statically, so it carries `history_parts_rewritten`.
+    warnings: [history_parts_rewritten]
+  - file: assistant.py
+    line: 38
+    symbol: google.generativeai.ChatSession.send_message
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+    note: >-
+      C-17. Legacy is `ChatSession.send_message(self, content, *, ...)`, new is
+      `Chat.send_message(self, message, config=None)`, so `send_message(content=text)` must become
+      `send_message(message=text)` or it is a `TypeError` after migration. The receiver `chat` is a
+      single-assignment local in the same scope, bound on line 32 to the `start_chat` result.
+  - file: assistant.py
+    line: 42
+    symbol: google.generativeai.GenerativeModel.generate_content_async
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: auto
+    note: >-
+      The non-streaming async branch, and the only branch where "await untouched" holds (C-18):
+      `await self.client.aio.models.generate_content(model=..., contents=..., config=...)`. The
+      existing `await` is carried over unchanged because `AsyncModels.generate_content` is a plain
+      coroutine function.
+  - file: assistant.py
+    line: 46
+    symbol: google.generativeai.GenerativeModel.generate_content_async
+    kind: method_call
+    confidence_reason: receiver_bound_self_attr
+    verdict: auto
+    warnings: [async_stream_await_preserved]
+    note: >-
+      C-18, the async streaming branch. Becomes
+      `async for chunk in await self.client.aio.models.generate_content_stream(...)`. ADR-008
+      graded this `needs_review` "given the risk", where the risk was that the `await` had to be
+      INSERTED. ADR-010 F-8 removes it: both sides are coroutine functions
+      (`iscoroutinefunction` is True for legacy `generate_content_async` and for new
+      `AsyncModels.generate_content_stream`, measured), so the `await` on line 46 is PRESERVED and
+      the rewrite is structurally the same as the non-streaming async case on line 42, which was
+      always `auto`. The hazard is the opposite one: an implementation that derives this from the
+      SYNC streaming rule (line 28, no await anywhere) and DROPS the `await` produces
+      `TypeError: 'coroutine' object is not async iterable`, reproduced against the installed
+      0.8.6. A source `async for` over `generate_content_async(..., stream=True)` with no `await`
+      is not runnable legacy code and bails with `async_stream_await_missing`.
+bindings:
+  - kind: self_attr
+    name: self.model
+    scope: class:SupportAssistant
+    ctor_line: 13
+    use_lines: [24, 28, 32, 42, 46]
+    verdict: auto
+    note: >-
+      D2, the binding kind libcst gives no help with: `ScopeProvider` records only `self` (a `Param`
+      assignment) and nothing at all for `self.model`. Closed world holds - five uses, every one of
+      them the receiver of a supported method, none of them a bare-value access, no rebinding of
+      `self.model` anywhere in the class. The identically shaped `self.model` in `TemplateRenderer`
+      (line 54) is a different binding and must not join this one; see `must_not_report`.
+      Every use is `auto` after ADR-010 F-7 and F-8, so the group is atomic in the easy direction:
+      the whole class migrates, and the import on line 3 keeps its `auto` verdict under F-1.
+must_not_report:
+  - file: assistant.py
+    line: 54
+    why: >-
+      `TemplateRenderer.__init__` assigns `self.model` too, and its qualified name
+      (`TemplateRenderer.__init__.<locals>.self.model`) is textually close to the real binding's.
+      D2 exists because of exactly this: match on (enclosing ClassDef node, first-parameter name,
+      attribute name), never on the name string. The value here is an ordinary format string and
+      the class never touches google.generativeai.
+  - file: assistant.py
+    line: 57
+    why: >-
+      `self.model.format(**values)` is a `str.format` call. A scanner that keys on the attribute
+      path `self.model.<method>` rather than on the resolved constructor would report it, and a
+      codemod that rewrote it would produce `self.client.models...` in a class that has no client.
+  - file: assistant.py
+    line: 25
+    why: >-
+      `response.text` is spelled identically in both SDKs. Only the `try: response.text /
+      except ValueError:` shape is a finding (C-56), and this file does not have it.
+notes: |
+  Byte-for-byte target output is `assistant.after.py`, and after ADR-010 that statement is exact:
+  nothing in this fixture bails, every finding is `auto`, so `after_file_is: fix_apply_output` and
+  `obelize fix --apply` must produce this file byte for byte. Three findings carry warnings
+  (lines 13, 32 and 46) - a warning is printed with the edit and recorded in REPORT.md; it does not
+  withhold the hunk, which is what `needs_review` does. `assistant.after.py` compiles under CPython.
+
+  This file was originally written with lines 13, 32 and 46 graded `needs_review` while the after
+  file was a complete migration, which is the contradiction ADR-010 F-5 removes: `needs_review`
+  never emits a hunk. Resolving it in the other direction - keeping the three verdicts and marking
+  the after file a human answer key - would have meant a single `async for` made the entire class
+  manual, via the binding group (ADR-006) and then the file (F-1). That is the right behaviour when
+  a rewrite really is unverified; it is the wrong price for two rules whose facts were measured.
+
+  The layout rule used to write the answer key is stated in `../basic/ground_truth.yaml` and applies
+  here too. It is why `answer()` - a one-line call in the source - comes back multi-line: one of its
+  emitted arguments (the `safety_settings` list) is multi-line, and it is why the preserved `history`
+  list keeps its own indentation and element layout byte for byte.
+
+  Decisions taken while writing the answer key, each one a place where ADR-008 constrains the result
+  without spelling out the exact bytes:
+
+  1. **`self.client`, not `client`.** The plan's naming rule (`client` -> `genai_client` -> bail
+     `client_name_collision`) is written for a module-level or same-scope client. Here D3 resolves
+     the ClientSource to a `configure()` inside `__init__` while the uses are in five OTHER methods,
+     so a local `client` would be a `NameError` at the first call site. C-30's own recommendation is
+     phrased as "`configure()` in any method of the class that also holds the `self_attr` binding",
+     which only produces working code if the client lands on the instance. `self.client` is that
+     realisation; on a collision the same ladder would give `self.genai_client`. This is the single
+     largest inference in the answer key and is the thing to overrule first if it is wrong.
+     **Ratified, not overruled:** T11 wrote the placement table down as
+     [ADR-026](../../../../docs/adr/ADR-026-client-placement-layout.md) D3 and
+     `configure_to_client` implements it, so line 13 of the key is now produced by a rule rather
+     than inferred by an author -- and the collision it predicts is the same one, with `self.` in
+     front of both rungs. `tests/fixtures/transforms/configure_to_client/self_attr.before.py` is
+     this shape reduced to what one rule owns.
+  2. **The constructor's config is duplicated into all five call sites.** `GenerativeModel` has no
+     counterpart, so the statement is deleted and both the model name and the constructor config
+     (`system_instruction` + `safety_settings`) fold into every call, per "generation_config= (ctor
+     or call) -> config= on the same call". The output is repetitive; hoisting a shared
+     module-level or instance-level `GenerateContentConfig` would read far better but is not
+     sanctioned by ADR-008, so it is not in the answer key. Worth revisiting before Phase 1 T3:
+     five copies of an eight-line config is what the demo diff will look like.
+     **Revisited and ratified, three tasks later than this note asked**
+     ([ADR-027](../../../../docs/adr/ADR-027-model-object.md) D2).
+     Hoisting needs two things no rule here has: a name the author never wrote, which no pack
+     parameter offers and ADR-006 does not let a rule invent, and a scope to put it in -- the
+     problem ADR-026 D3 needed a four-row table and a new bail to answer for the client, with a
+     `configure(...)` call to anchor the answer to. There is no anchor here, because the
+     constructor is the thing being deleted. What did change in the meantime is that the width
+     clause makes the repetition visible in the diff instead of hidden inside one very wide
+     line, so the cost is countable: it is a v0.2 candidate beside dual imports, not a defect.
+  3. **Safety values are emitted as enum member accesses**, `types.HarmCategory.HARM_CATEGORY_X` /
+     `types.HarmBlockThreshold.BLOCK_X`, not as strings. PACK_SPEC's map values are named as
+     "`types.HarmCategory` member", and C-02 is the reason to prefer the attribute form: a wrong
+     STRING is fabricated at runtime by `CaseInSensitiveEnum._missing_` with only a
+     `warnings.warn`, while a wrong attribute raises `AttributeError` at first use. Obelize still
+     validates the names statically against `__members__`, because the SDK will not.
+  4. **`chats.create` gets the same `GenerateContentConfig`.** The new chat surface takes
+     `client.chats.create(model=..., history=..., config=...)`, `config` being a
+     `GenerateContentConfig`, so the constructor's system instruction and safety settings reach the
+     chat the same way they reach `generate_content`. `send_message` itself carries no config here.
+
+  6. **T12 deliberately left this file alone; T13 produces it.** `generative_model_calls` landed
+     with the model constructor, `generate_content` and the configuration, and this file's model is
+     read through `start_chat` and `send_message` as well -- methods the pack declared for the scan
+     and gave no rewrite for. The binding group is atomic, so the whole group was refused
+     `receiver_method_unmapped` and the file came back with its client and nothing else (ADR-027
+     D7), which `tests/oracle/test_generative_model_calls_against_the_oracle.py` asserted so that a
+     change half-writing this file would fail there rather than here.
+     **Produced by rule since T13**
+     ([ADR-028](../../../../docs/adr/ADR-028-chat-surface-async.md)). The same test
+     now asserts these bytes and these nine edits, including the three warnings this file grades:
+     the positional safety table on line 13, the reshaped history on line 32 and the `await` that
+     survives the async streaming rename on line 46. Every decision numbered here was made before
+     any rule existed and the only one that moved is note 5's rewrapping, which was T11's and is
+     recorded there.
+
+  5. **Fifteen lines of this key were rewrapped by T11**, and it is worth saying why the bytes of
+     an answer key moved at all. `basic/ground_truth.yaml` note 4 stated the layout rule in Phase 0
+     and gave it no width clause, so the three `types.SafetySetting(...)` lines in each of the five
+     call sites were emitted on one line each, at 146, 154 and 148 columns. Note 4 became an
+     algorithm in T11 (ADR-026 D7) and it has a width clause now, read from the pack's
+     `layout.line_length`, so those lines break: one argument per line, one indent unit past the
+     call, trailing comma. Nothing else about the key changed, and no verdict did --
+     `tests/unit/test_fixture_vocabulary.py`'s census is over findings and this file has the same
+     ones it had. The rule that will *produce* these bytes is still T13's; what T11 fixed is a key
+     that contradicted the algorithm the repository had just written down.
+
+  Two things a reviewer of ADR-008 should know, found while writing this fixture:
+
+  - **C-18's example is not runnable legacy code.** ADR-008 writes the legacy shape as
+    `async for x in model.generate_content_async(p, stream=True)`, with no `await`, and describes
+    the fix as an INSERTED `await`. In google-generativeai 0.8.6 `generate_content_async` is a
+    coroutine function whatever `stream` is, so that form raises
+    `TypeError: 'coroutine' object is not async iterable` before any migration: real legacy code
+    reads `async for x in await model.generate_content_async(p, stream=True)`, which is what line 46
+    of `assistant.py` contains. The substance of C-18 is unchanged and this fixture still pins it,
+    from the other side: the `await` must be PRESENT in the output. The hazard is an implementation
+    that derives the async streaming rewrite from the sync one (line 28, no await anywhere) and
+    emits `async for chunk in self.client.aio.models.generate_content_stream(...)`, which fails at
+    runtime exactly as the ADR predicts. **Acted on:** ADR-010 F-8 corrects C-18 to "preserved when
+    present, bail when absent" and regrades the branch `auto`. Both coroutine facts and the
+    `TypeError` were reproduced against the installed 0.8.6 and 2.23.0 before the ADR was written.
+  - **The closed vocabularies were not in the repository.** **Acted on:** they are now, in
+    `docs/SCAN_VOCABULARY.md` (ADR-010 F-4). This fixture only needs the attested
+    `receiver_bound_self_attr` and `receiver_bound_same_scope`.

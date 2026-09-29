@@ -1,0 +1,3 @@
+# The new SDK is already installed for the tests. The code is still on the old one.
+google-genai>=1
+pytest>=8.3

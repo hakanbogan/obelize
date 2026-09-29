@@ -1,0 +1,216 @@
+# The answer key for `rename_import`, written by hand before the rule existed.
+#
+# This is a *transform* corpus and not a scan one, which is why it lives outside
+# `tests/fixtures/scan/`. The two bails it grades -- `alias_collision` and
+# `type_symbol_unmapped` -- are properties of the rewrite and not of the file:
+# `ScanSpec` deliberately carries no `to_module` and no alias, so no scan can
+# see them, and a row in a `ground_truth.yaml` claiming them would be an answer
+# `obelize scan` can never give. COVERAGE.md gap 8 names them; two of its three
+# close here and `client_name_collision` stays open for T11.
+#
+# `complete` is the field that keeps the keys honest. It is `true` when this one
+# rule claims every eligible finding in the file, which is the only case where
+# `<name>.after.py` is also what `obelize fix --apply` writes. It is `false`
+# when a finding is left for a rule that does not exist yet: the key is then
+# this rule's own output, ADR-010 F-1 leaves the file untouched in a real run,
+# and the file's own docstring says so, so the caveat travels with the bytes.
+case: rename_import
+rule: rename-import
+pack: gemini/google-generativeai-to-google-genai
+
+cases:
+  # --- complete: the file a run would write ---------------------------------
+  - file: types_symbols
+    what_it_is: >-
+      The submodule import and the four names it binds, read back through
+      `types`. Nothing here needs a client, so this rule claims the whole file.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, status: auto}
+      - {line: 12, status: auto}
+      - {line: 12, status: auto}
+      - {line: 15, status: auto}
+      - {line: 20, status: auto}
+    notes: >-
+      Line 10 is replaced in place. Line 15 is a bare-name annotation deferred
+      by `from __future__ import annotations` and line 20 is a string one; both
+      are `attribute` findings (C-26) and both carry the one mapping in the
+      pack that is not the identity, `GenerationConfig -> GenerateContentConfig`.
+
+  - file: types_name_taken
+    what_it_is: >-
+      The same shape in a module that already binds `types`, so the emitted
+      import takes the pack's `types_alias_fallback` and the reads follow it.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, status: auto}
+      - {line: 11, status: auto}
+      - {line: 12, status: auto}
+    notes: >-
+      `import types` on line 7 is the stdlib's and is not touched. The fallback
+      is used because the submodule's own name is taken, not because the
+      statement is a submodule import.
+
+  - file: type_checking
+    what_it_is: >-
+      The same two annotations under `if TYPE_CHECKING:`, where the statement
+      never executes and libcst resolves both forms through it anyway.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, status: auto}
+      - {line: 18, status: auto}
+      - {line: 23, status: auto}
+    notes: >-
+      The statement is inside an `If` and not in `module.body`, which is why the
+      rule walks for its import statements rather than reading the top level.
+      `FALLBACK = "GenerationConfig"` on line 15 is the oracle's must-not-report
+      row for this shape and comes back untouched, which the byte comparison is
+      what proves.
+
+  # --- the rule's output, in a file a run would still leave alone ------------
+  - file: module_and_types
+    what_it_is: >-
+      The aliased module import, and an enum read through the alias. One legacy
+      statement becomes two, which is where placement is decided.
+    complete: false
+    after: present
+    unclaimed: [12]
+    edits:
+      - {line: 10, status: auto}
+      - {line: 14, status: auto}
+    notes: >-
+      `from google import genai` takes the replaced statement's place and
+      `from google.genai import types` lands immediately after it. The alias is
+      `genai` on both sides, so the emitted statement carries no `as`.
+
+  - file: custom_alias
+    what_it_is: >-
+      A module alias the author chose. A name the author wrote survives the
+      rewrite; a name that is the legacy module's own spelling does not.
+    complete: false
+    after: present
+    unclaimed: [12]
+    edits:
+      - {line: 10, status: auto}
+      - {line: 14, status: auto}
+    notes: >-
+      `from google import genai as gai` keeps `gai`, so no reference to the
+      module has to move. The submodule import is unaffected by the alias and
+      binds `types` as usual.
+
+  - file: from_google
+    what_it_is: >-
+      C-27's spelling, `from google import generativeai`, which resolves
+      perfectly and matched no rewrite rule until the spikes added one.
+    complete: false
+    after: present
+    unclaimed: [12, 16, 17]
+    edits:
+      - {line: 10, status: auto}
+    notes: >-
+      The bound name `generativeai` is the legacy module's own spelling, so it
+      becomes `genai` rather than being preserved. The three call sites that
+      still say `generativeai` belong to T11 and T12; F-1 is what makes leaving
+      them safe.
+
+  - file: plain_dotted
+    what_it_is: >-
+      The un-aliased form. There is no alias to keep, so the rewrite introduces
+      the pack's `default_alias`.
+    complete: false
+    after: present
+    unclaimed: [12, 16, 17]
+    edits:
+      - {line: 10, status: auto}
+    notes: >-
+      The three surviving `google.generativeai.` prefixes are inside nodes T11
+      and T12 replace whole; this rule does not rewrite a call site it does not
+      own.
+
+  # --- withheld: the file comes back byte-identical --------------------------
+  - file: module_alias_taken
+    what_it_is: >-
+      A repository with a package of its own called `genai`. The un-aliased
+      import has no name to keep and the one name the pack may introduce is
+      taken.
+    complete: false
+    after: none
+    unclaimed: [12, 16, 17]
+    edits:
+      - {line: 10, status: needs_review, reason: alias_collision}
+    notes: >-
+      The module import has exactly one candidate, `default_alias`;
+      `types_alias_fallback` is for the submodule and is not a second chance
+      here. COVERAGE.md gap 8, first third.
+
+  - file: types_names_all_taken
+    what_it_is: >-
+      A module that binds both `types` and `genai_types`, so the submodule
+      import has no name left either.
+    complete: false
+    after: none
+    unclaimed: []
+    edits:
+      - {line: 9, status: needs_review, reason: alias_collision}
+      - {line: 12, status: needs_review, reason: alias_collision}
+      - {line: 13, status: needs_review, reason: alias_collision}
+    notes: >-
+      The two reads carry the import's bail rather than one of their own: an
+      import statement and the references to the names it bound are one group
+      (ADR-006), and a read rewritten to a name no statement binds is worse than
+      a read left alone. COVERAGE.md gap 8, second third.
+
+  - file: top_level_symbol
+    what_it_is: >-
+      `from google.generativeai import GenerativeModel, configure` -- symbols
+      off the legacy module itself, which moved to no module at all.
+    complete: false
+    after: none
+    unclaimed: [11, 13, 17]
+    edits:
+      - {line: 9, status: needs_review, reason: from_import_unmigrated_symbol}
+    notes: >-
+      Neither name is a submodule this pack maps, and there is no parameter that
+      could say where `GenerativeModel` went, because it went to a service on
+      the client. T11 and T12 do consume both names, and this row still bails:
+      this corpus grades **one** rule, so `context.consumed` is empty here
+      whatever another rule would have done, and the bail is the honest answer
+      a pack with no client rule and no model rule would get. The same shape
+      under every implemented rule is graded next door, as
+      `../generative_model_calls/from_import_model`.
+
+  - file: unmapped_type_symbol
+    what_it_is: >-
+      A `types` name outside the pack's `types_symbol_map`.
+    complete: false
+    after: none
+    unclaimed: [14]
+    edits:
+      - {line: 7, status: needs_review, reason: type_symbol_unmapped}
+    notes: >-
+      `BlockedPromptException` exists in the legacy submodule and in neither
+      map. The read on line 14 is not claimed -- its symbol is not one this rule
+      can rewrite -- so it carries no edit of its own and F-1 withholds the file.
+
+notes: |
+  Every line number above was checked against `cat -n` and against
+  `obelize scan --json` over the ten `.before.py` files, all of which grade
+  `eligible` with no bail: the scan sees nothing wrong with any of them, which
+  is the point. What is withheld here is withheld by the rewrite.
+
+  The six `.after.py` keys were written by hand before
+  `src/obelize/transforms/kinds/rename_import.py` existed, and the four files
+  with `after: none` are the stronger claim of the two: the rule must hand back
+  the module it was given, byte for byte.
+
+  What this corpus does not add. There is no `client_name_collision` (T11), no
+  file where one claimed statement is rewritten while another bails -- that
+  shape is a unit test rather than a fixture, because no real file needs to be
+  read to understand it -- and no manifest, because a manifest is not a parsed
+  source file and its rule is T15's.

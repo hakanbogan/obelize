@@ -1,0 +1,25 @@
+{
+  "tier": "unsupported",
+  "error": null,
+  "measurements": {
+    "detected": 5,
+    "false_positive": 0,
+    "missed_call_site": 0,
+    "unmigrated": 6,
+    "patch_applied": false,
+    "patch_compiles": null,
+    "false_positive_edit": 0,
+    "tests_baseline": {"status": "not_run", "passed": null, "failed": null, "skipped": null},
+    "tests_after": {"status": "not_run", "passed": null, "failed": null, "skipped": null},
+    "human_edits": null,
+    "patch_correct": null,
+    "pr_opened": null,
+    "pr_merged": null,
+    "llm_tokens_in": 0,
+    "llm_tokens_out": 0,
+    "llm_cost_usd": 0.0
+  },
+  "steps": [
+    ["fix", 4]
+  ]
+}

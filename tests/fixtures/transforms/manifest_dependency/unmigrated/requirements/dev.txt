@@ -1,0 +1,4 @@
+# The new distribution is installed for the tests and the code is still on the
+# old one, which is a contradiction and not an edit.
+google-genai>=1
+pytest>=8.3

@@ -1,0 +1,206 @@
+[build-system]
+requires = ["hatchling>=1.27", "hatch-fancy-pypi-readme>=25.1"]
+build-backend = "hatchling.build"
+
+[project]
+name = "obelize"
+dynamic = ["version", "readme"]
+description = "Find deprecated google-generativeai (Gemini SDK) code in a Python repo and migrate the provably safe part to google-genai, with a reviewable report."
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Hakan Bogan", email = "hbogan93@gmail.com" }]
+keywords = [
+  "google-generativeai",
+  "google-genai",
+  "gemini",
+  "gemini-api",
+  "genai",
+  "migration",
+  "deprecation",
+  "codemod",
+  "libcst",
+  "sdk",
+  "upgrade",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Code Generators",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Utilities",
+  "Typing :: Typed",
+]
+
+# Small and auditable (docs/THREAT_MODEL.md, TM-7); the model adapter uses stdlib urllib.
+# Floors are the versions uv.lock tested (pathspec below 1.0 reads `exclude` differently).
+# Dependabot moves the lock, not the floors.
+dependencies = [
+  "typer>=0.27.2",
+  "pydantic>=2.13.5",
+  # libcst 1.9 has no Intel macOS wheel, so an Intel Mac keeps 1.8 instead of compiling 1.9
+  # with Rust; the suite passes on 1.8.6.
+  "libcst>=1.9.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+  "libcst>=1.8.6,<1.9; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+  "pyyaml>=6.0.3",
+  "packaging>=26.3",
+  "pathspec>=1.1.1",
+]
+
+# `uv sync`, or `pip install --group dev` with pip 25.1 or later (PEP 735).
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=5",
+  "coverage-conditional-plugin>=0.9.0",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "types-PyYAML>=6",
+  "pre-commit>=3.8",
+  "pip-licenses>=5",
+  # Test-only: the pack's safety-enum maps are checked against `HarmCategory.__members__`, since
+  # the enum accepts unknown names with only a warning; without the SDK that check would skip
+  # (docs/PACK_SPEC.md, "Pack test requirements").
+  "google-genai>=2",
+]
+
+[project.urls]
+Homepage = "https://github.com/hakanbogan/obelize"
+Repository = "https://github.com/hakanbogan/obelize"
+Issues = "https://github.com/hakanbogan/obelize/issues"
+Changelog = "https://github.com/hakanbogan/obelize/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/hakanbogan/obelize/blob/main/docs/CLI.md"
+Security = "https://github.com/hakanbogan/obelize/security/policy"
+
+# One shared name, so `uvx obelize` and `pipx run obelize` need no --from.
+[project.scripts]
+obelize = "obelize.cli:main"
+
+[tool.hatch.version]
+path = "src/obelize/__init__.py"
+
+# PyPI resolves a relative link against the project page, so the page links each file on
+# GitHub at the release's tag. README.md keeps relative links, which GitHub and the suite follow.
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+# Images first, so the link rule below finds them absolute: a blob URL serves an HTML page.
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '(!\[[^\]]*\]\()(?![A-Za-z][A-Za-z0-9+.-]*:|//)/?'
+replacement = '\1https://raw.githubusercontent.com/hakanbogan/obelize/v$HFPR_VERSION/'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\]\((?![A-Za-z][A-Za-z0-9+.-]*:|#|//)/?'
+replacement = '](https://github.com/hakanbogan/obelize/blob/v$HFPR_VERSION/'
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/obelize"]
+
+[tool.hatch.build.targets.sdist]
+# A leading `/` anchors a name at the root; without it, `README.md` matches in every directory.
+include = ["src/obelize", "/README.md", "/LICENSE", "/NOTICE", "/CHANGELOG.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+# Fixtures are byte-exact, hold code for uninstalled SDKs, and have line-numbered answer keys.
+extend-exclude = [
+  "tests/fixtures",
+  "src/obelize/packs/*/*/fixtures",
+  "examples",
+  "bench/fixtures",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "PT", "SIM", "TID", "RUF", "S"]
+ignore = [
+  "S603", # obelize runs user-configured commands on purpose (shell=False)
+  "S607", # git is resolved from PATH by design
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+# libcst dispatches on `visit_<NodeType>`: renaming a method silently stops the visitor.
+"src/obelize/scan/analysis.py" = ["N802"]
+"src/obelize/scan/manifests.py" = ["N802"]
+"src/obelize/providers/base.py" = ["N802"]
+"src/obelize/providers/guard.py" = ["N802"]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer flag defaults are immutable metadata; without this, a repeatable `--verify` needs a noqa.
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["obelize"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+# `bench` is type-checked because it scores published numbers; its scripts are not a package.
+files = ["src", "tests", "bench"]
+mypy_path = ["bench"]
+# Fixtures are data; `bench/work/` holds checkouts of other people's repositories.
+exclude = [
+  "^(tests/fixtures/|src/obelize/packs/[^/]+/[^/]+/fixtures/|examples/|bench/work/|bench/fixtures/)"
+]
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config --cov --cov-report=term-missing:skip-covered"
+# Declare a marker only once a test wears it (ADR-013). `e2e` is a label, not a filter:
+# `tests/e2e/` runs on every `pytest`; `-m "not e2e"` gives the fast half.
+markers = ["e2e: the whole flow over the bundled example application"]
+
+[tool.coverage.run]
+source = ["src/obelize", "bench"]
+branch = true
+# `crossover.py`: a timing sweep; timing assertions on a shared runner are flaky.
+# The three `*_collect.py` below clone repositories; covering them would test a network mock.
+# `errors_collect.py` stays covered: it only reads a directory; its stale-tree guards need tests.
+# `comparison_collect.py` stays covered: it reaches the network through injected seams.
+omit = [
+  "bench/crossover.py",
+  "bench/gate1_collect.py",
+  "bench/candidates_collect.py",
+  "bench/cases_collect.py",
+  "bench/work/*",
+  # Repositories the harness migrates, run by subprocess from a copy in a temporary directory.
+  "bench/fixtures/*",
+  # Runs only as `python -m obelize`, in a subprocess.
+  "src/obelize/__main__.py",
+]
+plugins = ["coverage_conditional_plugin"]
+
+# Each platform measures its own half of `native/` and never imports the other's. `_win32.py`
+# imports anywhere, but only Windows calls into it. bench is POSIX-only tooling, and its tests
+# skip on Windows.
+[tool.coverage.coverage_conditional_plugin.omit]
+"sys_platform != 'win32'" = ["src/obelize/native/*_windows.py", "src/obelize/native/_win32.py"]
+"sys_platform == 'win32'" = ["src/obelize/native/*_posix.py", "bench/*"]
+
+# A selector's import line for one platform is left out of the other's measurement.
+[tool.coverage.coverage_conditional_plugin.rules]
+windows-only = "sys_platform != 'win32'"
+posix-only = "sys_platform == 'win32'"
+
+[tool.coverage.report]
+# A floor: an unreachable line takes `# pragma: no cover` with its reason, not a lower number.
+fail_under = 100
+show_missing = true
+skip_covered = true

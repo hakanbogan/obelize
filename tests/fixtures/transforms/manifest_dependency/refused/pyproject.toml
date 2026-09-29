@@ -1,0 +1,13 @@
+[project]
+name = "refused-fixture"
+version = "0.1.0"
+dependencies = ["google-generativeai==0.8.6", "requests>=2.31"]
+
+[project.optional-dependencies]
+extra = [
+  "google-generativeai==0.8.6", "httpx>=0.27",
+]
+
+[tool.poetry.group.test.dependencies]
+google-generativeai = {version = "^0.8.6", extras = ["grpc"]}
+pytest = "^8.3"

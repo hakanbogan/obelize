@@ -1,0 +1,3 @@
+# The declaration is the line below, not this one: google-generativeai==0.8.6
+google-generativeai==0.8.6
+requests>=2.31

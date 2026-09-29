@@ -1,0 +1,310 @@
+{
+  "$defs": {
+    "Edit": {
+      "additionalProperties": false,
+      "description": "What a rule did with a finding, or why it refused to.",
+      "properties": {
+        "caused_by": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "roundtrip_mismatch",
+                  "input_does_not_parse",
+                  "output_does_not_parse",
+                  "output_names_unresolved",
+                  "file_too_large",
+                  "runtime_unsupported",
+                  "conditional_binding",
+                  "module_alias_rebound",
+                  "model_object_escapes",
+                  "model_object_read_elsewhere",
+                  "multiple_assignments",
+                  "class_attr_binding",
+                  "receiver_unresolved",
+                  "receiver_method_unmapped",
+                  "multiple_configure_calls",
+                  "client_source_unresolved",
+                  "client_name_collision",
+                  "client_placement_ambiguous",
+                  "configure_kwargs_unsupported",
+                  "credentials_shape_differs",
+                  "alias_collision",
+                  "type_symbol_unmapped",
+                  "from_import_unmigrated_symbol",
+                  "local_import",
+                  "star_import",
+                  "file_not_fully_migrated",
+                  "repo_not_fully_migrated",
+                  "transitive_dependency_in_use",
+                  "manifest_code_mismatch",
+                  "manifest_pin_shape_unsupported",
+                  "unknown_ctor_kwarg",
+                  "positional_arg_ambiguous",
+                  "default_model_name_required",
+                  "generation_config_not_static",
+                  "safety_settings_not_static",
+                  "history_parts_shape_incompatible",
+                  "dynamic_stream_flag",
+                  "async_stream_await_missing",
+                  "unsupported_kwarg",
+                  "afc_semantics_differ",
+                  "response_shape_changed",
+                  "count_tokens_config_carries_semantics",
+                  "ctor_argument_not_portable",
+                  "attribute_removed",
+                  "flag_only_surface",
+                  "file_object_fields_not_verified",
+                  "types_import_typing_only",
+                  "error_class_changed",
+                  "usage_unmapped",
+                  "configure_consumed_elsewhere"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caused By"
+        },
+        "line": {
+          "minimum": 1,
+          "title": "Line",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "roundtrip_mismatch",
+                "input_does_not_parse",
+                "output_does_not_parse",
+                "output_names_unresolved",
+                "file_too_large",
+                "runtime_unsupported",
+                "conditional_binding",
+                "module_alias_rebound",
+                "model_object_escapes",
+                "model_object_read_elsewhere",
+                "multiple_assignments",
+                "class_attr_binding",
+                "receiver_unresolved",
+                "receiver_method_unmapped",
+                "multiple_configure_calls",
+                "client_source_unresolved",
+                "client_name_collision",
+                "client_placement_ambiguous",
+                "configure_kwargs_unsupported",
+                "credentials_shape_differs",
+                "alias_collision",
+                "type_symbol_unmapped",
+                "from_import_unmigrated_symbol",
+                "local_import",
+                "star_import",
+                "file_not_fully_migrated",
+                "repo_not_fully_migrated",
+                "transitive_dependency_in_use",
+                "manifest_code_mismatch",
+                "manifest_pin_shape_unsupported",
+                "unknown_ctor_kwarg",
+                "positional_arg_ambiguous",
+                "default_model_name_required",
+                "generation_config_not_static",
+                "safety_settings_not_static",
+                "history_parts_shape_incompatible",
+                "dynamic_stream_flag",
+                "async_stream_await_missing",
+                "unsupported_kwarg",
+                "afc_semantics_differ",
+                "response_shape_changed",
+                "count_tokens_config_carries_semantics",
+                "ctor_argument_not_portable",
+                "attribute_removed",
+                "flag_only_surface",
+                "file_object_fields_not_verified",
+                "types_import_typing_only",
+                "error_class_changed",
+                "usage_unmapped",
+                "configure_consumed_elsewhere"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        },
+        "status": {
+          "enum": [
+            "auto",
+            "needs_review",
+            "unsupported",
+            "model_proposed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "enum": [
+              "client_constructed_eagerly",
+              "model_name_looks_prefixed",
+              "count_tokens_config_dropped",
+              "tests_touched_by_migration",
+              "positional_args_mapped_by_index",
+              "history_parts_rewritten",
+              "async_stream_await_preserved",
+              "stale_mock_target"
+            ],
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "line",
+        "status",
+        "rule_id",
+        "reason",
+        "caused_by",
+        "warnings"
+      ],
+      "title": "Edit",
+      "type": "object"
+    },
+    "FileEdit": {
+      "additionalProperties": false,
+      "description": "One file whose bytes a run would change (`plan.json`) or changed (`run.json`).",
+      "properties": {
+        "after_sha256": {
+          "title": "After Sha256",
+          "type": "string"
+        },
+        "before_sha256": {
+          "title": "Before Sha256",
+          "type": "string"
+        },
+        "hunks": {
+          "minimum": 1,
+          "title": "Hunks",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "proposals": {
+          "default": [],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Proposals",
+          "type": "array"
+        },
+        "rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "before_sha256",
+        "after_sha256",
+        "hunks",
+        "rules",
+        "proposals"
+      ],
+      "title": "FileEdit",
+      "type": "object"
+    },
+    "PackRef": {
+      "additionalProperties": false,
+      "description": "The pack a document was produced with, as `run.json` records it.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "sha256"
+      ],
+      "title": "PackRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The `plan.json` document: what a run would write, whether or not it wrote it.",
+  "properties": {
+    "edits": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Edit"
+      },
+      "title": "Edits",
+      "type": "array"
+    },
+    "files": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FileEdit"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "obelize_version": {
+      "title": "Obelize Version",
+      "type": "string"
+    },
+    "pack": {
+      "$ref": "#/$defs/PackRef"
+    }
+  },
+  "required": [
+    "obelize_version",
+    "pack",
+    "files",
+    "edits"
+  ],
+  "title": "PlanDocument",
+  "type": "object"
+}

@@ -1,0 +1,4 @@
+# An extra cannot cross to a distribution that does not declare one, so this
+# line is refused and the file is left exactly as it is.
+google-generativeai[grpc]==0.8.6
+pytest>=8.3

@@ -1,0 +1,71 @@
+# Offline fixture run and a docs/BENCHMARK_RESULTS.md staleness check; the full benchmark is
+# local-only (docs/BENCHMARK.md). The results' gate-1 and error-analysis blocks are checked under
+# `ci / test` (tests/unit/test_gate1.py, tests/unit/test_bench_errors.py).
+name: bench-smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly: this guards results freshness, not a release.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  bench-smoke:
+    name: bench-smoke (fixtures only, no network)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Check whether the benchmark harness exists
+        id: guard
+        run: |
+          set -euo pipefail
+          if [ -f bench/run.py ]; then
+            echo "runner=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "runner=false" >> "$GITHUB_OUTPUT"
+            echo "SKIPPED: bench/run.py does not exist yet."
+            echo "No benchmark fixtures were run."
+          fi
+          if [ -f bench/summarize.py ]; then
+            echo "summarizer=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "summarizer=false" >> "$GITHUB_OUTPUT"
+            echo "SKIPPED: bench/summarize.py does not exist yet."
+            echo "docs/BENCHMARK_RESULTS.md was not checked for staleness."
+          fi
+
+      - name: Sync the dev environment
+        if: steps.guard.outputs.runner == 'true' || steps.guard.outputs.summarizer == 'true'
+        run: uv sync
+
+      - name: bench/run.py --fixtures-only
+        if: steps.guard.outputs.runner == 'true'
+        # Starts nothing but the interpreter, so it cannot reach the network (ADR-042 D6).
+        run: uv run python bench/run.py --fixtures-only
+
+      - name: bench/summarize.py --check
+        if: steps.guard.outputs.summarizer == 'true'
+        # Fails when docs/BENCHMARK_RESULTS.md drifts from the committed bench/results/.
+        run: uv run python bench/summarize.py --check

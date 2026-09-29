@@ -1,0 +1,310 @@
+case: negative
+after_file_is: none
+what_it_exercises: >-
+  Five ways a naive scanner invents a legacy usage that is not there - the new
+  SDK bound to the same `genai` alias, both Vertex AI origins of an
+  identically-named `GenerativeModel`, an in-repo package called `genai` that
+  resolves to IMPORT, the legacy dotted path appearing only in prose, and
+  legacy code inside a Markdown fence.
+
+findings:
+  # The ONLY findings this directory may produce are text mentions of the
+  # literal dotted path `google.generativeai`. None of them is a usage.
+  - file: already_new.py
+    line: 7
+    symbol: google.generativeai
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: >-
+      A `#` comment recording that this module was migrated away from the
+      legacy SDK. The module imports google.genai only; reporting anything
+      else here is a false positive.
+  - file: local_genai/use.py
+    line: 1
+    symbol: google.generativeai
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: >-
+      A `#` comment that names the legacy path in order to deny it. It is what
+      carries this file past the byte prefilter, so the module-prefix test on
+      line 6 is actually exercised.
+  - file: mentions.py
+    line: 3
+    symbol: google.generativeai
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: Prose inside the module docstring. There is no import in this file.
+  - file: mentions.py
+    line: 4
+    symbol: google.generativeai
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: >-
+      The dotted path inside a URL fragment in the module docstring. Reported
+      because the literal dotted path is present, not because it is a URL.
+  - file: mentions.py
+    line: 10
+    symbol: google.generativeai
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: A `#` comment.
+  - file: mentions.py
+    line: 11
+    symbol: google.generativeai
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: >-
+      An ordinary string constant. Contrast C-26: a SimpleString that RESOLVES
+      to a legacy qualified name (a string annotation) is a real `attribute`
+      finding. This one resolves to nothing - verified, QNP returns {} for
+      every node in this file.
+
+bindings: []
+
+must_not_report:
+  # ---- already_new.py: the new SDK, bound to the same alias -------------
+  - file: already_new.py
+    line: 10
+    why: >-
+      `from google import genai` binds the alias `genai` to the NEW SDK. A
+      scanner keyed on the alias rather than on the import origin rewrites the
+      already-migrated file. Verified: every node here resolves under the
+      `google.genai` prefix, never `google.generativeai`.
+  - file: already_new.py
+    line: 11
+    why: >-
+      `from google.genai import types` - the new types module. The legacy pack
+      maps `types.GenerationConfig` to `GenerateContentConfig`; applied here it
+      would corrupt correct code.
+  - file: already_new.py
+    line: 19
+    why: >-
+      `genai.Client(...)` resolves to `google.genai.Client/IMPORT` (verified).
+      A `configure`-shaped rule that matches on the alias would fire.
+  - file: already_new.py
+    line: 24
+    why: >-
+      `client().models.generate_content(...)` is the new call, not
+      `model.generate_content`. The method name is identical in both SDKs, so
+      any name-only heuristic flags it.
+  - file: already_new.py
+    line: 27
+    why: >-
+      `types.GenerateContentConfig(...)` is already the target symbol; a
+      second application of the types map must not touch it (idempotence).
+  - file: already_new.py
+    line: 33
+    why: >-
+      `generate_content_stream` is the new streaming call. A rule matching
+      `generate_content` as a prefix would rewrite it.
+  - file: already_new.py
+    line: 39
+    why: >-
+      `client().aio.models.generate_content(...)` - the new async surface. A
+      rule looking for `generate_content_async` must not fire, and the
+      existing `await` must not be duplicated.
+  - file: already_new.py
+    line: 45
+    why: >-
+      `client().chats.create(...)` is already the target of the `start_chat`
+      rule.
+  - file: already_new.py
+    line: 46
+    why: >-
+      `send_message(message=...)` already uses the NEW keyword. The C-17
+      rename (`content=` -> `message=`) must be a no-op here, not a second
+      rename.
+
+  # ---- vertex.py: a different SDK with the same class name (C-24) -------
+  - file: vertex.py
+    line: 5
+    why: >-
+      The docstring contains the hyphenated distribution name
+      `google-generativeai`, which matches the byte prefilter token
+      `generativeai` but is not the dotted module path. A source-level
+      `text_mention` is reported only for the dotted form; the distribution
+      name belongs to `kind: manifest` in a dependency file.
+  - file: vertex.py
+    line: 8
+    why: >-
+      `from vertexai.generative_models import GenerationConfig,
+      GenerativeModel` - same two class names as the legacy SDK, different
+      package. Verified: resolves to
+      `vertexai.generative_models.GenerativeModel/IMPORT`.
+  - file: vertex.py
+    line: 9
+    why: >-
+      `vertexai.preview.generative_models` is a SECOND live origin of
+      `GenerativeModel` (ADR-008, C-24). Blocklisting only
+      `vertexai.generative_models` leaves this one to be rewritten.
+  - file: vertex.py
+    line: 13
+    why: >-
+      `GenerationConfig(...)` from Vertex. The pack maps the legacy
+      `GenerationConfig` to `GenerateContentConfig`; applying that here
+      silently breaks a working Vertex call.
+  - file: vertex.py
+    line: 17
+    why: >-
+      A `GenerativeModel(name, generation_config=...)` call that is
+      character-for-character the legacy constructor shape.
+  - file: vertex.py
+    line: 18
+    why: "`model.generate_content(text)` on a Vertex model."
+  - file: vertex.py
+    line: 22
+    why: "`PreviewModel(...)` - the preview origin, constructed under an alias."
+  - file: vertex.py
+    line: 23
+    why: "`model.generate_content(text)` on the preview model."
+  - file: vertex.py
+    line: 28
+    why: >-
+      A multi-line `GenerativeModel(..., system_instruction=...)` call; the
+      legacy ctor has a `system_instruction` parameter too.
+  - file: vertex.py
+    line: 32
+    why: "`model.start_chat(history=[])` on a Vertex model."
+  - file: vertex.py
+    line: 37
+    why: "`PreviewModel(...)` constructed a second time."
+  - file: vertex.py
+    line: 38
+    why: "`model.start_chat(history=[])` on the preview model."
+
+  # ---- local_genai/: an in-repo package named `genai` --------------------
+  - file: local_genai/use.py
+    line: 2
+    why: >-
+      `import genai` resolves to a real IMPORT, so the `source == IMPORT` test
+      does NOT reject it. Only the module-prefix test does: the qualified name
+      is `genai.GenerativeModel`, which has no `google.generativeai` prefix.
+  - file: local_genai/use.py
+    line: 4
+    why: >-
+      `configure = genai.configure` is the C-05 alias-escape shape - a bound
+      name read as a bare value. The escape rule must be reached only for
+      accesses of a LEGACY ImportAssignment; here the assignment is the local
+      package, so the rule must not fire at all.
+  - file: local_genai/use.py
+    line: 6
+    why: >-
+      Verified resolution: `('genai.GenerativeModel', IMPORT)`. IMPORT source,
+      wrong prefix - the exact shape of spike case 7.
+  - file: local_genai/use.py
+    line: 10
+    why: >-
+      `model.generate_content(prompt)` on a local object. A `.generate_content`
+      name heuristic must be gated on the module actually importing the legacy
+      SDK.
+  - file: local_genai/genai/__init__.py
+    line: 9
+    why: >-
+      `class GenerativeModel:` is a local class DEFINITION, not an import of
+      one. This whole file also contains no `generativeai` byte token, so the
+      prefilter drops it before parsing - both gates must hold independently.
+  - file: local_genai/genai/__init__.py
+    line: 14
+    why: "`def generate_content(self, prompt):` - a method definition, not a call."
+  - file: local_genai/genai/__init__.py
+    line: 26
+    why: >-
+      `def send_message(self, content):` uses the legacy parameter name
+      `content`. The C-17 kwarg rename must never touch a definition, and
+      never a non-SDK one.
+  - file: local_genai/genai/__init__.py
+    line: 28
+    why: >-
+      `self.model.generate_content(content)` - a `self_attr` receiver whose method name matches the
+      legacy surface exactly. The class it belongs to is defined four lines above in this same
+      file, so a D2 pass that matches (enclosing ClassDef, first parameter, attribute) without ALSO
+      checking that the constructor resolved to a legacy qualified name would report it and rewrite
+      it to `self.client.models.generate_content(...)` in a module that has no client. This is the
+      local-package trap at its sharpest: same class shape, same method name, unrelated origin.
+  - file: local_genai/genai/__init__.py
+    line: 36
+    why: "`def configure(**kwargs):` - a local function definition."
+
+  # ---- mentions.py: prose only -----------------------------------------
+  - file: mentions.py
+    line: 5
+    why: >-
+      `https://pypi.org/project/google-generativeai/` is the hyphenated
+      distribution name in a URL. It trips the prefilter token but is not the
+      dotted module path, so it is not even a `text_mention`.
+  - file: mentions.py
+    line: 13
+    why: >-
+      `NEW_IMPORT_PATH = "google.genai"` names the TARGET SDK. An alias-level
+      or substring matcher flags it.
+
+  # ---- README_snippet.md: not Python ------------------------------------
+  - file: README_snippet.md
+    line: 9
+    why: >-
+      `import google.generativeai as genai` inside a fenced code block. The
+      walker selects `.py` files only; Markdown is never parsed and never
+      rewritten.
+  - file: README_snippet.md
+    line: 11
+    why: "`genai.configure(...)` inside the same fenced block."
+  - file: README_snippet.md
+    line: 12
+    why: "`genai.GenerativeModel(...)` inside the same fenced block."
+  - file: README_snippet.md
+    line: 13
+    why: "`model.generate_content(...)` inside the same fenced block."
+
+notes: |
+  Every line number here was checked against `cat -n`, and every resolution
+  claim was checked by running libcst 1.9.0's QualifiedNameProvider over the
+  file (`MetadataWrapper(module, unsafe_skip_copy=True)`). The measured
+  results:
+
+    already_new.py      L19 -> ('google.genai.Client', IMPORT)
+                        L27 -> ('google.genai.types.GenerateContentConfig', IMPORT)
+    vertex.py           L17, L28 -> ('vertexai.generative_models.GenerativeModel', IMPORT)
+                        L22, L37 -> ('vertexai.preview.generative_models.GenerativeModel', IMPORT)
+                        L13      -> ('vertexai.generative_models.GenerationConfig', IMPORT)
+    local_genai/use.py  L6  -> ('genai.GenerativeModel', IMPORT)
+                        L4  -> ('genai.configure', IMPORT)
+    mentions.py         no node resolves to anything; QNP is empty for the file.
+
+  Why `local_genai` is the sharp case: the resolution is IMPORT, exactly like
+  the real SDK. The `source == IMPORT` clause of ADR-008's resolution rule is
+  what rejects a shadowed PARAMETER (spike case 6); it does nothing here. Only
+  the `google.generativeai` prefix test rejects this file. A scanner that
+  checks the source and then matches the trailing symbol name will migrate a
+  local package.
+
+  Two files would be skipped by the byte prefilter if left alone -
+  `already_new.py` and `local_genai/use.py` contain no other `generativeai`
+  token - so each carries one realistic comment naming the legacy path. That
+  is deliberate: without it the prefilter, not the resolver, would be what
+  produces the zero-finding result, and the fixture would prove nothing about
+  resolution. The two comments are the reason those files appear in `findings`
+  at all.
+
+  `local_genai/genai/__init__.py` is left WITHOUT a token on purpose, so the
+  directory also pins the prefilter behaviour: a file that defines a class
+  literally named `GenerativeModel` is never parsed.
+
+  Distribution name vs module path: `google-generativeai` (hyphen) appears in
+  `vertex.py:5` and `mentions.py:5`. It matches the prefilter token
+  `generativeai` but is not the dotted module path, and this oracle treats it
+  as NOT a source finding. If Phase 1 decides that the hyphenated form should
+  also be reported as a `text_mention`, these two `must_not_report` rows are
+  the ones to move, and the decision should be recorded in the pack rather
+  than discovered by a failing test.
+
+  `mentions.py`'s module docstring is a single `SimpleString` node spanning
+  lines 1-8. The two findings in it are recorded at the OCCURRENCE lines 3 and
+  4. An implementation that anchors a mention to the node start would report
+  line 1 twice; that is a different answer, and this oracle says occurrence
+  lines are correct.

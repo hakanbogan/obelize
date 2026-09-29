@@ -1,0 +1,674 @@
+# Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
+# Measured on google-generativeai 0.8.6 and google-genai 2.24.0, overriding the guide (SOURCES.md).
+id: gemini/google-generativeai-to-google-genai
+pack_version: 0.1.0
+provider: gemini
+language: python
+
+source:
+  type: official_guide
+  url: https://ai.google.dev/gemini-api/docs/migrate
+  retrieved_at: 2026-09-17
+  sha256: "e07ee83c407fd0e47c0541b1c3f2b855eab96feec8a9f2a82f4f45c34ef5d300"
+
+from:
+  package: google-generativeai
+  version: "<1"
+to:
+  package: google-genai
+  version: ">=1"
+
+# Emitted-code wrap width, not style: a line past the user's formatter limit is a second diff.
+# The answer keys in `tests/fixtures/scan/` use 100.
+layout:
+  line_length: 100
+
+match:
+  # Matched by dotted segment: neither `google.genai` nor `google.generativeaix` is under it.
+  imports:
+    - google.generativeai
+  # Every legacy name the rules mention, plus the attributes the scan must recognise.
+  symbols:
+    - google.generativeai.ChatSession.history
+    - google.generativeai.ChatSession.last
+    - google.generativeai.ChatSession.rewind
+    - google.generativeai.ChatSession.send_message
+    - google.generativeai.ChatSession.send_message_async
+    - google.generativeai.GenerationConfig
+    - google.generativeai.GenerativeModel
+    - google.generativeai.GenerativeModel.count_tokens
+    - google.generativeai.GenerativeModel.count_tokens_async
+    - google.generativeai.GenerativeModel.from_cached_content
+    - google.generativeai.GenerativeModel.generate_content
+    - google.generativeai.GenerativeModel.generate_content_async
+    - google.generativeai.GenerativeModel.start_chat
+    - google.generativeai.answer
+    - google.generativeai.caching
+    - google.generativeai.configure
+    - google.generativeai.create_tuned_model
+    - google.generativeai.delete_file
+    - google.generativeai.embed_content
+    - google.generativeai.embed_content_async
+    - google.generativeai.get_file
+    - google.generativeai.get_model
+    - google.generativeai.get_operation
+    - google.generativeai.list_files
+    - google.generativeai.list_models
+    - google.generativeai.notebook
+    - google.generativeai.operations
+    - google.generativeai.permission
+    - google.generativeai.protos
+    - google.generativeai.retriever
+    - google.generativeai.types.CallableFunctionDeclaration
+    - google.generativeai.types.FunctionDeclaration
+    - google.generativeai.types.FunctionLibrary
+    - google.generativeai.types.Model.base_model_id
+    - google.generativeai.types.Model.supported_generation_methods
+    - google.generativeai.types.Tool
+    - google.generativeai.upload_file
+  # A file containing none of these is never parsed; every spelling of the import has this.
+  prefilter_tokens:
+    - generativeai
+  # Installed by the legacy SDK and not by google-genai: a file importing one that the
+  # repository does not declare keeps the legacy pin.
+  transitive:
+    google.ai.generativelanguage: google-ai-generativelanguage
+    google.api_core: google-api-core
+    google.protobuf: protobuf
+    grpc: grpcio
+    proto: proto-plus
+
+changes:
+  - id: rename-import
+    kind: rename_import
+    citation: "Migration guide, 'Installation' and 'API access'"
+    preconditions:
+      - import_resolved
+    params:
+      from_module: google.generativeai
+      to_module: google.genai
+      default_alias: genai
+      # Used when the file already binds the name `types`.
+      types_alias_fallback: genai_types
+      submodule_map:
+        types: google.genai.types
+      types_symbol_map:
+        File: File
+        # Not identity: the new `types.GenerationConfig` imports cleanly, but `generate_content`
+        # takes no `generation_config`, so the call would silently do nothing.
+        GenerationConfig: GenerateContentConfig
+        HarmBlockThreshold: HarmBlockThreshold
+        HarmCategory: HarmCategory
+        Model: Model
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/negative/local_genai_package.py
+      - fixtures/negative/vertexai_generative_model.py
+      - fixtures/positive/import_alias.before.py
+
+  - id: configure-to-client
+    kind: configure_to_client
+    citation: "Migration guide, 'Authentication'"
+    preconditions:
+      - client_available
+      - import_resolved
+      - no_unknown_kwargs
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.configure
+      # Emitted as the leaf off the file's `google.genai` alias; the full path names its module.
+      client_symbol: google.genai.Client
+      client_name: client
+      client_name_fallback: genai_client
+      # Two of six legacy kwargs carry over; the other four bail `configure_kwargs_unsupported`.
+      allowed_kwargs:
+        - api_key
+        - credentials
+      # `Client()` validates `api_key` eagerly (a non-empty literal skips the warning);
+      # `credentials` takes an object only, so a dict literal bails `credentials_shape_differs`.
+      credential_kwarg: api_key
+      credentials_object_kwarg: credentials
+    fixtures:
+      - fixtures/negative/configure_new_sdk_client.py
+      - fixtures/positive/configure_module_level.before.py
+
+  - id: generative-model-calls
+    kind: generative_model_calls
+    citation: "Migration guide, 'Generate content', 'Configuration', 'Safety settings', 'Chat', 'Count tokens'"
+    preconditions:
+      - client_available
+      - closed_world_binding
+      - literal_stream_flag
+      - no_unknown_kwargs
+      - receiver_resolved
+      - static_kwargs
+    params:
+      ctor_symbol: google.generativeai.GenerativeModel
+      # Any use of a bound name but calling these withholds its binding group (the escape rule).
+      methods:
+        google.generativeai.ChatSession:
+          - send_message
+          - send_message_async
+        google.generativeai.GenerativeModel:
+          - count_tokens
+          - count_tokens_async
+          - generate_content
+          - generate_content_async
+          - start_chat
+      # `ChatSession` has no constructor: without this, `chat.send_message(...)` is silently missed.
+      method_returns:
+        google.generativeai.GenerativeModel.start_chat: google.generativeai.ChatSession
+      # The legacy `protos.GenerationConfig` fields, all same-named on `GenerateContentConfig`.
+      # `seed` is deliberately absent: not a legacy field, yet the new config accepts it.
+      generation_config_keys:
+        - candidate_count
+        - enable_enhanced_civic_answers
+        - frequency_penalty
+        - logprobs
+        - max_output_tokens
+        - presence_penalty
+        - response_logprobs
+        - response_mime_type
+        - response_modalities
+        - response_schema
+        - speech_config
+        - stop_sequences
+        - temperature
+        - top_k
+        - top_p
+      safety:
+        legacy_kwarg: safety_settings
+        # Keys of the legacy list-of-dicts form; equal to the `*_kwarg` names below only by chance.
+        legacy_category_key: category
+        legacy_threshold_key: threshold
+        # Not `protos.HarmCategory`: its PaLM-era members map to nothing, and `protos` is flagged.
+        legacy_category_class: google.generativeai.types.HarmCategory
+        legacy_threshold_class: google.generativeai.types.HarmBlockThreshold
+        # Lower-cased keys, as the legacy `value.lower()` lookup read them, long forms included.
+        # No `dangerous_content` (legacy `KeyError`); never `HARM_CATEGORY_HATE` (in neither SDK).
+        category_map:
+          danger: HARM_CATEGORY_DANGEROUS_CONTENT
+          dangerous: HARM_CATEGORY_DANGEROUS_CONTENT
+          harassment: HARM_CATEGORY_HARASSMENT
+          harm_category_dangerous: HARM_CATEGORY_DANGEROUS_CONTENT
+          harm_category_dangerous_content: HARM_CATEGORY_DANGEROUS_CONTENT
+          harm_category_harassment: HARM_CATEGORY_HARASSMENT
+          harm_category_hate_speech: HARM_CATEGORY_HATE_SPEECH
+          harm_category_sexual: HARM_CATEGORY_SEXUALLY_EXPLICIT
+          harm_category_sexually_explicit: HARM_CATEGORY_SEXUALLY_EXPLICIT
+          harm_category_unspecified: HARM_CATEGORY_UNSPECIFIED
+          hate: HARM_CATEGORY_HATE_SPEECH
+          hate_speech: HARM_CATEGORY_HATE_SPEECH
+          sex: HARM_CATEGORY_SEXUALLY_EXPLICIT
+          sexual: HARM_CATEGORY_SEXUALLY_EXPLICIT
+          sexually_explicit: HARM_CATEGORY_SEXUALLY_EXPLICIT
+          unspecified: HARM_CATEGORY_UNSPECIFIED
+        # `off` and `none` are not legacy keys either.
+        threshold_map:
+          block_low_and_above: BLOCK_LOW_AND_ABOVE
+          block_medium_and_above: BLOCK_MEDIUM_AND_ABOVE
+          block_none: BLOCK_NONE
+          block_only_high: BLOCK_ONLY_HIGH
+          block_threshold_unspecified: HARM_BLOCK_THRESHOLD_UNSPECIFIED
+          harm_block_threshold_unspecified: HARM_BLOCK_THRESHOLD_UNSPECIFIED
+          high: BLOCK_ONLY_HIGH
+          low: BLOCK_LOW_AND_ABOVE
+          med: BLOCK_MEDIUM_AND_ABOVE
+          medium: BLOCK_MEDIUM_AND_ABOVE
+          unspecified: HARM_BLOCK_THRESHOLD_UNSPECIFIED
+        # Same-named on both enums; a member written in source carries across as itself.
+        category_members:
+          - HARM_CATEGORY_DANGEROUS_CONTENT
+          - HARM_CATEGORY_HARASSMENT
+          - HARM_CATEGORY_HATE_SPEECH
+          - HARM_CATEGORY_SEXUALLY_EXPLICIT
+          - HARM_CATEGORY_UNSPECIFIED
+        # Same on both enums. `OFF` is a member, but `"off"` was never a legacy key.
+        threshold_members:
+          - BLOCK_LOW_AND_ABOVE
+          - BLOCK_MEDIUM_AND_ABOVE
+          - BLOCK_NONE
+          - BLOCK_ONLY_HIGH
+          - HARM_BLOCK_THRESHOLD_UNSPECIFIED
+          - "OFF"
+        setting_class: google.genai.types.SafetySetting
+        category_class: google.genai.types.HarmCategory
+        threshold_class: google.genai.types.HarmBlockThreshold
+        category_kwarg: category
+        threshold_kwarg: threshold
+        config_field: safety_settings
+      # The new SDK rejects a bare string part (`ValidationError` on first use), so `["hi"]`
+      # becomes `[{"text": "hi"}]` and any other part is refused.
+      history:
+        role_key: role
+        parts_key: parts
+        text_key: text
+        # The only roles the new SDK accepts; `assistant` is the common mistake.
+        roles:
+          - model
+          - user
+      config_class: google.genai.types.GenerateContentConfig
+      # The legacy default `model_name`, never applied (the model is retired): the new SDK
+      # requires `model=`, so a bare `GenerativeModel()` is `needs_review`.
+      default_model_name: gemini-1.5-flash-002
+      # The module-level spelling, which no import rewrite reaches.
+      legacy_config_symbol: google.generativeai.GenerationConfig
+      # Renamed in place by `types_symbol_map`, but still a config when passed to a constructor.
+      legacy_config_aliases:
+        - google.generativeai.types.GenerationConfig
+      # One name on both the legacy constructor and the legacy call.
+      legacy_config_kwarg: generation_config
+      # Legacy `GenerativeModel.__init__` order, for positional calls; data, so never sorted.
+      ctor_order:
+        - model_name
+        - safety_settings
+        - generation_config
+        - tools
+        - tool_config
+        - system_instruction
+      ctor_model_kwarg: model_name
+      # Moved into the config object under the same name.
+      ctor_config_fields:
+        - system_instruction
+      # Refused, not moved: AFC is off by default in the legacy SDK and on in the new one.
+      ctor_afc_kwargs:
+        - tool_config
+        - tools
+      model_kwarg: model
+      stream_kwarg: stream
+      # The new SDK accepts `models/...` resource names, so the prefix is never rewritten.
+      model_name_prefix: "models/"
+      # A method in `methods` but not here is recognised and left unedited: `send_message_async`,
+      # deliberately, as async chat hangs off `client.aio.chats`, not `start_chat`'s `client.chats`.
+      rewrites:
+        google.generativeai.ChatSession.send_message:
+          # The only rewrite rooted on the receiver: `chats.create` already took model and config.
+          root: receiver
+          new_call: send_message
+          stream_call: send_message_stream
+          positional_to_kw:
+            - content
+          contents_kwarg: content
+          # The new `Chat.send_message` calls it `message`; a kept `content=` is a `TypeError`.
+          arg_map:
+            content: message
+          config_kwarg: config
+        google.generativeai.GenerativeModel.count_tokens:
+          new_call: models.count_tokens
+          positional_to_kw:
+            - contents
+          contents_kwarg: contents
+          # The constructor's config is dropped with a note; `system_instruction`
+          # changes the count, so it refuses the group instead.
+          semantic_kwargs:
+            - system_instruction
+        google.generativeai.GenerativeModel.count_tokens_async:
+          new_call: aio.models.count_tokens
+          coroutine: true
+          positional_to_kw:
+            - contents
+          contents_kwarg: contents
+          semantic_kwargs:
+            - system_instruction
+        google.generativeai.GenerativeModel.generate_content:
+          new_call: models.generate_content
+          stream_call: models.generate_content_stream
+          positional_to_kw:
+            - contents
+          contents_kwarg: contents
+          config_kwarg: config
+        google.generativeai.GenerativeModel.generate_content_async:
+          # A coroutine on both sides, streaming or not: an `await` carries over, and an
+          # unawaited `async for` already raised on the legacy SDK.
+          new_call: aio.models.generate_content
+          stream_call: aio.models.generate_content_stream
+          coroutine: true
+          positional_to_kw:
+            - contents
+          contents_kwarg: contents
+          config_kwarg: config
+        google.generativeai.GenerativeModel.start_chat:
+          new_call: chats.create
+          history_kwarg: history
+          # AFC defaults differ, so an explicit setting can be neither moved nor dropped.
+          afc_kwargs:
+            - enable_automatic_function_calling
+          config_kwarg: config
+      # Legacy `response.text` raised `ValueError` with no parts; the new one returns `None`, so
+      # `except ValueError:` goes dead. Both keys together recognise the shape.
+      response_attrs_now_none:
+        - text
+      response_legacy_error: ValueError
+      # google-genai raises `google.genai.errors` instead and does not install google-api-core.
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/vertexai_generative_model.py
+      - fixtures/positive/generate_content.before.py
+
+  - id: embed-content
+    kind: rewrite_call
+    citation: "Migration guide, 'Embed content'"
+    preconditions:
+      - client_available
+      - import_resolved
+      - no_unknown_kwargs
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.embed_content
+      new_call: models.embed_content
+      arg_map:
+        content: contents
+      # The legacy leading params, in order; `request_options` is deliberately in neither list.
+      positional_to_kw:
+        - model
+        - content
+      config_class: google.genai.types.EmbedContentConfig
+      config_kwarg: config
+      config_kwargs:
+        - output_dimensionality
+        - task_type
+        - title
+      # The legacy result was a mapping and the new one an object, so any use of it is refused.
+      result_access_flags:
+        - embedding
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/embed_content_new_sdk.py
+      - fixtures/positive/embed_content.before.py
+
+  - id: embed-content-async
+    kind: rewrite_call
+    citation: "Migration guide, 'Embed content' and 'Async'"
+    preconditions:
+      - client_available
+      - import_resolved
+      - no_unknown_kwargs
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.embed_content_async
+      new_call: aio.models.embed_content
+      arg_map:
+        content: contents
+      positional_to_kw:
+        - model
+        - content
+      config_class: google.genai.types.EmbedContentConfig
+      config_kwarg: config
+      config_kwargs:
+        - output_dimensionality
+        - task_type
+        - title
+      result_access_flags:
+        - embedding
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/embed_content_new_sdk.py
+      - fixtures/positive/embed_content.before.py
+
+  - id: upload-file
+    kind: rewrite_call
+    citation: "Migration guide, 'Files' / 'Upload'"
+    preconditions:
+      - client_available
+      - import_resolved
+      - no_unknown_kwargs
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.upload_file
+      new_call: files.upload
+      arg_map:
+        path: file
+      positional_to_kw:
+        - path
+      config_class: google.genai.types.UploadFileConfig
+      config_kwarg: config
+      config_kwargs:
+        - display_name
+        - mime_type
+        - name
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/files_surface_new_sdk.py
+      - fixtures/positive/files_surface.before.py
+
+  - id: get-file
+    kind: rewrite_call
+    citation: "Migration guide, 'Files' / 'List and get'"
+    preconditions:
+      - client_available
+      - import_resolved
+      - no_unknown_kwargs
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.get_file
+      new_call: files.get
+      positional_to_kw:
+        - name
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/files_surface_new_sdk.py
+      - fixtures/positive/files_surface.before.py
+
+  - id: delete-file
+    kind: rewrite_call
+    citation: "Migration guide, 'Files' / 'Delete'"
+    preconditions:
+      - client_available
+      - import_resolved
+      - no_unknown_kwargs
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.delete_file
+      new_call: files.delete
+      positional_to_kw:
+        - name
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/files_surface_new_sdk.py
+      - fixtures/positive/files_surface.before.py
+
+  - id: list-files
+    kind: rewrite_call
+    citation: "Migration guide, 'Files' / 'List and get'"
+    preconditions:
+      - client_available
+      - import_resolved
+      - no_unknown_kwargs
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.list_files
+      new_call: files.list
+      # Legacy positional `page_size` is a new config field, so it is listed only there.
+      positional_to_kw: []
+      config_class: google.genai.types.ListFilesConfig
+      config_kwarg: config
+      config_kwargs:
+        - page_size
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/files_surface_new_sdk.py
+      - fixtures/positive/files_surface.before.py
+
+  - id: list-models
+    kind: rewrite_call
+    citation: "Gemini API reference, 'Models' (models.list); the migration guide has no models section"
+    preconditions:
+      - client_available
+      - import_resolved
+    params:
+      legacy_symbol: google.generativeai.list_models
+      new_call: models.list
+      positional_to_kw: []
+      # Absent from `google.genai.types.Model`: a read raises `AttributeError`, `getattr` defaults.
+      result_attribute_flags:
+        - base_model_id
+        - supported_generation_methods
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/models_surface_new_sdk.py
+      - fixtures/positive/models_surface.before.py
+
+  - id: get-model
+    kind: rewrite_call
+    citation: "Gemini API reference, 'Models' (models.get); the migration guide has no models section"
+    preconditions:
+      - client_available
+      - import_resolved
+      - static_kwargs
+    params:
+      legacy_symbol: google.generativeai.get_model
+      new_call: models.get
+      arg_map:
+        name: model
+      positional_to_kw:
+        - name
+      # Legacy `get_model` returned another class for `tunedModels/...`; the new one is always a
+      # Model, so only a literal under these prefixes is rewritten and any other name is refused.
+      dispatch_prefixes:
+        name:
+          - models/
+      result_attribute_flags:
+        - base_model_id
+        - supported_generation_methods
+      legacy_error_modules:
+        - google.api_core.exceptions
+    fixtures:
+      - fixtures/negative/models_surface_new_sdk.py
+      - fixtures/positive/models_surface.before.py
+
+  # Flag only: the AFC default flips between the SDKs, so moving the arguments changes behaviour.
+  - id: flag-function-calling-types
+    kind: flag_only
+    citation: "Migration guide, 'Function calling' / 'Automatic function calling'"
+    params:
+      symbols:
+        - google.generativeai.types.CallableFunctionDeclaration
+        - google.generativeai.types.FunctionDeclaration
+        - google.generativeai.types.FunctionLibrary
+        - google.generativeai.types.Tool
+      message: >-
+        Automatic function calling is off by default in google-generativeai and
+        on by default in google-genai, so a tool declaration that is moved
+        across unchanged starts calling your functions.
+      suggestion: >-
+        Read the 'Automatic function calling' section of the migration guide and
+        set config.automatic_function_calling explicitly, in both directions.
+    fixtures:
+      - fixtures/negative/no_tools.py
+      - fixtures/positive/tools_flagged.before.py
+
+  - id: flag-removed-object-attributes
+    kind: flag_only
+    citation: "Migration guide, 'Chat'; Gemini API reference, 'Models'"
+    params:
+      attributes:
+        - google.generativeai.ChatSession.history
+        - google.generativeai.ChatSession.last
+        - google.generativeai.types.Model.base_model_id
+        - google.generativeai.types.Model.supported_generation_methods
+      message: >-
+        This attribute does not exist on the google-genai object. Chat history
+        is a method there (get_history), and two Model fields have no
+        counterpart at all.
+      suggestion: >-
+        Replace chat.history with chat.get_history(), and check the remaining
+        reads against google.genai.types.Model before relying on them.
+    fixtures:
+      - fixtures/negative/chat_history_new_sdk.py
+      - fixtures/positive/chat_history.before.py
+
+  - id: flag-legacy-module-reached-indirectly
+    kind: flag_only
+    citation: "Migration guide, 'Installation'"
+    params:
+      # Shape ids, never regexes: a pack carries nothing that drives behaviour.
+      patterns:
+        - dynamic_access
+        - mock_patch_target
+        - sys_modules_stub
+      message: >-
+        The legacy module is reached here as a string or through a dynamic
+        import rather than by an import statement, so the rewrite cannot follow
+        it. A patch target left pointing at google.generativeai keeps passing
+        and stops testing anything.
+      suggestion: >-
+        Update the target by hand once the code it patches has moved, and prefer
+        patching the client object over patching a module path.
+    fixtures:
+      - fixtures/negative/patch_new_sdk.py
+      - fixtures/positive/mock_patch_target.before.py
+
+  - id: flag-out-of-scope-surfaces
+    kind: flag_only
+    citation: "Migration guide, 'Context caching'; Gemini API reference"
+    params:
+      symbols:
+        - google.generativeai.ChatSession.rewind
+        - google.generativeai.GenerativeModel.from_cached_content
+        - google.generativeai.answer
+        - google.generativeai.caching
+        - google.generativeai.create_tuned_model
+        - google.generativeai.get_operation
+        - google.generativeai.notebook
+        - google.generativeai.operations
+        - google.generativeai.permission
+        - google.generativeai.protos
+        - google.generativeai.retriever
+      message: >-
+        This surface has no v0 rule. google.genai has no protos module at all,
+        and caching, tuning, operations, answer, permission and the notebook
+        helpers moved to client services whose arguments are shaped differently.
+      suggestion: >-
+        Migrate these call sites by hand against the google-genai reference; the
+        rest of the file is rewritten independently of them.
+    fixtures:
+      - fixtures/negative/no_out_of_scope_surface.py
+      - fixtures/positive/protos_import.before.py
+
+  - id: manifest-dependency
+    kind: manifest_dependency
+    citation: "Migration guide, 'Installation'"
+    params:
+      from_name: google-generativeai
+      to_name: google-genai
+      to_spec: ">=1"
+    fixtures:
+      - fixtures/negative/requirements_already_new.txt
+      - fixtures/positive/requirements.before.txt
+
+# Shown as "suggested, not run"; never executed, under any flag.
+verification:
+  suggestions:
+    - "pytest -q"
+    - "python -m mypy src"
+
+# Copied verbatim into the run report.
+limitations:
+  - "Automatic function calling is off by default in google-generativeai and on by default in google-genai, so every tool declaration is reported for review and never rewritten."
+  - "Safety setting names are mapped from a closed table and an unmapped name is refused. They are validated statically because google-genai will not: its enums fabricate an unknown member with only a warning, so a wrong category name never raises."
+  - "Cross-module client setup is reported, not rewritten: a configure() call in another module leaves this module's client source unresolved."
+  - "Two or more configure() calls in one module leave the client source ambiguous, and the module is reported rather than rewritten."
+  - "The environment-variable precedence is inverted between the two SDKs: google-generativeai read GEMINI_API_KEY first and google-genai reads GOOGLE_API_KEY first. A repository with two different keys set changes behaviour silently, and a bare configure() is therefore reported."
+  - "google.genai.Client validates the API key when it is constructed, where configure() did not, so a module-level client whose key can be empty turns a first-call failure into an import-time failure."
+  - "Dynamic access, star imports and mock patch targets are reported, never rewritten."
+  - "Chat history is rewritten only when it is a list literal of dict literals with string-literal parts and user or model roles; every other shape is refused, because google-genai rejects the legacy shape with a validation error rather than accepting it."
+  - "Attribute reads that became method calls, chat.history above all, are reported and not rewritten."
+  - "The protos, caching, tuning, operations, answer, permission and notebook surfaces have no v0 rule."
+  - "The PaLM-era generate_text and chat functions have no rule because they are already absent from google-generativeai 0.8.6; there is nothing left to migrate and no target to migrate it to."
+  - "A file whose round trip through the parser is not byte-identical, a bare-CR terminated file above all, is reported and never edited."
+  - "The rules for function calling, embed_content, the files surface and the models surface ship in v0, but the development corpus exercised them zero times: their mappings are verified against the installed SDKs and not against real migrated repositories."
+  - "get_model is rewritten only when its argument is a string literal beginning with models/. The legacy call dispatched on that prefix and returned one of two different dataclasses where the new call always returns a Model, so a tunedModels/ name and a name that is not a literal are both reported rather than rewritten."
+  - "A file handle passed to get_file or delete_file carries across unchanged: the new calls accept a google.genai File object as well as a name string. A handle built by code this run did not migrate is a legacy File, which the new call rejects with a ValueError."
+  - "A model reached only through a patch target, with the token generativeai nowhere in the file, is not found. Widening the prefilter to catch it would report the Vertex SDK as a legacy usage, so recall here cannot be bought."
+  - "response.text returns None in google-genai where it raised ValueError in google-generativeai, so code that catches that error is reported rather than rewritten."
+  - "A call inside a handler that names an exception of google.api_core is refused, because google-genai raises google.genai.errors.APIError, with a status code and no class per status, and never the legacy classes. Handlers are seen where they are written: one in a caller of the function that makes the call is not."
+  - "A conversation the model is asked about is reshaped only where it is written as a list literal of turns in the call itself; one built up under a name, or a single turn, is reported rather than rewritten, and a chat message written as a turn is refused because the new chat takes parts."
+  - "output_dimensionality truncation, the supported_actions vocabulary and File.sha256_hash are unverified against a live API call, and code that relies on them is rewritten without a warning; response_schema built from a protos.Schema object is unverified too. A read of supported_generation_methods or base_model_id on what list_models or get_model returns refuses the call: google.genai's Model has neither."

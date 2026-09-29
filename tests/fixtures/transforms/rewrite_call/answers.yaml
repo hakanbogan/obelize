@@ -1,0 +1,440 @@
+# The answer key for `rewrite_call`, written by hand before the rule.
+#
+# This corpus runs **every** implemented rule, in the order the pack declares
+# them, for the reason `../generative_model_calls/answers.yaml` gives: this
+# rule spells its calls against the client `configure_to_client` placed and
+# reaches its configuration classes through the name `rename_import` bound, so
+# a corpus that ran it alone would be grading it against two names no file
+# contains.
+#
+# Eight pack changes share one kind here -- two embedding calls, four files
+# calls and two models calls -- so an edit's `rule` is what says which of them
+# fired, and the test below asserts that every one of the eight has a case.
+#
+# `complete` is the claim that `obelize fix --apply` writes `<name>.after.py`:
+# every eligible finding in the file is claimed by a rule that exists, every
+# edit is `auto`, and there is at least one. When `complete` is false the key
+# is still what the rules produce -- the import and the client are rewritten by
+# rules that did not refuse -- and ADR-010 F-1 leaves the file untouched in a
+# real run. Those files say so in their own docstrings, so the caveat travels
+# with the bytes.
+#
+# Four of the five bails graded here are codes no `ground_truth.yaml` could
+# grade: `ScanSpec` carries no argument maps, no configuration classes and no
+# dispatch prefixes, so `obelize scan` grades these files eligible with no bail
+# and only a rewrite can see the defect. The fifth is `client_source_unresolved`,
+# which this rule borrows from the planner rather than inventing a second name
+# for one defect.
+case: rewrite_call
+rules:
+  - rename-import
+  - configure-to-client
+  - embed-content
+  - embed-content-async
+  - upload-file
+  - get-file
+  - delete-file
+  - list-files
+  - list-models
+  - get-model
+pack: gemini/google-generativeai-to-google-genai
+
+cases:
+  # --- complete: the files a run would write --------------------------------
+  - file: embeddings
+    what_it_is: >-
+      The embedding call in both of its layouts, with the keywords that become
+      a configuration object and the one that does not. Both results are thrown
+      away, which is the one shape the rule writes.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 14, rule: embed-content, status: auto}
+      - {line: 22, rule: embed-content, status: auto}
+    notes: >-
+      `model=` keeps its name because the new method spells it the same way and
+      the pack's `arg_map` therefore has no row for it; `content` becomes
+      `contents` because it does. The first call stays broken across lines
+      because the author broke it, and the second stays on one because it fits.
+      The client edit carries no warning: the key is a non-empty string
+      literal, which is ADR-013 D5's one exemption.
+
+  - file: already_split
+    what_it_is: >-
+      A call the author split across lines whose rewrite fits on one, which is
+      the layout rule's first clause with nothing else deciding.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 15, rule: embed-content, status: auto}
+    notes: >-
+      Every other split call in this corpus is also too wide to rejoin, so this
+      is the one file where the clause decides the bytes alone. The trigger
+      only ever adds line breaks: a call somebody split on purpose is never put
+      back together.
+
+  - file: embeddings_async
+    what_it_is: >-
+      The async embedding, whose new call is the same path one segment further
+      in and whose `await` is around the node this rule replaces.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 14, rule: embed-content-async, status: auto}
+    notes: >-
+      Two pack changes claim two legacy symbols and differ only in `new_call`,
+      so this file is what proves the rule reads the path from the change it
+      was constructed with. No configuration keyword is passed, so the file
+      gains no `types` import.
+
+  - file: files_upload
+    what_it_is: >-
+      The upload: a positional argument lifted onto a renamed keyword, and two
+      keywords carried inside a configuration class.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 13, rule: upload-file, status: auto}
+    notes: >-
+      The configuration fits on its own line and the call around it does not,
+      which is the layout rule's third clause in its smallest form: the inner
+      call is built at the indent the outer one would wrap to, and only the
+      outer one uses it.
+
+  - file: files_get_and_delete
+    what_it_is: >-
+      Two calls whose whole rewrite is a service path and a keyword-only
+      argument, with no configuration class anywhere.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 14, rule: get-file, status: auto}
+      - {line: 18, rule: delete-file, status: auto}
+    notes: >-
+      `name` is the legacy parameter and the new keyword, so the argument is
+      lifted by position and not renamed. Both new methods are keyword-only,
+      which is why the lift has to happen at all.
+
+  - file: files_list
+    what_it_is: >-
+      The call whose only argument is a field of the new configuration, beside
+      the same call with no arguments at all.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 13, rule: list-files, status: auto}
+      - {line: 18, rule: list-files, status: auto}
+    notes: >-
+      `page_size` is named once in the pack, in `config_kwargs`, so the emitted
+      call carries `config=` and nothing beside it. The second call emits no
+      configuration at all, which is what keeps `types.ListFilesConfig()` --
+      an object with no fields -- out of the output.
+
+  - file: models_surface
+    what_it_is: >-
+      The models calls, and the file that must not gain an import it never
+      uses.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 14, rule: list-models, status: auto}
+      - {line: 18, rule: get-model, status: auto}
+    notes: >-
+      Neither change declares a configuration class, so nothing asks the import
+      manager for the types submodule and the file does not gain it. The model
+      name is a literal under the one prefix the pack names, which is the only
+      shape `get_model` is rewritten for.
+
+  - file: models_removed_fields
+    what_it_is: >-
+      Two fields the new `Model` does not have, read four ways, and a read of
+      two fields it does.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 15, rule: list-models, status: needs_review, reason: attribute_removed}
+      - {line: 21, rule: list-models, status: needs_review, reason: attribute_removed}
+      - {line: 35, rule: list-models, status: auto}
+      - {line: 25, rule: get-model, status: needs_review, reason: attribute_removed}
+      - {line: 30, rule: get-model, status: needs_review, reason: attribute_removed}
+    notes: >-
+      critic:CRIT-02. A loop's target, a comprehension's, a bound name and a
+      `getattr` string, each followed by scope and not by spelling: the last
+      function binds `model` too, and reads nothing the new `Model` lacks.
+
+  - file: width_trigger
+    what_it_is: >-
+      A call the author wrote on one line whose rewrite does not fit on one,
+      twice over.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 17, rule: embed-content, status: auto}
+    notes: >-
+      Neither break is inherited: the source call is one line, so clause 1
+      never fires and the width clause decides both. The configuration wraps
+      on its own width and the call around it wraps because one of its
+      arguments is now multi-line, at one indent unit each.
+
+  # --- the refusals ---------------------------------------------------------
+  - file: bare_reference
+    what_it_is: >-
+      The legacy function referenced without being called, so there is no call
+      at the finding's position and no rule claims it.
+    complete: false
+    after: present
+    unclaimed: [17]
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+    notes: >-
+      The only case here whose withholding is an *unclaimed* row rather than a
+      refusal, and it is what the `kind` half of `claims` is for: the finding
+      carries this rule's symbol and is an `attribute`, and a rule that read
+      the symbol alone would look for a call that is not there. Following the
+      name to where it is used is dataflow a per-file scan does not do.
+
+  - file: embedding_result_read
+    what_it_is: >-
+      The embedding result read as the mapping the legacy call returned, once
+      through a name and once on the call itself.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 14, rule: rename-import, status: auto}
+      - {line: 16, rule: configure-to-client, status: auto}
+      - {line: 20, rule: embed-content, status: needs_review, reason: response_shape_changed}
+      - {line: 25, rule: embed-content, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      Two correct rewrites exist and which one is right depends on the runtime
+      type of `content`, so the rule refuses rather than choosing. The second
+      read is on the call itself, which is why the check asks about the call
+      node as well as about the names it is bound to.
+
+  - file: model_name_not_provable
+    what_it_is: >-
+      Three model names the rewrite cannot carry: one held in a variable, one
+      under the other prefix, and one that is not there at all.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 14, rule: rename-import, status: auto}
+      - {line: 16, rule: configure-to-client, status: auto}
+      - {line: 20, rule: get-model, status: needs_review, reason: response_shape_changed}
+      - {line: 24, rule: get-model, status: needs_review, reason: response_shape_changed}
+      - {line: 28, rule: get-model, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      One code for three shapes, because they are one fact: the legacy call
+      dispatched on the prefix of the name and returned one of two dataclasses
+      where the new call always returns a Model. The third is a `TypeError` as
+      written and is refused for the same reason the other two are rather than
+      for being unrunnable.
+
+  - file: embed_types_under_type_checking
+    what_it_is: >-
+      An embedding whose task type needs a `types` the file binds only under
+      `if TYPE_CHECKING:`.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 18, rule: embed-content, status: needs_review, reason: types_import_typing_only}
+    notes: >-
+      transforms:CODEMOD-04, through the free function's configuration.
+
+  - file: no_client
+    what_it_is: >-
+      A module that embeds and never configures, so the rewrite has nothing to
+      make the call on.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 17, rule: embed-content, status: needs_review, reason: client_source_unresolved}
+    notes: >-
+      The one bail here the planner also raises, and this rule borrows it
+      rather than inventing a second name for one defect. The scan grades the
+      row eligible because the projection does not say that a free function's
+      rewrite is routed through the client, which is written down as
+      `COVERAGE.md` gap 21.
+
+  - file: upload_resumable
+    what_it_is: >-
+      The one upload keyword with no field on the new configuration and no
+      argument on the new call.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 17, rule: upload-file, status: needs_review, reason: unsupported_kwarg}
+    notes: >-
+      The pack names it in neither list, which is how a pack says a parameter
+      has nowhere to go. C-47 asked for a code of its own; the report names the
+      line, and a code per keyword tells a reader nothing the keyword does not.
+
+  - file: request_options
+    what_it_is: >-
+      The keyword every legacy free function took and none of the new ones do.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 17, rule: embed-content, status: needs_review, reason: unsupported_kwarg}
+    notes: >-
+      The same code as the upload beside it and a different surface, which is
+      what makes it worth a file: `request_options` is the keyword
+      `docs/SCAN_VOCABULARY.md` names in the row itself.
+
+  - file: spread_arguments
+    what_it_is: >-
+      A call whose arguments are a mapping, so the rule cannot say which
+      parameters are being passed.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 17, rule: get-file, status: needs_review, reason: unsupported_kwarg}
+    notes: >-
+      A `**` splat is refused under the code a keyword outside the two lists
+      gets, because it is the same fact: the rule cannot say that what is being
+      passed carries.
+
+  - file: positional_overflow
+    what_it_is: >-
+      More positional arguments than the legacy signature the pack declares.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 18, rule: get-file, status: needs_review, reason: positional_arg_ambiguous}
+    notes: >-
+      Not runnable as written, which makes this one of the two refusals here
+      that can only be graded against code that does not run. Refusing is still
+      the answer: mapping an argument onto a parameter the pack never named is
+      how a loud failure becomes a silent one.
+
+  - file: given_twice
+    what_it_is: >-
+      One parameter given by position and again by keyword.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 17, rule: delete-file, status: needs_review, reason: positional_arg_ambiguous}
+    notes: >-
+      The same code as the overflow beside it and the other half of what it
+      means: there the pack did not name the parameter, here the call named it
+      twice.
+
+  - file: types_names_taken
+    what_it_is: >-
+      A module that already binds both names the configuration could arrive
+      under.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 17, rule: configure-to-client, status: auto}
+      - {line: 21, rule: upload-file, status: needs_review, reason: alias_collision}
+    notes: >-
+      The code the import manager raises rather than one of this rule's own:
+      the configuration class is reached through a submodule, the pack offers
+      two names for it, and the file has taken both.
+
+  # --- what is done with an embedding (transforms:CODEMOD-07) ---------------
+  - file: embed_result_returned
+    what_it_is: >-
+      Both embedding calls, their results handed back to the caller.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 13, rule: embed-content, status: needs_review, reason: response_shape_changed}
+      - {line: 17, rule: embed-content-async, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      Nothing in the file reads the result, and the caller that does was given
+      a mapping. This was `auto` in four keys of this corpus before
+      transforms:CODEMOD-07; they now throw the result away.
+
+  - file: embed_result_get
+    what_it_is: >-
+      The embedding result read with `.get`, which the legacy mapping allowed.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 14, rule: embed-content, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      No subscript and no key spelled anywhere, which is what the deny-list of
+      one spelling this replaced could not see.
+
+  - file: embed_result_passed
+    what_it_is: >-
+      The embedding result passed straight to another function.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 9, rule: configure-to-client, status: auto}
+      - {line: 13, rule: embed-content, status: needs_review, reason: response_shape_changed}
+
+  # --- the exceptions the legacy SDK raised (critic:CRIT-01) -----------------
+  - file: files_api_core_handler
+    what_it_is: >-
+      An upload inside a handler for `google.api_core.exceptions.InvalidArgument`.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 16, rule: upload-file, status: needs_review, reason: error_class_changed}

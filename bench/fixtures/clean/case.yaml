@@ -1,0 +1,68 @@
+# A fixture case: the offline half of the benchmark protocol, over a repository
+# small enough to read in a minute. `bench/run.py --fixtures-only` runs these
+# with no network, no venv and no installed SDK, and compares what it computes
+# against `expected.json`. See docs/adr/ADR-042.
+id: clean
+origin: fixture
+control: false
+provider: gemini
+change: google-generativeai-to-google-genai
+install: []
+test_cmd: python check.py
+tests_require_network: false
+review:
+  human_edits: 0
+  patch_correct: true
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+ground_truth:
+  what_it_is: One module in the shape the pack was written for -- a module-level
+    `configure()`, a module-level model constant and one `generate_content` -- beside the
+    pin that names the distribution. Every row follows from the code alone, so this is the
+    only fixture that can reach the top of the tier ladder.
+  files_read:
+  - app.py
+  - requirements.txt
+  - check.py
+  call_sites:
+  - path: app.py
+    line: 5
+    kind: import
+    symbol: google.generativeai
+    label: auto
+  - path: app.py
+    line: 7
+    kind: call
+    symbol: google.generativeai.configure
+    label: auto
+  - path: app.py
+    line: 9
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    label: auto
+  - path: app.py
+    line: 14
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    label: auto
+  manifests:
+  - path: requirements.txt
+    line: 1
+    symbol: google-generativeai
+    label: auto
+  must_not_report:
+  - path: check.py
+    line: 12
+    why: '`import app`. The check script names no legacy symbol and carries no prefilter
+      token; it is selected by the walker and never parsed.'
+  - path: _vendor/google/generativeai/__init__.py
+    line: 6
+    why: The vendored double of the legacy SDK. `_vendor/` is in the always-excluded set,
+      so this directory is skipped whole and nothing in it is a finding.
+  tests_cover_change: true
+  tests_cover_change_why: '`check.py` imports the module the patch rewrites and calls the
+    function whose body changes, asserting on the value that comes back. A rewrite that
+    renamed the import and left the call site wrong fails it.'
+notes: The doubles under `_vendor/` are what make a `verified_success` reachable with no
+  network. They are not the SDK; they carry the argument names and return shapes the
+  migration depends on and nothing else.

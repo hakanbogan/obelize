@@ -1,0 +1,449 @@
+case: import_forms
+after_file_is: none
+what_it_exercises: >-
+  Every spelling of the legacy import other than `import google.generativeai as
+  genai`, which the other five cases use exclusively, plus the two annotation
+  forms, and one file whose model and function are named outside ASCII.
+  Before this case `direct_import_resolved` and `from_import_resolved`
+  had zero uses anywhere in the oracle and C-26 -- a string annotation is a real
+  finding and not a prose mention -- had no positive case at all. It carries no
+  `.after.py`: the layout algorithm that would decide the bytes is the one
+  ADR-010 F-4 names as unwritten, and a key no rule can produce is a claim no
+  test can check.
+
+findings:
+  # =====================================================================
+  # plain_dotted.py -- `import google.generativeai`, spelled out at each
+  # call site. The one form with no alias to rename, and the reason the
+  # rewrite rule needs an `alias_collision` bail of its own: it has to
+  # introduce a name that was not there before.
+  # =====================================================================
+  - file: plain_dotted.py
+    line: 9
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: direct_import_resolved
+    verdict: auto
+    note: >-
+      `import google.generativeai` -> `from google import genai`, and every
+      `google.generativeai.X` below becomes `genai.X`. Verified resolution of
+      the middle `Attribute` on line 11: [('google.generativeai', IMPORT)]; the
+      *inner* `Name google` resolves to [('google', IMPORT)] and is rejected by
+      the prefix test rather than the source test (spike QNP case 2), which is
+      why it appears under `must_not_report`.
+  - file: plain_dotted.py
+    line: 11
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: direct_import_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      The module's single `configure(...)`, so it is this module's ClientSource
+      under D3. At module level, so the rewritten `genai.Client(...)` runs at
+      import time and ADR-010 F-6 makes the warning mandatory.
+  - file: plain_dotted.py
+    line: 15
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: direct_import_resolved
+    verdict: auto
+    note: >-
+      One positional argument, so C-22's positional-order hazard does not
+      arise. The object has no counterpart in google-genai: the statement goes
+      and the model name folds into the call below.
+  - file: plain_dotted.py
+    line: 16
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+    note: >-
+      Receiver `model` is bound on line 15 in this same function scope, and its
+      one reference is the receiver of a supported method, so the closed world
+      holds.
+
+  # =====================================================================
+  # from_import.py -- `from google.generativeai import X [as Y]`. Two
+  # statements, because the renamed and un-renamed forms resolve through
+  # different local names and each has to be looked up by the name it is
+  # spelled with.
+  # =====================================================================
+  - file: from_import.py
+    line: 9
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      `from google.generativeai import GenerativeModel as Model`. The symbol is
+      the module rather than `...GenerativeModel`, because the rewrite is one
+      statement: `from X import a, b` is a single finding about X and not one
+      per imported name.
+  - file: from_import.py
+    line: 10
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      The second statement, importing `configure` under its own name. Two
+      findings on two lines with the same symbol is correct here and is what a
+      scanner keyed on "one import finding per module" would collapse.
+  - file: from_import.py
+    line: 12
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: from_import_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      Resolved through the bare name `configure`, which is the form that has no
+      module alias anywhere in the expression. Module level, so F-6's warning
+      applies as it does in `plain_dotted.py`.
+  - file: from_import.py
+    line: 14
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      Spelled `Model(...)`, and resolved because the import renamed it: libcst
+      returns [('google.generativeai.GenerativeModel', IMPORT)] for the `Name`
+      (spike QNP case 4). The `confidence_reason` follows the *import form*,
+      not the local spelling.
+  - file: from_import.py
+    line: 18
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: auto
+    note: >-
+      `DEFAULT` is bound at module level and read inside a function, which is
+      what separates `receiver_bound_module_const` from
+      `receiver_bound_same_scope` -- the same binding read at module level is
+      the latter (`../encoding/bare_cr.py:6`).
+
+  # =====================================================================
+  # from_google.py -- C-27. `from google import generativeai` resolves
+  # perfectly and matched no rule in the original plan, which is the
+  # "resolved, yet nothing fires" case.
+  # =====================================================================
+  - file: from_google.py
+    line: 10
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      `from google import generativeai` -> `from google import genai`, plus
+      rewriting every `generativeai.Y` to `genai.Y`, with the same
+      `alias_collision` bail as the plain dotted form. The module is named in
+      the imported symbol rather than in the `from` clause, so a scanner that
+      reads only `statement.module` sees `google` and reports nothing.
+  - file: from_google.py
+    line: 12
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: from_import_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+  - file: from_google.py
+    line: 16
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: from_import_resolved
+    verdict: auto
+  - file: from_google.py
+    line: 17
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+
+  # =====================================================================
+  # types_submodule.py -- the legacy `types` submodule, and two enum
+  # members read as attributes rather than called.
+  # =====================================================================
+  - file: types_submodule.py
+    line: 9
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      The aliased form, here so that one file carries two import statements
+      resolving under two different reasons. `alias_resolved` for the uses
+      through `genai`, `from_import_resolved` for the uses through the names
+      line 10 binds.
+  - file: types_submodule.py
+    line: 10
+    symbol: google.generativeai.types
+    kind: import
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      The symbol is `google.generativeai.types`, the module the statement
+      actually names -- not the top-level `google.generativeai`. PACK_SPEC's
+      `rename_import.submodule_map` maps it to `google.genai.types`, so the
+      rewrite needs to know which of the two it is looking at.
+  - file: types_submodule.py
+    line: 12
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+  - file: types_submodule.py
+    line: 14
+    symbol: google.generativeai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH
+    kind: attribute
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      An enum member, which SCAN_VOCABULARY.md section 1 names as one of the
+      two things a `kind: attribute` finding is. Verified: libcst resolves the
+      whole path, [('google.generativeai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH',
+      IMPORT)] (spike QNP case 5), while the inner `Name HarmCategory` resolves
+      to the class and is suppressed as a link of the same chain.
+      `auto` here does NOT mean a hunk begins on this line: `HarmCategory` maps
+      to itself in `types_symbol_map`, so the member reads identically after the
+      migration and the group's only textual change is the import on line 10.
+      A verdict grades what happens to the usage, not where the diff lands --
+      `../basic/app.py:9` is `auto` and its edit is a deletion.
+  - file: types_submodule.py
+    line: 14
+    symbol: google.generativeai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH
+    kind: attribute
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      The second member on the same line, with a different symbol. Two findings
+      on one line is the shape the `must_not_report` schema's `symbol` key
+      exists for, and a scanner that keys findings by (file, line) alone loses
+      one of them.
+  - file: types_submodule.py
+    line: 23
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      Deliberately bare of `safety_settings=`: `STRICT` is a module constant
+      this file hands to its own caller, and passing it to the constructor
+      would make the group bail `safety_settings_not_static`, which is a
+      Phase 2 verdict with no fixture behind it (COVERAGE.md gap 6).
+  - file: types_submodule.py
+    line: 24
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+
+  # =====================================================================
+  # annotations.py -- C-26, and the gap the correction is most likely to
+  # be implemented backwards in. Both annotation forms resolve, through an
+  # import that never executes.
+  # =====================================================================
+  - file: annotations.py
+    line: 12
+    symbol: google.generativeai.types
+    kind: import
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      An import inside `if TYPE_CHECKING:`. It is a real legacy import and is
+      rewritten like any other; it is NOT `conditional_binding`, which is the
+      try/except double-import shape where one node carries two IMPORT
+      qualified names. Verified: the annotations below resolve to a single
+      IMPORT name.
+  - file: annotations.py
+    line: 17
+    symbol: google.generativeai.types.GenerationConfig
+    kind: attribute
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      A bare-name annotation, deferred by `from __future__ import annotations`.
+      C-03: the name becomes `GenerateContentConfig`, never the new SDK's
+      identically named `types.GenerationConfig`, so this row is a real edit
+      and not a no-op.
+  - file: annotations.py
+    line: 22
+    symbol: google.generativeai.types.GenerationConfig
+    kind: attribute
+    confidence_reason: from_import_resolved
+    verdict: auto
+    note: >-
+      The string form, on a return annotation. Verified: the `SimpleString`
+      node itself resolves to
+      [('google.generativeai.types.GenerationConfig', IMPORT)] -- libcst
+      resolves forward references, including through a `TYPE_CHECKING` guard
+      (spike QNP cases 18 and 21). Sweeping it into
+      `string_or_comment_mention` is the exact error C-26 was written to
+      prevent, and `must_not_report` carries the contrast: the same characters
+      in an assignment resolve to nothing at all.
+
+  # =====================================================================
+  # unicode_names.py -- the aliased import, and names Python allows that
+  # ASCII does not (scan:SCAN-04).
+  # =====================================================================
+  - file: unicode_names.py
+    line: 8
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: unicode_names.py
+    line: 10
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+  - file: unicode_names.py
+    line: 12
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: unicode_names.py
+    line: 16
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: auto
+    note: >-
+      Bound to `modèle` at line 12 and read inside `üret`. Both names are
+      identifiers, and neither is ASCII.
+
+bindings:
+  - file: plain_dotted.py
+    kind: name
+    name: model
+    scope: function:digest
+    ctor_line: 15
+    use_lines: [16]
+    verdict: auto
+  - file: from_import.py
+    kind: module_const
+    name: DEFAULT
+    scope: module
+    ctor_line: 14
+    use_lines: [18]
+    verdict: auto
+  - file: from_google.py
+    kind: name
+    name: model
+    scope: function:summarise
+    ctor_line: 16
+    use_lines: [17]
+    verdict: auto
+  - file: types_submodule.py
+    kind: name
+    name: model
+    scope: function:draft
+    ctor_line: 23
+    use_lines: [24]
+    verdict: auto
+    note: >-
+      Four bindings for five files: `annotations.py` has none. Nothing in it
+      constructs anything -- the whole file is an import that never runs and two
+      annotations that read a class name -- which is the point of the case, and
+      a binding pass that recorded `FALLBACK = "GenerationConfig"` as one would
+      be keying on the text of a value rather than on a constructor call.
+
+  - file: unicode_names.py
+    kind: module_const
+    name: modèle
+    scope: module
+    ctor_line: 12
+    use_lines: [16]
+    verdict: auto
+
+must_not_report:
+  - file: plain_dotted.py
+    line: 11
+    symbol: google
+    why: >-
+      The inner `Name google` on the `configure` line resolves to
+      [('google', IMPORT)]. It is an IMPORT from a real import statement, so
+      the `source == IMPORT` half of the rule does not reject it -- the module
+      prefix does. That is the same guard that keeps `../negative/local_genai`
+      out of the report, measured from the other direction.
+  - file: from_import.py
+    line: 21
+    why: >-
+      `def generate_content(question)` is this module's own function. It shares
+      a name with the legacy method and resolves to this module, not to any
+      legacy receiver. The unresolvable-receiver sweep keys on the method name,
+      so a definition -- or a call with no receiver in front of it -- is exactly
+      what it must not match. Same shape as `../basic/app.py:20`.
+  - file: from_google.py
+    line: 5
+    why: >-
+      The docstring names the distribution `google-generativeai` with a hyphen.
+      It trips the byte prefilter, which is the prefilter working, and it is not
+      an importable path, so it is not a `text_mention` either. Four other
+      fixtures carry the same decoy; this is the one in a file whose import
+      spelling is the closest thing to it.
+  - file: types_submodule.py
+    line: 18
+    why: >-
+      `dict(STRICT)` copies this module's own table. `STRICT` is not a legacy
+      binding: its value is a dict literal, not a constructor call, and the
+      requirement that the constructor resolve is what keeps a binding pass
+      from inventing a group around any name whose value merely mentions the
+      SDK.
+  - file: annotations.py
+    line: 9
+    why: >-
+      `from typing import TYPE_CHECKING` sits in the same file and
+      `TYPE_CHECKING` resolves to [('typing.TYPE_CHECKING', IMPORT)]. An
+      implementation keyed on "an import inside an `if`", or on any resolved
+      IMPORT name rather than on the legacy prefix, reports it.
+  - file: annotations.py
+    line: 14
+    why: >-
+      `FALLBACK = "GenerationConfig"` is the inverse of C-26 and the reason
+      COVERAGE.md called this gap the one most likely to be implemented
+      backwards. Verified: the same characters in a non-annotation position
+      resolve to an empty set, so there is nothing to report as an
+      `attribute` -- and they are not the dotted module path, so
+      `string_or_comment_mention` does not fire either. A scanner that swept
+      annotations into string matching would report this line and miss lines 17
+      and 22; one that string-matched the bare class name would report all
+      three.
+
+notes: |
+  There is no `.after.py` in this directory and `after_file_is` is `none`. Every
+  finding here is `auto`, which under `fix_apply_output` would demand a key per
+  file; the case deliberately grades its inputs only, for the reason ADR-018
+  gives for the pack's own fixtures -- the layout algorithm that decides the
+  bytes is unwritten, and the `basic` and `chat_async_self` keys are the two the
+  Phase 2 rewrite of layout rule 4 has to reproduce first.
+
+  Every resolution claim above was measured with libcst 1.9.0's
+  `QualifiedNameProvider` and `ScopeProvider` over these exact files
+  (`MetadataWrapper(module, unsafe_skip_copy=True)`), and every line number was
+  checked against `cat -n`. All five files round-trip byte-identically and pass
+  `compile()`, so none of them is confounded by `roundtrip_mismatch` or
+  `parse_error`.
+
+  Why every verdict is `auto`. Each file has exactly one `configure(...)`, so
+  D3's module-wide ClientSource resolves; each binding has one constructor and
+  one reference, and that reference is the receiver of a supported method; and
+  nothing in any of the five files is withheld, so ADR-010 F-1's atomicity has
+  nothing to withhold the import rewrites for. That is what makes this case the
+  contrast to `../escapes/`, which is the same five shapes with one thing broken
+  in each.
+
+  What this case does NOT add. It contains no `alias_collision` and no
+  `types_alias_fallback` -- a module that already binds `types` or `genai` --
+  and it never will: those are rewrite-path bails, and the harness grades a
+  fixture verdict as a **scan** status, so a row claiming one here would assert
+  that `obelize scan` reports it. T10 added them as `module_alias_taken.py` and
+  `types_name_taken.py` under `tests/fixtures/transforms/rename_import/`, built
+  on the un-aliased and submodule shapes this case pins, because those are the
+  two whose rewrite has to introduce a name. COVERAGE.md gap 8 is struck
+  through there.

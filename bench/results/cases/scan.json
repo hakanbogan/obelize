@@ -1,0 +1,1081 @@
+{
+  "obelize_version": "0.1.0.dev0",
+  "pack": "gemini/google-generativeai-to-google-genai",
+  "pack_sha256": "58f94367c119ae4c5977d3802511995db18443af4afc9f003f8f79d9006cc245",
+  "spec_sha256": "e7aac7b4947cf87b085fa45eea9032fb610e349fba06bc9aae156ac9e61e93fc",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "scanned": [
+    {
+      "full_name": "grapeot/devin.cursorrules",
+      "sha": "284b743cca749a290bfe726e2e40466d207d7c9b",
+      "drawn_for": "tests",
+      "counts": {
+        "files_selected": 9,
+        "files_parsed": 2,
+        "findings": 7,
+        "eligible": 2,
+        "needs_review": 5,
+        "unsupported": 0,
+        "not_a_usage": 0
+      },
+      "runtime": {
+        "declared": null,
+        "blocked": false
+      },
+      "findings": [
+        {
+          "path": "requirements.txt",
+          "line": 19,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-genai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 19,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "needs_review",
+          "bail": "repo_not_fully_migrated"
+        },
+        {
+          "path": "tests/test_llm_api.py",
+          "line": 5,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "tools/llm_api.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "tools/llm_api.py",
+          "line": 114,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "tools/llm_api.py",
+          "line": 115,
+          "column": 15,
+          "kind": "attribute",
+          "confidence_reason": "module_alias_rebound",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "tools/llm_api.py",
+          "line": 223,
+          "column": 23,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.upload_file",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        }
+      ],
+      "seconds": 2.93
+    },
+    {
+      "full_name": "Arnav3241/Jarvis-v13",
+      "sha": "1ffa819c739832e8d3c39a01786cd02786c5dbf9",
+      "drawn_for": "tests",
+      "counts": {
+        "files_selected": 35,
+        "files_parsed": 8,
+        "findings": 34,
+        "eligible": 21,
+        "needs_review": 13,
+        "unsupported": 0,
+        "not_a_usage": 0
+      },
+      "runtime": {
+        "declared": null,
+        "blocked": false
+      },
+      "findings": [
+        {
+          "path": "Chat/PDF_Chat.py",
+          "line": 4,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/PDF_Chat.py",
+          "line": 42,
+          "column": 0,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/PDF_Chat.py",
+          "line": 43,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/PDF_Chat.py",
+          "line": 51,
+          "column": 11,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_module_const",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/response.py",
+          "line": 1,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/response.py",
+          "line": 618,
+          "column": 2,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/response.py",
+          "line": 620,
+          "column": 10,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/response.py",
+          "line": 621,
+          "column": 2,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat/response.py",
+          "line": 622,
+          "column": 13,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Functions/PDFchat copy.py",
+          "line": 6,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Functions/PDFchat copy.py",
+          "line": 15,
+          "column": 0,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Functions/PDFchat copy.py",
+          "line": 58,
+          "column": 42,
+          "kind": "attribute",
+          "confidence_reason": "module_alias_rebound",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Functions/PDFchat.py",
+          "line": 5,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Functions/PDFchat.py",
+          "line": 11,
+          "column": 0,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Functions/PDFchat.py",
+          "line": 52,
+          "column": 62,
+          "kind": "attribute",
+          "confidence_reason": "module_alias_rebound",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Skills.py",
+          "line": 8,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Skills.py",
+          "line": 46,
+          "column": 0,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Skills.py",
+          "line": 248,
+          "column": 16,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Skills.py",
+          "line": 249,
+          "column": 21,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Skills.py",
+          "line": 320,
+          "column": 16,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Skills.py",
+          "line": 321,
+          "column": 21,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Tests/a.py",
+          "line": 6,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Tests/a.py",
+          "line": 12,
+          "column": 0,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Tests/a.py",
+          "line": 45,
+          "column": 62,
+          "kind": "attribute",
+          "confidence_reason": "module_alias_rebound",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "Tests/r1.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Tests/r1.py",
+          "line": 423,
+          "column": 2,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Tests/r1.py",
+          "line": 425,
+          "column": 10,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Tests/r1.py",
+          "line": 426,
+          "column": 2,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Tests/r1.py",
+          "line": 427,
+          "column": 13,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Tests/test.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "Tests/test.py",
+          "line": 10,
+          "column": 0,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "Tests/test.py",
+          "line": 42,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel.from_cached_content",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 59,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-genai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 59,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "needs_review",
+          "bail": "repo_not_fully_migrated"
+        }
+      ],
+      "seconds": 3.65
+    },
+    {
+      "full_name": "humanbound/humanbound-firewall",
+      "sha": "7b5a331bf45c4a09f225b1deb4a55f5e3557111b",
+      "drawn_for": "tests",
+      "counts": {
+        "files_selected": 28,
+        "files_parsed": 3,
+        "findings": 11,
+        "eligible": 0,
+        "needs_review": 9,
+        "unsupported": 0,
+        "not_a_usage": 2
+      },
+      "runtime": {
+        "declared": ">=3.10",
+        "path": "pyproject.toml",
+        "blocked": false
+      },
+      "findings": [
+        {
+          "path": "pyproject.toml",
+          "line": 54,
+          "column": 11,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "needs_review",
+          "bail": "repo_not_fully_migrated"
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 64,
+          "column": 5,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "needs_review",
+          "bail": "repo_not_fully_migrated"
+        },
+        {
+          "path": "src/humanbound_firewall/llm/gemini.py",
+          "line": 17,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "src/humanbound_firewall/llm/gemini.py",
+          "line": 19,
+          "column": 15,
+          "kind": "attribute",
+          "confidence_reason": "module_alias_rebound",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "module_alias_rebound"
+        },
+        {
+          "path": "tests/test_import_time.py",
+          "line": 21,
+          "column": 5,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "google.generativeai",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "tests/test_llm_providers.py",
+          "line": 6,
+          "column": 44,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "google.generativeai",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "tests/test_llm_providers.py",
+          "line": 141,
+          "column": 28,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        },
+        {
+          "path": "tests/test_llm_providers.py",
+          "line": 147,
+          "column": 37,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        },
+        {
+          "path": "tests/test_llm_providers.py",
+          "line": 157,
+          "column": 37,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        },
+        {
+          "path": "tests/test_llm_providers.py",
+          "line": 212,
+          "column": 27,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        },
+        {
+          "path": "tests/test_llm_providers.py",
+          "line": 218,
+          "column": 37,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        }
+      ],
+      "seconds": 1.92
+    },
+    {
+      "full_name": "navamai/navamai",
+      "sha": "8b43206f8fd657d3e725fb4198c354217007b003",
+      "drawn_for": "tests",
+      "counts": {
+        "files_selected": 40,
+        "files_parsed": 2,
+        "findings": 10,
+        "eligible": 6,
+        "needs_review": 4,
+        "unsupported": 0,
+        "not_a_usage": 0
+      },
+      "runtime": {
+        "declared": "^3.12",
+        "path": "pyproject.toml",
+        "blocked": false
+      },
+      "findings": [
+        {
+          "path": "pyproject.toml",
+          "line": 21,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-genai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 21,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "needs_review",
+          "bail": "repo_not_fully_migrated"
+        },
+        {
+          "path": "src/navamai/gemini.py",
+          "line": 10,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "src/navamai/gemini.py",
+          "line": 22,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "src/navamai/gemini.py",
+          "line": 52,
+          "column": 16,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "src/navamai/gemini.py",
+          "line": 53,
+          "column": 19,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "src/navamai/gemini.py",
+          "line": 56,
+          "column": 30,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 16,
+          "column": 15,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 95,
+          "column": 15,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 117,
+          "column": 15,
+          "kind": "text_mention",
+          "confidence_reason": "mock_patch_target",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "needs_review",
+          "bail": "flag_only_surface"
+        }
+      ],
+      "seconds": 5.46
+    },
+    {
+      "full_name": "dongxnb/gupiao",
+      "sha": "fae9f9ad88310778d333b5eb85aa58cc8ea7ed85",
+      "drawn_for": "tests",
+      "counts": {
+        "files_selected": 260,
+        "files_parsed": 5,
+        "findings": 27,
+        "eligible": 0,
+        "needs_review": 27,
+        "unsupported": 0,
+        "not_a_usage": 0
+      },
+      "runtime": {
+        "declared": ">=3.10",
+        "path": "pyproject.toml",
+        "blocked": false
+      },
+      "findings": [
+        {
+          "path": "tests/check_gemini_models.py",
+          "line": 24,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/check_gemini_models.py",
+          "line": 32,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/check_gemini_models.py",
+          "line": 36,
+          "column": 17,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.list_models",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "multiple_configure_calls"
+          ]
+        },
+        {
+          "path": "tests/check_gemini_models.py",
+          "line": 68,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/check_gemini_models.py",
+          "line": 72,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/check_gemini_models.py",
+          "line": 75,
+          "column": 16,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/check_gemini_models.py",
+          "line": 81,
+          "column": 19,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/diagnose_gemini_25.py",
+          "line": 47,
+          "column": 12,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/diagnose_gemini_25.py",
+          "line": 48,
+          "column": 12,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/diagnose_gemini_25.py",
+          "line": 50,
+          "column": 20,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/diagnose_gemini_25.py",
+          "line": 51,
+          "column": 23,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 34,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 57,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 61,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 64,
+          "column": 16,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/test_gemini.py",
+          "line": 70,
+          "column": 19,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/test_gemini_25.py",
+          "line": 32,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/test_gemini_25.py",
+          "line": 40,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/test_gemini_25.py",
+          "line": 44,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.list_models",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "multiple_configure_calls"
+          ]
+        },
+        {
+          "path": "tests/test_gemini_25.py",
+          "line": 76,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/test_gemini_25.py",
+          "line": 81,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/test_gemini_25.py",
+          "line": 86,
+          "column": 20,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/test_gemini_25.py",
+          "line": 87,
+          "column": 23,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "needs_review",
+          "bail": "multiple_configure_calls"
+        },
+        {
+          "path": "tests/test_gemini_correct.py",
+          "line": 32,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "tests/test_gemini_correct.py",
+          "line": 37,
+          "column": 8,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.configure",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/test_gemini_correct.py",
+          "line": 42,
+          "column": 20,
+          "kind": "call",
+          "confidence_reason": "alias_resolved",
+          "symbol": "google.generativeai.GenerativeModel",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "tests/test_gemini_correct.py",
+          "line": 43,
+          "column": 23,
+          "kind": "method_call",
+          "confidence_reason": "receiver_bound_same_scope",
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        }
+      ],
+      "seconds": 5.06
+    },
+    {
+      "full_name": "ParamveerSinghS/alex-ai-assistant",
+      "sha": "675ceff4b3f64df5801d4a17f3f1075a09b7ae67",
+      "drawn_for": "already-migrated",
+      "counts": {
+        "files_selected": 7,
+        "files_parsed": 0,
+        "findings": 0,
+        "eligible": 0,
+        "needs_review": 0,
+        "unsupported": 0,
+        "not_a_usage": 0
+      },
+      "runtime": {
+        "declared": null,
+        "blocked": false
+      },
+      "findings": [],
+      "seconds": 1.96
+    },
+    {
+      "full_name": "GoogleCloudPlatform/Open_Data_QnA",
+      "sha": "19960bb38ba2624525ef732a2c3a354efe8cd892",
+      "drawn_for": "vertex-generative-models",
+      "counts": {
+        "files_selected": 28,
+        "files_parsed": 0,
+        "findings": 0,
+        "eligible": 0,
+        "needs_review": 0,
+        "unsupported": 0,
+        "not_a_usage": 0
+      },
+      "runtime": {
+        "declared": ">=3.9, <3.9.7 || >3.9.7, <4.0",
+        "path": "pyproject.toml",
+        "blocked": false
+      },
+      "findings": [],
+      "seconds": 9.17
+    },
+    {
+      "full_name": "pfnet-research/japanese-lm-fin-harness",
+      "sha": "55d967750fec1f9ab1ee15554de96390a67531d4",
+      "drawn_for": "vertex-preview",
+      "counts": {
+        "files_selected": 22,
+        "files_parsed": 0,
+        "findings": 0,
+        "eligible": 0,
+        "needs_review": 0,
+        "unsupported": 0,
+        "not_a_usage": 0
+      },
+      "runtime": {
+        "declared": ">=3.10",
+        "path": "pyproject.toml",
+        "blocked": false
+      },
+      "findings": [],
+      "seconds": 3.16
+    }
+  ]
+}

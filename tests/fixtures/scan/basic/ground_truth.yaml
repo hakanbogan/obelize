@@ -1,0 +1,206 @@
+case: basic
+after_file_is: fix_apply_output
+what_it_exercises: The simplest complete migration - aliased import, one module-level configure, one module-level GenerativeModel constant with a generation_config, one generate_content call and one count_tokens call - with a trailing comment and a multi-line trailing-comma call to pin formatting preservation.
+findings:
+  - file: app.py
+    line: 5
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      `import google.generativeai as genai` -> `from google import genai`. The alias is already
+      `genai`, so no alias is preserved and no `alias_collision` can fire. A second import line,
+      `from google.genai import types`, is added because the rewritten file references `types.*`
+      (ADR-008 pack rule corrections; PACK_SPEC `rename_import.submodule_map`).
+  - file: app.py
+    line: 7
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      The module's single `configure(...)`, so it is this module's ClientSource under D3. Rewritten
+      in place to `client = genai.Client(api_key=...)` - the `Expr` becomes an `Assign` so the
+      trailing `# keep this comment` and the surrounding blank lines survive untouched (spike
+      CODEMOD 3, strategy (a)). `api_key=` is in `allowed_kwargs`; none of `transport`,
+      `client_options`, `client_info`, `default_metadata` is present (C-19).
+      The warning is mandatory here and was missing until ADR-013: the call is at module level, so
+      the new `Client(...)` is constructed at import time, and `os.environ["GEMINI_API_KEY"]` is
+      `""` whenever the variable is set but empty -- which `genai.Client` rejects and
+      `genai.configure` did not (ADR-010 F-6).
+  - file: app.py
+    line: 9
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      One positional argument only (index 0 = `model_name`), so C-22's positional-order hazard does
+      not arise and the mapping is unambiguous. The object has no counterpart in google-genai: the
+      statement is deleted together with its one leading blank line, and `model="gemini-1.5-flash"`
+      is folded into each of the two call sites.
+  - file: app.py
+    line: 9
+    symbol: google.generativeai.GenerationConfig
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      C-03: maps to `types.GenerateContentConfig`, never to the new SDK's identically named
+      `types.GenerationConfig`. Both keys (`temperature`, `max_output_tokens`) are in the 15-key
+      `generation_config_keys` set, both are literals, so the group stays automatic. The whole
+      config moves to the `config=` argument of `generate_content` (the ctor's config applies to
+      every call made through the model object).
+  - file: app.py
+    line: 14
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: auto
+    note: >-
+      Receiver `MODEL` is the module-level binding constructed on line 9; closed-world holds (two
+      uses, both plain receivers, no escape). Becomes
+      `client.models.generate_content(model=..., contents=..., config=...)`. The sole positional
+      argument must be promoted to `contents=` BEFORE `model=` is prepended, or libcst raises
+      `CSTValidationError` (C-25). The f-string argument and the call's multi-line layout with its
+      trailing comma survive verbatim.
+  - file: app.py
+    line: 21
+    symbol: google.generativeai.GenerativeModel.count_tokens
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: auto
+    note: >-
+      Becomes `client.models.count_tokens(model=..., contents=prompt)`, and `.total_tokens` on the
+      result is unchanged (the attribute exists on both SDKs). The constructor's
+      `generation_config` is deliberately dropped, and ADR-010 F-3 is the rule: a token count does
+      not depend on how the response will be sampled. It is NOT dropped because the new config has
+      nowhere to put it -- `types.CountTokensConfig.model_fields` is
+      `{generation_config, http_options, system_instruction, tools}`, and legacy
+      `_prepare_request` really did merge the constructor's config into the request
+      (`merged_gc = self._generation_config.copy(); merged_gc.update(generation_config)`), both
+      verified against the installed 0.8.6 and 2.23.0. The drop is therefore lossy on paper and
+      carries the warning below. Had the constructor named `system_instruction=` or `tools=`, both
+      of which do change the count, the group would bail with
+      `count_tokens_config_carries_semantics` instead.
+    warnings: [count_tokens_config_dropped]
+  - file: requirements.txt
+    line: 1
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: >-
+      `manifest_dependency`: `google-generativeai==0.8.6` -> `google-genai>=1`. A bare
+      requirements.txt line is the shape `llegomark/gemini-pro-chat` uses (C-29). Since T15
+      the directory carries `requirements.after.txt` and this row is produced rather than
+      described: `tests/oracle/test_manifest_dependency_against_the_oracle.py` runs the rule
+      over this case -- the one in the oracle where nothing is withheld, so the removal is not
+      blocked and the two halves of F-2 collapse into one rewrite of one line -- and asserts
+      the bytes. See `notes` about `manifest_declaration`.
+bindings:
+  - kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 9
+    use_lines: [14, 21]
+    verdict: auto
+    note: >-
+      Single assignment at module scope, two references, each of them the receiver of a supported
+      method call; no bare-value access, so no `module_alias_rebound` escape (C-05). Sorting both
+      references by source position before emitting is mandatory (C-11): `Assignment.references`
+      is a set hashed by object identity.
+must_not_report:
+  - file: app.py
+    line: 17
+    why: >-
+      `response.text` is spelled identically in both SDKs and is not a finding of its own. Only the
+      `try: response.text / except ValueError:` shape is (C-56: the new SDK returns `None` instead
+      of raising), and this file does not have it.
+  - file: app.py
+    line: 20
+    why: >-
+      `def count_tokens(prompt)` is this repository's own function. It shares a name with the legacy
+      method but resolves to `app.count_tokens/LOCAL`, not to any `google.generativeai` qualified
+      name. A scanner that matches on the bare method name rather than on the resolved receiver
+      would rewrite the definition line.
+  - file: requirements.txt
+    line: 2
+    why: >-
+      An unrelated pin. `manifest_dependency` matches the distribution name `google-generativeai`
+      exactly; a substring or line-order heuristic would touch this line too.
+notes: |
+  Byte-for-byte target output is `app.after.py`. It compiles under CPython and, together with
+  `app.py`, is excluded from ruff and mypy (pyproject `extend-exclude` / `exclude`).
+
+  **Produced by rule since T12**
+  ([ADR-027](../../../../docs/adr/ADR-027-model-object.md)).
+  `tests/oracle/test_generative_model_calls_against_the_oracle.py` runs the three implemented
+  rules over `app.py` and asserts the bytes are this file's, that nothing in it is unclaimed,
+  and that the two warnings the rows below grade are the two the rules emit. Every decision
+  numbered here was made before any rule existed and none of them was adjusted afterwards,
+  which is the whole of what this oracle is for (ADR-010 F-4).
+
+  Decisions taken while writing the answer key, each one a place where ADR-008 constrains the result
+  without spelling out the exact bytes. They are listed so a reviewer can overrule them cheaply,
+  before T3 pins them into a harness:
+
+  1. `client` is the introduced name. The naming fallback tries `client`, then `genai_client`,
+     then bails `client_name_collision`; this module binds neither name, so `client` is used.
+  2. The `MODEL = ...` statement is deleted, together with its single leading blank line, and the
+     model name is inlined at each call site. This follows the spike mapping row
+     "`genai.GenerativeModel(name)` -> no object; the name is folded into each call as `model=`".
+     A hoisted `MODEL_NAME = "gemini-1.5-flash"` constant would read better but is not sanctioned
+     by ADR-008, so it is not in the answer key.
+     **Ratified, not overruled:** ADR-027 D2 gives the argument the key did not have. Hoisting
+     would introduce a name the author never wrote and would have to choose a scope for it,
+     which is the problem ADR-026 D3 needed a four-row table and a new bail to answer for the
+     client -- with a `configure(...)` call to anchor it. There is no anchor here, because the
+     constructor is the thing being deleted. The comment above such a statement is a separate
+     question and gets a separate answer (D11): it moves to the statement that now comes first,
+     because dropping it loses the author's prose. This file deliberately has none.
+  3. `types` is imported as `from google.genai import types` rather than emitting
+     `genai.types.GenerateContentConfig`. PACK_SPEC's `rename_import` carries both a
+     `submodule_map` (`types` -> `google.genai.types`) and a `types_alias_fallback`
+     (`genai_types`, used when the module already binds `types`), which only makes sense if the
+     emitted form is a bare `types.X`. This module binds no `types`, so no fallback is needed.
+  4. Layout rule used throughout both fixtures. It was written here in Phase 0, three documents
+     said it would become an algorithm "before T10", and T11 is where it did:
+     `src/obelize/transforms/layout.py` is the algorithm, and this note records what changed
+     rather than restating it, because a document that restates an algorithm drifts from it
+     ([ADR-026](../../../../docs/adr/ADR-026-client-placement-layout.md) D7).
+
+     What it gained. A rewritten call is emitted multi-line when the source call was multi-line,
+     when one of its arguments is, **or when the line it would make is wider than the pack's
+     `layout.line_length`**. There was no width clause at all, and the answer key next door broke
+     the rule it was written under: fifteen lines of `chat_async_self/assistant.after.py` were over
+     100 columns, the widest at 154, against a project whose own limit is 100. In a user's
+     repository those are lines their next `ruff format` rewraps, which is two diffs where
+     ADR-005 promised one.
+
+     What it lost. "An argument that survives from the source keeps its own whitespace" is
+     meaningless for an argument moved into a different call, which is the only kind a rewrite
+     produces. What a moved argument keeps is its value, its keyword and any comment inside it;
+     the separators belong to the call it lands in.
+
+     What it made precise. Multi-line is one argument per line, one indent unit past the
+     statement's own indent, with a trailing comma and the closing parenthesis back on the
+     statement's indent -- and the unit is the file's own rather than four spaces, so a repository
+     that indents by two gets code that looks like its own. Nesting is recursive: a nested call
+     that goes multi-line indents one unit past the line its own opening parenthesis is on. Width
+     is measured over the whole line, indent and trailing comment included, because that is what a
+     formatter measures.
+
+     In this file that keeps `generate_content` multi-line and `count_tokens` on one line, the
+     latter at 93 columns -- this note said 91 until T12 measured it on the bytes the rules
+     produce, which are the bytes this key already had. `tests/unit/test_layout.py` asserts the
+     width of every answer key in the repository, so the next key cannot drift the way this
+     one's neighbour did.
+
+  Vocabulary, settled after this file was first written (ADR-010 F-4). The closed sets now live in
+  `docs/SCAN_VOCABULARY.md`; they were previously only in the planning document, which is not in the
+  repository, and that is why this file originally flagged two members as invented.
+  `receiver_bound_module_const` was attested all along and stays. `manifest_declaration` was not:
+  the attested member is `manifest_dependency`, and the row above now uses it.

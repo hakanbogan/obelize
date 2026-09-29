@@ -1,0 +1,1257 @@
+drawn_at: '2026-09-21T12:35:21Z'
+frame:
+  sample: bench/gate1/sample.yaml
+  scan: bench/results/gate1/scan.json
+  queried_at: '2026-09-18T14:05:55Z'
+  repositories: 80
+  licensed: 34
+instrument:
+  obelize_version: 0.1.0.dev0
+  pack: gemini/google-generativeai-to-google-genai
+  pack_sha256: 58f94367c119ae4c5977d3802511995db18443af4afc9f003f8f79d9006cc245
+  spec_sha256: e7aac7b4947cf87b085fa45eea9032fb610e349fba06bc9aae156ac9e61e93fc
+  python: 3.12.9
+  machine: arm64
+  os: Darwin
+max_per_owner: 2
+size_cap_kb: 150000
+examine_cap: 50
+clone_cap: 8
+candidates:
+- full_name: LucasHJin/vit
+  owner: LucasHJin
+  url: https://github.com/LucasHJin/vit
+  sha: 472b94039b5c314bda67136432ea70be5f516215
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2026-09-01T01:39:21Z'
+  stars: 726
+  size_kb: 261
+  source: frame
+  tests:
+    test_files: tests/__init__.py
+    manifest: setup.py
+- full_name: aryanbrite/project-ai
+  owner: aryanbrite
+  url: https://github.com/aryanbrite/project-ai
+  sha: c4b434ad016e5675282a620726378d9749221760
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-05-25T14:34:51Z'
+  stars: 3
+  size_kb: 58
+  source: frame
+  tests:
+    ci_workflow: .github/workflows/codeql.yml
+- full_name: Prateek07-Kumar/End-To-End-Projects-Generative-AI-Google-Gemini-
+  owner: Prateek07-Kumar
+  url: https://github.com/Prateek07-Kumar/End-To-End-Projects-Generative-AI-Google-Gemini-
+  sha: fd93ed9f32ba24f4ddd5d1da2caa8b9c5c25ad78
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-06-21T18:30:37Z'
+  stars: 0
+  size_kb: 29488
+  source: frame
+  tests:
+    manifest: Chat-with-Multiple-PDF-using-Gemini/requirements.txt
+- full_name: Momen2410/Question-Answering-ChatBot-Using-Gemini1.5
+  owner: Momen2410
+  url: https://github.com/Momen2410/Question-Answering-ChatBot-Using-Gemini1.5
+  sha: 626a979c9504ed3a293216e1e64307f7cfe3c3b4
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-04-19T13:55:02Z'
+  stars: 1
+  size_kb: 5
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: ShreyasGandhi0607/Gemini-Project
+  owner: ShreyasGandhi0607
+  url: https://github.com/ShreyasGandhi0607/Gemini-Project
+  sha: 6061e7f0a16b92ba83fe4652d1729c87825a6d89
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-01-20T09:29:28Z'
+  stars: 0
+  size_kb: 3
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: atharvv8/Gemini-Powered-AI-App
+  owner: atharvv8
+  url: https://github.com/atharvv8/Gemini-Powered-AI-App
+  sha: e69f0284068dc5bec64b435a1529fcdf5fa22623
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-05-25T11:30:49Z'
+  stars: 0
+  size_kb: 10
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: chirag6521/Multilingual-AI-Assistant
+  owner: chirag6521
+  url: https://github.com/chirag6521/Multilingual-AI-Assistant
+  sha: fabdeabe85cd381109eb192b6fda03a1f9cf185e
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-07-31T00:49:23Z'
+  stars: 0
+  size_kb: 11
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: sito-sikino/avatar-ui-core
+  owner: sito-sikino
+  url: https://github.com/sito-sikino/avatar-ui-core
+  sha: 332765ab57b9942b80c8f1f0395b648047963514
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-08-26T05:20:29Z'
+  stars: 169
+  size_kb: 2937
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: sumitx99/Calories-Estimator
+  owner: sumitx99
+  url: https://github.com/sumitx99/Calories-Estimator
+  sha: 4f902a7d216ed99e16c1891bfffbc7c92ad13095
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-10-26T18:31:10Z'
+  stars: 3
+  size_kb: 17
+  source: frame
+  tests: {}
+- full_name: LJX2017/A-Song-of-Ice-and-Fire
+  owner: LJX2017
+  url: https://github.com/LJX2017/A-Song-of-Ice-and-Fire
+  sha: b7596d5686000e9df1a219f3b3d922905832f9c5
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2024-02-16T05:58:23Z'
+  stars: 0
+  size_kb: 1517
+  source: frame
+  tests: {}
+- full_name: Hiba550/Google-DeepMind-for-Discord
+  owner: Hiba550
+  url: https://github.com/Hiba550/Google-DeepMind-for-Discord
+  sha: 555ea392bdbb1b9a3ff1b6f40f7fb06ff9e84475
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-08-11T04:48:30Z'
+  stars: 0
+  size_kb: 26
+  source: frame
+  tests:
+    ci_workflow: .github/workflows/main_googledeepmind.yml
+    manifest: requirements.txt
+- full_name: mukul-mschauhan/imagetotext
+  owner: mukul-mschauhan
+  url: https://github.com/mukul-mschauhan/imagetotext
+  sha: ea0f9f828f8ea6ae02dada62ad7f75fa21c347df
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-12-13T06:54:18Z'
+  stars: 0
+  size_kb: 5
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents
+  owner: Omadithya07
+  url: https://github.com/Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents
+  sha: b615a993d9b8fb74dbdaa6adeb4f5dd3a05553f5
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-01-05T13:25:27Z'
+  stars: 0
+  size_kb: 6
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: Satheesh2908/AI-Assistant-for-Satheesh
+  owner: Satheesh2908
+  url: https://github.com/Satheesh2908/AI-Assistant-for-Satheesh
+  sha: b4c50edc3a7da97278256ef8bc2a83c7642cc32d
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-09-01T15:20:11Z'
+  stars: 0
+  size_kb: 2624
+  source: frame
+  tests: {}
+- full_name: samar45/yt_summarizer_and_QA
+  owner: samar45
+  url: https://github.com/samar45/yt_summarizer_and_QA
+  sha: 8d0714efd5b9fa9aab075c2c534e1f5ade69066b
+  license: GPL-3.0
+  fork: false
+  archived: false
+  pushed_at: '2024-11-28T13:20:02Z'
+  stars: 0
+  size_kb: 2432
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: PriyanshuDey23/DiseaseDetectAI
+  owner: PriyanshuDey23
+  url: https://github.com/PriyanshuDey23/DiseaseDetectAI
+  sha: 9f687bf5dcfe31ea8554b120a2a07ce1a4a8e65a
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-11-25T12:47:09Z'
+  stars: 0
+  size_kb: 5
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: ansarifaisal12/PharmaSQL
+  owner: ansarifaisal12
+  url: https://github.com/ansarifaisal12/PharmaSQL
+  sha: 3642dd17515e0af87a0b61fdd067f44000f77366
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-01-17T19:20:22Z'
+  stars: 0
+  size_kb: 9
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: 000wan/ara-ai-bot
+  owner: 000wan
+  url: https://github.com/000wan/ara-ai-bot
+  sha: ca492efadfbc0ccbb104f72b9d591f7389e7e520
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2023-12-26T08:26:36Z'
+  stars: 0
+  size_kb: 28
+  source: frame
+  tests:
+    manifest: Pipfile
+- full_name: Sharukesh3/LLM-for-hydrogen-storage
+  owner: Sharukesh3
+  url: https://github.com/Sharukesh3/LLM-for-hydrogen-storage
+  sha: a9480de70efdd2e158da556aa072f2003282ff7e
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-06-03T13:33:57Z'
+  stars: 2
+  size_kb: 9239
+  source: frame
+  tests: {}
+- full_name: yihong0618/tg_bing_dalle
+  owner: yihong0618
+  url: https://github.com/yihong0618/tg_bing_dalle
+  sha: 9d0866cdb1f7de468b9e3009cbd8a8740f81b22f
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-05-23T14:19:32Z'
+  stars: 407
+  size_kb: 234
+  source: frame
+  tests:
+    ci_workflow: .github/workflows/CI.yaml
+    manifest: requirements.txt
+- full_name: KalyanM45/OpenHealth
+  owner: KalyanM45
+  url: https://github.com/KalyanM45/OpenHealth
+  sha: 2589817b390e1a5022ed721d7dddd3d7f693dcd0
+  license: GPL-3.0
+  fork: false
+  archived: false
+  pushed_at: '2025-04-01T03:51:21Z'
+  stars: 73
+  size_kb: 64186
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: rainepera/sabIA-ImersaoIA-2025
+  owner: rainepera
+  url: https://github.com/rainepera/sabIA-ImersaoIA-2025
+  sha: e5caff69b8d210fe4ea995b5634a33daf899fb78
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-05-17T21:24:38Z'
+  stars: 9
+  size_kb: 3476
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: venkataRahulBabu/Chat-PDF-python
+  owner: venkataRahulBabu
+  url: https://github.com/venkataRahulBabu/Chat-PDF-python
+  sha: 46352040ca1164fe12ee5a3b8a7de81f7e3fdd8d
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-12-14T09:08:59Z'
+  stars: 1
+  size_kb: 1494
+  source: frame
+  tests:
+    ci_workflow: .github/workflows/keep_alive.yml
+    manifest: requirements.txt
+- full_name: ashishkumar5de/PDF-QL
+  owner: ashishkumar5de
+  url: https://github.com/ashishkumar5de/PDF-QL
+  sha: 581d11c03f4d1efe6e2f21532ed1ced0e2a17ca5
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2024-12-03T06:47:22Z'
+  stars: 0
+  size_kb: 1208
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: samkamau81/Literature_RAG
+  owner: samkamau81
+  url: https://github.com/samkamau81/Literature_RAG
+  sha: 7978920df71f623f9519fd06c2d44b4c9023aa4d
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2024-06-22T17:40:29Z'
+  stars: 1
+  size_kb: 5
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: aprameyak/GitaGPT
+  owner: aprameyak
+  url: https://github.com/aprameyak/GitaGPT
+  sha: a1987626a0bb96855cab945ac83283944a475d1f
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2026-07-27T05:17:33Z'
+  stars: 2
+  size_kb: 1341
+  source: frame
+  tests:
+    ci_workflow: .github/workflows/ci.yml
+    manifest: requirements.txt
+- full_name: Zierax/HackerHelper
+  owner: Zierax
+  url: https://github.com/Zierax/HackerHelper
+  sha: 5f3b88bcad03262f32fbab6bc8f586dad9f45d7f
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-01-26T12:25:37Z'
+  stars: 4
+  size_kb: 439
+  source: frame
+  tests:
+    manifest: api/requirements.txt
+- full_name: RuntimeAI/silly-merchants-for-safe-hackathon
+  owner: RuntimeAI
+  url: https://github.com/RuntimeAI/silly-merchants-for-safe-hackathon
+  sha: c10281c51f8b43fccebccde94ffe5a34cc24446e
+  license: BSD-3-Clause
+  fork: false
+  archived: false
+  pushed_at: '2025-02-15T08:51:53Z'
+  stars: 1
+  size_kb: 20472
+  source: frame
+  tests:
+    test_files: tests/api/test_merchants_1o1.py
+    test_config: pytest.ini
+    manifest: pyproject.toml
+- full_name: xNabil/discord-ai-bot
+  owner: xNabil
+  url: https://github.com/xNabil/discord-ai-bot
+  sha: 397897fb2623abd0fff7f1b97fd03852005020d3
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-12-14T10:07:31Z'
+  stars: 14
+  size_kb: 200
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: kvcops/Virtual-Herbal-Garden
+  owner: kvcops
+  url: https://github.com/kvcops/Virtual-Herbal-Garden
+  sha: 4df82e3211620b8f4761f7d2cf6d46e72a96480b
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-02-20T11:58:28Z'
+  stars: 3
+  size_kb: 83128
+  source: frame
+  tests: {}
+- full_name: Wang-Haining/CMD-AInotator
+  owner: Wang-Haining
+  url: https://github.com/Wang-Haining/CMD-AInotator
+  sha: 5b7bbc5076a17dbd14ffb85ee660fca7e5507cbd
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-12-31T00:15:36Z'
+  stars: 3
+  size_kb: 4824
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: Sarthak061/ATMECS-Hackathon
+  owner: Sarthak061
+  url: https://github.com/Sarthak061/ATMECS-Hackathon
+  sha: 3d57c3550a50f9ece45aec5aa0162315afad1648
+  license: GPL-3.0
+  fork: false
+  archived: false
+  pushed_at: '2024-10-13T16:10:56Z'
+  stars: 0
+  size_kb: 3686
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: taitran501/dashboard_app
+  owner: taitran501
+  url: https://github.com/taitran501/dashboard_app
+  sha: b222f63dc7469ae66cd10b919acf7e2d0b5170f5
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2025-12-02T10:24:42Z'
+  stars: 0
+  size_kb: 61
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: BeraEkmekci/leonis-task-app
+  owner: BeraEkmekci
+  url: https://github.com/BeraEkmekci/leonis-task-app
+  sha: 6a42623dd0fa449de01da760b4bb660e3dc8d2ad
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2026-01-03T09:30:59Z'
+  stars: 0
+  size_kb: 638
+  source: frame
+  tests:
+    manifest: requirements.txt
+- full_name: LotusSerene/Gemini-Novel-Maker
+  owner: LotusSerene
+  url: https://github.com/LotusSerene/Gemini-Novel-Maker
+  sha: 8da04df2b881ad5874300a8d582695c25b495dc5
+  license: Apache-2.0
+  fork: false
+  archived: false
+  pushed_at: '2024-09-30T13:15:25Z'
+  stars: 3
+  size_kb: 26
+  source: surface:embed-content
+  tests:
+    manifest: requirements.txt
+- full_name: AmineChr54/CleanVision-Futury_AI-Hackathon
+  owner: AmineChr54
+  url: https://github.com/AmineChr54/CleanVision-Futury_AI-Hackathon
+  sha: 6548f86510e9646d2f5f5208721c3527cc3baa95
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2026-01-26T21:19:52Z'
+  stars: 0
+  size_kb: 31504
+  source: surface:delete-file
+  tests:
+    test_files: UI/scripts/smoke_test.py
+    manifest: UI/requirements.txt
+- full_name: ImprintLab/Medical-Graph-RAG
+  owner: ImprintLab
+  url: https://github.com/ImprintLab/Medical-Graph-RAG
+  sha: d8040c7485ffbc74ef3cce07492beabb68ae150b
+  license: MIT
+  fork: false
+  archived: false
+  pushed_at: '2025-10-18T20:25:42Z'
+  stars: 832
+  size_kb: 1497
+  source: surface:flag-out-of-scope-surfaces
+  tests: {}
+rejected:
+- full_name: SONA1114/CHATBOT
+  reason: unlicensed
+- full_name: whitehatboy005/AI-Chatbot
+  reason: unlicensed
+- full_name: AyaanKhaan5/Story_Create_AI_Agent
+  reason: unlicensed
+- full_name: gecitemre/issue-filler
+  reason: unlicensed
+- full_name: YuvBindal/FinBloom
+  reason: unlicensed
+- full_name: niteshsharmacodes/GenAI-powered-Invoice-Scanner
+  reason: unlicensed
+- full_name: aniketsingh1023/HTM-5.0-Tier3Hackers
+  reason: unlicensed
+- full_name: silky-modi22/Video-Transcribe-Summarizer
+  reason: unlicensed
+- full_name: ananyajoshi0707/twachic
+  reason: unlicensed
+- full_name: Shriii04/GramSwastya
+  reason: unlicensed
+- full_name: SureboyPR/Goodness_Medical_Center_Chatbot
+  reason: unlicensed
+- full_name: pareekshitreddy/QuerySense-Natural-Language-to-SQL-Converter-Database-Query-Tool
+  reason: unlicensed
+- full_name: miguel-webplace/questiFy
+  reason: unlicensed
+- full_name: Hrishikesh332/Nutrisnap-app-real
+  reason: unlicensed
+- full_name: Samitha-Edirisinghe/AI-Powered-Resume-Matching-System-CV-Embed
+  reason: unlicensed
+- full_name: Triveni-35/AI-powered-MCQ-Generator
+  reason: unlicensed
+- full_name: Vaibhav8299/Conversational_AI_App
+  reason: unlicensed
+- full_name: Jyotish2002/PdfQuestions
+  reason: unlicensed
+- full_name: RedLordezh7Venom/VPeakFit
+  reason: unlicensed
+- full_name: nishankhareln/LangchainBot
+  reason: unlicensed
+- full_name: Faiza-makhdoom/RAG-chatbot1
+  reason: unlicensed
+- full_name: Vinay-Krishna-Sarangapni/AI-powered-document-query-assistant
+  reason: unlicensed
+- full_name: PreeBh/E2EQuerymultiplePDFsGoogleGemini
+  reason: unlicensed
+- full_name: madanrajsagar/ResearchIQ
+  reason: unlicensed
+- full_name: Adiwanwade/pdf-chat-gemini
+  reason: unlicensed
+- full_name: Imran-ml/Chat_with_PDF_using_Gemini
+  reason: unlicensed
+- full_name: Abhisach687/bot-to-generate-MCQ-based-on-uploaded-pdf-webpage
+  reason: unlicensed
+- full_name: sobit-nep/samvaad-ai
+  reason: unlicensed
+- full_name: rajveerkhanduja/QueryMate
+  reason: unlicensed
+- full_name: SANTANUNAYAK19/AI-Vision-Assistant
+  reason: unlicensed
+- full_name: Anish-Ramesh/Doctor_Booker
+  reason: unlicensed
+- full_name: AdithyaPathakoti/Mediease
+  reason: unlicensed
+- full_name: Sai-Ashritha/Building-AI-Powered-Solution-for-Assisting-Visually-Impaired-Individuals
+  reason: unlicensed
+- full_name: YOGANAND2003/chatbot-rag-streamlit-main
+  reason: unlicensed
+- full_name: ntiglao-umd/k-12mlsupport
+  reason: unlicensed
+- full_name: NJP6969/star-hack
+  reason: unlicensed
+- full_name: 01-191-MaxavierGirvanusManurung/Tugas3-PAW
+  reason: unlicensed
+- full_name: AKMessi/AI-IPO-Analyst
+  reason: unlicensed
+- full_name: quangkhai5122/ASL_Pytorch
+  reason: unlicensed
+- full_name: hari7261/Negotiation-MultiAgent
+  reason: unlicensed
+- full_name: malikEhsan09/RAG_Gemini
+  reason: unlicensed
+- full_name: AIApproach/AI-Approach-Chat
+  reason: unlicensed
+- full_name: kumareshbasu/Swasthya_AI
+  reason: unlicensed
+- full_name: niyati34/CaseyAi
+  reason: unlicensed
+- full_name: Abhijeet212004/AIvestor
+  reason: unlicensed
+- full_name: AyaCherqi/Football
+  reason: unlicensed
+surfaces:
+- change: embed-content
+  query: generativeai embed_content language:python
+  hits: 10880
+  examined: 12
+  outcome: drawn
+  drawn: LotusSerene/Gemini-Novel-Maker
+  skipped:
+  - full_name: WomB0ComB0/gdsc-umd-gen-ai-demo
+    reason: unlicensed
+  - full_name: squababa/Parallax
+    reason: unlicensed
+  - full_name: vigilvv/rag-preprocessor
+    reason: unlicensed
+  - full_name: andrey-olishchuk/excl
+    reason: unlicensed
+  - full_name: Jaimenms/techguide-ai
+    reason: unlicensed
+  - full_name: nileshpatil6/Rag
+    reason: unlicensed
+  - full_name: todomoldovan/1177chatbot
+    reason: unlicensed
+  - full_name: Thome07/RAG-Basico
+    reason: unlicensed
+  - full_name: MANIKANDAN1201/PubMed
+    reason: unlicensed
+  - full_name: arunkumar7778/api-project
+    reason: unlicensed
+  - full_name: snayp/NA-Consultant
+    reason: unlicensed
+- change: embed-content-async
+  query: generativeai embed_content_async language:python
+  hits: 1640
+  examined: 50
+  outcome: no_eligible_result
+  drawn: null
+  skipped:
+  - full_name: Spritan/expense_tracker
+    reason: no_such_finding
+  - full_name: RahulRajeev-0/TeamStudy
+    reason: unlicensed
+  - full_name: AkilLabs/Interview-IQ
+    reason: unlicensed
+  - full_name: AkilLabs/news_Categorization-
+    reason: unlicensed
+  - full_name: mudrikam/Rak-Arsip-2
+    reason: larger_than_cap
+  - full_name: MabelMoncy/TranscriberAppWithServer
+    reason: no_such_finding
+  - full_name: abbas-rz/Terminators
+    reason: no_such_finding
+  - full_name: Ambrosio1994/Agents
+    reason: unlicensed
+  - full_name: rouaaguesmi1/PneumaTect
+    reason: unlicensed
+  - full_name: ethan-tam33/la-hacks-proj
+    reason: larger_than_cap
+  - full_name: AkhilRaawat/SkillNest---LMS
+    reason: unlicensed
+  - full_name: JThePhysicist/DiggerOfDelphi-AWS
+    reason: vendors_the_sdk
+  - full_name: sjxchng/llm-gateway
+    reason: vendors_the_sdk
+  - full_name: Rohantech231/Lexify
+    reason: unlicensed
+  - full_name: Yaser-123/Infozap
+    reason: no_such_finding
+  - full_name: AhmedShafique313/AutoBiz-Genie
+    reason: unlicensed
+  - full_name: blayyyyyk/math-agent
+    reason: no_such_finding
+  - full_name: Chirag1522/MetaTrace
+    reason: larger_than_cap
+  - full_name: darknecrocities/Linguify
+    reason: unlicensed
+  - full_name: mzzkn7/nlp-audio-analyzer
+    reason: larger_than_cap
+  - full_name: gakale/jobportal
+    reason: unlicensed
+  - full_name: Srilochan7/Saul-ai
+    reason: unlicensed
+  - full_name: fahad0samara/PaLM2-Django-react
+    reason: no_such_finding
+  - full_name: ShakillBDO/bdoGpt-streamlitUI
+    reason: larger_than_cap
+  - full_name: ZachCharlick/generative-ai-python-for-3.8
+    reason: clone_budget_spent
+  - full_name: Saintgits-MCA/JobAi
+    reason: unlicensed
+  - full_name: sakshambajaj17/youtubemajor
+    reason: unlicensed
+  - full_name: matteovar/LabAccess
+    reason: larger_than_cap
+  - full_name: prateeksingh168/Chatbot-AI
+    reason: clone_budget_spent
+  - full_name: AltafParekh2001/ChatBot_HF
+    reason: larger_than_cap
+  - full_name: yeerrrr/metagpt-defense-inject
+    reason: larger_than_cap
+  - full_name: NikosBelibasakis/InstaGuide
+    reason: clone_budget_spent
+  - full_name: MAanas078/HackOrbit-ILLUMINATI
+    reason: unlicensed
+  - full_name: Hyoni1129/anki-ai-toolkit
+    reason: unlicensed
+  - full_name: shaunpimenta/Adzooop
+    reason: larger_than_cap
+  - full_name: Divina-s/DigiChamp
+    reason: clone_budget_spent
+  - full_name: dannguyen24/StudyEZ
+    reason: unlicensed
+  - full_name: Khavanw/Generative-AI-Application
+    reason: larger_than_cap
+  - full_name: anmoltriv/Resume-Analyzer-
+    reason: clone_budget_spent
+  - full_name: yogeshkamisetty/Pramaan-The-Intelligence
+    reason: unlicensed
+  - full_name: rocketbot-cl/Gemini
+    reason: unlicensed
+  - full_name: Ashirwad2004/automated-question-genrator-using-genrativeAi-
+    reason: larger_than_cap
+  - full_name: him6794/Restricted-Python
+    reason: unlicensed
+  - full_name: Dhairya-Dave-0204/Example
+    reason: unlicensed
+  - full_name: PreetShah77/Med-tech
+    reason: unlicensed
+  - full_name: DakshVerma11/ET_GenAI_Hackathon
+    reason: unlicensed
+  - full_name: Jayanth-0703/PARKER
+    reason: clone_budget_spent
+  - full_name: dhanushpachabhatla/CodeScrybe-Legacy-Repository-AI-Covasant-hackathon-
+    reason: unlicensed
+  - full_name: pavan-k1/Pydoc_generator
+    reason: larger_than_cap
+  - full_name: maruthi-sreeram-p/online-medication-and-prescription-tracker
+    reason: clone_budget_spent
+- change: delete-file
+  query: generativeai delete_file language:python
+  hits: 4528
+  examined: 31
+  outcome: drawn
+  drawn: AmineChr54/CleanVision-Futury_AI-Hackathon
+  skipped:
+  - full_name: mzzkn7/nlp-audio-analyzer
+    reason: larger_than_cap
+  - full_name: Hyoni1129/anki-ai-toolkit
+    reason: unlicensed
+  - full_name: IshanJ9/InterviewBuddy
+    reason: unlicensed
+  - full_name: DISAMCHARLAPRABHAS/newapp
+    reason: unlicensed
+  - full_name: Suryareddy180/PROMPT2POST
+    reason: unlicensed
+  - full_name: vedantbladers/expense-app
+    reason: unlicensed
+  - full_name: SHAKTHI-VEL/examace-flask
+    reason: unlicensed
+  - full_name: Divyansh21k/HackBridge
+    reason: unlicensed
+  - full_name: Aryan-Joshi-10/Fuel-Bill-Extraction-UsingLLM
+    reason: unlicensed
+  - full_name: Gokulsgn/Document-Genie-using-RAG-Framwork
+    reason: unlicensed
+  - full_name: sakshambajaj17/youtubemajor
+    reason: unlicensed
+  - full_name: furusunmk2/kaihatsu
+    reason: unlicensed
+  - full_name: MuhammadRabidShahid/HR-automation-management-System
+    reason: unlicensed
+  - full_name: mr-body/Helena-IA
+    reason: unlicensed
+  - full_name: Yoyo4052/Back_Rendimiento_Estudiantes
+    reason: unlicensed
+  - full_name: mr-robot-2211/feedback-driven-suggestion-mining
+    reason: unlicensed
+  - full_name: ahmed1magdy2/Free_Chatbot_from_Gemini
+    reason: unlicensed
+  - full_name: rksiitd1/bihar-12th-pyqs
+    reason: unlicensed
+  - full_name: gorjanradevski/dave
+    reason: unlicensed
+  - full_name: deepcharts/projects
+    reason: unlicensed
+  - full_name: WindyYam/gemini_voice_companion
+    reason: unlicensed
+  - full_name: MiniHacks/clippy
+    reason: unlicensed
+  - full_name: shahram8708/SmartCapture
+    reason: unlicensed
+  - full_name: shahram8708/Audio-Genie
+    reason: unlicensed
+  - full_name: shahram8708/VidSage
+    reason: unlicensed
+  - full_name: NaheedRayan/AnswerAnalyzer
+    reason: unlicensed
+  - full_name: shahram8708/Melody-Metrics
+    reason: unlicensed
+  - full_name: Rugvedrc/CodeSync-Collabrative-Code-Editor
+    reason: unlicensed
+  - full_name: ShettyVikas20/ATS-Tracker-Using-GeminiPro
+    reason: no_such_finding
+  - full_name: Jiachenghuan/AI4label
+    reason: unlicensed
+- change: list-files
+  query: generativeai list_files language:python
+  hits: 2344
+  examined: 50
+  outcome: no_eligible_result
+  drawn: null
+  skipped:
+  - full_name: GoogleCloudPlatform/python-docs-samples
+    reason: larger_than_cap
+  - full_name: Spritan/expense_tracker
+    reason: no_such_finding
+  - full_name: RahulRajeev-0/TeamStudy
+    reason: unlicensed
+  - full_name: AkilLabs/Interview-IQ
+    reason: unlicensed
+  - full_name: AkilLabs/news_Categorization-
+    reason: unlicensed
+  - full_name: mudrikam/Rak-Arsip-2
+    reason: larger_than_cap
+  - full_name: MabelMoncy/TranscriberAppWithServer
+    reason: no_such_finding
+  - full_name: abbas-rz/Terminators
+    reason: no_such_finding
+  - full_name: rouaaguesmi1/PneumaTect
+    reason: unlicensed
+  - full_name: ethan-tam33/la-hacks-proj
+    reason: larger_than_cap
+  - full_name: SamG1123/Gemini-chat
+    reason: unlicensed
+  - full_name: JThePhysicist/DiggerOfDelphi-AWS
+    reason: vendors_the_sdk
+  - full_name: sjxchng/llm-gateway
+    reason: vendors_the_sdk
+  - full_name: Yaser-123/Infozap
+    reason: no_such_finding
+  - full_name: Rohantech231/Lexify
+    reason: unlicensed
+  - full_name: AhmedShafique313/AutoBiz-Genie
+    reason: unlicensed
+  - full_name: dev-128bit/generative-chatbot-vortex
+    reason: unlicensed
+  - full_name: Chirag1522/MetaTrace
+    reason: larger_than_cap
+  - full_name: ArnuvRaina/Intel-ML
+    reason: larger_than_cap
+  - full_name: mzzkn7/nlp-audio-analyzer
+    reason: larger_than_cap
+  - full_name: darknecrocities/Linguify
+    reason: unlicensed
+  - full_name: gakale/jobportal
+    reason: unlicensed
+  - full_name: Srilochan7/Saul-ai
+    reason: unlicensed
+  - full_name: fahad0samara/PaLM2-Django-react
+    reason: no_such_finding
+  - full_name: ShakillBDO/bdoGpt-streamlitUI
+    reason: larger_than_cap
+  - full_name: ZachCharlick/generative-ai-python-for-3.8
+    reason: vendors_the_sdk
+  - full_name: Saintgits-MCA/JobAi
+    reason: unlicensed
+  - full_name: sakshambajaj17/youtubemajor
+    reason: unlicensed
+  - full_name: mutuiris/eco-support-system
+    reason: unlicensed
+  - full_name: matteovar/LabAccess
+    reason: larger_than_cap
+  - full_name: AltafParekh2001/ChatBot_HF
+    reason: larger_than_cap
+  - full_name: NikosBelibasakis/InstaGuide
+    reason: clone_budget_spent
+  - full_name: Hyoni1129/anki-ai-toolkit
+    reason: unlicensed
+  - full_name: Khavanw/Generative-AI-Application
+    reason: larger_than_cap
+  - full_name: chinnareddemma-kotam/resume_parsing-and-job-recommendation-system
+    reason: clone_budget_spent
+  - full_name: Divina-s/DigiChamp
+    reason: clone_budget_spent
+  - full_name: shaunpimenta/Adzooop
+    reason: larger_than_cap
+  - full_name: yogeshkamisetty/Pramaan-The-Intelligence
+    reason: unlicensed
+  - full_name: rocketbot-cl/Gemini
+    reason: unlicensed
+  - full_name: Ashirwad2004/automated-question-genrator-using-genrativeAi-
+    reason: larger_than_cap
+  - full_name: DakshVerma11/ET_GenAI_Hackathon
+    reason: unlicensed
+  - full_name: Dhairya-Dave-0204/Example
+    reason: unlicensed
+  - full_name: yupx20/finselor
+    reason: clone_budget_spent
+  - full_name: PreetShah77/Med-tech
+    reason: unlicensed
+  - full_name: Jayanth-0703/PARKER
+    reason: clone_budget_spent
+  - full_name: dhanushpachabhatla/CodeScrybe-Legacy-Repository-AI-Covasant-hackathon-
+    reason: unlicensed
+  - full_name: pavan-k1/Pydoc_generator
+    reason: larger_than_cap
+  - full_name: Sohxn/feathermail
+    reason: clone_budget_spent
+  - full_name: wasayabasi/rag-powered-shopbot-langchain-pinecone-gemini
+    reason: unlicensed
+  - full_name: Dharinesh/Document-QnA-RAG-App-with--Gemma--Groq
+    reason: larger_than_cap
+- change: get-model
+  query: generativeai get_model language:python
+  hits: 15168
+  examined: 50
+  outcome: no_eligible_result
+  drawn: null
+  skipped:
+  - full_name: CatalinaCorrea-png/pre-entrega-2-CODER-AI-ENGINEERING
+    reason: unlicensed
+  - full_name: cnkumar20/agentdd
+    reason: unlicensed
+  - full_name: Menooker/Kestrel
+    reason: no_such_finding
+  - full_name: Nachoeigu/agentic-customer-service-medical-clinic
+    reason: unlicensed
+  - full_name: QuentinFuxa/PolyRAG
+    reason: no_such_finding
+  - full_name: jpinedaa/Maskarama
+    reason: no_such_finding
+  - full_name: pradumkumar6/oops_project
+    reason: no_such_finding
+  - full_name: Niladribhusan-1/oss-compass-
+    reason: no_such_finding
+  - full_name: apsquared/lg-agents
+    reason: no_such_finding
+  - full_name: keshavthombare169-hub/Language-Learning-Resource-Finder
+    reason: unlicensed
+  - full_name: Gomathi-Raji/Laura-bot
+    reason: unlicensed
+  - full_name: abhhiixxhek/analysis
+    reason: unlicensed
+  - full_name: swarajkumarsingh/ats-project
+    reason: no_such_finding
+  - full_name: NeolGG/DreadEye
+    reason: unlicensed
+  - full_name: PoorvaJawale/nlp-app-project
+    reason: unlicensed
+  - full_name: Pukar77/SambidhanSathi-Our_Legal_Guide
+    reason: unlicensed
+  - full_name: max-d3v/product_finder_AI
+    reason: unlicensed
+  - full_name: Md-Abu-Omayer-Babu/genai-custom-chatbot
+    reason: unlicensed
+  - full_name: ramdronadula414/Scriptoria-film-ai-maker
+    reason: unlicensed
+  - full_name: RidaHajjAli/ToolTube
+    reason: no_such_finding
+  - full_name: RiduanAziz/Inception-FSDS-Python-Code
+    reason: clone_budget_spent
+  - full_name: perlman-izzy/geminiswarm1
+    reason: unlicensed
+  - full_name: whitestardeveloper/auto-question-generation-app
+    reason: unlicensed
+  - full_name: divyansh0-ai/ReliefOS
+    reason: unlicensed
+  - full_name: confusedconsciousness/intellibot
+    reason: clone_budget_spent
+  - full_name: mdsazzathossain1/GradResearch_AI
+    reason: clone_budget_spent
+  - full_name: realprakhararya/shl_recommend
+    reason: unlicensed
+  - full_name: jubayerhu1/Python-Code
+    reason: clone_budget_spent
+  - full_name: MarcosEscolar/TFG_MarcosEscolar
+    reason: unlicensed
+  - full_name: navinxqz/NLP-App
+    reason: unlicensed
+  - full_name: ammarlodhi255/simple-gemini-chatbot-with-chat-saving-feature-end-to-end
+    reason: clone_budget_spent
+  - full_name: IMNearth/CoAT
+    reason: unlicensed
+  - full_name: LMLK-seal/Repo-Helper-AI
+    reason: unlicensed
+  - full_name: skadlem/roof-bot
+    reason: unlicensed
+  - full_name: BANZOM/Food-and-Wellness-Synergy
+    reason: clone_budget_spent
+  - full_name: ASHR12/GeminiMultiModalStreamlit
+    reason: unlicensed
+  - full_name: TeemMoi/ai_playwright_demo
+    reason: unlicensed
+  - full_name: SXV357/Quizz.It
+    reason: clone_budget_spent
+  - full_name: darry-Jnr/Auraguard
+    reason: unlicensed
+  - full_name: AndrewAcomb/subtext
+    reason: unlicensed
+  - full_name: saidul2017/LBDTA
+    reason: unlicensed
+  - full_name: Aditya190803/Blog_generation
+    reason: unlicensed
+  - full_name: Shreshtha2o/Quote-Generator
+    reason: unlicensed
+  - full_name: Ankit2006Raj/AI-Content-Creator
+    reason: unlicensed
+  - full_name: mycguo/ai-personal-assistant
+    reason: clone_budget_spent
+  - full_name: hansen1416/artworks-server
+    reason: unlicensed
+  - full_name: Anschoudary/DocChat
+    reason: unlicensed
+  - full_name: Miles-Butler274/Project3
+    reason: unlicensed
+  - full_name: jyeong479/Recor_D-BE
+    reason: unlicensed
+  - full_name: majilacodes/Intervue
+    reason: unlicensed
+- change: flag-function-calling-types
+  query: generativeai FunctionDeclaration language:python
+  hits: 4347
+  examined: 50
+  outcome: no_eligible_result
+  drawn: null
+  skipped:
+  - full_name: Spritan/expense_tracker
+    reason: no_such_finding
+  - full_name: rouaaguesmi1/PneumaTect
+    reason: unlicensed
+  - full_name: Yaser-123/Infozap
+    reason: no_such_finding
+  - full_name: sjxchng/llm-gateway
+    reason: vendors_the_sdk
+  - full_name: AhmedShafique313/AutoBiz-Genie
+    reason: unlicensed
+  - full_name: ZachCharlick/generative-ai-python-for-3.8
+    reason: vendors_the_sdk
+  - full_name: Hyoni1129/anki-ai-toolkit
+    reason: unlicensed
+  - full_name: rocketbot-cl/Gemini
+    reason: unlicensed
+  - full_name: yogeshkamisetty/Pramaan-The-Intelligence
+    reason: unlicensed
+  - full_name: ngaoah257/giamdinh
+    reason: unlicensed
+  - full_name: AVISRJ062002/ai-resume-screening-system
+    reason: unlicensed
+  - full_name: Saran-KJ/edupulse
+    reason: unlicensed
+  - full_name: MandelaDoondiUshasri/Essentia
+    reason: unlicensed
+  - full_name: antiborder/japanese-learn-api
+    reason: unlicensed
+  - full_name: IshanJ9/InterviewBuddy
+    reason: unlicensed
+  - full_name: shashankkale06/tour-itinerary-chatbot
+    reason: unlicensed
+  - full_name: riya-singh10/movie-genre-mixer-chatbot
+    reason: unlicensed
+  - full_name: 22AmitDeo/AI-Powered-Health-Insurance-Explainer
+    reason: unlicensed
+  - full_name: shrivathsav-kotla-07/piazza-hackathon-CRM
+    reason: unlicensed
+  - full_name: dahamkakooza/agro-gram
+    reason: unlicensed
+  - full_name: Aryan-Joshi-10/Fuel-Bill-Extraction-UsingLLM
+    reason: unlicensed
+  - full_name: Dhyan011/Gotham
+    reason: unlicensed
+  - full_name: Kiri-Sigh/Intelligent-Job-Matching-SE
+    reason: unlicensed
+  - full_name: jayaprakash2207/OrchestrAI-ERP
+    reason: unlicensed
+  - full_name: srinithi5011/Nidaan_AI
+    reason: unlicensed
+  - full_name: venom475/Chatbot
+    reason: unlicensed
+  - full_name: amerob/VisionLane
+    reason: unlicensed
+  - full_name: Touseeq99/ASK-THE-PDF-GEMINI
+    reason: unlicensed
+  - full_name: aayu12345/mcq-generator
+    reason: unlicensed
+  - full_name: JThePhysicist/DiggerOfDelphi-AWS
+    reason: vendors_the_sdk
+  - full_name: Gayathrirep/https---github.com-Gayathrirep-Vs
+    reason: unlicensed
+  - full_name: booboolean1/appraise1
+    reason: unlicensed
+  - full_name: Dharinesh/gamified_public_speaking
+    reason: unlicensed
+  - full_name: sky-akash/AI-Agents
+    reason: unlicensed
+  - full_name: sakshambajaj17/youtubemajor
+    reason: unlicensed
+  - full_name: Oaklight/llm-rosetta
+    reason: no_such_finding
+  - full_name: Abhishek992001/code-backup
+    reason: unlicensed
+  - full_name: YeQing17-2026/OmniAgent
+    reason: unlicensed
+  - full_name: raizamartin/gemini-code
+    reason: unlicensed
+  - full_name: ChristineYII/ELIA
+    reason: unlicensed
+  - full_name: Ashar117/pi
+    reason: no_such_finding
+  - full_name: NotSava/.agents
+    reason: unlicensed
+  - full_name: niteshsinwar/playwright-mcp-agent
+    reason: unlicensed
+  - full_name: camel-ai/crab
+    reason: unlicensed
+  - full_name: Abishai95141/Cause_Way
+    reason: no_such_finding
+  - full_name: AnswerDotAI/gaspard
+    reason: clone_budget_spent
+  - full_name: omicverse/omicverse
+    reason: clone_budget_spent
+  - full_name: compass-agent/compass
+    reason: larger_than_cap
+  - full_name: peer-preservation/main
+    reason: clone_budget_spent
+  - full_name: ms82119/NiFiMCP
+    reason: clone_budget_spent
+- change: flag-legacy-module-reached-indirectly
+  query: generativeai patch language:python
+  hits: 18528
+  examined: 50
+  outcome: no_eligible_result
+  drawn: null
+  skipped:
+  - full_name: vaibhav3000/llm-book-pipeline
+    reason: no_such_finding
+  - full_name: WilliamDjo/Deutsche-Bahn-Transit-API
+    reason: unlicensed
+  - full_name: UDAYKUMAR5101/mediai_backend
+    reason: unlicensed
+  - full_name: LianqiangZhao-Cyber/API_Knowledge
+    reason: unlicensed
+  - full_name: was0A/Gemini.el
+    reason: no_such_finding
+  - full_name: heshengtao/comfyui_LLM_party
+    reason: no_such_finding
+  - full_name: qanteSm/SENTIENT_OS
+    reason: unlicensed
+  - full_name: ElizeuBrito/ai-testing-helper
+    reason: unlicensed
+  - full_name: meenakhose/swati_api
+    reason: unlicensed
+  - full_name: TencentARC/Video-Holmes
+    reason: no_such_finding
+  - full_name: PoonamJ31/Heart-Disease-Prediction-Chatbot
+    reason: unlicensed
+  - full_name: sainiswayam-9/chatroom_image_audio
+    reason: unlicensed
+  - full_name: ltroin/llm_attack_defense_arena
+    reason: unlicensed
+  - full_name: Emranbiswas/AIDoctor
+    reason: unlicensed
+  - full_name: phil65/jinjarope
+    reason: no_such_finding
+  - full_name: ClydeReborn/API
+    reason: no_such_finding
+  - full_name: izgorodin/langgraph-data-analysis-agent
+    reason: unlicensed
+  - full_name: Aditya6799/upi-fraud-detection
+    reason: unlicensed
+  - full_name: ArunachalamM101202/House-Layout-Generator
+    reason: no_such_finding
+  - full_name: shubhamtyagi06/BRAINORMER-Brain-Tumor-Detector
+    reason: unlicensed
+  - full_name: wyojustin/Vibe
+    reason: unlicensed
+  - full_name: ai-paas/pmmgr
+    reason: unlicensed
+  - full_name: UllrAI/Vibe-PR-Reviewer
+    reason: unlicensed
+  - full_name: LeoBarraza0/GraphMind
+    reason: unlicensed
+  - full_name: NikhilKottoli/LLM-Warden
+    reason: no_such_finding
+  - full_name: esauvisky/patchwork
+    reason: unlicensed
+  - full_name: Manjunadh9/Advanced-Phishing-Detection-System
+    reason: unlicensed
+  - full_name: ReaLLMASIC/gLayout
+    reason: clone_budget_spent
+  - full_name: Curiosity10/feed-post
+    reason: unlicensed
+  - full_name: key4ng/lite-cc
+    reason: clone_budget_spent
+  - full_name: gaetan-warin/AI-VTUBER-Twitch-Chat-Bot
+    reason: clone_budget_spent
+  - full_name: MrDunky14/Aether-M
+    reason: clone_budget_spent
+  - full_name: gsumanth101/project_k
+    reason: unlicensed
+  - full_name: sssx223/SupplyScout
+    reason: unlicensed
+  - full_name: dimashartono/desktop-translator
+    reason: unlicensed
+  - full_name: kumar1720/LangGraph_Chatbot
+    reason: clone_budget_spent
+  - full_name: RohitPhaniramSakamuri/model-repo
+    reason: unlicensed
+  - full_name: NightBlobby/N.I.R.A
+    reason: unlicensed
+  - full_name: Aanand2204/Software-Debugger
+    reason: unlicensed
+  - full_name: duzinhoml/nordbot
+    reason: unlicensed
+  - full_name: AryaLolusare2712/Multi-Agent-Problem-Solver
+    reason: unlicensed
+  - full_name: Slumbersaga/cli_chatapp
+    reason: unlicensed
+  - full_name: afifalhauzan/fastapi_aisdk_reference
+    reason: unlicensed
+  - full_name: pranavraj012/code-deepdive
+    reason: clone_budget_spent
+  - full_name: SanjaiSrivatsan/Web_Ai_Chatbot
+    reason: unlicensed
+  - full_name: HKUST-LongGroup/CLIPDrag
+    reason: clone_budget_spent
+  - full_name: dilansachcha/retail-analytics
+    reason: unlicensed
+  - full_name: mr-beaver/tokencost
+    reason: unlicensed
+  - full_name: SantoshKumarGupta-iisc/HealthifyAIBot
+    reason: unlicensed
+  - full_name: jericho1050/calorie-contra
+    reason: clone_budget_spent
+- change: flag-out-of-scope-surfaces
+  query: generativeai protos language:python
+  hits: 15424
+  examined: 12
+  outcome: drawn
+  drawn: ImprintLab/Medical-Graph-RAG
+  skipped:
+  - full_name: AkilLabs/Interview-IQ
+    reason: unlicensed
+  - full_name: sjxchng/llm-gateway
+    reason: vendors_the_sdk
+  - full_name: Rohantech231/Lexify
+    reason: unlicensed
+  - full_name: Hyoni1129/anki-ai-toolkit
+    reason: unlicensed
+  - full_name: yogeshkamisetty/Pramaan-The-Intelligence
+    reason: unlicensed
+  - full_name: rocketbot-cl/Gemini
+    reason: unlicensed
+  - full_name: AVISRJ062002/ai-resume-screening-system
+    reason: unlicensed
+  - full_name: Divyansh21k/HackBridge
+    reason: unlicensed
+  - full_name: Aryan-Joshi-10/Fuel-Bill-Extraction-UsingLLM
+    reason: unlicensed
+  - full_name: Atharv625/ai-briefing-agent
+    reason: unlicensed
+  - full_name: Spritan/expense_tracker
+    reason: no_such_finding

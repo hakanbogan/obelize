@@ -1,0 +1,424 @@
+case: manifests
+after_file_is: none
+what_it_exercises: >-
+  The five dependency-manifest layouts a Python repository writes, in one
+  repository that is half migrated: `requirements*.txt` and the
+  `requirements/` directory form, PEP 621 `[project] dependencies`, a Poetry
+  group, a `Pipfile`, a `setup.cfg` extras table and a `setup.py`
+  `install_requires`. `app.py` migrates cleanly and `legacy.py` cannot, which
+  is what makes both halves of ADR-010 F-2 fire at once: the new pin is added
+  everywhere the legacy one is declared, and the legacy one is never removed.
+  Every manifest also carries the decoy the example application carries -- a
+  comment, a description or a URL whose text spells the distribution name
+  exactly -- because `manifest_dependency` matches a canonical distribution
+  name and not a substring.
+
+findings:
+  # =====================================================================
+  # app.py - the file that migrates, and therefore the reason F-2's first
+  # half fires at all: "add `google-genai`: auto as soon as at least one
+  # in-scope file has been migrated".
+  # =====================================================================
+  - file: app.py
+    line: 5
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      The aliased import, the one spelling five of the eight cases use. Nothing
+      in this file bails, so F-1 leaves the import rewritable.
+  - file: app.py
+    line: 7
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      The module's one `configure`, so D3 resolves this module's client source.
+      At module level, so the rewritten `genai.Client(...)` runs at import time
+      and ADR-010 F-6 makes the warning mandatory.
+  - file: app.py
+    line: 9
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: The constructor of the `MODEL` binding below.
+  - file: app.py
+    line: 14
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: auto
+    note: >-
+      The receiver is the module constant assigned once at line 9, which is the
+      shape `basic/app.py` grades and the one v0 resolves perfectly.
+
+  # =====================================================================
+  # legacy.py - the file that cannot migrate, and therefore the reason
+  # F-2's second half fires: this module still imports the legacy
+  # distribution after the run, so the legacy pin stays in every manifest.
+  # Same shape as `escapes/no_configure.py` and
+  # `examples/gemini-legacy-app/summarizer/summarize.py`.
+  # =====================================================================
+  - file: legacy.py
+    line: 3
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: file_not_fully_migrated
+    caused_by: [client_source_unresolved]
+    note: >-
+      ADR-010 F-1 with ADR-012: the import resolves perfectly and is withheld
+      because something else in the file bailed, so it names the cause rather
+      than a defect of its own. This is the row that leaves `legacy.py`
+      importing `google.generativeai` after `fix --apply`, which is exactly
+      what `repo_not_fully_migrated` is measuring below.
+  - file: legacy.py
+    line: 9
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      No `configure(...)` anywhere in this module, so ADR-008 D3 cannot name
+      the client the rewritten constructor call would need.
+  - file: legacy.py
+    line: 10
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: The receiver is bound one line up in the same function scope.
+
+  # =====================================================================
+  # requirements.txt - the bare pin, and F-2's two edits on one line.
+  # =====================================================================
+  - file: requirements.txt
+    line: 2
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: >-
+      ADR-010 F-2, first half: ADD the new distribution, because `app.py`
+      migrated and without the pin it imports a package the environment does
+      not have. Recorded on the line the new pin is written beside, which is
+      the declaration it replaces when the legacy pin can go.
+  - file: requirements.txt
+    line: 2
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      ADR-010 F-2, second half: do NOT remove the legacy pin. `legacy.py` still
+      imports the legacy distribution after the run, so both pins stay and the
+      repository runs on two SDKs until that file migrates. Removing it now
+      turns the next `pip install -r requirements.txt` into
+      `ModuleNotFoundError` at import.
+
+  # =====================================================================
+  # requirements/dev.txt - the directory layout, and the one manifest here
+  # that already names the new distribution while the code does not.
+  # =====================================================================
+  - file: requirements/dev.txt
+    line: 2
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: manifest_code_mismatch
+    note: >-
+      SCAN_VOCABULARY.md section 4: "the manifest declares the new distribution
+      while the code still uses the legacy one. Reported, never an edit." This
+      file declares `google-genai` and no legacy pin at all, so there is nothing
+      here to rewrite and nothing to add -- and a test environment built from it
+      cannot import what `legacy.py` imports. It is a review item and not
+      `not_a_usage`, because a manifest that merely *disagrees* with the code
+      declares a dependency nothing uses; this one contradicts it.
+
+  # =====================================================================
+  # pyproject.toml - PEP 621 `[project] dependencies` and a Poetry group,
+  # in one file, with the legacy name spelled two different ways. Both
+  # canonicalise to `google-generativeai` (PEP 503), which is what
+  # `manifest_dependency` matches on.
+  # =====================================================================
+  - file: pyproject.toml
+    line: 7
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half, beside the PEP 621 declaration on the same line.
+  - file: pyproject.toml
+    line: 7
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `Google_GenerativeAI==0.8.6`. The declaration is matched after
+      `packaging.utils.canonicalize_name`, which lower-cases and folds runs of
+      `-`, `_` and `.` into a single `-`; a scanner comparing the written text
+      misses this line and reports the repository as having no legacy pin.
+  - file: pyproject.toml
+    line: 15
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: >-
+      The Poetry group is a second install set in the same file, so it owes its
+      own pin: installing `test` does not install `[project] dependencies`.
+  - file: pyproject.toml
+    line: 15
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `[tool.poetry.group.test.dependencies]`, where the declaration is the
+      *key* rather than a requirement string. Poetry groups are named
+      explicitly because a scanner that only reads
+      `[tool.poetry.dependencies]` silently misses every development pin.
+
+  # =====================================================================
+  # Pipfile - TOML, and the declaration is a key in `[dev-packages]`.
+  # =====================================================================
+  - file: Pipfile
+    line: 10
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half.
+  - file: Pipfile
+    line: 10
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `[dev-packages]`, the Pipfile spelling of a development dependency. The
+      version is a bare specifier string rather than a full requirement, so a
+      parser that feeds the whole line to PEP 508 gets nothing here.
+
+  # =====================================================================
+  # setup.cfg - INI, where a value continues on indented lines and a
+  # comment is only a comment when it starts the line.
+  # =====================================================================
+  - file: setup.cfg
+    line: 12
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half.
+  - file: setup.cfg
+    line: 12
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `[options.extras_require]`, whose values continue across indented lines.
+      The declaration is the indented line 12, not the `gemini =` on line 10.
+
+  # =====================================================================
+  # setup.py - Python, so the declaration is a string literal inside a
+  # keyword argument and nothing else in the file is one.
+  # =====================================================================
+  - file: setup.py
+    line: 10
+    symbol: google.generativeai
+    kind: text_mention
+    confidence_reason: string_or_comment_mention
+    verdict: not_a_usage
+    note: >-
+      A keyword, and the one line in this case that both passes look at. The
+      code pass reports it as a prose mention -- it is the dotted module path in
+      a string that resolves to nothing -- and the manifest pass must not report
+      it at all, although `packaging.utils.canonicalize_name` folds
+      `google.generativeai` to the distribution name `google-generativeai`
+      (PEP 503 folds `.` as well as `_`). What separates it from line 12 is
+      where it sits: `keywords=` is not a dependency location.
+  - file: setup.py
+    line: 12
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half.
+  - file: setup.py
+    line: 12
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `install_requires=[...]`. This file is scanned twice -- once as a `.py`
+      source, which reports nothing in it, and once as a manifest -- and only
+      the second pass may name the hyphenated distribution, because it is not
+      an importable path (ADR-019's second detection rule).
+
+bindings:
+  - file: app.py
+    kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 9
+    use_lines: [14]
+    verdict: auto
+    note: Single assignment at module scope, one reference, a supported method.
+  - file: legacy.py
+    kind: name
+    name: model
+    scope: function:classify
+    ctor_line: 9
+    use_lines: [10]
+    verdict: needs_review
+    bail: client_source_unresolved
+    note: >-
+      The group itself is closed-world and would be automatic; what withholds
+      it is the module's missing client, one rung higher.
+
+must_not_report:
+  - file: requirements.txt
+    line: 3
+    why: >-
+      An unrelated pin. A line-order or "first requirement wins" heuristic
+      touches it.
+  - file: requirements.txt
+    line: 5
+    why: >-
+      A comment three lines below the declaration whose text spells
+      `google-generativeai==0.8.6` exactly. `manifest_dependency` parses
+      requirement lines, and `pip` reads everything after an unquoted `#` as a
+      comment; a substring match rewrites this line too.
+  - file: requirements.txt
+    line: 6
+    why: >-
+      `-e .` is an option, not a requirement. PEP 508 refuses every line
+      beginning with `-`, which is what keeps a `pip` flag out without a rule
+      of our own about the dash.
+  - file: requirements/dev.txt
+    line: 3
+    why: An unrelated pin.
+  - file: pyproject.toml
+    line: 4
+    why: >-
+      `description` names the distribution and is not a dependency location. A
+      scanner matching the canonical name anywhere in the file rewrites the
+      project's own description.
+  - file: pyproject.toml
+    line: 6
+    why: >-
+      A comment *inside* the `dependencies` array carrying a quoted string
+      whose text is character-identical to the declaration on the next line.
+      This is the TOML form of the example application's sharpest decoy.
+  - file: pyproject.toml
+    line: 8
+    why: An unrelated pin in the same array.
+  - file: pyproject.toml
+    line: 12
+    why: An unrelated pin in `[project.optional-dependencies]`.
+  - file: pyproject.toml
+    line: 16
+    why: An unrelated key in the Poetry group.
+  - file: Pipfile
+    line: 3
+    why: >-
+      An index URL whose path spells the distribution name. It is a value under
+      `[[source]]`, which is not a dependency table.
+  - file: Pipfile
+    line: 7
+    why: An unrelated key in `[packages]`.
+  - file: Pipfile
+    line: 11
+    why: An unrelated key in `[dev-packages]`.
+  - file: setup.cfg
+    line: 3
+    why: >-
+      `description` under `[metadata]` names the distribution and is not a
+      dependency location.
+  - file: setup.cfg
+    line: 7
+    why: An unrelated requirement under `[options] install_requires`.
+  - file: setup.cfg
+    line: 11
+    why: >-
+      A full-line comment inside the continued value, character-identical to
+      the declaration below it. In an INI file a comment is only a comment when
+      it begins the line -- `configparser` does not strip inline comments by
+      default -- so this is the one layout where the `#` rule differs.
+  - file: setup.cfg
+    line: 14
+    why: An unrelated requirement in a second extras key.
+  - file: setup.py
+    line: 3
+    why: >-
+      The module docstring names the hyphenated distribution. It is neither an
+      importable path nor a declaration, so neither pass reports it -- the
+      `summarizer/__init__.py:3` shape from the example application, in the one
+      file that *is* also a manifest.
+  - file: setup.py
+    line: 10
+    symbol: google-generativeai
+    why: >-
+      `keywords=["gemini", "google.generativeai"]` is a valid PEP 508
+      requirement string sitting outside every dependency keyword, and it
+      canonicalises to the distribution name exactly. A pass that collected
+      every string literal in the file declares it. The line is reported as a
+      prose mention by the *code* pass, which is a different symbol and a
+      different claim, so this row names the one that is forbidden.
+  - file: setup.py
+    line: 13
+    why: An unrelated requirement in the same list.
+  - file: setup.py
+    line: 15
+    why: An unrelated requirement under `extras_require`.
+
+notes: |
+  There are no `.after.py` answer keys here on purpose, for the reason
+  `import_forms/` has none: what this case grades is the manifest pass and the
+  repository-wide verdict, and the byte-exact output of a migrated module is
+  already pinned by `basic/app.after.py`. `app.py` and `legacy.py` exist to
+  make ADR-010 F-2's two conditions true at the same time -- something
+  migrated, something did not -- and are deliberately the two shapes the oracle
+  already grades elsewhere, so a failure here is a manifest failure and not a
+  new resolution question.
+
+  Why every legacy declaration produces TWO rows and `basic/requirements.txt`
+  produces one. F-2 is two edits on one declaration, graded separately. When
+  nothing blocks the removal the two collapse into a single rewrite of the
+  legacy line, which is what `basic/` grades and what its note calls
+  `google-generativeai==0.8.6` -> `google-genai>=1`. Here the removal is
+  blocked, so the add survives on its own and the legacy line keeps its text:
+  the same two edits, no longer expressible as one. Both rows sit on the
+  declaration's line because that is the address the edit has -- the new pin is
+  written beside the old one.
+
+  Why `requirements/dev.txt` gets no add row. It already declares the new
+  distribution; adding a second pin to the file that has one is the defect the
+  pack's own `fixtures/negative/requirements_already_new.txt` exists to catch.
+  It gets `manifest_code_mismatch` instead, which is about the *code*: the
+  environment this file builds cannot import what `legacy.py` imports.
+
+  The decoys were chosen so that each layout's comment rule differs from its
+  neighbour's. `requirements.txt` and `pyproject.toml` allow an inline comment
+  after a value; `setup.cfg` does not, so its decoy has to begin the line; and
+  `setup.py` has no comment decoy at all, because its risk is a string literal
+  in a docstring rather than a `#`. A single comment rule applied to all five
+  either misses line 11 of `setup.cfg` or eats line 3 of `requirements.txt`.

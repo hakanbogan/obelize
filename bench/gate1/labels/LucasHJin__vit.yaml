@@ -1,0 +1,125 @@
+# Answer key, written by hand before `obelize scan` was run against this
+# repository. Oracle discipline: the key comes first, or it is not a key.
+repository: LucasHJin/vit
+url: https://github.com/LucasHJin/vit
+sha: 472b94039b5c314bda67136432ea70be5f516215
+band: size:<1000
+license: MIT
+labeller: Hakan Bogan
+labelled_at: '2026-09-18'
+what_it_is: >-
+  A version-control tool for video editing timelines. The Gemini surface is one
+  module, `vit/ai_merge.py`, which reaches it twice and through two different
+  shapes: a private factory that imports, configures and constructs a model and
+  hands it back, and one function that does all three inline.
+files_read:
+  - setup.py
+  - vit/ai_merge.py
+  - tests/test_ai_merge.py
+call_sites:
+  - path: vit/ai_merge.py
+    line: 302
+    kind: import
+    symbol: google.generativeai
+    note: >-
+      Inside `try:` inside `_get_genai_model`, so it is both a local import and a
+      conditional binding. It is still the import a migration rewrites.
+  - path: vit/ai_merge.py
+    line: 314
+    kind: call
+    symbol: google.generativeai.configure
+    note: The module's first `configure`, inside the factory rather than at module level.
+  - path: vit/ai_merge.py
+    line: 316
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    note: >-
+      Returned to the caller, so the object escapes the scope that built it -- the
+      shape ADR-008 D3 has no client placement for.
+  - path: vit/ai_merge.py
+    line: 352
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: >-
+      Receiver bound on line 342 from `_get_genai_model(...)`, a local function's
+      return value. A human reads this as a legacy call site; whether a static
+      resolver can is the question this measurement is asking.
+  - path: vit/ai_merge.py
+    line: 395
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Same shape as line 352; receiver bound on line 387.
+  - path: vit/ai_merge.py
+    line: 426
+    kind: import
+    symbol: google.generativeai
+    note: The second local import, in `ai_resolve_merge`.
+  - path: vit/ai_merge.py
+    line: 436
+    kind: call
+    symbol: google.generativeai.configure
+    note: >-
+      The module's second `configure`. Two of them is `multiple_configure_calls`
+      by ADR-008 D3 whatever else is true of the file.
+  - path: vit/ai_merge.py
+    line: 443
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    note: Constructed and used in the same scope -- the one resolvable receiver in the file.
+  - path: vit/ai_merge.py
+    line: 447
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Receiver bound on line 443 in the same scope.
+  - path: vit/ai_merge.py
+    line: 718
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Receiver bound on line 688 from the factory.
+  - path: vit/ai_merge.py
+    line: 821
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Receiver bound on line 808 from the factory.
+  - path: vit/ai_merge.py
+    line: 874
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Receiver bound on line 867 from the factory.
+  - path: vit/ai_merge.py
+    line: 919
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    note: Receiver bound on line 912 from the factory.
+expected_other:
+  - path: setup.py
+    line: 10
+    kind: manifest
+    symbol: google-generativeai
+    note: >-
+      `install_requires` in a `setup.py`, unpinned. The same file declares
+      `python_requires=">=3.8"` on line 8, which admits an interpreter the new
+      distribution does not install on -- but `scan/runtime.py` deliberately does
+      not read `setup.py`, because it is code, so no `runtime_unsupported` is
+      expected here. This repository is the first real instance of that gap.
+must_not_report:
+  - path: vit/ai_merge.py
+    line: 305
+    why: >-
+      The hyphenated distribution name in an error message. ADR-019's third
+      detection rule: the hyphenated name is never a source finding.
+  - path: vit/ai_merge.py
+    line: 428
+    why: The same message in the second function, hyphenated twice on one line.
+  - path: tests/test_ai_merge.py
+    line: 263
+    why: >-
+      `@patch("vit.ai_merge._get_genai_model")` patches this repository's own
+      factory, not a legacy symbol, so it is not a `mock_patch_target`. Nine more
+      of these appear in the same file and none of them is a legacy usage.
+notes: >-
+  Thirteen actionable sites, seven of them a `generate_content` -- and six of
+  those seven have a receiver that came out of a local factory, the row notes
+  above say which. If a static resolver cannot follow a function
+  return -- and ADR-008 D3 says it does not -- this repository is where that
+  costs the most recall in the sample, which is why it is worth having in it.

@@ -1,0 +1,156 @@
+# The answer key for `flag_only`, written by hand before the rule.
+#
+# Every case comes out of the run byte-identical, and that is not a weak
+# assertion: this is the one kind that must never write, so "the file is exactly
+# as it went in" is the whole of what it promises about bytes. What it *does*
+# produce is the row a reader follows back to the pack's message and suggestion,
+# which is why every edit here names a `rule`.
+#
+# The corpus runs this rule alone rather than the whole registry. The other
+# transform corpora run everything because their output depends on what
+# `rename_import` and `configure_to_client` wrote; nothing here writes, so a
+# second rule in the loop would add rows this key is not about and hide the one
+# property worth asserting -- that each of the four `flag_only` changes claims
+# exactly the surfaces it names and none of the ones its neighbours name.
+#
+# `claimed` is the completeness half, asserted per case rather than listed: every
+# row the scan withheld under `flag_only_surface` or `attribute_removed` is
+# claimed by exactly one of the four changes. A surface the pack names and no
+# change owns would otherwise reach a report with no sentence beside it.
+case: flag_only
+pack: gemini/google-generativeai-to-google-genai
+rules:
+  - flag-function-calling-types
+  - flag-removed-object-attributes
+  - flag-legacy-module-reached-indirectly
+  - flag-out-of-scope-surfaces
+
+cases:
+  - file: tools
+    what_it_is: >-
+      The four legacy `types` classes that are the tools surface, and the third
+      of `COVERAGE.md` gap 1 that stayed open when T14 closed the other two.
+      Line 25 carries two of them, which is why a row is a finding and not a
+      line: `FunctionLibrary(...)` and the `Tool(...)` inside it are two
+      refusals on one statement.
+    rule: flag-function-calling-types
+    edits:
+      - {line: 23, status: needs_review, reason: flag_only_surface}
+      - {line: 24, status: needs_review, reason: flag_only_surface}
+      - {line: 25, status: needs_review, reason: flag_only_surface}
+      - {line: 25, status: needs_review, reason: flag_only_surface}
+
+  - file: chat_attributes
+    what_it_is: >-
+      The `attributes` channel, and the only one of the three whose status is
+      `unsupported` rather than `needs_review`. `history` became a method and
+      `last` has no counterpart, and the receiver is a `self_attr` binding,
+      which is the only shape a per-file scan resolves an instance read through.
+    rule: flag-removed-object-attributes
+    edits:
+      - {line: 19, status: unsupported, reason: attribute_removed}
+      - {line: 22, status: unsupported, reason: attribute_removed}
+
+  - file: model_fields
+    what_it_is: >-
+      The other two entries of the same channel, read off the class. An
+      attribute is matched whole and never by prefix, because `Model.base_model_id`
+      is not a prefix of anything and a dotted path that were would claim the
+      whole object.
+    rule: flag-removed-object-attributes
+    edits:
+      - {line: 12, status: unsupported, reason: attribute_removed}
+      - {line: 13, status: unsupported, reason: attribute_removed}
+
+  - file: patch_target
+    what_it_is: >-
+      The `mock_patch_target` shape, twice, and the mention that is not one.
+      `mock.patch` and `monkeypatch.setattr` are graded the same way because
+      the detector is keyed on the argument position and not on a list of
+      callees; `NOTE` on line 12 is the same characters in a position nothing
+      imports, so it is `not_a_usage` and carries no bail for this rule to read.
+    rule: flag-legacy-module-reached-indirectly
+    edits:
+      - {line: 16, status: needs_review, reason: flag_only_surface}
+      - {line: 18, status: needs_review, reason: flag_only_surface}
+
+  - file: dynamic_import
+    what_it_is: >-
+      The `dynamic_access` shape, in both spellings that fetch a module by name.
+      Neither file imports the legacy module at all, which is the point: this
+      channel matches a shape and not a resolved name, so it fires in a file
+      where the rest of the pack has nothing to look at.
+    rule: flag-legacy-module-reached-indirectly
+    edits:
+      - {line: 11, status: needs_review, reason: flag_only_surface}
+      - {line: 15, status: needs_review, reason: flag_only_surface}
+
+  - file: sys_modules_stub
+    what_it_is: >-
+      The third pattern id, and the one that is not a confidence reason: an
+      assignment into `sys.modules` is reported as `dynamic_access`, so a change
+      declaring `sys_modules_stub` claims it through the same reason the other
+      two dynamic shapes carry (ADR-019 D7).
+    rule: flag-legacy-module-reached-indirectly
+    edits:
+      - {line: 14, status: needs_review, reason: flag_only_surface}
+
+  - file: out_of_scope
+    what_it_is: >-
+      Nine of the eleven symbols the out-of-scope change names, in one module,
+      claimed by prefix: the pack names `protos` and `caching` and the findings
+      name classes and methods inside them.
+    rule: flag-out-of-scope-surfaces
+    edits:
+      - {line: 19, status: needs_review, reason: flag_only_surface}
+      - {line: 23, status: needs_review, reason: flag_only_surface}
+      - {line: 27, status: needs_review, reason: flag_only_surface}
+      - {line: 27, status: needs_review, reason: flag_only_surface}
+      - {line: 31, status: needs_review, reason: flag_only_surface}
+      - {line: 31, status: needs_review, reason: flag_only_surface}
+      - {line: 31, status: needs_review, reason: flag_only_surface}
+      - {line: 35, status: needs_review, reason: flag_only_surface}
+      - {line: 35, status: needs_review, reason: flag_only_surface}
+      - {line: 35, status: needs_review, reason: flag_only_surface}
+
+  - file: chat_rewind
+    what_it_is: >-
+      The remaining two of the eleven, which hang off an object rather than the
+      module. `rewind` is not one of the methods the pack maps, so the scan
+      reports it as an attribute read on a resolved receiver -- and rung 1
+      claims it before the binding group's own refusal can.
+    rule: flag-out-of-scope-surfaces
+    edits:
+      - {line: 15, status: needs_review, reason: flag_only_surface}
+      - {line: 22, status: needs_review, reason: flag_only_surface}
+
+  - file: two_surfaces
+    what_it_is: >-
+      Two changes in one file, which is the case that makes `rule_id` load
+      bearing: the scan says both lines are refused and cannot say by which of
+      the four, and the message a reader needs is on one of them.
+    rules:
+      flag-function-calling-types: [14]
+      flag-out-of-scope-surfaces: [18, 18]
+    edits:
+      - {line: 14, status: needs_review, reason: flag_only_surface}
+      - {line: 18, status: needs_review, reason: flag_only_surface}
+      - {line: 18, status: needs_review, reason: flag_only_surface}
+
+  - file: nothing_flagged
+    what_it_is: >-
+      The negative. A file the other rules migrate whole, read by the scan and
+      not skipped by the prefilter, so "no edits" is a statement about this rule
+      and not about whether the file was looked at.
+    rule: flag-out-of-scope-surfaces
+    edits: []
+
+  - file: rebound_alias
+    what_it_is: >-
+      A flagged shape in a file that is refused for a wider reason.
+      `module_alias_rebound` withholds every row with nothing more specific to
+      say and does not reach the dynamic access, because `flag_only_surface` is
+      rung 1 of `SCAN_VOCABULARY.md` section 6 and nothing displaces it.
+    rule: flag-legacy-module-reached-indirectly
+    edits:
+      - {line: 20, status: needs_review, reason: flag_only_surface}

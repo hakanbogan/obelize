@@ -1,0 +1,4 @@
+# The build backend for release, ci and e2e builds. Before bumping hatchling, check the
+# Metadata-Version its wheel declares: PyPI accepts up to 2.5.
+hatchling==1.32.4
+hatch-fancy-pypi-readme==25.1.0

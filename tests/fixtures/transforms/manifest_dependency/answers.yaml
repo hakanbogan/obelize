@@ -1,0 +1,239 @@
+# The answer key for `manifest_dependency`, written by hand before the rule.
+#
+# Five small repositories rather than five files, because what this rule writes
+# is decided over the whole repository and not over the manifest in front of
+# it: [ADR-010](../../../../docs/adr/ADR-010-fixture-oracle-and-atomicity.md)
+# F-2 makes the new pin owed as soon as *something* migrated and keeps the
+# legacy pin while *anything* still imports it, so the same manifest gets two
+# different edits depending on the Python files beside it. `clear/` and
+# `blocked/` are that pair, layout for layout.
+#
+# Each case is scanned with the real path -- walk, read, resolve, plan, then the
+# repository-wide manifest pass -- against the **bundled** pack, and the rule is
+# then run over each manifest's own bytes. A manifest with a key beside it must
+# come out byte-for-byte that key; every other manifest must come out exactly as
+# it went in, which is the claim `after: absent` makes.
+#
+# `edits` is every row the rule reports, in the order it reports them, which is
+# the reader's document order: at one address the new distribution sorts before
+# the legacy one, so an insertion's `auto` row is written above the
+# `repo_not_fully_migrated` row that is the reason for it.
+case: manifest_dependency
+rule: manifest-dependency
+pack: gemini/google-generativeai-to-google-genai
+
+cases:
+  # =====================================================================
+  # clear -- one module, and the rules migrate all of it. Nothing still
+  # imports the legacy distribution, so both halves of F-2 are clear and
+  # every legacy declaration is *replaced* rather than joined.
+  # =====================================================================
+  - case: clear
+    what_it_is: >-
+      The replacement, in all five layouts. `app.py` migrates whole and no file
+      blocks the removal, so each legacy declaration stops naming the legacy
+      distribution: the distribution span becomes `google-genai` and the version
+      span becomes `>=1`, and everything the author wrote around them -- the
+      indent, the quote, the trailing comma, the spaces around `=` -- stays.
+    migrated: [app.py]
+    blocking: []
+    manifests:
+      - file: requirements.txt
+        after: present
+        why: >-
+          The plainest layout, and the decoy above it: line 1 spells the
+          distribution exactly and is a comment, so the edit is on line 2 alone.
+        edits:
+          - {line: 2, status: auto}
+      - file: requirements/dev.txt
+        after: absent
+        why: >-
+          `google-generativeai[grpc]` carries an extra, and an extra is a name in
+          the *distribution's* namespace: `google-genai` declares no `grpc`, so
+          there is nothing for it to become and a rewrite that dropped it would
+          change what installs. Refused, and the refusal is local to the line --
+          nothing else in this file is touched either, because nothing else in
+          it is a legacy pin.
+        edits:
+          - {line: 3, status: needs_review, reason: manifest_pin_shape_unsupported}
+      - file: pyproject.toml
+        after: present
+        why: >-
+          Two layouts in one file and they are written differently. Line 5 is a
+          PEP 621 requirement string, so the whole `Google_GenerativeAI == 0.8.6`
+          becomes `google-genai>=1` -- the spelling folds under PEP 503 and the
+          spaces around `==` go with the version they belonged to. Line 10 is a
+          Poetry table *key*, so the distribution is the key and the version is
+          the value inside its quotes, and the `=` between them is untouched.
+        edits:
+          - {line: 5, status: auto}
+          - {line: 10, status: auto}
+      - file: Pipfile
+        after: present
+        why: The table-key form again, under Pipenv's own table name.
+        edits:
+          - {line: 2, status: auto}
+      - file: setup.cfg
+        after: present
+        why: >-
+          An indented continuation line, whose indent is part of the value and
+          is therefore kept exactly.
+        edits:
+          - {line: 7, status: auto}
+      - file: setup.py
+        after: present
+        why: >-
+          The one layout that is Python. The declaration is the string literal
+          inside `install_requires` and not the docstring above it, which names
+          the distribution in prose on line 1.
+        edits:
+          - {line: 9, status: auto}
+
+  # =====================================================================
+  # blocked -- `legacy.py` configures its credentials somewhere this
+  # repository cannot see, so it still imports the legacy distribution
+  # after the run. The new pin is owed and the legacy pin stays.
+  # =====================================================================
+  - case: blocked
+    what_it_is: >-
+      The insertion, in all five layouts. The line the rule adds is the legacy
+      line with the two spans swapped, which is why each layout comes out in its
+      own spelling without the rule knowing which layout it is in.
+    migrated: [app.py]
+    blocking: [legacy.py]
+    manifests:
+      - file: requirements.txt
+        after: present
+        why: >-
+          The trailing comment travels onto the new line, and that is a decision
+          rather than an accident: a comment beside a dependency is prose about
+          that dependency, and the added line is the same dependency under the
+          name it has now.
+        edits:
+          - {line: 2, status: auto}
+          - {line: 2, status: needs_review, reason: repo_not_fully_migrated}
+      - file: requirements/dev.txt
+        after: absent
+        why: >-
+          Both distributions are already declared, so F-2's first half has
+          nothing to add and the reader emits no row for it. What is left is the
+          legacy pin, withheld for the same reason as everywhere else, and a
+          file the run does not write.
+        edits:
+          - {line: 3, status: needs_review, reason: repo_not_fully_migrated}
+      - file: pyproject.toml
+        after: present
+        why: >-
+          An array element keeps its indent, its quote and its trailing comma; a
+          table key keeps its spacing around `=` and its quotes.
+        edits:
+          - {line: 5, status: auto}
+          - {line: 5, status: needs_review, reason: repo_not_fully_migrated}
+          - {line: 10, status: auto}
+          - {line: 10, status: needs_review, reason: repo_not_fully_migrated}
+      - file: Pipfile
+        after: present
+        edits:
+          - {line: 2, status: auto}
+          - {line: 2, status: needs_review, reason: repo_not_fully_migrated}
+      - file: setup.cfg
+        after: present
+        edits:
+          - {line: 3, status: auto}
+          - {line: 3, status: needs_review, reason: repo_not_fully_migrated}
+      - file: setup.py
+        after: present
+        edits:
+          - {line: 8, status: auto}
+          - {line: 8, status: needs_review, reason: repo_not_fully_migrated}
+
+  # =====================================================================
+  # refused -- blocked like the case above, so every eligible row is an
+  # insertion, and every one of them is refused for a shape reason.
+  # =====================================================================
+  - case: refused
+    what_it_is: >-
+      The four shapes `manifest_pin_shape_unsupported` covers, three of them
+      about the *line* rather than the declaration. Every one of these files
+      comes out byte-identical, and every legacy pin in them is still reported.
+    migrated: [app.py]
+    blocking: [legacy.py]
+    manifests:
+      - file: requirements.txt
+        after: absent
+        why: >-
+          A direct reference. The version is a URL, so there is no version span
+          to write `>=1` into, and a line built from this one would point the
+          new distribution at a file belonging to the old one.
+        edits:
+          - {line: 3, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 3, status: needs_review, reason: repo_not_fully_migrated}
+      - file: pyproject.toml
+        after: absent
+        why: >-
+          Three lines, three reasons, one code. Line 4 carries the array's key,
+          so a copy of it would declare `dependencies` twice. Line 8 carries a
+          second declaration, so a copy of it would declare `httpx` twice. Line
+          12's value is an inline table rather than a version string, so there
+          is no span inside a quote to replace and the `extras` beside it would
+          be carried to a distribution that has none.
+        edits:
+          - {line: 4, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 4, status: needs_review, reason: repo_not_fully_migrated}
+          - {line: 8, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 8, status: needs_review, reason: repo_not_fully_migrated}
+          - {line: 12, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 12, status: needs_review, reason: repo_not_fully_migrated}
+      - file: setup.cfg
+        after: absent
+        why: >-
+          The value on the key's own line. A copy of it is a second
+          `install_requires` in one section, which `configparser` refuses
+          outright -- so the file would stop being readable rather than install
+          the wrong thing.
+        edits:
+          - {line: 2, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 2, status: needs_review, reason: repo_not_fully_migrated}
+
+  # =====================================================================
+  # unmigrated -- nothing migrated, and something still imports it.
+  # =====================================================================
+  - case: unmigrated
+    what_it_is: >-
+      The two rows the scan withholds and the rule reports without writing.
+      Neither is a defect of the manifest: the first says the repository is not
+      ready to drop the pin, the second says the manifest and the code disagree
+      about which SDK is installed.
+    migrated: []
+    blocking: [legacy.py]
+    manifests:
+      - file: requirements.txt
+        after: absent
+        edits:
+          - {line: 1, status: needs_review, reason: repo_not_fully_migrated}
+      - file: requirements/dev.txt
+        after: absent
+        why: >-
+          The new distribution declared over code that still imports the old
+          one. There is nothing here to rewrite and nothing to add, and a test
+          environment built from this file cannot import what `legacy.py`
+          imports.
+        edits:
+          - {line: 3, status: needs_review, reason: manifest_code_mismatch}
+
+  # =====================================================================
+  # dormant -- a pin nothing uses, in a repository with no legacy import.
+  # =====================================================================
+  - case: dormant
+    what_it_is: >-
+      The state F-2 does not name and `SCAN_VOCABULARY.md` section 3 does: a
+      manifest line that merely disagrees with the code. It is graded
+      `not_a_usage`, so there is no hunk under it and the rule reports no edit
+      at all -- removing it would be tidying somebody's manifest on the strength
+      of a migration this run did not make.
+    migrated: []
+    blocking: []
+    manifests:
+      - file: requirements.txt
+        after: absent
+        edits: []

@@ -1,0 +1,91 @@
+id: mixed
+origin: fixture
+control: false
+provider: gemini
+change: google-generativeai-to-google-genai
+install: []
+test_cmd: python check.py
+tests_require_network: false
+review:
+  human_edits: null
+  patch_correct: true
+  reviewer: Hakan Bogan
+  reviewed_at: '2026-09-21'
+ground_truth:
+  what_it_is: Two modules, one of each kind. `clean.py` is the shape the pack was written
+    for. `factory.py` hands its model object to a caller, which is the commonest reason a
+    real file is withheld, and the pin is withheld with it because the repository is not
+    fully migrated.
+  files_read:
+  - clean.py
+  - factory.py
+  - requirements.txt
+  - check.py
+  call_sites:
+  - path: clean.py
+    line: 5
+    kind: import
+    symbol: google.generativeai
+    label: auto
+  - path: clean.py
+    line: 7
+    kind: call
+    symbol: google.generativeai.configure
+    label: auto
+  - path: clean.py
+    line: 9
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    label: auto
+  - path: clean.py
+    line: 14
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    label: auto
+  - path: factory.py
+    line: 3
+    kind: import
+    symbol: google.generativeai
+    label: manual
+    why: Withheld with the rest of its file.
+  - path: factory.py
+    line: 5
+    kind: call
+    symbol: google.generativeai.configure
+    label: manual
+    why: The client this would become has to reach `make_model`, which returns the model to
+      a caller in another module. Nothing about that follows from this line.
+  - path: factory.py
+    line: 10
+    kind: call
+    symbol: google.generativeai.GenerativeModel
+    label: manual
+    why: The model object is returned, so a person decides where the client lives.
+  - path: factory.py
+    line: 14
+    kind: method_call
+    symbol: google.generativeai.GenerativeModel.generate_content
+    label: manual
+    why: 'Called on the return value of `make_model(name)`. The key pre-registered this as
+      a miss and the scanner found it: it reports the row and withholds it with
+      `receiver_unresolved`, which is the correction recorded in ADR-042.'
+  manifests:
+  - path: requirements.txt
+    line: 1
+    symbol: google-generativeai
+    label: manual
+    why: 'One file still imports the legacy distribution, so the **removal** of this pin is
+      withheld with `repo_not_fully_migrated`. The `google-genai` the migration needs is
+      added on the same line all the same, so a partially migrated repository ends up
+      pinning both distributions -- which is ADR-010 F-2 working, and the reason a key row
+      is matched on its symbol and not on its position.'
+  must_not_report: []
+  tests_cover_change: true
+  tests_cover_change_why: '`check.py` calls both modules. The half that migrated has to keep
+    returning what it returned, and so does the half obelize declined to touch -- a partial
+    migration that broke the file it left alone would be `wrong` and not `partial`.'
+notes: 'The partial case. `factory.py:14` is a method call on a call result; the key
+  recorded it as a miss the scanner would not make and the scanner made no miss, which is
+  one of the four corrections ADR-042 records. What this fixture is really for is the row
+  underneath it. `requirements.txt:1` holds two rows, one applied and one withheld, and
+  nothing else in the tree does.'

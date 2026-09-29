@@ -1,0 +1,289 @@
+# The answer key for what a model is asked about, written by hand before
+# `src/obelize/providers/base.py` existed.
+#
+# Four repositories and four cases. Every corpus before this one graded what
+# obelize decided about somebody's code; this one grades a question it decides
+# **not** to ask. [ADR-003](../../../docs/adr/ADR-003-model-adapter.md) says the
+# model is consulted only where the deterministic rules refused, and a rule
+# that is only ever exercised by the rows it *does* send is a rule whose whole
+# safety argument is untested. So both halves are written down: twelve
+# consultations, and twenty-one withheld rows that are not consultations, each
+# with the word for why.
+#
+# What is taken as given. The findings are T3's and T4's, the rewrite and its
+# bails are T10-T15's, the file atomicity is T16's and F-2 is T5's. All of that
+# is graded by six corpora of its own, and the `bail` recorded beside each row
+# below is read from those, not decided here. What is hand-written is only what
+# the consultation rule decides:
+#
+# **Which withheld rows are asked about.** `needs_review` and not `unsupported`
+# -- a surface the new SDK does not have is not a case a model can repair, it
+# is a case where there is nothing to repair it into. A parsed source file and
+# not a manifest. Not a row whose own bail is `file_not_fully_migrated`, whose
+# defect is in another row entirely and which `caused_by` already points at.
+# And not a row a `flag_only` rule refused, because that refusal is the pack's
+# policy and a model that overrode it would be overriding
+# [ADR-006](../../../docs/adr/ADR-006-pack-carries-no-code.md). Nor a
+# `configure` withheld because another module still runs on it: the defect is
+# in that module, and a model shown this one could only write the edit the
+# driver refused.
+#
+# **How much of the file goes with the question.** The smallest `def` or
+# `class` that holds the finding's whole binding group, because a group is
+# atomic and a proposal that can see half of one cannot be right about it; the
+# group's span plus twenty lines either side when no scope holds it; and
+# neither when neither fits the budget. `deep/long.py` is the repository that
+# reaches the third answer.
+#
+# **What never travels.** Every context is redacted through
+# `src/obelize/verify/redact.py` before it leaves. `redaction:` below names the
+# two strings that must be gone and the file each is in.
+
+case: providers
+pack: gemini/google-generativeai-to-google-genai
+
+# Case name -> the repository it is run over, relative to the repository root.
+# Three of the four are borrowed rather than copied: they are whole
+# repositories with answer keys of their own, and a fourth copy of `app.py`
+# would be a fourth thing to keep in step for no measurement.
+repositories:
+  app: tests/fixtures/commands/app
+  partial: tests/fixtures/commands/partial
+  deep: tests/fixtures/providers/deep
+  example: examples/gemini-legacy-app
+
+# The budget, in lines, that a context may not exceed, and the margin the
+# window arm puts either side of a group. Written here because `deep/long.py`
+# was built against these two numbers and stops measuring anything if they
+# move: at a larger budget `review` fits, and the third answer disappears.
+context:
+  line_limit: 80
+  margin: 20
+
+cases:
+  # ===================================================================
+  # app -- the negative control. Nothing is withheld, so nothing is
+  # asked, and this is the case that can fail in the one direction the
+  # other three cannot: a provider that is consulted at all here is a
+  # provider that would be consulted about code the rules migrated.
+  # ===================================================================
+  - case: app
+    repository: app
+    what_it_is: >-
+      The one repository in the corpus with nothing withheld. Five findings,
+      five of them automatic. A spy handed to this run must record zero calls.
+    consulted: []
+    skipped: []
+
+  # ===================================================================
+  # partial -- one file migrates and one does not. Two rows are asked
+  # about and three are not, and the three are the interesting ones:
+  # two are the import and the `configure` that F-1 dragged down with
+  # the group, and the third is a manifest.
+  # ===================================================================
+  - case: partial
+    repository: partial
+    what_it_is: >-
+      `held.py` holds a `generation_config` with a key the new SDK does not
+      have, so its group bails and F-1 withholds the file's import with it.
+      The two rows that carry the real defect are asked about; the two that
+      carry `file_not_fully_migrated` are not, because the defect they name is
+      the other two.
+    consulted:
+      - path: held.py
+        line: 15
+        symbol: google.generativeai.GenerativeModel
+        bail: generation_config_not_static
+        # `MODEL` is bound at 15 and used at 19. No `def` or `class` holds
+        # both -- 19 is inside `answer` and 15 is not -- so the window arm
+        # answers, and twenty lines either side of 15..19 is the whole file.
+        start_line: 1
+        end_line: 19
+        first: '"""The file a rule refuses, which is what leaves review items outstanding.'
+        last: "    return MODEL.generate_content(prompt).text"
+      - path: held.py
+        line: 19
+        symbol: google.generativeai.GenerativeModel.generate_content
+        bail: generation_config_not_static
+        start_line: 1
+        end_line: 19
+        first: '"""The file a rule refuses, which is what leaves review items outstanding.'
+        last: "    return MODEL.generate_content(prompt).text"
+    skipped:
+      - {path: held.py, line: 11, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: held.py, line: 13, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: requirements.txt, line: 1, bail: repo_not_fully_migrated, reason: not_a_source_file}
+
+  # ===================================================================
+  # deep -- the three shapes no borrowed repository has: a group inside
+  # a nested function, a group whose two ends are eighty-seven lines
+  # apart inside a function longer than the budget, and one line that
+  # belongs to two groups of different sizes.
+  # ===================================================================
+  - case: deep
+    repository: deep
+    what_it_is: >-
+      `nested.py` fixes which scope is taken -- the inner function that holds
+      the whole group, not the outer one that returns it -- and carries the
+      credential TM-3 names. `long.py` is the repository where the rule has to
+      answer "none": the enclosing function is eighty-eight lines and the
+      group alone spans eighty-seven, so neither arm fits eighty and the two
+      rows are not sent at all. `spread.py` is the third: one line in two
+      groups of different sizes, so that taking the union rather than the
+      last group found is a decision the key can falsify.
+    consulted:
+      - path: nested.py
+        line: 31
+        symbol: google.generativeai.GenerativeModel
+        bail: generation_config_not_static
+        # `model` is bound at 31 and used at 35, both inside `run`, which is
+        # the smallest scope that holds them. `make` also holds them and is
+        # not the answer.
+        start_line: 28
+        end_line: 35
+        first: "    def run(body):"
+        last: "        return model.generate_content(prefix + body).text"
+      - path: nested.py
+        line: 35
+        symbol: google.generativeai.GenerativeModel.generate_content
+        bail: generation_config_not_static
+        start_line: 28
+        end_line: 35
+        first: "    def run(body):"
+        last: "        return model.generate_content(prefix + body).text"
+      - path: spread.py
+        line: 20
+        symbol: google.generativeai.GenerativeModel
+        bail: generation_config_not_static
+        # `MODEL` is bound at 20 and used at 24. `talk` holds 24 and not 20,
+        # so no scope holds the group and the window takes the whole module.
+        start_line: 1
+        end_line: 25
+        first: '"""A line in two groups, where the two groups are not the same size.'
+        last: "    return chat.send_message(prompt).text"
+      - path: spread.py
+        line: 24
+        symbol: google.generativeai.GenerativeModel.start_chat
+        bail: generation_config_not_static
+        # The measurement: 24 is the last use of `MODEL` and the constructor
+        # of `chat`. `chat`'s group is 24 and 25 and fits inside `talk`;
+        # `MODEL`'s reaches 20 and does not. The union is what has to be
+        # covered, so this row gets the module and the row below gets `talk`.
+        start_line: 1
+        end_line: 25
+        first: '"""A line in two groups, where the two groups are not the same size.'
+        last: "    return chat.send_message(prompt).text"
+      - path: spread.py
+        line: 25
+        symbol: google.generativeai.ChatSession.send_message
+        bail: generation_config_not_static
+        start_line: 23
+        end_line: 25
+        first: "def talk(prompt):"
+        last: "    return chat.send_message(prompt).text"
+    skipped:
+      - {path: long.py, line: 17, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: long.py, line: 19, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: long.py, line: 23, bail: generation_config_not_static, reason: context_too_large}
+      - {path: long.py, line: 109, bail: generation_config_not_static, reason: context_too_large}
+      - {path: nested.py, line: 14, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: nested.py, line: 16, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: requirements.txt, line: 1, bail: repo_not_fully_migrated, reason: not_a_source_file}
+      - {path: spread.py, line: 16, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: spread.py, line: 18, bail: file_not_fully_migrated, reason: atomicity_only}
+
+  # ===================================================================
+  # example -- the application the whole project is demonstrated on,
+  # and the only case that reaches every skip reason except the one
+  # `deep/` was built for.
+  # ===================================================================
+  - case: example
+    repository: example
+    what_it_is: >-
+      Fourteen withheld rows and five questions. The three that are not asked
+      for atomicity are the three imports and nothing else; `config.py`'s
+      `configure` is withheld for what two other modules still need, which no
+      edit to that file repairs; the three `mock.patch` targets are the pack's
+      own refusal; `conversation.py:28` is an attribute the new SDK does not
+      have, which is the one row here that is `unsupported` rather than
+      `needs_review`.
+    consulted:
+      - path: summarizer/conversation.py
+        line: 13
+        symbol: google.generativeai.GenerativeModel
+        bail: client_source_unresolved
+        # `self.model` is bound at 13 and used at 14. `__init__` holds both,
+        # and it is smaller than the class, so it is the answer.
+        start_line: 11
+        end_line: 19
+        first: "    def __init__(self, summary):"
+        last: "        )"
+      - path: summarizer/conversation.py
+        line: 14
+        symbol: google.generativeai.GenerativeModel.start_chat
+        bail: client_source_unresolved
+        # Line 14 is in two groups: it is the last use of `self.model` and the
+        # constructor of `self.chat`, whose uses are at 23 and 28. The union
+        # is 13, 14, 23 and 28, and the smallest scope that holds all four is
+        # the class. This is the row that makes the rule "the group", not
+        # "the statement".
+        start_line: 8
+        end_line: 28
+        first: "class FollowUp:"
+        last: "        return len(self.chat.history)"
+      - path: summarizer/conversation.py
+        line: 23
+        symbol: google.generativeai.ChatSession.send_message
+        bail: client_source_unresolved
+        # `self.chat` again: 14, 23 and 28, so the class and not `ask`. A
+        # context of `ask` alone would not contain the `start_chat` call the
+        # chat came from, which is the one thing a proposal here has to know.
+        start_line: 8
+        end_line: 28
+        first: "class FollowUp:"
+        last: "        return len(self.chat.history)"
+      - path: summarizer/summarize.py
+        line: 27
+        symbol: google.generativeai.GenerativeModel
+        bail: client_source_unresolved
+        # No binding at all: `_model()` returns the constructor's result and
+        # nothing holds it. The group is the row itself, so the smallest scope
+        # that holds it is the function it sits in.
+        start_line: 26
+        end_line: 32
+        first: "def _model():"
+        last: "    )"
+      - path: summarizer/summarize.py
+        line: 39
+        symbol: google.generativeai.GenerativeModel.generate_content
+        bail: client_source_unresolved
+        start_line: 35
+        end_line: 40
+        first: "def summarize_text(body, sentences=3):"
+        last: "    return response.text.strip()"
+    skipped:
+      - {path: requirements.txt, line: 3, bail: repo_not_fully_migrated, reason: not_a_source_file}
+      - {path: summarizer/config.py, line: 9, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: summarizer/config.py, line: 22, bail: configure_consumed_elsewhere, reason: consumed_elsewhere}
+      - {path: summarizer/conversation.py, line: 3, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: summarizer/conversation.py, line: 28, bail: attribute_removed, reason: not_needs_review}
+      - {path: summarizer/summarize.py, line: 3, bail: file_not_fully_migrated, reason: atomicity_only}
+      - {path: tests/test_cli.py, line: 12, bail: flag_only_surface, reason: pack_refused}
+      - {path: tests/test_conversation.py, line: 18, bail: flag_only_surface, reason: pack_refused}
+      - {path: tests/test_summarize.py, line: 16, bail: flag_only_surface, reason: pack_refused}
+
+# The two strings that must not leave the machine, and the context each would
+# have travelled in. `absent` is the literal that is in the file and must not
+# be in the payload; `present` is what the redactor leaves in its place, so
+# that "the secret is absent" cannot pass over a context that was empty.
+redaction:
+  - case: deep
+    path: nested.py
+    line: 31
+    absent: AIzaSyD00000000000000000000000000000000
+    present: '[REDACTED]'
+  - case: partial
+    path: held.py
+    line: 15
+    absent: '"AIzaNotARealKey"'
+    present: 'api_key="[REDACTED]"'

@@ -1,0 +1,475 @@
+case: encoding
+after_file_is: fix_apply_output
+what_it_exercises: >-
+  The byte-level cases from ADR-008 "Reading and writing files" (C-08, C-09, C-10): a file is read as
+  bytes, parsed from bytes, gated on a byte round-trip, and compiled from bytes both before and after
+  any edit -- so a CRLF file, a latin-1 file with a PEP 263 cookie, a UTF-8 BOM file and a file with no
+  final newline all survive unchanged, while a bare-CR file is refused with roundtrip_mismatch and two
+  files are refused with parse_error from opposite gates -- a Python 2 file libcst parses and compile()
+  rejects, and a half-edited file libcst itself will not parse. Four of the seven files carry a
+  `.after.py` answer key, so the output bytes are graded too, not only the input bytes; the three that
+  do not are the three that must be left exactly as they are.
+
+findings:
+  # ---- crlf.py: every line terminated by CRLF. Round-trips, must migrate. ----
+  - file: crlf.py
+    line: 4
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: crlf.py
+    line: 6
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      Module level, so the rewritten `client = genai.Client(...)` now runs at import time, and
+      `os.environ.get("GEMINI_API_KEY", "")` is `""` whenever the variable is unset. ADR-010 F-6
+      grades this `auto` with the mandatory warning rather than bailing; the warning is what tells
+      the reader that importing this module can now raise `ValueError` where it used to succeed and
+      fail later. Same shape as `examples/gemini-legacy-app/summarizer/config.py`.
+  - file: crlf.py
+    line: 10
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      One positional argument, so C-22 does not arise. The statement is deleted and
+      `model="gemini-1.5-flash"` is folded into the one call site, per `basic/ground_truth.yaml`
+      note 2. There is no leading blank line to remove: it is the first statement in the function.
+  - file: crlf.py
+    line: 11
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+    note: >-
+      The `.text` access on the same line is part of this rewrite, not a separate finding: the new
+      SDK's GenerateContentResponse also exposes `.text`, so the response access is unchanged.
+
+  # ---- latin1_cookie.py: PEP 263 cookie + latin-1 bytes. Bytes in, bytes out. ----
+  - file: latin1_cookie.py
+    line: 5
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: latin1_cookie.py
+    line: 7
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      Module level, so the rewritten `client = genai.Client(...)` now runs at import time, and
+      `os.environ.get("GEMINI_API_KEY", "")` is `""` whenever the variable is unset. ADR-010 F-6
+      grades this `auto` with the mandatory warning rather than bailing; the warning is what tells
+      the reader that importing this module can now raise `ValueError` where it used to succeed and
+      fail later. Same shape as `examples/gemini-legacy-app/summarizer/config.py`.
+  - file: latin1_cookie.py
+    line: 13
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      Deleted and inlined exactly as in `crlf.py`, and for the same reason. The interesting part of
+      this file is that the rewrite happens inside latin-1 bytes: the emitted line is encoded with
+      the cookie's encoding, not the platform default.
+  - file: latin1_cookie.py
+    line: 14
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+
+  # ---- utf8_bom.py: UTF-8 BOM then ordinary source. ----
+  - file: utf8_bom.py
+    line: 4
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: utf8_bom.py
+    line: 6
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      Module level, so the rewritten `client = genai.Client(...)` now runs at import time, and
+      `os.environ.get("GEMINI_API_KEY", "")` is `""` whenever the variable is unset. ADR-010 F-6
+      grades this `auto` with the mandatory warning rather than bailing; the warning is what tells
+      the reader that importing this module can now raise `ValueError` where it used to succeed and
+      fail later. Same shape as `examples/gemini-legacy-app/summarizer/config.py`.
+  - file: utf8_bom.py
+    line: 10
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      Deleted and inlined exactly as in `crlf.py`. The BOM is three bytes of the file, not of the
+      first statement, so the edit never touches it.
+  - file: utf8_bom.py
+    line: 11
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+
+  # ---- bare_cr.py: C-09. Reported, never edited. ----
+  - file: bare_cr.py
+    line: 2
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: roundtrip_mismatch
+    note: >-
+      Bail `roundtrip_mismatch` (ADR-008 "Reading and writing files", PACK_SPEC bail table).
+      Observed: `cst.parse_module(data).bytes != data`, 1 byte lost -- the file's final `\r`. Every
+      finding in this file carries the same bail, because the refusal is file-wide: a correct
+      implementation reports all four and emits no edit for any of them. `confidence_reason` stays
+      the reason the USAGE resolved -- the alias resolves perfectly well, that is not what is
+      wrong -- and the refusal lives in `bail`. Splitting the two is ADR-010 F-5; this file
+      previously wrote `roundtrip_mismatch` in both fields.
+  - file: bare_cr.py
+    line: 4
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: roundtrip_mismatch
+    note: Same bail as line 2; the whole file is refused before any edit is produced.
+  - file: bare_cr.py
+    line: 5
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: needs_review
+    bail: roundtrip_mismatch
+    note: Same bail as line 2; the whole file is refused before any edit is produced.
+  - file: bare_cr.py
+    line: 6
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: needs_review
+    bail: roundtrip_mismatch
+    note: Same bail as line 2; the whole file is refused before any edit is produced.
+
+  # ---- python2.py: C-08. One parse_error finding, nothing else. ----
+  - file: python2.py
+    line: 7
+    symbol: "from __future__ import print_function"
+    kind: parse_error
+    confidence_reason: parse_error
+    verdict: unsupported
+    bail: input_does_not_parse
+    note: >-
+      `compile(data, path, "exec")` on the INPUT raises `SyntaxError: from __future__ imports must
+      occur at the beginning of the file` at lineno=7, offset=1, observed identically on 3.12, 3.13
+      and 3.14. libcst 1.9.0 parses the file without error and round-trips it byte-for-byte, so the
+      compile() gate on the input is the only thing that refuses it (ADR-008 "Run compile() on the
+      input as well as the output"). The file is emitted as `parse_error` and never edited; no usage
+      findings and no bindings are emitted for it, which is why the legacy import and constructor
+      appear under must_not_report instead. Coordinates come from `SyntaxError.lineno` (1-based);
+      ParserSyntaxError would instead give `.raw_line`/`.raw_column`, and it is not a SyntaxError
+      subclass. Re-derived for T38: the row was line 14, `except ValueError, e:`, which Python 3.14
+      compiles (PEP 758), so the old key held on every interpreter but the newest.
+
+  # ---- parser_syntax_error.py: C-08, the other branch. One parse_error finding. ----
+  - file: parser_syntax_error.py
+    line: 8
+    symbol: '    model = genai.GenerativeModel("gemini-1.5-flash")'
+    kind: parse_error
+    confidence_reason: parse_error
+    verdict: unsupported
+    bail: input_does_not_parse
+    note: >-
+      `cst.parse_module(data)` raises `cst.ParserSyntaxError` with `raw_line=8`, `raw_column=4` and
+      `editor_line=8`, `editor_column=5` (observed). This is the branch `python2.py` cannot reach:
+      there libcst parses and only `compile()` refuses, here libcst refuses first and no tree is built
+      at all, so nothing else about the file can be reported. Three rules meet in this one row.
+      `cst.ParserSyntaxError` is **not** a `SyntaxError` subclass, so a handler spelled
+      `except SyntaxError` lets it out and ends the run. The coordinates come from
+      `.raw_line`/`.raw_column` and not from `.editor_*`, which are one greater in the column and
+      would look plausible. And `compile()` on the same bytes raises
+      `SyntaxError: '(' was never closed` at `lineno=6`, `offset=22` -- **two lines earlier**, where
+      the bracket was actually left open -- so which number a report carries is decided by which gate
+      runs first, which ADR-017 settles rather than leaving it to whichever exception is handy.
+      `symbol` here is the source line at `line`, recorded the way `python2.py` records its own; the
+      runtime must emit `symbol: null` and `evidence: null`, because a source excerpt is exactly what
+      ADR-008 keeps out of the evidence -- and `cst.ParserSyntaxError.context`, which `str(exc)`
+      renders, is this very line with a caret under it.
+
+  # ---- no_trailing_newline.py: last line unterminated. ----
+  - file: no_trailing_newline.py
+    line: 4
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: no_trailing_newline.py
+    line: 6
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+    note: >-
+      Module level, so the rewritten `client = genai.Client(...)` now runs at import time, and
+      `os.environ.get("GEMINI_API_KEY", "")` is `""` whenever the variable is unset. ADR-010 F-6
+      grades this `auto` with the mandatory warning rather than bailing; the warning is what tells
+      the reader that importing this module can now raise `ValueError` where it used to succeed and
+      fail later. Same shape as `examples/gemini-legacy-app/summarizer/config.py`.
+  - file: no_trailing_newline.py
+    line: 8
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    note: >-
+      The only module-level constructor in this directory, so this is the row where
+      `basic/ground_truth.yaml` note 2 applies in full: the statement is deleted **together with its
+      single leading blank line**, which here leaves `client = ...` and `print(...)` adjacent. That
+      consequence is mechanical rather than chosen, and it is the first thing to re-check when the
+      layout rule is rewritten as an algorithm before T10.
+  - file: no_trailing_newline.py
+    line: 9
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_same_scope
+    verdict: auto
+    note: >-
+      The rewrite must not append a final newline. `Module.has_trailing_newline` is False for this
+      input and the emitted bytes must keep it False.
+
+bindings:
+  # The schema carries no `file` field on a binding, so each note names its file;
+  # `scope` is unique across the six fixtures and is the reliable key.
+  - kind: name
+    name: model
+    scope: function:digest
+    ctor_line: 10
+    use_lines: [11]
+    verdict: auto
+    note: crlf.py. Closed-world - one constructor, one use, no escape.
+  - kind: name
+    name: modele
+    scope: function:resumer
+    ctor_line: 13
+    use_lines: [14]
+    verdict: auto
+    note: latin1_cookie.py. Closed-world - one constructor, one use, no escape.
+  - kind: name
+    name: model
+    scope: function:draft
+    ctor_line: 10
+    use_lines: [11]
+    verdict: auto
+    note: utf8_bom.py. Closed-world - one constructor, one use, no escape.
+  - kind: module_const
+    name: model
+    scope: module
+    ctor_line: 5
+    use_lines: [6]
+    verdict: needs_review
+    bail: roundtrip_mismatch
+    note: >-
+      bare_cr.py. The binding itself is closed-world (one constructor, one use, no escape), but the
+      file carries the `roundtrip_mismatch` bail, so nothing in it may be edited.
+  - kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 8
+    use_lines: [9]
+    verdict: auto
+    note: no_trailing_newline.py. Closed-world - one constructor, one use, no escape.
+
+must_not_report:
+  - file: python2.py
+    line: 6
+    why: >-
+      libcst 1.9.0 parses the misplaced `from __future__ import print_function` at line 7 and
+      `print >>sys.stderr, x` (a right-shift inside a tuple, which is valid Python 3 syntax), so a
+      scanner that gates only on `cst.ParserSyntaxError` sees a clean module and emits an auto-fixable
+      import finding here -- on a file that is not a program. Only `compile()` on the input refuses it
+      (C-08).
+  - file: python2.py
+    line: 8
+    why: Same as line 6 -- a naive scanner emits an auto `configure` -> `Client` rewrite on a Python 2 file.
+  - file: python2.py
+    line: 17
+    why: Same as line 6 -- a naive scanner emits an auto constructor rewrite on a Python 2 file.
+  - file: python2.py
+    line: 18
+    why: Same as line 6 -- a naive scanner emits an auto `generate_content` rewrite on a Python 2 file.
+  - file: parser_syntax_error.py
+    line: 4
+    why: >-
+      The prefilter token `generativeai` is on this line, and the file yields **exactly one** finding
+      -- the `parse_error` at line 8 -- so the legacy import must not be reported here as a
+      `text_mention`. A scanner that runs the byte-level mention sweep independently of the parse gate
+      emits one, which reads as "we looked at this file" for a file nothing could look at.
+      SCAN_VOCABULARY.md section 7 states the rule: for a file that does not parse the kind and the
+      reason are the same fact, "because such a file yields exactly one finding and there is nothing
+      else to say about it".
+  - file: _build.py
+    line: 71
+    why: >-
+      `_build.py` is the generator for this directory, not a scan input. Its byte literals contain the
+      text `import google.generativeai as genai` six times, the first at this line, which a scanner
+      pointed at this directory would report as `text_mention`. The harness must exclude `_build.py`
+      from the corpus for this case -- and the four `*.after.py` answer keys with it, under the same
+      rule that already excludes `basic/app.after.py` and `chat_async_self/assistant.after.py`. An
+      answer key is what the tool must produce, never something it is pointed at.
+      The line number moves whenever the generator is edited, which it silently did when the answer
+      keys were added and again when `parser_syntax_error.py` was added;
+      `tests/unit/test_fixture_encoding.py` asserts it points at the literal, and caught the second
+      drift.
+
+# Not a `must_not_report`: these lines ARE reported. They must never be EDITED.
+# The two keys are separate so a harness can read `must_not_report` as "assert no
+# finding here" without tripping over a row that means the opposite (ADR-010 F-5).
+must_not_autofix:
+  - file: bare_cr.py
+    line: 2
+    why: >-
+      Not "must not report" but "must not auto-fix": the findings here are real and are reported, and
+      the verdict must be needs_review, never auto. A scanner that omits the round-trip gate emits a
+      clean four-finding auto plan and, on apply, silently drops the file's final `\r` byte (C-09).
+
+notes: |
+  GENERATOR. `_build.py` in this directory writes all seven fixtures from explicit byte literals via
+  `pathlib.Path.write_bytes`, and re-verifies them. Re-run it from the repository root after any
+  change; never edit these seven files in an editor, which would normalise the very bytes under test:
+
+      uv run python tests/fixtures/scan/encoding/_build.py            # write, then verify
+      uv run python tests/fixtures/scan/encoding/_build.py --check    # verify only
+
+  OBSERVED, not predicted. Measured on 2026-09-17 with libcst 1.9.0 (native Rust parser) on
+  CPython 3.12.9, macOS arm64 -- the same libcst version ADR-008 is tied to. The python2.py row
+  was re-measured on 2026-09-24 (T38) on 3.12.9, 3.13.5 and 3.14.7, with the same answer on each. `roundtrip` is
+  `cst.parse_module(data).bytes == data`; `compile` is `compile(data, name, "exec")` on the bytes.
+
+  | file | bytes | module.encoding | roundtrip | compile(bytes) |
+  |---|---|---|---|---|
+  | crlf.py | 266 | 'utf-8' | True | ok |
+  | latin1_cookie.py | 361 | 'iso-8859-1' | True | ok |
+  | utf8_bom.py | 268 | 'utf-8-sig' | True | ok |
+  | bare_cr.py | 202 | 'utf-8' | **False** (1 byte lost) | **ok** |
+  | python2.py | 549 | 'utf-8' | True | **SyntaxError** |
+  | parser_syntax_error.py | 303 | n/a | **libcst refuses** | **SyntaxError** |
+  | no_trailing_newline.py | 233 | 'utf-8' | True | ok |
+
+  The three refusals are the point of the directory, and no two of them fail the same way:
+
+  - `bare_cr.py` -- round-trip False, compile True. `b'...text)\r'` comes back as `b'...text)'`:
+    libcst drops the final byte and `compile()` accepts the damaged result, so nothing downstream
+    notices. The round-trip gate is the only defence (C-09), and the bail code is `roundtrip_mismatch`.
+  - `python2.py` -- round-trip True, compile False. libcst parses it happily; `compile()` on the
+    input is what rejects it, at line 7, the misplaced `__future__` import (C-08). Re-measured for
+    T38 on 3.12, 3.13 and 3.14; it was line 14, `except ValueError, e:`, which 3.14 compiles.
+  - `parser_syntax_error.py` -- no tree at all. `cst.parse_module` raises `cst.ParserSyntaxError`
+    (`raw_line=8`, `raw_column=4`; `editor_line=8`, `editor_column=5`), so there is no `.bytes` to
+    compare and no round-trip column to fill in -- which is why `_build.py` grades this one file from
+    its own table rather than from `EXPECTED`. `compile()` refuses the same bytes and blames
+    `lineno=6`: the bracket was left open there, and libcst stopped two lines later. Added for
+    COVERAGE.md gap 15; the gate order that decides which of the two numbers is reported is
+    ADR-017 D1.
+
+  libcst treats a bare CR as a line terminator: for `bare_cr.py`, `PositionProvider` reports lines
+  1, 2, 4, 5, 6 for the statements, even though `cat -n` shows the file as one line. Every line number
+  in this file was read back from `PositionProvider` on the written bytes, not counted by hand.
+
+  The latin-1 case is what forces bytes-in/bytes-out. Parsed from `str`, libcst reports
+  `encoding='utf-8'` and ignores the cookie, so `.bytes` no longer matches the original; and
+  `read_text(encoding="utf-8", errors="replace")` destroys `ENTETE` on line 9 outright. Parsed from
+  bytes, the encoding is reported as `iso-8859-1` and the round-trip is exact.
+
+  The BOM case is the mirror image: `compile()` on the BOM *bytes* succeeds, while `compile()` on a
+  `str` that starts with U+FEFF fails with `invalid non-printable character U+FEFF`. Feed `compile()`
+  `module.bytes`, never a str.
+
+  Every fixture except `bare_cr.py`, `python2.py` and `parser_syntax_error.py` holds exactly one
+  `configure(...)` call, so D3's module-wide ClientSource resolves and the call rewrites can be
+  `auto`. That is deliberate: it keeps these seven cases about bytes and nothing else. Client-source
+  and binding bails are exercised by the other scan fixture directories.
+  `parser_syntax_error.py` has no `configure(...)` at all -- it has the `genai.Client(...)` somebody
+  was in the middle of writing instead -- and that is not a client-source case either, because a file
+  with no tree is never asked the question.
+
+  ANSWER KEYS, added by ADR-013. Four of the six files now carry a `.after.py`, generated by the same
+  `_build.py` from byte literals: `crlf.after.py`, `latin1_cookie.after.py`, `utf8_bom.after.py` and
+  `no_trailing_newline.after.py`. `bare_cr.py`, `python2.py` and `parser_syntax_error.py` deliberately
+  have none, and under `after_file_is: fix_apply_output` that absence is a claim in its own right --
+  those three files must come out of `obelize fix --apply` byte-identical to how they went in.
+
+  Until this was written the directory pinned its inputs and said nothing about its outputs, while
+  grading sixteen findings `auto`. Four files that exist to prove bytes-in/bytes-out had no evidence
+  that anything comes out: nothing checked that a migrated CRLF file still emits `\r\n`, that the
+  latin-1 file is re-encoded with its cookie's encoding rather than the platform default, that the
+  BOM survives, or that the unterminated file stays unterminated.
+
+  The keys grade two different things, and they are worth separating because they have different
+  lifetimes:
+
+  - **The byte shape** -- terminator, PEP 263 cookie, BOM, final newline. `_build.py`'s `PAIRS` and
+    `byte_shape()` assert it directly from the bytes, input against output, and
+    `tests/unit/test_fixture_encoding.py` runs the same comparison in the ordinary matrix. This is
+    what the directory exists for and it does not depend on any layout decision.
+
+    | file | terminator | cookie / BOM | final newline |
+    |---|---|---|---|
+    | crlf | CRLF | -- | yes |
+    | latin1_cookie | LF | `# -*- coding: latin-1 -*-` | yes |
+    | utf8_bom | LF | UTF-8 BOM | yes |
+    | no_trailing_newline | LF | -- | **no** |
+
+  - **The Python** -- which is inherited, not decided here. `import ... as genai` becomes
+    `from google import genai`; the module-level `configure` becomes `client = genai.Client(...)`;
+    the `GenerativeModel` statement is deleted and the model name folded into the call; a call that
+    was one line stays one line. Those are `basic/ground_truth.yaml` notes 2 and 4, and when that
+    layout rule is rewritten as an algorithm before T10 these four keys move with it. No `types`
+    import is added to any of them, because none references `types.*`.
+
+  All four keys are at most 97 characters wide, inside the project's own `line-length = 100`, so
+  unlike `chat_async_self/assistant.after.py` they are not exposed to the hazard that a user's
+  `ruff format` would rewrap what the codemod emitted.
+
+  THE FOUR CONFIGURE ROWS NOW CARRY `client_constructed_eagerly` (ADR-013). Each is a module-level
+  `configure(api_key=os.environ.get("GEMINI_API_KEY", ""))`, so after the rewrite the client is built
+  at import time from a value that is `""` whenever the variable is unset, and
+  `genai.Client(api_key="")` raises. ADR-010 F-6 makes the warning mandatory for exactly this shape
+  and the rows were missing it; the warning does not withhold a hunk, so the answer keys above are
+  unaffected.
+
+  No `expected.json` here on purpose: the Finding JSON schema does not exist until Phase 1 task T3.
+  This file records the semantic facts; T3's harness translates them.
+
+  THE T3 REVISIT THIS FILE ASKED FOR HAS HAPPENED, and the answer went both ways. The note here used
+  to say that two codes were recorded as a `confidence_reason` with nothing settling whether they
+  belonged there -- `roundtrip_mismatch`, which PACK_SPEC's table calls a *bail*, and `parse_error`,
+  described as something the scanner *emits*. Both are now decided, differently:
+
+  - `roundtrip_mismatch` is **not** a reason. ADR-010 F-5 split the two fields, and the four
+    `bare_cr.py` rows carry `confidence_reason: alias_resolved` with the refusal in `bail`, which is
+    what the note on line 2 records. It is absent from the reason vocabulary in
+    `src/obelize/models.py`, so a row that wrote it there now fails
+    `tests/unit/test_fixture_vocabulary.py`.
+  - `parse_error` **is** both, on purpose, and SCAN_VOCABULARY.md section 7 is where that is written
+    down and asserted: "the finding kind and the reason are the same fact, because a file that does
+    not parse yields exactly one finding and there is nothing else to say about it". Two rows use it
+    that way -- `python2.py:7` and `parser_syntax_error.py:8` -- and `obelize.models.Finding`
+    enforces the biconditional, so one of the two fields cannot be set without the other.
+
+  The equivalent gap on the manifest side is recorded in
+  examples/gemini-legacy-app/ground_truth.yaml.

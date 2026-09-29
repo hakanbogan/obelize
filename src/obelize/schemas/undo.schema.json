@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "UndoFile": {
+      "additionalProperties": false,
+      "description": "One file `obelize undo` was asked to put back, and what became of it.",
+      "properties": {
+        "current_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Sha256"
+        },
+        "outcome": {
+          "enum": [
+            "reverted",
+            "skipped"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "hash_mismatch",
+                "missing",
+                "not_a_file",
+                "outside_root",
+                "snapshot_unusable",
+                "symlink",
+                "unreadable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "recorded_sha256": {
+          "title": "Recorded Sha256",
+          "type": "string"
+        },
+        "snapshot": {
+          "title": "Snapshot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "outcome",
+        "reason",
+        "recorded_sha256",
+        "current_sha256",
+        "snapshot"
+      ],
+      "title": "UndoFile",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The `undo.json` document one `obelize undo` writes into the run folder it reverted.",
+  "properties": {
+    "argv": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Argv",
+      "type": "array"
+    },
+    "exit_code": {
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "files": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/UndoFile"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "obelize_version": {
+      "title": "Obelize Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "undone_at": {
+      "title": "Undone At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "obelize_version",
+    "exit_code",
+    "argv",
+    "undone_at",
+    "files"
+  ],
+  "title": "UndoRecord",
+  "type": "object"
+}
