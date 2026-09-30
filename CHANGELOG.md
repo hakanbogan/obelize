@@ -14,6 +14,64 @@ in the release that makes it.
 
 ## [0.1.0] - 2026-09-29
 
+### Benchmark
+
+I measured this release on public repositories, against answer keys I wrote by hand. The sample
+leans towards small single-purpose applications. The
+[results page](https://github.com/hakanbogan/obelize/blob/v0.1.0/docs/BENCHMARK_RESULTS.md) has
+the method and every case.
+
+- Scan precision is 100.0% and recall is 98.4%, over 64 usages I labelled in five repositories
+  before the scanner ran on them. The scan reported 63 of the 64, and all 63 were right.
+- obelize migrated 25 of 277 usages (9.0%) in 20 repositories and left the other 252 for a
+  person. The most common reason, for 98 of them, is that something else in the same file or
+  repository was not migrated, since obelize writes a file only when it can migrate all of it.
+  Another 129 were withheld for a stated reason, most often a module with more than one
+  `configure()` call (19 usages), the old SDK imported inside a function (18) or the module alias
+  reassigned (17). The last 25 the scan never reported, mostly code reached through a function's
+  return value, a star import in another file or a container.
+- obelize wrote nothing in 14 of the 20 repositories, migrated part of five and finished one.
+  None got a wrong edit. The scan did report three usages that my answer keys do not list, and
+  none of the three was edited.
+- None of the 20 was migrated and verified by its own tests. Of the 20, 16 have no test command,
+  including the one obelize finished, and each of the four that do holds a usage no rule writes.
+- On 13 of those repositories (174 usages) I also ran a general-purpose coding agent, given
+  Google's migration guide and one fixed prompt. It migrated 154 usages (88.5%) against
+  obelize's 17 (9.8%), and one of its migrations was verified by the repository's tests where
+  none of obelize's was. It made a wrong edit in two of the 13 repositories, both real defects,
+  and obelize in none. The agent does far more of the work, so I do not claim obelize is more
+  accurate. The comparison shows that obelize made no wrong edit and names a reason for each
+  usage it withholds. It is one agent, one day and one snapshot of the guide, on the split
+  obelize's rules were tuned against. The agent's side dates from 2026-09-22 and was not rerun
+  for 0.1.0, so its guide and model may have moved since.
+
+### Unsupported patterns
+
+The bundled pack declares 20 limitations, among them rewrites never checked against a live API
+call. [docs/KNOWN_ISSUES.md](https://github.com/hakanbogan/obelize/blob/v0.1.0/docs/KNOWN_ISSUES.md)
+lists what else I know about and have chosen not to fix yet. The main gaps:
+
+- Every tool declaration is reported and never rewritten, because automatic function calling is
+  on by default in `google-genai`.
+- Model names are kept as written. Google has retired the `gemini-1.5` models, so change such a
+  name yourself.
+- Notebooks (`.ipynb`) that use the old SDK are found and not migrated, and the old dependency
+  line stays while one does.
+- Code that reaches the SDK through a function's return value, a star import in another file or
+  a container is not found.
+- obelize leaves a whole file as it was when the file has a `configure()` call in another module
+  or more than one in the module, the old SDK imported inside a function, the module alias
+  reassigned, or a model object passed around or read from another module.
+- `mock.patch` targets, dynamic imports and surfaces with no rule, such as `protos`, `caching`
+  and tuning, are reported and never rewritten. A `sys.modules` stub of the old module can be
+  left in place without a report.
+- Four safety gaps stay open, described in
+  [docs/THREAT_MODEL.md](https://github.com/hakanbogan/obelize/blob/v0.1.0/docs/THREAT_MODEL.md):
+  a git command obelize runs can start a program that the repository's git configuration names,
+  running `obelize verify` again or `obelize undo` twice can overwrite the earlier record,
+  redaction misses common credential shapes, and Ctrl-C can leave a verification command's
+  processes running. Run obelize in a repository that is committed or backed up.
+
 ### Added
 
 - `.obelize/` carries its own `.gitignore` holding `*`, so `git add -A` never picks up a run
