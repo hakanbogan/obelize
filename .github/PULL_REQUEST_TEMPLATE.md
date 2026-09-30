@@ -20,7 +20,7 @@
 - [ ] If a transform rule changed: golden fixtures updated, with at least one positive and one
       negative fixture per rule change.
 - [ ] If a migration pack changed: the pack PR review checklist in
-      [CONTRIBUTING.md](../CONTRIBUTING.md) is satisfied.
+      [CONTRIBUTING.md](https://github.com/hakanbogan/obelize/blob/main/CONTRIBUTING.md#pack-pr-review-checklist) is satisfied.
 - [ ] Docs updated where they make claims: the commands table in `README.md` and a
       `CHANGELOG.md` entry under `[Unreleased]`.
 - [ ] No new runtime dependency, or the ADR that justifies it: <!-- docs/adr/ADR-0NN-....md -->

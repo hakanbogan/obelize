@@ -47,9 +47,11 @@ to PyPI waits for nobody. Before tagging, check the reviewer:
 
 ```bash
 gh api repos/hakanbogan/obelize/environments/pypi --jq '[.protection_rules[].type]'
+gh api repos/hakanbogan/obelize/environments/pypi/deployment-branch-policies \
+  --jq '[.branch_policies[] | [.type, .name]]'
 ```
 
-It must list `required_reviewers`.
+The first must list `required_reviewers`, and the second must print exactly `[["tag","v*"]]`.
 
 ## Release checklist
 
@@ -99,7 +101,7 @@ Run in order. A failed step stops the release.
 
    The project links in the PyPI sidebar should show as verified.
 10. Install. Run `post-release.yml` with index `pypi` and the version. It installs with
-    uvx, pipx and pip on Linux, macOS and Windows, and runs `--version`, `--help`,
+    uvx, `uv tool install`, pipx and pip on Linux, macOS and Windows, and runs `--version`, `--help`,
     `pack validate` and a scan of `examples/quickstart`. On my own machine,
     `uvx --refresh obelize@<version> --version` must print the version.
 11. GitHub release. Read the release the workflow created from the changelog section, with

@@ -108,17 +108,12 @@ manipulation rather than a package with its own tests.
 
 ## Continuous integration
 
-A few checks run more than once across different jobs. The release workflow does not first
-confirm that continuous integration passed on the commit it is about to publish. Two scheduled
-workflows currently run with nothing to do. Dependency pinning and the versions of the tools
-themselves need a pass. Dependabot never proposes an upgrade for the one dependency the migration
+A few checks run more than once across different jobs. Dependency pinning and the versions of the
+tools themselves need a pass. Dependabot never proposes an upgrade for the one dependency the migration
 targets, while the scheduled end-to-end job always installs its latest release regardless, so the
 two can drift apart. The ruff version is set in two separate places, no job in continuous
 integration runs pre-commit itself, and the secret-scanning configuration only excludes the test
-fixtures directory rather than every path a planted example could reach. The protections a
-public repository gets, such as code scanning, private vulnerability reporting and a tag
-ruleset that restricts release tags to me, are not turned on yet, since the repository is still
-private.
+fixtures directory rather than every path a planted example could reach.
 
 ## Documentation and examples
 

@@ -899,11 +899,12 @@ def test_the_install_check_installs_on_each_os_in_each_way_the_readme_gives() ->
     assert job["strategy"]["fail-fast"] is False
     matrix = job["strategy"]["matrix"]
     assert sorted(matrix["os"]) == ["macos-latest", "ubuntu-latest", "windows-latest"]
-    assert sorted(matrix["installer"]) == ["pip", "pipx", "uvx"]
+    assert sorted(matrix["installer"]) == ["pip", "pipx", "uv-tool", "uvx"]
     assert job["defaults"]["run"]["shell"] == "bash"
     install = _step(POST_RELEASE, "install", INSTALL)["run"]
     for command in (
         'uvx --from "$SPEC" obelize',
+        'uv tool install --python 3.12 "$SPEC"',
         'pipx install --python "$(uv python find 3.12)" "$SPEC"',
         '-m pip install "$SPEC"',
     ):

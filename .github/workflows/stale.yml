@@ -46,5 +46,5 @@ jobs:
             and a closed issue can be reopened at any time with the missing detail.
           close-issue-message: >
             Closing after 30 days without a reproduction. This is not a judgement about
-            the report -- there is just nothing actionable to work from. Comment with the
+            the report. There is just nothing actionable to work from. Comment with the
             details and this can be reopened.

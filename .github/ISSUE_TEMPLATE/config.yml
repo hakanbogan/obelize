@@ -9,6 +9,6 @@ contact_links:
       72-hour acknowledgement.
 
   - name: Questions and discussion
-    url: https://github.com/hakanbogan/obelize/blob/main/CONTRIBUTING.md
+    url: https://github.com/hakanbogan/obelize/discussions
     about: >-
-      Check CONTRIBUTING.md first.
+      Ask how to use obelize, or whether something is a bug, before opening an issue.

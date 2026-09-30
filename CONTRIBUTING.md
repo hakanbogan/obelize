@@ -180,6 +180,8 @@ last commit; `git rebase --signoff main` fixes a branch.
 
 Labels: `bug`, `migration-case`, `pack`, `question`, `needs-repro`, `roadmap`, `wontfix-v0`.
 
+- Questions go to [Discussions](https://github.com/hakanbogan/obelize/discussions), bugs and
+  migration cases to issues.
 - I try to reply within 7 days, but I can't promise when a fix will land.
 - Bug reports need evidence: a redacted `.obelize/runs/<id>/run.json` or a minimal
   reproduction, or the issue gets `needs-repro`, is marked stale after 14 days and closed at 30.

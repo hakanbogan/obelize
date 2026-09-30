@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        installer: [uvx, pipx, pip]
+        installer: [uvx, uv-tool, pipx, pip]
     defaults:
       run:
         shell: bash
@@ -81,6 +81,9 @@ jobs:
             uvx)
               # uvx installs on first use.
               uvx --from "$SPEC" obelize --version ;;
+            uv-tool)
+              uv tool install --python 3.12 "$SPEC"
+              echo "OBELIZE=$(uv tool dir --bin)/obelize" >> "$GITHUB_ENV" ;;
             pipx)
               uv python install 3.12
               pipx install --python "$(uv python find 3.12)" "$SPEC"

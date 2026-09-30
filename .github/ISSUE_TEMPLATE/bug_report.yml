@@ -37,6 +37,20 @@ body:
       required: true
 
   - type: dropdown
+    id: install-method
+    attributes:
+      label: How obelize was installed
+      options:
+        - uvx
+        - uv tool install
+        - pipx
+        - pip
+        - From a clone of the repository
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
     id: os
     attributes:
       label: Operating system

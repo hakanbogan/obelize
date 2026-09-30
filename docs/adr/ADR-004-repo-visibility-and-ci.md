@@ -6,49 +6,41 @@ Accepted.
 
 ## Decision
 
-The repository `hakanbogan/obelize` is **private now and goes public in Phase 5**
-(task T32); an earlier flip, after the Phase 2 gate, is my call. CI and the full,
-unsquashed git history exist from the first commit, and the repository becomes
-visible when there is something to look at. Trusted Publishing on PyPI is a
-**pending** publisher against `hakanbogan/obelize` and `release.yml` with
-environment `pypi`, so the first release works whatever the visibility.
+The repository `hakanbogan/obelize` is public, and its history starts with the 0.1.0 release. CI
+runs from the first commit, and Trusted Publishing on PyPI is a pending publisher against
+`hakanbogan/obelize` and `release.yml` with environment `pypi`.
 
-While it is private:
+Every push and pull request runs `ci.yml`: lint, lock, the test suite on Ubuntu with Python
+3.12, 3.13 and 3.14, the suite on macOS and on Windows with 3.12 and 3.14, a smoke test of the
+built wheel, and a check that the JSON Schemas match the models. `test-macos` and `test-windows`
+carry the same `if:` guard. On a public repository it passes every event, and on a private one it
+admits only a manual run and a tag, because private Actions minutes are a 2,000 minute monthly
+quota that macOS bills at 10x and Windows at 2x. `tests/unit/test_workflows.py` evaluates the
+guard for every event a workflow starts on. `e2e.yml` runs weekly and installs the built wheel
+with the newest releases its dependency ranges allow, so a pydantic, libcst or typer release that
+breaks a fresh install shows within a week. `bench-smoke.yml`, `dependency-review.yml`,
+`release.yml` and `stale.yml` run from the first commit.
 
-- The pull-request test matrix is **ubuntu-only**, kept at the full Python range
-  (3.12-3.14).
-- macOS and Windows jobs run only on `workflow_dispatch` and on tags, because
-  private Actions minutes are a 2,000 minute monthly quota, macOS bills at 10x and
-  Windows at 2x. `test-macos` and `test-windows` carry the same `if:` guard, which
-  `tests/unit/test_workflows.py` evaluates for every event a workflow starts on.
-- `ci.yml` (lint, lock, test, schema-drift), `e2e.yml`, `bench-smoke.yml`,
-  `dependency-review.yml`, `release.yml` and `stale.yml` all run from the first
-  commit. `e2e.yml`'s weekly run waits: its job's `if:` passes a schedule only on
-  a public repository.
+The `main` ruleset blocks deletion and non-fast-forward pushes, allows admin bypass and requires
+these eleven checks, written as GitHub shows them:
 
-When it goes public, in the same phase:
+- `lint (ruff + mypy)`
+- `lock (uv.lock is in sync)`
+- `test (ubuntu, py3.12)`, `test (ubuntu, py3.13)` and `test (ubuntu, py3.14)`
+- `test (macos, py3.12)` and `test (macos, py3.14)`
+- `test (windows, py3.12)` and `test (windows, py3.14)`
+- `smoke (built wheel, clean venv)`
+- `schema-drift (JSON Schemas match the models)`
 
-- CodeQL's default setup for Python is enabled.
-- Private vulnerability reporting is enabled, which `SECURITY.md` already
-  points at.
-- macOS and Windows join every push and pull request (the two ends of the
-  supported range: 3.12 and 3.14); their guard passes any event on a public
-  repository, so `ci.yml` needs no edit.
-- `e2e.yml` runs weekly, installing the built wheel with the newest releases
-  its dependency ranges allow, so a pydantic, libcst or typer release that breaks a
-  fresh install shows within a week.
-- The `main` ruleset is created (block deletion and non-fast-forward, require
-  `lint`, `lock`, `test (ubuntu, py3.12)`, `test (ubuntu, py3.14)`,
-  `test (windows, py3.12)`, `test (windows, py3.14)` and `smoke`, admin bypass
-  allowed), with a tag ruleset restricting `v*` to me.
+A tag ruleset restricts `v*` to me. CodeQL's default setup for Python and private vulnerability
+reporting, which `SECURITY.md` points at, are on.
 
 ## Consequences
 
-- macOS breakage can go unseen between tag runs; I develop on macOS arm64 daily.
-  Windows breakage can too: `mypy --platform win32` checks every push, but the
-  real Windows test suite only runs on a manual dispatch or a tag while the
-  repository stays private.
-- Until public, security review is manual plus Dependabot and `pip-licenses`, as CodeQL
-  and `dependency-review.yml` do real work only on a public repository.
-- Without GitHub Pro a private `main` has no branch protection, so only I
-  push, and never over a red `ci`.
+- A required check is matched by its exact name. A matrix job that its `if:` skips reports the
+  unexpanded template, so the macOS and Windows checks can be required only while the repository
+  stays public.
+- The release workflow accepts only a successful `ci.yml` run on the commit it publishes, so a red
+  leg on any of the eleven checks holds a release.
+- GitHub turns scheduled workflows off after 60 days without activity in the repository. They
+  start again from the Actions tab.
