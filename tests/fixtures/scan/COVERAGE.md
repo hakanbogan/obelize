@@ -1,7 +1,7 @@
 # What the scan fixtures do NOT cover
 
-These fixtures are the measurement oracle, hand-written before the scanner so
-the implementation is judged against a decision rather than its own output.
+These fixtures are the measurement oracle, hand-written so the implementation is judged
+against a decision rather than its own output. The first five were written before the scanner.
 Nine cases, 169 graded findings (77 `auto`, 80 `needs_review`, 3 `unsupported`,
 9 `not_a_usage`), 25 bindings, 107 `must_not_report` rows and one
 `must_not_autofix` row. `tests/unit/test_fixture_vocabulary.py` asserts this

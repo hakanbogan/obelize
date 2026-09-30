@@ -29,8 +29,8 @@ pipx install --python python3.12 obelize
 ```
 
 obelize is a command-line tool, so install it as one and not into your project's environment. It
-needs Python 3.12 or newer: uv finds or downloads one for it, and pipx takes the one `--python`
-names. The project it migrates needs Python 3.10 or newer, as `google-genai` does.
+needs Python 3.12 or newer, and pipx takes the one `--python` names. The project it migrates
+needs Python 3.10 or newer, as `google-genai` does.
 
 ## Quickstart
 
@@ -121,8 +121,8 @@ naming the command to run:
   when they already failed before the change.
 
 obelize writes a file only when it can migrate all of it, and keeps the old dependency line
-until nothing in the repository uses the old SDK. On a real project the usual result is `4`: some
-files migrated and the rest listed in the report. All the codes are in
+until nothing in the repository uses the old SDK. On a real project the usual result is `4`: obelize
+migrates the files it can prove, which can be none, and lists the rest in the report. All the codes are in
 [docs/CLI.md](docs/CLI.md#exit-codes).
 
 ## Safety
@@ -130,7 +130,8 @@ files migrated and the rest listed in the report. All the codes are in
 `scan`, and `fix` without `--apply`, change none of your files. obelize never commits, branches,
 pushes or merges, and it refuses to apply over uncommitted changes unless you pass `--allow-dirty`,
 so `git diff` shows the migration alone. In the repository it writes only its own `.obelize/` folder
-and the files on its plan, each through a temporary file and a rename, and follows no symbolic link.
+and the files on its plan. Each file on the plan goes through a temporary file and a rename, and it
+follows no symbolic link.
 It runs the verification commands you pass with `--verify` or allow in your own configuration. A
 command from the repository's `.obelize.yml` runs only once you approve it at a prompt, and in CI
 only if your allowlist holds it or you pass `--trust-repo-config`. A command that runs past your
@@ -173,17 +174,17 @@ change.
 
 ## Testing
 
-Each case under [tests/fixtures/scan/](tests/fixtures/scan/) has an answer key written by hand,
-all but one before the scanner existed, that grades every usage: migrated, or left and why. The
-suite reproduces every key, and each rewritten file matches its expected file byte for byte.
-[tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 36 gaps the fixtures do
-not cover, 18 of them closed. CI runs the suite on Linux for every supported Python and on macOS,
+Each case under [tests/fixtures/scan/](tests/fixtures/scan/) has an answer key written by hand that
+grades every usage: migrated, or left and why. The first five were written before the scanner
+existed. The suite reproduces every key, and each rewritten file matches its expected file byte for
+byte. [tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 36 gaps the fixtures
+do not cover, 18 of them closed. CI runs the suite on Linux for every supported Python and on macOS,
 with 100% branch coverage.
 
 ## Benchmark
 
-Each number comes from [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), which has the
-method and every case behind it. I measure them again before each release.
+Each number comes from [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), which lists every
+case behind it. The method is in [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
 | Measure | obelize | n |
 |---|---|---|
@@ -201,9 +202,10 @@ migration guide and one fixed prompt.
 | Usages migrated | 17 (9.8%) | 154 (88.5%) | 174 usages in 13 of those repositories |
 | Repositories with a wrong edit | 0 | 2 | 13 |
 
-The agent migrated far more, so I do not claim obelize is more accurate. Each change obelize
-makes was measured against both SDKs installed side by side, and each place it leaves has a
-written reason.
+The 13 repositories are the ones obelize's rules were written against, and the agent's column is a
+snapshot from 2026-09-22 that I did not measure again for 0.1.0. The agent migrated far more, so I
+do not claim obelize is more accurate. Each change obelize makes was measured against both SDKs
+installed side by side, and each place it leaves has a written reason.
 
 ## Limits
 
