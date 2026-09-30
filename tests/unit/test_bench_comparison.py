@@ -50,7 +50,7 @@ USAGE = {"import", "call", "method_call", "attribute", "manifest"}
 # Round one's development split, copied from `bench/cases.yaml` and `bench/results/round-1/`.
 DEV_CASES = 13
 DEV_ROWS = 174
-OBELIZE_MIGRATED = 21
+OBELIZE_MIGRATED = 17
 AGENT_MIGRATED = 154
 
 # The one `manual`-capped case the other arm cleared; a computed value would agree with anything.

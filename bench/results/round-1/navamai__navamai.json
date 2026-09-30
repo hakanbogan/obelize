@@ -11,12 +11,12 @@
     "llm_tokens_in": 0,
     "llm_tokens_out": 0,
     "missed_call_site": 0,
-    "patch_applied": true,
-    "patch_compiles": true,
+    "patch_applied": false,
+    "patch_compiles": null,
     "patch_correct": null,
     "pr_merged": null,
     "pr_opened": null,
-    "runtime_seconds": 1.177,
+    "runtime_seconds": 1.242,
     "tests_after": {
       "failed": 0,
       "passed": 7,
@@ -30,23 +30,23 @@
       "status": "pass"
     },
     "tests_cover_change": true,
-    "unmigrated": 4
+    "unmigrated": 9
   },
   "origin": "corpus",
   "provenance": {
     "machine": "arm64",
-    "obelize_commit": "814617028f9137d953d5805a3e8d52f11ee5be2c",
-    "obelize_version": "0.1.0.dev0",
+    "obelize_commit": "36ccdf0ce22939853df0ce4c6c72cb0c4595e8aa",
+    "obelize_version": "0.1.0",
     "os": "Darwin",
     "pack": "gemini/google-generativeai-to-google-genai",
-    "pack_sha256": "58f94367c119ae4c5977d3802511995db18443af4afc9f003f8f79d9006cc245",
+    "pack_sha256": "fbe82d40afea4894fb756e0128f21889e08c210a2a5b0d2cfe7db0dae8187175",
     "python": "cpython-3.12.9-macos-aarch64-none",
     "python_build": "3.12.9 (main, Feb 4 2025, 14:38:38) [Clang 16.0.0 (clang-1600.0.26.6)]",
     "python_executable": "/private<work>/round-1/navamai__navamai/.venv/bin/python",
-    "run_at": "2026-09-21T21:33:18Z",
+    "run_at": "2026-09-29T22:09:03Z",
     "sdk_from": "0.8.6",
     "sdk_to": "2.24.0",
-    "spec_sha256": "e7aac7b4947cf87b085fa45eea9032fb610e349fba06bc9aae156ac9e61e93fc"
+    "spec_sha256": "2195fa003c3070aa1ad58d9adec097883984f1cdafab2556b53bfc563428fb2d"
   },
   "schema_version": 2,
   "split": "holdout",
@@ -59,7 +59,7 @@
         "init",
         "-q"
       ],
-      "duration_s": 0.066,
+      "duration_s": 0.025,
       "exit_code": 0,
       "name": "fetch",
       "number": 1,
@@ -75,7 +75,7 @@
         "origin",
         "https://github.com/navamai/navamai"
       ],
-      "duration_s": 0.034,
+      "duration_s": 0.017,
       "exit_code": 0,
       "name": "fetch",
       "number": 1,
@@ -93,7 +93,7 @@
         "origin",
         "8b43206f8fd657d3e725fb4198c354217007b003"
       ],
-      "duration_s": 3.148,
+      "duration_s": 4.125,
       "exit_code": 0,
       "name": "fetch",
       "number": 1,
@@ -108,7 +108,7 @@
         "-q",
         "FETCH_HEAD"
       ],
-      "duration_s": 0.23,
+      "duration_s": 0.156,
       "exit_code": 0,
       "name": "fetch",
       "number": 1,
@@ -122,7 +122,7 @@
         "cpython-3.12.9-macos-aarch64-none",
         "<case>/.venv"
       ],
-      "duration_s": 0.039,
+      "duration_s": 0.015,
       "exit_code": 0,
       "name": "venv",
       "number": 2,
@@ -134,7 +134,7 @@
         "-c",
         "import sys;print(sys.executable);print(' '.join(sys.version.split()))"
       ],
-      "duration_s": 0.043,
+      "duration_s": 0.028,
       "exit_code": 0,
       "name": "resolve",
       "number": 2,
@@ -149,7 +149,7 @@
         "pytest",
         "pytest-asyncio"
       ],
-      "duration_s": 1.525,
+      "duration_s": 3.168,
       "exit_code": 0,
       "name": "install",
       "number": 3,
@@ -164,7 +164,7 @@
         "/private<case>/.venv/bin/python",
         "google-generativeai==0.8.6"
       ],
-      "duration_s": 0.148,
+      "duration_s": 0.08,
       "exit_code": 0,
       "name": "install-from",
       "number": 4,
@@ -177,7 +177,7 @@
         "import importlib.metadata as m,sys;print(m.version(sys.argv[1]))\n",
         "google-generativeai"
       ],
-      "duration_s": 0.094,
+      "duration_s": 0.057,
       "exit_code": 0,
       "name": "install-from-check",
       "number": 4,
@@ -192,7 +192,7 @@
         "-q",
         "--junitxml=<logs>/junit/baseline.xml"
       ],
-      "duration_s": 8.293,
+      "duration_s": 7.549,
       "exit_code": 0,
       "name": "baseline",
       "number": 5,
@@ -210,24 +210,13 @@
         "gemini/google-generativeai-to-google-genai",
         "--apply",
         "--non-interactive",
+        "--model",
+        "none",
         "--json"
       ],
-      "duration_s": 1.177,
-      "exit_code": 6,
+      "duration_s": 1.242,
+      "exit_code": 4,
       "name": "fix",
-      "number": 6,
-      "timed_out": false
-    },
-    {
-      "argv": [
-        "/private<case>/.venv/bin/python",
-        "-c",
-        "import sys\nfor p in sys.argv[1:]:\n    compile(open(p,'rb').read(), p, 'exec')\n",
-        "src/navamai/gemini.py"
-      ],
-      "duration_s": 0.03,
-      "exit_code": 0,
-      "name": "compile",
       "number": 6,
       "timed_out": false
     },
@@ -240,7 +229,7 @@
         "/private<case>/.venv/bin/python",
         "google-genai==2.24.0"
       ],
-      "duration_s": 0.046,
+      "duration_s": 0.047,
       "exit_code": 0,
       "name": "install-to",
       "number": 7,
@@ -253,7 +242,7 @@
         "import importlib.metadata as m,sys;print(m.version(sys.argv[1]))\n",
         "google-genai"
       ],
-      "duration_s": 0.066,
+      "duration_s": 0.083,
       "exit_code": 0,
       "name": "install-to-check",
       "number": 7,
@@ -268,12 +257,12 @@
         "-q",
         "--junitxml=<logs>/junit/after.xml"
       ],
-      "duration_s": 0.758,
+      "duration_s": 0.737,
       "exit_code": 0,
       "name": "after",
       "number": 8,
       "timed_out": false
     }
   ],
-  "tier": "partial"
+  "tier": "unsupported"
 }

@@ -24,7 +24,7 @@ them is [written up separately](adr/ADR-024-gate-1-measurement.md).
 
 Frame drawn 2026-09-18T14:05:55Z over the term `generativeai`; 80 repositories in the frame, 80 scanned, 665 file(s) selected and 144 parsed -- the byte prefilter eliminated the rest -- for 698 findings over 207 file(s), 90 of which nothing bails in.
 
-Measured with obelize 0.1.0.dev0 on CPython 3.12.9 / arm64, against pack `gemini/google-generativeai-to-google-genai` sha256 `cb70d38c926891a1...`. Nothing re-fetches eighty checkouts on CI, so these records are a dated artefact: a change to the scanner does not invalidate them visibly, and re-running `bench/gate1_collect.py scan` is what makes the number current again. A change to what the **pack** tells a scan to look for does fail a test -- the projection `2195fa003c3070aa...`, which is the whole of what `scan/` and `impact/` read, and not the pack's own bytes, which move whenever a rewrite rule gains a parameter.
+Measured with obelize 0.1.0 on CPython 3.12.9 / arm64, against pack `gemini/google-generativeai-to-google-genai` sha256 `fbe82d40afea4894...`. Nothing re-fetches eighty checkouts on CI, so these records are a dated artefact: a change to the scanner does not invalidate them visibly, and re-running `bench/gate1_collect.py scan` is what makes the number current again. A change to what the **pack** tells a scan to look for does fail a test -- the projection `2195fa003c3070aa...`, which is the whole of what `scan/` and `impact/` read, and not the pack's own bytes, which move whenever a rewrite rule gains a parameter.
 
 **Precision and recall, over the hand-labelled repositories.** Actionable kinds only (`attribute`, `call`, `import`, `method_call`); a row matches on path, line, kind and symbol together.
 
@@ -120,7 +120,7 @@ Round 1, from `bench/cases.yaml` and `bench/results/round-1/`.
 
 | Round | Cases (n) | dev / holdout | Unique patterns | Controls | Results on disk |
 |---:|---:|---|---:|---:|---|
-| 1 | 20 | 13 / 7 | 16 | 3 | 23, obelize 0.1.0.dev0, pack `58f94367c119ae4c...` |
+| 1 | 20 | 13 / 7 | 16 | 3 | 23, obelize 0.1.0, pack `fbe82d40afea4894...` |
 
 **What can reach the headline, computed from the keys before the round runs.** `verified_success` needs a baseline `pass`, an after `pass`, tests that cover the change and no hunk a human had to write, so every row the key names has to be one a rule can make. A case with a `manual` row is capped below the headline whatever the scanner does, and so is a case whose key names a line the pack flags rather than edits.
 
@@ -165,8 +165,8 @@ Round 1, from `bench/cases.yaml` and `bench/results/round-1/`.
 |---|---:|---:|---:|
 | `verified_success` | 0 | 0 | 0 |
 | `patched_unverified` | 1 | 0 | 1 |
-| `partial` | 3 | 3 | 6 |
-| `unsupported` | 9 | 4 | 13 |
+| `partial` | 3 | 2 | 5 |
+| `unsupported` | 9 | 5 | 14 |
 | `wrong` | 0 | 0 | 0 |
 | `error` | 0 | 0 | 0 |
 
@@ -174,27 +174,27 @@ Round 1, from `bench/cases.yaml` and `bench/results/round-1/`.
 
 | Case id | Split | Tier | Detected | FP | Missed | Unmigrated | Human edits | Runtime (s) |
 |---|---|---|---:|---:|---:|---:|---:|---:|
-| `AmineChr54__CleanVision-Futury_AI-Hackathon` | holdout | `unsupported` | 11 | 0 | 3 | 14 | -- | 0.935 |
-| `Arnav3241__Jarvis-v13` | dev | `partial` | 32 | 0 | 3 | 26 | -- | 2.22 |
-| `LucasHJin__vit` | dev | `unsupported` | 13 | 0 | 0 | 14 | -- | 1.656 |
-| `RuntimeAI__silly-merchants-for-safe-hackathon` | dev | `unsupported` | 5 | 0 | 0 | 6 | -- | 0.95 |
-| `dongxnb__gupiao` | dev | `unsupported` | 27 | 0 | 0 | 27 | -- | 2.158 |
-| `grapeot__devin.cursorrules` | holdout | `partial` | 5 | 0 | 4 | 9 | -- | 2.22 |
-| `humanbound__humanbound-firewall` | dev | `unsupported` | 2 | 0 | 8 | 18 | -- | 1.363 |
-| `navamai__navamai` | holdout | `partial` | 5 | 0 | 0 | 4 | -- | 1.177 |
-| `ImprintLab__Medical-Graph-RAG` | holdout | `unsupported` | 23 | 1 | 0 | 22 | -- | 2.676 |
-| `LotusSerene__Gemini-Novel-Maker` | dev | `partial` | 19 | 0 | 0 | 17 | -- | 2.09 |
-| `Omadithya07__Phidata-Multimodal-Video-Summarizer-Using-AI-Agents` | dev | `unsupported` | 5 | 0 | 0 | 6 | -- | 1.007 |
-| `Sharukesh3__LLM-for-hydrogen-storage` | dev | `unsupported` | 14 | 0 | 0 | 15 | -- | 1.282 |
-| `LJX2017__A-Song-of-Ice-and-Fire` | holdout | `partial` | 19 | 2 | 4 | 14 | -- | 1.603 |
-| `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5` | dev | `unsupported` | 5 | 0 | 0 | 6 | -- | 1.296 |
-| `Satheesh2908__AI-Assistant-for-Satheesh` | dev | `partial` | 7 | 0 | 0 | 3 | -- | 1.172 |
-| `Zierax__HackerHelper` | dev | `unsupported` | 3 | 0 | 2 | 6 | -- | 1.583 |
-| `kvcops__Virtual-Herbal-Garden` | holdout | `unsupported` | 20 | 0 | 0 | 20 | -- | 2.769 |
-| `taitran501__dashboard_app` | holdout | `unsupported` | 6 | 0 | 0 | 7 | -- | 1.83 |
-| `000wan__ara-ai-bot` | dev | `unsupported` | 8 | 0 | 0 | 9 | -- | 0.979 |
-| `ashishkumar5de__PDF-QL` | dev | `patched_unverified` | 2 | 0 | 0 | 0 | -- | 1.098 |
-| **Total** | | | **231** | **3** | **24** | **243** | | **32.1** |
+| `AmineChr54__CleanVision-Futury_AI-Hackathon` | holdout | `unsupported` | 11 | 0 | 3 | 14 | -- | 1.795 |
+| `Arnav3241__Jarvis-v13` | dev | `partial` | 32 | 0 | 3 | 26 | -- | 2.514 |
+| `LucasHJin__vit` | dev | `unsupported` | 13 | 0 | 0 | 14 | -- | 1.63 |
+| `RuntimeAI__silly-merchants-for-safe-hackathon` | dev | `unsupported` | 5 | 0 | 0 | 6 | -- | 0.996 |
+| `dongxnb__gupiao` | dev | `unsupported` | 27 | 0 | 0 | 27 | -- | 2.181 |
+| `grapeot__devin.cursorrules` | holdout | `partial` | 5 | 0 | 4 | 9 | -- | 1.833 |
+| `humanbound__humanbound-firewall` | dev | `unsupported` | 2 | 0 | 8 | 18 | -- | 1.271 |
+| `navamai__navamai` | holdout | `unsupported` | 5 | 0 | 0 | 9 | -- | 1.242 |
+| `ImprintLab__Medical-Graph-RAG` | holdout | `unsupported` | 23 | 1 | 0 | 22 | -- | 1.586 |
+| `LotusSerene__Gemini-Novel-Maker` | dev | `partial` | 19 | 0 | 0 | 17 | -- | 1.863 |
+| `Omadithya07__Phidata-Multimodal-Video-Summarizer-Using-AI-Agents` | dev | `unsupported` | 5 | 0 | 0 | 6 | -- | 0.86 |
+| `Sharukesh3__LLM-for-hydrogen-storage` | dev | `unsupported` | 14 | 0 | 0 | 15 | -- | 0.981 |
+| `LJX2017__A-Song-of-Ice-and-Fire` | holdout | `partial` | 19 | 2 | 4 | 14 | -- | 1.468 |
+| `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5` | dev | `unsupported` | 5 | 0 | 0 | 6 | -- | 0.823 |
+| `Satheesh2908__AI-Assistant-for-Satheesh` | dev | `partial` | 7 | 0 | 0 | 7 | -- | 0.94 |
+| `Zierax__HackerHelper` | dev | `unsupported` | 3 | 0 | 2 | 6 | -- | 1.154 |
+| `kvcops__Virtual-Herbal-Garden` | holdout | `unsupported` | 20 | 0 | 0 | 20 | -- | 2.571 |
+| `taitran501__dashboard_app` | holdout | `unsupported` | 6 | 0 | 0 | 7 | -- | 2.196 |
+| `000wan__ara-ai-bot` | dev | `unsupported` | 8 | 0 | 0 | 9 | -- | 1.441 |
+| `ashishkumar5de__PDF-QL` | dev | `patched_unverified` | 2 | 0 | 0 | 0 | -- | 1.562 |
+| **Total** | | | **231** | **3** | **24** | **252** | | **30.9** |
 
 **What the suites did.** A `pass` is not a suite that ran: the skip column is the difference, and `tests_cover_change` is still read from the key rather than from the run.
 
@@ -254,15 +254,16 @@ Protocol: [BENCHMARK.md](BENCHMARK.md#error-analysis); the reasoning behind
 it is [written up separately](adr/ADR-044-error-analysis.md).
 
 <!-- errors:begin -- generated by bench/errors.py; edit that, not this -->
+
 Round 1, from `bench/cases.yaml`, `bench/results/errors/round-1.json` and `bench/errors.yaml`.
 
 **Where the rows went.** Every row every answer key names, once. `derived` is one of the two atomicity codes and is a consequence of a row in the same file or repository, never a fact about itself; `missed` is a row the scan delivered nothing at, so it carries no bail code and its cause is hand-written.
 
 | What happened to the row | Rows | Share |
 |---|---:|---:|
-| `migrated` | 34 | 12.3% |
-| `withheld` | 118 | 42.6% |
-| `derived` | 100 | 36.1% |
+| `migrated` | 25 | 9.0% |
+| `withheld` | 129 | 46.6% |
+| `derived` | 98 | 35.4% |
 | `missed` | 25 | 9.0% |
 | **Total** | **277** | |
 
@@ -270,42 +271,44 @@ Round 1, from `bench/cases.yaml`, `bench/results/errors/round-1.json` and `bench
 
 | Cause | Class | Rows | Lever | Disposition | Recorded |
 |---|---|---:|---:|---|---|
-| `file_not_fully_migrated` | derived | 87 | +0 | `limitation` | ADR-010 |
+| `file_not_fully_migrated` | derived | 85 | +0 | `limitation` | ADR-010 |
 | `multiple_configure_calls` | withheld | 19 | +0 | `limitation` | ADR-020 |
 | `local_import` | withheld | 18 | +26 | `rule_change` | COVERAGE 28 |
 | `module_alias_rebound` | withheld | 17 | +18 | `limitation` | ADR-019 |
-| `generation_config_not_static` | withheld | 15 | +26 | `rule_change` | COVERAGE 29 |
 | `repo_not_fully_migrated` | derived | 13 | +0 | `limitation` | ADR-010 |
 | `module_returned_from_function` | missed | 12 | +0 | `limitation` | ADR-019 |
-| `flag_only_surface` | withheld | 11 | +12 | `limitation` | ADR-030 |
+| `flag_only_surface` | withheld | 11 | +11 | `limitation` | ADR-030 |
+| `generation_config_not_static` | withheld | 11 | +26 | `rule_change` | COVERAGE 29 |
+| `model_object_read_elsewhere` | withheld | 9 | +13 | `limitation` | ADR-006 |
+| `client_placement_ambiguous` | withheld | 8 | +0 | `limitation` | ADR-026 |
 | `receiver_unresolved` | withheld | 8 | +12 | `limitation` | ADR-019 |
 | `history_parts_shape_incompatible` | withheld | 6 | +10 | `limitation` | ADR-028 |
-| `client_placement_ambiguous` | withheld | 5 | +0 | `limitation` | ADR-026 |
 | `model_object_escapes` | withheld | 5 | +0 | `limitation` | ADR-027 |
 | `attribute_removed` | withheld | 4 | +0 | `limitation` | ADR-030 |
 | `multiple_assignments` | withheld | 4 | +9 | `rule_change` | COVERAGE 30 |
+| `client_name_collision` | withheld | 3 | +5 | `limitation` | ADR-026 |
 | `star_import_binding` | missed | 3 | +0 | `limitation` | ADR-019 |
 | `chained_constructor_one_row` | missed | 2 | +0 | `scan_change` | COVERAGE 25 |
 | `client_source_unresolved` | withheld | 2 | +0 | `limitation` | ADR-020 |
 | `module_from_subscript` | missed | 2 | +0 | `limitation` | ADR-019 |
 | `prefilter_token_absent` | missed | 2 | +0 | `limitation` | ADR-022 |
-| `alias_collision` | withheld | 1 | +6 | `rule_change` | COVERAGE 31 |
+| `alias_collision` | withheld | 1 | +0 | `rule_change` | COVERAGE 31 |
 | `attribute_read_via_getattr` | missed | 1 | +0 | `scan_change` | COVERAGE 22 |
+| `configure_consumed_elsewhere` | withheld | 1 | +4 | `limitation` | ADR-031 |
 | `from_import_unmigrated_symbol` | withheld | 1 | +0 | `limitation` | ADR-025 |
 | `manifest_filename_case` | missed | 1 | +0 | `scan_change` | COVERAGE 33 |
 | `manifest_filename_unknown` | missed | 1 | +0 | `limitation` | ADR-021 |
-| `response_shape_changed` | withheld | 1 | +0 | `limitation` | ADR-029 |
 | `text_mention_not_flagged` | missed | 1 | +0 | `scan_change` | COVERAGE 32 |
 | `usage_unmapped` | withheld | 1 | +0 | `limitation` | ADR-031 |
-| **Total** | | **243** | -- | | |
+| **Total** | | **252** | -- | | |
 
 **The three dispositions**, over the causes above.
 
 | Disposition | Causes | Rows |
 |---|---:|---:|
-| `rule_change` | 4 | 38 |
+| `rule_change` | 4 | 34 |
 | `scan_change` | 4 | 5 |
-| `limitation` | 19 | 200 |
+| `limitation` | 21 | 213 |
 
 **Per case.** *Reachable* is what would migrate with every bail this round raised lifted at once, which is an upper bound and not a plan; *out of reach* is the rest, and no rule change reaches it because no pass reported the row.
 
@@ -318,20 +321,20 @@ Round 1, from `bench/cases.yaml`, `bench/results/errors/round-1.json` and `bench
 | `dongxnb__gupiao` | dev | 27 | 0 | 27 | 0 |
 | `grapeot__devin.cursorrules` | holdout | 10 | 1 | 6 | 4 |
 | `humanbound__humanbound-firewall` | dev | 18 | 0 | 9 | 9 |
-| `navamai__navamai` | holdout | 9 | 5 | 9 | 0 |
+| `navamai__navamai` | holdout | 9 | 0 | 9 | 0 |
 | `ImprintLab__Medical-Graph-RAG` | holdout | 22 | 0 | 22 | 0 |
 | `LotusSerene__Gemini-Novel-Maker` | dev | 20 | 3 | 20 | 0 |
 | `Omadithya07__Phidata-Multimodal-Video-Summarizer-Using-AI-Agents` | dev | 6 | 0 | 6 | 0 |
 | `Sharukesh3__LLM-for-hydrogen-storage` | dev | 15 | 0 | 14 | 1 |
 | `LJX2017__A-Song-of-Ice-and-Fire` | holdout | 21 | 7 | 19 | 2 |
 | `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5` | dev | 6 | 0 | 6 | 0 |
-| `Satheesh2908__AI-Assistant-for-Satheesh` | dev | 8 | 5 | 7 | 1 |
+| `Satheesh2908__AI-Assistant-for-Satheesh` | dev | 8 | 1 | 7 | 1 |
 | `Zierax__HackerHelper` | dev | 6 | 0 | 4 | 2 |
 | `kvcops__Virtual-Herbal-Garden` | holdout | 20 | 0 | 20 | 0 |
 | `taitran501__dashboard_app` | holdout | 7 | 0 | 7 | 0 |
 | `000wan__ara-ai-bot` | dev | 9 | 0 | 9 | 0 |
 | `ashishkumar5de__PDF-QL` | dev | 3 | 3 | 3 | 0 |
-| **Total** | | **277** | **34** | **252** | **25** |
+| **Total** | | **277** | **25** | **252** | **25** |
 
 **What the scan reported that no key claims.** A false positive that is withheld is not a false-positive edit, and none of these was applied.
 
@@ -340,6 +343,7 @@ Round 1, from `bench/cases.yaml`, `bench/results/errors/round-1.json` and `bench
 | `ImprintLab__Medical-Graph-RAG` | `camel/utils/token_counting.py:422` | `google.generativeai.GenerativeModel.count_tokens` | `method_name_collision` | `limitation` | ADR-019 |
 | `LJX2017__A-Song-of-Ice-and-Fire` | `basic_game.py:27` | `google.generativeai.GenerativeModel.start_chat` | `chained_constructor_one_row` | `scan_change` | COVERAGE 25 |
 | `LJX2017__A-Song-of-Ice-and-Fire` | `reconstruct_timeline.py:10` | `google.generativeai.GenerativeModel.start_chat` | `chained_constructor_one_row` | `scan_change` | COVERAGE 25 |
+
 <!-- errors:end -->
 
 The two derived codes are consequences, not causes.
@@ -393,14 +397,23 @@ from its plan and withheld list, for every case;
 `tests/unit/test_bench_comparison.py` asserts it, and that agreement is what
 licenses scoring the agent, which publishes no plan, the same way.
 
+The agent's side is a snapshot from 2026-09-22 and was not rerun for 0.1.0;
+its guide and the model behind it may have moved since. Obelize's side is
+current: `Satheesh2908/AI-Assistant-for-Satheesh`'s count was corrected by
+hand from five cleared rows to one, because a fix landed on 2026-09-24
+teaching the rule not to remove a `configure()` another file still runs on,
+and four of the five rows this arm once credited relied on exactly that
+removal.
+
 <!-- comparison:begin -- generated by bench/comparison.py; edit that, not this -->
+
 Round 1, development split, from `bench/cases.yaml`, `bench/results/comparison/round-1.json`, `bench/results/round-1/` and `bench/comparison.yaml`. The other arm is a general-purpose coding agent given [the migration guide](https://ai.google.dev/gemini-api/docs/migrate) -- snapshotted 2026-09-22T07:20:07Z, sha256 `223b9cd7aabf` -- and [one fixed prompt](../bench/COMPARISON_PROMPT.md), and nothing else.
 
 **Both arms, the same cases.** *Rows migrated* is a key row whose legacy usage a scan of the tree afterwards no longer reports; *corrections left* is every key row still legacy plus every edit the review rejected.
 
 | Arm | Cases | `verified_success` | Key rows | Rows migrated | Corrections left | Runtime |
 |---|---:|---:|---:|---:|---:|---:|
-| Obelize | 13 | 0 | 174 | 21 (12.1%) | 153 | 18.9s |
+| Obelize | 13 | 0 | 174 | 17 (9.8%) | 157 | 18.2s |
 | General agent | 13 | 1 | 174 | 154 (88.5%) | 22 | 14.3m |
 
 **The tiers.** The same ladder for both arms, which is the round's own minus the two rungs that read a findings document -- an agent publishes none. Over this split the ladder returns the tier the round published for every obelize case.
@@ -418,33 +431,33 @@ Round 1, development split, from `bench/cases.yaml`, `bench/results/comparison/r
 
 | Case id | Key rows | Seen | Arm | Cleared | Left | Corrections | Files | Off key | Runtime | Tier |
 |---|---:|---:|---|---:|---:|---:|---:|---:|---:|---|
-| `Arnav3241__Jarvis-v13` | 36 | 33 | Obelize | 10 | 26 | 26 | 3 | 0 | 2.2s | `partial` |
+| `Arnav3241__Jarvis-v13` | 36 | 33 | Obelize | 10 | 26 | 26 | 3 | 0 | 2.5s | `partial` |
 | | | | General agent | 28 | 8 | 9 | 9 | 0 | 1.9m | `wrong` |
-| `LucasHJin__vit` | 14 | 14 | Obelize | 0 | 14 | 14 | 0 | 0 | 1.7s | `unsupported` |
+| `LucasHJin__vit` | 14 | 14 | Obelize | 0 | 14 | 14 | 0 | 0 | 1.6s | `unsupported` |
 | | | | General agent | 14 | 0 | 0 | 4 | 2 | 1.4m | `verified_success` |
-| `RuntimeAI__silly-merchants-for-safe-hackathon` | 6 | 6 | Obelize | 0 | 6 | 6 | 0 | 0 | 0.9s | `unsupported` |
+| `RuntimeAI__silly-merchants-for-safe-hackathon` | 6 | 6 | Obelize | 0 | 6 | 6 | 0 | 0 | 1.0s | `unsupported` |
 | | | | General agent | 6 | 0 | 0 | 2 | 0 | 51.0s | `patched_unverified` |
 | `dongxnb__gupiao` | 27 | 27 | Obelize | 0 | 27 | 27 | 0 | 0 | 2.2s | `unsupported` |
 | | | | General agent | 27 | 0 | 0 | 5 | 0 | 2.4m | `patched_unverified` |
-| `humanbound__humanbound-firewall` | 18 | 10 | Obelize | 0 | 18 | 18 | 0 | 0 | 1.4s | `unsupported` |
+| `humanbound__humanbound-firewall` | 18 | 10 | Obelize | 0 | 18 | 18 | 0 | 0 | 1.3s | `unsupported` |
 | | | | General agent | 10 | 8 | 9 | 5 | 1 | 2.0m | `wrong` |
-| `LotusSerene__Gemini-Novel-Maker` | 20 | 20 | Obelize | 3 | 17 | 17 | 3 | 0 | 2.1s | `partial` |
+| `LotusSerene__Gemini-Novel-Maker` | 20 | 20 | Obelize | 3 | 17 | 17 | 3 | 0 | 1.9s | `partial` |
 | | | | General agent | 20 | 0 | 0 | 5 | 0 | 1.1m | `patched_unverified` |
-| `Omadithya07__Phidata-Multimodal-Video-Summarizer-Using-AI-Agents` | 6 | 6 | Obelize | 0 | 6 | 6 | 0 | 0 | 1.0s | `unsupported` |
+| `Omadithya07__Phidata-Multimodal-Video-Summarizer-Using-AI-Agents` | 6 | 6 | Obelize | 0 | 6 | 6 | 0 | 0 | 0.9s | `unsupported` |
 | | | | General agent | 6 | 0 | 0 | 3 | 1 | 31.0s | `patched_unverified` |
-| `Sharukesh3__LLM-for-hydrogen-storage` | 15 | 14 | Obelize | 0 | 15 | 15 | 0 | 0 | 1.3s | `unsupported` |
+| `Sharukesh3__LLM-for-hydrogen-storage` | 15 | 14 | Obelize | 0 | 15 | 15 | 0 | 0 | 1.0s | `unsupported` |
 | | | | General agent | 14 | 1 | 1 | 3 | 0 | 1.2m | `partial` |
-| `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5` | 6 | 6 | Obelize | 0 | 6 | 6 | 0 | 0 | 1.3s | `unsupported` |
+| `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5` | 6 | 6 | Obelize | 0 | 6 | 6 | 0 | 0 | 0.8s | `unsupported` |
 | | | | General agent | 6 | 0 | 0 | 2 | 0 | 33.0s | `patched_unverified` |
-| `Satheesh2908__AI-Assistant-for-Satheesh` | 8 | 7 | Obelize | 5 | 3 | 3 | 2 | 0 | 1.2s | `partial` |
+| `Satheesh2908__AI-Assistant-for-Satheesh` | 8 | 7 | Obelize | 1 | 7 | 7 | 1 | 0 | 0.9s | `partial` |
 | | | | General agent | 7 | 1 | 1 | 5 | 1 | 28.0s | `partial` |
-| `Zierax__HackerHelper` | 6 | 4 | Obelize | 0 | 6 | 6 | 0 | 0 | 1.6s | `unsupported` |
+| `Zierax__HackerHelper` | 6 | 4 | Obelize | 0 | 6 | 6 | 0 | 0 | 1.2s | `unsupported` |
 | | | | General agent | 4 | 2 | 2 | 2 | 0 | 21.0s | `partial` |
-| `000wan__ara-ai-bot` | 9 | 9 | Obelize | 0 | 9 | 9 | 0 | 0 | 1.0s | `unsupported` |
+| `000wan__ara-ai-bot` | 9 | 9 | Obelize | 0 | 9 | 9 | 0 | 0 | 1.4s | `unsupported` |
 | | | | General agent | 9 | 0 | 0 | 2 | 0 | 30.0s | `patched_unverified` |
-| `ashishkumar5de__PDF-QL` | 3 | 3 | Obelize | 3 | 0 | 0 | 2 | 0 | 1.1s | `patched_unverified` |
+| `ashishkumar5de__PDF-QL` | 3 | 3 | Obelize | 3 | 0 | 0 | 2 | 0 | 1.6s | `patched_unverified` |
 | | | | General agent | 3 | 0 | 0 | 3 | 1 | 1.2m | `patched_unverified` |
-| **Total** | **174** | **159** | Obelize | **21** | **153** | **153** | | **0** | **18.9s** | |
+| **Total** | **174** | **159** | Obelize | **17** | **157** | **157** | | **0** | **18.2s** | |
 | **Total** |  |  | General agent | **154** | **20** | **22** | | **6** | **14.3m** | |
 
 **Where an arm went outside the key**, and what the review made of it.
@@ -465,9 +478,10 @@ Round 1, development split, from `bench/cases.yaml`, `bench/results/comparison/r
 | `Arnav3241__Jarvis-v13` | 9 | yes | **no** | 28 / 28 | 1.9m / 2.9m |
 | `LotusSerene__Gemini-Novel-Maker` | 5 | yes | **no** | 20 / 20 | 1.1m / 57.0s |
 | `ashishkumar5de__PDF-QL` | 3 | yes | **no** | 3 / 3 | 1.2m / 1.0m |
+
 <!-- comparison:end -->
 
-The agent cleared about seven times as many rows, about forty-five times
+The agent cleared about nine times as many rows, about forty-five times
 slower.
 
 Both of its `wrong` cases are real defects, and a suite caught one. In

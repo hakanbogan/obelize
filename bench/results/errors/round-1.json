@@ -86,7 +86,7 @@
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         }
       ],
-      "run_id": "20260921T213407Z-1083d214",
+      "run_id": "20260929T220953Z-caff50a0",
       "withheld": [
         {
           "bail": "repo_not_fully_migrated",
@@ -265,7 +265,7 @@
           "symbol": "google.generativeai.delete_file"
         }
       ],
-      "run_id": "20260921T213216Z-34ad1384",
+      "run_id": "20260929T220757Z-0edadb54",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
@@ -708,7 +708,7 @@
           "symbol": "google-generativeai"
         }
       ],
-      "run_id": "20260921T213220Z-2a94bec7",
+      "run_id": "20260929T220802Z-978a23d5",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
@@ -889,7 +889,7 @@
       "applied": [],
       "exit_code": 4,
       "findings": [],
-      "run_id": "20260921T213420Z-0d5451e6",
+      "run_id": "20260929T221010Z-7076807e",
       "withheld": []
     },
     "ImprintLab__Medical-Graph-RAG": {
@@ -1149,7 +1149,7 @@
           "symbol": "google.generativeai.GenerativeModel.count_tokens"
         }
       ],
-      "run_id": "20260921T213320Z-425ffdc8",
+      "run_id": "20260929T220906Z-edc8ba14",
       "withheld": [
         {
           "bail": "flag_only_surface",
@@ -1547,7 +1547,7 @@
           "symbol": "google.generativeai.configure"
         }
       ],
-      "run_id": "20260921T213338Z-f9888aa1",
+      "run_id": "20260929T220920Z-6a0bd6db",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
@@ -1686,120 +1686,120 @@
           "symbol": "google.generativeai"
         },
         {
-          "bail": null,
+          "bail": "file_not_fully_migrated",
           "confidence_reason": "alias_resolved",
           "kind": "import",
           "line": 5,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai"
         },
         {
-          "bail": null,
+          "bail": "file_not_fully_migrated",
           "confidence_reason": "alias_resolved",
           "kind": "call",
           "line": 17,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.configure"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "alias_resolved",
           "kind": "call",
           "line": 18,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "alias_resolved",
           "kind": "call",
           "line": 19,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel"
         },
         {
-          "bail": null,
+          "bail": "file_not_fully_migrated",
           "confidence_reason": "alias_resolved",
           "kind": "call",
           "line": 36,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerationConfig"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "receiver_bound_self_attr",
           "kind": "method_call",
           "line": 41,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "receiver_bound_self_attr",
           "kind": "method_call",
           "line": 134,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "receiver_bound_self_attr",
           "kind": "method_call",
           "line": 160,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "receiver_bound_self_attr",
           "kind": "method_call",
           "line": 180,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "receiver_bound_self_attr",
           "kind": "method_call",
           "line": 201,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "receiver_bound_self_attr",
           "kind": "method_call",
           "line": 291,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": null,
+          "bail": "file_not_fully_migrated",
           "confidence_reason": "alias_resolved",
           "kind": "call",
           "line": 304,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.embed_content"
         },
         {
-          "bail": null,
+          "bail": "model_object_read_elsewhere",
           "confidence_reason": "receiver_bound_self_attr",
           "kind": "method_call",
           "line": 341,
           "path": "chapter_generator.py",
-          "scan_status": "eligible",
+          "scan_status": "needs_review",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
@@ -1866,13 +1866,12 @@
           "symbol": "google.generativeai.embed_content"
         }
       ],
-      "run_id": "20260921T213326Z-236c4e9f",
+      "run_id": "20260929T220909Z-bde7ef81",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
           "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
+            "model_object_read_elsewhere"
           ],
           "line": 5,
           "path": "chapter_generator.py",
@@ -1881,103 +1880,88 @@
         {
           "bail": "file_not_fully_migrated",
           "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
+            "model_object_read_elsewhere"
           ],
           "line": 17,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.configure"
         },
         {
-          "bail": "generation_config_not_static",
+          "bail": "model_object_read_elsewhere",
           "caused_by": null,
           "line": 18,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
-          ],
+          "bail": "model_object_read_elsewhere",
+          "caused_by": null,
           "line": 19,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel"
         },
         {
-          "bail": "generation_config_not_static",
-          "caused_by": null,
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_read_elsewhere"
+          ],
           "line": 36,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerationConfig"
         },
         {
-          "bail": "generation_config_not_static",
+          "bail": "model_object_read_elsewhere",
           "caused_by": null,
           "line": 41,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
-          ],
+          "bail": "model_object_read_elsewhere",
+          "caused_by": null,
           "line": 134,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
-          ],
+          "bail": "model_object_read_elsewhere",
+          "caused_by": null,
           "line": 160,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
-          ],
+          "bail": "model_object_read_elsewhere",
+          "caused_by": null,
           "line": 180,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
-          ],
+          "bail": "model_object_read_elsewhere",
+          "caused_by": null,
           "line": 201,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "generation_config_not_static",
-            "response_shape_changed"
-          ],
+          "bail": "model_object_read_elsewhere",
+          "caused_by": null,
           "line": 291,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         },
         {
-          "bail": "response_shape_changed",
-          "caused_by": null,
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_read_elsewhere"
+          ],
           "line": 304,
           "path": "chapter_generator.py",
           "symbol": "google.generativeai.embed_content"
         },
         {
-          "bail": "generation_config_not_static",
+          "bail": "model_object_read_elsewhere",
           "caused_by": null,
           "line": 341,
           "path": "chapter_generator.py",
@@ -2148,7 +2132,7 @@
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         }
       ],
-      "run_id": "20260921T213227Z-efc14e58",
+      "run_id": "20260929T220810Z-a9a08a43",
       "withheld": [
         {
           "bail": "repo_not_fully_migrated",
@@ -2309,7 +2293,7 @@
           "symbol": "google-generativeai"
         }
       ],
-      "run_id": "20260921T213341Z-f6bdca03",
+      "run_id": "20260929T220923Z-3688bae5",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
@@ -2418,7 +2402,7 @@
           "symbol": "google-generativeai"
         }
       ],
-      "run_id": "20260921T213330Z-cdeb1654",
+      "run_id": "20260929T220913Z-1b57a129",
       "withheld": [
         {
           "bail": "alias_collision",
@@ -2430,35 +2414,30 @@
         {
           "bail": "file_not_fully_migrated",
           "caused_by": [
-            "alias_collision"
+            "alias_collision",
+            "client_placement_ambiguous"
           ],
           "line": 6,
           "path": "app.py",
           "symbol": "google.generativeai"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "alias_collision"
-          ],
+          "bail": "client_placement_ambiguous",
+          "caused_by": null,
           "line": 20,
           "path": "app.py",
           "symbol": "google.generativeai.configure"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "alias_collision"
-          ],
+          "bail": "client_placement_ambiguous",
+          "caused_by": null,
           "line": 70,
           "path": "app.py",
           "symbol": "google.generativeai.upload_file"
         },
         {
-          "bail": "file_not_fully_migrated",
-          "caused_by": [
-            "alias_collision"
-          ],
+          "bail": "client_placement_ambiguous",
+          "caused_by": null,
           "line": 73,
           "path": "app.py",
           "symbol": "google.generativeai.get_file"
@@ -2476,7 +2455,7 @@
       "applied": [],
       "exit_code": 4,
       "findings": [],
-      "run_id": "20260921T213414Z-38d387bf",
+      "run_id": "20260929T221001Z-9bfdf14f",
       "withheld": []
     },
     "RuntimeAI__silly-merchants-for-safe-hackathon": {
@@ -2538,7 +2517,7 @@
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         }
       ],
-      "run_id": "20260921T213233Z-ff0c1f2f",
+      "run_id": "20260929T220815Z-dc138bf2",
       "withheld": [
         {
           "bail": "repo_not_fully_migrated",
@@ -2595,22 +2574,6 @@
         [
           "App.py",
           3
-        ],
-        [
-          "src/Helper.py",
-          2
-        ],
-        [
-          "src/Helper.py",
-          40
-        ],
-        [
-          "src/Helper.py",
-          42
-        ],
-        [
-          "src/Helper.py",
-          44
         ]
       ],
       "exit_code": 6,
@@ -2688,7 +2651,7 @@
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         }
       ],
-      "run_id": "20260921T213345Z-04ce066d",
+      "run_id": "20260929T220926Z-79793e9d",
       "withheld": [
         {
           "bail": "from_import_unmigrated_symbol",
@@ -2703,6 +2666,40 @@
           "line": 7,
           "path": "Test.py",
           "symbol": "google.generativeai.ChatCompletion"
+        },
+        {
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "configure_consumed_elsewhere"
+          ],
+          "line": 2,
+          "path": "src/Helper.py",
+          "symbol": "google.generativeai"
+        },
+        {
+          "bail": "configure_consumed_elsewhere",
+          "caused_by": null,
+          "line": 40,
+          "path": "src/Helper.py",
+          "symbol": "google.generativeai.configure"
+        },
+        {
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "configure_consumed_elsewhere"
+          ],
+          "line": 42,
+          "path": "src/Helper.py",
+          "symbol": "google.generativeai.GenerativeModel"
+        },
+        {
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "configure_consumed_elsewhere"
+          ],
+          "line": 44,
+          "path": "src/Helper.py",
+          "symbol": "google.generativeai.GenerativeModel.generate_content"
         }
       ]
     },
@@ -2837,7 +2834,7 @@
           "symbol": "google.generativeai.ChatSession.last"
         }
       ],
-      "run_id": "20260921T213334Z-78353565",
+      "run_id": "20260929T220917Z-c5ada99d",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
@@ -3004,7 +3001,7 @@
           "symbol": "google-generativeai"
         }
       ],
-      "run_id": "20260921T213349Z-a3594604",
+      "run_id": "20260929T220929Z-d376c00f",
       "withheld": [
         {
           "bail": "module_alias_rebound",
@@ -3081,7 +3078,7 @@
           "symbol": "google-generativeai"
         }
       ],
-      "run_id": "20260921T213410Z-e857998d",
+      "run_id": "20260929T220957Z-89926b28",
       "withheld": []
     },
     "dongxnb__gupiao": {
@@ -3332,7 +3329,7 @@
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         }
       ],
-      "run_id": "20260921T213238Z-d38f21ac",
+      "run_id": "20260929T220821Z-b74e61dc",
       "withheld": [
         {
           "bail": "local_import",
@@ -3626,7 +3623,7 @@
           "symbol": "google.generativeai.upload_file"
         }
       ],
-      "run_id": "20260921T213251Z-37eb951e",
+      "run_id": "20260929T220835Z-83b78fc3",
       "withheld": [
         {
           "bail": "repo_not_fully_migrated",
@@ -3769,7 +3766,7 @@
           "symbol": "google.generativeai"
         }
       ],
-      "run_id": "20260921T213300Z-86acb016",
+      "run_id": "20260929T220844Z-94688fd7",
       "withheld": [
         {
           "bail": "repo_not_fully_migrated",
@@ -4021,7 +4018,7 @@
           "symbol": "google.generativeai.GenerativeModel.generate_content"
         }
       ],
-      "run_id": "20260921T213359Z-0d3f1ea7",
+      "run_id": "20260929T220943Z-567bb422",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
@@ -4190,33 +4187,8 @@
       ]
     },
     "navamai__navamai": {
-      "applied": [
-        [
-          "pyproject.toml",
-          21
-        ],
-        [
-          "src/navamai/gemini.py",
-          10
-        ],
-        [
-          "src/navamai/gemini.py",
-          22
-        ],
-        [
-          "src/navamai/gemini.py",
-          52
-        ],
-        [
-          "src/navamai/gemini.py",
-          53
-        ],
-        [
-          "src/navamai/gemini.py",
-          56
-        ]
-      ],
-      "exit_code": 6,
+      "applied": [],
+      "exit_code": 4,
       "findings": [
         {
           "bail": null,
@@ -4309,7 +4281,7 @@
           "symbol": "google.generativeai.GenerativeModel"
         }
       ],
-      "run_id": "20260921T213316Z-7317b6ba",
+      "run_id": "20260929T220902Z-d118f732",
       "withheld": [
         {
           "bail": "repo_not_fully_migrated",
@@ -4317,6 +4289,45 @@
           "line": 21,
           "path": "pyproject.toml",
           "symbol": "google-generativeai"
+        },
+        {
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_name_collision"
+          ],
+          "line": 10,
+          "path": "src/navamai/gemini.py",
+          "symbol": "google.generativeai"
+        },
+        {
+          "bail": "client_name_collision",
+          "caused_by": null,
+          "line": 22,
+          "path": "src/navamai/gemini.py",
+          "symbol": "google.generativeai.configure"
+        },
+        {
+          "bail": "client_name_collision",
+          "caused_by": null,
+          "line": 52,
+          "path": "src/navamai/gemini.py",
+          "symbol": "google.generativeai.GenerativeModel"
+        },
+        {
+          "bail": "client_name_collision",
+          "caused_by": null,
+          "line": 53,
+          "path": "src/navamai/gemini.py",
+          "symbol": "google.generativeai.GenerativeModel.generate_content"
+        },
+        {
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_name_collision"
+          ],
+          "line": 56,
+          "path": "src/navamai/gemini.py",
+          "symbol": "google.generativeai.types.GenerationConfig"
         },
         {
           "bail": "flag_only_surface",
@@ -4345,7 +4356,7 @@
       "applied": [],
       "exit_code": 4,
       "findings": [],
-      "run_id": "20260921T213424Z-8a6e8bb7",
+      "run_id": "20260929T221014Z-565acf00",
       "withheld": []
     },
     "taitran501__dashboard_app": {
@@ -4416,7 +4427,7 @@
           "symbol": "google-generativeai"
         }
       ],
-      "run_id": "20260921T213403Z-ab4e5dfa",
+      "run_id": "20260929T220948Z-3842d1da",
       "withheld": [
         {
           "bail": "file_not_fully_migrated",
@@ -4483,10 +4494,10 @@
     }
   },
   "obelize_version": [
-    "0.1.0.dev0"
+    "0.1.0"
   ],
   "pack_sha256": [
-    "58f94367c119ae4c5977d3802511995db18443af4afc9f003f8f79d9006cc245"
+    "fbe82d40afea4894fb756e0128f21889e08c210a2a5b0d2cfe7db0dae8187175"
   ],
   "round": 1,
   "schema_version": 1

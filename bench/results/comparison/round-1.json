@@ -1705,9 +1705,33 @@
           ],
           [
             "src/Helper.py",
+            2,
+            "import",
+            "google.generativeai"
+          ],
+          [
+            "src/Helper.py",
             5,
             "text_mention",
             "google.generativeai"
+          ],
+          [
+            "src/Helper.py",
+            40,
+            "call",
+            "google.generativeai.configure"
+          ],
+          [
+            "src/Helper.py",
+            42,
+            "call",
+            "google.generativeai.GenerativeModel"
+          ],
+          [
+            "src/Helper.py",
+            44,
+            "method_call",
+            "google.generativeai.GenerativeModel.generate_content"
           ]
         ]
       },
@@ -1719,12 +1743,6 @@
           "path": "App.py",
           "removed": 1,
           "status": "M"
-        },
-        {
-          "added": 3,
-          "path": "src/Helper.py",
-          "removed": 5,
-          "status": "M"
         }
       ],
       "repeat": null,
@@ -1733,9 +1751,7 @@
       "started_at": 1790062116,
       "tests_after": null,
       "written": [
-        "App.py",
-        "Test.py",
-        "src/Helper.py"
+        "App.py"
       ]
     },
     "Sharukesh3__LLM-for-hydrogen-storage": {

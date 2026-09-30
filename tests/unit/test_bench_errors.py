@@ -38,7 +38,7 @@ DERIVED = {"file_not_fully_migrated", "repo_not_fully_migrated"}
 
 # Round one as `bench/results/round-1/` publishes it, copied rather than computed.
 ROUND_ONE_ROWS = 277
-ROUND_ONE_MIGRATED = 34
+ROUND_ONE_MIGRATED = 25
 ROUND_ONE_CEILING = 252
 
 # Pinned by hand: the largest levers, and the second-commonest bail, which is worth nothing.

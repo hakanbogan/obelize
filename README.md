@@ -189,7 +189,7 @@ method and every case behind it. I measure them again before each release.
 |---|---|---|
 | Scan precision | 100.0% | 63 usages reported in 5 repositories labelled by hand |
 | Scan recall | 98.4% | 64 usages labelled by hand |
-| Usages migrated | 34 (12.3%) | 277 usages in 20 public repositories |
+| Usages migrated | 25 (9.0%) | 277 usages in 20 public repositories |
 | Repositories with a wrong edit | 0 | 20 |
 | Repositories migrated and verified by their own tests | 0 | 20, of which 16 have no test command |
 
@@ -198,7 +198,7 @@ migration guide and one fixed prompt.
 
 | Against a coding agent | obelize | The agent | n |
 |---|---|---|---|
-| Usages migrated | 21 (12.1%) | 154 (88.5%) | 174 usages in 13 of those repositories |
+| Usages migrated | 17 (9.8%) | 154 (88.5%) | 174 usages in 13 of those repositories |
 | Repositories with a wrong edit | 0 | 2 | 13 |
 
 The agent migrated far more, so I do not claim obelize is more accurate. Each change obelize

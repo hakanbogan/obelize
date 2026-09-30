@@ -1,7 +1,7 @@
 {
-  "obelize_version": "0.1.0.dev0",
+  "obelize_version": "0.1.0",
   "pack": "gemini/google-generativeai-to-google-genai",
-  "pack_sha256": "cb70d38c926891a1e127ad865e3e1721c98887d32fe260e4aac2710aa6a88d2d",
+  "pack_sha256": "fbe82d40afea4894fb756e0128f21889e08c210a2a5b0d2cfe7db0dae8187175",
   "spec_sha256": "2195fa003c3070aa1ad58d9adec097883984f1cdafab2556b53bfc563428fb2d",
   "python": "3.12.9",
   "machine": "arm64",
@@ -166,7 +166,7 @@
           "bail": "multiple_configure_calls"
         }
       ],
-      "seconds": 2.65
+      "seconds": 3.74
     },
     {
       "full_name": "aryanbrite/project-ai",
@@ -601,7 +601,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.86
+      "seconds": 2.98
     },
     {
       "full_name": "SONA1114/CHATBOT",
@@ -694,7 +694,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.52
+      "seconds": 1.65
     },
     {
       "full_name": "Prateek07-Kumar/End-To-End-Projects-Generative-AI-Google-Gemini-",
@@ -1057,7 +1057,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 4.1
+      "seconds": 4.75
     },
     {
       "full_name": "Momen2410/Question-Answering-ChatBot-Using-Gemini1.5",
@@ -1132,7 +1132,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.7
+      "seconds": 1.98
     },
     {
       "full_name": "ShreyasGandhi0607/Gemini-Project",
@@ -1243,7 +1243,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.66
+      "seconds": 2.0
     },
     {
       "full_name": "atharvv8/Gemini-Powered-AI-App",
@@ -1354,7 +1354,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.63
+      "seconds": 2.04
     },
     {
       "full_name": "chirag6521/Multilingual-AI-Assistant",
@@ -1449,7 +1449,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.56
+      "seconds": 1.93
     },
     {
       "full_name": "sito-sikino/avatar-ui-core",
@@ -1524,7 +1524,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.0
+      "seconds": 2.42
     },
     {
       "full_name": "whitehatboy005/AI-Chatbot",
@@ -1599,7 +1599,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.58
+      "seconds": 1.81
     },
     {
       "full_name": "sumitx99/Calories-Estimator",
@@ -1656,7 +1656,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.56
+      "seconds": 2.98
     },
     {
       "full_name": "AyaanKhaan5/Story_Create_AI_Agent",
@@ -1758,7 +1758,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.64
+      "seconds": 3.72
     },
     {
       "full_name": "gecitemre/issue-filler",
@@ -1851,7 +1851,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.58
+      "seconds": 1.9
     },
     {
       "full_name": "YuvBindal/FinBloom",
@@ -1944,7 +1944,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 6.02
+      "seconds": 9.1
     },
     {
       "full_name": "LJX2017/A-Song-of-Ice-and-Fire",
@@ -2178,7 +2178,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.11
+      "seconds": 2.51
     },
     {
       "full_name": "Hiba550/Google-DeepMind-for-Discord",
@@ -2244,7 +2244,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.57
+      "seconds": 1.9
     },
     {
       "full_name": "niteshsharmacodes/GenAI-powered-Invoice-Scanner",
@@ -2323,7 +2323,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.59
+      "seconds": 1.98
     },
     {
       "full_name": "aniketsingh1023/HTM-5.0-Tier3Hackers",
@@ -2497,7 +2497,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.64
+      "seconds": 3.24
     },
     {
       "full_name": "silky-modi22/Video-Transcribe-Summarizer",
@@ -2563,7 +2563,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.56
+      "seconds": 1.65
     },
     {
       "full_name": "mukul-mschauhan/imagetotext",
@@ -2638,7 +2638,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.52
+      "seconds": 1.63
     },
     {
       "full_name": "Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents",
@@ -2713,7 +2713,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.53
+      "seconds": 1.61
     },
     {
       "full_name": "Satheesh2908/AI-Assistant-for-Satheesh",
@@ -2806,7 +2806,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.03
+      "seconds": 2.26
     },
     {
       "full_name": "samar45/yt_summarizer_and_QA",
@@ -2917,7 +2917,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.07
+      "seconds": 2.36
     },
     {
       "full_name": "PriyanshuDey23/DiseaseDetectAI",
@@ -2983,7 +2983,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.61
+      "seconds": 1.65
     },
     {
       "full_name": "ansarifaisal12/PharmaSQL",
@@ -3049,7 +3049,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.55
+      "seconds": 1.65
     },
     {
       "full_name": "000wan/ara-ai-bot",
@@ -3172,7 +3172,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 1.64
+      "seconds": 1.83
     },
     {
       "full_name": "ananyajoshi0707/twachic",
@@ -3273,7 +3273,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 6.59
+      "seconds": 12.81
     },
     {
       "full_name": "Shriii04/GramSwastya",
@@ -3488,7 +3488,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 11.74
+      "seconds": 18.33
     },
     {
       "full_name": "SureboyPR/Goodness_Medical_Center_Chatbot",
@@ -3545,7 +3545,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 10.53
+      "seconds": 13.07
     },
     {
       "full_name": "pareekshitreddy/QuerySense-Natural-Language-to-SQL-Converter-Database-Query-Tool",
@@ -3611,7 +3611,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 9.56
+      "seconds": 16.25
     },
     {
       "full_name": "miguel-webplace/questiFy",
@@ -3714,7 +3714,7 @@
           ]
         }
       ],
-      "seconds": 1.6
+      "seconds": 1.73
     },
     {
       "full_name": "Sharukesh3/LLM-for-hydrogen-storage",
@@ -3907,7 +3907,7 @@
           "bail": "attribute_removed"
         }
       ],
-      "seconds": 3.07
+      "seconds": 3.34
     },
     {
       "full_name": "yihong0618/tg_bing_dalle",
@@ -4028,7 +4028,7 @@
           "bail": "client_source_unresolved"
         }
       ],
-      "seconds": 1.85
+      "seconds": 1.95
     },
     {
       "full_name": "KalyanM45/OpenHealth",
@@ -4121,7 +4121,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 4.53
+      "seconds": 6.67
     },
     {
       "full_name": "Hrishikesh332/Nutrisnap-app-real",
@@ -4218,7 +4218,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.83
+      "seconds": 2.0
     },
     {
       "full_name": "rainepera/sabIA-ImersaoIA-2025",
@@ -4311,7 +4311,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.08
+      "seconds": 2.35
     },
     {
       "full_name": "venkataRahulBabu/Chat-PDF-python",
@@ -4359,7 +4359,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.96
+      "seconds": 2.07
     },
     {
       "full_name": "ashishkumar5de/PDF-QL",
@@ -4407,7 +4407,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.98
+      "seconds": 2.38
     },
     {
       "full_name": "samkamau81/Literature_RAG",
@@ -4455,7 +4455,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.69
+      "seconds": 1.71
     },
     {
       "full_name": "Samitha-Edirisinghe/AI-Powered-Resume-Matching-System-CV-Embed",
@@ -4521,7 +4521,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 6.84
+      "seconds": 15.87
     },
     {
       "full_name": "Triveni-35/AI-powered-MCQ-Generator",
@@ -4578,7 +4578,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.6
+      "seconds": 1.69
     },
     {
       "full_name": "Vaibhav8299/Conversational_AI_App",
@@ -4797,7 +4797,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.88
+      "seconds": 2.01
     },
     {
       "full_name": "Jyotish2002/PdfQuestions",
@@ -4872,7 +4872,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.55
+      "seconds": 1.68
     },
     {
       "full_name": "RedLordezh7Venom/VPeakFit",
@@ -5015,7 +5015,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 2.94
+      "seconds": 3.8
     },
     {
       "full_name": "nishankhareln/LangchainBot",
@@ -5054,7 +5054,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.63
+      "seconds": 1.71
     },
     {
       "full_name": "Faiza-makhdoom/RAG-chatbot1",
@@ -5102,7 +5102,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.55
+      "seconds": 1.61
     },
     {
       "full_name": "Vinay-Krishna-Sarangapni/AI-powered-document-query-assistant",
@@ -5168,7 +5168,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.62
+      "seconds": 1.64
     },
     {
       "full_name": "PreeBh/E2EQuerymultiplePDFsGoogleGemini",
@@ -5207,7 +5207,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.6
+      "seconds": 1.61
     },
     {
       "full_name": "madanrajsagar/ResearchIQ",
@@ -5296,7 +5296,7 @@
           "scan_status": "not_a_usage"
         }
       ],
-      "seconds": 1.87
+      "seconds": 2.04
     },
     {
       "full_name": "Adiwanwade/pdf-chat-gemini",
@@ -5344,7 +5344,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.64
+      "seconds": 1.68
     },
     {
       "full_name": "Imran-ml/Chat_with_PDF_using_Gemini",
@@ -5392,7 +5392,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.94
+      "seconds": 2.02
     },
     {
       "full_name": "Abhisach687/bot-to-generate-MCQ-based-on-uploaded-pdf-webpage",
@@ -5440,7 +5440,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.7
+      "seconds": 1.81
     },
     {
       "full_name": "sobit-nep/samvaad-ai",
@@ -5488,7 +5488,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.62
+      "seconds": 1.74
     },
     {
       "full_name": "rajveerkhanduja/QueryMate",
@@ -5554,7 +5554,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.74
+      "seconds": 1.83
     },
     {
       "full_name": "SANTANUNAYAK19/AI-Vision-Assistant",
@@ -5608,7 +5608,7 @@
           "bail": "client_source_unresolved"
         }
       ],
-      "seconds": 1.58
+      "seconds": 1.64
     },
     {
       "full_name": "Anish-Ramesh/Doctor_Booker",
@@ -5674,7 +5674,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.68
+      "seconds": 1.76
     },
     {
       "full_name": "AdithyaPathakoti/Mediease",
@@ -5740,7 +5740,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.66
+      "seconds": 1.74
     },
     {
       "full_name": "Sai-Ashritha/Building-AI-Powered-Solution-for-Assisting-Visually-Impaired-Individuals",
@@ -5794,7 +5794,7 @@
           "bail": "client_source_unresolved"
         }
       ],
-      "seconds": 1.57
+      "seconds": 1.6
     },
     {
       "full_name": "aprameyak/GitaGPT",
@@ -5871,7 +5871,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.03
+      "seconds": 2.18
     },
     {
       "full_name": "Zierax/HackerHelper",
@@ -5932,7 +5932,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.16
+      "seconds": 2.29
     },
     {
       "full_name": "YOGANAND2003/chatbot-rag-streamlit-main",
@@ -6303,7 +6303,7 @@
           "bail": "receiver_unresolved"
         }
       ],
-      "seconds": 3.04
+      "seconds": 3.41
     },
     {
       "full_name": "ntiglao-umd/k-12mlsupport",
@@ -6414,7 +6414,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 3.13
+      "seconds": 3.45
     },
     {
       "full_name": "NJP6969/star-hack",
@@ -6632,7 +6632,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 2.7
+      "seconds": 2.79
     },
     {
       "full_name": "RuntimeAI/silly-merchants-for-safe-hackathon",
@@ -6722,7 +6722,7 @@
           "bail": "receiver_unresolved"
         }
       ],
-      "seconds": 2.0
+      "seconds": 2.02
     },
     {
       "full_name": "01-191-MaxavierGirvanusManurung/Tugas3-PAW",
@@ -6788,7 +6788,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.87
+      "seconds": 1.89
     },
     {
       "full_name": "AKMessi/AI-IPO-Analyst",
@@ -6845,7 +6845,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.65
+      "seconds": 1.72
     },
     {
       "full_name": "xNabil/discord-ai-bot",
@@ -7046,7 +7046,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.91
+      "seconds": 3.05
     },
     {
       "full_name": "quangkhai5122/ASL_Pytorch",
@@ -7168,7 +7168,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 3.42
+      "seconds": 3.63
     },
     {
       "full_name": "kvcops/Virtual-Herbal-Garden",
@@ -7369,7 +7369,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 8.85
+      "seconds": 13.27
     },
     {
       "full_name": "Wang-Haining/CMD-AInotator",
@@ -7448,7 +7448,7 @@
           "bail": "receiver_unresolved"
         }
       ],
-      "seconds": 2.27
+      "seconds": 2.3
     },
     {
       "full_name": "hari7261/Negotiation-MultiAgent",
@@ -7553,7 +7553,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.07
+      "seconds": 2.15
     },
     {
       "full_name": "malikEhsan09/RAG_Gemini",
@@ -7628,7 +7628,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.73
+      "seconds": 1.74
     },
     {
       "full_name": "AIApproach/AI-Approach-Chat",
@@ -7808,7 +7808,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 2.46
+      "seconds": 2.52
     },
     {
       "full_name": "kumareshbasu/Swasthya_AI",
@@ -8030,7 +8030,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 3.64
+      "seconds": 3.95
     },
     {
       "full_name": "niyati34/CaseyAi",
@@ -8160,7 +8160,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.67
+      "seconds": 3.05
     },
     {
       "full_name": "Sarthak061/ATMECS-Hackathon",
@@ -8261,7 +8261,7 @@
           "bail": "conditional_binding"
         }
       ],
-      "seconds": 2.54
+      "seconds": 2.87
     },
     {
       "full_name": "taitran501/dashboard_app",
@@ -8368,7 +8368,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.93
+      "seconds": 1.99
     },
     {
       "full_name": "Abhijeet212004/AIvestor",
@@ -8452,7 +8452,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 5.2
+      "seconds": 8.24
     },
     {
       "full_name": "BeraEkmekci/leonis-task-app",
@@ -8529,7 +8529,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.76
+      "seconds": 3.26
     },
     {
       "full_name": "AyaCherqi/Football",
@@ -8655,7 +8655,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 3.07
+      "seconds": 4.59
     }
   ]
 }

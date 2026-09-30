@@ -126,6 +126,39 @@ causes:
       Five rows, lever zero. A bound legacy object referenced somewhere that is
       not the receiver of a supported method, so what it becomes depends on code
       this file cannot see.
+  model_object_read_elsewhere:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-006
+    why: >-
+      New this round. Nine rows, one case, one file, lever zero: another module
+      in the same repository binds an unrelated attribute under the same short
+      name (`generation_model`, `check_model`), and the rule matches by name,
+      never by object, so it withholds on the safe side. The same closed-world
+      reason `model_object_escapes` already carries; proving the two names are
+      unrelated needs whole-program reasoning this file does not do.
+  client_name_collision:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-026
+    why: >-
+      New this round. Three rows, one case, one file, lever zero: the class
+      subclasses a base defined in another file, so the rule cannot read what
+      that base already sets on `self` and treats both ladder names as taken
+      on the safe side, exactly as its own docstring says a base it cannot
+      read does. Neither `client` nor `genai_client` is actually bound
+      anywhere in this repository's two files; the bail is the ladder's own
+      closed-world rule, not a real name clash.
+  configure_consumed_elsewhere:
+    class: withheld
+    disposition: limitation
+    recorded: ADR-031
+    why: >-
+      New this round. One row, one case: another in-scope module has no
+      `configure` of its own and runs on this file's process-wide default,
+      which deleting the constructor would remove. The defect is in the
+      other module, not this one, and the only edit a rule could propose is
+      the very row the run withholds.
   attribute_removed:
     class: withheld
     disposition: limitation
@@ -154,14 +187,6 @@ causes:
       D2. Two rows, lever zero. No `configure(...)` in the module, so there is
       nothing to build a client out of here. This is the cross-module client
       setup the pack already publishes as a limitation.
-  response_shape_changed:
-    class: withheld
-    disposition: limitation
-    recorded: ADR-029
-    why: >-
-      D5. One row, lever zero -- an `embed_content(...)` whose result is read
-      the way the legacy one allowed. The two correct rewrites differ by whether
-      the content was a batch, and the call does not say which.
   alias_collision:
     class: withheld
     disposition: rule_change
