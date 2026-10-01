@@ -8,6 +8,7 @@ process escapes or keeps running, so a green run cannot pass over nothing.
 from __future__ import annotations
 
 import contextlib
+import importlib
 import os
 import signal
 import subprocess
@@ -328,3 +329,19 @@ def test_a_command_whose_job_cannot_be_made_is_never_started(
     assert (result.status, result.reason) == ("inconclusive", "command_not_executable")
     assert "CreateJobObjectW failed" in result.output
     assert len(started) == 1
+
+
+def test_a_bare_name_the_commands_path_does_not_hold_is_nowhere(tmp_path: Path) -> None:
+    """The caller reads that as a program that is not obelize's own."""
+    assert processes.locate("no-such-program", {"PATH": str(tmp_path)}) is None
+
+
+def test_a_terminated_job_is_waited_on_until_it_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Its processes may still be exiting when `TerminateJobObject` returns."""
+    processes_windows = importlib.import_module("obelize.native.processes_windows")
+    counts = iter([2, 1, 0])
+    monkeypatch.setattr(_win32, "terminate", lambda _job, _code: None)
+    monkeypatch.setattr(_win32, "active_processes", lambda _job: next(counts))
+    monkeypatch.setattr(processes_windows, "POLL_S", 0.0)
+    processes_windows._terminate(1)
+    assert next(counts, None) is None, "the wait stopped before the job was empty"

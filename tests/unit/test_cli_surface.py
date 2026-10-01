@@ -303,6 +303,20 @@ def test_colour_is_disabled_reads_the_flag_and_the_convention(
     assert cli.colour_is_disabled(argv, env) is expected
 
 
+# rich draws a redirected Windows stream through console calls that write no escape sequence,
+# whatever FORCE_COLOR says. On Windows the child is told it has a console that takes them.
+_AS_A_TERMINAL_CONSOLE = (
+    "import runpy, rich.console as console; "
+    "console.detect_legacy_windows = lambda: False; "
+    "runpy.run_module('obelize.cli', run_name='__main__', alter_sys=True)"
+)
+CLI = (
+    [sys.executable, "-c", _AS_A_TERMINAL_CONSOLE]
+    if sys.platform == "win32"
+    else [sys.executable, "-m", "obelize.cli"]
+)
+
+
 def _run(args: list[str], env: dict[str, str]) -> str:
     """Run the CLI as its own process, with colour forced on unless `env` refuses it.
 
@@ -312,7 +326,7 @@ def _run(args: list[str], env: dict[str, str]) -> str:
     environment.pop("NO_COLOR", None)
     environment.update(env)
     completed = subprocess.run(
-        [sys.executable, "-m", "obelize.cli", *args],
+        [*CLI, *args],
         capture_output=True,
         text=True,
         encoding="utf-8",

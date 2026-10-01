@@ -505,8 +505,8 @@ def test_a_relative_link_resolves_from_the_citing_file_not_from_the_root(
 
 def test_every_allowlisted_prefix_actually_excludes_its_files() -> None:
     """Both ways: a prefix that matches nothing on disk is a silent standing exception."""
-    considered = {str(path.relative_to(ROOT)) for path in _tracked_text_files()}
-    skipped = {str(path.relative_to(ROOT)) for path in _tracked_text_files(allowlisted=True)}
+    considered = {path.relative_to(ROOT).as_posix() for path in _tracked_text_files()}
+    skipped = {path.relative_to(ROOT).as_posix() for path in _tracked_text_files(allowlisted=True)}
     for prefix in CITATION_ALLOWLIST:
         assert not [name for name in considered if name.startswith(prefix)], prefix
         assert [name for name in skipped if name.startswith(prefix)], prefix

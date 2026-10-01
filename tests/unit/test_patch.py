@@ -13,6 +13,7 @@ import pytest
 
 from obelize.evidence import patch
 from obelize.fsutil import Change
+from platforms import posix_only
 
 # Ten lines apart is more than 2 * CONTEXT, so the two changes below cannot share a hunk.
 FILLER = b"".join(b"pad %d\n" % index for index in range(10))
@@ -109,7 +110,11 @@ CASES: tuple[tuple[str, str, bytes, bytes, int], ...] = (
     ("bytes above ASCII in the name", "café.py", b"x = 1\n", b"x = 2\n", 1),
 )
 
-NAMED = [(name, path, before, after, hunks) for name, path, before, after, hunks in CASES]
+UNSTORABLE = posix_only("Windows cannot store this name; the POSIX runs grade the same bytes")
+
+NAMED = [
+    pytest.param(*case, marks=[UNSTORABLE] if set(case[1]) & {'"', "\t"} else []) for case in CASES
+]
 IDS = [case[0] for case in CASES]
 
 

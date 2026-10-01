@@ -164,8 +164,10 @@ def build(root: Path) -> None:
     for name, target in targets.items():
         assert target is not None
         link = root / name
-        # Windows makes a directory link only when told the target is a directory.
-        link.symlink_to(target, target_is_directory=(link.parent / target).is_dir())
+        # Windows follows a relative target only if it is spelled with backslashes, and makes a
+        # directory link only when told the target is a directory.
+        spelled = target.replace("/", os.sep)
+        link.symlink_to(spelled, target_is_directory=(link.parent / spelled).is_dir())
     # The submodule: a real repository, so that `git add` records a gitlink and
     # the walk finds a `.git` to prune on.
     _write(root / "vendorsub" / "sub_mod.py", _SOURCE)

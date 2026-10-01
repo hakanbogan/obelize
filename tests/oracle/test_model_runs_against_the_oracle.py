@@ -172,7 +172,7 @@ def prepare(work: Path, case: dict[str, Any], base_url: str, config_home: Path) 
 
 def digests(folder: Path) -> dict[str, bytes]:
     return {
-        str(path.relative_to(folder)): path.read_bytes()
+        path.relative_to(folder).as_posix(): path.read_bytes()
         for path in sorted(folder.rglob("*"))
         if path.is_file()
     }

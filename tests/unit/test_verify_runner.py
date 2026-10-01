@@ -384,6 +384,22 @@ def test_output_that_never_reaches_its_end_still_ends_the_read(
     assert (result.status, result.reason) == ("inconclusive", "timeout")
 
 
+def test_a_command_whose_output_ended_but_which_runs_on_is_stopped_at_the_deadline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The end of the output is stubbed, so this holds however a platform's pipe reports it."""
+    monkeypatch.setattr(runner, "_drain", lambda _process, _deadline: (b"", b"", 0, False))
+    started = time.monotonic()
+    result = runner.execute(
+        tmp_path,
+        runner.Command.of(f"{PYTHON} {quoted(TOOLS / 'slow.py')} 60", "cli"),
+        timeout_s=1,
+        environ=dict(os.environ),
+    )
+    assert (result.status, result.reason) == ("inconclusive", "timeout")
+    assert time.monotonic() - started < 30, "the command was waited for, not stopped"
+
+
 def test_killing_a_process_that_is_already_gone_is_not_an_error(tmp_path: Path) -> None:
     """The race between the deadline and the process ending on its own."""
     process = processes.spawn([sys.executable, "-c", "pass"], tmp_path, dict(os.environ))
@@ -572,24 +588,27 @@ def test_a_program_named_by_its_path_is_found_from_the_command_s_directory_witho
 
 @windows_only("POSIX has no batch files; test_windows_programs.py refuses each spelling there")
 @pytest.mark.parametrize(
-    ("stored", "spelled"),
+    ("stored", "spelled", "exact"),
     [
-        ("tool.bat", "tool.bat"),
-        ("tool.cmd", "TOOL.CMD"),
-        ("tool.bat", "tool.bat."),
-        ("tool.bat", "tool.bat ."),
+        ("tool.bat", "tool.bat", True),
+        ("tool.cmd", "TOOL.CMD", True),
+        ("tool.bat", "tool.bat.", False),
+        ("tool.bat", "tool.bat .", False),
     ],
     ids=["bat", "upper-case-cmd", "trailing-dot", "trailing-space-and-dot"],
 )
 def test_a_batch_file_is_refused_however_its_name_is_spelled(
-    tmp_path: Path, stored: str, spelled: str
+    tmp_path: Path, stored: str, spelled: str, exact: bool
 ) -> None:
-    """Control: Windows drops the trailing dots and spaces and runs the file through `cmd.exe`."""
+    """Control: the file system reads every spelling as the stored file, and `cmd.exe` runs the
+    exact ones."""
     marker = tmp_path / "ran"
     (tmp_path / stored).write_bytes(f'@echo ran> "{marker}"\r\n'.encode())
-    subprocess.run([str(tmp_path / spelled)], capture_output=True, check=True)
-    assert marker.exists()
-    marker.unlink()
+    assert os.path.samefile(tmp_path / spelled, tmp_path / stored)
+    if exact:
+        subprocess.run([str(tmp_path / spelled)], capture_output=True, check=True)
+        assert marker.exists()
+        marker.unlink()
     result = runner.execute(
         tmp_path,
         runner.Command.of(quoted(tmp_path / spelled), "cli"),

@@ -15,7 +15,7 @@ from obelize.config import ConfigError
 from obelize.impact import planner
 from obelize.models import Config, ImpactPlan, ImpactPolicy
 from obelize.native import processes
-from obelize.scan import analysis, parse, runner
+from obelize.scan import analysis, parse, reach, runner
 from platforms import AS_ROOT, deny, posix_only
 
 # Survives the prefilter and yields findings, a binding and a receiver record.
@@ -475,6 +475,12 @@ def test_a_module_that_cannot_be_read_is_not_a_reader(tmp_path: Path) -> None:
     with deny(root / "app.py"):
         result = scanned(root)
     assert binding(result, "llm.py") == ("eligible", None)
+
+
+def test_a_module_that_is_gone_when_the_readers_are_gathered_is_left_out(tmp_path: Path) -> None:
+    """Windows stops a denied module at the walk, so the failed read is shown by a missing one."""
+    root = tree(tmp_path, {"llm.py": HOLDER})
+    assert list(reach._trees(root, ["gone.py", "llm.py"], {"M"})) == ["llm.py"]
 
 
 def test_a_module_that_does_not_parse_is_not_a_reader(tmp_path: Path) -> None:

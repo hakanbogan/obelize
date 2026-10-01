@@ -66,9 +66,9 @@ def spelled(argv: list[str], marker: Path) -> list[str]:
 
 
 def digests(folder: Path) -> dict[str, bytes]:
-    """Every file under a run folder, by its folder-relative path."""
+    """Every file under a run folder, by its folder-relative path spelled with `/`."""
     return {
-        str(path.relative_to(folder)): path.read_bytes()
+        path.relative_to(folder).as_posix(): path.read_bytes()
         for path in sorted(folder.rglob("*"))
         if path.is_file()
     }

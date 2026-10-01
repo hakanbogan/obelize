@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -231,7 +232,7 @@ def test_a_refusal_records_the_parsers_words_and_never_a_line_of_the_file() -> N
 def test_compile_is_given_the_relative_path_so_no_absolute_path_can_leak() -> None:
     """The control reads `.filename`: `str()` shows only the basename and 3.14's `repr` drops it."""
     data = _fixture("python2.py")
-    absolute = "/var/folders/xy/somewhere/pkg/legacy.py"
+    absolute = os.path.abspath("/var/folders/xy/somewhere/pkg/legacy.py")
     with pytest.raises(SyntaxError) as excinfo:
         compile(data, absolute, "exec")
     assert excinfo.value.filename == absolute

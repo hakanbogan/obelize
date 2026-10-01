@@ -5,6 +5,7 @@ docs/CLI.md's key table, always-excluded set and worked example are checked agai
 
 from __future__ import annotations
 
+import errno
 import re
 import shlex
 from pathlib import Path
@@ -268,6 +269,23 @@ def test_a_repository_that_will_not_say_whether_it_has_a_configuration_is_refuse
     _write(repo, "include: '**/*.py'\n")
     with deny(repo), pytest.raises(ConfigError, match="cannot be read"):
         load(repo)
+
+
+def test_a_configuration_file_the_filesystem_will_not_describe_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows describes a denied name from its directory's listing, so a stub stands in there."""
+    named = tmp_path / CONFIG_FILENAME
+    lstat = Path.lstat
+
+    def refusing(path: Path) -> Any:
+        if path == named:
+            raise PermissionError(errno.EACCES, "Permission denied", str(path))
+        return lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", refusing)
+    with pytest.raises(ConfigError, match="cannot be read: Permission denied"):
+        load(tmp_path)
 
 
 def test_a_repository_cannot_configure_the_model(tmp_path: Path) -> None:
