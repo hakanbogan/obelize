@@ -38,6 +38,7 @@ def _build(root: Path) -> None:
     (root / "dangling.py").symlink_to("nowhere.py")
     (root / "loop.py").symlink_to("loop.py")
     link(root / "linked_pkg", outside / "pkg")
+    (root / "vendored").mkdir()
     sealed = root / "sealed"
     sealed.mkdir()
     (sealed / "hidden.py").write_text("hidden = True\n", encoding="utf-8", newline="\n")
@@ -128,13 +129,44 @@ def test_a_listed_path_that_is_gone_is_missing_rather_than_an_escape(root: Path)
 
 def test_a_directory_is_not_a_file(root: Path) -> None:
     """What drops a gitlink, which git lists as one ordinary path entry."""
-    assert refusal(root, root / "sealed") == "not_a_file"
+    assert refusal(root, root / "vendored") == "not_a_file"
 
 
 @pytest.mark.skipif(AS_ROOT, reason="root ignores the permission bits this test removes")
 def test_a_path_the_filesystem_will_not_answer_about_is_refused(root: Path) -> None:
     """`Path.is_symlink` swallows the denial from 3.14, so the guard reads `lstat`'s errno."""
     assert refusal(root, root / "sealed" / "hidden.py") == "unreadable"
+
+
+def _cannot_resolve(monkeypatch: pytest.MonkeyPatch, target: Path, error: Exception) -> None:
+    resolve = Path.resolve
+
+    def resolving(path: Path, strict: bool = False) -> Path:
+        if path == target:
+            raise error
+        return resolve(path, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", resolving)
+
+
+def test_a_name_the_filesystem_will_not_resolve_is_unreadable_and_not_an_escape(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows opens a name to resolve it, so a denied name fails there where POSIX only reads
+    its parent; `lstat` has already shown the name is there and is no link."""
+    target = root / "inside.py"
+    _cannot_resolve(monkeypatch, target, PermissionError(errno.EACCES, "denied", str(target)))
+    assert refusal(root, target) == "unreadable"
+    assert contained(root, target) is False
+
+
+def test_a_name_whose_resolution_loops_is_an_escape(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = root / "inside.py"
+    _cannot_resolve(monkeypatch, target, RuntimeError("Symlink loop"))
+    assert refusal(root, target) == "outside_root"
+    assert contained(root, target) is False
 
 
 @pytest.mark.parametrize(
@@ -431,6 +463,22 @@ def test_a_file_the_preflight_cannot_read_is_refused(tree: Path) -> None:
             tree, [fsutil.Change(path="app.py", before=b"VALUE = 1\n", after=b"VALUE = 2\n")]
         )
     assert [(row.path, row.reason) for row in applied.refused] == [("app.py", "unreadable")]
+
+
+def test_a_file_that_passes_the_guard_and_then_fails_to_open_is_refused(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows refuses a denied name at the guard, so only a stub reaches the failed open there."""
+
+    def denied(absolute: Path) -> bytes:
+        raise PermissionError(errno.EACCES, "Permission denied", str(absolute))
+
+    monkeypatch.setattr(fsutil, "read", denied)
+    applied = fsutil.apply(
+        tree, [fsutil.Change(path="app.py", before=b"VALUE = 1\n", after=b"VALUE = 2\n")]
+    )
+    assert [(row.path, row.reason) for row in applied.refused] == [("app.py", "unreadable")]
+    assert (tree / "app.py").read_bytes() == b"VALUE = 1\n"
 
 
 def test_a_write_that_fails_after_the_preflight_passed_is_reported_not_rolled_back(

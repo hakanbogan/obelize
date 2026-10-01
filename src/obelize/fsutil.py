@@ -82,15 +82,24 @@ class Apply:
         return bool(self.dirty or self.refused or self.unknown)
 
 
-def contained(root: Path, candidate: Path) -> bool:
-    """Whether `candidate` is inside `root`, both resolved; a dangling link or loop is a refusal.
+def _placement(root: Path, candidate: Path) -> Literal["inside", "outside", "unreadable"]:
+    """Where `candidate` resolves relative to `root`; a name the filesystem will not resolve is
+    `unreadable`, and a dangling link or loop is `outside`.
 
     The root is resolved per call on purpose: a cached one could go stale.
     """
     try:
-        return candidate.resolve(strict=True).is_relative_to(root.resolve(strict=True))
-    except (OSError, RuntimeError):
-        return False
+        inside = candidate.resolve(strict=True).is_relative_to(root.resolve(strict=True))
+    except OSError:
+        return "unreadable"
+    except RuntimeError:
+        return "outside"
+    return "inside" if inside else "outside"
+
+
+def contained(root: Path, candidate: Path) -> bool:
+    """Whether `candidate` is inside `root`, both resolved; a dangling link or loop is a refusal."""
+    return _placement(root, candidate) == "inside"
 
 
 def refusal(root: Path, candidate: Path) -> PathRefusal | None:
@@ -100,7 +109,8 @@ def refusal(root: Path, candidate: Path) -> PathRefusal | None:
     would be scanned twice and rewritten under a name its author did not use. The regular-file
     check drops gitlinks (submodules are directories), fifos and devices. A listed path that was
     `rm`ed is `missing`, not `outside_root`. The errno is read directly: 3.14's `Path.exists`
-    hides a denial.
+    hides a denial. Windows opens a name to resolve it, so a denied name is `unreadable` at the
+    containment step there; POSIX resolves it and fails at the open.
     """
     try:
         status = candidate.lstat()
@@ -108,7 +118,10 @@ def refusal(root: Path, candidate: Path) -> PathRefusal | None:
         return "missing" if error.errno in _ABSENT else "unreadable"
     if linked(status):
         return "symlink"
-    if not contained(root, candidate):
+    placement = _placement(root, candidate)
+    if placement == "unreadable":
+        return "unreadable"
+    if placement == "outside":
         return "outside_root"
     if not stat.S_ISREG(status.st_mode):
         return "not_a_file"
