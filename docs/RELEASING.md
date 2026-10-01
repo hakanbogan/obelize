@@ -87,7 +87,7 @@ Run in order. A failed step stops the release.
    and fails unless all are 200:
 
    ```bash
-   unzip -p dist/obelize-<version>-py3-none-any.whl '*.dist-info/METADATA' | grep -o 'https://github.com/hakanbogan/obelize/blob/v<version>/[^)" ]*' | sort -u | xargs -n 1 curl -sL -o /dev/null -w '%{http_code} %{url}\n' | awk '{ print } $1 != 200 { bad++ } END { exit bad || NR == 0 }'
+   unzip -p dist/obelize-<version>-py3-none-any.whl '*.dist-info/METADATA' | grep -o 'https://github.com/hakanbogan/obelize/blob/v<version>/[^)" ]*' | sort -u | xargs -r -n 1 curl -sL -o /dev/null -w '%{http_code} %{url}\n' | awk '{ print } $1 != 200 { bad++ } END { exit bad || NR == 0 }'
    ```
 
    Approve it only once that passes and the tag's own ci run, macOS included, is green.
