@@ -1,8 +1,5 @@
 # Releasing
 
-The release workflow has not run yet, so each step here stays unproven until the first release
-goes through it.
-
 ## Versions and tags
 
 - The version lives only in `__version__` in `src/obelize/__init__.py`, which hatchling reads at
@@ -11,8 +8,7 @@ goes through it.
   `0.1.0rc1`, not `0.1.0-rc1`.
 - Every format is unstable through 0.x ([CHANGELOG.md](../CHANGELOG.md#stability)), and each
   release's changelog section names the formats it changed.
-- The tag is `v` and the version, such as `v0.1.0`. Once the repository is public, a tag ruleset
-  lets only me create `v*` tags.
+- The tag is `v` and the version, such as `v0.1.0`. A tag ruleset lets only me create `v*` tags.
 
 ## Accounts
 
@@ -26,7 +22,7 @@ without a login, but yanking a release or changing a publisher needs one.
 No API token exists in the repository or in GitHub secrets. `release.yml` uploads through
 `pypa/gh-action-pypi-publish` over OIDC, which also uploads an attestation for each file.
 
-On release day, not before, add a pending publisher under Account settings, Publishing, on each
+Before the first upload, add a pending publisher under Account settings, Publishing, on each
 site:
 
 | Field | PyPI | TestPyPI |
@@ -40,10 +36,8 @@ site:
 A pending publisher reserves no name, and PyPI deletes one that has not been used 30 days after
 it was created. If the form refuses the name, someone else holds it.
 
-Once the repository is public, two GitHub environments hold the uploads: `pypi` names me as its
-required reviewer and accepts only `v*` tags, and `testpypi` accepts only `main`. A private
-repository on my plan can have neither the reviewer nor the tag ruleset, so until then an upload
-to PyPI waits for nobody. Before tagging, check the reviewer:
+Two GitHub environments hold the uploads: `pypi` names me as its required reviewer and accepts
+only `v*` tags, and `testpypi` accepts only `main`. Before tagging, check the reviewer:
 
 ```bash
 gh api repos/hakanbogan/obelize/environments/pypi --jq '[.protection_rules[].type]'

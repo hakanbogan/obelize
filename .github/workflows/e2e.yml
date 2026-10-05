@@ -1,6 +1,6 @@
 # scan -> fix --apply on the bundled example app from a built wheel in a clean venv, asserting
 # docs/CLI.md exit codes and docs/RUN_FOLDER.md evidence; `tests/e2e/` runs the flow in-process.
-# The app's own suite is not run: the flow writes nothing to verify (ADR-031 D11).
+# The app's own suite is not run: the flow writes nothing to verify.
 name: e2e
 
 on:
@@ -133,9 +133,8 @@ jobs:
           echo "run id: $run_id"
           test -f "$run_json"
 
-          # No edit (ADR-031 D11): summarize.py and conversation.py run on summarizer/config.py's
-          # `configure`, so that file is withheld as `configure_consumed_elsewhere`. A more
-          # automatic result is a rules change to argue, not to absorb.
+          # No edit is expected: summarize.py and conversation.py run on summarizer/config.py's
+          # `configure`, so that file is withheld as `configure_consumed_elsewhere`.
           jq -e --arg pack "$PACK_ID" '
             (.run_id      | type == "string" and (length > 0))
             and (.obelize_version | type == "string" and (length > 0))
@@ -194,5 +193,6 @@ jobs:
         with:
           name: e2e-evidence
           path: ${{ runner.temp }}/app/.obelize/
+          include-hidden-files: true # the folder's name starts with a dot
           if-no-files-found: warn
           retention-days: 7

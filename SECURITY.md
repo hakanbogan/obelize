@@ -3,7 +3,7 @@
 ## Supported versions
 
 During `0.x`, only the latest release is supported: a fix ships in the next release, with no
-backports. Before the first release, reports apply to `main`.
+backports.
 
 | Version | Supported |
 |---|---|
@@ -15,8 +15,8 @@ backports. Before the first release, reports apply to `main`.
 **Do not open a public issue for a security problem.**
 
 - Email <hbogan93@gmail.com> with `Obelize security` in the subject line.
-- Once the repository is public, GitHub private vulnerability reporting is the
-  preferred channel, at `https://github.com/hakanbogan/obelize/security/advisories/new`.
+- GitHub private vulnerability reporting is the preferred channel, at
+  `https://github.com/hakanbogan/obelize/security/advisories/new`.
 
 What to expect:
 

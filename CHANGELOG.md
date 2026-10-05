@@ -12,7 +12,7 @@ in the release that makes it.
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-09-29
+## [0.1.0] - 2026-10-06
 
 ### Benchmark
 

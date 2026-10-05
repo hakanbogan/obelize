@@ -1,8 +1,7 @@
 # A v* tag builds and checks the release, waits for my approval in the `pypi` environment, uploads
 # it to PyPI with Trusted Publishing and creates the GitHub release. A manual run rehearses: it
 # builds a numbered dev version and uploads it to TestPyPI only. The approval and the rule that
-# only I push v* tags are settings the repository gets when it goes public; until then a pushed
-# tag reaches PyPI with no approval. Setup: docs/RELEASING.md.
+# only I push v* tags are repository settings, not part of this file. Setup: docs/RELEASING.md.
 name: release
 
 on:
