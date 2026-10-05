@@ -47,6 +47,11 @@ since a baseline can have already run before the refusal.
 A file's own name is untrusted text: an unusual one can inject Markdown into the generated report
 or control characters into a terminal that prints it.
 
+Some hints give a POSIX spelling on Windows. The hint after a baseline that failed in obelize's
+own environment shows `.venv/bin/python`, the refusal of a command that needs a shell advises
+`sh -c`, which a Windows machine may not have, and the `--jobs` help does not mention the limit of
+61 that Windows enforces.
+
 ## Scanning and rewriting
 
 The syntax check obelize runs before touching a file inherits `from __future__ import

@@ -153,7 +153,8 @@ module; and a manifest that disagrees with the code (the code is the evidence).
 
 ## Reproducible run
 
-`bench/run.py` runs locally; CI runs only its `--fixtures-only` pass. Per case:
+`bench/run.py` runs locally; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
+environments and is not run on Windows. Per case:
 
 1. Shallow-fetch the repository at the pinned SHA into `<work>/<round>/<id>/`,
    under the system temporary directory. A `pyproject.toml`, `pytest.ini`,

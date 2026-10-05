@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-021 and ADR-022.
+Accepted; amended by ADR-021, ADR-022 and ADR-049.
 
 ## Decision
 
@@ -71,4 +71,5 @@ Accepted; amended by ADR-021 and ADR-022.
 
 - Cross-module re-export cannot be resolved; it is a documented v0 limitation.
 - Repositories pinned below Python 3.10 are reported `blocked: runtime_unsupported`.
-- Windows is untested: the verify runner relies on POSIX process groups for timeouts.
+- Windows stops a verification command through a job object instead of a process group
+  ([ADR-049](ADR-049-platform-seam.md)).

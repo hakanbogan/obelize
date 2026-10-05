@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-049.
 
 ## Decision
 
@@ -110,5 +110,5 @@ same answer without a plan, so no untracked file sets it, and is `null` when git
   and a file whose parse does not reproduce its own bytes is left alone (ADR-031 D7).
 - Outside a git repository the tree gate refuses nothing, so TM-8 protects nobody there
   (`docs/RUN_FOLDER.md`).
-- `O_NOFOLLOW`, `dir_fd` and `os.fchmod` are POSIX, which makes `pyproject.toml`'s macOS and Linux
-  classifiers load-bearing.
+- `O_NOFOLLOW`, `dir_fd` and `os.fchmod` are POSIX; on Windows the same guarantees are made with the
+  calls [ADR-049](ADR-049-platform-seam.md) describes.

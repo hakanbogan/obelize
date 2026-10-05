@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-049.
 
 ## Decision
 
@@ -105,8 +105,8 @@ reports per test is not built.
   documents say so.
 - Redaction over-redacts on purpose (`GIT_AUTHOR_NAME` matches `AUTH`) until a log it made
   unreadable argues for a deny-list or an entropy test.
-- `os.killpg`, `start_new_session` and `select` on a pipe are POSIX, which makes `pyproject.toml`'s
-  macOS and Linux classifiers load-bearing.
+- `os.killpg`, `start_new_session` and `select` on a pipe are POSIX; on Windows a job object does
+  the stopping, as [ADR-049](ADR-049-platform-seam.md) describes.
 - Open: the compile gate is reached only where the after-phase's commands run, so an uncompilable
   write with no command configured is `not_run`, exit `6`, not `fail`
   (`tests/fixtures/scan/COVERAGE.md` gap 26).

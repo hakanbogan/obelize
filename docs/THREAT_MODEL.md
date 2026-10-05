@@ -29,7 +29,7 @@ it. Report a vulnerability as `SECURITY.md` says, never in a public issue.
 | TM-7 | Our own supply chain | Trusted Publishing with attestations; SHA-pinned actions; Dependabot; few runtime dependencies (<= 7); `pip-licenses`; 2FA; `uv lock --check`; a release builds with a pinned backend, only from a commit ci passed on `main`, and checks its version, tag and changelog section before any upload; once the repository is public, the `pypi` environment waits for my approval and only I can create a `v*` tag | CI `lock` job; `tests/unit/test_packaging.py` bounds the runtime dependencies and builds with the pinned backend; `tests/unit/test_workflows.py` holds every action to a commit and runs the release's checks |
 | TM-8 | Overwriting the user's work | `git status --porcelain -z --untracked-files=no` over the **whole tree**, from any directory in it, plus every file on the plan that git does not track. With no file changed, a dirty tree refuses the apply unless `--allow-dirty`, a git that cannot answer refuses it (`tree_unknown`), and so does a file changed since the plan read it (`file_changed_since_read`); evidence reaches the run folder before the write. See [Git and file safety rules](#git-and-file-safety-rules) | Eleven repositories under `tests/fixtures/apply/`: five refuse with every file byte-identical, two are a directory of a larger repository, `untracked/` and `staged/` differ by a `git add`, and `untracked_target/` plans a file git does not track; `tests/fixtures/evidence/dirty/` grades the record of a refusal; every `patch.diff` reproduces the migration under `git apply`; `tests/fixtures/commands/` grades the refusal and the undo over twelve cases in five fixture repositories |
 | TM-9 | Evidence leaking secrets | One redactor for evidence, logs and model payloads ([Secret redaction](#secret-redaction)); the environment is never recorded; output is capped at 1 MiB kept as its two ends | A command printing two fake credentials, one caught by shape and one by its variable's name, run directly first so "the secret is absent" cannot pass over an empty capture |
-| TM-10 | Runaway verification command | Default timeout 600 s; the command runs in its own session and the deadline kills its whole process **group**, `SIGTERM` then `SIGKILL`, because a server a test runner started holds the same pipe; `inconclusive` with reason `timeout`, never `fail`. After the command exits, a group still holding the pipe is killed after a short read. The read stops at end-of-file, the deadline, **and** a short second deadline after the kill, because a command can close its output and keep running, or start a child in another session | A sleep past the timeout -> `inconclusive`, `timeout`, exit 6, earlier output kept; a spawned child is gone and never writes its file; two tests in `tests/unit/test_verify_runner.py` for the stopping conditions end-of-file cannot provide |
+| TM-10 | Runaway verification command | Default timeout 600 s; the command runs in its own session and the deadline kills its whole process **group**, `SIGTERM` then `SIGKILL`, because a server a test runner started holds the same pipe; `inconclusive` with reason `timeout`, never `fail`. After the command exits, a group still holding the pipe is killed after a short read. The read stops at end-of-file, the deadline, **and** a short second deadline after the kill, because a command can close its output and keep running, or start a child in another session. On Windows the command runs in a job object instead ([what differs there](#what-differs-on-windows)) | A sleep past the timeout -> `inconclusive`, `timeout`, exit 6, earlier output kept; a spawned child is gone and never writes its file; two tests in `tests/unit/test_verify_runner.py` for the stopping conditions end-of-file cannot provide |
 
 ## TM-2 in detail
 
@@ -67,7 +67,7 @@ with `O_NOFOLLOW`, and a write goes beside its name and is renamed over it.
 as a verify or undo write, and only where nothing, a link included, is at that
 name.
 
-**On Windows**, which is not supported yet, the same calls are made in
+**On Windows** the same calls are made in
 `src/obelize/native/files_windows.py`. The root is opened with `CreateFileW`,
 which follows a link as the root is followed here, and each name below it with
 `NtCreateFile` relative to the parent directory's handle, with
@@ -208,6 +208,30 @@ rather than removed.
   hashes and the path of its pre-migration copy; there is no `undo --force`.
   `tests/unit/test_undo_command.py` grades every way undo declines.
 - What a run folder holds: [PRIVACY.md](PRIVACY.md).
+
+## What differs on Windows
+
+The guarantees are the ones above, made with the Windows calls that
+[ADR-049](adr/ADR-049-platform-seam.md) describes. Where the outcome differs:
+
+- TM-2: a junction is refused like a symbolic link, a file's mode is its read-only attribute and
+  nothing more, and a OneDrive placeholder is read as the file it is.
+- TM-5: git looks in the current directory for a DLL it finds neither beside itself nor in the
+  system directories, and obelize runs git inside the repository, so a DLL placed there can be
+  loaded. [ADR-048](adr/ADR-048-accepted-gaps-in-0-1-0.md) accepts that.
+- TM-8: on a volume that reports no POSIX rename semantics, replacing a file that another program
+  holds open can fail. No test makes that happen. A replace that fails refuses the file as
+  `unreadable`, and obelize does not retry it.
+- TM-9: obelize reads a command's output as UTF-8. A Windows program that writes UTF-16, or
+  non-ASCII characters in an older code page, leaves a secret in a form the redactor does not
+  match, and ADR-048 accepts that with the other redaction gaps.
+- TM-10: a command and everything it starts run in a job object. The deadline terminates the job
+  at once, and the job ends if obelize does, so the three POSIX gaps in ADR-048 do not exist
+  there. A process that a broker such as WMI, Task Scheduler or `docker` starts is outside the job
+  and outlives the command. A command killed at the deadline exits with 3221225786, not a negative
+  number.
+- CI runs the suite on GitHub's `windows-latest` runner. A real console, a OneDrive folder and a
+  path longer than 260 characters are not covered.
 
 ## Status of mitigations
 

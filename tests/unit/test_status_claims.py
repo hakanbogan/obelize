@@ -75,6 +75,10 @@ DENIALS = (
     "the model adapter\nhas not been written",
     "not on PyPI",
     "Not published yet",
+    "Windows is untested",
+    "untested, unsupported",
+    "which is not supported yet",
+    "has not run on Windows yet",
 )
 
 

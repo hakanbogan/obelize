@@ -30,7 +30,7 @@ pipx install --python python3.12 obelize
 
 obelize is a command-line tool, so install it as one and not into your project's environment. It
 needs Python 3.12 or newer, and pipx takes the one `--python` names. The project it migrates
-needs Python 3.10 or newer, as `google-genai` does.
+needs Python 3.10 or newer, as `google-genai` does. obelize runs on Linux, macOS and Windows.
 
 ## Quickstart
 
@@ -56,9 +56,10 @@ uvx obelize fix --apply --verify ".venv/bin/python -m pytest -q"
 git diff
 ```
 
-Name your project's own interpreter in `--verify`, so the tests run with its dependencies. The run
-ends with a `Next:` line, and after a clean apply that line names `obelize undo --run <id>`, which
-puts the files back.
+Name your project's own interpreter in `--verify`, so the tests run with its dependencies. On
+Windows that is `.venv/Scripts/python.exe`, written with forward slashes, since `--verify` reads a
+backslash as an escape. The run ends with a `Next:` line, and after a clean apply that line names
+`obelize undo --run <id>`, which puts the files back.
 
 ## Example
 
@@ -143,13 +144,18 @@ Run obelize in a repository that is committed or backed up, and pass only verifi
 you trust. These gaps are known in 0.1.0:
 
 - A git command obelize runs can start a program that the repository's git configuration names,
-  such as `core.fsmonitor`.
+  such as `core.fsmonitor`, and on Windows it can load a DLL from the repository that git finds
+  neither beside itself nor in the system directories.
 - Running `obelize verify` again on a run, or `obelize undo` twice, can overwrite the record of
   the earlier attempt.
 - Redaction misses common credential shapes, the recorded command line is not redacted, and a
-  key can reach a traceback. Read a run folder before you share it.
-- Ctrl-C leaves the verification command's processes running, and a child process that ignores
-  `SIGTERM` or has closed its output can outlive the command.
+  key can reach a traceback. obelize reads a command's output as UTF-8, so a secret that a
+  Windows program writes as UTF-16, or with non-ASCII characters in an older code page, is not
+  redacted. Read a run folder before you share it.
+- On Linux and macOS, Ctrl-C leaves the verification command's processes running, and a child
+  process that ignores `SIGTERM` or has closed its output can outlive the command. On Windows
+  the command runs in a job object that ends with it, but a process that WMI, Task Scheduler or
+  `docker` starts on its behalf is outside the job and outlives it.
 
 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) has the details, and
 [docs/PRIVACY.md](docs/PRIVACY.md) lists what a run folder holds.
@@ -178,8 +184,9 @@ Each case under [tests/fixtures/scan/](tests/fixtures/scan/) has an answer key w
 grades every usage: migrated, or left and why. The first five were written before the scanner
 existed. The suite reproduces every key, and each rewritten file matches its expected file byte for
 byte. [tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 36 gaps the fixtures
-do not cover, 18 of them closed. CI runs the suite on Linux for every supported Python and on macOS,
-with 100% branch coverage.
+do not cover, 18 of them closed. CI runs the suite on Linux for every supported Python and on macOS
+and Windows for the oldest and newest, and holds each system to 100% branch coverage of the code it
+runs.
 
 ## Benchmark
 
@@ -215,6 +222,8 @@ installed side by side, and each place it leaves has a written reason.
   does, the old dependency line stays.
 - It does not find every use. Code that reaches the SDK through a function's return value, a star
   import in another file or a container is missed, and the benchmark counts those misses.
+- On Windows, the test suite on GitHub's runner is all that has run. A real console, a OneDrive
+  folder and a path longer than 260 characters are untried.
 - It handles this one migration. There is no pack registry, hosted service, dashboard, GitHub App
   or automatic pull request.
 

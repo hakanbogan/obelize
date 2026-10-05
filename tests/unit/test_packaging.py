@@ -266,6 +266,32 @@ def test_every_operating_system_a_classifier_names_has_a_ci_job_that_runs_the_su
     assert untested == []
 
 
+# What a reader calls each of those systems, in the README and in the bug form's list.
+NAMES = {
+    "Operating System :: MacOS": "macOS",
+    "Operating System :: Microsoft :: Windows": "Windows",
+    "Operating System :: POSIX :: Linux": "Linux",
+}
+
+
+def test_every_operating_system_a_classifier_names_is_one_the_readme_and_the_bug_form_name(
+    pyproject: dict[str, Any],
+) -> None:
+    """A system PyPI lists must not be one the repository's own pages call untested."""
+    claimed = [
+        NAMES.get(c, c)
+        for c in pyproject["project"]["classifiers"]
+        if c.startswith("Operating System ::")
+    ]
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    form = yaml.safe_load(
+        (REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.yml").read_text(encoding="utf-8")
+    )
+    (options,) = [part["attributes"]["options"] for part in form["body"] if part.get("id") == "os"]
+    assert [name for name in claimed if name not in readme] == []
+    assert [name for name in claimed if name not in options] == []
+
+
 # (sys_platform, platform_machine) of each machine a wheel install must serve.
 MACHINES = {
     "Intel Mac": ("darwin", "x86_64"),

@@ -116,8 +116,12 @@ and `KILL_ON_JOB_CLOSE` ends everything in the job. None of the three gaps
 therefore exists on Windows. A process the command has a broker start, such as
 WMI, Task Scheduler, a COM server, `runas`, `wsl` or `docker`, is that
 service's child, outside the job, and outlives the command. `select` takes no
-pipe on Windows, so the pipe is made non-blocking and polled. None of this has
-run on Windows yet, so I claim no Windows support.
+pipe on Windows, so the pipe is made non-blocking and polled.
+
+The claim that obelize runs on Windows rests on the suite, which CI runs on
+GitHub's `windows-latest` runner for the oldest and newest supported Python. A
+real console, a OneDrive folder and a path longer than 260 characters are not
+covered.
 
 ## Consequences
 

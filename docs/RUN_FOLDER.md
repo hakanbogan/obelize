@@ -222,7 +222,7 @@ One row per command that ran, under `verify` and under `verify.baseline`.
 | `source` | string | `cli`, `user_allowlist` or `repo_config`: its trust rung. A pack's `verification.suggestions` are never executed. |
 | `status` | string | This command's verdict; only exit code `0` passes. |
 | `reason` | string or null | Set exactly when it did not pass: `command_failed`, `command_not_executable` or `timeout`. |
-| `exit_code` | integer or null | `null` when no process started; negative when killed. A command stopped at its deadline keeps its code, even `0`, and reads `timeout`. |
+| `exit_code` | integer or null | `null` when no process started; negative when a signal killed it on POSIX, and 3221225786 when the deadline ended its job on Windows. A command stopped at its deadline keeps its code, even `0`, and reads `timeout`. |
 | `duration_ms` | integer | |
 | `truncated` | boolean | Whether the output was capped. |
 | `log` | string or null | Path under `verify/`, relative to the run folder, capped and redacted per [PRIVACY.md](PRIVACY.md); `null` when nothing was printed. |

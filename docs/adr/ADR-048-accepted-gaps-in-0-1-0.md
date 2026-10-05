@@ -17,7 +17,9 @@ instead of holding the release for them:
 - TM-8: running `obelize verify` again on a run, or `obelize undo` twice, can
   overwrite the record of the earlier attempt.
 - TM-9: the redactor misses common credential shapes, the recorded argv is not
-  redacted, and a key can reach a traceback.
+  redacted, and a key can reach a traceback. Command output is read as UTF-8,
+  so a secret that a Windows program writes as UTF-16, or with non-ASCII
+  characters in an older code page, is not matched.
 - TM-10: on POSIX, Ctrl-C leaves the command's process group running, a member
   that ignores `SIGTERM` outlives a leader that obeys it, and a member that has
   closed its output outlives the command's exit. On Windows, where the command

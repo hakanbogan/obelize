@@ -52,6 +52,8 @@ python3 -m venv .venv
 .venv/bin/pytest -q
 ```
 
+On Windows the environment's programs are in `.venv\Scripts` instead of `.venv/bin`.
+
 Expected output:
 
 ```

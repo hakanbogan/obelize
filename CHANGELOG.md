@@ -67,13 +67,20 @@ lists what else I know about and have chosen not to fix yet. The main gaps:
   left in place without a report.
 - Four safety gaps stay open, described in
   [docs/THREAT_MODEL.md](https://github.com/hakanbogan/obelize/blob/v0.1.0/docs/THREAT_MODEL.md):
-  a git command obelize runs can start a program that the repository's git configuration names,
+  a git command obelize runs can start a program that the repository's git configuration names
+  (on Windows it can also load a DLL from the repository that git finds nowhere else),
   running `obelize verify` again or `obelize undo` twice can overwrite the earlier record,
   redaction misses common credential shapes, and Ctrl-C can leave a verification command's
-  processes running. Run obelize in a repository that is committed or backed up.
+  processes running. On Windows that last gap is a process a broker such as WMI or Task
+  Scheduler starts, and redaction also misses a secret written as UTF-16 or, with non-ASCII
+  characters, in an older code page. Run obelize in a repository that is committed or backed up.
 
 ### Added
 
+- obelize runs on Windows. It writes files, and opens run-folder files, relative to their parent
+  directory and refuses a symbolic link or a junction as it does elsewhere, and a verification
+  command and everything it starts run in a job object that the deadline ends. CI runs the suite on Windows for Python 3.12
+  and 3.14. A real console, a OneDrive folder and a path longer than 260 characters are untried.
 - `.obelize/` carries its own `.gitignore` holding `*`, so `git add -A` never picks up a run
   folder.
 - A dry run of `obelize fix` prints up to 200 lines of the diff after its file list, with

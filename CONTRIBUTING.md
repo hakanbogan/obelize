@@ -21,8 +21,8 @@ failing test.
 
 ## Development setup
 
-You need Python 3.12-3.14 and [uv](https://docs.astral.sh/uv/). macOS and Linux are
-supported; Windows is untested.
+You need Python 3.12-3.14 and [uv](https://docs.astral.sh/uv/). Linux, macOS and Windows are
+supported; the `bench/` scripts build POSIX virtual environments and are not run on Windows.
 
 ```bash
 git clone https://github.com/hakanbogan/obelize.git
@@ -59,7 +59,7 @@ not add a module without an ADR.
 | `models.py` | The closed vocabularies ([SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md), [RUN_FOLDER.md](docs/RUN_FOLDER.md)) and the shared pydantic models |
 | `gitutil.py` | git via subprocess: `tree` gates `--apply` and `state` records it. Staged files are uncommitted changes; untracked ones are not, since obelize writes its own run folder, unless the plan would rewrite one |
 | `fsutil.py` | The path guard, the `O_NOFOLLOW` read, sha256, and `apply`, the only writer of a user's file: every path checked first, then a temporary file, `fsync`, the original mode and a rename |
-| `native/` | The platform seam: `files` opens, creates, renames and deletes relative to a parent directory and never through a link, except the read by path, which guards only the last component, `processes` starts a verification command in its own session, or on Windows its own job object, reads its output against a deadline and stops everything it started, and `console` makes Windows' standard streams UTF-8. Each picks its implementation at import, and the Windows one has not run on Windows yet |
+| `native/` | The platform seam: `files` opens, creates, renames and deletes relative to a parent directory and never through a link, except the read by path, which guards only the last component, `processes` starts a verification command in its own session, or on Windows its own job object, reads its output against a deadline and stops everything it started, and `console` makes Windows' standard streams UTF-8. Each picks its implementation at import |
 | `scan/` | Path selection, the input gates, name and binding resolution, cross-module reach, dependency manifests, the worker pool and its total order, and the declared Python floor |
 | `packs/` | The pack schema, the loader, and the bundled pack |
 | `impact/` | The escape rule and the bail ladder that turn a file's analysis into an `ImpactPlan` |

@@ -269,7 +269,7 @@ to these tables by `tests/unit/test_verify_vocabulary.py`.
 | `no_changes_to_verify` | `not_run` | An apply that wrote no file. No exit code of its own. |
 | `no_verify_commands` | `not_run` | Files written, no command configured. Pass `--verify` or set `verify.commands`. |
 | `policy_refused` | `not_run` | A repository command was not trusted in this mode; one refusal refuses the whole phase. |
-| `timeout` | `inconclusive` | A command outlasted `verify.timeout_s`; its process group was killed. |
+| `timeout` | `inconclusive` | A command outlasted `verify.timeout_s`; its process group was killed, or its job object on Windows. |
 | `tree_changed` | `inconclusive` | `obelize verify` found hashes other than the run recorded. |
 
 #### `verify.commands[].source` (3 values)
@@ -294,7 +294,7 @@ read; it is never partially applied.
 | `include` | string | `**/*.py` | Files the scan considers, after all exclusions. Same semantics as `exclude`. |
 | `exclude` | list of strings | empty | Patterns to skip, with git's `.gitignore` semantics (`pathspec.GitIgnoreSpec`): `legacy/*` excludes everything under `legacy/`, at any depth. Added to [the always-excluded set](#the-always-excluded-set); a `!` pattern re-includes only what this list excluded. |
 | `verify.commands` | list of strings | empty | Verification commands, under the [trust rules](#trust-rules-for-verification-commands). Split with `shlex` and run without a shell, so a bare `\|`, `&&` or `>` is refused on load; use `sh -c "<command>"`. |
-| `verify.timeout_s` | integer | `600` | Per-command timeout in seconds; on expiry the process group is killed and the status is `inconclusive` / `timeout`. |
+| `verify.timeout_s` | integer | `600` | Per-command timeout in seconds; on expiry the process group (the job object on Windows) is killed and the status is `inconclusive` / `timeout`. |
 | `verify.junit` | boolean | `true` | Add `--junitxml` into the run folder to a `pytest` or `python -m pytest` command that has none, to compare per-test results with the baseline. |
 | `allow_dirty` | boolean | `false` | Same as `--allow-dirty`. |
 | `max_file_bytes` | integer | `2000000` | Larger files are recorded as a limitation, not parsed. |
@@ -403,12 +403,15 @@ Level 3 depends on the mode:
 Commands run in the repository root, without a shell (`shlex.split`,
 `shell=False`), stdin closed, in their own session, with your environment plus
 `OBELIZE_RUN=1`. They are **not isolated**: a command can do anything your
-shell can. On timeout the whole process group is terminated, then killed.
+shell can. On timeout the whole process group is terminated, then killed. On
+Windows a command runs in a job object of its own, which the deadline terminates
+at once, and only an `.exe` or `.com` program runs: a batch file is refused.
 
 #### The user files (`~/.config/obelize/`)
 
 Outside every repository, so no checkout can write them (`$XDG_CONFIG_HOME` is
-honoured). `config.yml` holds the two settings a repository may not make: the
+honoured). On Windows the folder is `%USERPROFILE%\.config\obelize` unless `HOME`
+is set. `config.yml` holds the two settings a repository may not make: the
 allowlist and the model. Unknown keys are an error.
 
 ```yaml

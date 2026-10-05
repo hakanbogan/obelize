@@ -57,7 +57,7 @@ body:
       options:
         - macOS
         - Linux
-        - Windows (untested, unsupported)
+        - Windows
         - Other
     validations:
       required: true
