@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import itertools
+import re
 import socket
 import sys
 from pathlib import Path
@@ -93,27 +95,15 @@ def test_the_kind_registry_is_the_one_adr_006_publishes() -> None:
     assert documented == schema.CHANGE_KINDS, sorted(documented ^ set(schema.CHANGE_KINDS))
 
 
-def test_the_precondition_vocabulary_is_the_one_pack_spec_publishes() -> None:
-    text = PACK_SPEC.read_text(encoding="utf-8")
-    table = text[text.index("| Precondition | Holds when |") :]
-    documented = set()
-    for line in table.splitlines()[2:]:
-        if not line.startswith("|"):
-            break
-        documented.add(line.split("|")[1].strip().strip("`"))
-    assert documented == schema.PRECONDITIONS, sorted(documented ^ set(schema.PRECONDITIONS))
-
-
 @pytest.mark.parametrize(
     ("values", "quoted"),
     [
-        (schema.NEVER_IDENTITY_MAPPED, True),
         (schema.FORBIDDEN_CONFIG_KEYS, True),
         (schema.FORBIDDEN_SAFETY_CATEGORY_KEYS, False),
         (schema.FORBIDDEN_SAFETY_THRESHOLD_KEYS, False),
         (schema.FORBIDDEN_SAFETY_VALUES, False),
     ],
-    ids=["identity", "config_key", "category_key", "threshold_key", "safety_value"],
+    ids=["config_key", "category_key", "threshold_key", "safety_value"],
 )
 def test_every_refusal_the_schema_hard_codes_is_named_in_pack_spec(
     values: frozenset[str], quoted: bool
@@ -263,7 +253,7 @@ def test_a_suggestion_is_display_text_and_not_a_runnable_command() -> None:
 
 RENAME_DEFECTS = [
     ({"to_module": "demo_legacy"}, "nothing to rename"),
-    ({"types_alias_fallback": "demo"}, "must differ from default_alias"),
+    ({"alias_fallbacks": {"types": "demo"}}, "must differ from default_alias"),
     ({"submodule_map": {"types": "elsewhere.types"}}, "must be under to_module"),
 ]
 
@@ -314,7 +304,6 @@ MODEL_DEFECTS = [
     ({"methods": {}}, "no call can be rewritten"),
     ({"methods": {"demo_legacy.Model": []}}, "drop the entry instead"),
     ({"generation_config_keys": []}, "every config would be unknown"),
-    ({"default_model_name": "models/demo-1"}, "bare model name"),
     ({"config_class": "types.Config()"}, "fully qualified symbol"),
 ]
 
@@ -326,7 +315,6 @@ MODEL_DEFECTS = [
         "no-methods",
         "empty-method-list",
         "no-config-keys",
-        "prefixed-model",
         "config-class-is-a-call",
     ],
 )
@@ -432,6 +420,171 @@ def test_the_three_configuration_fields_are_accepted_together() -> None:
     )
 
 
+def test_a_module_rooted_call_carries_what_the_pack_declares() -> None:
+    """The control for the corpus: its base pack is valid and keeps each list as written."""
+    params = rewrite_params(build(with_change(builder.MODULE_CALL)), 1)
+    assert params.root == "module"
+    assert params.positional_to_kw == ("kind",)
+    assert params.keywords == ("body", "depth")
+    assert params.arg_map == {"body": "text"}
+    assert params.result_paths == ("rows[].price", "total")
+
+
+def test_a_module_rooted_call_needs_no_client_source_and_a_client_rooted_one_does() -> None:
+    """`root: module` spells the call after what the author wrote: no client is constructed."""
+    document = minimal(changes=[copy.deepcopy(builder.MODULE_CALL)])
+    assert rewrite_params(build(document), 0).root == "module"
+
+    document["changes"][0]["params"]["root"] = "client"
+    with pytest.raises(ValidationError, match=re.escape("onto the client (['probe']); found 0")):
+        build(document)
+    document["changes"].insert(0, copy.deepcopy(builder.MINIMAL["changes"][0]))
+    assert rewrite_params(build(document), 1).root == "client"
+
+
+def test_a_rewrite_is_rooted_on_the_client_unless_the_pack_says_module() -> None:
+    document = with_change(builder.CALL_CHANGE)
+    assert rewrite_params(build(document), 1).root == "client"
+    document["changes"][1]["params"]["root"] = "receiver"
+    with pytest.raises(ValidationError, match=re.escape("Input should be 'client' or 'module'")):
+        build(document)
+
+
+VALID_RESULT_PATHS = [
+    "total",
+    "choices[].message.content",
+    "rows[].items[].sku",
+    "_x.y9",
+    "usage.total_tokens",
+]
+BAD_RESULT_PATHS = [
+    "",
+    "rows[]",
+    "2nd",
+    "a..b",
+    ".a",
+    "a.",
+    "a b",
+    "a[0].b",
+    "a[][].b",
+    "a[ ].b",
+    "a-b",
+    "total\n",
+    "\u00fcber.x",
+]
+
+
+@pytest.mark.parametrize("path", VALID_RESULT_PATHS)
+def test_a_result_path_is_attribute_names_and_integer_subscripts(path: str) -> None:
+    built = build(with_change(builder.MODULE_CALL, result_paths=[path]))
+    assert rewrite_params(built, 1).result_paths == (path,)
+
+
+@pytest.mark.parametrize("path", BAD_RESULT_PATHS)
+def test_a_result_path_that_is_anything_else_is_refused(path: str) -> None:
+    with pytest.raises(ValidationError, match="a result path is dotted attribute names"):
+        build(with_change(builder.MODULE_CALL, result_paths=[path]))
+
+
+RESULT_PATH_LISTS = [
+    (["rows", "rows[].price"], "names 'rows' and 'rows[].price' below it"),
+    (["total", "total.amount"], "names 'total' and 'total.amount' below it"),
+    (["rows[].price", "rows[].price.cents"], "names 'rows[].price' and 'rows[].price.cents'"),
+    (["total", "total"], "result_paths must be sorted and de-duplicated"),
+    (["total", "rows[].price"], "result_paths must be sorted and de-duplicated"),
+]
+
+
+@pytest.mark.parametrize(("paths", "says"), RESULT_PATH_LISTS)
+def test_a_result_path_list_has_one_spelling_and_no_path_continues_another(
+    paths: list[str], says: str
+) -> None:
+    with pytest.raises(ValidationError, match=re.escape(says)):
+        build(with_change(builder.MODULE_CALL, result_paths=paths))
+
+
+def test_a_path_that_only_shares_its_first_letters_with_another_is_not_below_it() -> None:
+    """`rows` and `rowsum` are two attributes, and `rows[].price` and `rows[].sku` two leaves."""
+    for paths in (["rows", "rowsum"], ["rows[].price", "rows[].sku"], []):
+        built = build(with_change(builder.MODULE_CALL, result_paths=paths))
+        assert rewrite_params(built, 1).result_paths == tuple(paths)
+
+
+def test_result_paths_survive_a_dump_and_a_read_from_disk(tmp_path: Path) -> None:
+    pack = build(with_change(builder.MODULE_CALL))
+    dumped = pack.model_dump(by_alias=True)
+    assert build(dumped) == pack
+    _written(tmp_path, dumped)
+    loaded = loader.load("demo/legacy-to-modern", dirs=[tmp_path])
+    assert rewrite_params(loaded.pack, 1).result_paths == ("rows[].price", "total")
+
+
+def test_a_result_path_list_is_not_read_beside_the_flags_that_refuse_every_read() -> None:
+    document = with_change(builder.MODULE_CALL, result_access_flags=["usage"])
+    with pytest.raises(ValidationError, match="would never be consulted"):
+        build(document)
+    document["changes"][1]["params"]["result_paths"] = []
+    assert rewrite_params(build(document), 1).result_access_flags == ("usage",)
+
+
+KEYWORD_DEFECTS = [
+    ({"keywords": ["depth", "body"]}, "keywords must be sorted and de-duplicated"),
+    ({"keywords": ["body", "body", "depth"]}, "keywords must be sorted and de-duplicated"),
+    (
+        {"keywords": ["body", "depth", "kind"]},
+        "['kind'] is in keywords and also in positional_to_kw",
+    ),
+    (
+        {
+            "keywords": ["body", "depth"],
+            "config_class": "demo_modern.types.ProbeConfig",
+            "config_kwarg": "config",
+            "config_kwargs": ["depth"],
+        },
+        "['depth'] is in keywords and also in positional_to_kw or config_kwargs",
+    ),
+    ({"arg_map": {"weight": "mass"}}, "arg_map renames ['weight']"),
+    ({"dispatch_prefixes": {"flavour": ["kinds/"]}}, "dispatch_prefixes names ['flavour']"),
+    (
+        {"arg_map": {"body": "kind"}},
+        "two entries of positional_to_kw and keywords land on ['kind']",
+    ),
+    (
+        {"arg_map": {"body": "text", "depth": "text"}},
+        "two entries of positional_to_kw and keywords land on ['text']",
+    ),
+    (
+        {
+            "keywords": ["body"],
+            "config_class": "demo_modern.types.ProbeConfig",
+            "config_kwarg": "config",
+            "config_kwargs": ["depth", "weight"],
+            "arg_map": {"depth": "mass", "weight": "mass"},
+        },
+        "two entries of config_kwargs land on ['mass']",
+    ),
+]
+
+
+@pytest.mark.parametrize(("params", "says"), KEYWORD_DEFECTS, ids=[d[1] for d in KEYWORD_DEFECTS])
+def test_the_keywords_list_is_held_to_the_rules_of_the_other_parameter_lists(
+    params: dict[str, Any], says: str
+) -> None:
+    with pytest.raises(ValidationError, match=re.escape(says)):
+        build(with_change(builder.MODULE_CALL, **params))
+
+
+def test_a_keyword_may_be_renamed_and_may_dispatch_like_any_parameter_the_rule_reads() -> None:
+    document = with_change(
+        builder.MODULE_CALL,
+        arg_map={"body": "text", "depth": "levels", "kind": "flavour"},
+        dispatch_prefixes={"body": ["a/"], "kind": ["kinds/"]},
+    )
+    params = rewrite_params(build(document), 1)
+    assert params.arg_map == {"body": "text", "depth": "levels", "kind": "flavour"}
+    assert params.dispatch_prefixes == {"body": ("a/",), "kind": ("kinds/",)}
+
+
 NEW_CALLS = [
     ("models.embed_content", None),
     ("embed_content", "a service and a method"),
@@ -494,10 +647,116 @@ def test_the_three_channels_of_a_flag_rule_produce_two_different_bails() -> None
     assert params.attributes == ("demo_legacy.Chat.history",)
 
 
-def test_a_manifest_rule_that_rewrites_a_name_to_itself_is_refused() -> None:
-    """Canonicalised, so `Demo_Legacy` and `demo-legacy` are one distribution."""
-    with pytest.raises(ValidationError, match="canonicalise to the same distribution"):
-        build(with_change(builder.MANIFEST_CHANGE, to_name="Demo_Legacy"))
+def test_one_distribution_may_stand_on_both_sides_of_the_migration() -> None:
+    """Canonicalised, so `Demo_Legacy` and `demo-legacy` are one; the version ranges part them."""
+    document = with_change(builder.MANIFEST_CHANGE, to_name="Demo_Legacy")
+    document["to"] = {**document["to"], "package": "demo-legacy"}
+    assert build(document).to.package == "demo-legacy"
+    document["to"] = {**document["to"], "version": ">=0.5"}
+    with pytest.raises(ValidationError, match="both admit"):
+        build(document)
+
+
+def _one_distribution(from_version: str, to_version: str, **pin: str) -> dict[str, Any]:
+    """A pack whose two sides are `demo-legacy`, with the pin rule naming it on both."""
+    document = with_change(builder.MANIFEST_CHANGE, from_name="demo-legacy", to_name="demo-legacy")
+    document["changes"][1]["params"].update(pin)
+    document["from"] = {"package": "demo-legacy", "version": from_version}
+    document["to"] = {"package": "demo-legacy", "version": to_version, "requires_python": ">=3.9"}
+    return document
+
+
+ONE_DISTRIBUTION_RANGES = [
+    ("<1", ">=1", None),
+    (">=0.28.1,<1", ">=1.109.1", None),
+    (">=1,<2", ">=2", None),
+    ("<1", ">=0.5", "both admit 0.5"),
+    (">=1,<2", ">=1.5", "both admit 1.5"),
+    ("<2", ">=1", "both admit 1"),
+    (">=2", "<1", "move backwards"),
+]
+
+
+@pytest.mark.parametrize(
+    ("source", "target", "says"),
+    ONE_DISTRIBUTION_RANGES,
+    ids=[f"{source} to {target}" for source, target, _ in ONE_DISTRIBUTION_RANGES],
+)
+def test_a_pin_that_names_one_distribution_twice_is_a_migration_only_if_the_ranges_part(
+    source: str, target: str, says: str | None
+) -> None:
+    """The pin rule spells both names alike; only the version ranges say which side is which."""
+    document = _one_distribution(source, target)
+    if says is None:
+        change = build(document).changes[1]
+        assert isinstance(change, schema.ManifestDependencyChange)
+        assert change.params.from_name == change.params.to_name == "demo-legacy"
+    else:
+        with pytest.raises(ValidationError, match=says):
+            build(document)
+
+
+def test_a_pin_on_one_distribution_must_still_name_that_distribution() -> None:
+    """Two sides of one distribution do not make any other name this migration."""
+    for field in ("from_name", "to_name"):
+        document = _one_distribution("<1", ">=1", **{field: "something-else"})
+        with pytest.raises(ValidationError, match=f"params.{field} is 'something-else'"):
+            build(document)
+
+
+def shared(**changed: Any) -> dict[str, Any]:
+    """`minimal()` over a module the new SDK keeps: `configure` is the one legacy name listed."""
+    document = minimal(**changed)
+    document["match"].update(shared=True, symbols=["demo_legacy.configure"])
+    return document
+
+
+def test_a_module_is_not_shared_unless_the_pack_says_so() -> None:
+    assert build(minimal()).match.shared is False
+    built = build(shared())
+    assert (built.match.shared, built.match.symbols) == (True, ("demo_legacy.configure",))
+
+
+def test_a_shared_module_must_list_what_is_legacy_in_it() -> None:
+    document = minimal()
+    document["match"]["shared"] = True
+    with pytest.raises(ValidationError, match="a shared module has no legacy surface"):
+        build(document)
+
+
+SHARED_RULE_SYMBOLS = [
+    ("demo_legacy.probe", "demo_legacy.probe"),
+    ("demo_legacy.probe.run", "demo_legacy.probe"),
+    ("demo_legacy.probes", "demo_legacy.probe"),
+    ("demo_legacy.other", "demo_legacy.probe"),
+    ("demo_legacy", "demo_legacy.probe"),
+]
+
+
+@pytest.mark.parametrize(("symbol", "listed"), SHARED_RULE_SYMBOLS)
+def test_a_rule_in_a_shared_module_sits_under_a_listed_name_and_elsewhere_under_an_import(
+    symbol: str, listed: str
+) -> None:
+    """By dotted segment: `probes` is not under `probe`, and the module is not under its member."""
+    unshared = with_change(builder.MODULE_CALL, legacy_symbol=symbol)
+    assert rewrite_params(build(unshared), 1).legacy_symbol == symbol
+
+    document = with_change(builder.MODULE_CALL, legacy_symbol=symbol)
+    document["match"].update(shared=True, symbols=sorted(["demo_legacy.configure", listed]))
+    if symbol.startswith(f"{listed}.") or symbol == listed:
+        assert rewrite_params(build(document), 1).legacy_symbol == symbol
+    else:
+        with pytest.raises(ValidationError, match=re.escape("under nothing in match.symbols")):
+            build(document)
+
+
+def test_a_shared_pack_refuses_an_import_rename_even_for_a_listed_module() -> None:
+    """The module keeps its name, so a rename is wrong whatever `symbols` says about it."""
+    document = with_change(builder.RENAME_CHANGE)
+    assert build(document).to_modules() == ("demo_modern",)
+    document["match"].update(shared=True, symbols=["demo_legacy"])
+    with pytest.raises(ValidationError, match=r"renames a module that match\.shared says"):
+        build(document)
 
 
 def test_a_pack_with_no_changes_describes_no_migration() -> None:
@@ -529,7 +788,7 @@ def test_two_rewrite_rules_cannot_claim_one_symbol() -> None:
 def test_a_symbol_cannot_be_both_renamed_and_refused() -> None:
     document = with_change(builder.FLAG_CHANGE, symbols=["demo_legacy.types.GenerationConfig"])
     document["changes"].append(copy.deepcopy(builder.RENAME_CHANGE))
-    with pytest.raises(ValidationError, match="renamed or refused, not both"):
+    with pytest.raises(ValidationError, match="mapped or refused, not both"):
         build(document)
 
 
@@ -537,7 +796,7 @@ def test_the_bounds_of_two_ranges_over_one_distribution_are_compared() -> None:
     """Bounds compare only within one distribution: `A 0.5` to `B 0.5` is a legitimate rename."""
     document = minimal()
     document["from"] = {"package": "demo-legacy", "version": "<1"}
-    document["to"] = {"package": "demo-legacy", "version": ">=1"}
+    document["to"] = {"package": "demo-legacy", "version": ">=1", "requires_python": ">=3.9"}
     assert build(document).to.version == ">=1"
 
     document["to"]["version"] = ">=0.5"
@@ -555,7 +814,7 @@ def test_the_bounds_of_two_ranges_over_one_distribution_are_compared() -> None:
     assert build(document).from_.version == "==0.*"
 
     document["from"] = {"package": "demo-legacy", "version": "<1"}
-    document["to"] = {"package": "demo-modern", "version": "<1"}
+    document["to"] = {"package": "demo-modern", "version": "<1", "requires_python": ">=3.9"}
     assert build(document).to.package == "demo-modern"
 
 
@@ -563,7 +822,7 @@ def test_a_bundled_id_resolves_inside_the_packs_directory() -> None:
     path, bundled = loader.resolve(BUNDLED_ID)
     assert bundled is True
     assert path == loader.BUNDLED / "gemini" / BUNDLED_ID.split("/")[1] / loader.PACK_FILENAME
-    assert loader.bundled_ids() == (BUNDLED_ID,)
+    assert BUNDLED_ID in loader.bundled_ids()
 
 
 def test_an_id_shaped_reference_with_no_bundled_pack_is_tried_as_a_path() -> None:
@@ -692,14 +951,59 @@ PROJECTED = {
     "removed_attributes",
     "flag_only_symbols",
     "flag_only_patterns",
+    "requires_python",
+    "legacy_floor",
+    "shared",
+    "new_range",
 }
 
 
 def test_the_projection_fills_every_field_of_the_scan_spec() -> None:
+    """Across the bundled packs: one fills what another has no use for (`shared`, the floor)."""
     assert set(ScanSpec.model_fields) == PROJECTED
-    spec = loader.to_scan_spec(loader.load(BUNDLED_ID))
-    empty = [name for name in PROJECTED if not getattr(spec, name)]
-    assert empty == [], f"the bundled pack leaves {empty} empty, so nothing exercises them"
+    specs = [loader.to_scan_spec(loader.load(identifier)) for identifier in loader.bundled_ids()]
+    empty = [name for name in PROJECTED if not any(getattr(spec, name) for spec in specs)]
+    assert empty == [], f"no bundled pack fills {empty}, so nothing exercises them"
+
+
+def test_the_legacy_floor_is_the_lower_bound_of_the_range_the_pack_migrates_from() -> None:
+    def floor(version: str) -> str | None:
+        document = minimal()
+        document["from"]["version"] = version
+        loaded = loader.LoadedPack(
+            pack=build(document),
+            sha256="a" * 64,
+            data=b"",
+            reference="demo/legacy-to-modern",
+            bundled=False,
+            path=Path("pack.yaml"),
+        )
+        return loader.to_scan_spec(loaded).legacy_floor
+
+    assert floor(">=3,<4") == "3"
+    assert floor("==2.1.*") == "2.1"
+    assert floor("<4") is None
+
+
+def _loaded(pack: schema.PackDocument) -> loader.LoadedPack:
+    return loader.LoadedPack(
+        pack=pack,
+        sha256="a" * 64,
+        data=b"",
+        reference=pack.id,
+        bundled=False,
+        path=Path("pack.yaml"),
+    )
+
+
+def test_the_projection_carries_whether_the_module_is_shared_and_which_names_are_legacy() -> None:
+    assert loader.to_scan_spec(_loaded(build(minimal()))).shared is False
+    spec = loader.to_scan_spec(_loaded(build(shared())))
+    assert (spec.shared, spec.legacy_modules, spec.symbols) == (
+        True,
+        ("demo_legacy",),
+        ("demo_legacy.configure",),
+    )
 
 
 def test_the_projection_carries_nothing_that_describes_a_rewrite() -> None:
@@ -710,19 +1014,28 @@ def test_the_projection_carries_nothing_that_describes_a_rewrite() -> None:
         assert leaked not in dumped, f"{leaked} crossed the ScanSpec seam"
 
 
-def test_the_projection_digest_ignores_the_pack_identity_and_nothing_else() -> None:
-    """A digest blind to a field the scanner reads would pass a stale measurement."""
-    spec = loader.to_scan_spec(loader.load(BUNDLED_ID))
-    baseline = loader.spec_digest(spec)
+def test_the_projection_digest_ignores_the_pack_identity_and_the_gates_and_nothing_else() -> None:
+    """A digest blind to a field the scanner reads would pass a stale measurement.
+
+    `shared` is left out while false: the digest of a pack that does not set it is what its
+    measurement recorded, before the field existed.
+    """
     identity = {"pack_id": "other/pack", "pack_version": "9.9.9", "pack_sha256": "f" * 64}
-    assert loader.spec_digest(spec.model_copy(update=identity)) == baseline
-    for field in spec.model_dump():
-        if field in identity:
-            continue
-        value = getattr(spec, field)
-        assert value, f"{field} is empty, so emptying it proves nothing"
-        emptied = () if isinstance(value, tuple) else ""
-        assert loader.spec_digest(spec.model_copy(update={field: emptied})) != baseline, field
+    gates = {"requires_python": ">=3.7", "legacy_floor": "0.1"}
+    exercised: set[str] = set()
+    for identifier in loader.bundled_ids():
+        spec = loader.to_scan_spec(loader.load(identifier))
+        baseline = loader.spec_digest(spec)
+        assert loader.spec_digest(spec.model_copy(update=identity)) == baseline
+        assert loader.spec_digest(spec.model_copy(update=gates)) == baseline
+        for field in spec.model_dump():
+            value = getattr(spec, field)
+            if field in identity or field in gates or not value:
+                continue
+            emptied = False if isinstance(value, bool) else () if isinstance(value, tuple) else ""
+            assert loader.spec_digest(spec.model_copy(update={field: emptied})) != baseline, field
+            exercised.add(field)
+    assert exercised == PROJECTED - identity.keys() - gates.keys()
 
 
 def test_a_pack_with_no_model_rule_projects_an_empty_method_table() -> None:
@@ -742,3 +1055,115 @@ def test_a_pack_with_no_model_rule_projects_an_empty_method_table() -> None:
     assert spec.supported_methods == ()
     assert spec.methods_for("demo_legacy.Model") == ()
     assert spec.client_symbol == "demo_legacy.configure"
+
+
+def _written(root: Path, document: dict[str, Any], where: str | None = None) -> Path:
+    """`document` as `<root>/<provider>/<slug>/pack.yaml`, or at `where`: a pack dir's layout."""
+    import yaml
+
+    target = root / (where or document["id"]) / loader.PACK_FILENAME
+    target.parent.mkdir(parents=True)
+    target.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return target
+
+
+def _spelled(document: dict[str, Any], old: str, new: str) -> dict[str, Any]:
+    import json
+
+    return dict(json.loads(json.dumps(document).replace(old, new)))
+
+
+def test_the_ids_a_user_directory_adds_are_known_beside_the_wheels(tmp_path: Path) -> None:
+    _written(tmp_path, minimal())
+    assert loader.known([tmp_path]) == tuple(sorted((*loader.known(), "demo/legacy-to-modern")))
+    assert loader.known() == loader.bundled_ids()
+
+
+def test_one_id_in_two_places_is_refused_because_the_run_could_not_say_which(
+    tmp_path: Path,
+) -> None:
+    _written(tmp_path / "one", minimal())
+    _written(tmp_path / "two", minimal())
+    with pytest.raises(loader.PackConflictError, match="demo/legacy-to-modern is in"):
+        loader.known([tmp_path / "one", tmp_path / "two"])
+    _written(tmp_path / "three", {**minimal(), "id": BUNDLED_ID, "provider": "gemini"})
+    with pytest.raises(loader.PackConflictError, match=BUNDLED_ID):
+        loader.known([tmp_path / "three"])
+
+
+def test_a_pack_in_a_user_directory_loads_by_id_and_is_not_bundled(tmp_path: Path) -> None:
+    _written(tmp_path, minimal())
+    loaded = loader.load("demo/legacy-to-modern", dirs=[tmp_path])
+    assert loaded.pack.id == "demo/legacy-to-modern"
+    assert loaded.bundled is False
+
+
+def test_the_wheel_is_searched_before_a_user_directory(tmp_path: Path) -> None:
+    _written(tmp_path, minimal(), where=BUNDLED_ID)
+    path, bundled = loader.resolve(BUNDLED_ID, dirs=[tmp_path])
+    assert bundled is True
+    assert path.is_relative_to(loader.BUNDLED)
+
+
+def test_a_pack_that_carries_another_id_than_its_directory_spells_is_invalid(
+    tmp_path: Path,
+) -> None:
+    _written(tmp_path, minimal(), where="demo/some-other-name")
+    with pytest.raises(loader.PackInvalidError, match="is not the id its directory spells"):
+        loader.load("demo/some-other-name", dirs=[tmp_path])
+
+
+def _pack(document: dict[str, Any]) -> schema.PackDocument:
+    return build(document)
+
+
+def test_two_packs_over_one_module_conflict() -> None:
+    other = _spelled(minimal(), "demo/legacy-to-modern", "demo/another-one")
+    other = _spelled(other, "demo-modern", "other-modern")
+    other["from"]["package"] = "other-legacy"
+    reason = loader.conflict(_pack(minimal()), _pack(other))
+    assert reason == "demo/legacy-to-modern and demo/another-one both migrate demo_legacy"
+
+
+def test_a_pack_that_writes_what_another_migrates_conflicts() -> None:
+    first = with_change(builder.RENAME_CHANGE)
+    second = _spelled(minimal(), "demo/legacy-to-modern", "demo/next")
+    second = _spelled(second, "demo_legacy", "demo_modern")
+    second = _spelled(second, "demo_modern.Client", "elsewhere.Client")
+    second["from"]["package"] = "demo-modern-old"
+    second["to"]["package"] = "elsewhere-modern"
+    reason = loader.conflict(_pack(first), _pack(second))
+    assert reason is not None
+    assert "writes demo_modern, which demo/next migrates" in reason
+
+
+def test_two_packs_naming_one_distribution_conflict() -> None:
+    other = _spelled(minimal(), "demo/legacy-to-modern", "demo/another-one")
+    other = _spelled(other, "demo_legacy", "other_legacy")
+    other = _spelled(other, "demo_modern", "other_modern")
+    reason = loader.conflict(_pack(minimal()), _pack(other))
+    assert reason is not None
+    assert "both name the distribution demo-legacy" in reason
+
+
+def test_the_bundled_packs_do_not_conflict_in_either_order() -> None:
+    packs = [loader.load(identifier).pack for identifier in loader.bundled_ids()]
+    for first, second in itertools.permutations(packs, 2):
+        assert loader.conflict(first, second) is None, (first.id, second.id)
+
+
+def test_a_call_under_the_module_is_refused_without_a_service_in_the_same_words() -> None:
+    document = with_change(builder.MODULE_CALL, new_call="run")
+    with pytest.raises(ValidationError, match="the client or the module names a service"):
+        build(document)
+
+
+def test_a_shared_pack_asks_no_symbols_entry_for_the_enums_a_model_rule_reads() -> None:
+    """Those classes are read for a member and never found as a usage, so they cannot be listed."""
+    document = with_change(builder.MODEL_CHANGE)
+    listed = ["demo_legacy.Config", "demo_legacy.Model", "demo_legacy.configure"]
+    document["match"] = {**document["match"], "shared": True, "symbols": listed}
+    assert build(document).match.shared
+    document["match"]["symbols"] = [name for name in listed if name != "demo_legacy.Model"]
+    with pytest.raises(ValidationError, match=r"names 'demo_legacy\.Model'"):
+        build(document)

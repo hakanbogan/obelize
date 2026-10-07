@@ -11,7 +11,7 @@ findings:
     note: >-
       `import google.generativeai as genai` -> `from google import genai`, plus an added
       `from google.genai import types` because the rewritten file references `types.*`. The module
-      binds no `types`, so `types_alias_fallback` (`genai_types`) is not used.
+      binds no `types`, so `alias_fallbacks` (`genai_types`) is not used.
   - file: assistant.py
     line: 12
     symbol: google.generativeai.configure

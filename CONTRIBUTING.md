@@ -61,7 +61,7 @@ not add a module without an ADR.
 | `fsutil.py` | The path guard, the `O_NOFOLLOW` read, sha256, and `apply`, the only writer of a user's file: every path checked first, then a temporary file, `fsync`, the original mode and a rename |
 | `native/` | The platform seam: `files` opens, creates, renames and deletes relative to a parent directory and never through a link, except the read by path, which guards only the last component, `processes` starts a verification command in its own session, or on Windows its own job object, reads its output against a deadline and stops everything it started, and `console` makes Windows' standard streams UTF-8. Each picks its implementation at import |
 | `scan/` | Path selection, the input gates, name and binding resolution, cross-module reach, dependency manifests, the worker pool and its total order, and the declared Python floor |
-| `packs/` | The pack schema, the loader, and the bundled pack |
+| `packs/` | The pack schema, the loader, and the bundled packs |
 | `impact/` | The escape rule and the bail ladder that turn a file's analysis into an `ImpactPlan` |
 | `transforms/` | The `Rule` protocol, the registry (`IMPLEMENTED` says which kinds run), the import manager, one module per kind in `kinds/`, and `codemod.py`, the driver, which writes nothing |
 | `providers/` | Which flagged findings a model is asked about, the guard on its answer, the one adapter (stdlib `urllib`) and the pass joining them |
@@ -82,8 +82,9 @@ twenty-four for `rewrite_call` and eleven for `flag_only`, beside the repository
 `generative_model_calls/`, which run every implemented rule, it means `fix --apply` writes the
 file.
 
-`tests/unit/acme.py` holds the literals of an invented SDK the unit tests share, named unlike
-the Gemini pack on purpose. `tests/e2e/` runs scan, plan, apply and apply again over
+`tests/unit/acme.py` and `tests/unit/acme_kept.py` hold the literals of two invented SDKs the unit
+tests share, one with a client (`acme.sdk`) and one that keeps its module name across a major version
+(`acme.kit`), named unlike the bundled packs on purpose. `tests/e2e/` runs scan, plan, apply and apply again over
 `examples/gemini-legacy-app/`; its `e2e` marker is a label, not a filter, so
 `-m "not e2e"` skips it.
 
@@ -162,6 +163,9 @@ Self-check before asking for review:
 - [ ] Both SDK versions are installable so the claim can be checked.
 - [ ] Negative fixtures cover the known traps: alias collision, the same class name in a
       different SDK (e.g. `vertexai`), and already-migrated code.
+- [ ] A pack for a module that keeps its name (`match.shared`) lists only the legacy names in
+      `match.symbols`, and a test holds that list equal to a snapshot of the old release
+      ([docs/PACK_SPEC.md](docs/PACK_SPEC.md#pack-test-requirements)).
 - [ ] No executable content anywhere in the YAML.
 - [ ] `limitations` lists every semantic that is not 1:1, so the tool refuses instead of
       guessing.

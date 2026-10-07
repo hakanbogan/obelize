@@ -94,8 +94,8 @@ diff:
 # `docs/RUN_FOLDER.md`'s table read as a list of names. `snapshots/` and
 # `verify/` are directories and are graded by their own keys.
 artefacts:
-  plan: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
-  apply: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
+  plan: [REPORT.md, findings.json, patch.diff, plan.json, run.json]
+  apply: [REPORT.md, findings.json, patch.diff, plan.json, run.json]
 
 cases:
   # =====================================================================
@@ -154,7 +154,7 @@ cases:
         # states: it and the after-phase it gated are one measurement, and
         # there is no before-state left to take another against.
         verify: {status: pass, reason: null, commands: 1, baseline: null}
-        keeps: [findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, snapshots,
+        keeps: [findings.json, packs, patch.diff, plan.json, snapshots,
                 verify/baseline/1.log]
         superseded: true
         tree: migrated
@@ -296,13 +296,13 @@ cases:
         tree: legacy
 
       - argv: [fix, --apply, --verify, '{quiet}']
-        next: null
+        next: "Next: 5 finding(s) are left for you to review, listed in {report}."
         exit_code: 4
         mode: apply
         blocked: runtime_unsupported
         # Reported, and none of it written: the four rows of `app.py` and the
-        # legacy pin.
-        counts: {findings: 5, auto: 5}
+        # legacy pin, each withheld for `runtime_unsupported`.
+        counts: {findings: 5, auto: 0, needs_review: 5}
         plan_files: []
         file_edits: []
         idempotent: true
@@ -435,7 +435,7 @@ cases:
           reason: baseline_failed
           commands: 0
           baseline: {status: fail, commands: 1}
-        keeps: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json,
+        keeps: [REPORT.md, findings.json, packs, patch.diff, plan.json,
                 run.json, snapshots, verify]
         superseded: false
         tree: migrated
@@ -572,7 +572,7 @@ cases:
         updates: 0
         exit_code: 6
         verify: {status: inconclusive, reason: tree_changed, commands: 0, baseline: null}
-        keeps: [findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, snapshots]
+        keeps: [findings.json, packs, patch.diff, plan.json, snapshots]
         superseded: true
         tree: migrated
 

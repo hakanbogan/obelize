@@ -1,0 +1,4 @@
+# Application dependencies
+openai>=1.109.1
+requests>=2.31
+tqdm

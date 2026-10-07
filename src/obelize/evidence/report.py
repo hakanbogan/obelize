@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 
 from obelize.models import WITHHELD, terminal_unsafe
 from obelize.native import shell
-from obelize.scan import runtime
 from obelize.verify import redact
 from obelize.verify import status as verdicts
 
@@ -35,7 +34,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
         VerifyRecord,
     )
     from obelize.scan.runner import Scan
-    from obelize.scan.runtime import Declared
+    from obelize.scan.runtime import Blocked
     from obelize.transforms.codemod import Run
 
 # A scan's status split in print order, with display words from `Finding.scan_status`,
@@ -93,8 +92,8 @@ def _inside(folder: str, name: str) -> str:
 def terminal(scan: Scan, pack: str, evidence: str | None) -> list[str]:
     """`obelize scan`'s non-JSON output."""
     lines = [f"obelize scan  {pack}", ""]
-    if scan.runtime is not None and scan.runtime.blocked:
-        lines.extend([_blocked(scan.runtime, _bare), ""])
+    for blocked in scan.blocked:
+        lines.extend([_blocked(blocked, _bare), ""])
     for path, findings in _by_path(scan.findings):
         lines.append(f"  {path}")
         lines.extend(_rows(findings))
@@ -132,7 +131,7 @@ def fixed(
     plan: PlanDocument,
     pack: str,
     evidence: str,
-    declared: Declared | None,
+    blocked: Sequence[Blocked],
     patch: bytes,
     environ: Mapping[str, str],
     repo: str,
@@ -145,14 +144,15 @@ def fixed(
     written = {row.path for row in record.file_edits}
     mode = _mode(record, _bare, planned=bool(plan.files))
     lines = [f"obelize fix  {pack}", "", f"Mode {mode}", ""]
-    if declared is not None and declared.blocked:
-        lines.extend([_blocked(declared, _bare), ""])
+    for stopped in blocked:
+        lines.extend([_blocked(stopped, _bare), ""])
     if not plan.files:
         lines.append("No change planned.")
         lines.extend(_held_back(record))
     for row in plan.files:
         mark = "" if not applying else ("  written" if row.path in written else "  not written")
-        lines.append(f"  {row.path}  ({row.hunks} hunk(s), {', '.join(row.rules)}){mark}")
+        rules = ", ".join(_rule(name, record) for name in row.rules)
+        lines.append(f"  {row.path}  ({row.hunks} hunk(s), {rules}){mark}")
     if not applying and patch:
         lines.extend(["", *diff(patch, evidence, environ)])
     lines.append("")
@@ -406,8 +406,10 @@ def document(
     """
     _agree(record, run, plan)
     lines = _preamble(record, scan, run is not None, planned=plan is not None and bool(plan.files))
-    if scan.runtime is not None and scan.runtime.blocked:
-        lines.extend(["## Blocked", "", _blocked(scan.runtime, _code), ""])
+    if scan.blocked:
+        lines.extend(["## Blocked", ""])
+        for blocked in scan.blocked:
+            lines.extend([_blocked(blocked, _code), ""])
     if run is not None and plan is not None:
         lines.extend(_changes_section(record, plan))
         lines.extend(_edits_section(run))
@@ -436,7 +438,6 @@ def _agree(record: RunRecord, run: Run | None, plan: PlanDocument | None) -> Non
 
 
 def _preamble(record: RunRecord, scan: Scan, fixing: bool, *, planned: bool) -> list[str]:
-    pack = record.pack
     counts = record.counts
     return [
         f"# obelize {'fix' if fixing else 'scan'}",
@@ -444,7 +445,10 @@ def _preamble(record: RunRecord, scan: Scan, fixing: bool, *, planned: bool) -> 
         f"`{record.run_id}` · {record.timings.finished_at} · obelize {record.obelize_version}",
         "",
         *([f"- **Mode** {_mode(record, _code, planned=planned)}"] if fixing else []),
-        f"- **Pack** `{pack.id}` {pack.pack_version} ({pack.source}), sha256 `{pack.sha256}`",
+        *(
+            f"- **Pack** `{pack.id}` {pack.pack_version} ({pack.source}), sha256 `{pack.sha256}`"
+            for pack in record.packs
+        ),
         f"- **Selection** {counts.files_selected} file(s) from the "
         f"{'git listing' if scan.source == 'git' else 'directory walk'}, "
         f"{counts.files_parsed} parsed, {scan.workers} worker process(es)",
@@ -455,6 +459,11 @@ def _preamble(record: RunRecord, scan: Scan, fixing: bool, *, planned: bool) -> 
         _headline(counts, FIX_SPLIT if fixing else SPLIT),
         "",
     ]
+
+
+def _rule(name: str, record: RunRecord) -> str:
+    """A rule as a person reads it: the pack is named only where more than one ran."""
+    return name if len(record.packs) > 1 else name.partition(":")[2] or name
 
 
 def _mode(record: RunRecord, code: Callable[[str], str], *, planned: bool) -> str:
@@ -475,7 +484,7 @@ def _changes_section(record: RunRecord, plan: PlanDocument) -> list[str]:
     lines.append("| File | Hunks | Rules |" + (" Written |" if applying else ""))
     lines.append("|---|---|---|" + ("---|" if applying else ""))
     for row in plan.files:
-        rules = ", ".join(f"`{name}`" for name in row.rules)
+        rules = ", ".join(f"`{_rule(name, record)}`" for name in row.rules)
         cells = f"| `{row.path}` | {row.hunks} | {rules} |"
         lines.append(cells + (f" {'yes' if row.path in written else 'no'} |" if applying else ""))
     return [*lines, ""]
@@ -644,12 +653,33 @@ def _limitations_section(record: RunRecord) -> list[str]:
     return [*lines, ""]
 
 
-def _blocked(declared: Declared, code: Callable[[str], str]) -> str:
+def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
+    needed, package = code(blocked.needed), code(blocked.package)
+    if blocked.reason == "runtime_unsupported":
+        path = code(blocked.path)
+        return (
+            f"{path} declares Python {code(blocked.declared or '')}, which allows versions "
+            f"{package} does not install on, so this run reports its findings and plans no "
+            f"change. To migrate, raise the minimum in {path} to {needed} and run again."
+        )
+    if not blocked.path:
+        return (
+            f"No manifest declares {package}, so the version in use is not known and this run "
+            f"reports its findings and plans no change. To migrate, declare {package} {needed} "
+            f"in a manifest obelize reads and run again."
+        )
+    path = code(blocked.path)
+    if blocked.declared is None:
+        return (
+            f"{path} declares {package} in a form obelize cannot read, so this run reports its "
+            f"findings and plans no change. To migrate, write it as a plain requirement such as "
+            f"{code(f'{blocked.package}{blocked.needed}')} in {path} and run again."
+        )
+    declared = code(blocked.declared) if blocked.declared else "with no version"
     return (
-        f"{code(declared.path)} declares Python {code(declared.declared)}, which allows "
-        f"versions below {runtime.FLOOR}. The new SDK does not install on those, so this run "
-        f"reports its findings and plans no change. To migrate, raise the minimum in "
-        f"{code(declared.path)} to {code(f'>={runtime.FLOOR}')} and run again."
+        f"{path} declares {package} {declared}, which allows versions this migration does not "
+        f"cover, so this run reports its findings and plans no change. To migrate, pin {package} "
+        f"to {needed} in {path} and run again."
     )
 
 

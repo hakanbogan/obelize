@@ -11,7 +11,7 @@ import os
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -24,7 +24,6 @@ from obelize.models import (
     Config,
     Finding,
     ImpactPlan,
-    ImpactPolicy,
     ManifestPlan,
     ScanCounts,
     ScanSpec,
@@ -48,15 +47,7 @@ RESERVED_CORES: Final = 1
 START_METHOD: Final = "spawn"
 
 # Set once per worker process by `_initialise` rather than pickled with every task.
-_WORKER: _Worker | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class _Worker:
-    """The two immutable arguments every task in a pool shares."""
-
-    spec: ScanSpec
-    policy: ImpactPolicy
+_SPEC: ScanSpec | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,8 +83,9 @@ class Scan:
     findings: tuple[Finding, ...]
     bindings: tuple[Binding, ...]
     manifests: ManifestPlan
-    # Declared Python floor; `blocked` on it is run.json's `runtime_unsupported`: no migration.
-    runtime: runtime.Declared | None
+    # Each declaration that rules a pack's migration out (a run's `packs[].blocked`): nothing is
+    # proposed for that pack. One pack's scan holds at most one.
+    blocked: tuple[runtime.Blocked, ...]
     skipped: tuple[walker.Skipped, ...]
     limitations: tuple[parse.Limitation, ...]
     counts: ScanCounts
@@ -110,6 +102,56 @@ class Scan:
         return tuple(
             (result.path, receiver) for result in self.results for receiver in result.receivers
         )
+
+
+def applies(scan: Scan) -> bool:
+    """Whether the pack has anything to say here: a row that is not prose or context."""
+    return any(row.scan_status != "not_a_usage" for row in scan.findings)
+
+
+def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
+    """The scans several packs made of one tree, as one: each row and limitation once."""
+    if len(scans) == 1:
+        return scans[0]
+    if not scans:
+        return Scan(
+            source=tree.walk.source,
+            results=(),
+            findings=(),
+            bindings=(),
+            manifests=ManifestPlan(),
+            blocked=(),
+            skipped=tree.walk.skipped,
+            limitations=(),
+            counts=_counts(len(tree.walk.files), (), ()),
+            workers=1,
+        )
+    first = scans[0]
+    findings = tuple(
+        sorted(
+            dict.fromkeys(row for scan in scans for row in scan.findings),
+            key=lambda row: row.sort_key,
+        )
+    )
+    results = ordered(result for scan in scans for result in scan.results)
+    parsed = {result.path: result for result in results if result.parsed}
+    files = [parsed.get(result.path, result) for result in results]
+    return Scan(
+        source=first.source,
+        results=results,
+        findings=findings,
+        bindings=tuple(row for scan in scans for row in scan.bindings),
+        manifests=manifests.merged([scan.manifests for scan in scans]),
+        blocked=tuple(row for scan in scans for row in scan.blocked),
+        skipped=first.skipped,
+        limitations=_limitations(row for scan in scans for row in scan.limitations),
+        counts=_counts(
+            first.counts.files_selected, list({r.path: r for r in files}.values()), findings
+        ),
+        workers=max(scan.workers for scan in scans),
+        unanalysed=tuple(sorted({row for scan in scans for row in scan.unanalysed})),
+        transitive=tuple(sorted({row for scan in scans for row in scan.transitive})),
+    )
 
 
 def worker_count(jobs: int | None) -> int:
@@ -133,10 +175,10 @@ def ordered(results: Iterable[FileResult]) -> tuple[FileResult, ...]:
     return tuple(sorted(results, key=sort_key))
 
 
-def examine(candidate: Candidate, spec: ScanSpec, policy: ImpactPolicy) -> FileResult:
-    """A worker's whole job: a pure function of bytes, spec and policy, the cache key."""
+def examine(candidate: Candidate, spec: ScanSpec) -> FileResult:
+    """A worker's whole job: a pure function of bytes and spec, the cache key."""
     read = parse.gates(candidate.path, candidate.data)
-    return _graded(candidate.path, candidate.sha256, read, spec, policy)
+    return _graded(candidate.path, candidate.sha256, read, spec)
 
 
 def payload(result: FileResult) -> dict[str, Any]:
@@ -163,44 +205,110 @@ def restore(row: dict[str, Any]) -> FileResult:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class Entry:
+    """One selected path as read: its bytes and hash, or why neither."""
+
+    # `None` when unreadable, or when no needle of any pack occurs in it: nothing reads it again.
+    data: bytes | None
+    # Empty exactly when the file was refused unread.
+    sha256: str
+    limitations: tuple[parse.Limitation, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Tree:
+    """The repository read once: the walk, and each selected file and manifest as it was."""
+
+    root: Path
+    config: Config
+    walk: walker.Walk
+    entries: dict[str, Entry]
+
+    def contents(self, path: str) -> tuple[bytes | None, tuple[parse.Limitation, ...]]:
+        """The bytes a scan reads: held, or from disk for what was dropped or never selected."""
+        entry = self.entries.get(path)
+        if entry is None or (entry.data is None and entry.sha256):
+            return parse.contents(self.root, path, self.config)
+        return entry.data, entry.limitations
+
+    def with_bytes(self, written: dict[str, bytes]) -> Tree:
+        """This tree where `written` replaced files, as a later pack sees what an earlier wrote."""
+        rows = {path: Entry(data, fsutil.sha256(data)) for path, data in written.items()}
+        return replace(self, entries={**self.entries, **rows})
+
+
+def read(root: Path, config: Config, specs: Sequence[ScanSpec]) -> Tree:
+    """Walk and read every selected file once.
+
+    Bytes are kept only for a manifest, or a file one of `specs` could look at: its prefilter
+    token or a module only the legacy distribution installed occurs in it.
+    """
+    walk = walker.walk(root, config)
+    needles = [
+        needle.encode()
+        for spec in specs
+        for needle in (
+            *spec.prefilter_tokens,
+            *(row.module.rpartition(".")[2] for row in spec.transitive_modules),
+        )
+    ]
+    entries: dict[str, Entry] = {}
+    for path in dict.fromkeys((*walk.files, *walk.manifests)):
+        data, refused = parse.contents(root, path, config)
+        if data is None:
+            entries[path] = Entry(None, "", refused)
+            continue
+        keep = manifests.is_manifest(path) or any(needle in data for needle in needles)
+        entries[path] = Entry(data if keep else None, fsutil.sha256(data))
+    return Tree(root, config, walk, entries)
+
+
 def scan(
     root: Path,
     config: Config,
     spec: ScanSpec,
-    policy: ImpactPolicy | None = None,
     jobs: int | None = None,
+    tree: Tree | None = None,
 ) -> Scan:
     """Select, read, resolve, grade, then run the passes that need every file's plan.
 
     `jobs`: `1` is in-process, a typed number is taken as typed, and only the default (`None`)
-    stays in-process below `POOL_THRESHOLD`.
+    stays in-process below `POOL_THRESHOLD`. `tree` is a repository already read, so several packs
+    share one read.
     """
-    policy = policy or ImpactPolicy()
-    selection = walker.walk(root, config)
-    candidates, results, transitive = _sift(root, selection.files, spec, config, policy)
+    tree = tree or read(root, config, (spec,))
+    selection = tree.walk
+    candidates, results, transitive = _sift(tree, selection.files, spec)
 
     workers = worker_count(jobs)
     if workers == 1 or (jobs is None and len(candidates) < POOL_THRESHOLD):
         workers = 1
-        results.extend(examine(candidate, spec, policy) for candidate in candidates)
+        results.extend(examine(candidate, spec) for candidate in candidates)
     else:
-        results.extend(_pooled(candidates, spec, policy, workers))
+        results.extend(_pooled(candidates, spec, workers))
     # After every plan, before the manifest pass: does another module reach a model a rewrite
     # would delete?
-    files = reach.revised(root, selection.files, ordered(results), policy)
+    files = reach.revised(selection.files, ordered(results), tree.contents)
 
     # Deliberately unsorted: `manifests.plan` sorts its own rows, and a test pins that.
-    readings = [manifests.read(root, name, config) for name in selection.manifests]
-    hits, refused = manifests.prefiltered(root, selection.excluded, spec, config)
+    readings = [manifests.read(name, tree.contents) for name in selection.manifests]
+    hits, refused = manifests.prefiltered(selection.excluded, spec, tree.contents)
     # Un-included files block the removal only under the default `include`, which silently skips
     # notebooks; under a narrower one they are the user's choice and reported as excluded.
-    unread, unreadable = manifests.prefiltered(root, selection.unincluded, spec, config)
+    unread, unreadable = manifests.prefiltered(selection.unincluded, spec, tree.contents)
     unanalysed = unread if config.include == DEFAULT_INCLUDE else ()
     hits = tuple(sorted({*hits, *unread})) if not unanalysed else hits
     declared = tuple(row for reading in readings for row in reading.declarations)
-    migration = manifests.survey([result.plan for result in files], hits, unanalysed, transitive)
+    migration = manifests.survey(
+        [result.plan for result in files],
+        hits,
+        unanalysed,
+        transitive,
+        paired=manifests.coupled(spec),
+    )
     declarations = manifests.plan(declared, migration, spec)
-    floor = runtime.detect(root, selection.manifests, config)
+    floor = runtime.detect(selection.manifests, tree.contents, spec)
 
     findings = tuple(
         sorted(
@@ -213,13 +321,14 @@ def scan(
     limitations.extend(refused)
     limitations.extend(unreadable)
     limitations.extend(floor.limitations)
+    used = any(row.kind != "manifest" and row.scan_status != "not_a_usage" for row in findings)
     return Scan(
         source=selection.source,
         results=files,
         findings=findings,
         bindings=tuple(row for result in files for row in result.plan.bindings),
         manifests=declarations,
-        runtime=floor.declared,
+        blocked=tuple(filter(None, (floor.blocked or runtime.legacy(declared, spec, used),))),
         skipped=selection.skipped,
         limitations=_limitations(limitations),
         counts=_counts(len(selection.files), files, findings),
@@ -230,9 +339,9 @@ def scan(
 
 
 def _sift(
-    root: Path, files: Sequence[str], spec: ScanSpec, config: Config, policy: ImpactPolicy
+    tree: Tree, files: Sequence[str], spec: ScanSpec
 ) -> tuple[list[Candidate], list[FileResult], list[tuple[str, str]]]:
-    """Read every file; finish the unreadable and prefilter-eliminated, return the rest to parse.
+    """Finish the unreadable and prefilter-eliminated files, return the rest to parse.
 
     Legacy-only imports are collected here, since a non-candidate's bytes are not kept.
     """
@@ -240,24 +349,23 @@ def _sift(
     finished: list[FileResult] = []
     transitive: list[tuple[str, str]] = []
     for path in files:
-        data, refused = parse.contents(root, path, config)
-        if data is None:
-            read = parse.Read(path=path, status="not_read", limitations=refused)
-            finished.append(_graded(path, "", read, spec, policy))
+        entry = tree.entries[path]
+        if entry.sha256 == "":
+            read = parse.Read(path=path, status="not_read", limitations=entry.limitations)
+            finished.append(_graded(path, "", read, spec))
             continue
-        transitive.extend(manifests.provided(path, data, spec))
-        digest = fsutil.sha256(data)
-        if not parse.candidate(data, spec.prefilter_tokens):
+        data = entry.data
+        if data is not None:
+            transitive.extend(manifests.provided(path, data, spec))
+        if data is None or not parse.candidate(data, spec.prefilter_tokens):
             read = parse.Read(path=path, status="not_a_candidate", data=data)
-            finished.append(_graded(path, digest, read, spec, policy))
+            finished.append(_graded(path, entry.sha256, read, spec))
             continue
-        candidates.append(Candidate(path=path, sha256=digest, data=data))
+        candidates.append(Candidate(path=path, sha256=entry.sha256, data=data))
     return candidates, finished, transitive
 
 
-def _pooled(
-    candidates: Sequence[Candidate], spec: ScanSpec, policy: ImpactPolicy, workers: int
-) -> list[FileResult]:
+def _pooled(candidates: Sequence[Candidate], spec: ScanSpec, workers: int) -> list[FileResult]:
     """Grade candidates in `workers` spawned processes.
 
     `BrokenProcessPool` propagates on purpose: an in-process fallback would hide an interpreter
@@ -267,39 +375,35 @@ def _pooled(
         max_workers=workers,
         mp_context=multiprocessing.get_context(START_METHOD),
         initializer=_initialise,
-        initargs=(spec.model_dump_json(), policy.model_dump_json()),
+        initargs=(spec.model_dump_json(),),
     ) as executor:
         tasks = [(candidate.path, candidate.sha256, candidate.data) for candidate in candidates]
         return [restore(row) for row in executor.map(_work, tasks)]
 
 
-def _initialise(spec: str, policy: str) -> None:
-    global _WORKER
-    _WORKER = _Worker(
-        spec=ScanSpec.model_validate_json(spec), policy=ImpactPolicy.model_validate_json(policy)
-    )
+def _initialise(spec: str) -> None:
+    global _SPEC
+    _SPEC = ScanSpec.model_validate_json(spec)
 
 
 def _work(task: tuple[str, str, bytes]) -> dict[str, Any]:
     """At module level so that `spawn` can pickle it by name."""
-    worker = _WORKER
-    if worker is None:
+    spec = _SPEC
+    if spec is None:
         raise RuntimeError("a scan worker ran before its initializer; this is an obelize defect")
     path, digest, data = task
     candidate = Candidate(path=path, sha256=digest, data=data)
-    return payload(examine(candidate, worker.spec, worker.policy))
+    return payload(examine(candidate, spec))
 
 
-def _graded(
-    path: str, digest: str, read: parse.Read, spec: ScanSpec, policy: ImpactPolicy
-) -> FileResult:
+def _graded(path: str, digest: str, read: parse.Read, spec: ScanSpec) -> FileResult:
     """Grade any read, tree or not, so an empty plan is an output rather than a special case."""
     result = analysis.analyse(read, spec)
     return FileResult(
         path=path,
         sha256=digest,
         parsed=read.status == "parsed",
-        plan=planner.plan(result, spec, policy),
+        plan=planner.plan(result, spec),
         limitations=read.limitations,
         receivers=result.receivers,
     )
@@ -340,11 +444,16 @@ __all__ = [
     "POOL_THRESHOLD",
     "START_METHOD",
     "Candidate",
+    "Entry",
     "FileResult",
     "Scan",
+    "Tree",
+    "applies",
     "examine",
+    "merged",
     "ordered",
     "payload",
+    "read",
     "restore",
     "scan",
     "sort_key",

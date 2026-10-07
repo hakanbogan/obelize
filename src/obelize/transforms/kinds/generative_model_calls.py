@@ -333,12 +333,8 @@ class GenerativeModelCalls:
     ) -> BailCode | None:
         """Why the group cannot be written, in ladder order, or `None`.
 
-        A binding's scan code first (reachable under the `dual` import policy only); unmapped
-        before escape, as a method with no rewrite has no `_Use` and would read as an escape.
+        Unmapped before escape: a method with no rewrite has no `_Use` and would read as an escape.
         """
-        withheld = next((held.bail for held in bindings if held.bail is not None), None)
-        if withheld is not None:
-            return withheld
         if any(self._unmapped(context, tree, held) for held in bindings):
             return "receiver_method_unmapped"
         if self._left_behind(tree, bindings[0], uses):

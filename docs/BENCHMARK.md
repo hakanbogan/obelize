@@ -5,7 +5,8 @@ How obelize's migrations and scan are measured. The numbers are in
 harness is argued in
 [ADR-042](adr/ADR-042-benchmark-harness-tiers.md)
 and
-[ADR-043](adr/ADR-043-round-one-results.md).
+[ADR-043](adr/ADR-043-round-one-results.md). It was run for the Gemini pack only; the PyPDF2 and openai packs have no Gate 1 measurement
+([ADR-051](adr/ADR-051-second-migration-family.md), [ADR-053](adr/ADR-053-shared-module-migrations.md)).
 
 The target is **at least 20 real migration cases with at least 70% autonomous
 `verified_success`** ([Gate 4](PRODUCT.md#what-would-make-this-a-product)): a

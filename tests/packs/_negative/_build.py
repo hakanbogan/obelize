@@ -34,7 +34,7 @@ MINIMAL: Document = {
         "retrieved_at": "2026-09-17",
     },
     "from": {"package": "demo-legacy", "version": "<1"},
-    "to": {"package": "demo-modern", "version": ">=1"},
+    "to": {"package": "demo-modern", "version": ">=1", "requires_python": ">=3.9"},
     "match": {"imports": ["demo_legacy"], "prefilter_tokens": ["demo_legacy"]},
     "changes": [
         {
@@ -84,7 +84,6 @@ MODEL_CHANGE: Document = {
             "config_field": "safety_settings",
         },
         "config_class": "demo_modern.types.Config",
-        "default_model_name": "demo-1",
         "legacy_config_symbol": "demo_legacy.Config",
         "legacy_config_kwarg": "settings",
         "ctor_order": ["name", "guards", "settings"],
@@ -111,9 +110,9 @@ RENAME_CHANGE: Document = {
         "from_module": "demo_legacy",
         "to_module": "demo_modern",
         "default_alias": "demo",
-        "types_alias_fallback": "demo_types",
         "submodule_map": {"types": "demo_modern.types"},
-        "types_symbol_map": {"GenerationConfig": "GenerateContentConfig"},
+        "alias_fallbacks": {"types": "demo_types"},
+        "symbol_map": {"types.GenerationConfig": "GenerateContentConfig"},
     },
 }
 
@@ -142,6 +141,24 @@ CALL_CHANGE: Document = {
         "config_class": "demo_modern.types.MeasureConfig",
         "config_kwarg": "config",
         "config_kwargs": ["depth"],
+        "dispatch_prefixes": {"kind": ["kinds/"]},
+    },
+}
+
+# A module-rooted call: spelled after the root the author wrote, so the pack needs no client source.
+MODULE_CALL: Document = {
+    "id": "probe",
+    "kind": "rewrite_call",
+    "citation": "Guide, Probing",
+    "fixtures": ["fixtures/negative/none.py", "fixtures/positive/one.before.py"],
+    "params": {
+        "legacy_symbol": "demo_legacy.probe",
+        "new_call": "probes.run",
+        "root": "module",
+        "arg_map": {"body": "text"},
+        "positional_to_kw": ["kind"],
+        "keywords": ["body", "depth"],
+        "result_paths": ["rows[].price", "total"],
         "dispatch_prefixes": {"kind": ["kinds/"]},
     },
 }
@@ -179,6 +196,22 @@ def _with(document: Document, key: str, value: Any) -> None:
     document[key] = value
 
 
+def _symbols_without_a_submodule_map(document: Document) -> None:
+    for key in ("submodule_map", "alias_fallbacks"):
+        document["changes"][1]["params"].pop(key)
+
+
+def _shared(document: Document) -> None:
+    """The module is the new SDK's too; `configure` is the one legacy name listed."""
+    document["match"].update(shared=True, symbols=["demo_legacy.configure"])
+
+
+def _depth_is_also_a_config_field(document: Document) -> None:
+    document["changes"][1]["params"].update(
+        config_class="demo_modern.types.ProbeConfig", config_kwarg="config", config_kwargs=["depth"]
+    )
+
+
 def _one_distribution_overlapping(document: Document) -> None:
     """Two ranges over one distribution that both admit 1."""
     document["to"]["package"] = "demo-legacy"
@@ -214,13 +247,6 @@ CASES: tuple[Case, ...] = (
         path="changes[0]",
         says="does not match any of the expected tags",
         mutate=lambda d: _with(d["changes"][0], "kind", "rewrite_imports"),
-    ),
-    Case(
-        name="unknown_precondition",
-        defect="a precondition outside the closed vocabulary",
-        path="changes[0].preconditions[1]",
-        says="Input should be",
-        mutate=lambda d: _with(d["changes"][0], "preconditions", ["import_resolved", "magic"]),
     ),
     Case(
         name="duplicate_change_id",
@@ -265,6 +291,20 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: _with(d["match"], "imports", []),
     ),
     Case(
+        name="to_without_requires_python",
+        defect="a target that says nothing of the Pythons it installs on",
+        path="to.requires_python",
+        says="Field required",
+        mutate=lambda d: d["to"].pop("requires_python"),
+    ),
+    Case(
+        name="requires_python_not_a_specifier",
+        defect="a Python requirement that is a version, not a specifier",
+        path="to.requires_python",
+        says="expected a PEP 440 version specifier",
+        mutate=lambda d: _with(d["to"], "requires_python", "3.10"),
+    ),
+    Case(
         name="from_version_is_not_pep440",
         defect="a version range that is not a PEP 440 specifier",
         path="from.version",
@@ -284,13 +324,6 @@ CASES: tuple[Case, ...] = (
         path="",
         says="move backwards",
         mutate=_one_distribution_backwards,
-    ),
-    Case(
-        name="replacement_is_not_a_symbol",
-        defect="a replacement field carrying a call rather than a symbol",
-        path="changes[0].replacement",
-        says="fully qualified symbol",
-        mutate=lambda d: _with(d["changes"][0], "replacement", "demo_modern.Client(api_key=K)"),
     ),
     Case(
         name="client_fallback_repeats_the_first_name",
@@ -418,8 +451,8 @@ CASES: tuple[Case, ...] = (
     ),
     # Rules that live inside one kind.
     Case(
-        name="no_client_source",
-        defect="a pack with rules and no client source at all",
+        name="model_calls_without_a_client_source",
+        defect="a pack rewriting calls onto a client and naming no client source",
         path="",
         says="found 0",
         extra=MODEL_CHANGE,
@@ -532,22 +565,56 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
-        name="generation_config_mapped_to_itself",
-        defect="an identity rewrite that imports cleanly and does nothing",
+        name="alias_fallback_for_no_submodule",
+        defect="a fallback alias for a submodule the pack does not move",
         path=f"{EXTRA}.params",
-        says="to itself",
+        says="names no submodule in submodule_map",
+        extra=RENAME_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "alias_fallbacks", {"wire": "demo_wire"}),
+    ),
+    Case(
+        name="symbol_named_after_a_submodule",
+        defect="a symbol key that is a submodule, which submodule_map already moves",
+        path=f"{EXTRA}.params",
+        says="names a submodule",
+        extra=RENAME_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "symbol_map", {"types": "types"}),
+    ),
+    Case(
+        name="symbol_map_key_too_deep",
+        defect="a symbol key more than one submodule down",
+        path=f"{EXTRA}.params.symbol_map.types.GenerationConfig.Field",
+        says="expected `Name` or `<submodule>.Name`",
         extra=RENAME_CHANGE,
         mutate=lambda d: _with(
-            d["changes"][1]["params"], "types_symbol_map", {"GenerationConfig": "GenerationConfig"}
+            d["changes"][1]["params"],
+            "symbol_map",
+            {"types.GenerationConfig.Field": "GenerateContentConfig"},
         ),
     ),
     Case(
-        name="types_symbol_map_without_a_submodule_map",
-        defect="renamed submodule symbols with nothing saying where the submodule went",
+        name="symbol_map_without_a_submodule_map",
+        defect="mapped submodule symbols with nothing saying where the submodule went",
         path=f"{EXTRA}.params",
         says="where that submodule moved to",
         extra=RENAME_CHANGE,
-        mutate=lambda d: d["changes"][1]["params"].pop("submodule_map"),
+        mutate=_symbols_without_a_submodule_map,
+    ),
+    Case(
+        name="symbol_mapped_and_flagged",
+        defect="one symbol with two answers: a rename and a refusal",
+        path="",
+        says="mapped or refused",
+        extra=RENAME_CHANGE,
+        mutate=lambda d: d["changes"].append(
+            {
+                **copy.deepcopy(FLAG_CHANGE),
+                "params": {
+                    **FLAG_CHANGE["params"],
+                    "symbols": ["demo_legacy.types.GenerationConfig"],
+                },
+            }
+        ),
     ),
     Case(
         name="symbol_both_rewritten_and_refused",
@@ -808,7 +875,7 @@ CASES: tuple[Case, ...] = (
     ),
     Case(
         name="a_new_call_that_is_not_a_dotted_path",
-        defect="a replacement that is an expression rather than a name",
+        defect="a call target that is an expression rather than a name",
         path=f"{EXTRA}.params.rewrites.demo_legacy.Model.generate.new_call",
         says="expected a dotted path under the client",
         extra=MODEL_CHANGE,
@@ -947,6 +1014,157 @@ CASES: tuple[Case, ...] = (
         extra=CALL_CHANGE,
         mutate=lambda d: _with(
             d["changes"][1]["params"], "dispatch_prefixes", {"kind": ["kinds/\x1b[2K"]}
+        ),
+    ),
+    # A module the new SDK keeps: only the listed names are legacy, and no import is renamed.
+    Case(
+        name="a_shared_module_with_no_legacy_names",
+        defect="a shared module that lists nothing legacy, so nothing in it could be a finding",
+        path="match",
+        says="a shared module has no legacy surface until symbols names it",
+        mutate=lambda d: _with(d["match"], "shared", True),
+    ),
+    Case(
+        name="a_rename_in_a_shared_module",
+        defect="an import rewrite for a module the new SDK keeps under the same name",
+        path="",
+        says="renames a module that match.shared says the new SDK keeps",
+        extra=RENAME_CHANGE,
+        mutate=_shared,
+    ),
+    Case(
+        name="a_rule_outside_the_listed_legacy_names",
+        defect="a rule on a name the module's own imports reach but `symbols` does not list",
+        path="",
+        says="under nothing in match.symbols",
+        extra=MODULE_CALL,
+        mutate=_shared,
+    ),
+    # rewrite_call rooted on the module: where it is spelled, and what it reads of the result.
+    Case(
+        name="a_client_call_with_no_client_source",
+        defect="a call rewritten onto a client that no rule constructs",
+        path="",
+        says="onto the client (['measure']); found 0",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"].pop(0),
+    ),
+    Case(
+        name="a_rewrite_rooted_on_a_receiver",
+        defect="a root only a method of a declared receiver has",
+        path=f"{EXTRA}.params.root",
+        says="Input should be 'client' or 'module'",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "root", "receiver"),
+    ),
+    Case(
+        name="a_module_call_with_no_service_to_name_it_under",
+        defect="a new call that is one name, which no module has a service called",
+        path=f"{EXTRA}.params.new_call",
+        says="names a service and a method on it",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "new_call", "run"),
+    ),
+    Case(
+        name="a_result_path_that_ends_in_a_subscript",
+        defect="a read of the result that stops at an element, which carries no attribute",
+        path=f"{EXTRA}.params.result_paths[0]",
+        says="got 'rows[]'",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "result_paths", ["rows[]"]),
+    ),
+    Case(
+        name="a_result_path_that_starts_with_a_digit",
+        defect="a read of the result through a name no attribute can have",
+        path=f"{EXTRA}.params.result_paths[0]",
+        says="got '2nd.price'",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "result_paths", ["2nd.price"]),
+    ),
+    Case(
+        name="a_result_path_with_an_empty_segment",
+        defect="a read of the result with a dot that names nothing",
+        path=f"{EXTRA}.params.result_paths[0]",
+        says="got 'rows..price'",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "result_paths", ["rows..price"]),
+    ),
+    Case(
+        name="a_result_path_with_a_space",
+        defect="a read of the result that is an expression rather than a path",
+        path=f"{EXTRA}.params.result_paths[0]",
+        says="got 'rows[].unit price'",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "result_paths", ["rows[].unit price"]),
+    ),
+    Case(
+        name="a_result_path_that_continues_another",
+        defect="two reads of the result where the shorter is trusted and the longer goes past it",
+        path=f"{EXTRA}.params",
+        says="result_paths names 'total' and 'total.amount' below it",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(
+            d["changes"][1]["params"], "result_paths", ["total", "total.amount"]
+        ),
+    ),
+    Case(
+        name="a_result_path_list_that_is_not_sorted",
+        defect="a list of result paths with two spellings of one set",
+        path=f"{EXTRA}.params",
+        says="result_paths must be sorted and de-duplicated",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(
+            d["changes"][1]["params"], "result_paths", ["total", "rows[].price"]
+        ),
+    ),
+    Case(
+        name="result_paths_beside_result_access_flags",
+        defect="a list of results reads that carry, next to a flag that refuses every read",
+        path=f"{EXTRA}.params",
+        says="would never be consulted",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "result_access_flags", ["usage"]),
+    ),
+    Case(
+        name="a_keyword_list_that_is_not_sorted",
+        defect="a list of keywords with two spellings of one set",
+        path=f"{EXTRA}.params",
+        says="keywords must be sorted and de-duplicated",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "keywords", ["depth", "body"]),
+    ),
+    Case(
+        name="a_keyword_that_is_also_positional",
+        defect="a parameter carried as a keyword and also by position, so the order decides",
+        path=f"{EXTRA}.params",
+        says="['kind'] is in keywords and also in positional_to_kw",
+        extra=MODULE_CALL,
+        mutate=lambda d: _with(d["changes"][1]["params"], "keywords", ["body", "depth", "kind"]),
+    ),
+    Case(
+        name="a_keyword_that_is_also_a_config_field",
+        defect="a parameter carried as a keyword and also into the configuration",
+        path=f"{EXTRA}.params",
+        says="['depth'] is in keywords and also in positional_to_kw or config_kwargs",
+        extra=MODULE_CALL,
+        mutate=_depth_is_also_a_config_field,
+    ),
+    Case(
+        name="a_keyword_renamed_onto_a_positional_parameter",
+        defect="a rename onto the name a positional parameter already carries",
+        path=f"{EXTRA}.params",
+        says="two entries of positional_to_kw and keywords land on ['kind']",
+        extra=MODULE_CALL,
+        mutate=lambda d: d["changes"][1]["params"]["arg_map"].update({"body": "kind"}),
+    ),
+    Case(
+        name="a_keyword_renamed_onto_the_configuration_keyword",
+        defect="a rename onto the name the configuration object is passed under",
+        path=f"{EXTRA}.params",
+        says="two entries of positional_to_kw and keywords land on ['text']",
+        extra=MODULE_CALL,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            {"config_class": "demo_legacy.Cfg", "config_kwargs": ["tone"], "config_kwarg": "text"}
         ),
     ),
     Case(

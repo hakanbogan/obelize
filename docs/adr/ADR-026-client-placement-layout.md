@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050.
 
 ## Decision
 
@@ -131,7 +131,7 @@ planner before any rule is built.
 
 - `client_placement_ambiguous` is a fix-time member of
   [docs/SCAN_VOCABULARY.md](../SCAN_VOCABULARY.md) section 4.
-- A pack declares exactly one `configure_to_client` change; a pack with two
+- A pack declares at most one `configure_to_client` change; a pack with two
   clients needs that relaxed and D3 extended to say which client a call reaches.
 - Nothing reads the width from the user's repository (`.obelize.yml` or
   `ruff.toml`); that waits until somebody asks.

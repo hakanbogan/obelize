@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-026 (D2, D8, D10, D12).
+Accepted; amended by ADR-026 (D2, D8, D10, D12) and ADR-050.
 
 ## Decision
 
@@ -30,12 +30,12 @@ asserts the default wrapper copies, and shows a copying wrapper reporting
 `auto` edits over a file that comes back byte-identical, because a guard for a
 silent failure has to be shown failing.
 
-### D4. `rename_import` owns the import statements and the `types` reads, and not a call site
+### D4. `rename_import` owns the import statements and the mapped-name reads, and not a call site
 
 It rewrites every module-level spelling of the legacy import (dotted, aliased,
-`from <package> import <module>`, a submodule, `from <module>.types import
-<symbol>`) and every read of a name a `types` import bound, string annotations
-included. It never touches a call site's prefix, because the rule that owns
+`from <package> import <module>`, a submodule, `from <module>.<submodule> import
+<symbol>`) and every read of a name the pack's `symbol_map` maps, through the module or a
+submodule, string annotations included. It never touches a call site's prefix, because the rule that owns
 that call replaces it whole and D1 withholds the file until one does.
 
 ### D5. A name the author wrote survives; a name that is the legacy module's own spelling does not
@@ -77,7 +77,8 @@ finding (`genai.__version__`) still needs the name.
 
 An entry with no rewrite, such as `GenerativeModel`, bails
 `from_import_unmigrated_symbol`. An entry whose symbol a running rule consumes
-is dropped instead, and the module import takes its place (ADR-026 D5).
+is dropped instead, and the module import takes its place (ADR-026 D5). An entry mapped to
+itself stays, with its author's alias, in a `from` import of the new module.
 
 ### D11. The import manager owns three things, and applying is deferred
 
@@ -100,7 +101,5 @@ emits is one import on one line, so it needs only D11's placement.
 
 - No two rules edit one node, so no conflict policy exists; the first pair
   that must is the reason to write one.
-- `types_symbol_map` is tied to the `types` submodule by the schema; a pack
-  with a second submodule carrying symbols needs it generalised first.
 - `tests/unit/acme.py` reaches what the Gemini pack cannot: a `default_alias`
   that is not the module's last segment, and a second submodule.

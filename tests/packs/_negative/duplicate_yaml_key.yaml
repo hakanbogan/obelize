@@ -19,6 +19,7 @@ from:
 to:
   package: demo-modern
   version: '>=1'
+  requires_python: '>=3.9'
 match:
   imports:
   - demo_legacy

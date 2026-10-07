@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-039 (D9).
+Accepted; amended by ADR-039 (D9) and ADR-052.
 
 ## Decision
 
@@ -100,4 +100,4 @@ Superseded by ADR-039: `providers/proposals.py` checks every proposal before
 - A proposal failing several checks reports one, so counts by word count first refusals.
 - A latin-1 repository refuses some correct-looking proposals; the row stays `needs_review` and the file keeps its bytes.
 - `REPLACEMENT_LINE_LIMIT` follows `CONTEXT_LINE_LIMIT`; `tests/unit/test_providers_guard.py` pins the boundary.
-- Open: a pack targeting several modules, or a target import absent from the files rewritten, makes D7's allowed set a real constraint.
+- Open: a pack targeting several modules, or a target import absent from the files rewritten, makes D7's allowed set a real constraint. A model is asked about one pack, so the set never holds two packs' targets (ADR-052 D6).

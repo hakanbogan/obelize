@@ -307,15 +307,6 @@ def split_lines(data: bytes) -> list[str]:
     return joined
 
 
-def _to_modules(pack: PackDocument) -> tuple[str, ...]:
-    """Every `to_module` of the pack's `rename_import` rules; empty authorises no new import."""
-    return tuple(
-        sorted(
-            {change.params.to_module for change in pack.changes if change.kind == "rename_import"}
-        )
-    )
-
-
 def _question(
     finding: Finding,
     span: tuple[int, int],
@@ -339,7 +330,7 @@ def _question(
         bail=finding.bail,
         pack_id=pack.id,
         to_package=pack.to.package,
-        to_modules=_to_modules(pack),
+        to_modules=pack.to_modules(),
         limitations=tuple(pack.limitations),
     )
 

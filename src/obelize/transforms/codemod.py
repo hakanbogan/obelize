@@ -7,6 +7,7 @@ the client and model rules spell against). A file with anything withheld comes b
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
@@ -16,10 +17,11 @@ from libcst.metadata import MetadataWrapper, ScopeProvider
 from obelize.impact import planner
 from obelize.models import (
     ATOMICITY_BAIL,
+    REPO_ATOMICITY_BAIL,
+    WITHHELD,
     Edit,
     Finding,
     ImpactPlan,
-    ImpactPolicy,
     ManifestPlan,
 )
 from obelize.scan import manifests, parse
@@ -52,7 +54,7 @@ BAILS: frozenset[BailCode] = frozenset({UNCLAIMED, GATE, UNRESOLVED, CONSUMED})
 
 
 class CodemodError(Exception):
-    """A misuse of the driver (bad sources, the `dual` policy), not a bail about user code."""
+    """A misuse of the driver (bad sources), not a bail about user code."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,24 +112,11 @@ class Run:
         return tuple(outcome for outcome in self.outcomes if outcome.written)
 
 
-def run(
-    scan: Scan,
-    sources: Mapping[str, bytes],
-    pack: PackDocument,
-    spec: ScanSpec,
-    policy: ImpactPolicy | None = None,
-) -> Run:
+def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: ScanSpec) -> Run:
     """Run `pack` over `sources` (scan path to bytes, manifests included) and re-grade.
 
     A scanned file missing from `sources` is left alone; one with an `eligible` row raises.
     """
-    policy = policy or ImpactPolicy()
-    if policy.import_policy != "atomic":
-        raise CodemodError(
-            f"no rule implements the {policy.import_policy!r} import policy, which leaves "
-            f"both imports in place and rewrites what resolved; running under it would write "
-            f"a file whose import was renamed and whose refused group was not"
-        )
     results = {result.path: result for result in scan.results}
     _check(results, sources)
 
@@ -138,19 +127,117 @@ def run(
         if data is None or not result.parsed:
             plans.append(result.plan)
             continue
-        outcome, plan = _file(result, data, pack, spec, policy)
+        outcome, plan = _file(result, data, pack, spec)
         files.append(outcome)
         plans.append(plan)
 
-    if any(_relies(plan, spec) for plan in plans):
-        files, plans = _elsewhere(files, plans, pack, spec, policy)
-    graded = _manifest_plan(scan, sources, plans, spec)
+    if spec.client_symbol is not None and any(_relies(plan, spec) for plan in plans):
+        files, plans = _elsewhere(files, plans, pack, spec)
+    graded = _manifest_plan(scan, _edited(files, sources), plans, spec)
+    if manifests.coupled(spec) and _unfinished(plans, graded):
+        waiting = _withholding(plans, graded)
+        files, plans = _together(files, plans)
+        graded = _pins_held(graded, waiting)
+    read = _edited(files, sources)
+    kept, declared = _joined(
+        files, [_manifest(name, read[name], graded, pack) for name in _named(graded)]
+    )
     return Run(
-        files=tuple(files),
-        manifests=tuple(_manifest(name, sources[name], graded, pack) for name in _named(graded)),
+        files=tuple(kept),
+        manifests=tuple(declared),
         plans=tuple(plans),
         manifest_plan=graded,
     )
+
+
+def _edited(files: Sequence[Outcome], sources: Mapping[str, bytes]) -> Mapping[str, bytes]:
+    """The bytes the manifest pass reads: a `setup.py` is a source too, and the rules wrote it."""
+    return {
+        **sources,
+        **{o.path: o.after for o in files if o.written and manifests.is_manifest(o.path)},
+    }
+
+
+def _joined(
+    files: Sequence[Outcome], declared: Sequence[Outcome]
+) -> tuple[list[Outcome], list[Outcome]]:
+    """A file both passes changed is one outcome, from its first bytes to its last."""
+    written = {o.path: o for o in files if o.written}
+    both = {o.path for o in declared if o.written and o.path in written}
+    return (
+        [o for o in files if o.path not in both],
+        [
+            Outcome(o.path, written[o.path].before, o.after, (*written[o.path].edits, *o.edits))
+            if o.path in both
+            else o
+            for o in declared
+        ],
+    )
+
+
+def blocked(run: Run, reason: BailCode) -> Run:
+    """A blocked repository's pass: each row it would have written is withheld for `reason`."""
+
+    def held(row: Finding) -> Finding:
+        return _withheld(row, reason) if row.scan_status == "eligible" else row
+
+    return Run(
+        files=(),
+        manifests=(),
+        plans=tuple(
+            ImpactPlan(
+                path=plan.path,
+                findings=tuple(held(row) for row in plan.findings),
+                bindings=plan.bindings,
+            )
+            for plan in run.plans
+        ),
+        manifest_plan=ManifestPlan(
+            findings=tuple(held(row) for row in run.manifest_plan.findings),
+            blocking=run.manifest_plan.blocking,
+            excluded=run.manifest_plan.excluded,
+            transitive=run.manifest_plan.transitive,
+        ),
+    )
+
+
+def chained(passes: Sequence[tuple[str, Run]]) -> Run:
+    """The runs of several packs, in the order they ran, as one over the repository.
+
+    A file keeps the `before` of the first pass that looked at it and the `after` of the last, and
+    an edit names its pack (`<pack id>:<rule id>`). An edit's line is in the file as that pack saw
+    it.
+    """
+    # `setup.py` is read as a source and as a manifest, by one pack or two: one file is one row,
+    # from its first bytes to its last, in whichever list any pass put it.
+    outcomes: dict[str, Outcome] = {}
+    declared: set[str] = set()
+    for pack_id, run in passes:
+        for outcome in (*run.files, *run.manifests):
+            outcomes[outcome.path] = _carried(outcomes.get(outcome.path), outcome, pack_id)
+        declared.update(outcome.path for outcome in run.manifests)
+    return Run(
+        files=_in_path_order({path: row for path, row in outcomes.items() if path not in declared}),
+        manifests=_in_path_order({path: row for path, row in outcomes.items() if path in declared}),
+        plans=tuple(plan for _, run in passes for plan in run.plans),
+        manifest_plan=manifests.merged([run.manifest_plan for _, run in passes]),
+    )
+
+
+def _carried(held: Outcome | None, outcome: Outcome, pack_id: str) -> Outcome:
+    rows = tuple(
+        Edit(**{**row.model_dump(), "rule_id": f"{pack_id}:{row.rule_id}"})
+        if row.rule_id is not None
+        else row
+        for row in outcome.edits
+    )
+    if held is None:
+        return Outcome(outcome.path, outcome.before, outcome.after, rows)
+    return Outcome(outcome.path, held.before, outcome.after, (*held.edits, *rows))
+
+
+def _in_path_order(outcomes: Mapping[str, Outcome]) -> tuple[Outcome, ...]:
+    return tuple(sorted(outcomes.values(), key=lambda outcome: os.fsencode(outcome.path)))
 
 
 def _check(results: Mapping[str, FileResult], sources: Mapping[str, bytes]) -> None:
@@ -177,7 +264,7 @@ def _is_manifest(path: str) -> bool:
 
 
 def _file(
-    result: FileResult, data: bytes, pack: PackDocument, spec: ScanSpec, policy: ImpactPolicy
+    result: FileResult, data: bytes, pack: PackDocument, spec: ScanSpec
 ) -> tuple[Outcome, ImpactPlan]:
     """Every rule over one file, then the atomicity check; rules are built fresh per file, as
     the corpora do."""
@@ -214,7 +301,7 @@ def _file(
             if finding.scan_status == "eligible"
         }
 
-    plan = _revised(result.plan, withheld, policy)
+    plan = _revised(result.plan, withheld)
     rows = _ordered(edits)
     if withheld:
         rows = [_held(row, plan, gate) for row in rows]
@@ -263,9 +350,7 @@ def _refusals(
             withheld[id(finding)] = code
 
 
-def _revised(
-    plan: ImpactPlan, withheld: Mapping[int, BailCode], policy: ImpactPolicy
-) -> ImpactPlan:
+def _revised(plan: ImpactPlan, withheld: Mapping[int, BailCode]) -> ImpactPlan:
     """The plan re-graded with `withheld`, rebuilt so `ImpactPlan` asserts atomicity again.
 
     Bindings are kept: a refusal is about the rewrite, not how the object was bound.
@@ -273,12 +358,7 @@ def _revised(
     findings = tuple(
         _withheld(row, withheld[id(row)]) if id(row) in withheld else row for row in plan.findings
     )
-    return ImpactPlan(
-        path=plan.path,
-        findings=planner.atomicity(findings, policy),
-        bindings=plan.bindings,
-        import_policy=plan.import_policy,
-    )
+    return ImpactPlan(path=plan.path, findings=planner.atomicity(findings), bindings=plan.bindings)
 
 
 def _withheld(finding: Finding, code: BailCode) -> Finding:
@@ -328,7 +408,6 @@ def _elsewhere(
     plans: Sequence[ImpactPlan],
     pack: PackDocument,
     spec: ScanSpec,
-    policy: ImpactPolicy,
 ) -> tuple[list[Outcome], list[ImpactPlan]]:
     """Leave every file whose `configure` this run would rewrite as it was.
 
@@ -343,7 +422,7 @@ def _elsewhere(
             if row.scan_status == "eligible" and planner.configures(row, spec)
         }
         if withheld:
-            revised[str(plan.path)] = _revised(plan, withheld, policy)
+            revised[str(plan.path)] = _revised(plan, withheld)
     return (
         [
             _kept(outcome, revised[outcome.path], pack) if outcome.path in revised else outcome
@@ -372,12 +451,81 @@ def _kept(outcome: Outcome, plan: ImpactPlan, pack: PackDocument) -> Outcome:
     )
 
 
+def _unfinished(plans: Sequence[ImpactPlan], graded: ManifestPlan) -> bool:
+    """Whether any row of the pack, in a file or a manifest, is withheld."""
+    return any(
+        row.scan_status in WITHHELD
+        for row in (*(row for plan in plans for row in plan.findings), *graded.findings)
+    )
+
+
+def _withholding(plans: Sequence[ImpactPlan], graded: ManifestPlan) -> tuple[str, ...]:
+    """The files that hold a withheld row: what every other row of the pack waits on."""
+    named = {
+        str(plan.path) for plan in plans for row in plan.findings if row.scan_status in WITHHELD
+    }
+    named.update(str(row.path) for row in graded.findings if row.scan_status in WITHHELD)
+    return tuple(sorted(named))
+
+
+def _pins_held(graded: ManifestPlan, waiting: tuple[str, ...]) -> ManifestPlan:
+    """The manifest rows left `auto` withheld with the rest: one line that cannot be written holds
+    the pins that could be, since a pin moved beside it is half a migration."""
+    return ManifestPlan(
+        findings=tuple(
+            _withheld(row, REPO_ATOMICITY_BAIL) if row.scan_status == "eligible" else row
+            for row in graded.findings
+        ),
+        blocking=graded.blocking or waiting,
+        excluded=graded.excluded,
+        transitive=graded.transitive,
+    )
+
+
+def _together(
+    files: Sequence[Outcome], plans: Sequence[ImpactPlan]
+) -> tuple[list[Outcome], list[ImpactPlan]]:
+    """Leave every file as it was.
+
+    One distribution holds both APIs: a file written for the new one fails on the old pin, and the
+    files left behind fail on the new one, so a half-migrated repository installs neither way.
+    """
+    revised = {}
+    for plan in plans:
+        withheld = {
+            id(row): REPO_ATOMICITY_BAIL for row in plan.findings if row.scan_status == "eligible"
+        }
+        if withheld:
+            revised[str(plan.path)] = _revised(plan, withheld)
+    return (
+        [_left(outcome) if outcome.path in revised else outcome for outcome in files],
+        [revised.get(str(plan.path), plan) for plan in plans],
+    )
+
+
+def _left(outcome: Outcome) -> Outcome:
+    """A file kept as it was: each applied row is withheld for the repository."""
+    rows = tuple(
+        Edit(**{**edit.model_dump(), "status": "needs_review", "reason": REPO_ATOMICITY_BAIL})
+        if edit.status == "auto"
+        else edit
+        for edit in outcome.edits
+    )
+    return Outcome(path=outcome.path, before=outcome.before, after=outcome.before, edits=rows)
+
+
 def _manifest_plan(
     scan: Scan, sources: Mapping[str, bytes], plans: Sequence[ImpactPlan], spec: ScanSpec
 ) -> ManifestPlan:
     """The manifest pin check over what the rules leave, re-reading declarations from the
     bytes (one reader)."""
-    migration = manifests.survey(plans, scan.manifests.excluded, scan.unanalysed, scan.transitive)
+    migration = manifests.survey(
+        plans,
+        scan.manifests.excluded,
+        scan.unanalysed,
+        scan.transitive,
+        paired=manifests.coupled(spec),
+    )
     declared = [
         declaration
         for name in sorted(sources)
@@ -407,4 +555,15 @@ def _manifest(name: str, data: bytes, plan: ManifestPlan, pack: PackDocument) ->
     )
 
 
-__all__ = ["BAILS", "CONSUMED", "GATE", "UNCLAIMED", "CodemodError", "Outcome", "Run", "run"]
+__all__ = [
+    "BAILS",
+    "CONSUMED",
+    "GATE",
+    "UNCLAIMED",
+    "CodemodError",
+    "Outcome",
+    "Run",
+    "blocked",
+    "chained",
+    "run",
+]

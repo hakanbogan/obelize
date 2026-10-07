@@ -207,7 +207,7 @@ findings:
       IMPORT)] (spike QNP case 5), while the inner `Name HarmCategory` resolves
       to the class and is suppressed as a link of the same chain.
       `auto` here does NOT mean a hunk begins on this line: `HarmCategory` maps
-      to itself in `types_symbol_map`, so the member reads identically after the
+      to itself in `symbol_map`, so the member reads identically after the
       migration and the group's only textual change is the import on line 10.
       A verdict grades what happens to the usage, not where the diff lands --
       `../basic/app.py:9` is `auto` and its edit is a deletion.
@@ -439,7 +439,7 @@ notes: |
   in each.
 
   What this case does NOT add. It contains no `alias_collision` and no
-  `types_alias_fallback` -- a module that already binds `types` or `genai` --
+  `alias_fallbacks` -- a module that already binds `types` or `genai` --
   and it never will: those are rewrite-path bails, and the harness grades a
   fixture verdict as a **scan** status, so a row claiming one here would assert
   that `obelize scan` reports it. T10 added them as `module_alias_taken.py` and

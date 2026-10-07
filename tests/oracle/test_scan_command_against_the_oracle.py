@@ -49,7 +49,7 @@ def _expected(name: str) -> bytes:
     pack = loader.load(harness.BUNDLED_PACK)
     document = FindingsDocument(
         obelize_version=__version__,
-        pack=PackRef(id=pack.pack.id, version=pack.pack.pack_version, sha256=pack.sha256),
+        packs=(PackRef(id=pack.pack.id, version=pack.pack.pack_version, sha256=pack.sha256),),
         counts=case.scan.counts,
         findings=case.scan.findings,
     )
@@ -57,7 +57,7 @@ def _expected(name: str) -> bytes:
 
 
 def _scan(root: Path, *extra: str) -> Result:
-    return runner.invoke(app, ["scan", "--repo", str(root), *extra])
+    return runner.invoke(app, ["scan", "--repo", str(root), "--pack", harness.BUNDLED_PACK, *extra])
 
 
 @pytest.mark.parametrize("name", CASE_NAMES)

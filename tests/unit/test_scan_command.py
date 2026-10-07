@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner, Result
 
-from obelize import __version__, cli
+from obelize import __version__
 from obelize.cli import app
 from obelize.evidence import run_dir
 from obelize.models import EXIT_CODES, FindingsDocument
@@ -23,6 +23,8 @@ from obelize.native import processes
 from obelize.packs import loader
 from obelize.scan import runner as scanner
 from platforms import posix_only, stdout_as_on_windows, text_files_as_on_windows, windows_only
+
+GEMINI = "gemini/google-generativeai-to-google-genai"
 
 runner = CliRunner()
 
@@ -59,7 +61,7 @@ def _folder(tree: Path) -> Path:
 
 def test_the_default_pack_is_one_that_ships() -> None:
     """`DEFAULT_PACK` is a literal, so renaming the bundled pack must fail here, not for a user."""
-    assert cli.DEFAULT_PACK in loader.bundled_ids()
+    assert GEMINI in loader.bundled_ids()
 
 
 def test_json_is_the_findings_document_and_nothing_else(tree: Path) -> None:
@@ -67,7 +69,7 @@ def test_json_is_the_findings_document_and_nothing_else(tree: Path) -> None:
     assert result.exit_code == 0
     document = FindingsDocument.model_validate_json(result.stdout)
     assert document.obelize_version == __version__
-    assert document.pack.id == cli.DEFAULT_PACK
+    assert [pack.id for pack in document.packs] == [GEMINI]
     assert document.counts.findings == len(document.findings) > 0
 
 
@@ -142,7 +144,8 @@ def test_the_evidence_is_the_same_bytes_where_text_files_end_lines_with_crlf(
     result = _scan(tree, "--json")
     assert result.exit_code == 0, result.output
     folder = _folder(tree)
-    assert [path.name for path in folder.iterdir() if b"\r" in path.read_bytes()] == []
+    written = [path for path in folder.rglob("*") if path.is_file()]
+    assert [path.name for path in written if b"\r" in path.read_bytes()] == []
     assert (tree / ".obelize" / "latest").read_bytes() == f"{folder.name}\n".encode()
     assert (folder / "findings.json").read_bytes() == result.stdout_bytes
 
@@ -241,7 +244,7 @@ def test_the_run_folder_records_the_run(tree: Path, monkeypatch: pytest.MonkeyPa
     assert record["mode"] == "scan"
     assert record["exit_code"] == 0
     assert record["argv"] == ["scan", "--repo", "."]
-    assert record["pack"]["source"] == "bundled"
+    assert [pack["source"] for pack in record["packs"]] == ["bundled"]
     assert record["config"]["source"] == "defaults"
     assert record["timings"]["scan_ms"] >= 0
     assert record["withheld"], "the model escapes, so something is withheld"
@@ -267,11 +270,10 @@ def test_every_artefact_a_scan_writes_is_there(tree: Path) -> None:
     assert sorted(path.name for path in folder.iterdir()) == [
         "REPORT.md",
         "findings.json",
-        "pack.sha256",
-        "pack.yaml",
+        "packs",
         "run.json",
     ]
-    assert folder.joinpath("pack.yaml").read_bytes() == loader.load(cli.DEFAULT_PACK).data
+    assert folder.joinpath("packs", GEMINI, "pack.yaml").read_bytes() == loader.load(GEMINI).data
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -359,7 +361,7 @@ def test_a_bundled_pack_that_does_not_validate_is_an_obelize_defect(
 ) -> None:
     """`1`, not `7`: the invalid input is obelize's own, not the user's."""
 
-    def refuse(reference: str, root: Path | None = None) -> object:
+    def refuse(reference: str, root: Path | None = None, dirs: object = ()) -> object:
         raise loader.PackInvalidError(reference, ["id: Field required"], bundled=True)
 
     monkeypatch.setattr(loader, "load", refuse)

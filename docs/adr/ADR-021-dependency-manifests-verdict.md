@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050 and ADR-053.
 
 ## Decision
 
@@ -37,7 +37,8 @@ that matches the byte prefilter blocks as an import does; under a narrowed
 ### D4. Nothing migrated means nothing is added, and the pin is not touched
 
 With nothing migrated the manifest is not edited. The legacy pin is withheld
-with `repo_not_fully_migrated` while a file still imports it, and otherwise
+with `repo_not_fully_migrated` while a file still imports it (D12 where one distribution holds
+both APIs), and otherwise
 graded `not_a_usage` ([SCAN_VOCABULARY.md](../SCAN_VOCABULARY.md) §3's line
 that "merely disagrees with the code"), because removing it would edit a
 manifest for a migration this run did not make.
@@ -78,7 +79,8 @@ name is written at, so the scan's address is the edit's. The dependency budget
 ([ADR-005](ADR-005-tech-stack.md)) has no TOML writer, and a round trip would
 reformat the file. `setup.py` is parsed with libcst: a declaration is a string
 literal inside `install_requires`, `setup_requires`, `tests_require` or
-`extras_require`, and any other string is not one.
+`extras_require`, and any other string is not one. A literal Python cannot evaluate (an invalid `\U` escape, a NUL)
+declares nothing, and the rest of the file is read.
 
 ### D9. The comment rule is per layout, because the layouts do not agree
 
@@ -105,6 +107,19 @@ declaration. An unreadable *source* file does not block the removal:
 `repo_not_fully_migrated` claims a file imports the distribution, and an unread
 file is the absence of that fact. A file read but not parsed does block (D3).
 
+### D12. One distribution on both sides: any withheld row blocks
+
+Where the new distribution is the legacy one (`manifests.coupled`), the survey is `paired`. No
+import marks the old API, since `import openai` is in both, so a file blocks when it holds any
+withheld row that is not `not_a_usage`, and D2's two edits are never two rows: a pin nothing blocks
+is rewritten in place (`openai==0.28.1` to `openai>=1.109.1`), and one that is blocked is
+`repo_not_fully_migrated`, or `transitive_dependency_in_use`, with no row to add, because the
+declaration already names the new distribution. The driver then leaves every file as it was
+([ADR-031](ADR-031-codemod-driver.md) D12). A declaration whose lowest admitted version is already in the new range has no row, and a legacy one
+the rule cannot write in place is withheld by this plan, so the driver holds every file
+([ADR-053](ADR-053-shared-module-migrations.md) D11 and D12). The reasons are in
+[ADR-053](ADR-053-shared-module-migrations.md) D6.
+
 ## Consequences
 
 - ADR-005's cache key covers findings only. The manifest pass grades one file's
@@ -112,5 +127,3 @@ file is the absence of that fact. A file read but not parsed does block (D3).
   after every file is scanned and is not cacheable on that key.
 - A `setup.cfg` requirement with a trailing comment is not reported (D9), which
   errs toward "no legacy pin"; `COVERAGE.md` and a test pin it.
-- Under `dual` both imports stay, so "still imports" stops tracking what was
-  rewritten; `survey` does not know the policy, and no fixture exercises it.

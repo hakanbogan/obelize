@@ -190,7 +190,7 @@ def test_the_record_says_what_was_written(state: dict[str, Any]) -> None:
     if "git_dirty" in spec:
         assert record["git_dirty"] is spec["git_dirty"]
     if "blocked" in spec:
-        assert record["blocked"] == spec["blocked"]
+        assert [pack["blocked"] for pack in record["packs"]] == [spec["blocked"]]
     if "plan_files" in spec:
         planned = json.loads((state["folder"] / "plan.json").read_text(encoding="utf-8"))
         assert [row["path"] for row in planned["files"]] == spec["plan_files"]
@@ -223,6 +223,10 @@ def test_the_folder_holds_what_the_mode_writes(state: dict[str, Any]) -> None:
         return
     top = sorted(name for name in state["after"] if "/" not in name)
     assert top == KEY["artefacts"][spec["mode"]]
+    assert sorted(name for name in state["after"] if name.startswith("packs/")) == [
+        f"packs/{PACK}/pack.sha256",
+        f"packs/{PACK}/pack.yaml",
+    ]
     assert (
         sorted(name for name in state["after"] if name.startswith("verify/"))
         == (spec["verify_files"])

@@ -67,8 +67,3 @@ def manifest_rules(pack: PackDocument) -> tuple[ManifestRule, ...]:
     bytes, and no rule writes either.
     """
     return tuple(rule for rule in map(manifest_rule_for, pack.changes) if rule is not None)
-
-
-def consumed(pack: PackDocument) -> frozenset[str]:
-    """Every legacy symbol a rule of `pack` replaces whole, so the import rule can drop it."""
-    return frozenset().union(*(rule.consumes for rule in rules(pack)))

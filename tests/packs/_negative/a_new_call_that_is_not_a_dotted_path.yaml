@@ -1,4 +1,4 @@
-# Negative pack: a replacement that is an expression rather than a name.
+# Negative pack: a call target that is an expression rather than a name.
 #
 # `obelize pack validate` must exit 7 on this file, and the refusal must
 # name `changes[1].params.rewrites.demo_legacy.Model.generate.new_call` and say 'expected a dotted path under the client'.
@@ -18,6 +18,7 @@ from:
 to:
   package: demo-modern
   version: '>=1'
+  requires_python: '>=3.9'
 match:
   imports:
   - demo_legacy
@@ -74,7 +75,6 @@ changes:
       threshold_kwarg: threshold
       config_field: safety_settings
     config_class: demo_modern.types.Config
-    default_model_name: demo-1
     legacy_config_symbol: demo_legacy.Config
     legacy_config_kwarg: settings
     ctor_order:

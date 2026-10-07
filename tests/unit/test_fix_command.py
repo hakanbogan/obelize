@@ -98,7 +98,7 @@ def test_without_a_pack_the_bundled_one_is_used_as_scan_uses_it(tree: Path) -> N
     result = runner.invoke(app, ["fix", "--repo", str(tree)])
     assert result.exit_code == 0, result.output
     record = json.loads((folder(tree) / "run.json").read_text(encoding="utf-8"))
-    assert record["pack"]["id"] == PACK
+    assert [pack["id"] for pack in record["packs"]] == [PACK]
 
 
 def test_a_pack_with_nothing_behind_it_is_a_usage_error(tree: Path) -> None:
@@ -202,24 +202,6 @@ def test_a_repository_with_nothing_to_write_says_so_rather_than_printing_a_table
     result = runner.invoke(app, ["fix", "--repo", str(root), "--pack", PACK])
     assert result.exit_code == 0
     assert "0 finding(s)" in result.output
-
-
-def test_a_source_file_that_disappears_between_the_scan_and_the_read_exits_one(
-    tree: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from obelize.scan import runner as scanner
-
-    real = scanner.scan
-
-    def vanishing(*arguments: Any, **keywords: Any) -> Any:
-        result = real(*arguments, **keywords)
-        (tree / "app.py").unlink()
-        return result
-
-    monkeypatch.setattr(scanner, "scan", vanishing)
-    result = fix(tree)
-    assert result.exit_code == 1
-    assert "could not be read a second time" in result.output
 
 
 def test_a_run_folder_that_cannot_be_written_exits_one_and_says_so(
@@ -509,7 +491,8 @@ def test_a_run_with_nothing_to_write_never_asks_about_a_command(tree: Path) -> N
     outcome = fixer.run(
         fixer.Request(
             root=tree,
-            pack=loader.load(PACK),
+            packs=(loader.load(PACK),),
+            named=True,
             config=Config(verify=VerifyConfig(commands=("pytest -q",))),
             source="file",
             cli_commands=(),
@@ -790,8 +773,9 @@ def test_a_blocked_run_says_why_nothing_is_planned_and_how_to_unblock_it(
     assert lines[4].endswith(
         "To migrate, raise the minimum in pyproject.toml to >=3.10 and run again."
     )
-    assert lines[5:8] == ["", "No change planned.", ""]
-    assert "finding(s): 5 auto" in lines[8]
+    assert lines[5:7] == ["", "No change planned."]
+    assert "runtime_unsupported (5 of 5)" in lines[7]
+    assert any("5 finding(s): 5 needs review" in line for line in lines)
 
 
 def test_a_declared_floor_the_new_distribution_supports_blocks_nothing(tree: Path) -> None:

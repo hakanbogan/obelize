@@ -101,7 +101,7 @@ class Corpus(NamedTuple):
 
 def surfaces() -> tuple[Surface, ...]:
     """Each pack change's legacy symbols, via the loader the scanner uses."""
-    from obelize.cli import DEFAULT_PACK
+    from run import DEFAULT_PACK
 
     found: list[Surface] = []
     for change in loader.load(DEFAULT_PACK).pack.changes:

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-012 (F-1), ADR-013 (F-5, F-6) and ADR-014 (F-4, F-5).
+Accepted; amended by ADR-012 (F-1), ADR-013 (F-5, F-6) and ADR-014 (F-4, F-5), ADR-050 and ADR-053 (F-2).
 
 ## Decision
 
@@ -25,7 +25,9 @@ while a file imports the legacy SDK (`repo_not_fully_migrated`) or imports an un
 distribution only the legacy SDK installed (`transitive_dependency_in_use`), because
 un-pinning would break the install. A file matching the byte prefilter that the user's
 `exclude` or a narrowed `include` removed is named and does not block; one the default
-`include` leaves out blocks.
+`include` leaves out blocks. A pack whose new SDK is its legacy distribution has one pin for both
+APIs, which moves in the run that migrates every file or not at all
+([ADR-053](ADR-053-shared-module-migrations.md) D6).
 
 ### F-3 — `count_tokens` may drop the sampling config, and must not drop the rest
 
@@ -78,4 +80,3 @@ already raises `TypeError`, and bails `async_stream_await_missing`.
   `verified_success`.
 - [COVERAGE.md](../../tests/fixtures/scan/COVERAGE.md) records what the fixtures do not cover.
 - The encoding fixtures are `-text -diff`; `tests/unit/test_fixture_encoding.py` fails on drift.
-- Open: the `dual` import policy, keeping both imports instead of F-1, has no rule behind it.

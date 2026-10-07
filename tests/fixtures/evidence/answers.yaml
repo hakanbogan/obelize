@@ -57,9 +57,9 @@ pack: gemini/google-generativeai-to-google-genai
 # a list of file names. `snapshots/` and `verify/` are directories and are
 # graded by their own keys below.
 artefacts:
-  scan: [REPORT.md, findings.json, pack.sha256, pack.yaml, run.json]
-  plan: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
-  apply: [REPORT.md, findings.json, pack.sha256, pack.yaml, patch.diff, plan.json, run.json]
+  scan: [REPORT.md, findings.json, run.json]
+  plan: [REPORT.md, findings.json, patch.diff, plan.json, run.json]
+  apply: [REPORT.md, findings.json, patch.diff, plan.json, run.json]
 
 cases:
   # =====================================================================

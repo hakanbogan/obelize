@@ -1,0 +1,205 @@
+# Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
+# Measured on PyPDF2 3.0.1 and pypdf 6.19.0 (SOURCES.md).
+id: py-pdf/pypdf2-to-pypdf
+pack_version: 0.1.0
+provider: py-pdf
+language: python
+
+source:
+  type: official_guide
+  url: https://pypdf.readthedocs.io/en/stable/meta/history.html
+  retrieved_at: 2026-10-06
+  sha256: "ff4e6b86b2feefe99d1faec468d7f2bcd0641769afe96da5f93ff5feb811e218"
+
+# Every pypdf release before 6.19 has known advisories (denial of service on a crafted file) that
+# the 3, 4 and 5 lines never got fixes for, so the target is the first release clear of them.
+from:
+  package: PyPDF2
+  version: ">=3,<4"
+to:
+  package: pypdf
+  version: ">=6.19"
+  requires_python: ">=3.9"
+
+match:
+  # Matched by dotted segment.
+  imports:
+    - PyPDF2
+  symbols:
+    - PyPDF2.DocumentInformation
+    - PyPDF2.PageObject
+    - PyPDF2.PageRange
+    - PyPDF2.PaperSize
+    - PyPDF2.PasswordType
+    - PyPDF2.PdfFileMerger
+    - PyPDF2.PdfFileReader
+    - PyPDF2.PdfFileWriter
+    - PyPDF2.PdfMerger
+    - PyPDF2.PdfReader
+    - PyPDF2.PdfWriter
+    - PyPDF2.Transformation
+    - PyPDF2.parse_filename_page_ranges
+  prefilter_tokens:
+    - PyPDF2
+
+changes:
+  - id: rename-import
+    kind: rename_import
+    citation: "pypdf documentation, 'History of pypdf'"
+    params:
+      from_module: PyPDF2
+      to_module: pypdf
+      default_alias: pypdf
+      submodule_map:
+        constants: pypdf.constants
+        errors: pypdf.errors
+        filters: pypdf.filters
+        generic: pypdf.generic
+        pagerange: pypdf.pagerange
+        papersizes: pypdf.papersizes
+        types: pypdf.types
+        xmp: pypdf.xmp
+      # Used when the file already binds the submodule's own name (`types` is the standard library's).
+      alias_fallbacks:
+        errors: pypdf_errors
+        generic: pypdf_generic
+        types: pypdf_types
+      # Each name exists on both sides, and the rest of a submodule is left for a person: a name
+      # nothing maps withholds its file.
+      symbol_map:
+        DocumentInformation: DocumentInformation
+        PageObject: PageObject
+        PageRange: PageRange
+        PaperSize: PaperSize
+        PasswordType: PasswordType
+        PdfReader: PdfReader
+        PdfWriter: PdfWriter
+        Transformation: Transformation
+        parse_filename_page_ranges: parse_filename_page_ranges
+        errors.DependencyError: DependencyError
+        errors.DeprecationError: DeprecationError
+        errors.EmptyFileError: EmptyFileError
+        errors.FileNotDecryptedError: FileNotDecryptedError
+        errors.PageSizeNotDefinedError: PageSizeNotDefinedError
+        errors.ParseError: ParseError
+        errors.PdfReadError: PdfReadError
+        errors.PdfReadWarning: PdfReadWarning
+        errors.PdfStreamError: PdfStreamError
+        errors.PyPdfError: PyPdfError
+        errors.WrongPasswordError: WrongPasswordError
+        generic.ArrayObject: ArrayObject
+        generic.BooleanObject: BooleanObject
+        generic.ByteStringObject: ByteStringObject
+        generic.ContentStream: ContentStream
+        generic.DecodedStreamObject: DecodedStreamObject
+        generic.Destination: Destination
+        generic.DictionaryObject: DictionaryObject
+        generic.EncodedStreamObject: EncodedStreamObject
+        generic.Field: Field
+        generic.Fit: Fit
+        generic.FloatObject: FloatObject
+        generic.IndirectObject: IndirectObject
+        generic.NameObject: NameObject
+        generic.NullObject: NullObject
+        generic.NumberObject: NumberObject
+        generic.OutlineFontFlag: OutlineFontFlag
+        generic.OutlineItem: OutlineItem
+        generic.PdfObject: PdfObject
+        generic.RectangleObject: RectangleObject
+        generic.StreamObject: StreamObject
+        generic.TextStringObject: TextStringObject
+        generic.TreeObject: TreeObject
+    fixtures:
+      - fixtures/negative/already_pypdf.py
+      - fixtures/negative/other_pdf_library.py
+      - fixtures/positive/errors_submodule.before.py
+      - fixtures/positive/from_import.before.py
+      - fixtures/positive/import_alias.before.py
+      - fixtures/positive/import_module.before.py
+
+  - id: flag-removed-names
+    kind: flag_only
+    citation: "PyPDF2 3.0.1 source, the DeprecationError each name raises"
+    params:
+      symbols:
+        - PyPDF2.PdfFileMerger
+        - PyPDF2.PdfFileReader
+        - PyPDF2.PdfFileWriter
+      message: >-
+        PyPDF2 3.0.0 removed this class: constructing it raises DeprecationError,
+        so code that still names it does not run on the versions this pack
+        migrates from, and pypdf 6 does not define it.
+      suggestion: >-
+        Port the call sites to PdfReader or PdfWriter, whose methods and
+        parameters are snake_case, before moving the import.
+    fixtures:
+      - fixtures/negative/already_pypdf.py
+      - fixtures/positive/removed_names.before.py
+
+  - id: flag-names-pypdf-dropped
+    kind: flag_only
+    citation: "pypdf 6.19.0 source, the names it no longer defines"
+    params:
+      symbols:
+        - PyPDF2.PdfMerger
+        - PyPDF2.generic.AnnotationBuilder
+        - PyPDF2.generic.Bookmark
+      message: >-
+        This name works in PyPDF2 3.x and no longer exists in pypdf 6: it was
+        deprecated and then removed in the 4, 5 and 6 releases.
+      suggestion: >-
+        PdfMerger becomes PdfWriter with append() and merge(); an annotation is
+        built by the classes of pypdf.annotations, an outline entry by
+        OutlineItem. Port these call sites by hand.
+    fixtures:
+      - fixtures/negative/already_pypdf.py
+      - fixtures/positive/dropped_names.before.py
+
+  - id: flag-indirect-use
+    kind: flag_only
+    citation: "pypdf documentation, 'History of pypdf'"
+    params:
+      # Shape ids, never regexes: a pack carries nothing that drives behaviour.
+      patterns:
+        - dynamic_access
+        - mock_patch_target
+        - sys_modules_stub
+      message: >-
+        The legacy module is reached here as a string or through a dynamic
+        import rather than by an import statement, so the rewrite cannot follow
+        it. A patch target left pointing at PyPDF2 keeps passing and stops
+        testing anything.
+      suggestion: >-
+        Update the target by hand once the code it patches has moved to pypdf.
+    fixtures:
+      - fixtures/negative/patch_new_pypdf.py
+      - fixtures/positive/mock_patch_target.before.py
+
+  - id: dependency
+    kind: manifest_dependency
+    citation: "pypdf documentation, 'History of pypdf'"
+    params:
+      from_name: PyPDF2
+      to_name: pypdf
+      to_spec: ">=6.19"
+    fixtures:
+      - fixtures/negative/requirements_already_new.txt
+      - fixtures/positive/requirements.before.txt
+
+verification:
+  suggestions:
+    - "pytest -q"
+
+limitations:
+  - "Only imports and the reads of the names listed in symbol_map are rewritten. A method or a parameter is never rewritten or reported, because the engine has no rule that follows an object, so the differences below are found by the tests of the migrated repository (--verify), not by obelize."
+  - "PdfWriter(path) and PdfWriter(reader) start empty on PyPDF2 3.0.1 and clone the file on pypdf 6, so a script that passes either grows its output on every run."
+  - "Page boxes and generic.FloatObject hold decimal.Decimal numbers on PyPDF2 3.0.1 and float on pypdf 6, so arithmetic that mixes them with Decimal raises TypeError."
+  - "pypdf 6 also lacks, among other things, PdfWriter.set_page_mode and the user_pwd, owner_pwd, pageNumber, Tj_sep and TJ_sep parameters that PyPDF2 3.0.1 accepts; the last four warn on 3.0.1."
+  - "The names compared are those of the two projects, not their behaviour: pypdf 3 to 6 fixed parsing bugs and tightened limits, so a damaged file that PyPDF2 3.0.1 read one way may be read differently, or refused."
+  - "PdfFileReader, PdfFileWriter and PdfFileMerger have raised DeprecationError since PyPDF2 3.0.0, and PdfMerger, generic.AnnotationBuilder and generic.Bookmark no longer exist in pypdf 6, so all of them are reported and never rewritten."
+  - "A repository whose pyproject.toml or setup.cfg declares a Python below 3.9 is blocked, since pypdf 6 does not install there and pip would resolve an older release with the advisories this pack avoids. A Python declared only in setup.py or a Pipfile is not read."
+  - "A repository that does not declare PyPDF2 at 3 or above is blocked, and so is one that uses it and declares it nowhere obelize reads: PyPDF2 1 and 2 have a camelCase API, and the rules were measured on 3.0.1."
+  - "A requirement with extras, PyPDF2[crypto] for one, is not rewritten, so the code moves to pypdf while the manifest keeps PyPDF2: edit that line by hand."
+  - "A name no rule maps withholds its file: that is every submodule name other than the classes of errors and generic, whatever it is, and all of constants, filters, xmp, pagerange and papersizes."
+  - "Dynamic access, star imports and mock patch targets are reported, never rewritten."
+  - "A file whose round trip through the parser is not byte-identical is reported and never edited."

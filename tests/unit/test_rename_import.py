@@ -6,6 +6,8 @@ submodule the Gemini pack lacks, so the rule must read its parameters rather tha
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import acme
 import libcst as cst
 import pytest
@@ -221,3 +223,168 @@ def test_a_file_with_no_legacy_import_is_untouched(source: str) -> None:
     code, edits = acme.transform(source)
     assert code == source
     assert edits == []
+
+
+# A library with no client: `acme.old` to `acme.new`, module-level names and a `wire` submodule.
+def old(source: str) -> tuple[str, list[Edit]]:
+    return acme.transform(source, acme.OLD_RENAME, spec=acme.OLD_SPEC)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "import acme.old\n\nr = acme.old.Reader('x')\nacme.old.fetch(r)\n",
+            "from acme import new as fresh\n\nr = fresh.Reader('x')\nfresh.get(r)\n",
+        ),
+        (
+            "import acme.old as o\n\nr = o.Reader('x')\no.fetch(r)\n",
+            "from acme import new as o\n\nr = o.Reader('x')\no.get(r)\n",
+        ),
+        (
+            "from acme import old\n\nr = old.Reader('x')\nold.fetch(r)\n",
+            "from acme import new as fresh\n\nr = fresh.Reader('x')\nfresh.get(r)\n",
+        ),
+    ],
+    ids=["unaliased", "aliased", "from-package"],
+)
+def test_a_module_level_name_is_read_through_the_new_module(source: str, expected: str) -> None:
+    """The legacy spelling goes, an author's alias stays, and a renamed name is renamed."""
+    code, edits = old(source)
+    assert code == expected
+    assert {row.status for row in edits} == {"auto"}
+
+
+def test_a_name_mapped_to_itself_stays_in_a_from_import_of_the_new_module() -> None:
+    code, _ = old("from acme.old import Reader as R\n\nr = R('x')\n")
+    assert code == "from acme.new import Reader as R\n\nr = R('x')\n"
+
+
+def test_a_name_mapped_to_another_one_is_not_a_from_import_the_rule_can_keep() -> None:
+    """Its reads would have to be renamed where they stand, which no rule does."""
+    source = "from acme.old import fetch\n\nfetch(1)\n"
+    code, edits = old(source)
+    assert code == source
+    assert {(row.status, row.reason) for row in edits} == {
+        ("needs_review", "from_import_unmigrated_symbol")
+    }
+
+
+def test_a_symbol_of_a_submodule_is_read_through_the_new_submodule() -> None:
+    code, _ = old("import acme.old\n\nf = acme.old.wire.Frame(1)\np = acme.old.wire.Pkt(2)\n")
+    assert code == "from acme.new import wire\n\nf = wire.Frame(1)\np = wire.Packet(2)\n"
+
+
+def test_symbols_imported_off_a_submodule_become_reads_of_it() -> None:
+    code, _ = old("from acme.old.wire import Frame, Pkt\n\nf = Frame(1)\n")
+    assert code == "from acme.new import wire\n\nf = wire.Frame(1)\n"
+
+
+def test_a_symbol_imported_off_a_submodule_the_pack_does_not_map_is_refused() -> None:
+    source = "from acme.old.wire import Other\n\nf = Other(1)\n"
+    code, edits = old(source)
+    assert code == source
+    assert statuses(edits) == [(1, "needs_review", "type_symbol_unmapped")]
+
+
+def test_a_symbol_imported_off_a_submodule_the_pack_does_not_move_is_refused() -> None:
+    """No rule claims that import alone; only a line shared with a claimed one gets here."""
+    source = "import acme.old; from acme.old.extra import Other\n\nOther(1)\n"
+    code, edits = old(source)
+    assert code == source
+    assert statuses(edits) == [(1, "needs_review", "type_symbol_unmapped")]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from acme.old.wire import Frame\n__all__ = ['Frame']\n\nf = Frame(1)\n",
+        "from acme.old.wire import Frame\n__all__ = ('Frame',)\n\nf = Frame(1)\n",
+        "from acme.old.wire import Frame\n__all__ = []\n__all__ += ['Frame']\n\nf = Frame(1)\n",
+        "from acme.old.wire import Frame\nf = Frame(1)\ndel Frame\n",
+        "from acme.old.wire import Frame\nf = Frame(1)\ndel f, Frame\n",
+        "import acme.old\n__all__ = ['acme']\n\nacme.old.Reader(1)\n",
+    ],
+    ids=["all-list", "all-tuple", "all-extended", "del", "del-several", "module-in-all"],
+)
+def test_a_name_the_rewrite_drops_and_the_file_exports_or_deletes_is_refused(source: str) -> None:
+    """A string in `__all__` and a `del` read the name without naming it as a read."""
+    _code, edits = old(source)
+    assert {row.reason for row in edits} == {"from_import_unmigrated_symbol"}
+
+
+def test_a_name_the_rewrite_keeps_may_be_exported() -> None:
+    code, edits = old("from acme.old import Reader\n__all__ = ['Reader']\n\nr = Reader(1)\n")
+    assert code == "from acme.new import Reader\n__all__ = ['Reader']\n\nr = Reader(1)\n"
+    assert {row.status for row in edits} == {"auto"}
+
+
+def test_an_export_or_a_delete_the_rewrite_cannot_read_is_not_taken_for_one_of_its_names() -> None:
+    """Counters, attribute and subscript deletes, a computed `__all__` and a name inside one."""
+    source = (
+        "from acme.old import Reader\n\ncount = 1\ncount += 1\nitems = [Reader]\n"
+        "del items[0]\ndel Reader.attribute\n__all__ = [Reader.__name__]\n__all__ += compute()\n"
+        "__all__ = compute()\n"
+    )
+    code, edits = old(source)
+    assert code.startswith("from acme.new import Reader\n")
+    assert {row.status for row in edits} == {"auto"}
+
+
+def test_an_import_in_one_branch_does_not_bind_a_name_in_the_other() -> None:
+    source = (
+        "import sys\nif sys.platform == 'x':\n    from acme.old.wire import Frame\n"
+        "    f = Frame(1)\nelse:\n    from acme.old.wire import Pkt\n    f = Pkt(1)\n"
+    )
+    code, _ = old(source)
+    assert code == (
+        "import sys\nif sys.platform == 'x':\n    from acme.new import wire\n"
+        "    f = wire.Frame(1)\nelse:\n    from acme.new import wire as fresh_wire\n"
+        "    f = fresh_wire.Packet(1)\n"
+    )
+
+
+def test_an_import_under_type_checking_does_not_bind_the_name_a_module_level_read_needs() -> None:
+    source = (
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+        "    from acme.old.wire import Frame\nfrom acme.old.wire import Pkt\n\nx = Pkt(1)\n"
+    )
+    code, _ = old(source)
+    assert code.endswith("from acme.new import wire as fresh_wire\n\nx = fresh_wire.Packet(1)\n")
+
+
+def test_the_submodules_fallback_alias_is_taken_when_its_own_name_is_bound() -> None:
+    code, _ = old("import acme.old\n\nwire = 1\nf = acme.old.wire.Frame(wire)\n")
+    assert (
+        code == "from acme.new import wire as fresh_wire\n\nwire = 1\nf = fresh_wire.Frame(wire)\n"
+    )
+
+
+def test_a_module_alias_that_is_bound_is_a_refusal_not_a_collision_written() -> None:
+    source = "import acme.old\n\nfresh = 1\nacme.old.Reader(fresh)\n"
+    code, edits = old(source)
+    assert code == source
+    assert {row.reason for row in edits} == {"alias_collision"}
+
+
+def test_importing_a_submodule_and_reading_the_module_binds_both() -> None:
+    """`import acme.old.wire` binds `acme`, so a read of the module needs its own import."""
+    code, _ = old("import acme.old.wire\n\nx = acme.old.Reader(acme.old.wire.Frame(1))\n")
+    assert code == (
+        "from acme.new import wire\nfrom acme import new as fresh\n\n"
+        "x = fresh.Reader(wire.Frame(1))\n"
+    )
+
+
+def test_a_name_no_rule_maps_is_left_for_the_driver_to_withhold(tmp_path: Path) -> None:
+    run = acme.repository(
+        tmp_path,
+        {"app.py": "import acme.old\n\nacme.old.Thing()\n"},
+        spec=acme.OLD_SPEC,
+        pack=acme.OLD_PACK,
+    )
+    assert run.written == ()
+    assert [(row.line, row.bail) for row in run.plans[0].findings] == [
+        (1, "file_not_fully_migrated"),
+        (3, "usage_unmapped"),
+    ]

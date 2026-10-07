@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050 and ADR-052.
 
 ## Decision
 
@@ -23,7 +23,7 @@ stderr, so stdout stays the document and the run id is still reported.
 ### D3. A scan writes its run folder, and T19 keeps the modes a scan has no answer for
 
 `obelize scan` writes a scan-only run folder (`run.json`, `findings.json`,
-`pack.yaml`, `pack.sha256`, `REPORT.md`), because CLI.md says it records
+`packs/<id>/`, `REPORT.md`), because CLI.md says it records
 evidence and a command that promises evidence it does not write is the failure
 this project forbids. The plan, the diff, the snapshots and the verification
 artefacts belong to the modes that plan or apply.
@@ -52,10 +52,14 @@ The floor comes from a manifest, never the parser, since libcst's native parser
 ignores `PartialParserConfig(python_version=...)` (C-37): `scan/runtime.py`
 reads PEP 621's `requires-python`, `setup.cfg`'s `python_requires` and
 `tool.poetry.dependencies.python` (translating `^` and `~`), and not
-`setup.py`, which is code. A run is blocked when the declaration admits any
-Python below 3.10, `>=3.9` included, because pip then installs an older,
-different API surface (C-15); a declaration that cannot be parsed blocks
-nothing. A blocked run still grades and reports every finding, but plans no
+`setup.py`, which is code. A run is blocked (`runtime_unsupported`) when the declaration
+admits any Python the pack's `to.requires_python` excludes, asked of 2.7 and 3.0 to 3.29 one by
+one: `>=3.9` against `>=3.10` blocks, because pip then installs an older, different API surface
+(C-15). A declaration that cannot be parsed blocks nothing. A pack whose `from.version` has a
+floor adds `legacy_version_unsupported`: any manifest declaring the legacy distribution with no
+version, or one admitting a version below that floor, and any repository that uses the library
+and declares it nowhere, is blocked too, since the pack's rules were measured above it. A blocked
+run still grades and reports every finding, but plans no
 change and asks a configured model nothing, so `fix --apply` over it writes
 nothing and exits `4`.
 
@@ -65,12 +69,11 @@ nothing and exits `4`.
 so a repository of unparsable files still lists. It still loads the pack, so a
 broken `--pack` is an error here as everywhere else.
 
-### D8. `--pack` has a named default, and not "the only bundled pack"
+### D8. `--pack` is repeatable, and naming none chooses the packs the repository uses
 
-`scan`'s `--pack` defaults to the constant `cli.DEFAULT_PACK`, never to "the
-only bundled pack", which would change meaning when a second one ships. A test
-asserts the constant names a pack that ships. `fix` takes the same default,
-because `--apply`, not the pack, is what makes a run write.
+Without `--pack`, `scan` and `fix` try every known pack and run those with a finding that is not
+`not_a_usage` (ADR-052), so no pack is named "the default" and none changes meaning when another
+ships. `--apply`, not the pack, is what makes a run write.
 
 ### D9. `--jobs` is the runner's to validate, and every argument refusal is `2`
 

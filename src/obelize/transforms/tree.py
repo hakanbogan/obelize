@@ -6,6 +6,8 @@ disagree about which of two calls at one position the scanner found.
 
 from __future__ import annotations
 
+import re
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import libcst as cst
@@ -21,6 +23,8 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from libcst.metadata import ProviderT
 
     from obelize.transforms.base import RuleContext
+
+_LINE_BREAK = re.compile(r"\r\n|\r|\n")
 
 # Where a node starts; a finding and the call it names share it, so the index is keyed on it.
 Position = tuple[int, int]
@@ -53,6 +57,11 @@ class Tree:
         held = self._calls.get(start)
         if held is None or end < self.end(held):
             self._calls[start] = node
+
+    @cached_property
+    def lines(self) -> list[str]:
+        """The source by libcst's own line breaks: `splitlines` also breaks on a form feed."""
+        return _LINE_BREAK.split(self.module.code)
 
     def start(self, node: cst.CSTNode) -> Position:
         span = self._pos[node].start
@@ -109,6 +118,14 @@ class Tree:
         parent = self._parent[node]
         return self._parent[parent] if isinstance(parent, cst.Await) else parent
 
+    def in_f_string(self, node: cst.CSTNode) -> bool:
+        """Whether `node` is written inside an f-string, up to the statement that holds it."""
+        while not isinstance(node, cst.BaseSmallStatement | cst.BaseCompoundStatement):
+            node = self._parent[node]
+            if isinstance(node, cst.FormattedString):
+                return True
+        return False
+
     def statement_of(self, node: cst.CSTNode) -> cst.CSTNode:
         """The innermost simple or compound statement holding `node` (a `for` header: the `for`)."""
         current = node
@@ -124,7 +141,7 @@ class Tree:
     def indent(self, node: cst.CSTNode) -> str:
         """The characters indenting the statement `node` belongs to."""
         start = self._pos[self.statement_of(node)].start
-        return layout.indent_of(self.module, start.line, start.column)
+        return layout.indent_of(self.lines, start.line, start.column)
 
     def around(self, call: cst.Call) -> int:
         """How many characters of `call`'s source line are not the call or its indent.
@@ -135,7 +152,7 @@ class Tree:
         start, end = self.start(call), self.end(call)
         if start[0] != end[0]:
             return 0
-        text = self.module.code.splitlines()[start[0] - 1]
+        text = self.lines[start[0] - 1]
         return len(text) - (end[1] - start[1]) - len(self.indent(call))
 
     def trailing(self, node: cst.CSTNode) -> int:

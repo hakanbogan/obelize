@@ -145,7 +145,7 @@ def digest(scan: runner.Scan) -> str:
         "findings": [row.model_dump(mode="json") for row in scan.findings],
         "bindings": [row.model_dump(mode="json") for row in scan.bindings],
         "manifests": scan.manifests.model_dump(mode="json"),
-        "runtime": asdict(scan.runtime) if scan.runtime else None,
+        "blocked": [asdict(row) for row in scan.blocked],
         "limitations": [asdict(row) for row in scan.limitations],
         "skipped": [asdict(row) for row in scan.skipped],
         "files": [

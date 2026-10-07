@@ -34,7 +34,7 @@ def names(text: str, path: str = "requirements.txt") -> list[str]:
 
 def pin(line: int = 1, name: str = LEGACY, path: str = "requirements.txt") -> manifests.Declaration:
     return manifests.Declaration(
-        path=path, line=line, column=0, name=name, raw=name, end=len(name), pin=None
+        path=path, line=line, column=0, name=name, raw=name, end=len(name), pin=None, spec=None
     )
 
 
@@ -353,6 +353,17 @@ setup(install_requires=["!!!", b"acme-sdk", "acme-sdk==1.0"])
     assert declared(text, "setup.py") == [(3, 45, "acme-sdk")]
 
 
+def test_a_setup_py_string_python_cannot_read_declares_nothing_and_stops_nothing() -> None:
+    """`"C:\\Users"` is no string at all; the requirement beside it still reads."""
+    text = (
+        "setup(install_requires=[\n"
+        '    "acme-sdk==1",\n'
+        '    "pkg @ file:///C:\\Users\\x\\pkg.whl",\n'
+        "])\n"
+    )
+    assert names(text, "setup.py") == ["acme-sdk"]
+
+
 def test_a_setup_py_that_does_not_parse_declares_nothing() -> None:
     """The code pass reads the same bytes and owns the `parse_error` row."""
     assert manifests.declarations("setup.py", b"setup(install_requires=[\n") == ()
@@ -360,11 +371,11 @@ def test_a_setup_py_that_does_not_parse_declares_nothing() -> None:
 
 def test_a_manifest_is_read_through_the_same_limit_as_a_source_file(tmp_path: Path) -> None:
     (tmp_path / "requirements.txt").write_text("acme-sdk==1.0\n", encoding="utf-8")
-    reading = manifests.read(tmp_path, "requirements.txt", Config())
+    reading = manifests.read("requirements.txt", parse.disk(tmp_path, Config()))
     assert [row.name for row in reading.declarations] == ["acme-sdk"]
     assert reading.limitations == ()
 
-    refused = manifests.read(tmp_path, "requirements.txt", Config(max_file_bytes=4))
+    refused = manifests.read("requirements.txt", parse.disk(tmp_path, Config(max_file_bytes=4)))
     assert refused.declarations == ()
     assert [row.code for row in refused.limitations] == ["file_too_large"]
 
@@ -374,7 +385,7 @@ def test_only_an_excluded_file_that_names_the_distribution_is_reported(tmp_path:
     (tmp_path / "uses.py").write_text("import acme.sdk\n", encoding="utf-8")
     (tmp_path / "plain.py").write_text("import json\n", encoding="utf-8")
     hits, limitations = manifests.prefiltered(
-        tmp_path, ["plain.py", "uses.py", "gone.py"], SPEC, Config()
+        ["plain.py", "uses.py", "gone.py"], SPEC, parse.disk(tmp_path, Config())
     )
     assert hits == ("uses.py",)
     assert [row.code for row in limitations] == ["unreadable"]
@@ -631,3 +642,54 @@ def test_a_withheld_pin_must_name_the_files_that_need_it() -> None:
     ).findings[-1]
     with pytest.raises(ValueError, match="imports a module only the legacy distribution installs"):
         ManifestPlan(findings=(row,), transitive=())
+
+
+def specs(text: str, path: str) -> list[str | None]:
+    return [row.spec for row in manifests.declarations(path, text.lstrip("\n").encode("utf-8"))]
+
+
+@pytest.mark.parametrize(
+    ("path", "text", "expected"),
+    [
+        ("requirements.txt", f"{LEGACY}>=1,<2\n", ["<2,>=1"]),
+        ("requirements.txt", f"{LEGACY}\n", [""]),
+        ("requirements.txt", f"{LEGACY}[extra]==1.2 ; python_version < '3.12'\n", ["==1.2"]),
+        ("requirements.txt", f"{LEGACY} @ https://example.invalid/x.whl\n", [None]),
+        ("pyproject.toml", f'[project]\ndependencies = ["{LEGACY}~=1.0"]\n', ["~=1.0"]),
+        ("pyproject.toml", f'[tool.poetry.dependencies]\n{LEGACY} = "^1.0"\n', ["^1.0"]),
+        (
+            "pyproject.toml",
+            f'[tool.poetry.dependencies]\n{LEGACY} = {{ version = "^1.0", extras = ["x"] }}\n',
+            ["^1.0"],
+        ),
+        (
+            "pyproject.toml",
+            f"[tool.poetry.dependencies]\n{LEGACY} = {{ git = 'https://example.invalid/x' }}\n",
+            [None],
+        ),
+        ("Pipfile", f'[packages]\n{LEGACY} = "*"\n', ["*"]),
+        ("setup.cfg", f"[options]\ninstall_requires =\n    {LEGACY}>=1\n", [">=1"]),
+        (
+            "setup.py",
+            f"from setuptools import setup\nsetup(install_requires=['{LEGACY}>=1'])\n",
+            [">=1"],
+        ),
+    ],
+    ids=[
+        "pep-508-set",
+        "unpinned",
+        "extras-and-marker",
+        "url",
+        "pep-621",
+        "poetry-string",
+        "poetry-inline-table",
+        "poetry-inline-table-without-a-version",
+        "pipenv",
+        "setup-cfg",
+        "setup-py",
+    ],
+)
+def test_a_declaration_carries_the_version_as_declared_in_every_layout(
+    path: str, text: str, expected: list[str | None]
+) -> None:
+    assert specs(text, path) == expected

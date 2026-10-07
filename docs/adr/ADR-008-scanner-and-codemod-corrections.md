@@ -3,7 +3,7 @@
 ## Status
 
 Accepted; amended by ADR-010 (F-1, F-4, F-6, F-7, F-8), ADR-012 (D6), ADR-017 (D1, D2),
-ADR-019 (D1) and ADR-022.
+ADR-019 (D1), ADR-022 and ADR-050.
 
 ## Decision
 
@@ -126,9 +126,8 @@ repository cites. The closed vocabularies they use live in
   `Client()` raises at construction when the key is absent or empty. The
   `configure()` -> `Client()` rewrite stays `auto`, with both as limitations and
   the warning `client_constructed_eagerly` (ADR-010 F-6) (C-20).
-- **`default_model_name` is a required pack parameter, with value `"gemini-1.5-flash-002"`**;
-  a bare `GenerativeModel()` is `needs_review` (`default_model_name_required`),
-  never a silent substitution (C-21).
+- **A bare `GenerativeModel()` is `needs_review` (`default_model_name_required`)**: the
+  legacy default model is retired, so none is substituted (C-21).
 - **D4 -- chat history is rewritten only in the fully literal case.** A list
   literal of dict literals with string-literal `parts` and roles `user` or
   `model` has each part rewritten to `{"text": <the string>}`; everything else

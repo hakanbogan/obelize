@@ -45,7 +45,6 @@ from obelize.models import (
     VerifyRecord,
     Withheld,
 )
-from obelize.scan import runtime
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Mapping, Sequence
@@ -53,7 +52,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from obelize.fsutil import Apply
     from obelize.gitutil import State
     from obelize.models import (
-        BlockedReason,
         Config,
         RefusalCode,
         RunMode,
@@ -63,6 +61,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     )
     from obelize.packs.loader import LoadedPack
     from obelize.scan.runner import Scan
+    from obelize.scan.runtime import Blocked
     from obelize.transforms.codemod import Run
 
 # Excluded from every scan before any user config, or a scan would report the last one's report.
@@ -197,7 +196,7 @@ def compose(
     *,
     run_id: str,
     scan: Scan,
-    pack: LoadedPack,
+    packs: Sequence[Used],
     config: Config,
     source: ConfigOrigin,
     git: State,
@@ -218,14 +217,13 @@ def compose(
         obelize_version=__version__,
         mode="scan",
         exit_code=exit_code,
-        blocked=_blocked(scan),
         argv=argv,
         python=_python(),
         platform=_platform(),
         git_sha=git.sha,
         git_branch=git.branch,
         git_dirty=git.dirty,
-        pack=_pack(pack),
+        packs=_packs(packs),
         config=_config(config, source),
         counts=RunCounts(**scan.counts.model_dump()),
         withheld=tuple(Withheld.of(finding) for finding in report.withheld_rows(scan.findings)),
@@ -240,7 +238,7 @@ def compose(
 
 
 def planned(
-    run: Run, pack: LoadedPack, proposals: Mapping[str, tuple[int, ...]] | None = None
+    run: Run, packs: Sequence[LoadedPack], proposals: Mapping[str, tuple[int, ...]] | None = None
 ) -> Planned:
     """What one driver run would write, built in one pass so the patch, hunks and snapshots agree.
 
@@ -261,7 +259,7 @@ def planned(
     }
     document = PlanDocument(
         obelize_version=__version__,
-        pack=PackRef(id=pack.pack.id, version=pack.pack.pack_version, sha256=pack.sha256),
+        packs=refs(packs),
         files=tuple(
             FileEdit(
                 path=one.path,
@@ -330,7 +328,7 @@ def compose_fix(
     run: Run,
     plan: Planned,
     verified: Verified,
-    pack: LoadedPack,
+    packs: Sequence[Used],
     config: Config,
     source: ConfigOrigin,
     git: State,
@@ -359,14 +357,13 @@ def compose_fix(
         obelize_version=__version__,
         mode=mode,
         exit_code=exit_code,
-        blocked=_blocked(scan),
         argv=argv,
         python=_python(),
         platform=_platform(),
         git_sha=git.sha,
         git_branch=git.branch,
         git_dirty=git.dirty,
-        pack=_pack(pack),
+        packs=_packs(packs),
         config=_config(config, source),
         counts=_fix_counts(scan, run),
         file_edits=edits,
@@ -414,7 +411,7 @@ def write(
     root: Path,
     record: RunRecord,
     findings: str,
-    pack: bytes,
+    packs: Sequence[LoadedPack],
     document: str,
     fix: Artefacts | None = None,
     *,
@@ -433,8 +430,10 @@ def write(
     try:
         folder.mkdir(parents=True, exist_ok=journaled)
         (folder / "findings.json").write_bytes(findings.encode("utf-8"))
-        (folder / "pack.yaml").write_bytes(pack)
-        (folder / "pack.sha256").write_bytes(f"{record.pack.sha256}\n".encode())
+        for pack in packs:
+            where = f"packs/{pack.pack.id}"
+            _artefact(folder, f"{where}/pack.yaml", pack.data)
+            _artefact(folder, f"{where}/pack.sha256", f"{pack.sha256}\n".encode())
         (folder / "REPORT.md").write_bytes(document.encode("utf-8"))
         if fix is not None:
             (folder / "plan.json").write_bytes(fix.plan.encode("utf-8"))
@@ -729,11 +728,6 @@ def _fix_counts(scan: Scan, run: Run) -> RunCounts:
     )
 
 
-def _blocked(scan: Scan) -> BlockedReason | None:
-    """`runtime_unsupported`, when the repository cannot install what it needs."""
-    return runtime.BLOCKED if scan.runtime and scan.runtime.blocked else None
-
-
 def _python() -> RunPython:
     """Version and implementation, deliberately not the interpreter's path."""
     return RunPython(
@@ -750,12 +744,32 @@ def _platform() -> RunPlatform:
     )
 
 
-def _pack(pack: LoadedPack) -> RunPack:
-    return RunPack(
-        id=pack.pack.id,
-        pack_version=pack.pack.pack_version,
-        sha256=pack.sha256,
-        source="bundled" if pack.bundled else "file",
+@dataclass(frozen=True, slots=True)
+class Used:
+    """A pack a run used, and the declaration that stopped it, if the repository did."""
+
+    loaded: LoadedPack
+    blocked: Blocked | None = None
+
+
+def refs(packs: Sequence[LoadedPack]) -> tuple[PackRef, ...]:
+    """The packs as the documents name them, in id order."""
+    return tuple(
+        PackRef(id=pack.pack.id, version=pack.pack.pack_version, sha256=pack.sha256)
+        for pack in sorted(packs, key=lambda pack: pack.pack.id)
+    )
+
+
+def _packs(packs: Sequence[Used]) -> tuple[RunPack, ...]:
+    return tuple(
+        RunPack(
+            id=used.loaded.pack.id,
+            pack_version=used.loaded.pack.pack_version,
+            sha256=used.loaded.sha256,
+            source="bundled" if used.loaded.bundled else "file",
+            blocked=None if used.blocked is None else used.blocked.reason,
+        )
+        for used in sorted(packs, key=lambda used: used.loaded.pack.id)
     )
 
 

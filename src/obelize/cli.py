@@ -34,7 +34,8 @@ _BUNDLED_DEFECT = (
 app = typer.Typer(
     name="obelize",
     help="Migrate Python code across external SDK versions, with evidence. "
-    "Supported migration: google-generativeai to google-genai.",
+    "Supported migrations: google-generativeai to google-genai, openai 0.x to 1.x, "
+    "PyPDF2 to pypdf.",
     no_args_is_help=True,
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -72,10 +73,6 @@ def disable_colour() -> None:
     rich_utils.COLOR_SYSTEM = None
 
 
-# Named, not discovered: "the only bundled pack" would change meaning once a second one ships.
-DEFAULT_PACK = "gemini/google-generativeai-to-google-genai"
-
-
 @app.command("scan")
 def scan(
     repo: str = typer.Option(
@@ -84,11 +81,12 @@ def scan(
         metavar="<path>",
         help="Repository root to scan. Defaults to the current directory.",
     ),
-    pack: str = typer.Option(
-        DEFAULT_PACK,
+    pack: list[str] | None = typer.Option(
+        None,
         "--pack",
         metavar="<id|path>",
-        help="A bundled pack id, or a path to a pack file.",
+        help="A pack id, or a path to a pack file. Repeat it to run several. Without it, every "
+        "known pack whose library the repository uses runs.",
     ),
     as_json: bool = typer.Option(
         False,
@@ -116,14 +114,15 @@ def scan(
     scan excludes.
     """
     from obelize import gitutil
+    from obelize.commands import CommandError
+    from obelize.commands import fix as fixer
     from obelize.config import ConfigError
     from obelize.evidence import report, run_dir
-    from obelize.models import FindingsDocument, PackRef
-    from obelize.packs import loader
+    from obelize.models import FindingsDocument
     from obelize.scan import runner, walker
 
     root = Path(repo)
-    loaded = _pack_or_exit(pack)
+    packs, named = _packs_or_exit(pack)
     started = run_dir.now()
     began = time.monotonic()
     try:
@@ -134,15 +133,20 @@ def scan(
             for path in walker.walk(root, configuration.config).files:
                 typer.echo(path)
             return
-        result = runner.scan(root, configuration.config, loader.to_scan_spec(loaded), jobs=jobs)
+        chosen = fixer.select(root, configuration.config, packs, named=named, jobs=jobs)
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(2) from error
+    except CommandError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(error.code) from error
+    result = runner.merged([one.scan for one in chosen.packs], chosen.tree)
+    loaded = [one.loaded for one in chosen.packs]
     scan_ms = int((time.monotonic() - began) * 1000)
 
     document = FindingsDocument(
         obelize_version=__version__,
-        pack=PackRef(id=loaded.pack.id, version=loaded.pack.pack_version, sha256=loaded.sha256),
+        packs=run_dir.refs(loaded),
         counts=result.counts,
         findings=result.findings,
     )
@@ -150,7 +154,10 @@ def scan(
     record = run_dir.compose(
         run_id=run_dir.new_id(started),
         scan=result,
-        pack=loaded,
+        packs=[
+            run_dir.Used(one.loaded, one.scan.blocked[0] if one.scan.blocked else None)
+            for one in chosen.packs
+        ],
         config=configuration.config,
         source=configuration.source,
         git=gitutil.state(root),
@@ -161,9 +168,7 @@ def scan(
         scan_ms=scan_ms,
     )
     try:
-        written = run_dir.write(
-            root, record, findings, loaded.data, report.document(record, result)
-        )
+        written = run_dir.write(root, record, findings, loaded, report.document(record, result))
     except run_dir.EvidenceError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from error
@@ -174,18 +179,21 @@ def scan(
         # On stderr, so stdout stays the document; `obelize verify --run <id>` needs the id.
         typer.echo(f"Evidence: {evidence}", err=True)
         return
-    named = f"{loaded.pack.id} {loaded.pack.pack_version}"
-    for line in report.terminal(result, named, evidence):
+    label = ", ".join(f"{one.pack.id} {one.pack.pack_version}" for one in loaded)
+    for line in report.terminal(result, label or "no pack applies", evidence):
         typer.echo(line)
+    if not loaded:
+        typer.echo(f"No pack applies. Checked: {', '.join(chosen.tried) or 'none'}.")
 
 
 @app.command("fix")
 def fix(
-    pack: str = typer.Option(
-        DEFAULT_PACK,
+    pack: list[str] | None = typer.Option(
+        None,
         "--pack",
         metavar="<id|path>",
-        help="A bundled pack id, or a path to a pack file.",
+        help="A pack id, or a path to a pack file. Repeat it to run several. Without it, every "
+        "known pack whose library the repository uses runs.",
     ),
     repo: str = typer.Option(
         ".",
@@ -264,7 +272,7 @@ def fix(
 
     _model_flags(apply_changes, accept_model=accept_model, show_context=show_context)
     root = Path(repo)
-    loaded = _pack_or_exit(pack)
+    packs, named = _packs_or_exit(pack)
     try:
         config, source = _settings(root, _overrides(verify_commands, timeout, allow_dirty))
         model = _model(provider)
@@ -273,7 +281,8 @@ def fix(
         raise typer.Exit(2) from error
     request = fixer.Request(
         root=root,
-        pack=loaded,
+        packs=packs,
+        named=named,
         config=config,
         source=source,
         cli_commands=tuple(verify_commands or ()),
@@ -285,9 +294,15 @@ def fix(
         accept_model=accept_model,
         ask=_ask,
         model=model,
+        model_flagged=provider is not None or accept_model,
     )
     if show_context:
-        for line in fixer.context(request):
+        try:
+            lines = fixer.context(request)
+        except CommandError as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(error.code) from error
+        for line in lines:
             typer.echo(line)
         raise typer.Exit(0)
     if model.provider != "none":
@@ -299,15 +314,18 @@ def fix(
         typer.echo(str(error), err=True)
         raise typer.Exit(error.code) from error
     evidence = _under(repo, outcome.evidence)
+    for note in outcome.notes:
+        typer.echo(note, err=True)
+    used = ", ".join(f"{one.id} {one.pack_version}" for one in outcome.record.packs)
     _emit(
         outcome.document if as_json else None,
         evidence,
         lambda: report.fixed(
             outcome.record,
             outcome.plan,
-            f"{loaded.pack.id} {loaded.pack.pack_version}",
+            used or "no pack applies",
             evidence,
-            outcome.declared,
+            outcome.blocked,
             outcome.patch,
             os.environ,
             repo,
@@ -536,13 +554,31 @@ def _configuration(root: Path) -> LoadedConfig:
     return configuration.load(root)
 
 
-def _pack_or_exit(reference: str) -> LoadedPack:
-    """Load a pack, or exit 2 / 7 / 1 exactly as `obelize pack validate` does."""
+def _pack_dirs() -> tuple[Path, ...]:
+    """The directories the user's own config adds to the wheel's packs; never a repository's."""
+    from obelize.verify.runner import user_config
+
+    return tuple(Path(entry) for entry in user_config(_config_dir()).pack_dirs)
+
+
+def _packs_or_exit(references: list[str] | None) -> tuple[tuple[LoadedPack, ...], bool]:
+    """The packs a run tries, and whether the user named them; exit 2 / 7 / 1 as `pack validate`.
+
+    Unnamed, that is every known pack, so a run is not tied to one library.
+    """
+    from obelize.config import ConfigError
     from obelize.packs import loader
 
     try:
-        return loader.load(reference)
-    except loader.PackNotFoundError as error:
+        dirs = _pack_dirs()
+        loaded = tuple(
+            loader.load(reference, dirs=dirs) for reference in references or loader.known(dirs)
+        )
+        ids = [one.pack.id for one in loaded]
+        repeated = next((name for name in ids if ids.count(name) > 1), None)
+        if repeated is not None:
+            raise loader.PackConflictError(f"--pack names {repeated} more than once")
+    except (loader.PackNotFoundError, loader.PackConflictError, ConfigError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(2) from error
     except loader.PackInvalidError as error:
@@ -551,6 +587,7 @@ def _pack_or_exit(reference: str) -> LoadedPack:
             typer.echo(_BUNDLED_DEFECT, err=True)
             raise typer.Exit(1) from error
         raise typer.Exit(7) from error
+    return loaded, bool(references)
 
 
 pack_app = typer.Typer(
@@ -576,11 +613,12 @@ def pack_validate(
 
     The format is described at https://github.com/hakanbogan/obelize/blob/main/docs/PACK_SPEC.md
     """
+    from obelize.config import ConfigError
     from obelize.packs import loader
 
     try:
-        loaded = loader.load(reference)
-    except loader.PackNotFoundError as error:
+        loaded = loader.load(reference, dirs=_pack_dirs())
+    except (loader.PackNotFoundError, ConfigError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(2) from error
     except loader.PackInvalidError as error:

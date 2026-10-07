@@ -109,6 +109,8 @@ jobs:
           fi
           obelize --help > /dev/null
           obelize pack validate gemini/google-generativeai-to-google-genai
+          obelize pack validate openai/openai-0-to-1
+          obelize pack validate py-pdf/pypdf2-to-pypdf
           cp -R examples/quickstart "$RUNNER_TEMP/quickstart"
           obelize scan --repo "$RUNNER_TEMP/quickstart" --json > "$RUNNER_TEMP/scan.json"
           findings=$(uv run --no-project -- python -c 'import json, sys; print(json.load(sys.stdin)["counts"]["findings"])' < "$RUNNER_TEMP/scan.json" | tr -d '\r')

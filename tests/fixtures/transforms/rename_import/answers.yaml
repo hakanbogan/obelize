@@ -42,7 +42,7 @@ cases:
   - file: types_name_taken
     what_it_is: >-
       The same shape in a module that already binds `types`, so the emitted
-      import takes the pack's `types_alias_fallback` and the reads follow it.
+      import takes the pack's `alias_fallbacks` and the reads follow it.
     complete: true
     after: present
     unclaimed: []
@@ -146,7 +146,7 @@ cases:
       - {line: 10, status: needs_review, reason: alias_collision}
     notes: >-
       The module import has exactly one candidate, `default_alias`;
-      `types_alias_fallback` is for the submodule and is not a second chance
+      `alias_fallbacks` is for the submodule and is not a second chance
       here. COVERAGE.md gap 8, first third.
 
   - file: types_names_all_taken
@@ -187,7 +187,7 @@ cases:
 
   - file: unmapped_type_symbol
     what_it_is: >-
-      A `types` name outside the pack's `types_symbol_map`.
+      A `types` name outside the pack's `symbol_map`.
     complete: false
     after: none
     unclaimed: [14]

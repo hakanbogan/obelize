@@ -39,3 +39,7 @@ updates:
       # Fixture pins (see top): migrating them is the product's job.
       - dependency-name: "google-generativeai"
       - dependency-name: "google-genai"
+      # Measured pins (pyproject.toml): a newer pypdf or openai is a different surface.
+      - dependency-name: "PyPDF2"
+      - dependency-name: "pypdf"
+      - dependency-name: "openai"

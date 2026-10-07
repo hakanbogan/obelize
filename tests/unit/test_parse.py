@@ -39,6 +39,7 @@ SPEC = ScanSpec(
     new_distribution="google-genai",
     prefilter_tokens=("generativeai",),
     client_symbol="google.generativeai.configure",
+    requires_python=">=3.10",
     constructor_symbols=("google.generativeai.GenerativeModel",),
     supported_methods=(
         ReceiverMethods(
@@ -107,6 +108,14 @@ def test_a_file_that_does_not_round_trip_is_still_analysed() -> None:
     assert result.module.bytes != data
     assert result.findings == ()
     assert result.limitations == ()
+
+
+def test_a_chain_too_long_to_render_is_one_unparsable_file_and_not_a_crash() -> None:
+    """libcst renders a tree one frame per level, so a chain of hundreds of terms overruns it."""
+    source = ("x = " + " + ".join(["1"] * 900) + "\n").encode()
+    result = gates("long.py", source)
+    assert result.status == "does_not_parse"
+    assert [finding.bail for finding in result.findings] == [PARSE_BAIL]
 
 
 def test_a_python_2_file_is_refused_by_the_compile_gate() -> None:
@@ -421,13 +430,14 @@ INCOHERENT: list[tuple[dict[str, Any], str]] = [
     ({"status": "does_not_parse", "data": b"x = 1\n"}, "exactly one finding"),
     ({"status": "not_read", "data": b"x = 1\n"}, "the bytes are absent exactly when"),
     ({"status": "not_read"}, "owes the report one row"),
+    ({"status": "parsed", "module": MODULE}, "the bytes are absent exactly when"),
 ]
 
 
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     INCOHERENT,
-    ids=["no tree", "a foreign bail", "no finding", "bytes it never read", "no row"],
+    ids=["no tree", "a foreign bail", "no finding", "bytes it never read", "no row", "no bytes"],
 )
 def test_a_read_cannot_hold_a_combination_that_means_nothing(
     kwargs: dict[str, Any], message: str
@@ -454,3 +464,8 @@ def test_the_ordinary_combinations_are_accepted() -> None:
         ).data
         is None
     )
+
+
+@pytest.mark.parametrize("data", [None, b"x = 1\n"], ids=["dropped", "kept"])
+def test_a_file_no_pack_looks_at_may_or_may_not_keep_its_bytes(data: bytes | None) -> None:
+    assert parse.Read(path="a.py", status="not_a_candidate", data=data).data == data

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ import typer.main
 from typer.testing import CliRunner
 
 from obelize.cli import app
+from obelize.packs import loader
 from platforms import posix_only
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,22 +31,28 @@ def _readme() -> str:
     return README.read_text(encoding="utf-8")
 
 
-def names_both_packages(text: str) -> bool:
-    """Whether the first 10 lines, what PyPI shows first, name the migration."""
+def names_every_package(text: str, names: Iterable[str]) -> bool:
+    """Whether the first 10 lines, what PyPI shows first, name each package."""
     head = "\n".join(text.splitlines()[:10])
-    return all(re.search(rf"\b{name}\b", head) for name in ("google-generativeai", "google-genai"))
+    return all(re.search(rf"\b{name}\b", head) for name in names)
 
 
-def test_the_first_ten_lines_name_both_packages() -> None:
-    assert names_both_packages(_readme())
+def bundled_packages() -> set[str]:
+    packs = (loader.load(reference).pack for reference in loader.bundled_ids())
+    return {name for pack in packs for name in (pack.from_.package, pack.to.package)}
+
+
+def test_the_first_ten_lines_name_every_package_a_bundled_pack_migrates() -> None:
+    assert names_every_package(_readme(), bundled_packages())
 
 
 def test_a_package_named_on_the_eleventh_line_is_too_late() -> None:
     def lead(blank: int) -> str:
-        return "google-generativeai\n" + "\n" * blank + "google-genai\n"
+        return "one-package\n" + "\n" * blank + "another-package\n"
 
-    assert names_both_packages(lead(8))
-    assert not names_both_packages(lead(9))
+    names = ("one-package", "another-package")
+    assert names_every_package(lead(8), names)
+    assert not names_every_package(lead(9), names)
 
 
 def shown_commands(markdown: str) -> list[list[str]]:
@@ -144,7 +152,8 @@ def test_the_quickstart_installs_the_new_sdk_into_a_venv_made_by_pip_or_by_uv(
         [".venv/bin/python", "-c", "import pip"], cwd=tmp_path, capture_output=True, check=False
     )
     assert (has_pip.returncode == 0) is (maker == "pip")
-    line = _install_line().replace("google-genai", str(_wheel(tmp_path)))
+    wheel = str(_wheel(tmp_path))
+    line = _install_line().replace("google-genai", wheel).replace("pypdf", wheel)
     installed = subprocess.run(
         shlex.split(line), cwd=tmp_path, env=offline, capture_output=True, text=True, check=False
     )

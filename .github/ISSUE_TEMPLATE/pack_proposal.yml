@@ -15,8 +15,8 @@ body:
         and the pack section of
         [CONTRIBUTING.md](https://github.com/hakanbogan/obelize/blob/main/CONTRIBUTING.md).
 
-        Only the Gemini pack is planned for now; a proposal gets the `roadmap`
-        label and is kept for later.
+        Three packs ship with obelize today (see the README); a proposal gets
+        the `roadmap` label and is kept for later.
 
   - type: input
     id: from-package

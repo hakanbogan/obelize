@@ -741,7 +741,7 @@ def test_every_pattern_key_is_the_one_its_ground_truth_names() -> None:
 
 
 def test_every_case_names_the_provider_and_the_migration_the_pack_is() -> None:
-    from obelize.cli import DEFAULT_PACK
+    from run import DEFAULT_PACK
 
     provider, change = DEFAULT_PACK.split("/")
     for entry in CASES:

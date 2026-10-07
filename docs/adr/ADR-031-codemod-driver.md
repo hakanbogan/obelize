@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050, ADR-052 and ADR-053.
 
 ## Decision
 
@@ -14,11 +14,12 @@ against the alias it bound, `generative_model_calls` reads both, and its chat ha
 half's output. A pack that inverts it refuses the file with `alias_collision` rather than writing a
 wrong one, so rules declare no dependencies. Across tables: every `Rule` over every parsed file,
 then F-2's survey of the plans they leave, then every `ManifestRule`, because the last reads what
-the first decided.
+the first decided (D12 adds a step for a pack that is its own target). That is one pack's run; several packs are one such run each, in id order, joined
+by `codemod.chained` (ADR-052 D4).
 
 ### D2. F-1 is one function with two callers, and the driver brings it rows
 
-`impact.planner.atomicity(findings, policy)` is public and serves the planner and the driver. It
+`impact.planner.atomicity(findings)` is public and serves the planner and the driver. It
 takes no extra causes, because `caused_by` is exactly the bails the other findings carry (ADR-012),
 so the driver first puts each fix-time code on its row: a rule's withheld `Edit` goes to the row that
 rule claims on that line (never ambiguous, since ADR-030 D2 lets no row have two claimants), and an
@@ -48,14 +49,6 @@ stays at three members, because a refused rewrite is an `Edit`, not an unreadabl
 section 4's call-rewrite bails. `output_does_not_parse` is asked only of a file where nothing else
 fired, so a rung would never have anything to displace; section 6's rung-2 row still says where it
 sits. D10's and D11's codes stay out of `LADDER` for the same reasons (`codemod.BAILS`).
-
-### D6. The `dual` import policy is refused, because no *rule* implements it
-
-Under `dual` the planner withholds nothing for atomicity, but no rule leaves both imports in place,
-so a run would rename the import and leave the refused group calling a module that is gone. The
-driver raises `CodemodError` rather than treating `dual` as `atomic`, because a silently ignored
-policy makes a measurement mean something else. `dual` stays a scan-time parameter until a rule
-implements it.
 
 ### D7. A run is bytes in memory, and a `Run` is what a caller may refuse
 
@@ -93,13 +86,22 @@ codemod oracle everything it writes, through ruff's F821, F811, F823 and TC004.
 
 ### D11. A `configure` another module runs on is not deleted
 
-`configure` sets a process-wide default. If, after every file has been through the rules, any
+A pack with no client has none, and the pass is skipped. `configure` sets a process-wide default. If, after every file has been through the rules, any
 module with no `configure` of its own stays on the legacy SDK (a row that imports it is withheld),
 every file whose `configure` the run would rewrite is left as it was: `configure_consumed_elsewhere`
 on the `configure`, F-1 naming it on every other row. It is asked of the run's plans, because a rule
 can leave on legacy a module the scan graded `eligible` (`tests/fixtures/scan/COVERAGE.md` gap 21).
 One reliant module holds them all, since which `configure` runs first is decided at run time; a
 `mock.patch` target is not reliance.
+
+### D12. A pack that is its own target runs all or nothing
+
+When the pack's new distribution is its legacy one (`manifests.coupled`) and any row it graded, in a
+file or in a manifest, is withheld after D1's survey (`_unfinished`), `_together` leaves every file as
+it was: each applied row becomes `needs_review` with `repo_not_fully_migrated`, and each plan is
+graded again so F-1 holds. It runs after D11's pass and before the manifest rules. A file written for
+the new API fails on the old pin and a file left behind fails on the new one, so no part is worth
+writing alone ([ADR-053](ADR-053-shared-module-migrations.md) D6).
 
 ## Consequences
 

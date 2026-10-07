@@ -8,7 +8,7 @@ import acme
 import libcst as cst
 import pytest
 
-from obelize.models import Config, Edit, ImpactPolicy
+from obelize.models import Config, Edit
 from obelize.scan import parse, runner
 from obelize.transforms import codemod, registry
 
@@ -485,14 +485,6 @@ def test_a_file_with_nothing_to_write_may_be_left_out(tmp_path: Path) -> None:
     )
     assert [outcome.path for outcome in run.files] == ["app.py"]
     assert [plan.path for plan in run.plans] == ["app.py", "quiet.py"]
-
-
-def test_the_dual_import_policy_is_refused_because_no_rule_implements_it(
-    tmp_path: Path,
-) -> None:
-    """No rule keeps both imports, so a refused group would call a module the rename removed."""
-    with pytest.raises(codemod.CodemodError, match="no rule implements"):
-        acme.repository(tmp_path, {"app.py": CLEAN}, policy=ImpactPolicy(import_policy="dual"))
 
 
 def test_a_file_that_does_not_parse_is_never_handed_to_a_rule(tmp_path: Path) -> None:

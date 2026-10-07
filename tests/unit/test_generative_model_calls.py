@@ -9,21 +9,15 @@ from __future__ import annotations
 import acme
 import pytest
 
-from obelize.models import Edit, ImpactPolicy
+from obelize.models import Edit
 from obelize.packs.schema import GenerativeModelCallsChange
 from obelize.transforms import registry
 
 SETUP = 'import acme.sdk as sdk\n\nsdk.configure(key="k")\n\n'
 
 
-def run(
-    body: str,
-    change: GenerativeModelCallsChange | None = None,
-    policy: ImpactPolicy | None = None,
-) -> tuple[str, list[Edit]]:
-    return acme.transform(
-        SETUP + body, acme.CHANGE, acme.CLIENT, change or acme.MODEL, policy=policy
-    )
+def run(body: str, change: GenerativeModelCallsChange | None = None) -> tuple[str, list[Edit]]:
+    return acme.transform(SETUP + body, acme.CHANGE, acme.CLIENT, change or acme.MODEL)
 
 
 def refusals(edits: list[Edit]) -> list[str | None]:
@@ -380,8 +374,8 @@ def test_a_chat_inherits_what_its_own_creation_emitted() -> None:
     assert "s.post(note=p, options=types.RunConfig(heat=2, limit=9))" in produced
 
 
-def test_a_group_the_scan_refused_is_refused_under_the_scans_own_code() -> None:
-    """Reachable only under `dual`: by default atomicity withholds every row, so no group forms."""
+def test_a_group_the_scan_refused_never_reaches_the_rule() -> None:
+    """Atomicity withholds every row of the file, so no group forms."""
     source = (
         "def talk(p, kept):\n"
         "    MODEL = sdk.Model('m')\n"
@@ -391,10 +385,6 @@ def test_a_group_the_scan_refused_is_refused_under_the_scans_own_code() -> None:
     )
     produced, edits = run(source)
     assert refusals(edits) == []
-    assert "sdk.Model" in produced
-
-    produced, edits = run(source, policy=ImpactPolicy(import_policy="dual"))
-    assert refusals(edits) == ["model_object_escapes", "model_object_escapes"]
     assert "sdk.Model" in produced
 
 

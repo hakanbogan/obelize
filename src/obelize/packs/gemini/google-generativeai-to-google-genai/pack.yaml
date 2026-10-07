@@ -17,6 +17,7 @@ from:
 to:
   package: google-genai
   version: ">=1"
+  requires_python: ">=3.10"
 
 # Emitted-code wrap width, not style: a line past the user's formatter limit is a second diff.
 # The answer keys in `tests/fixtures/scan/` use 100.
@@ -82,24 +83,23 @@ changes:
   - id: rename-import
     kind: rename_import
     citation: "Migration guide, 'Installation' and 'API access'"
-    preconditions:
-      - import_resolved
     params:
       from_module: google.generativeai
       to_module: google.genai
       default_alias: genai
-      # Used when the file already binds the name `types`.
-      types_alias_fallback: genai_types
       submodule_map:
         types: google.genai.types
-      types_symbol_map:
-        File: File
+      # Used when the file already binds the name `types`.
+      alias_fallbacks:
+        types: genai_types
+      symbol_map:
+        types.File: File
         # Not identity: the new `types.GenerationConfig` imports cleanly, but `generate_content`
         # takes no `generation_config`, so the call would silently do nothing.
-        GenerationConfig: GenerateContentConfig
-        HarmBlockThreshold: HarmBlockThreshold
-        HarmCategory: HarmCategory
-        Model: Model
+        types.GenerationConfig: GenerateContentConfig
+        types.HarmBlockThreshold: HarmBlockThreshold
+        types.HarmCategory: HarmCategory
+        types.Model: Model
     fixtures:
       - fixtures/negative/already_new.py
       - fixtures/negative/local_genai_package.py
@@ -109,11 +109,6 @@ changes:
   - id: configure-to-client
     kind: configure_to_client
     citation: "Migration guide, 'Authentication'"
-    preconditions:
-      - client_available
-      - import_resolved
-      - no_unknown_kwargs
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.configure
       # Emitted as the leaf off the file's `google.genai` alias; the full path names its module.
@@ -135,13 +130,6 @@ changes:
   - id: generative-model-calls
     kind: generative_model_calls
     citation: "Migration guide, 'Generate content', 'Configuration', 'Safety settings', 'Chat', 'Count tokens'"
-    preconditions:
-      - client_available
-      - closed_world_binding
-      - literal_stream_flag
-      - no_unknown_kwargs
-      - receiver_resolved
-      - static_kwargs
     params:
       ctor_symbol: google.generativeai.GenerativeModel
       # Any use of a bound name but calling these withholds its binding group (the escape rule).
@@ -248,12 +236,9 @@ changes:
           - model
           - user
       config_class: google.genai.types.GenerateContentConfig
-      # The legacy default `model_name`, never applied (the model is retired): the new SDK
-      # requires `model=`, so a bare `GenerativeModel()` is `needs_review`.
-      default_model_name: gemini-1.5-flash-002
       # The module-level spelling, which no import rewrite reaches.
       legacy_config_symbol: google.generativeai.GenerationConfig
-      # Renamed in place by `types_symbol_map`, but still a config when passed to a constructor.
+      # Renamed in place by `symbol_map`, but still a config when passed to a constructor.
       legacy_config_aliases:
         - google.generativeai.types.GenerationConfig
       # One name on both the legacy constructor and the legacy call.
@@ -349,11 +334,6 @@ changes:
   - id: embed-content
     kind: rewrite_call
     citation: "Migration guide, 'Embed content'"
-    preconditions:
-      - client_available
-      - import_resolved
-      - no_unknown_kwargs
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.embed_content
       new_call: models.embed_content
@@ -381,11 +361,6 @@ changes:
   - id: embed-content-async
     kind: rewrite_call
     citation: "Migration guide, 'Embed content' and 'Async'"
-    preconditions:
-      - client_available
-      - import_resolved
-      - no_unknown_kwargs
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.embed_content_async
       new_call: aio.models.embed_content
@@ -411,11 +386,6 @@ changes:
   - id: upload-file
     kind: rewrite_call
     citation: "Migration guide, 'Files' / 'Upload'"
-    preconditions:
-      - client_available
-      - import_resolved
-      - no_unknown_kwargs
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.upload_file
       new_call: files.upload
@@ -438,11 +408,6 @@ changes:
   - id: get-file
     kind: rewrite_call
     citation: "Migration guide, 'Files' / 'List and get'"
-    preconditions:
-      - client_available
-      - import_resolved
-      - no_unknown_kwargs
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.get_file
       new_call: files.get
@@ -457,11 +422,6 @@ changes:
   - id: delete-file
     kind: rewrite_call
     citation: "Migration guide, 'Files' / 'Delete'"
-    preconditions:
-      - client_available
-      - import_resolved
-      - no_unknown_kwargs
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.delete_file
       new_call: files.delete
@@ -476,11 +436,6 @@ changes:
   - id: list-files
     kind: rewrite_call
     citation: "Migration guide, 'Files' / 'List and get'"
-    preconditions:
-      - client_available
-      - import_resolved
-      - no_unknown_kwargs
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.list_files
       new_call: files.list
@@ -499,9 +454,6 @@ changes:
   - id: list-models
     kind: rewrite_call
     citation: "Gemini API reference, 'Models' (models.list); the migration guide has no models section"
-    preconditions:
-      - client_available
-      - import_resolved
     params:
       legacy_symbol: google.generativeai.list_models
       new_call: models.list
@@ -519,10 +471,6 @@ changes:
   - id: get-model
     kind: rewrite_call
     citation: "Gemini API reference, 'Models' (models.get); the migration guide has no models section"
-    preconditions:
-      - client_available
-      - import_resolved
-      - static_kwargs
     params:
       legacy_symbol: google.generativeai.get_model
       new_call: models.get

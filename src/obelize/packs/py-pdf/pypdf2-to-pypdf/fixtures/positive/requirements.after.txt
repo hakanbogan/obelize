@@ -1,0 +1,3 @@
+# The dependency declaration the migration has to move with the code.
+pypdf>=6.19
+requests>=2.31

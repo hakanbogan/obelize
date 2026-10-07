@@ -372,6 +372,22 @@
       "additionalProperties": false,
       "description": "The pack a run used: which one, its own version, and its exact bytes.",
       "properties": {
+        "blocked": {
+          "anyOf": [
+            {
+              "enum": [
+                "runtime_unsupported",
+                "legacy_version_unsupported"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blocked"
+        },
         "id": {
           "title": "Id",
           "type": "string"
@@ -397,7 +413,8 @@
         "id",
         "pack_version",
         "sha256",
-        "source"
+        "source",
+        "blocked"
       ],
       "title": "RunPack",
       "type": "object"
@@ -720,6 +737,7 @@
             "output_names_unresolved",
             "file_too_large",
             "runtime_unsupported",
+            "legacy_version_unsupported",
             "conditional_binding",
             "module_alias_rebound",
             "model_object_escapes",
@@ -759,7 +777,6 @@
             "ctor_argument_not_portable",
             "attribute_removed",
             "flag_only_surface",
-            "file_object_fields_not_verified",
             "types_import_typing_only",
             "error_class_changed",
             "usage_unmapped",
@@ -779,6 +796,7 @@
                   "output_names_unresolved",
                   "file_too_large",
                   "runtime_unsupported",
+                  "legacy_version_unsupported",
                   "conditional_binding",
                   "module_alias_rebound",
                   "model_object_escapes",
@@ -818,7 +836,6 @@
                   "ctor_argument_not_portable",
                   "attribute_removed",
                   "flag_only_surface",
-                  "file_object_fields_not_verified",
                   "types_import_typing_only",
                   "error_class_changed",
                   "usage_unmapped",
@@ -879,19 +896,6 @@
       },
       "title": "Argv",
       "type": "array"
-    },
-    "blocked": {
-      "anyOf": [
-        {
-          "const": "runtime_unsupported",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Blocked"
     },
     "config": {
       "$ref": "#/$defs/RunConfig"
@@ -1001,8 +1005,13 @@
       "title": "Obelize Version",
       "type": "string"
     },
-    "pack": {
-      "$ref": "#/$defs/RunPack"
+    "packs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RunPack"
+      },
+      "title": "Packs",
+      "type": "array"
     },
     "platform": {
       "$ref": "#/$defs/RunPlatform"
@@ -1050,14 +1059,13 @@
     "obelize_version",
     "mode",
     "exit_code",
-    "blocked",
     "argv",
     "python",
     "platform",
     "git_sha",
     "git_branch",
     "git_dirty",
-    "pack",
+    "packs",
     "config",
     "counts",
     "file_edits",

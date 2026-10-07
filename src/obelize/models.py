@@ -15,6 +15,8 @@ from collections.abc import Sequence
 from typing import Annotated, Any, Literal, get_args
 from urllib.parse import urlsplit
 
+from packaging.specifiers import SpecifierSet
+from packaging.version import InvalidVersion, Version
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from obelize.native import processes
@@ -63,6 +65,7 @@ BailCode = Literal[
     "output_names_unresolved",
     "file_too_large",
     "runtime_unsupported",
+    "legacy_version_unsupported",
     # Resolution and bindings
     "conditional_binding",
     "module_alias_rebound",
@@ -106,7 +109,6 @@ BailCode = Literal[
     "ctor_argument_not_portable",
     "attribute_removed",
     "flag_only_surface",
-    "file_object_fields_not_verified",
     "types_import_typing_only",
     "error_class_changed",
     # The run
@@ -119,11 +121,9 @@ WarningCode = Literal[
     "client_constructed_eagerly",
     "model_name_looks_prefixed",
     "count_tokens_config_dropped",
-    "tests_touched_by_migration",
     "positional_args_mapped_by_index",
     "history_parts_rewritten",
     "async_stream_await_preserved",
-    "stale_mock_target",
 ]
 WARNING_CODES: frozenset[WarningCode] = frozenset(get_args(WarningCode))
 
@@ -143,7 +143,10 @@ IMPORT_BAILS: frozenset[BailCode] = frozenset(
         "type_symbol_unmapped",
         "from_import_unmigrated_symbol",
         "file_not_fully_migrated",
+        "repo_not_fully_migrated",
         "usage_unmapped",
+        "runtime_unsupported",
+        "legacy_version_unsupported",
     }
 )
 
@@ -188,12 +191,6 @@ PATH_REFUSALS: frozenset[PathRefusal] = frozenset(get_args(PathRefusal))
 # `flag_only.patterns`: closed ids, not regexes, since a pack may not carry behaviour.
 FlagOnlyPattern = Literal["mock_patch_target", "dynamic_access", "sys_modules_stub"]
 FLAG_ONLY_PATTERNS: frozenset[FlagOnlyPattern] = frozenset(get_args(FlagOnlyPattern))
-
-# `atomic` withholds a file's import rewrite if anything else in it bails; `dual` keeps both
-# imports and rewrites only what resolved.
-ImportPolicy = Literal["atomic", "dual"]
-IMPORT_POLICIES: frozenset[ImportPolicy] = frozenset(get_args(ImportPolicy))
-DEFAULT_IMPORT_POLICY: ImportPolicy = "atomic"
 
 # `model.provider`; the default `none` is a promise that no endpoint is contacted. Not the adapter
 # protocol, which is `obelize.providers.base.ModelProvider`.
@@ -776,6 +773,29 @@ class ProvidedModule(_Frozen):
         return self
 
 
+# `==` bounds both sides; `!=` bounds neither.
+_LOWER_BOUND_OPERATORS = (">=", ">", "==", "~=")
+_UPPER_BOUND_OPERATORS = ("<=", "<", "==")
+
+
+def bounds(specifiers: SpecifierSet) -> tuple[Version | None, Version | None]:
+    """The floor and the ceiling a specifier set names, where it names one."""
+    lowers: list[Version] = []
+    uppers: list[Version] = []
+    for specifier in specifiers:
+        # `==1.*` has a floor and no ceiling a `Version` can name.
+        wildcard = specifier.version.endswith(".*")
+        try:
+            version = Version(specifier.version.removesuffix(".*"))
+        except InvalidVersion:  # pragma: no cover - a malformed version
+            continue
+        if specifier.operator in _LOWER_BOUND_OPERATORS:
+            lowers.append(version)
+        if specifier.operator in _UPPER_BOUND_OPERATORS and not wildcard:
+            uppers.append(version)
+    return (max(lowers) if lowers else None, min(uppers) if uppers else None)
+
+
 class ScanSpec(_Frozen):
     """Everything the scanner needs from a pack, and nothing it must not have.
 
@@ -791,16 +811,26 @@ class ScanSpec(_Frozen):
     new_distribution: str
     prefilter_tokens: tuple[PrefilterToken, ...]
     symbols: tuple[str, ...] = ()
-    client_symbol: str
+    # The legacy call that configures the module; `None` for a library with no client.
+    client_symbol: str | None = None
     constructor_symbols: tuple[str, ...] = ()
     supported_methods: tuple[ReceiverMethods, ...] = ()
     method_returns: tuple[MethodReturn, ...] = ()
     removed_attributes: tuple[str, ...] = ()
     flag_only_symbols: tuple[str, ...] = ()
     flag_only_patterns: tuple[FlagOnlyPattern, ...] = ()
+    # The new SDK keeps the module's name, so only `symbols` (and what lies under them) is legacy.
+    shared: bool = False
+    # Set only where one distribution is both sides: the versions of it that are the new API.
+    new_range: str | None = None
     # Modules that came with the legacy pin, which the manifest pin check inspects before the
     # pin may go.
     transitive_modules: tuple[ProvidedModule, ...] = ()
+    # What the repository must declare for a run to propose anything: the PEP 440 set of Pythons
+    # the new distribution installs on, and the lowest legacy version the pack's rules were
+    # measured on. Neither changes a finding, so `spec_digest` leaves them out.
+    requires_python: str
+    legacy_floor: str | None = None
 
     @model_validator(mode="after")
     def _check(self) -> ScanSpec:
@@ -827,8 +857,13 @@ class ScanSpec(_Frozen):
         ):
             if not _DISTRIBUTION_NAME.fullmatch(value):
                 raise ValueError(f"{field} takes a distribution name, got {value!r}")
-        if not QUALIFIED_NAME.fullmatch(self.client_symbol):
+        if self.client_symbol is not None and not QUALIFIED_NAME.fullmatch(self.client_symbol):
             raise ValueError(f"client_symbol must be a qualified name, got {self.client_symbol!r}")
+        SpecifierSet(self.requires_python)
+        if self.new_range is not None:
+            SpecifierSet(self.new_range)
+        if self.legacy_floor is not None:
+            Version(self.legacy_floor)
         receivers = tuple(entry.receiver for entry in self.supported_methods)
         _sorted_unique(receivers, "supported_methods")
         _sorted_unique(tuple(entry.method for entry in self.method_returns), "method_returns")
@@ -865,21 +900,11 @@ class ScanSpec(_Frozen):
         return ()
 
 
-class ImpactPolicy(_Frozen):
-    """Repository-wide switches the impact planner reads.
-
-    Not in `ScanSpec`: a pack may not set them, and the cache key (pack and file hash)
-    would miss them.
-    """
-
-    import_policy: ImportPolicy = DEFAULT_IMPORT_POLICY
-
-
 class ImpactPlan(_Frozen):
     """One file's findings and binding groups, after every scan-time rule.
 
-    Under `atomic`, a file with any withheld row is left exactly as it was, so no plan
-    that edits half a file can be built; under `dual` nothing is withheld for atomicity.
+    A file with any withheld row is left exactly as it was, so no plan that edits half a file
+    can be built.
     `manifest` findings are refused: the manifest pin check grades them repo-wide in
     `ManifestPlan`.
     """
@@ -887,7 +912,6 @@ class ImpactPlan(_Frozen):
     path: RelativePath
     findings: tuple[Finding, ...] = ()
     bindings: tuple[Binding, ...] = ()
-    import_policy: ImportPolicy = DEFAULT_IMPORT_POLICY
 
     @model_validator(mode="after")
     def _check(self) -> ImpactPlan:
@@ -913,18 +937,12 @@ class ImpactPlan(_Frozen):
 
         withheld = [row.line for row in self.findings if row.scan_status in WITHHELD]
         eligible = [row.line for row in self.findings if row.scan_status == "eligible"]
-        if self.import_policy == "atomic" and withheld and eligible:
+        if withheld and eligible:
             raise ValueError(
                 f"{self.path}: lines {eligible} are eligible while lines {withheld} are "
                 f"withheld. A file with a withheld finding is left exactly as it was, so the "
                 f"eligible rows carry {ATOMICITY_BAIL!r} with `caused_by` naming what withheld "
                 f"the rest"
-            )
-        stamped = [row.line for row in self.findings if row.bail == ATOMICITY_BAIL]
-        if self.import_policy == "dual" and stamped:
-            raise ValueError(
-                f"{self.path}: `dual` leaves both imports in place and rewrites what resolved, "
-                f"so no finding is withheld for atomicity; lines {stamped} are"
             )
         return self
 
@@ -1105,12 +1123,13 @@ class FindingsDocument(_Frozen):
     # Nothing time-derived: two runs over the same input are byte-identical.
 
     obelize_version: str
-    pack: PackRef
+    packs: tuple[PackRef, ...] = ()
     counts: ScanCounts
     findings: tuple[Finding, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> FindingsDocument:
+        _sorted_unique(tuple(pack.id for pack in self.packs), "packs")
         keys = [finding.sort_key for finding in self.findings]
         if keys != sorted(keys):
             raise ValueError("findings are written in document order; sort before emitting")
@@ -1369,12 +1388,13 @@ class PlanDocument(_Frozen):
     # Nothing time-derived and no counts: unlike findings.json it never leaves a run folder,
     # where run.json holds both.
     obelize_version: str
-    pack: PackRef
+    packs: tuple[PackRef, ...] = ()
     files: tuple[FileEdit, ...] = ()
     edits: tuple[Edit, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> PlanDocument:
+        _sorted_unique(tuple(pack.id for pack in self.packs), "packs")
         paths = [row.path for row in self.files]
         if paths != sorted(paths):
             raise ValueError("the files a run would write are written in path order")
@@ -1393,9 +1413,10 @@ RUN_MODES: frozenset[RunMode] = frozenset(get_args(RunMode))
 # The modes that ran the rules, so they report `auto` rather than the scan's `eligible`.
 FIX_MODES: frozenset[RunMode] = frozenset({"plan", "apply"})
 
-# SCAN_VOCABULARY.md's repository status: below Python 3.10 the new distribution
-# cannot install, so the run reports findings and proposes no migration.
-BlockedReason = Literal["runtime_unsupported"]
+# SCAN_VOCABULARY.md's repository status: the new distribution cannot install on a Python the
+# project declares, or the legacy pin is outside the pack's range, so the run reports findings
+# and proposes no migration.
+BlockedReason = Literal["runtime_unsupported", "legacy_version_unsupported"]
 BLOCKED_REASONS: frozenset[BlockedReason] = frozenset(get_args(BlockedReason))
 
 # `SkipReason` plus `obelize.scan.parse.ReadRefusal`, written out because that module imports
@@ -1507,6 +1528,8 @@ class RunPack(_Frozen):
     pack_version: str
     sha256: Sha256
     source: PackOrigin
+    # Why this pack proposed nothing, when the repository ruled its migration out.
+    blocked: BlockedReason | None = None
 
 
 class RunConfig(_Frozen):
@@ -1748,14 +1771,13 @@ class RunRecord(_Frozen):
     obelize_version: str
     mode: RunMode
     exit_code: ExitCode
-    blocked: BlockedReason | None = None
     argv: tuple[str, ...] = ()
     python: RunPython
     platform: RunPlatform
     git_sha: str | None = None
     git_branch: str | None = None
     git_dirty: bool | None = False
-    pack: RunPack
+    packs: tuple[RunPack, ...] = ()
     config: RunConfig
     counts: RunCounts
     file_edits: tuple[FileEdit, ...] = ()
@@ -1776,6 +1798,7 @@ class RunRecord(_Frozen):
         return self
 
     def _check_order(self) -> None:
+        _sorted_unique(tuple(pack.id for pack in self.packs), "packs")
         keys = [(row.path, row.line) for row in self.withheld]
         if keys != sorted(keys):
             raise ValueError("withheld rows follow the findings, which are in document order")
@@ -1950,7 +1973,6 @@ __all__ = [
     "CONFIDENCE_REASONS",
     "CONFIG_ORIGINS",
     "CONSULT_SKIPS",
-    "DEFAULT_IMPORT_POLICY",
     "DEFAULT_INCLUDE",
     "EDIT_STATUSES",
     "EXIT_CODES",
@@ -1960,7 +1982,6 @@ __all__ = [
     "GUARD_REFUSALS",
     "IMPORT_BAILS",
     "IMPORT_KINDS",
-    "IMPORT_POLICIES",
     "LIMITATION_CODES",
     "NO_VERDICT_EXPECTED",
     "PACK_ORIGINS",
@@ -2008,8 +2029,6 @@ __all__ = [
     "FlagOnlyPattern",
     "GuardRefusal",
     "ImpactPlan",
-    "ImpactPolicy",
-    "ImportPolicy",
     "Instant",
     "LimitationCode",
     "ManifestPlan",
@@ -2061,5 +2080,6 @@ __all__ = [
     "VerifyStatus",
     "WarningCode",
     "Withheld",
+    "bounds",
     "terminal_unsafe",
 ]

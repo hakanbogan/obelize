@@ -6,18 +6,19 @@ of one kind (MEASURE and LOOKUP, FLAGGED and GONE) catch a rule that ignores its
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from obelize.impact import planner
 from obelize.models import (
     Config,
     Edit,
-    ImpactPolicy,
     MethodReturn,
     ProvidedModule,
     ReceiverMethods,
     ScanSpec,
 )
+from obelize.packs import loader
 from obelize.packs.schema import (
     Change,
     ChatHistory,
@@ -39,6 +40,7 @@ from obelize.packs.schema import (
     RewriteCallChange,
     RewriteCallParams,
     SafetySettings,
+    Target,
     VersionRange,
 )
 from obelize.scan import analysis, manifests, parse, runner
@@ -47,7 +49,6 @@ from obelize.transforms import manifest as manifest_rules
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from collections.abc import Mapping
-    from pathlib import Path
 
 SPEC = ScanSpec(
     pack_id="test/acme",
@@ -67,6 +68,7 @@ SPEC = ScanSpec(
         "acme.sdk.protos",
     ),
     client_symbol="acme.sdk.configure",
+    requires_python=">=3.9",
     constructor_symbols=("acme.sdk.Model",),
     supported_methods=(
         ReceiverMethods(
@@ -109,15 +111,14 @@ CHANGE = RenameImportChange(
     kind="rename_import",
     citation="Acme migration notes, 'Imports'",
     fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
-    preconditions=("import_resolved",),
     params=RenameImportParams(
         from_module="acme.sdk",
         to_module="acme.client",
         # Not the module's last segment (Gemini's is), so the branch the corpus skips is exercised.
         default_alias="acme_client",
-        types_alias_fallback="acme_types",
         submodule_map={"types": "acme.client.types", "wire": "acme.client.wire"},
-        types_symbol_map={"Config": "RunConfig", "Level": "Level"},
+        alias_fallbacks={"types": "acme_types"},
+        symbol_map={"types.Config": "RunConfig", "types.Level": "Level"},
     ),
 )
 
@@ -127,7 +128,6 @@ CLIENT = ConfigureToClientChange(
     kind="configure_to_client",
     citation="Acme migration notes, 'Authentication'",
     fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
-    preconditions=("client_available", "no_unknown_kwargs"),
     params=ConfigureToClientParams(
         legacy_symbol="acme.sdk.configure",
         client_symbol="acme.client.Client",
@@ -146,7 +146,6 @@ MODEL = GenerativeModelCallsChange(
     kind="generative_model_calls",
     citation="Acme migration notes, 'Models'",
     fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
-    preconditions=("client_available", "closed_world_binding", "receiver_resolved"),
     params=GenerativeModelCallsParams(
         ctor_symbol="acme.sdk.Model",
         methods={
@@ -183,7 +182,6 @@ MODEL = GenerativeModelCallsChange(
             roles=("them", "us"),
         ),
         config_class="acme.client.types.RunConfig",
-        default_model_name="acme-1",
         legacy_config_symbol="acme.sdk.Config",
         legacy_config_aliases=("acme.sdk.types.Config",),
         legacy_config_kwarg="settings",
@@ -246,7 +244,6 @@ MEASURE = RewriteCallChange(
     kind="rewrite_call",
     citation="Acme migration notes, 'Measuring'",
     fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
-    preconditions=("client_available", "import_resolved"),
     params=RewriteCallParams(
         legacy_symbol="acme.sdk.measure",
         new_call="probe.measure",
@@ -267,7 +264,6 @@ LOOKUP = RewriteCallChange(
     kind="rewrite_call",
     citation="Acme migration notes, 'Lookups'",
     fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
-    preconditions=("client_available", "import_resolved"),
     params=RewriteCallParams(
         legacy_symbol="acme.sdk.lookup",
         new_call="registry.fetch",
@@ -355,10 +351,82 @@ PACK = PackDocument(
         retrieved_at="2026-09-20",
     ),
     **{"from": VersionRange(package="acme-sdk", version="==0.1.0")},
-    to=VersionRange(package="acme-client", version=">=2"),
+    to=Target(package="acme-client", version=">=2", requires_python=">=3.9"),
     match=Match(imports=("acme.sdk",), prefilter_tokens=("acme",)),
     changes=(CHANGE, CLIENT, MODEL, MEASURE, LOOKUP, FLAGGED, GONE, PIN),
     limitations=("Invented for the tests; no SDK of this name exists.",),
+)
+
+
+# A library with no client: the renames alone, projected from the pack rather than written by hand.
+OLD_RENAME = RenameImportChange(
+    id="rename-import",
+    kind="rename_import",
+    citation="Acme 2 notes, 'Imports'",
+    fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+    params=RenameImportParams(
+        from_module="acme.old",
+        to_module="acme.new",
+        default_alias="fresh",
+        submodule_map={"wire": "acme.new.wire"},
+        alias_fallbacks={"wire": "fresh_wire"},
+        symbol_map={
+            "Reader": "Reader",
+            "fetch": "get",
+            "wire.Frame": "Frame",
+            "wire.Pkt": "Packet",
+        },
+    ),
+)
+
+OLD_FLAGGED = FlagOnlyChange(
+    id="flag-removed",
+    kind="flag_only",
+    citation="Acme 2 notes, 'Removed'",
+    fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+    params=FlagOnlyParams(
+        message="acme.new has no Registry.",
+        suggestion="Port these call sites by hand.",
+        symbols=("acme.old.Registry",),
+    ),
+)
+
+OLD_PIN = ManifestDependencyChange(
+    id="pin",
+    kind="manifest_dependency",
+    citation="Acme 2 notes, 'Installing'",
+    fixtures=("fixtures/negative/none.txt", "fixtures/positive/one.before.txt"),
+    params=ManifestDependencyParams(from_name="acme-old", to_name="acme-new", to_spec=">=3"),
+)
+
+OLD_PACK = PackDocument(
+    id="acme/acme-old-to-acme-new",
+    pack_version="0.1.0",
+    provider="acme",
+    language="python",
+    source=PackSource(
+        type="official_guide", url="https://example.invalid/acme2", retrieved_at="2026-09-20"
+    ),
+    **{"from": VersionRange(package="acme-old", version=">=2,<3")},
+    to=Target(package="acme-new", version=">=3", requires_python=">=3.9"),
+    match=Match(
+        imports=("acme.old",),
+        symbols=("acme.old.Registry",),
+        prefilter_tokens=("acme",),
+    ),
+    changes=(OLD_RENAME, OLD_FLAGGED, OLD_PIN),
+    limitations=("Invented for the tests; no library of this name exists.",),
+)
+
+OLD_SPEC = loader.to_scan_spec(
+    loader.LoadedPack(
+        pack=OLD_PACK,
+        sha256="0" * 64,
+        data=b"",
+        reference=OLD_PACK.id,
+        bundled=False,
+        path=Path("pack.yaml"),
+    )
 )
 
 
@@ -368,7 +436,6 @@ def repository(
     *,
     spec: ScanSpec = SPEC,
     pack: PackDocument = PACK,
-    policy: ImpactPolicy | None = None,
     sources: Mapping[str, bytes] | None = None,
 ) -> codemod.Run:
     """Write `files` under `root`, scan the tree the real way, and run the whole pack over it.
@@ -379,10 +446,10 @@ def repository(
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8", newline="\n")
-    scanned = runner.scan(root, Config(), spec, policy, jobs=1)
+    scanned = runner.scan(root, Config(), spec, jobs=1)
     if sources is None:
         sources = {name: (root / name).read_bytes() for name in sorted(files)}
-    return codemod.run(scanned, sources, pack, spec, policy)
+    return codemod.run(scanned, sources, pack, spec)
 
 
 def transform(
@@ -390,15 +457,11 @@ def transform(
     *changes: Change,
     spec: ScanSpec = SPEC,
     layout: Layout | None = None,
-    policy: ImpactPolicy | None = None,
 ) -> tuple[str, list[Edit]]:
-    """Scan `source` as one selected file, run the rules over its real plan, return both.
-
-    Under the default `atomic` policy a rule never sees a group the scan refused; `dual` does.
-    """
+    """Scan `source` as one selected file, run the rules over its real plan, return both."""
     read = parse.gates("probe.py", source.encode("utf-8"))
     assert read.module is not None, read
-    plan = planner.plan(analysis.analyse(read, spec), spec, policy)
+    plan = planner.plan(analysis.analyse(read, spec), spec)
     active = [rule for rule in map(registry.rule_for, changes or (CHANGE,)) if rule is not None]
     context = base.RuleContext.build(plan, read.module, spec, active, layout)
     edits = [row for rule in active for row in rule.apply(context)]

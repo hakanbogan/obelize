@@ -17,7 +17,6 @@ from obelize.models import (
     BINDING_KINDS,
     CONFIDENCE_REASONS,
     CONFIG_ORIGINS,
-    DEFAULT_IMPORT_POLICY,
     DISPLAY_TEXT_LIMIT,
     EDIT_STATUSES,
     EXIT_CODES,
@@ -25,7 +24,6 @@ from obelize.models import (
     FLAG_ONLY_PATTERNS,
     IMPORT_BAILS,
     IMPORT_KINDS,
-    IMPORT_POLICIES,
     LIMITATION_CODES,
     PATH_REFUSALS,
     PROPOSAL_HELD,
@@ -49,7 +47,6 @@ from obelize.models import (
     Finding,
     FindingsDocument,
     ImpactPlan,
-    ImpactPolicy,
     ManifestPlan,
     MethodReturn,
     ModelDocument,
@@ -220,7 +217,10 @@ def test_the_import_bail_list_is_a_pinned_subset_of_the_bail_codes() -> None:
         "type_symbol_unmapped",
         "from_import_unmigrated_symbol",
         "file_not_fully_migrated",
+        "repo_not_fully_migrated",
         "usage_unmapped",
+        "runtime_unsupported",
+        "legacy_version_unsupported",
     } == IMPORT_BAILS
     assert {"import", "star_import"} == IMPORT_KINDS
     assert IMPORT_KINDS <= FINDING_KINDS
@@ -313,14 +313,6 @@ def test_display_text_leaves_alone_the_two_categories_that_render_harmlessly() -
     """`Co`/`Cn` render as a glyph; refusing them would pin a Unicode revision."""
     for character in ("\ue000", "\U000e0000"):
         assert _Shapes(prose=f"Fine {character} here.").prose.endswith("here.")
-
-
-def test_the_import_policy_defaults_to_the_atomic_rule_adr_010_states() -> None:
-    """`dual` is the v0.2 candidate, kept to be measured; a new default re-grades oracle rows."""
-    assert {"atomic", "dual"} == IMPORT_POLICIES
-    assert DEFAULT_IMPORT_POLICY == "atomic"
-    assert ImpactPolicy().import_policy == "atomic"
-    assert ImpactPolicy(import_policy="dual").import_policy == "dual"
 
 
 FINDING: dict[str, Any] = {
@@ -561,7 +553,7 @@ def test_an_edit_carries_its_warnings_in_a_canonical_order() -> None:
         line=5,
         status="auto",
         rule_id="configure_to_client",
-        warnings=("client_constructed_eagerly", "tests_touched_by_migration"),
+        warnings=("client_constructed_eagerly", "count_tokens_config_dropped"),
     )
     assert edit.warnings[0] == "client_constructed_eagerly"
     with pytest.raises(ValidationError, match="sorted and de-duplicated"):
@@ -570,7 +562,7 @@ def test_an_edit_carries_its_warnings_in_a_canonical_order() -> None:
             line=5,
             status="auto",
             rule_id="configure_to_client",
-            warnings=("tests_touched_by_migration", "client_constructed_eagerly"),
+            warnings=("count_tokens_config_dropped", "client_constructed_eagerly"),
         )
     with pytest.raises(ValidationError, match="warnings"):
         Edit(path="app.py", line=5, status="auto", rule_id="r", warnings=("not_a_warning",))
@@ -600,6 +592,7 @@ SPEC: dict[str, Any] = {
     "new_distribution": "google-genai",
     "prefilter_tokens": ("generativeai",),
     "client_symbol": "google.generativeai.configure",
+    "requires_python": ">=3.10",
     "constructor_symbols": ("google.generativeai.GenerativeModel",),
     "supported_methods": (
         ReceiverMethods(
@@ -792,7 +785,7 @@ def _document(rows: tuple[Finding, ...], **overrides: int) -> FindingsDocument:
     split.update(overrides)
     return FindingsDocument(
         obelize_version="0.1.0.dev0",
-        pack=PACK,
+        packs=(PACK,),
         counts=ScanCounts(files_selected=1, files_parsed=1, findings=sum(split.values()), **split),
         findings=rows,
     )
@@ -802,7 +795,7 @@ def test_a_findings_document_carries_nothing_time_derived() -> None:
     """docs/CLI.md promises two `scan --json` runs are byte-identical."""
     document = _document((finding(),))
     payload = document.model_dump()
-    assert set(payload) == {"obelize_version", "pack", "counts", "findings"}
+    assert set(payload) == {"obelize_version", "packs", "counts", "findings"}
 
 
 def test_a_findings_document_is_written_in_document_order() -> None:
@@ -868,13 +861,6 @@ def test_an_atomic_plan_never_leaves_half_a_file_eligible() -> None:
     )
     with pytest.raises(ValidationError, match="eligible while"):
         ImpactPlan(path="app.py", findings=(finding(), withheld))
-
-
-def test_a_dual_plan_withholds_nothing_for_atomicity() -> None:
-    stamped = finding(bail=ATOMICITY_BAIL, scan_status="needs_review", caused_by=("star_import",))
-    with pytest.raises(ValidationError, match="dual"):
-        ImpactPlan(path="app.py", findings=(stamped,), import_policy="dual")
-    assert ImpactPlan(path="app.py", findings=(finding(),), import_policy="dual").findings
 
 
 def pin(**overrides: Any) -> Finding:
@@ -956,12 +942,14 @@ def record(**changes: object) -> RunRecord:
         "exit_code": 0,
         "python": RunPython(version="3.12.9", implementation="CPython"),
         "platform": RunPlatform(system="Linux", release="6.8.0", machine="x86_64"),
-        "pack": {
-            "id": "gemini/google-generativeai-to-google-genai",
-            "pack_version": "0.1.0",
-            "sha256": "0" * 64,
-            "source": "bundled",
-        },
+        "packs": (
+            {
+                "id": "gemini/google-generativeai-to-google-genai",
+                "pack_version": "0.1.0",
+                "sha256": "0" * 64,
+                "source": "bundled",
+            },
+        ),
         "config": {
             "source": "defaults",
             "include": "**/*.py",
@@ -1228,7 +1216,7 @@ def test_the_plan_is_written_in_the_order_two_runs_can_be_compared_in() -> None:
     """`plan.json` has no timestamps, so order alone could make two runs differ."""
     document: dict[str, object] = {
         "obelize_version": "0.1.0.dev0",
-        "pack": PackRef(id="p/a-to-b", version="0.1.0", sha256="0" * 64),
+        "packs": (PackRef(id="p/a-to-b", version="0.1.0", sha256="0" * 64),),
     }
     with pytest.raises(ValidationError, match="path order"):
         PlanDocument(**document, files=(edit(path="z.py"), edit(path="a.py")))

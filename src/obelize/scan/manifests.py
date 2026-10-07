@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import re
 from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Final, Literal
@@ -15,7 +16,9 @@ from typing import TYPE_CHECKING, Final, Literal
 import libcst as cst
 from libcst.metadata import MetadataWrapper, PositionProvider
 from packaging.requirements import InvalidRequirement, Requirement
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from obelize.models import (
     REPO_ATOMICITY_BAIL,
@@ -26,19 +29,22 @@ from obelize.models import (
     ImpactPlan,
     ManifestPlan,
     ScanSpec,
+    bounds,
 )
 from obelize.scan import parse
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Iterable, Iterator, Sequence
-    from pathlib import Path
 
-    from obelize.models import Config
 
 # Every bail raised here, unranked: no two can fire on the same row.
 BAILS: frozenset[BailCode] = frozenset(
     {"manifest_code_mismatch", REPO_ATOMICITY_BAIL, "transitive_dependency_in_use"}
 )
+
+# A pin the rule cannot write (extras, a URL). The rule raises it, and the corpus grades it there;
+# here only a pack whose one distribution holds both APIs does, since its files wait on the pin.
+SHAPE_BAIL: Final[BailCode] = "manifest_pin_shape_unsupported"
 
 # Keeps a legacy pin for a module only it installs; asked once nothing imports the legacy one.
 TRANSITIVE_BAIL: Final[BailCode] = "transitive_dependency_in_use"
@@ -85,7 +91,8 @@ class Declaration:
     """One declared dependency: canonical `name`; `raw` as written, from `column` to `end`.
 
     `pin` spans the version, or is `None` for extras, a URL or a non-string value a rewrite cannot
-    carry; the rule refuses such a row and the scan still reports it.
+    carry; the rule refuses such a row and the scan still reports it. `spec` is the version as
+    declared (a PEP 508 set, or Poetry's or Pipenv's string), `None` when it cannot be read.
     """
 
     path: str
@@ -95,6 +102,7 @@ class Declaration:
     raw: str
     end: int
     pin: tuple[int, int] | None
+    spec: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,9 +146,9 @@ def is_manifest(path: str) -> bool:
     return layout(path) is not None
 
 
-def read(root: Path, path: str, config: Config) -> Reading:
-    """Read one manifest under `root`, through the source files' size limit."""
-    data, limitations = parse.contents(root, path, config)
+def read(path: str, contents: parse.Contents) -> Reading:
+    """Read one manifest, through the source files' size limit."""
+    data, limitations = contents(path)
     if data is None:
         return Reading(path=path, limitations=limitations)
     return Reading(path=path, declarations=declarations(path, data))
@@ -158,16 +166,24 @@ def declarations(path: str, data: bytes) -> tuple[Declaration, ...]:
     return tuple(readers[found](path, lines))
 
 
+def coupled(spec: ScanSpec) -> bool:
+    """Whether the new SDK is the legacy distribution itself, one pin for both APIs."""
+    return canonicalize_name(spec.legacy_distribution) == canonicalize_name(spec.new_distribution)
+
+
 def survey(
     plans: Iterable[ImpactPlan],
     excluded: Iterable[str] = (),
     unanalysed: Iterable[str] = (),
     transitive: Iterable[tuple[str, str]] = (),
+    *,
+    paired: bool = False,
 ) -> Migration:
     """The pin-edit conditions from the per-file plans, plus two lists no plan carries.
 
     A file migrated if any row is eligible; it blocks if a non-eligible row still loads the
-    distribution (`IMPORTING` or a mock target). `unanalysed` files block like an import.
+    distribution (`IMPORTING` or a mock target). `unanalysed` files block like an import. Where
+    `paired` (see `coupled`) no import marks the old API, so any withheld row blocks.
     """
     migrated: set[str] = set()
     blocking: set[str] = set()
@@ -175,7 +191,11 @@ def survey(
         for row in plan.findings:
             if row.scan_status == "eligible":
                 migrated.add(plan.path)
-            elif row.kind in IMPORTING or row.confidence_reason == _LIVE_MENTION:
+            elif (
+                row.kind in IMPORTING
+                or row.confidence_reason == _LIVE_MENTION
+                or (paired and row.scan_status != "not_a_usage")
+            ):
                 blocking.add(plan.path)
     blocking.update(unanalysed)
     return Migration(
@@ -216,7 +236,7 @@ def provided(path: str, data: bytes, spec: ScanSpec) -> tuple[tuple[str, str], .
 
 
 def prefiltered(
-    root: Path, paths: Iterable[str], spec: ScanSpec, config: Config
+    paths: Iterable[str], spec: ScanSpec, contents: parse.Contents
 ) -> tuple[tuple[str, ...], tuple[parse.Limitation, ...]]:
     """Excluded files matching the byte prefilter, named because the install they break is not.
 
@@ -225,11 +245,25 @@ def prefiltered(
     hits: list[str] = []
     limitations: list[parse.Limitation] = []
     for name in sorted(paths):
-        data, refused = parse.contents(root, name, config)
+        data, refused = contents(name)
         limitations.extend(refused)
         if data is not None and parse.candidate(data, spec.prefilter_tokens):
             hits.append(name)
     return tuple(hits), tuple(limitations)
+
+
+def merged(plans: Sequence[ManifestPlan]) -> ManifestPlan:
+    """Several packs' verdicts on one repository: every row, and every file any of them named."""
+    return ManifestPlan(
+        findings=tuple(sorted((row for p in plans for row in p.findings), key=_by_position)),
+        blocking=tuple(sorted({name for p in plans for name in p.blocking})),
+        excluded=tuple(sorted({name for p in plans for name in p.excluded})),
+        transitive=tuple(sorted({name for p in plans for name in p.transitive})),
+    )
+
+
+def _by_position(row: Finding) -> tuple[str, int, int, str, str]:
+    return row.sort_key
 
 
 def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> ManifestPlan:
@@ -253,7 +287,8 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
     for declaration in found:
         beside = declares[declaration.path]
         if declaration.name == legacy:
-            rows.extend(_legacy(declaration, migration, spec, new in beside, needed))
+            if not _arrived(declaration, spec):
+                rows.extend(_legacy(declaration, migration, spec, new in beside, needed))
         elif declaration.name == new and migration.blocking and legacy not in beside:
             rows.append(_row(declaration, spec.new_distribution, "manifest_code_mismatch"))
     return ManifestPlan(
@@ -281,6 +316,9 @@ def _legacy(
         code = REPO_ATOMICITY_BAIL if migration.blocking else None
         yield _row(declaration, spec.legacy_distribution, code, absent=code is None)
         return
+    if spec.new_range is not None and declaration.pin is None:
+        yield _row(declaration, spec.legacy_distribution, SHAPE_BAIL)
+        return
     if not migration.blocking and not needed:
         # Both halves are clear, so they are one rewrite of one line.
         yield _row(declaration, spec.legacy_distribution, None)
@@ -289,6 +327,19 @@ def _legacy(
         yield _row(declaration, spec.new_distribution, None)
     code = REPO_ATOMICITY_BAIL if migration.blocking else TRANSITIVE_BAIL
     yield _row(declaration, spec.legacy_distribution, code)
+
+
+def _arrived(declaration: Declaration, spec: ScanSpec) -> bool:
+    """Whether a declaration of the one distribution already pins the new range: no edit of it.
+
+    The first version it admits decides, so `>=2` is on the new side and `>=0.28,<3` is not.
+    """
+    floor = lowest(declaration.spec)
+    return (
+        spec.new_range is not None
+        and floor is not None
+        and SpecifierSet(spec.new_range).contains(floor, prereleases=True)
+    )
 
 
 def _row(
@@ -307,6 +358,63 @@ def _row(
         scan_status=status,
         bail=bail,
     )
+
+
+def alternatives(declared: str) -> tuple[SpecifierSet, ...] | None:
+    """`declared` as the PEP 440 sets it is a union of; `None` if any part is unreadable.
+
+    Poetry's `^`, `~`, `||`, a bare version and `x.*` are translated. An unreadable string leaves
+    the run unblocked, since blocking on a string nobody parsed would be a guess, and is reported.
+    """
+    sets: list[SpecifierSet] = []
+    for part in declared.split("||"):
+        text = _OPERATOR_GAP.sub(r"\1", part.strip())
+        terms = [_term(term) for term in _TERMS.split(text) if term] or ["*"]
+        if None in terms:
+            return None
+        try:
+            sets.append(SpecifierSet(",".join(term for term in terms if term and term != "*")))
+        except InvalidSpecifier:
+            return None
+    return tuple(sets)
+
+
+_OPERATOR_GAP: Final = re.compile(r"(\^|~=|~|===|==|!=|<=|>=|<|>)\s+")
+_TERMS: Final = re.compile(r"[,\s]+")
+
+
+def _term(term: str) -> str | None:
+    """One Poetry or PEP 440 term as PEP 440, `""` for any version, `None` if unreadable."""
+    if term == "*":
+        return ""
+    if term[0] in "^~" and not term.startswith("~="):
+        return _caret_or_tilde(term)
+    if term[0].isdigit():
+        return f"=={term}"
+    return term
+
+
+def _caret_or_tilde(text: str) -> str | None:
+    """Poetry's `^3.9` as `>=3.9,<4` (a Python major is never 0), `~3.9` as `>=3.9,<3.10`."""
+    body = text[1:].strip()
+    parts = body.split(".")
+    if not body or not all(part.isdigit() for part in parts):
+        return None
+    numbers = [int(part) for part in parts]
+    if text[0] == "^" or len(numbers) == 1:
+        upper = f"{numbers[0] + 1}"
+    else:
+        upper = f"{numbers[0]}.{numbers[1] + 1}"
+    return f">={body},<{upper}"
+
+
+def lowest(declared: str | None) -> Version | None:
+    """The lowest version `declared` admits, or `None` when it names no floor or cannot be read."""
+    found = None if declared is None else alternatives(declared)
+    if found is None:
+        return None
+    floors = [bounds(part)[0] for part in found]
+    return None if None in floors else min(floor for floor in floors if floor is not None)
 
 
 def _declare(path: str, line: int, column: int, text: str) -> Declaration | None:
@@ -334,6 +442,7 @@ def _declare(path: str, line: int, column: int, text: str) -> Declaration | None
         raw=written,
         end=end,
         pin=(end, end + len(version)) if plain else None,
+        spec=str(parsed.specifier) if parsed.url is None else None,
     )
 
 
@@ -422,6 +531,18 @@ def _value_pin(body: str, after: int) -> tuple[int, int] | None:
     return (start, start + len(value) - 2)
 
 
+_INLINE_VERSION: Final = re.compile(r"""^\{.*?\bversion\s*=\s*(["'])(.*?)\1""")
+
+
+def _inline_version(body: str, after: int) -> str | None:
+    """The `version` of a one-line inline table (`{ version = "^3", extras = [...] }`), else `None`.
+
+    Read, not edited: the table has no pin the rule could replace.
+    """
+    found = _INLINE_VERSION.match(body[after:].strip())
+    return None if found is None else found.group(2)
+
+
 def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
     """`pyproject.toml` and `Pipfile`, read as lines.
 
@@ -451,7 +572,13 @@ def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
             if declaration is not None:
                 # The pin is inside the value's quotes; any other value shape (inline table,
                 # array, multi-line string) gets none, so the rule refuses the row.
-                yield replace(declaration, pin=_value_pin(body, column + cut + 1))
+                pin = _value_pin(body, column + cut + 1)
+                spec = _inline_version(body, column + cut + 1) if pin is None else None
+                yield replace(
+                    declaration,
+                    pin=pin,
+                    spec=spec if pin is None else body[pin[0] : pin[1]],
+                )
         elif _is_dependency_array(table, key.strip("\"'")):
             start = column + cut + 1
             yield from _array(path, number, body, start)
@@ -549,7 +676,11 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
     collector = _Requirements()
     module.visit(collector)
     for node in collector.strings:
-        text = node.evaluated_value
+        try:
+            text = node.evaluated_value
+        except (SyntaxError, ValueError):
+            # `"C:\Users"` is no string at all: Python refuses the escape, so it names nothing.
+            continue
         if not isinstance(text, str):
             continue
         at = positions[node].start

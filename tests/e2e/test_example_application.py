@@ -145,8 +145,8 @@ def test_every_artefact_the_mode_owes_is_in_the_folder(migrated: dict[str, Any])
         "findings.json",
         "plan.json",
         "patch.diff",
-        "pack.yaml",
-        "pack.sha256",
+        f"packs/{PACK}/pack.yaml",
+        f"packs/{PACK}/pack.sha256",
         "REPORT.md",
         "run.json",
     ):

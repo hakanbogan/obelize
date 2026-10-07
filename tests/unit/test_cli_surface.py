@@ -25,6 +25,8 @@ from obelize.cli import app
 from obelize.models import EXIT_CODES, PROVIDER_NAMES
 from obelize.packs import loader
 
+GEMINI = "gemini/google-generativeai-to-google-genai"
+
 ROOT = Path(__file__).resolve().parents[2]
 
 runner = CliRunner()
@@ -69,7 +71,9 @@ def test_help_names_each_migration_a_bundled_pack_makes() -> None:
     shown = runner.invoke(app, ["--help"]).stdout
     for pack_id in loader.bundled_ids():
         pack = loader.load(pack_id).pack
-        assert f"{pack.from_.package} to {pack.to.package}" in shown, pack_id
+        old, new = pack.from_.package, pack.to.package
+        # One library on both sides reads "openai 0.x to 1.x", so only its name is held.
+        assert (f"{old} to {new}" if old != new else f"{old} ") in shown, pack_id
 
 
 # An installed wheel has no `docs/`, so the text a user reads points at the repository instead.
@@ -153,11 +157,11 @@ def test_no_message_names_a_path_in_a_checkout() -> None:
 
 
 def test_a_defect_in_obelize_says_where_to_report_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    def refuse(reference: str, root: Path | None = None) -> object:
+    def refuse(reference: str, root: Path | None = None, dirs: object = ()) -> object:
         raise loader.PackInvalidError(reference, ["id: Field required"], bundled=True)
 
     monkeypatch.setattr(loader, "load", refuse)
-    result = runner.invoke(app, ["pack", "validate", cli.DEFAULT_PACK])
+    result = runner.invoke(app, ["pack", "validate", GEMINI])
     assert result.exit_code == 1, result.output
     assert URLS["Issues"] in result.output
 
@@ -269,9 +273,7 @@ def test_a_verify_command_that_cannot_run_is_a_usage_error(
     tmp_path: Path, name: str, command: str, said: str
 ) -> None:
     """Refused as `.obelize.yml`'s `verify.commands` is: exit 2, the reason, no traceback."""
-    target = (
-        ["--pack", cli.DEFAULT_PACK] if name == "fix" else ["--run", "20260101T000000Z-deadbeef"]
-    )
+    target = ["--pack", GEMINI] if name == "fix" else ["--run", "20260101T000000Z-deadbeef"]
     result = runner.invoke(app, [name, "--repo", str(tmp_path), *target, "--verify", command])
     assert result.exit_code == 2, result.output
     (line,) = result.output.splitlines()

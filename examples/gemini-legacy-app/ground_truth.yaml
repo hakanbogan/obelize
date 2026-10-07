@@ -83,7 +83,7 @@ findings:
       `GenerateContentConfig`. The qualifier matters: `generation_config=GENERATION_CONFIG` and
       `safety_settings=SAFETY_SETTINGS` are bare Names, not literals, so reading their three keys
       at all needs C-31 (same-scope constant promotion), which ADR-008 lists as NOT landed, and the
-      `static_kwargs` precondition does not hold for a Name today. This is the fixture set's only
+      keys of a Name are not static values today. This is the fixture set's only
       instance of the C-31 shape, and it is a second, independent reason this group cannot go
       automatic.
   - file: summarizer/summarize.py

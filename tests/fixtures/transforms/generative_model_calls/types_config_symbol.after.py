@@ -1,6 +1,6 @@
 """The configuration class reached through the submodule the import rule owns.
 
-`types_symbol_map` renames that spelling where it stands, so by the time this
+`symbol_map` renames that spelling where it stands, so by the time this
 rule asks for a name for the submodule the import rule has already bound one
 and there is nothing to introduce. This rule still has to recognise the call
 as a configuration, or it would refuse a shape it can do -- which is why the

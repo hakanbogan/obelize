@@ -1,6 +1,7 @@
 # scan -> fix --apply on the bundled example app from a built wheel in a clean venv, asserting
 # docs/CLI.md exit codes and docs/RUN_FOLDER.md evidence; `tests/e2e/` runs the flow in-process.
-# The app's own suite is not run: the flow writes nothing to verify.
+# The app's own suite is not run: the flow writes nothing to verify. Two steps check what the
+# `openai/openai-0-to-1` pack claims on the releases the dev environment cannot hold.
 name: e2e
 
 on:
@@ -139,8 +140,9 @@ jobs:
             (.run_id      | type == "string" and (length > 0))
             and (.obelize_version | type == "string" and (length > 0))
             and (.mode         == "apply")
-            and (.pack.id      == $pack)
-            and (.pack.sha256  | test("^[0-9a-f]{64}$"))
+            and ((.packs       | length) == 1)
+            and (.packs[0].id  == $pack)
+            and (.packs[0].sha256 | test("^[0-9a-f]{64}$"))
             and (.git_dirty    == false)
             and (.verify.status == "not_run")
             and (.verify.reason == "no_changes_to_verify")
@@ -153,7 +155,7 @@ jobs:
           ' "$run_json" > /dev/null \
             || { echo "::error::run.json did not match the expected shape"; jq . "$run_json"; exit 1; }
 
-          for artefact in findings.json plan.json patch.diff pack.yaml pack.sha256 REPORT.md; do
+          for artefact in findings.json plan.json patch.diff REPORT.md "packs/$PACK_ID/pack.yaml" "packs/$PACK_ID/pack.sha256"; do
             test -f "$APP_DIR/.obelize/runs/$run_id/$artefact" \
               || { echo "::error::missing evidence artefact: $artefact"; exit 1; }
           done
@@ -186,6 +188,88 @@ jobs:
           jq -e '(.idempotent == true) and ((.file_edits | length) == 0)' \
             "$APP_DIR/.obelize/runs/$run_id/run.json" > /dev/null \
             || { echo "::error::second run.json did not report idempotent=true with zero file edits"; exit 1; }
+
+      - name: Several packs in one run (quickstart, no --pack)
+        if: steps.guard.outputs.present == 'true'
+        # The quickstart uses two of the three bundled libraries, so one run with no `--pack` chooses
+        # and applies those two packs, a scan of what it wrote finds no pack that applies, and one undo
+        # puts every file back.
+        run: |
+          set -euo pipefail
+          quickstart="$RUNNER_TEMP/quickstart"
+          cp -R examples/quickstart "$quickstart"
+          git -C "$quickstart" init -q
+          git -C "$quickstart" config user.name "obelize ci"
+          git -C "$quickstart" config user.email "ci@obelize.invalid"
+          git -C "$quickstart" add -A
+          git -C "$quickstart" commit -q -m "quickstart before migration"
+
+          "$OBELIZE_VENV/bin/obelize" scan --repo "$quickstart" --json > "$RUNNER_TEMP/both.json"
+          jq -e '[.packs[].id] == ["gemini/google-generativeai-to-google-genai", "py-pdf/pypdf2-to-pypdf"]' \
+            "$RUNNER_TEMP/both.json" > /dev/null \
+            || { echo "::error::scan did not choose both packs"; jq .packs "$RUNNER_TEMP/both.json"; exit 1; }
+
+          set +e
+          "$OBELIZE_VENV/bin/obelize" fix --repo "$quickstart" --apply --non-interactive
+          status=$?
+          set -e
+          # `6`: the change is written and no verification command was given.
+          if [ "$status" -ne 0 ] && [ "$status" -ne 6 ]; then
+            echo "::error::fix --apply exited $status (expected 0 or 6)"
+            exit 1
+          fi
+          fix_run=$(cat "$quickstart/.obelize/latest")
+          grep -q "import pypdf" "$quickstart/app.py" \
+            && grep -q "from google import genai" "$quickstart/app.py" \
+            || { echo "::error::app.py was not migrated by both packs"; exit 1; }
+
+          "$OBELIZE_VENV/bin/obelize" scan --repo "$quickstart" --json > "$RUNNER_TEMP/after.json"
+          jq -e '(.packs == []) and (.findings == [])' "$RUNNER_TEMP/after.json" > /dev/null \
+            || { echo "::error::a pack still applies after the migration"; jq .packs "$RUNNER_TEMP/after.json"; exit 1; }
+
+          "$OBELIZE_VENV/bin/obelize" undo --run "$fix_run" --repo "$quickstart"
+          git -C "$quickstart" diff --exit-code \
+            || { echo "::error::undo did not put every file back"; exit 1; }
+
+      - name: The openai pack's claims hold on 0.28.1, the release it migrates from
+        # The old release cannot share the dev environment, so a clean one runs stdlib code that
+        # compares it with the committed snapshot. `--no-project` reads no lock, which UV_FROZEN
+        # would only warn about.
+        env:
+          UV_FROZEN: "0"
+        run: >
+          uv run --isolated --no-project --python 3.12 --with openai==0.28.1
+          python -I tests/packs/openai_legacy_check.py tests/packs/openai_legacy_surface.json
+
+      - name: The openai pack's claims hold on 1.109.1, the floor of the release it migrates to
+        # The dev group pins 3.26.0; `--with` puts the floor ahead of it for this one file.
+        run: >
+          uv run --with openai==1.109.1
+          pytest tests/packs/test_openai_facts.py -q --no-cov -p no:cacheprovider
+
+      - name: The migrated openai fixtures do what the legacy ones did
+        # The legacy fixtures run on 0.28.1 and their answer keys on the floor and the newest
+        # release, each against a local server; the printed results must be the same.
+        env:
+          UV_FROZEN: "0"
+        run: |
+          set -euo pipefail
+          fixtures=src/obelize/packs/openai/openai-0-to-1/fixtures/positive
+          out="$(mktemp -d)"
+          before=(); after=()
+          for fixture in chat_completion completion embedding import_alias; do
+            before+=("$fixtures/$fixture.before.py")
+            after+=("$fixtures/$fixture.after.py")
+          done
+          check=tests/packs/openai_behaviour_check.py
+          uv run --isolated --no-project --python 3.12 --with openai==0.28.1 --with numpy \
+            python -I "$check" "${before[@]}" > "$out/legacy.txt"
+          for release in "openai==1.109.1" "openai"; do
+            uv run --isolated --no-project --python 3.12 --with "$release" \
+              python -I "$check" "${after[@]}" > "$out/new.txt"
+            diff "$out/legacy.txt" "$out/new.txt" \
+              || { echo "::error::$release prints something else than 0.28.1 did"; exit 1; }
+          done
 
       - name: Upload the evidence directory
         if: always() && steps.guard.outputs.present == 'true'

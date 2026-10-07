@@ -14,15 +14,14 @@ from dataclasses import replace
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
-from obelize import fsutil
 from obelize.impact import dataflow, planner
 from obelize.models import ATOMICITY_BAIL, Binding, Finding, ImpactPlan
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Sequence
-    from pathlib import Path
 
-    from obelize.models import BailCode, BindingKind, ImpactPolicy
+    from obelize.models import BailCode, BindingKind
+    from obelize.scan.parse import Contents
     from obelize.scan.runner import FileResult
 
 CODE: BailCode = "model_object_read_elsewhere"
@@ -35,14 +34,14 @@ _STAR = re.compile(rb"import\s+\*")
 
 
 def revised(
-    root: Path, paths: Sequence[str], files: Sequence[FileResult], policy: ImpactPolicy
+    paths: Sequence[str], files: Sequence[FileResult], contents: Contents
 ) -> tuple[FileResult, ...]:
     """`files`, with every eligible group another selected module reaches withheld."""
     wanted = {result.path: [row for row in result.plan.bindings if _open(row)] for result in files}
     names = {_attribute(row) for rows in wanted.values() for row in rows}
     if not names:
         return tuple(files)
-    trees = _trees(root, [path for path in paths if path.endswith(".py")], names)
+    trees = _trees(contents, [path for path in paths if path.endswith(".py")], names)
     revision = []
     for result in files:
         reached = [
@@ -50,9 +49,7 @@ def revised(
             for row in wanted[result.path]
             if any(_reaches(tree, _segment(result.path), row) for tree in trees.values())
         ]
-        revision.append(
-            replace(result, plan=_withheld(result, reached, policy)) if reached else result
-        )
+        revision.append(replace(result, plan=_withheld(result, reached)) if reached else result)
     return tuple(revision)
 
 
@@ -71,13 +68,12 @@ def _segment(path: str) -> str:
     return module.parent.name if module.name == "__init__.py" else module.stem
 
 
-def _trees(root: Path, paths: Sequence[str], names: set[str]) -> dict[str, ast.Module]:
+def _trees(contents: Contents, paths: Sequence[str], names: set[str]) -> dict[str, ast.Module]:
     """Parse only modules whose bytes hold one of `names` or a star import (which spells none)."""
     trees = {}
     for path in paths:
-        try:
-            data = fsutil.read(root / path)
-        except OSError:
+        data, _refused = contents(path)
+        if data is None:
             continue
         if not (_STAR.search(data) or any(name.encode() in data for name in names)):
             continue
@@ -111,7 +107,7 @@ def _reaches(tree: ast.Module, segment: str, row: Binding) -> bool:
     return module and read
 
 
-def _withheld(result: FileResult, reached: Sequence[Binding], policy: ImpactPolicy) -> ImpactPlan:
+def _withheld(result: FileResult, reached: Sequence[Binding]) -> ImpactPlan:
     """The plan with reached groups withheld, its atomicity undone and asked again.
 
     Undone first because its recorded causes would be one short; after that every row a reached
@@ -142,14 +138,13 @@ def _withheld(result: FileResult, reached: Sequence[Binding], policy: ImpactPoli
         findings.append(row)
     return ImpactPlan(
         path=result.plan.path,
-        findings=planner.atomicity(findings, policy),
+        findings=planner.atomicity(findings),
         bindings=tuple(
             Binding(**{**row.model_dump(), "scan_status": "needs_review", "bail": CODE})
             if row in reached
             else row
             for row in result.plan.bindings
         ),
-        import_policy=result.plan.import_policy,
     )
 
 

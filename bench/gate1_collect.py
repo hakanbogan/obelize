@@ -227,17 +227,21 @@ def _fetch(entry: dict[str, Any], into: Path) -> None:
 
 def _runtime(checkout: Path) -> dict[str, Any]:
     """The declared Python via the shipped `scan/runtime.py`; `run.json` keeps only the verdict."""
+    from run import DEFAULT_PACK
+
     from obelize.models import Config
-    from obelize.scan import runtime, walker
+    from obelize.packs import loader
+    from obelize.scan import parse, runtime, walker
 
     selection = walker.walk(checkout, Config())
-    declared = runtime.detect(checkout, selection.manifests, Config()).declared
-    if declared is None:
+    spec = loader.to_scan_spec(loader.load(DEFAULT_PACK))
+    floor = runtime.detect(selection.manifests, parse.disk(checkout, Config()), spec)
+    if floor.declared is None:
         return {"declared": None, "blocked": False}
     return {
-        "declared": declared.declared,
-        "path": declared.path,
-        "blocked": declared.blocked,
+        "declared": floor.declared.declared,
+        "path": floor.declared.path,
+        "blocked": floor.blocked is not None,
     }
 
 
@@ -260,8 +264,9 @@ def _provenance() -> dict[str, Any]:
     `spec_sha256` hashes what `scan/*` and `impact/*` read (ADR-026 D8): only its change needs a
     re-run. `pack_sha256` names the file.
     """
+    from run import DEFAULT_PACK
+
     from obelize import __version__
-    from obelize.cli import DEFAULT_PACK
     from obelize.packs import loader
 
     loaded = loader.load(DEFAULT_PACK)

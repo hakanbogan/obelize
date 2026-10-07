@@ -10,15 +10,25 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
 import yaml
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
 from pydantic import ValidationError
 
 from obelize import _yaml
-from obelize.models import FlagOnlyPattern, MethodReturn, ProvidedModule, ReceiverMethods, ScanSpec
+from obelize.models import (
+    FlagOnlyPattern,
+    MethodReturn,
+    ProvidedModule,
+    ReceiverMethods,
+    ScanSpec,
+    bounds,
+)
 from obelize.packs.schema import (
     _PACK_ID,
     CHANGE_KINDS,
@@ -26,6 +36,7 @@ from obelize.packs.schema import (
     FlagOnlyChange,
     GenerativeModelCallsChange,
     PackDocument,
+    under_any,
 )
 
 # Bundled packs ship in the wheel at `<provider>/<slug>/pack.yaml` here: the id is the directory.
@@ -35,11 +46,15 @@ SOURCES_FILENAME: Final = "SOURCES.md"
 
 
 class PackError(Exception):
-    """Base for the two ways a `--pack` value fails to produce a pack."""
+    """Base for the ways a `--pack` value, or the packs a run would use, fail."""
 
 
 class PackNotFoundError(PackError):
     """No pack at that reference: a usage error."""
+
+
+class PackConflictError(PackError):
+    """Two packs that cannot run together, or one id in two places: a usage error."""
 
 
 class PackInvalidError(PackError):
@@ -69,7 +84,7 @@ class LoadedPack:
 
 
 def bundled_ids(root: Path | None = None) -> tuple[str, ...]:
-    """Every pack that ships inside the wheel, sorted."""
+    """Every pack under `root` (the wheel's by default), sorted."""
     base = BUNDLED if root is None else root
     found = [
         f"{candidate.parent.parent.name}/{candidate.parent.name}"
@@ -78,24 +93,42 @@ def bundled_ids(root: Path | None = None) -> tuple[str, ...]:
     return tuple(identifier for identifier in found if _PACK_ID.fullmatch(identifier))
 
 
-def resolve(reference: str, root: Path | None = None) -> tuple[Path, bool]:
+def known(dirs: Sequence[Path] = ()) -> tuple[str, ...]:
+    """Every pack id the wheel and `dirs` hold, sorted; one id in two places is refused."""
+    seen: dict[str, Path] = {}
+    for root in (BUNDLED, *dirs):
+        for identifier in bundled_ids(root):
+            if identifier in seen:
+                raise PackConflictError(
+                    f"the pack id {identifier} is in {seen[identifier]} and in {root}; an id "
+                    f"must name one pack"
+                )
+            seen[identifier] = root
+    return tuple(sorted(seen))
+
+
+def resolve(
+    reference: str, root: Path | None = None, dirs: Sequence[Path] = ()
+) -> tuple[Path, bool]:
     """Turn a `--pack` value into a file, and whether it is bundled.
 
-    A bundled id wins over a same-spelled path; `_PACK_ID` admits no dot, so the join stays inside
-    the packs directory. Anything else, including an id with no bundled pack, is tried as a path.
+    A known id wins over a same-spelled path; `_PACK_ID` admits no dot, so the join stays inside
+    a packs directory. Only the wheel's packs are bundled. Anything else, including an id nothing
+    holds, is tried as a path.
     """
     base = BUNDLED if root is None else root
     if _PACK_ID.fullmatch(reference):
         provider, slug = reference.split("/", 1)
-        candidate = base / provider / slug / PACK_FILENAME
-        if candidate.is_file():
-            return candidate, True
+        for directory in (base, *dirs):
+            candidate = directory / provider / slug / PACK_FILENAME
+            if candidate.is_file():
+                return candidate, directory == base
     return Path(reference), False
 
 
-def load(reference: str, root: Path | None = None) -> LoadedPack:
-    """Read and validate the pack `reference` names."""
-    path, bundled = resolve(reference, root)
+def load(reference: str, root: Path | None = None, dirs: Sequence[Path] = ()) -> LoadedPack:
+    """Read and validate the pack `reference` names; one named by id must carry that id."""
+    path, bundled = resolve(reference, root, dirs)
     try:
         data = path.read_bytes()
     except OSError as error:
@@ -109,6 +142,10 @@ def load(reference: str, root: Path | None = None) -> LoadedPack:
         pack = PackDocument.model_validate(document)
     except ValidationError as error:
         raise PackInvalidError(reference, problems(error), bundled=bundled) from error
+    if _PACK_ID.fullmatch(reference) and path != Path(reference) and pack.id != reference:
+        raise PackInvalidError(
+            reference, [f"id: {pack.id!r} is not the id its directory spells"], bundled=bundled
+        )
     return LoadedPack(
         pack=pack,
         sha256=digest,
@@ -180,7 +217,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     attributes: set[str] = set()
     flagged: set[str] = set()
     patterns: set[FlagOnlyPattern] = set()
-    client_symbol = ""
+    client_symbol = None
     for change in pack.changes:
         if isinstance(change, ConfigureToClientChange):
             client_symbol = change.params.legacy_symbol
@@ -192,6 +229,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
             attributes.update(change.params.attributes)
             flagged.update(change.params.symbols)
             patterns.update(change.params.patterns)
+    floor = bounds(SpecifierSet(pack.from_.version))[0]
     return ScanSpec(
         pack_id=pack.id,
         pack_version=pack.pack_version,
@@ -202,6 +240,8 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         prefilter_tokens=pack.match.prefilter_tokens,
         symbols=pack.match.symbols,
         client_symbol=client_symbol,
+        requires_python=pack.to.requires_python,
+        legacy_floor=None if floor is None else str(floor),
         constructor_symbols=tuple(sorted(constructors)),
         supported_methods=tuple(
             ReceiverMethods(receiver=receiver, methods=methods[receiver])
@@ -213,6 +253,12 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         removed_attributes=tuple(sorted(attributes)),
         flag_only_symbols=tuple(sorted(flagged)),
         flag_only_patterns=tuple(sorted(patterns)),
+        shared=pack.match.shared,
+        new_range=(
+            pack.to.version
+            if canonicalize_name(pack.from_.package) == canonicalize_name(pack.to.package)
+            else None
+        ),
         transitive_modules=tuple(
             ProvidedModule(module=module, distribution=distribution)
             for module, distribution in sorted(pack.match.transitive.items())
@@ -220,14 +266,45 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     )
 
 
-# Fields that name the pack rather than describe the scan; `spec_digest` leaves them out.
+def conflict(first: PackDocument, second: PackDocument) -> str | None:
+    """Why two packs cannot run in one repository, or `None`.
+
+    They conflict when their legacy modules overlap, when one writes a module the other migrates
+    (so one's output would be the other's input), or when they name one distribution. Without
+    those, neither can see what the other wrote, and the order between them decides nothing.
+    """
+    for one, other in ((first, second), (second, first)):
+        for module in other.match.imports:
+            if under_any(module, one.match.imports):
+                return f"{first.id} and {second.id} both migrate {module}"
+        for module in one.to_modules():
+            if under_any(module, other.match.imports):
+                return f"{one.id} writes {module}, which {other.id} migrates"
+
+    def distributions(pack: PackDocument) -> set[str]:
+        names = {pack.from_.package, pack.to.package, *pack.match.transitive.values()}
+        return {canonicalize_name(name) for name in names}
+
+    shared = sorted(distributions(first) & distributions(second))
+    return f"{first.id} and {second.id} both name the distribution {shared[0]}" if shared else None
+
+
+# Fields that name the pack or gate the run rather than describe the scan; `spec_digest` leaves
+# them out.
 _IDENTITY: Final[frozenset[str]] = frozenset({"pack_id", "pack_version", "pack_sha256"})
+_GATES: Final[frozenset[str]] = frozenset({"requires_python", "legacy_floor"})
+
+# Read by the scanner but absent from the measured digest of the packs that predate it: left out
+# while unset, so adding the field moved no digest.
+_WHEN_SET: Final[frozenset[str]] = frozenset({"shared", "new_range"})
 
 
 def spec_digest(spec: ScanSpec) -> str:
     """Hash of the scan's view minus pack identity: two packs with one digest agree on findings."""
     payload = {
-        key: value for key, value in spec.model_dump(mode="json").items() if key not in _IDENTITY
+        key: value
+        for key, value in spec.model_dump(mode="json").items()
+        if key not in _IDENTITY | _GATES and (value or key not in _WHEN_SET)
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
@@ -237,10 +314,13 @@ __all__ = [
     "PACK_FILENAME",
     "SOURCES_FILENAME",
     "LoadedPack",
+    "PackConflictError",
     "PackError",
     "PackInvalidError",
     "PackNotFoundError",
     "bundled_ids",
+    "conflict",
+    "known",
     "load",
     "problems",
     "resolve",

@@ -12,6 +12,103 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Added
+
+- One run can use several packs. `obelize scan` and `obelize fix` try every known pack over one read
+  of the repository, and run each one with a finding that is not `not_a_usage`; `--pack` is
+  repeatable and names exactly the packs that run. A run no pack applies to says so and exits `0`.
+  Packs run in id order over what the ones before them wrote, each as a single-pack run; two that
+  could feed each other are refused with exit `2`.
+- `pack_dirs` in `~/.config/obelize/config.yml` adds directories of your own packs, chosen by id like
+  the bundled ones. A repository's `.obelize.yml` may not set it.
+- A second bundled pack, `py-pdf/pypdf2-to-pypdf`: the import, the names that exist unchanged on
+  both sides, and the dependency line, from `PyPDF2` 3 to `pypdf` 6.19 or later. It reports the
+  camelCase classes PyPDF2 3.0.0 removed and the names pypdf dropped, and blocks a repository
+  below Python 3.9 or with PyPDF2 pinned below 3.
+- A third bundled pack, `openai/openai-0-to-1`, so obelize ships three. It migrates `openai` 0.28.1
+  to 1.109.1 or later, one library whose module keeps its name. It rewrites
+  `openai.ChatCompletion.create`, `Completion.create` and `Embedding.create` to the same calls on the
+  module client (`openai.chat.completions.create`) when every argument and every read of the result
+  is one it has checked, and moves the pin to `openai>=1.109.1`. It reports async calls, thirteen
+  module settings the new releases ignore or read differently, the `openai.error` classes, the other
+  resources, the modules of the 0.28.1 package and indirect use. Both versions are one distribution,
+  so it writes no file while any row of the pack is withheld: each row of another file it would have written reads `repo_not_fully_migrated`, and the pin stays. A declaration that
+  already admits only 1.109.1 or later (`openai==3.26.0`) is left as written, and one it cannot rewrite
+  in place (extras, a URL) holds every file (`manifest_pin_shape_unsupported`, shown by `scan`). It does
+  not report top-level `openai.APIError`, which both sides have and code on the new release writes, so a
+  handler that reads `http_status` or `json_body` fails after the pin moves with no warning.
+- Pack format, for a library that keeps its module name. `match.shared` makes only the names in
+  `match.symbols` legacy, and a shared pack has no `rename_import` change. `rewrite_call` takes
+  `root: module` (the call stays on the root the author wrote, and no `configure_to_client` is
+  needed), `keywords` (parameters carried when written as keywords) and `result_paths` (the only
+  reads of a result that carry). A `manifest_dependency` may name one distribution on both sides,
+  the two told apart by `from.version` and `to.version`, and a declaration `to.version` already admits is
+  left as written. `arg_map` may not rename a parameter onto `config_kwarg`, which named the keyword twice.
+
+### Changed
+
+- `findings.json`, `plan.json` and `run.json` carry `packs[]` in place of `pack`, and `run.json`'s
+  `blocked` moved into each pack's row. A run folder holds each pack's copy under
+  `packs/<provider>/<slug>/` in place of `pack.yaml` and `pack.sha256`. An edit's `rule_id` is
+  `<pack id>:<rule id>`.
+- A pack whose repository rules it out has every row withheld for that reason, so an apply that
+  writes for one pack and is blocked for another exits `4`. The reason is `runtime_unsupported`, or
+  the new `legacy_version_unsupported`: the pack's `from.version` has a floor and the legacy
+  distribution is declared below it, unpinned, or not at all while the code uses it. The text for a
+  blocked pack names the declaration and what would unblock it, in place of "the new SDK".
+- `--pack` has no default, and `cli.DEFAULT_PACK` is gone.
+- In a shared module the scanner reports a read off a call's result (`f(...).choices[0].x`) as part of
+  the call's own row, with no attribute finding of its own. A pack that is not shared keeps that finding,
+  so the Gemini results are unchanged. It also reports the bare module fetched by its string
+  (`importlib.import_module("openai")`, `__import__`, `sys.modules`) as `dynamic_access`, a read of its
+  `__dict__` or `__getattribute__` as `module_alias_rebound`, and a star import only from the module
+  itself or a legacy name.
+- `repo_not_fully_migrated` also lands on the source rows of a pack whose new distribution is its
+  legacy one, import rows included, `manifest_pin_shape_unsupported` is also raised by `scan` for such
+  a pack, and `from_import_unmigrated_symbol` is also raised for a call a module-rooted `rewrite_call`
+  reaches through `from M import Name`. No code was added to the vocabularies.
+- A pack describes its target more generally. `to.requires_python` is required and replaces the
+  fixed Python 3.10 floor. `rename_import` takes `symbol_map` (`Name` or `<submodule>.Name`) and
+  `alias_fallbacks` in place of `types_symbol_map` and `types_alias_fallback`. A pack with no
+  `configure_to_client` is valid when no change rewrites calls onto a client.
+- `obelize fix` never asks the configured model about a pack whose new library is its old one, since a
+  proposal is one row and the pack writes a whole repository or none. `--model`, `--accept-model` and
+  `--show-context` with such a pack exit `2`, and a configured model is skipped with a line on stderr.
+- `rewrite_call` counts a read of a result's name that the scope analysis links to no assignment (in a
+  loop's second pass) and refuses a result bound in a class body. A call inside an f-string field is
+  laid out on one line, since Python before 3.12 takes no newline there.
+
+### Removed
+
+- The pack fields `changes[].preconditions`, `changes[].replacement` and
+  `generative_model_calls.default_model_name`, which nothing read. A pack that sets one is refused,
+  and the Gemini pack's sha256 changes.
+- `import_policy` from every plan in a run folder, and the unused codes
+  `file_object_fields_not_verified`, `tests_touched_by_migration` and `stale_mock_target`. A run
+  folder written by 0.1.0 no longer loads, so undo a 0.1.0 apply with 0.1.0.
+
+### Fixed
+
+- A `match` statement with a mapping pattern that captures a name (`case {"k": name}`) crashed the
+  scan of every pack.
+- A `setup.py` string literal Python cannot evaluate (an invalid `\U` escape, a NUL) crashed the
+  manifest reader. It now declares nothing.
+- A `setup.py` that a run changed as a source and as a manifest crashed it, whether one pack or two
+  edited it, because the file is read as both. It is now one outcome from its first bytes to its
+  last, and the manifest edit is made on the bytes the code edit wrote.
+- A source file whose rendering overran the stack (a chain of hundreds of terms) stopped the whole
+  scan with a `RecursionError`. It is now one `parse_error` row for that file.
+- A call after a form feed, `U+2028` or `U+0085` in an earlier line was laid out from the wrong source
+  line, since `str.splitlines` breaks where Python does not. The time to rewrite a file grew with the
+  square of its legacy calls (about thirty seconds for four hundred in one file) and is linear now.
+- A pack with one distribution on both sides left the pin lines it could write when another line
+  of the same distribution could not be written (`openai` with and without extras). Every legacy line
+  is now held with it.
+- `importlib.import_module(".error", "openai")`, `pkgutil.resolve_name` and `sys.modules.get`, `pop`
+  and `setdefault` with the module's name are `dynamic_access` rows, as `sys.modules["openai"]` was.
+  A name in a string annotation (`"openai.OpenAI"`, `Annotated[int, "openai-beta"]`) no longer
+  counts as the module used as a value.
+
 ## [0.1.0] - 2026-10-06
 
 ### Benchmark

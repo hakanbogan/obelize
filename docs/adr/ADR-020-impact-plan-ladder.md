@@ -4,7 +4,7 @@
 
 Accepted; amended by
 [ADR-021](ADR-021-dependency-manifests-verdict.md) (D9, D11) and
-[ADR-031](ADR-031-codemod-driver.md) (D10).
+[ADR-031](ADR-031-codemod-driver.md) (D10) and ADR-050.
 
 ## Decision
 
@@ -28,7 +28,8 @@ cannot be observed through a plan.
 ### D3. The module's client is counted over resolved `call` findings
 
 A `configure` counts only when the finding's `kind` is `call` **and** its
-symbol is the pack's `client_symbol`. A `mock.patch("google.generativeai.configure")`
+symbol is the pack's `client_symbol`; a pack with none (a library with no client) counts no
+`configure`, so no row waits for one. A `mock.patch("google.generativeai.configure")`
 target is a string and introduces no client; counting it would give a test file
 a client and a real module a spurious `multiple_configure_calls`.
 
@@ -77,8 +78,7 @@ because a use of a name assigned twice may refer to neither.
 
 ### D9. `ImpactPlan` refuses a plan F-1 would leave half-applied
 
-Under `atomic`, `ImpactPlan` refuses an eligible row beside a withheld one, and
-under `dual`, a row carrying `file_not_fully_migrated`; the error names the
+`ImpactPlan` refuses an eligible row beside a withheld one; the error names the
 lines. A plan is one file's: every row names that file, findings are in document
 order and bindings in constructor order. A `manifest` row is refused, because a
 manifest legitimately carries an applied edit beside a withheld one; it belongs
@@ -107,5 +107,4 @@ so a row moving to another code must change the answer key.
   answer different questions; `REPORT.md` has no binding table yet, so the
   sentence is owed when one appears.
 - Two same-method calls on one line are told apart by neither line nor symbol,
-  so the group's code wins (D7); under `dual` that can withhold edits another
-  group's defect caused.
+  so the group's code wins (D7).

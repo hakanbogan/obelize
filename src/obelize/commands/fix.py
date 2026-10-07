@@ -16,12 +16,12 @@ from typing import TYPE_CHECKING
 from obelize import __version__, fsutil, gitutil
 from obelize.commands import CommandError, reports
 from obelize.evidence import report, run_dir
-from obelize.models import FindingsDocument, ModelConfig, PackRef, VerifyPhase, VerifyResult
+from obelize.models import FindingsDocument, ModelConfig, VerifyPhase, VerifyResult
 from obelize.packs import loader
 from obelize.providers import base as providers
 from obelize.providers import openai_compat, proposals
+from obelize.scan import manifests
 from obelize.scan import runner as scanner
-from obelize.scan import walker
 from obelize.transforms import codemod
 from obelize.verify import cheap
 from obelize.verify import runner as verifier
@@ -43,7 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
         VerifyReason,
     )
     from obelize.packs.loader import LoadedPack
-    from obelize.scan.runtime import Declared
+    from obelize.scan.runtime import Blocked
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,7 +51,10 @@ class Request:
     """One `obelize fix` with every decision taken; `obelize.cli` reads terminal and environment."""
 
     root: Path
-    pack: LoadedPack
+    # The packs to try: those the user named, or every one known. A named pack always runs; an
+    # unnamed one only when the repository gives it something to say.
+    packs: tuple[LoadedPack, ...]
+    named: bool
     config: Config
     source: ConfigOrigin
     # Before the merge: the trust ladder needs to know which commands the user typed.
@@ -66,6 +69,8 @@ class Request:
     ask: Callable[[str], bool] | None = None
     # The user's own block with `--model` over it; never the repository's.
     model: ModelConfig = field(default_factory=ModelConfig)
+    # Whether a flag, and not only the user's file, asked for the model.
+    model_flagged: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,8 +85,10 @@ class Outcome:
     # `patch.diff`'s bytes, which a dry run prints.
     patch: bytes
     evidence: str
-    # The declared Python floor, which names the file to change when it blocked the run.
-    declared: Declared | None
+    # Each declaration that blocked a pack, which names the file to change.
+    blocked: tuple[Blocked, ...]
+    # What the run did without being asked to say so, for a caller that prints it.
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,14 +114,13 @@ def run(request: Request) -> Outcome:
     """One `obelize fix`, from the walk to `.obelize/latest`."""
     started = run_dir.now()
     began = time.monotonic()
-    spec = loader.to_scan_spec(request.pack)
-    scan = scanner.scan(request.root, request.config, spec, jobs=None)
+    chosen = select(request.root, request.config, request.packs, named=request.named, jobs=None)
     scan_ms = _ms(began)
 
     planning = time.monotonic()
-    driven = _driven(request, scan, spec)
-    if scan.runtime is not None and scan.runtime.blocked:
-        driven = _proposing_nothing(driven)
+    passes = _fold(request, chosen)
+    driven = codemod.chained([(one.loaded.pack.id, one.run) for one in passes])
+    scan = scanner.merged([one.scan for one in passes], chosen.tree)
     plan_ms = _ms(planning)
 
     gating = time.monotonic()
@@ -125,13 +131,38 @@ def run(request: Request) -> Outcome:
     )
     gate_ms = _ms(gating)
 
-    model = _consulted(request, driven, stopped)
+    notes: tuple[str, ...] = ()
+    if not passes:
+        notes = (f"No pack applies. Checked: {', '.join(chosen.tried) or 'none'}.",)
+    if len(passes) > 1 and request.model.provider != "none":
+        if request.model_flagged:
+            raise CommandError(
+                "a model is asked about one pack's rows, so --model and --accept-model need "
+                f"--pack to name one; this run uses {len(passes)}: "
+                f"{', '.join(one.loaded.pack.id for one in passes)}.",
+                2,
+            )
+        notes = ("The configured model was not asked: this run uses more than one pack.",)
+        model = _Model(driven)
+    elif whole := [one.loaded.pack.id for one in passes if _whole(one.loaded)]:
+        if request.model.provider != "none":
+            # A proposal is one row, and a pack whose one distribution holds both APIs moves the
+            # whole repository or none of it.
+            if request.model_flagged:
+                raise CommandError(
+                    f"a model's proposal is one row, and {whole[0]} moves a whole repository or "
+                    f"none of it, so --model and --accept-model do not apply to it.",
+                    2,
+                )
+            notes = (f"The configured model was not asked: {whole[0]} moves a whole repository.",)
+        model = _Model(driven)
+    else:
+        model = _consulted(request, passes, driven, stopped)
     driven = model.run
 
     replanning = time.monotonic()
-    plan = run_dir.planned(
-        driven, request.pack, None if model.session is None else model.session.numbers
-    )
+    loaded = [one.loaded for one in passes]
+    plan = run_dir.planned(driven, loaded, None if model.session is None else model.session.numbers)
     plan_ms += _ms(replanning)
 
     # Before the write, or `git_dirty` would report obelize's own migration.
@@ -140,15 +171,19 @@ def run(request: Request) -> Outcome:
     run_id = run_dir.new_id(started)
     journaled = _journaled(request, run_id, plan)
     phases = _phases(request, writable, stopped, gate_ms)
-    code = _exit(phases, outstanding=bool(report.withheld_rows(driven.findings)))
+    code = _exit(phases, outstanding=bool(report.withheld_rows(driven.findings)), idle=not passes)
     recorded = _recorded(request, model, phases.applied)
+    used = [
+        run_dir.Used(one.loaded, one.scan.blocked[0] if one.scan.blocked else None)
+        for one in passes
+    ]
     record = run_dir.compose_fix(
         run_id=run_id,
         scan=scan,
         run=driven,
         plan=plan,
         verified=phases.verified,
-        pack=request.pack,
+        packs=used,
         config=request.config,
         source=request.source,
         git=state,
@@ -167,11 +202,7 @@ def run(request: Request) -> Outcome:
     )
     findings = FindingsDocument(
         obelize_version=__version__,
-        pack=PackRef(
-            id=request.pack.pack.id,
-            version=request.pack.pack.pack_version,
-            sha256=request.pack.sha256,
-        ),
+        packs=run_dir.refs(loaded),
         counts=scan.counts,
         findings=scan.findings,
     )
@@ -183,7 +214,7 @@ def run(request: Request) -> Outcome:
             request.root,
             record,
             findings.model_dump_json(indent=2) + "\n",
-            request.pack.data,
+            loaded,
             report.document(
                 record, scan, driven, plan.document, () if recorded is None else recorded[2]
             ),
@@ -200,39 +231,103 @@ def run(request: Request) -> Outcome:
         document=artefacts.plan,
         patch=artefacts.patch,
         evidence=written.relative,
-        declared=scan.runtime,
+        blocked=scan.blocked,
+        notes=notes,
     )
 
 
-def _sources(request: Request, scan: scanner.Scan) -> dict[str, bytes]:
-    """The bytes of every file the driver may rewrite; manifests come from the walk, unparsed."""
-    selection = walker.walk(request.root, request.config)
-    wanted = {result.path for result in scan.results} | set(selection.manifests)
-    try:
-        return {name: fsutil.read(request.root / name) for name in sorted(wanted)}
-    except OSError as error:
-        raise CommandError(
-            f"{error.filename} could not be read a second time: {error.strerror}. "
-            f"Nothing was written.",
-            1,
-        ) from error
+@dataclass(frozen=True, slots=True)
+class Scanned:
+    """A pack and what it found in the one read of the repository."""
+
+    loaded: LoadedPack
+    scan: scanner.Scan
 
 
-def _driven(request: Request, scan: scanner.Scan, spec: ScanSpec) -> codemod.Run:
-    """Every rule of the pack over the repository, as one value."""
+@dataclass(frozen=True, slots=True)
+class Chosen:
+    """The repository read once, and the packs that run over it, in id order."""
+
+    tree: scanner.Tree
+    packs: tuple[Scanned, ...]
+    # Every pack tried, so a run that finds none can say which it asked.
+    tried: tuple[str, ...]
+
+
+def select(
+    root: Path,
+    config: Config,
+    packs: Sequence[LoadedPack],
+    *,
+    named: bool,
+    jobs: int | None,
+) -> Chosen:
+    """Read `root` once, scan with every pack, and keep the named ones or those with a row.
+
+    Two packs that cannot run together (`loader.conflict`) are refused, since the order between
+    them would decide what is written.
+    """
+    ordered = sorted(packs, key=lambda loaded: loaded.pack.id)
+    specs = [loader.to_scan_spec(loaded) for loaded in ordered]
+    tree = scanner.read(root, config, specs)
+    scans = [
+        Scanned(loaded, scanner.scan(root, config, spec, jobs=jobs, tree=tree))
+        for loaded, spec in zip(ordered, specs, strict=True)
+    ]
+    kept = tuple(one for one in scans if named or scanner.applies(one.scan))
+    for index, first in enumerate(kept):
+        for second in kept[index + 1 :]:
+            reason = loader.conflict(first.loaded.pack, second.loaded.pack)
+            if reason is not None:
+                raise CommandError(f"{reason}; run them one at a time with --pack.", 2)
+    return Chosen(tree, kept, tuple(one.loaded.pack.id for one in scans))
+
+
+@dataclass(frozen=True, slots=True)
+class _Pass:
+    """One pack's turn: its scan (of the tree as the packs before it left it) and what it plans."""
+
+    loaded: LoadedPack
+    scan: scanner.Scan
+    run: codemod.Run
+
+
+def _fold(request: Request, chosen: Chosen) -> list[_Pass]:
+    """The packs in id order, each over what the ones before it wrote, in memory.
+
+    A pack is scanned again only when an earlier one wrote a file it has a row in, whose lines
+    have then moved.
+    """
+    current = chosen.tree
+    written: set[str] = set()
+    passes: list[_Pass] = []
+    for one in chosen.packs:
+        spec = loader.to_scan_spec(one.loaded)
+        scan = one.scan
+        if written & {row.path for row in scan.findings if row.scan_status != "not_a_usage"}:
+            scan = scanner.scan(request.root, request.config, spec, jobs=None, tree=current)
+        driven = _driven(current, scan, one.loaded, spec)
+        if scan.blocked:
+            driven = codemod.blocked(driven, scan.blocked[0].reason)
+        passes.append(_Pass(one.loaded, scan, driven))
+        changed = {outcome.path: outcome.after for outcome in driven.written}
+        if changed:
+            current = current.with_bytes(changed)
+            written.update(changed)
+    return passes
+
+
+def _driven(
+    tree: scanner.Tree, scan: scanner.Scan, loaded: LoadedPack, spec: ScanSpec
+) -> codemod.Run:
+    """Every rule of one pack over the tree, as one value."""
+    sources = {path: entry.data for path, entry in tree.entries.items() if entry.data is not None}
     try:
-        return codemod.run(scan, _sources(request, scan), request.pack.pack, spec)
+        return codemod.run(scan, sources, loaded.pack, spec)
     except codemod.CodemodError as error:
         raise CommandError(f"the run could not be planned: {error}. Nothing was written.", 1) from (
             error
         )
-
-
-def _proposing_nothing(driven: codemod.Run) -> codemod.Run:
-    """Python below 3.10: rows still graded, but nothing is planned, written or sent to a model."""
-    return codemod.Run(
-        files=(), manifests=(), plans=driven.plans, manifest_plan=driven.manifest_plan
-    )
 
 
 def _journaled(request: Request, run_id: str, plan: run_dir.Planned) -> bool:
@@ -254,10 +349,17 @@ def _changes(driven: codemod.Run) -> tuple[Change, ...]:
     )
 
 
-def _consulted(request: Request, driven: codemod.Run, stopped: Apply | None) -> _Model:
-    """The model pass; none without a provider or after a gate refusal, so nothing is sent."""
+def _whole(loaded: LoadedPack) -> bool:
+    """Whether the pack's one distribution holds both APIs, so only the whole repository moves."""
+    return manifests.coupled(loader.to_scan_spec(loaded))
+
+
+def _consulted(
+    request: Request, passes: Sequence[_Pass], driven: codemod.Run, stopped: Apply | None
+) -> _Model:
+    """The model pass; none without a provider, a pack or after a gate refusal, nothing is sent."""
     provider = openai_compat.build(request.model, request.environ)
-    if provider is None or stopped is not None:
+    if provider is None or stopped is not None or not passes:
         return _Model(driven)
     consulting = time.monotonic()
     session = proposals.consult(
@@ -267,7 +369,7 @@ def _consulted(request: Request, driven: codemod.Run, stopped: Apply | None) -> 
         findings=driven.findings,
         plans=driven.plans,
         sources={outcome.path: outcome.before for outcome in driven.files},
-        pack=request.pack.pack,
+        pack=passes[0].loaded.pack,
         environ=request.environ,
     )
     return _Model(proposals.folded(driven, session), session, _ms(consulting))
@@ -299,14 +401,26 @@ def _recorded(
 
 def context(request: Request) -> list[str]:
     """`--show-context`: what would be sent; no request, no run folder, no write."""
-    spec = loader.to_scan_spec(request.pack)
-    scan = scanner.scan(request.root, request.config, spec, jobs=None)
-    driven = _driven(request, scan, spec)
+    chosen = select(request.root, request.config, request.packs, named=request.named, jobs=None)
+    if len(chosen.packs) != 1:
+        raise CommandError(
+            f"--show-context needs exactly one pack; this repository has {len(chosen.packs)}. "
+            f"Name one with --pack.",
+            2,
+        )
+    one = chosen.packs[0]
+    if _whole(one.loaded):
+        raise CommandError(
+            f"--show-context: {one.loaded.pack.id} moves a whole repository or none of it, so no "
+            f"model is asked about it.",
+            2,
+        )
+    driven = _driven(chosen.tree, one.scan, one.loaded, loader.to_scan_spec(one.loaded))
     asked, skipped = providers.questions(
         findings=driven.findings,
         plans=driven.plans,
         sources={outcome.path: outcome.before for outcome in driven.files},
-        pack=request.pack.pack,
+        pack=one.loaded.pack,
         environ=request.environ,
     )
     return proposals.shown(request.model, asked, skipped)
@@ -439,14 +553,17 @@ def _after(applied: Apply, reason: VerifyReason) -> run_dir.Verified:
     return _silent(reason if applied.written else "no_changes_to_verify")
 
 
-def _exit(phases: _Phases, *, outstanding: bool) -> ExitCode:
-    """`docs/CLI.md`'s exit precedence: 5, 3, 6, 4, 0 (7 left earlier, via `obelize.cli`)."""
+def _exit(phases: _Phases, *, outstanding: bool, idle: bool) -> ExitCode:
+    """`docs/CLI.md`'s exit precedence: 5, 3, 6, 4, 0 (7 left earlier, via `obelize.cli`).
+
+    `idle`: no pack applies, so writing nothing is the whole job and not a withheld one.
+    """
     if phases.applied is not None and phases.applied.blocked:
         return 5
     code = verdicts.exit_code(phases.verified.record)
     if code:
         return code
-    if phases.applied is not None and (not phases.applied.written or outstanding):
+    if phases.applied is not None and ((not phases.applied.written and not idle) or outstanding):
         return 4
     return 0
 

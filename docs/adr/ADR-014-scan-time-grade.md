@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050.
 
 ## Decision
 
@@ -50,13 +50,6 @@ A JSON Schema is generated only from a model in the code, never from prose, as a
 `src/obelize/schemas/generate.py`'s `SCHEMAS`. `findings.json`, also `obelize scan --json`'s
 output, carries nothing time-derived, keeps its findings in document order and recomputes its
 counts from them.
-
-### D8. `ImpactPolicy.import_policy` exists from today, and its default does not move
-
-`import_policy` is `atomic` (the default, ADR-010 F-1) or `dual`. The planner grades `dual`
-for measurement and the codemod driver refuses it, as no rule implements it. It is not a
-`ScanSpec` field: it is not the pack's, and [ADR-005](ADR-005-tech-stack.md)'s cache key
-hashes only the pack and the file.
 
 ## Consequences
 

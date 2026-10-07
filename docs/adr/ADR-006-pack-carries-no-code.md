@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050 and ADR-053.
 
 ## Decision
 
@@ -11,8 +11,7 @@ Accepted.
 `src/obelize/transforms/registry.py` and supply parameters validated by that
 kind's pydantic `Params` model (a discriminated union on `kind`). A pack never
 carries code, evaluated templates, shell strings or regular expressions that
-drive behaviour; `replacement`-style fields accept a qualified-symbol pattern
-only. A pack is untrusted data (threat model boundary B1), and anything
+drive behaviour; symbol fields accept a qualified-symbol pattern only. A pack is untrusted data (threat model boundary B1), and anything
 evaluated in it would be code execution inside a tool that edits the user's tree.
 
 **The v0 kind registry, in full:**
@@ -22,7 +21,7 @@ evaluated in it would be code execution inside a tool that edits the user's tree
 | `rename_import` | rewrite import statements and module paths, with alias and submodule mapping |
 | `configure_to_client` | turn a module-level `configure(...)` into a client construction |
 | `generative_model_calls` | the model constructor and its methods, including config and safety merging |
-| `rewrite_call` | a single legacy call to a new dotted call under the client, with argument mapping |
+| `rewrite_call` | a single legacy call to a new dotted call under the client, or under the module the author wrote, with argument mapping and the reads of its result that carry |
 | `flag_only` | report a surface, never rewrite it |
 | `manifest_dependency` | rewrite or report a dependency declaration in a manifest |
 
@@ -31,11 +30,9 @@ not something a pack can do.
 
 **Fail-closed is a rule, not a preference.** An ambiguous or unsupported pattern
 becomes **`needs_review`** or **`unsupported`** with a closed-vocabulary reason
-code and a suggested snippet, never a guessed fix. A rule that cannot satisfy its
-preconditions raises `BailError(reason)`; that group is demoted and the file's
-other groups still apply. The precondition vocabulary is closed and enforced in
-code: `import_resolved`, `receiver_resolved`, `closed_world_binding`,
-`client_available`, `static_kwargs`, `literal_stream_flag`, `no_unknown_kwargs`.
+code and a suggested snippet, never a guessed fix. A rule that cannot prove what it
+needs raises `BailError(reason)`; that group is demoted and the file's other
+groups still apply.
 
 ### Schema additions
 
@@ -52,7 +49,7 @@ code: `import_resolved`, `receiver_resolved`, `closed_world_binding`,
 
 Validation is closed-world (`extra="forbid"`). A pack is rejected for an unknown
 field, a `from`/`to` range that is not PEP 440 or contradicts itself, a duplicate
-change id, an unknown precondition, a missing `source.url` or `retrieved_at`,
+change id, a missing `source.url` or `retrieved_at`,
 `language != python` or an empty `match.imports`; a negative pack under
 `tests/packs/_negative/` proves each rejection, a smuggled shell string included.
 
@@ -89,7 +86,7 @@ half-rewritten group breaks working code. Chat objects use the same mechanism fo
 ## Consequences
 
 - A hostile pack cannot execute anything; a bad rewrite it describes must still
-  survive the rule, its preconditions, `parse` plus `compile` and the user's tests.
+  survive the rule, `parse` plus `compile` and the user's tests.
 - The pack sha256 is recorded in the run evidence; a remote pack would need
   signing and a trust policy.
 - `verification.suggestions` in a pack is display-only (ADR-007).

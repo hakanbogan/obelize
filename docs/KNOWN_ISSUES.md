@@ -66,8 +66,9 @@ its rule actually does, and a refusal it declares is never raised. Two call argu
 `embed_content`'s `task_type` and a dictionary `system_instruction`, are carried into the
 rewritten call verbatim instead of through the same alias handling other arguments get. The
 dependency-file reader misses some standard pip syntax and misreads uv, hatch and pdm tables; the
-Python-floor check only recognises a floor spelled down to the patch version and ignores
-`Pipfile`'s own floor.
+Python-floor check ignores `Pipfile`'s own `[requires]`. A directory of your own packs that sits
+inside the repository is scanned like any other path, so its fixtures are rewritten unless `exclude`
+names it.
 
 ## Codemod editing quality
 
@@ -133,6 +134,98 @@ this repository, not for someone who only installed the package.
 A little dead or test-only code remains in the package, a few small utilities are duplicated
 across modules, there is an import cycle between two packages, and one module has grown very
 large. A handful of docstrings still point forward to work that has since shipped.
+
+## The openai pack
+
+`openai/openai-0-to-1` writes nothing until it can write everything, because `openai` 0.x and 1.x
+are one distribution and a half-migrated repository installs neither way. A single place it
+withholds anywhere in the repository (an `openai.Image` call, an async or a streamed call, a
+dictionary-style read, a file that does not parse, an import of `requests`, `aiohttp` or another
+module `openai` 0.28.1 installed that no manifest declares, or a dependency line it cannot rewrite
+in place) leaves every file and the pin as they were, and an apply exits `4`. `obelize scan` grades files one at a time, so it can show rows
+`eligible` that `fix` then withholds. I have not measured how many repositories that is: the pack
+has no Gate 1 result.
+
+A 0.28.1 result could be read as a dictionary, as in
+`response["choices"][0]["message"]["content"]` or `response.get("choices")`, and either raises on a
+1.x result. The pack rewrites a call only when every read of its result is an attribute path it lists,
+so each such call is `response_shape_changed`, and by the paragraph above it holds back the
+repository. Rewriting the read as well as the call is not done.
+
+A result bound to a module-level name that another module imports is checked for reads in the file
+that binds it only. A dictionary-style read in the importing module goes unseen, so the call is
+rewritten and that read fails at run time.
+
+A requirement that names extras or a URL, such as `openai[datalib]==0.28.1`, cannot be rewritten in
+place. The scan marks the line `manifest_pin_shape_unsupported`, and `fix` leaves every file as it
+was, each row `repo_not_fully_migrated`, and exits `4`. The report names the line. Write the new pin
+into it by hand (`openai[datalib]>=1.109.1`) and run again: a declaration whose lowest admitted
+version is already 1.109.1 or later is left as written.
+
+The new releases read `OPENAI_BASE_URL` and `OPENAI_ORG_ID`, where 0.28.1 read `OPENAI_API_BASE`
+and `OPENAI_ORGANIZATION`. A gateway or an organization set only through the environment is lost
+without an error once the pin moves, and the pack does not look at environment variables. Rename
+them where they are set. `OPENAI_API_KEY` is the same on both sides.
+
+Top-level `openai.APIError` is not reported. It exists on both sides, and code already on the new
+release writes `except openai.APIError`, so reporting it would keep every modern repository on the
+pack's list. A handler for it that reads `http_status`, `json_body` or `user_message` fails with
+`AttributeError` once the pin moves, and obelize says nothing: search for those three names after a
+run.
+
+Where the pack does not look, and what that costs. A legacy name in the first three is neither
+migrated nor reported, and the pin still moves when everything else does:
+
+- A name another of your modules re-exports (`from mylib import openai`), a client built in another
+  file, and `pytest.importorskip("openai")`. The module is followed inside one file. Search for
+  them before you apply.
+- A patch target written against your own module: `mock.patch("myapp.llm.openai.ChatCompletion.create")`,
+  `patch.object(myapp.llm.openai, ...)` and `mock.patch.dict(sys.modules, {...})`. Only a target that
+  starts at `openai` is reported. The test keeps patching a name that no longer exists, so change the
+  target by hand once the code has moved.
+- Files outside `.obelize.yml`'s `include` and `exclude`. They are neither migrated nor checked,
+  and the pin moves. `REPORT.md` lists an excluded file that names the distribution. It says nothing
+  of a file under an always-excluded directory such as `vendor/` or `build/`, or of a `.py` file an
+  `include` leaves out. Run this pack over the whole repository.
+- Which app declares a module. The check for what 0.28.1 installed (`requests`, `aiohttp`,
+  `urllib3`, `certifi`, `tqdm` and what those bring, listed in the pack's `match.transitive`) asks
+  whether any manifest in the repository declares it, so in a monorepo a module one app declares
+  counts as declared for all of them, and the pin can move while another app loses a library
+  `openai` 0.28.1 installed for it.
+- A file obelize does not read: one over the size limit or that it cannot open, a script with no
+  `.py` name, a `.pyx` or a notebook an `include` leaves out. The report lists the first two as
+  limitations, the pin moves beside them, and a legacy call in one fails at run time.
+- Spellings Python folds to the same name, such as fullwidth letters in `openai`: the scan reads
+  the text as written.
+- The names a result is read through when the file reads names by their strings: a file that calls
+  `locals()`, `globals()`, `vars()`, `eval` or `exec` holds every call whose result is bound to a
+  name, which is the safe answer and often more than the file needs.
+- A dependency in a form obelize does not read: `dev-requirements.txt` (only `requirements*.txt` and
+  `requirements/*.txt` match), `requirements.in`, a constraints file, an `-r` include of a name
+  that does not match, a `Dockerfile` pip line, a `setup.py` that assigns the requirements to a
+    variable first, a `setup.cfg` line with a trailing comment, `[tool.uv] dev-dependencies`,
+  `[tool.pdm.dev-dependencies]`, the `[tool.poetry.dependencies.openai]` table form, `environment.yml`
+  and `tox.ini`. The old pin stays there with no row. Search for `openai==` after a run. A form it
+  reads but cannot honour blocks the repository instead: a hash-pinned line, `openai===0.28.1`,
+  `openai==0.*`, an editable or VCS requirement and a local wheel are `legacy_version_unsupported`,
+  and a Poetry or Pipfile inline table with only a version is `manifest_pin_shape_unsupported`.
+
+Writing is per file, not for the repository. A failure part-way (exit `5`, for example a read-only
+directory) can leave the code written and the pin not, or the reverse. `obelize undo --run <id>`
+restores every byte it wrote.
+
+A rewritten call has three rough edges. An f-string `=` specifier prints the call's source text,
+which the rewrite changes. A comment inside the replaced call is dropped, as for every rule:
+between its arguments, in the dotted callee, or after its opening parenthesis. A call inside a
+multi-line bracket is laid out at its statement's indent, which compiles and reads oddly. And a rule other than `rewrite_call` may wrap a call inside a single-line f-string, which
+Python before 3.12 refuses and obelize's own check, running on 3.12 or later, accepts;
+`rewrite_call` lays such a call out on one line. Separately, a chain of hundreds of terms (an `elif` ladder, a long `+`) cannot be rendered back
+to bytes, so the file is a `parse_error` row and holds the repository, as under Scanning and
+rewriting; it takes generated code.
+
+The token `openai` is in every file that uses the new API too, so a repository already on the new
+release parses every such file: about a tenth of a second of CPU each, a few minutes for three
+thousand files, with the workers a fraction of that.
 
 ## What actually gets migrated
 

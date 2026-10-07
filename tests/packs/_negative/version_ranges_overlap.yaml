@@ -18,6 +18,7 @@ from:
 to:
   package: demo-legacy
   version: '>=1'
+  requires_python: '>=3.9'
 match:
   imports:
   - demo_legacy

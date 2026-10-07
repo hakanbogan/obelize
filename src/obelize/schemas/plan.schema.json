@@ -15,6 +15,7 @@
                   "output_names_unresolved",
                   "file_too_large",
                   "runtime_unsupported",
+                  "legacy_version_unsupported",
                   "conditional_binding",
                   "module_alias_rebound",
                   "model_object_escapes",
@@ -54,7 +55,6 @@
                   "ctor_argument_not_portable",
                   "attribute_removed",
                   "flag_only_surface",
-                  "file_object_fields_not_verified",
                   "types_import_typing_only",
                   "error_class_changed",
                   "usage_unmapped",
@@ -90,6 +90,7 @@
                 "output_names_unresolved",
                 "file_too_large",
                 "runtime_unsupported",
+                "legacy_version_unsupported",
                 "conditional_binding",
                 "module_alias_rebound",
                 "model_object_escapes",
@@ -129,7 +130,6 @@
                 "ctor_argument_not_portable",
                 "attribute_removed",
                 "flag_only_surface",
-                "file_object_fields_not_verified",
                 "types_import_typing_only",
                 "error_class_changed",
                 "usage_unmapped",
@@ -173,11 +173,9 @@
               "client_constructed_eagerly",
               "model_name_looks_prefixed",
               "count_tokens_config_dropped",
-              "tests_touched_by_migration",
               "positional_args_mapped_by_index",
               "history_parts_rewritten",
-              "async_stream_await_preserved",
-              "stale_mock_target"
+              "async_stream_await_preserved"
             ],
             "type": "string"
           },
@@ -295,13 +293,18 @@
       "title": "Obelize Version",
       "type": "string"
     },
-    "pack": {
-      "$ref": "#/$defs/PackRef"
+    "packs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PackRef"
+      },
+      "title": "Packs",
+      "type": "array"
     }
   },
   "required": [
     "obelize_version",
-    "pack",
+    "packs",
     "files",
     "edits"
   ],

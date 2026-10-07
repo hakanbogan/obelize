@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-053.
 
 ## Decision
 
@@ -61,7 +61,8 @@ insertion. The insertion goes below, so the legacy pin keeps the line number eve
 
 ### D7. One code for what the rule will not write, and it names a shape
 
-`manifest_pin_shape_unsupported` (`needs_review`, fix time only) covers a line that says more than
+`manifest_pin_shape_unsupported` (`needs_review`; fix time, and the scan for a pack whose one
+distribution holds both APIs, [ADR-053](ADR-053-shared-module-migrations.md) D12) covers a line that says more than
 this distribution at this version: extras, a direct URL, a table value that is not one version
 string; and, for an insertion only, a line that also carries the array's or field's key or a second
 declaration, which a copy would duplicate. One code, because the reader does the same thing in every

@@ -2,24 +2,20 @@
 
 from __future__ import annotations
 
+import acme
 from acme import SPEC, scan
 
 from obelize.impact import dataflow, planner
-from obelize.models import ATOMICITY_BAIL, BAIL_CODES, Finding, ImpactPlan, ImpactPolicy
+from obelize.models import ATOMICITY_BAIL, BAIL_CODES, Finding, ImpactPlan
 from obelize.scan import analysis, parse
 
-DUAL = ImpactPolicy(import_policy="dual")
+
+def plan(source: str) -> ImpactPlan:
+    return planner.plan(scan(source), SPEC)
 
 
-def plan(source: str, policy: ImpactPolicy | None = None) -> ImpactPlan:
-    return planner.plan(scan(source), SPEC, policy)
-
-
-def graded(source: str, policy: ImpactPolicy | None = None) -> list[tuple[int, str, str | None]]:
-    return [
-        (finding.line, finding.scan_status, finding.bail)
-        for finding in plan(source, policy).findings
-    ]
+def graded(source: str) -> list[tuple[int, str, str | None]]:
+    return [(finding.line, finding.scan_status, finding.bail) for finding in plan(source).findings]
 
 
 def bindings(source: str) -> list[tuple[str, int, str, str | None]]:
@@ -268,18 +264,6 @@ def ask(q):
     assert group.lines == (7, 8, 9)
 
 
-def test_the_dual_policy_withholds_nothing_for_atomicity() -> None:
-    """`dual` keeps both imports, so each group stands alone and no row gets the atomicity code."""
-    assert graded(TWO_CAUSES, DUAL) == [
-        (1, "eligible", None),
-        (3, "eligible", None),
-        (5, "unsupported", "attribute_removed"),
-        (9, "needs_review", "model_object_escapes"),
-        (11, "needs_review", "model_object_escapes"),
-    ]
-    assert plan(TWO_CAUSES, DUAL).import_policy == "dual"
-
-
 LOCAL = """def build(q):
     import acme.sdk as sdk
 
@@ -337,7 +321,6 @@ def test_every_row_in_a_plan_names_the_file_the_plan_is_for() -> None:
     assert built.path == "probe.py"
     assert {finding.path for finding in built.findings} == {"probe.py"}
     assert {row.path for row in built.bindings} == {"probe.py"}
-    assert built.import_policy == "atomic"
 
 
 def test_a_file_with_nothing_in_it_plans_nothing() -> None:
@@ -355,10 +338,14 @@ def test_a_file_that_does_not_parse_keeps_its_one_finding() -> None:
     assert built.bindings == ()
 
 
-def test_the_policy_defaults_to_the_atomic_rule() -> None:
-    """`plan()` takes no policy in the oracle harness and must not invent one."""
-    assert (
-        planner.plan(scan(CLOSED), SPEC).import_policy
-        == planner.plan(scan(CLOSED), SPEC, ImpactPolicy()).import_policy
-        == "atomic"
+def test_a_library_with_no_client_needs_none_and_no_row_is_graded_for_one() -> None:
+    old = acme.OLD_SPEC
+    assert old.client_symbol is None
+    built = planner.plan(scan("import acme.old\n\nacme.old.Reader(1)\n", old), old)
+    assert [(row.line, row.scan_status, row.bail) for row in built.findings] == [
+        (1, "eligible", None),
+        (3, "eligible", None),
+    ]
+    assert not any(
+        planner.configures(row, old) or planner.needs_client(row, old) for row in built.findings
     )

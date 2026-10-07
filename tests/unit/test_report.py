@@ -15,7 +15,7 @@ from obelize.config import load as load_config
 from obelize.evidence import report, run_dir
 from obelize.models import PackRef, PlanDocument, RunRecord, UndoFile, UndoRecord, VerifyRecord
 from obelize.packs import loader
-from obelize.scan import runner
+from obelize.scan import runner, runtime
 
 BUNDLED = "gemini/google-generativeai-to-google-genai"
 
@@ -43,7 +43,7 @@ def _record(root: Path, scan: runner.Scan) -> RunRecord:
     return run_dir.compose(
         run_id=run_dir.new_id(run_dir.now(), "3f9a1c72"),
         scan=scan,
-        pack=loader.load(BUNDLED),
+        packs=[run_dir.Used(loader.load(BUNDLED), scan.blocked[0] if scan.blocked else None)],
         config=loaded.config,
         source=loaded.source,
         git=gitutil.state(root),
@@ -149,13 +149,57 @@ def test_the_blocked_repository_says_so_before_anything_else(tmp_path: Path) -> 
     assert "## Blocked\n\n`pyproject.toml` declares Python `>=3.9`, which allows" in document
 
 
+@pytest.mark.parametrize(
+    ("blocked", "says"),
+    [
+        (
+            runtime.Blocked("runtime_unsupported", "new-sdk", "pyproject.toml", ">=3.8", ">=3.10"),
+            "pyproject.toml declares Python >=3.8, which allows versions new-sdk does not install "
+            "on, so this run reports its findings and plans no change. To migrate, raise the "
+            "minimum in pyproject.toml to >=3.10 and run again.",
+        ),
+        (
+            runtime.Blocked(
+                "legacy_version_unsupported", "old-sdk", "requirements.txt", ">=1", ">=3"
+            ),
+            "requirements.txt declares old-sdk >=1, which allows versions this migration does "
+            "not cover, so this run reports its findings and plans no change. To migrate, pin "
+            "old-sdk to >=3 in requirements.txt and run again.",
+        ),
+        (
+            runtime.Blocked("legacy_version_unsupported", "old-sdk", "requirements.txt", "", ">=3"),
+            "requirements.txt declares old-sdk with no version, which allows versions this "
+            "migration does not cover, so this run reports its findings and plans no change. To "
+            "migrate, pin old-sdk to >=3 in requirements.txt and run again.",
+        ),
+        (
+            runtime.Blocked("legacy_version_unsupported", "old-sdk", "pyproject.toml", None, ">=3"),
+            "pyproject.toml declares old-sdk in a form obelize cannot read, so this run reports "
+            "its findings and plans no change. To migrate, write it as a plain requirement such "
+            "as old-sdk>=3 in pyproject.toml and run again.",
+        ),
+        (
+            runtime.Blocked("legacy_version_unsupported", "old-sdk", "", None, ">=3"),
+            "No manifest declares old-sdk, so the version in use is not known and this run "
+            "reports its findings and plans no change. To migrate, declare old-sdk >=3 in a "
+            "manifest obelize reads and run again.",
+        ),
+    ],
+    ids=["python", "pinned-below", "unpinned", "unreadable", "undeclared"],
+)
+def test_a_blocked_run_names_the_declaration_and_what_would_unblock_it(
+    blocked: runtime.Blocked, says: str
+) -> None:
+    assert report._blocked(blocked, report._bare) == says
+
+
 def test_the_report_carries_the_run_id_the_pack_and_the_selection(loud: Path) -> None:
     scan = _scan(loud)
     record = _record(loud, scan)
     text = report.document(record, scan)
     assert text.startswith("# obelize scan\n")
     assert record.run_id in text
-    assert record.pack.sha256 in text
+    assert record.packs[0].sha256 in text
     assert f"{scan.counts.files_parsed} parsed" in text
     assert text.endswith("\n")
 
@@ -234,7 +278,9 @@ def test_a_record_and_a_driver_run_that_disagree_about_the_mode_are_refused(
     record = _record(loud, scan)
     plan = PlanDocument(
         obelize_version=record.obelize_version,
-        pack=PackRef(id=record.pack.id, version=record.pack.pack_version, sha256="0" * 64),
+        packs=(
+            PackRef(id=record.packs[0].id, version=record.packs[0].pack_version, sha256="0" * 64),
+        ),
     )
     with pytest.raises(ValueError, match="'scan' record was rendered"):
         report.document(record, scan, None, plan)

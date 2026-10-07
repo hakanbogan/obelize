@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-015 (the exit-code table) and ADR-033 (D1.2).
+Accepted; amended by ADR-015 (the exit-code table), ADR-033 (D1.2) and ADR-052.
 
 ## Decision
 
@@ -27,8 +27,8 @@ plan. Not `4`, which `e2e.yml` treats as benign.
 ### D2 -- exit `7` when a pack is not valid
 
 Exit `7`: a pack was read and is not valid YAML or not a valid pack, from any command that
-loads one; the message says which. A missing file is `2` and an invalid bundled pack `1`, a
-defect in Obelize. Not `2`, so a script can tell an invalid pack from a mistyped flag.
+loads one; the message says which. A missing file is `2`, as are a pack named twice and two packs
+that cannot run together (ADR-052), and an invalid bundled pack is `1`, a defect in Obelize. Not `2`, so a script can tell an invalid pack from a mistyped flag.
 
 ### D3 -- the default dry run exits `0`
 

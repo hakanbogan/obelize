@@ -11,8 +11,9 @@ Accepted.
 `obelize fix` takes `--model <provider>`, `--accept-model` and `--show-context`; the last two have
 no `.obelize.yml` key, because a repository must not decide them for the user. `--accept-model`
 without `--apply`, and `--show-context` with `--apply`, exit `2` before the scan: the first has
-nothing to act on, the second asks to write and not write. `--allow-dirty` on a dry run is no
-error: it has a file equivalent.
+nothing to act on, the second asks to write and not write. A run that uses more than one pack
+refuses `--model` and `--accept-model` the same way (ADR-052 D6). `--allow-dirty` on a dry run is
+no error: it has a file equivalent.
 
 ### D2 -- `--show-context` prints and stops
 

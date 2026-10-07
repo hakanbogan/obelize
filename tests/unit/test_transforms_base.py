@@ -199,22 +199,6 @@ def test_a_required_import_is_reserved_once_and_anchored_to_the_first_statement(
 
 def test_only_the_rules_that_will_run_can_make_another_one_drop_an_import() -> None:
     """`consumed` comes from the rules handed to the context, so the import rule alone keeps it."""
-    pack = loader.load("gemini/google-generativeai-to-google-genai").pack
-    assert registry.consumed(pack) == frozenset(
-        {
-            "google.generativeai.GenerationConfig",
-            "google.generativeai.GenerativeModel",
-            "google.generativeai.configure",
-            "google.generativeai.delete_file",
-            "google.generativeai.embed_content",
-            "google.generativeai.embed_content_async",
-            "google.generativeai.get_file",
-            "google.generativeai.get_model",
-            "google.generativeai.list_files",
-            "google.generativeai.list_models",
-            "google.generativeai.upload_file",
-        }
-    )
     source = 'from acme.sdk import configure\n\nconfigure(key="k")\n'
     alone, edits = acme.transform(source, acme.CHANGE)
     assert alone == source

@@ -78,12 +78,24 @@ _FILE_WIDE: Final[tuple[BailCode, ...]] = (
 )
 
 # Hard-coded, not read from the pack: a pack carries no behaviour.
-_BY_NAME: Final[frozenset[str]] = frozenset({"importlib.import_module", "builtins.__import__"})
+_BY_NAME: Final[frozenset[str]] = frozenset(
+    {
+        "importlib.import_module",
+        "builtins.__import__",
+        "pkgutil.resolve_name",
+        "sys.modules.get",
+        "sys.modules.pop",
+        "sys.modules.setdefault",
+    }
+)
 _GETATTR: Final = "builtins.getattr"
 _SYS_MODULES: Final = "sys.modules"
 
 # Identifier segments only: `Finding` rejects a symbol like `google.generativeai.2`.
 _TAIL: Final = r"(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
+
+# What reaches a module's names without writing them: it is not one of its symbols.
+_REFLECTED: Final = frozenset({"__dict__", "__getattribute__"})
 
 # The pack refuses a `flag_only` shape whatever symbol the finding carries.
 _FLAGGED: Final[BailCode] = "flag_only_surface"
@@ -216,7 +228,7 @@ class _Pass:
             set(spec.symbols)
             | set(spec.constructor_symbols)
             | set(spec.flag_only_symbols)
-            | {spec.client_symbol}
+            | ({spec.client_symbol} if spec.client_symbol else set())
         )
         # The hyphenated distribution name never matches: it is not an importable path.
         modules = "|".join(re.escape(module) for module in spec.legacy_modules)
@@ -245,18 +257,43 @@ class _Pass:
         return set(value()) if isinstance(value, LazyValue) else set(value)
 
     def _legacy(self, node: cst.CSTNode) -> tuple[str, ...]:
+        """The legacy names `node` resolves to; a shared module itself counts, since it escapes."""
         names = self._names(node)
         return tuple(
             sorted(
                 name.name
                 for name in names
-                if name.source is QualifiedNameSource.IMPORT and self._under_legacy(name.name)
+                if name.source is QualifiedNameSource.IMPORT
+                and (self._under_legacy(name.name) or self._bare(name.name))
             )
         )
 
-    def _under_legacy(self, name: str) -> bool:
+    def _reaches(self, node: cst.CSTNode) -> bool:
+        """Whether `node` resolves into a legacy module, which a legacy name or not."""
         return any(
-            name == module or name.startswith(module + ".") for module in self._spec.legacy_modules
+            name.source is QualifiedNameSource.IMPORT and self._in_module(name.name)
+            for name in self._names(node)
+        )
+
+    @staticmethod
+    def _under(name: str, roots: Iterable[str]) -> bool:
+        return any(name == root or name.startswith(root + ".") for root in roots)
+
+    def _in_module(self, name: str) -> bool:
+        return self._under(name, self._spec.legacy_modules)
+
+    def _bare(self, name: str) -> bool:
+        return self._spec.shared and name in self._spec.legacy_modules
+
+    def _fetches(self, name: str) -> bool:
+        """Whether fetching `name` by its string gets a legacy name or, if shared, the module whose
+        attributes no import then names."""
+        return self._under_legacy(name) or self._bare(name)
+
+    def _under_legacy(self, name: str) -> bool:
+        """A shared module is legacy only under `symbols`: the rest is what the new SDK keeps."""
+        return self._under(
+            name, self._spec.symbols if self._spec.shared else self._spec.legacy_modules
         )
 
     def _line(self, node: cst.CSTNode) -> tuple[int, int]:
@@ -371,7 +408,7 @@ class _Pass:
             return
         module = _dotted(statement.module)
         if isinstance(statement.names, cst.ImportStar):
-            if self._under_legacy(module):
+            if self._under_legacy(module) or self._bare(module):
                 self._star = True
                 self._add(statement, "star_import", "star_import", module)
             # No placement code: `from x import *` inside a function is a SyntaxError.
@@ -438,13 +475,22 @@ class _Pass:
             first = call.args[0].value
             if names & _BY_NAME:
                 text = _string(first)
-                if text is not None and self._under_legacy(text):
+                if text is not None and text.startswith(".") and len(call.args) > 1:
+                    # `import_module(".error", "openai")` is relative to its package.
+                    package = _string(call.args[1].value)
+                    text = None if package is None else package + text
+                if text is not None and self._fetches(text):
                     self._claimed.add(id(first))
                     self._add(call, "dynamic", "dynamic_access", text, bail=_FLAGGED)
             elif _GETATTR in names and len(call.args) > 1:
                 module = self._legacy(first)
                 attribute = _string(call.args[1].value)
-                if module and attribute is not None and module[0] in self._spec.legacy_modules:
+                if (
+                    module
+                    and attribute is not None
+                    and module[0] in self._spec.legacy_modules
+                    and self._under_legacy(f"{module[0]}.{attribute}")
+                ):
                     self._claimed.add(id(first))
                     self._rebound = True
                     self._add(
@@ -462,7 +508,7 @@ class _Pass:
                 if not isinstance(index, cst.Index):  # pragma: no cover - a slice, not a key
                     continue
                 text = _string(index.value)
-                if text is not None and self._under_legacy(text):
+                if text is not None and self._fetches(text):
                     self._claimed.add(id(index.value))
                     self._add(subscript, "dynamic", "dynamic_access", text, bail=_FLAGGED)
 
@@ -472,11 +518,15 @@ class _Pass:
         A dotted chain resolves at every link, so a site is neither a legacy `Attribute`'s link nor
         a callee. The name set is read whole: `genai = None` after the import adds a LOCAL name.
         """
-        for node in sorted(self._qnp, key=self._line):
+        # libcst resolves a name in a `case {"k": name}` pattern on a node it gives no position.
+        for node in sorted((node for node in self._qnp if node in self._pos), key=self._line):
             if id(node) in self._claimed:
                 continue
             legacy = self._legacy(node)
-            if not legacy or self._is_link(node):
+            if isinstance(node, cst.SimpleString) and self._spec.shared:
+                # A string annotation names the module on the way to what it names.
+                legacy = tuple(name for name in legacy if not self._bare(name))
+            if not legacy or self._is_link(node) or self._shared_after_call(node):
                 continue
             names = self._names(node)
             imports = {n.name for n in names if n.source is QualifiedNameSource.IMPORT}
@@ -503,9 +553,30 @@ class _Pass:
         if isinstance(node, cst.Subscript):
             return True
         parent = self._parent(node)
-        if isinstance(parent, cst.Attribute) and parent.value is node and self._legacy(parent):
-            return True
+        if isinstance(parent, cst.Attribute) and parent.value is node and self._reaches(parent):
+            # In a shared module the call's own row answers for what is read off its result, and
+            # the module's namespace is no way round the symbols.
+            return not (
+                self._spec.shared
+                and (isinstance(node, cst.Call) or parent.attr.value in _REFLECTED)
+            )
         return isinstance(parent, cst.Call) and parent.func is node
+
+    def _shared_after_call(self, node: cst.CSTNode) -> bool:
+        """Whether `node` reads off what a call returned, which the call's own row answers for.
+
+        Only where the module is shared: elsewhere the read is a row of its own, and the one guard
+        against a read nobody vetted.
+        """
+        if not self._spec.shared:
+            return False
+        if isinstance(node, cst.Call):
+            node = node.func
+        while isinstance(node, cst.Attribute | cst.Subscript):
+            node = node.value
+            if isinstance(node, cst.Call):
+                return True
+        return False
 
     def _spelling(self, node: cst.CSTNode) -> ConfidenceReason:
         """Which import form bound `node`'s spelling; any other root is the full dotted path."""
@@ -543,7 +614,7 @@ class _Pass:
         """
         if not self._star:
             return
-        module = next(m for m in self._spec.legacy_modules if self._under_legacy(m))
+        module = self._spec.legacy_modules[0]
         for scope in _distinct(self._scopes.values()):
             for access in sorted(scope.accesses, key=lambda a: self._line(a.node)):
                 node = access.node
@@ -867,7 +938,7 @@ class _Pass:
             for offset, raw in enumerate(text.splitlines()):
                 for match in self._mention.finditer(raw):
                     at = line + offset
-                    if at in taken:
+                    if at in taken or not self._under_legacy(match.group(0)):
                         continue
                     found.setdefault(
                         (at, match.start() + column if offset == 0 else match.start()),

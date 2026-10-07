@@ -104,7 +104,7 @@ def drive(work: Path, spec: dict[str, Any], index: int) -> dict[str, Any]:
     wanted = {result.path for result in scan.results} | set(selection.manifests)
     sources = {name: (work / name).read_bytes() for name in sorted(wanted)}
     run = codemod.run(scan, sources, BUNDLED.pack, SPEC)
-    plan = run_dir.planned(run, BUNDLED)
+    plan = run_dir.planned(run, [BUNDLED])
     state = gitutil.state(work)
 
     applied = (
@@ -119,7 +119,7 @@ def drive(work: Path, spec: dict[str, Any], index: int) -> dict[str, Any]:
         run=run,
         plan=plan,
         verified=verified,
-        pack=BUNDLED,
+        packs=[run_dir.Used(BUNDLED)],
         config=config,
         source="defaults",
         git=state,
@@ -136,7 +136,9 @@ def drive(work: Path, spec: dict[str, Any], index: int) -> dict[str, Any]:
     )
     findings = FindingsDocument(
         obelize_version=record.obelize_version,
-        pack=PackRef(id=BUNDLED.pack.id, version=BUNDLED.pack.pack_version, sha256=BUNDLED.sha256),
+        packs=(
+            PackRef(id=BUNDLED.pack.id, version=BUNDLED.pack.pack_version, sha256=BUNDLED.sha256),
+        ),
         counts=scan.counts,
         findings=scan.findings,
     )
@@ -144,7 +146,7 @@ def drive(work: Path, spec: dict[str, Any], index: int) -> dict[str, Any]:
         work,
         record,
         findings.model_dump_json(indent=2) + "\n",
-        BUNDLED.data,
+        [BUNDLED],
         report.document(record, scan, run, plan.document),
         run_dir.artefacts(plan, verified, applied),
     )

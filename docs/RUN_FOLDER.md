@@ -17,8 +17,9 @@ in `src/obelize/models.py` and `.github/workflows/e2e.yml` disagree.
       plan.json                 the planned edits, whether or not they were written
                                 (`plan` and `apply` only; a scan has no plan)
       patch.diff                unified diff, git-apply compatible
-      pack.yaml                 the pack, copied verbatim
-      pack.sha256               its hash
+      packs/<provider>/<slug>/  one folder per pack the run used, in `packs[]`:
+        pack.yaml                 the pack, copied verbatim
+        pack.sha256               its hash
       REPORT.md                 the human-readable report
       snapshots/before/…        files as they were before the patch
       snapshots/after/…         files as they were after the patch
@@ -32,7 +33,7 @@ in `src/obelize/models.py` and `.github/workflows/e2e.yml` disagree.
 ```
 
 What each file may contain is in [PRIVACY.md](PRIVACY.md). Every mode writes
-`run.json`, `findings.json`, `pack.yaml`, `pack.sha256` and `REPORT.md`; the
+`run.json`, `findings.json`, `packs/` and `REPORT.md`; the
 rest only when they apply: `plan.json` and `patch.diff` on `plan` and `apply`,
 `snapshots/` on `apply` for the files it wrote, `verify/` when a verification
 command ran and after `obelize verify`, `model/` when a model provider is
@@ -63,6 +64,9 @@ adds `undo.json` and nothing else. The folder may come from someone else's
 checkout, so neither follows a link in it: both open directories from
 `.obelize/` down without following links, refuse a link where a directory
 belongs, and write beside a name then rename over it.
+
+A folder is read by the release that wrote it: a 0.1.0 folder fails the schemas of a later release, so
+undo a 0.1.0 apply with 0.1.0.
 
 ### `.obelize/latest`
 
@@ -99,14 +103,13 @@ report is empty. Neither is ever absent.
 | `obelize_version` | string | all | The writing obelize's `__version__`. |
 | `mode` | string | all | `scan`, `plan` or `apply`. |
 | `exit_code` | integer | all | The process exit code ([CLI.md](CLI.md#exit-codes)); known last, so `run.json` follows every other artefact. |
-| `blocked` | string or null | all | `runtime_unsupported` when the project declares `requires-python < 3.10` (read from `pyproject.toml`, `setup.cfg` or Poetry's key): the run reports its findings and proposes no migration. An unparsable declaration leaves it unblocked. |
 | `argv` | array of strings | all | The arguments as received, excluding `argv[0]`, unredacted: `--verify` values and `--trust-repo-config` included. |
 | `python` | object | all | `{version, implementation}`, for example `{"version": "3.12.9", "implementation": "CPython"}`. No interpreter path: it names the machine and often the person. |
 | `platform` | object | all | `{system, release, machine}` from `platform`. |
 | `git_sha` | string or null | all | `HEAD` at the start of the run; `null` when the target is not the top of a git repository. |
 | `git_branch` | string or null | all | The current branch; `null` when detached or when the target is not the top of a git repository. |
 | `git_dirty` | boolean or null | all | Whether a tracked file anywhere in the repository had uncommitted changes at the start. **`false` outside git**, where the dirty-tree refusal (TM-8) cannot protect you; **`null` when git could not say**, which refuses an apply as `tree_unknown`. |
-| `pack` | object | all | See [`pack`](#pack). |
+| `packs` | array | all | One row per pack the run used, in id order; empty when none applied. See [`packs[]`](#packs). |
 | `config` | object | all | See [`config`](#config). |
 | `counts` | object | all | See [`counts`](#counts). |
 | `file_edits` | array | all | Files **written**, empty on `scan` and `plan`. See [`file_edits[]`](#file_edits). |
@@ -118,14 +121,18 @@ report is empty. Neither is ever absent.
 | `limitations` | array | all | What the run could not look at. See [`limitations[]`](#limitations). |
 | `timings` | object | all | The **only** place a wall clock appears. See [`timings`](#timings). |
 
-### `pack`
+### `packs[]`
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | string | `<provider>/<from>-to-<to>` ([PACK_SPEC.md](PACK_SPEC.md)). |
 | `pack_version` | string | The pack content's own semver. |
-| `sha256` | string | 64 lowercase hex characters, matching `pack.sha256` and the copy in `pack.yaml`. |
+| `sha256` | string | 64 lowercase hex characters, matching `packs/<id>/pack.sha256` and the copy in `pack.yaml`. |
 | `source` | string | `bundled` or `file`. No path: it could be absolute and outside the repository. |
+| `blocked` | string or null | `runtime_unsupported` when the project declares a Python the new distribution does not install on (read from `pyproject.toml`, `setup.cfg` or Poetry's key), or `legacy_version_unsupported` when the legacy distribution is pinned below the pack's floor, unpinned, or undeclared while the code uses it: this pack reports its findings, its rows are withheld for that reason, and it proposes no migration. An unparsable declaration leaves it unblocked. |
+
+When several packs ran, each ran over what the ones before it wrote, in id order, so an edit's `line`
+is in the file as its own pack saw it, and a `rule_id` is `<pack id>:<rule id>`.
 
 ### `config`
 
@@ -288,7 +295,7 @@ id, timings or absolute path), so two scans of one input are identical.
 | Field | Type | Description |
 |---|---|---|
 | `obelize_version` | string | The version that produced it. |
-| `pack` | object | `id`, `version` and `sha256`; `version` is `run.json`'s `pack_version`. |
+| `packs` | array | One `{id, version, sha256}` per pack the run used; `version` is `run.json`'s `pack_version`. |
 | `counts` | object | `files_selected`, `files_parsed`, `findings` and the scan's status split, as in [`counts`](#counts). |
 | `findings` | array | Every finding, in document order. |
 
@@ -328,7 +335,7 @@ No time-derived value and no `counts`: it lives only beside `run.json`.
 | Field | Type | Description |
 |---|---|---|
 | `obelize_version` | string | The version that produced it. |
-| `pack` | object | As in `findings.json`. |
+| `packs` | array | As in `findings.json`. |
 | `files` | array | One row per file whose bytes would change, in path order, shaped like [`file_edits[]`](#file_edits). |
 | `edits` | array | Every edit row, written or withheld, sorted by `(path, line)`. |
 
@@ -338,7 +345,7 @@ No time-derived value and no `counts`: it lives only beside `run.json`.
 |---|---|---|
 | `path`, `line` | string, integer | Repository-relative, 1-based. |
 | `status` | string | [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §8. |
-| `rule_id` | string or null | The pack rule behind it; `null` where no rule claimed the row, and on `model_proposed`. |
+| `rule_id` | string or null | `<pack id>:<rule id>`, the rule behind it; `null` where no rule claimed the row, and on `model_proposed`. |
 | `reason` | string or null | §4. Set on `needs_review` and `unsupported`, and kept on `model_proposed` as what the rules refused. |
 | `caused_by` | array of strings or null | Set exactly when `reason` is `file_not_fully_migrated`. |
 | `warnings` | array of strings | §5, sorted. |
@@ -545,13 +552,13 @@ and checks:
 | `.obelize/latest` names a run folder containing `run.json` | after `fix --apply` |
 | `run_id` and `obelize_version` are non-empty strings | after `fix --apply` |
 | `mode` is `apply` | after `fix --apply` |
-| `pack.id` is the requested pack and `pack.sha256` is 64 hex characters | after `fix --apply` |
+| `packs` holds the one requested pack, and its `sha256` is 64 hex characters | after `fix --apply` |
 | `git_dirty` is `false` | after `fix --apply` |
 | `exit_code` is `4` | after `fix --apply` |
 | `file_edits` is empty and `idempotent` is `true` | after `fix --apply` |
 | `counts.auto` is `0`, `withheld` has fourteen rows, and exactly one of them is `configure_consumed_elsewhere` | after `fix --apply` |
 | `verify.status` is `not_run` and `verify.reason` is `no_changes_to_verify` | after `fix --apply` |
-| `findings.json`, `plan.json`, `patch.diff`, `pack.yaml`, `pack.sha256` and `REPORT.md` all exist | after `fix --apply` |
+| `findings.json`, `plan.json`, `patch.diff`, `REPORT.md` and the pack's `pack.yaml` and `pack.sha256` all exist | after `fix --apply` |
 | `idempotent` is `true` and `file_edits` is empty | after the second `fix --apply` |
 
 `tests/unit/test_run_folder_contract.py` checks that the workflow reads only

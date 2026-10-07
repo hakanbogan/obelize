@@ -335,7 +335,8 @@ def test_the_measurement_was_run_against_the_pack_that_ships_today(
     A rewrite-only edit (parameters, wrap width) moves the file hash but no finding: `scan/*` and
     `impact/*` never see it (ADR-026 D8). `pack_sha256` still names the document measured.
     """
-    from obelize.cli import DEFAULT_PACK
+    from run import DEFAULT_PACK
+
     from obelize.packs import loader
 
     _, scanned, _ = inputs

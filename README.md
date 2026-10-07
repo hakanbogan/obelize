@@ -5,13 +5,18 @@
 [![Licence](https://img.shields.io/pypi/l/obelize)](https://github.com/hakanbogan/obelize/blob/main/LICENSE)
 [![CI](https://github.com/hakanbogan/obelize/actions/workflows/ci.yml/badge.svg)](https://github.com/hakanbogan/obelize/actions/workflows/ci.yml)
 
-obelize migrates Python code from `google-generativeai`, the deprecated Gemini SDK, to
-`google-genai`.
+obelize migrates Python code off libraries and library versions that are being retired:
+`google-generativeai`, the deprecated Gemini SDK, to `google-genai`, `PyPDF2` to `pypdf`, and `openai`
+0.28.1 to 1.109.1 or later. Each migration is a pack that ships with it:
+`gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf`.
 
 It finds every legacy call it can resolve, rewrites what it can prove, and leaves the rest with a
 reason. It runs on your machine, changes none of your files until you pass `--apply`, and can run
 your tests before and after the change. Google has ended support for the old SDK, which now warns
-on import that "All support for the `google.generativeai` package has ended".
+on import that "All support for the `google.generativeai` package has ended", and `PyPDF2` warns
+that it "is deprecated. Please move to the `pypdf` library instead." Run with no `--pack`,
+obelize runs every pack whose library your repository uses. `--pack` names one or more
+instead, and your own packs can sit in a directory your config lists.
 
 ## Install
 
@@ -30,7 +35,9 @@ pipx install --python python3.12 obelize
 
 obelize is a command-line tool, so install it as one and not into your project's environment. It
 needs Python 3.12 or newer, and pipx takes the one `--python` names. The project it migrates
-needs Python 3.10 or newer, as `google-genai` does. obelize runs on Linux, macOS and Windows.
+needs the Python its new library does: 3.10 or newer for `google-genai`, 3.9 or newer for `pypdf`,
+3.8 or newer for `openai`, where pip picks the newest release that installs. obelize runs on Linux,
+macOS and Windows.
 
 ## Quickstart
 
@@ -41,17 +48,17 @@ uvx obelize scan
 uvx obelize fix
 ```
 
-`scan` lists each import, call and dependency line of the old SDK that it can resolve, and
+`scan` lists each import, call and dependency line of the old libraries that it can resolve, and
 whether it can migrate it. `fix` is a dry run until you pass `--apply`: it prints the plan and the
 diff, and writes only its own record under `.obelize/`, which git ignores.
 
-To apply the change and have your tests check it, first install `google-genai` into your
-project's environment beside the old SDK, without changing a tracked file. `uv pip` works
-whether pip or uv made the environment. Your tests then run once before the change and once
-after:
+To apply the change and have your tests check it, first install the new libraries, here
+`google-genai` and `pypdf`, into your project's environment beside the old ones, without changing
+a tracked file. `uv pip` works whether pip or uv made the environment. Your tests then run once
+before the change and once after:
 
 ```bash
-uv pip install --python .venv/bin/python google-genai
+uv pip install --python .venv/bin/python google-genai pypdf
 uvx obelize fix --apply --verify ".venv/bin/python -m pytest -q"
 git diff
 ```
@@ -63,24 +70,34 @@ backslash as an escape. The run ends with a `Next:` line, and after a clean appl
 
 ## Example
 
-[examples/quickstart/](examples/quickstart/) is a small script on the old SDK. `obelize fix`
-prints this diff for it:
+[examples/quickstart/](examples/quickstart/) is a small script on both old libraries, which the two
+packs migrate one after the other. `obelize fix` prints this diff for it:
 
 ```diff
 diff --git a/app.py b/app.py
 --- a/app.py
 +++ b/app.py
-@@ -3,14 +3,18 @@
+@@ -3,22 +3,26 @@
  import os
  import sys
 
 -import google.generativeai as genai
+-import PyPDF2
 +from google import genai
 +from google.genai import types
++import pypdf
 
 -genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 -model = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.2})
 +client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+
+ def read(path):
+     if path.endswith(".pdf"):
+-        return "\n".join(page.extract_text() for page in PyPDF2.PdfReader(path).pages)
++        return "\n".join(page.extract_text() for page in pypdf.PdfReader(path).pages)
+     with open(path, encoding="utf-8") as handle:
+         return handle.read()
 
 
  def summarise(text):
@@ -96,13 +113,15 @@ diff --git a/app.py b/app.py
 diff --git a/requirements.txt b/requirements.txt
 --- a/requirements.txt
 +++ b/requirements.txt
-@@ -1 +1 @@
+@@ -1,2 +1,2 @@
 -google-generativeai==0.8.6
+-PyPDF2==3.0.1
 +google-genai>=1
++pypdf>=6.19
 ```
 
 The model object has no counterpart in `google-genai`, so its model name and generation config
-move into the call, and the dependency line moves to the new package.
+move into the call, and each dependency line moves to its new package.
 
 ## After a run
 
@@ -125,6 +144,10 @@ obelize writes a file only when it can migrate all of it, and keeps the old depe
 until nothing in the repository uses the old SDK. On a real project the usual result is `4`: obelize
 migrates the files it can prove, which can be none, and lists the rest in the report. All the codes are in
 [docs/CLI.md](docs/CLI.md#exit-codes).
+
+`openai` is the exception to that. Version 0 and version 1 are one install, so `openai/openai-0-to-1`
+writes no file while it leaves anything in the repository, and the new pin moves in the run that
+migrates all of it.
 
 ## Safety
 
@@ -170,13 +193,27 @@ you trust. These gaps are known in 0.1.0:
 | `obelize undo` | Puts back the files a run wrote, unless they were edited since. |
 | `obelize pack validate` | Checks a migration pack against the [pack format](docs/PACK_SPEC.md). |
 
-`scan` and `fix` use the bundled pack, `gemini/google-generativeai-to-google-genai`. It declares the
-16 changes the migration makes and 20 limitations. The limitations say what it reports instead of
-rewriting, such as every tool declaration, because automatic function calling is on by default in
-`google-genai`; what it cannot find; and what it rewrites without having checked it against a live
-API call. [docs/CLI.md](docs/CLI.md) has every flag and exit code. Every format, from the flags to
+`scan` and `fix` run every pack your repository uses, or the ones `--pack` names. The Gemini pack,
+`gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 20
+limitations. The limitations say what it reports instead of rewriting, such as every tool
+declaration, because automatic function calling is on by default in `google-genai`; what it cannot
+find; and what it rewrites without having checked it against a live API call. [docs/CLI.md](docs/CLI.md) has every flag and exit code. Every format, from the flags to
 the run folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability) lists each
 change.
+
+## Packs
+
+| Pack | Rewrites | Reports and leaves to you |
+|---|---|---|
+| `gemini/google-generativeai-to-google-genai` | The import, `configure`, the model object and its generation, chat and streaming calls, safety settings, file uploads and the dependency line. | Every tool declaration, since automatic function calling is on by default in `google-genai`. |
+| `openai/openai-0-to-1` | `openai.ChatCompletion.create`, `Completion.create` and `Embedding.create`, to the same calls on the module client (`openai.chat.completions.create`), and the dependency line. | Async and streamed calls, Azure, the other resources, the module settings the new releases ignore, the exception classes, and any call whose arguments or reads of its result it has not checked. |
+| `py-pdf/pypdf2-to-pypdf` | The import, the names that exist unchanged on both sides, and the dependency line. | The camelCase classes PyPDF2 3.0.0 removed and the names pypdf dropped. |
+
+The `openai` pack builds no client object, so `openai.api_key` and `openai.organization` keep their
+meaning. A 0.28.1 result is a dictionary and a new one is not, so it rewrites a call only when every
+read of the result is an attribute such as `response.choices[0].message.content`, and a call read as
+`response["choices"]` is left to you. It writes nothing while any place is left. The other two
+packs write each file they can migrate whole and leave the rest.
 
 ## Testing
 
@@ -191,7 +228,8 @@ runs.
 ## Benchmark
 
 Each number comes from [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), which lists every
-case behind it. The method is in [docs/BENCHMARK.md](docs/BENCHMARK.md).
+case behind it. The method is in [docs/BENCHMARK.md](docs/BENCHMARK.md). Every number is for the
+Gemini pack; `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf` have not been measured.
 
 | Measure | obelize | n |
 |---|---|---|
@@ -224,8 +262,11 @@ installed side by side, and each place it leaves has a written reason.
   import in another file or a container is missed, and the benchmark counts those misses.
 - On Windows, the test suite on GitHub's runner is all that has run. A real console, a OneDrive
   folder and a path longer than 260 characters are untried.
-- It handles this one migration. There is no pack registry, hosted service, dashboard, GitHub App
+- It handles the migrations its bundled packs describe. There is no pack registry, hosted service, dashboard, GitHub App
   or automatic pull request.
+- For `openai` it rewrites three calls and no other. A repository that uses the module in a way the pack lists is left
+  as it was, with each place in the report; [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md#the-openai-pack)
+  says which ways it does not see.
 
 ## Documents
 

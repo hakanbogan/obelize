@@ -30,6 +30,7 @@ from obelize.verify import runner as verify_runner
 from platforms import AS_ROOT, PYTHON, deny, junction, link, windows_only
 
 BUNDLED = "gemini/google-generativeai-to-google-genai"
+LOADED = loader.load(BUNDLED)
 
 # `KEEP = [MODEL]` lets the model escape, so one group bails and `withheld[]` has a row.
 LEGACY = """import google.generativeai as genai
@@ -68,7 +69,7 @@ def _record(scan: runner.Scan, tree: Path, **changes: object) -> RunRecord:
     arguments: dict[str, object] = {
         "run_id": run_dir.new_id(WHEN, "3f9a1c72"),
         "scan": scan,
-        "pack": pack,
+        "packs": [run_dir.Used(pack, scan.blocked[0] if scan.blocked else None)],
         "config": load_config(tree).config,
         "source": load_config(tree).source,
         "git": gitutil.state(tree),
@@ -116,8 +117,7 @@ def test_the_record_says_what_the_scan_found(scanned: runner.Scan, tree: Path) -
         "auto": 0,
         "warnings": 0,
     }
-    assert record.pack.id == BUNDLED
-    assert record.pack.source == "bundled"
+    assert [(pack.id, pack.source) for pack in record.packs] == [(BUNDLED, "bundled")]
     assert record.config.source == "defaults"
     assert record.timings.started_at == "2026-09-18T09:14:07Z"
     assert record.timings.finished_at == "2026-09-18T09:14:08Z"
@@ -197,19 +197,18 @@ def test_a_repository_below_the_floor_is_blocked_and_still_reported(tree: Path) 
     pack = loader.load(BUNDLED)
     scan = runner.scan(tree, load_config(tree).config, loader.to_scan_spec(pack), jobs=1)
     record = _record(scan, tree)
-    assert record.blocked == "runtime_unsupported"
+    assert [pack.blocked for pack in record.packs] == ["runtime_unsupported"]
     assert record.counts.findings == scan.counts.findings > 0
 
 
 def test_a_repository_at_or_above_the_floor_is_not(tree: Path) -> None:
-    """Declaring nothing also records `null`; only a declared floor shows the check ran."""
+    """A declared floor the new distribution installs on records `null`."""
     (tree / "pyproject.toml").write_text(
         '[project]\nname = "x"\nrequires-python = ">=3.10"\n', encoding="utf-8"
     )
     pack = loader.load(BUNDLED)
     scan = runner.scan(tree, load_config(tree).config, loader.to_scan_spec(pack), jobs=1)
-    assert scan.runtime is not None, "the floor was read"
-    assert _record(scan, tree).blocked is None
+    assert [pack.blocked for pack in _record(scan, tree).packs] == [None]
 
 
 def test_the_record_validates_against_its_committed_schema(
@@ -221,7 +220,7 @@ def test_the_record_validates_against_its_committed_schema(
 
 
 def _write(scan: runner.Scan, tree: Path, record: RunRecord) -> run_dir.Written:
-    return run_dir.write(tree, record, "{}\n", b"pack: yes\n", report.document(record, scan))
+    return run_dir.write(tree, record, "{}\n", [LOADED], report.document(record, scan))
 
 
 def test_the_five_artefacts_a_scan_writes_are_the_five_specified(
@@ -232,10 +231,14 @@ def test_the_five_artefacts_a_scan_writes_are_the_five_specified(
     assert sorted(path.name for path in written.directory.iterdir()) == [
         "REPORT.md",
         "findings.json",
-        "pack.sha256",
-        "pack.yaml",
+        "packs",
         "run.json",
     ]
+    assert sorted(
+        str(path.relative_to(written.directory / "packs"))
+        for path in (written.directory / "packs").rglob("*")
+        if path.is_file()
+    ) == [f"{BUNDLED}/pack.sha256", f"{BUNDLED}/pack.yaml"]
     assert written.relative == f".obelize/runs/{written.run_id}"
     assert (tree / ".obelize" / "latest").read_text(encoding="utf-8") == f"{written.run_id}\n"
 
@@ -264,8 +267,8 @@ def test_the_artefacts_land_before_run_json_and_latest_lands_after_it(
 def test_the_hash_file_is_the_hash_the_record_names(scanned: runner.Scan, tree: Path) -> None:
     record = _record(scanned, tree)
     written = _write(scanned, tree, record)
-    assert (written.directory / "pack.sha256").read_text(encoding="utf-8") == (
-        f"{record.pack.sha256}\n"
+    assert (written.directory / "packs" / BUNDLED / "pack.sha256").read_text(encoding="utf-8") == (
+        f"{record.packs[0].sha256}\n"
     )
 
 
@@ -275,7 +278,7 @@ def test_the_findings_document_is_written_exactly_as_it_was_handed_over(
     """`findings.json` must equal `--json` byte for byte, so the writer takes a string."""
     record = _record(scanned, tree)
     body = '{"findings": []}\n'
-    written = run_dir.write(tree, record, body, b"pack: yes\n", "# report\n")
+    written = run_dir.write(tree, record, body, [LOADED], "# report\n")
     assert (written.directory / "findings.json").read_text(encoding="utf-8") == body
 
 
@@ -430,9 +433,9 @@ def test_a_scan_handed_a_plan_and_a_plan_handed_none_are_both_refused(
     """If the index and the folder disagree, a reader cannot tell which is wrong."""
     record = _record(scanned, tree)
     with pytest.raises(run_dir.EvidenceError, match="no plan and no patch"):
-        run_dir.write(tree, record, "{}\n", b"p\n", "doc", _artefacts())
+        run_dir.write(tree, record, "{}\n", [LOADED], "doc", _artefacts())
     with pytest.raises(run_dir.EvidenceError, match="a plan and a patch"):
-        run_dir.write(tree, _as_fix(record), "{}\n", b"p\n", "doc")
+        run_dir.write(tree, _as_fix(record), "{}\n", [LOADED], "doc")
     assert not (tree / ".obelize").exists(), "nothing is created before the two agree"
 
 
@@ -459,11 +462,11 @@ def test_a_snapshot_the_index_does_not_name_is_refused(scanned: runner.Scan, tre
     )
     verify = _verified(record=VerifyRecord(status="not_run", reason="no_changes_to_verify"))
     with pytest.raises(run_dir.EvidenceError, match="describe different files"):
-        run_dir.write(tree, record, "{}\n", b"p\n", "doc", _artefacts(verify=verify))
+        run_dir.write(tree, record, "{}\n", [LOADED], "doc", _artefacts(verify=verify))
     stray = (("snapshots/before/" + "a" * 64, b"x"), ("snapshots/after/" + "c" * 64, b"y"))
     with pytest.raises(run_dir.EvidenceError, match="describe different files"):
         run_dir.write(
-            tree, record, "{}\n", b"p\n", "doc", _artefacts(verify=verify, snapshots=stray)
+            tree, record, "{}\n", [LOADED], "doc", _artefacts(verify=verify, snapshots=stray)
         )
 
 
@@ -474,7 +477,7 @@ def test_the_verification_written_twice_has_to_be_the_same_one(
     record = _as_fix(_record(scanned, tree))
     other = _verified(record=VerifyRecord(status="not_run", reason="no_changes_to_verify"))
     with pytest.raises(run_dir.EvidenceError, match="not the same one"):
-        run_dir.write(tree, record, "{}\n", b"p\n", "doc", _artefacts(verify=other))
+        run_dir.write(tree, record, "{}\n", [LOADED], "doc", _artefacts(verify=other))
 
 
 def _passed(**changes: object) -> CommandResult:
@@ -578,7 +581,7 @@ def test_a_fix_writes_its_artefacts_before_run_json_too(
         tree,
         record,
         "{}\n",
-        b"pack: yes\n",
+        [LOADED],
         "# report\n",
         _artefacts(
             verify=verified,
@@ -610,7 +613,7 @@ def test_the_index_and_the_model_directory_have_to_agree(scanned: runner.Scan, t
             tree,
             record,
             "{}\n",
-            b"p\n",
+            [LOADED],
             "doc",
             _artefacts(model=(("model/model.json", b"{}\n"),)),
         )
@@ -628,7 +631,7 @@ def test_the_index_and_the_model_directory_have_to_agree(scanned: runner.Scan, t
         timings={**_record(scanned, tree).timings.model_dump(), "plan_ms": 5, "model_ms": 7},
     )
     with pytest.raises(run_dir.EvidenceError, match="records a model"):
-        run_dir.write(tree, consulted, "{}\n", b"p\n", "doc", _artefacts())
+        run_dir.write(tree, consulted, "{}\n", [LOADED], "doc", _artefacts())
     assert not (tree / ".obelize").exists(), "nothing is created before the two agree"
 
 

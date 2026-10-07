@@ -7,8 +7,8 @@ A release requires real `--help` output and exit codes to match this page
 ## Surface
 
 ```
-obelize scan   [--repo .] [--pack gemini/google-generativeai-to-google-genai | ./pack.yaml] [--json] [--jobs N] [--list-files]
-obelize fix    [--pack <id|path>] [--repo .] [--apply] [--allow-dirty] [--verify "<cmd>"]... [--timeout <s>]
+obelize scan   [--repo .] [--pack <id|path>]... [--json] [--jobs N] [--list-files]
+obelize fix    [--pack <id|path>]... [--repo .] [--apply] [--allow-dirty] [--verify "<cmd>"]... [--timeout <s>]
             [--non-interactive] [--trust-repo-config] [--model <provider>] [--accept-model]
             [--show-context] [--json]
 obelize verify --run <id> [--repo .] [--verify "<cmd>"]... [--timeout <s>]
@@ -37,7 +37,7 @@ the repository.
 | Flag | Description |
 |---|---|
 | `--repo <path>` | Repository root. Default: the current directory. |
-| `--pack <id\|path>` | Bundled pack id or pack file path. Default: `gemini/google-generativeai-to-google-genai`, named so it cannot change meaning when another pack ships. |
+| `--pack <id\|path>` | A pack id or a pack file path; repeat it to run several, and only those run. Without it every known pack is tried over one read of the repository, and each one with a finding that is not `not_a_usage` runs ([several packs](#several-packs-in-one-run)). |
 | `--json` | Findings as JSON on stdout; the run folder's path on **stderr**. |
 | `--jobs N` | Worker processes; `1` is in-process. Default `min(8, cpu_count - 1)`, in-process below 32 prefilter survivors; an explicit `N` is always used, up to the 61 a Windows process pool takes. Never changes the output. |
 | `--list-files` | Print the selected files in order and stop, reading no file. The pack is still loaded (an invalid one exits `7`). |
@@ -48,8 +48,9 @@ Writes a run folder and updates `.obelize/latest`
 and paths are in `run.json`), so runs over the same input compare equal.
 Evidence is written before anything is printed; failing to write it exits `1`.
 
-Exit codes: `0` done, findings or not; `7` invalid pack; `2` usage error,
-including a `--repo` that is not a directory, `--jobs` below 1 or above 61 on Windows, and an unusable
+Exit codes: `0` done, findings or not, and also when no pack applies; `7` invalid pack; `2` usage
+error, including a `--pack` named twice, two packs that cannot run together, a `pack_dirs` entry
+that is not an existing directory, a `--repo` that is not a directory, `--jobs` below 1 or above 61 on Windows, and an unusable
 `.obelize.yml`; `1` unexpected error, including an unwritable run folder.
 
 ### A CI check
@@ -77,7 +78,7 @@ modified.
 
 | Flag | Description |
 |---|---|
-| `--pack <id\|path>` | Bundled pack id or pack file path. Default: `gemini/google-generativeai-to-google-genai`, as for `scan`. |
+| `--pack <id\|path>` | As for `scan`. |
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--apply` | Write the planned edits. Without it no source file is written: the terminal lists each file's hunks, then prints up to 200 lines of the unified diff, with secrets redacted and control characters escaped, and the path of `.obelize/runs/<id>/patch.diff`, which holds all of it as it is. |
 | `--allow-dirty` | Permit `--apply` with uncommitted changes. Without it, **any** modified or staged tracked file in the whole repository, or an untracked file on the plan, refuses the apply (other untracked files do not count, and the report counts the paths and never names them), so the `git diff` is the migration alone; so does `tree_unknown` (git failed, timed out or refused the directory). A dirty tree is recorded in the report. |
@@ -85,9 +86,9 @@ modified.
 | `--timeout <s>` | Override `verify.timeout_s` (at least 1). |
 | `--non-interactive` | Never prompt; refuse a repository command not on the user allowlist unless `--trust-repo-config` is passed. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` in a non-interactive or CI run. |
-| `--model <provider>` | `none` or `openai_compat`, replacing `model.provider` from [your own file](#the-user-files-configobelize) for this run. |
+| `--model <provider>` | `none` or `openai_compat`, replacing `model.provider` from [your own file](#the-user-files-configobelize) for this run. With more than one pack, or a pack that [moves a whole repository](#several-packs-in-one-run), a model is not asked: `--model` or `--accept-model` exits `2`, and a model only your own file configures is skipped with one line on stderr. |
 | `--accept-model` | Also write the model's edits that passed validation. Requires `--apply` (exit `2` otherwise). Without this flag a proposal is only in `plan.json`, `patch.diff` and `model/`. |
-| `--show-context` | Print what would be sent to a model and stop: no request, no run folder. Works with `provider: none`; not with `--apply`. |
+| `--show-context` | Print what would be sent to a model and stop: no request, no run folder. Works with `provider: none`; not with `--apply`; needs exactly one pack, and not one that [moves a whole repository](#several-packs-in-one-run). |
 | `--json` | `plan.json`'s bytes on stdout; the run folder's path on **stderr**. |
 
 **Phase order:** check the working tree and every planned path; consult a
@@ -124,6 +125,37 @@ of `base_url` (never the URL, which can carry a credential) and the model. The
 run adds `run.json`'s `model` object and a `model/` directory with one file per
 consultation ([RUN_FOLDER.md](RUN_FOLDER.md)). A written model proposal stays
 in `withheld[]`: validation shows that an edit is safe to apply, not that it is correct.
+
+### Several packs in one run
+
+`scan` and `fix` read the repository once and scan it with every pack they try. A pack runs when
+`--pack` names it, or, without `--pack`, when it has a finding that is not `not_a_usage`; a run
+that chooses none prints `No pack applies. Checked: <ids>.`, writes a run folder with `packs: []`
+and exits `0`.
+
+Two packs that cannot run together are refused (exit `2`): their legacy modules overlap, one writes
+a module the other migrates, or they name one distribution. Otherwise the packs run in id order,
+each over what the ones before it wrote, in memory, and the run has one gate, one write, one
+verification and one `undo`. Each pack keeps the file and manifest rules of a single run, so one can
+leave a file untouched while another writes it, and a pack the repository rules out (a declared
+Python it cannot install on, a legacy pin it was not measured on) is withheld alone, for that
+reason. An edit's `rule_id` is `<pack id>:<rule id>`, and its `line` is in the file as its pack saw
+it.
+
+A pack whose new library is the same distribution as the old one (`openai/openai-0-to-1`: `openai`
+0.x and 1.x are one install) is all or nothing inside its own turn. One pin serves both APIs, so
+while any row of the pack is withheld, whatever the reason, it writes no file and leaves the pin,
+each row of another file it would have written reads `repo_not_fully_migrated`, and an apply exits `4`. `scan` still
+grades each file on its own, so it can show `eligible` rows that `fix` then withholds. A declaration
+of `openai` that already admits only 1.109.1 or later is left as written. One that cannot be rewritten
+in place, with extras or a URL, holds every file too: `scan` marks it `manifest_pin_shape_unsupported`.
+
+A model is never asked about such a pack: a proposal is one row, and the pack writes a whole
+repository or none. `--model`, `--accept-model` and `--show-context` exit `2` with it, as with several packs, and a model
+only your own file configures is skipped with one line on stderr:
+`The configured model was not asked: <pack> moves a whole repository.` For several packs the line
+ends `this run uses more than one pack.` `fix` prints it, and `No pack applies`, on stderr, so
+`--json` keeps stdout to one document.
 
 ## `obelize verify`
 
@@ -200,7 +232,7 @@ since a local pack need not ship fixtures (the last output line says so).
 
 | Argument | Description |
 |---|---|
-| `<id\|path>` | A bundled pack id (`gemini/google-generativeai-to-google-genai`) or a pack file path (`./pack.yaml`). An id wins over a path spelled the same; anything not shaped like an id is a path. |
+| `<id\|path>` | A bundled pack id (`gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1`, `py-pdf/pypdf2-to-pypdf`) or a pack file path (`./pack.yaml`). An id wins over a path spelled the same; anything not shaped like an id is a path. |
 
 Exit codes: `0` valid; `7` invalid YAML or schema; `2` nothing to read there;
 `1` a **bundled** pack is invalid (an obelize defect; the message links the
@@ -299,9 +331,9 @@ read; it is never partially applied.
 | `allow_dirty` | boolean | `false` | Same as `--allow-dirty`. |
 | `max_file_bytes` | integer | `2000000` | Larger files are recorded as a limitation, not parsed. |
 
-**A `model:` block is refused** (exit `2`): where your code and credentials go
-is not a repository's choice. Configure the model in
-[your own file](#the-user-files-configobelize) or with `--model`.
+**A `model:` block and `pack_dirs` are refused** (exit `2`): where your code and credentials go,
+and which packs may rewrite your files, are not a repository's choice. Configure them in
+[your own file](#the-user-files-configobelize), or name a pack with `--pack`.
 
 ### The always-excluded set
 
@@ -411,8 +443,8 @@ at once, and only an `.exe` or `.com` program runs: a batch file is refused.
 
 Outside every repository, so no checkout can write them (`$XDG_CONFIG_HOME` is
 honoured). On Windows the folder is `%USERPROFILE%\.config\obelize` unless `HOME`
-is set. `config.yml` holds the two settings a repository may not make: the
-allowlist and the model. Unknown keys are an error.
+is set. `config.yml` holds the three settings a repository may not make: the
+allowlist, the model and the directories of your own packs. Unknown keys are an error.
 
 ```yaml
 # ~/.config/obelize/config.yml
@@ -420,6 +452,8 @@ verify:
   allow:
     - "pytest -q"
     - "python -m mypy src"
+pack_dirs:
+  - /home/me/obelize-packs  # absolute; each holds <provider>/<slug>/pack.yaml
 model:
   provider: none            # the default; no network call is made while it is `none`
   # base_url: "http://localhost:11434/v1"
@@ -427,6 +461,12 @@ model:
   # api_key_env: OBELIZE_MODEL_API_KEY
   # log_prompts: false
 ```
+
+`pack_dirs` adds to the packs the wheel carries: a pack there is chosen by id like a bundled one,
+and an id the wheel or another directory already holds is refused. Each entry must be an
+absolute path to an existing directory (`~` is expanded), and a pack in one is validated like
+any other file (exit `7`), never trusted more. A repository's `.obelize.yml` may not set it. A
+directory inside a repository you scan is scanned too, so list it in `exclude`.
 
 The `model` keys are acted on by `obelize fix`.
 

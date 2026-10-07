@@ -224,6 +224,12 @@ def load(repo: Path) -> LoadedConfig:
             f"decide where your code and API key are sent. Put the model block in "
             f"~/.config/obelize/config.yml, or pass --model."
         )
+    if "pack_dirs" in data:
+        raise ConfigError(
+            f"{CONFIG_FILENAME}: pack directories are not read from a repository, because a pack "
+            f"decides what obelize writes. Put pack_dirs in ~/.config/obelize/config.yml, or pass "
+            f"--pack."
+        )
     try:
         config = Config.model_validate(data)
     except ValidationError as error:

@@ -6,6 +6,7 @@ refuses a leading BOM; `read_text(errors="replace")` destroys non-ASCII.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, get_args
@@ -92,10 +93,10 @@ class Read:
                 f"{self.path}: a file that does not parse yields exactly one finding and "
                 f"nothing else does, got {len(self.findings)} with status {self.status!r}"
             )
-        if (self.data is None) != (self.status == "not_read"):
+        if (self.data is None) != (self.status == "not_read") and self.status != "not_a_candidate":
             raise ValueError(
                 f"{self.path}: the bytes are absent exactly when the status is `not_read`, "
-                f"got status {self.status!r}"
+                f"or `not_a_candidate` when they were not kept; got status {self.status!r}"
             )
         refused = self.status in {"does_not_parse", "not_read"}
         if (len(self.limitations) == 1) != refused:
@@ -129,12 +130,17 @@ def gates(path: str, data: bytes) -> Read:
         compile(data, path, "exec")
     except SyntaxError as error:
         return _does_not_parse(path, data, "compile", error)
+    try:
+        faithful = module.bytes == data
+    except RecursionError as error:
+        # libcst renders a tree one frame per level, so a very long chain overruns the stack.
+        return _does_not_parse(path, data, "libcst", error)
     return Read(
         path=path,
         status="parsed",
         data=data,
         module=module,
-        bail=None if module.bytes == data else ROUNDTRIP_BAIL,
+        bail=None if faithful else ROUNDTRIP_BAIL,
     )
 
 
@@ -171,6 +177,15 @@ def contents(root: Path, path: str, config: Config) -> tuple[bytes | None, tuple
         return fsutil.read(absolute), ()
     except OSError:
         return None, (limitation(path, "unreadable"),)
+
+
+# What every read of a scan goes through, so a caller may answer from bytes it already holds.
+Contents = Callable[[str], tuple[bytes | None, tuple[Limitation, ...]]]
+
+
+def disk(root: Path, config: Config) -> Contents:
+    """`contents` for one root and configuration, as the callable a scan reads through."""
+    return lambda path: contents(root, path, config)
 
 
 def _does_not_parse(path: str, data: bytes, gate: Gate, error: Exception) -> Read:

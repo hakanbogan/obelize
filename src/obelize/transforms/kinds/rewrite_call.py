@@ -1,16 +1,21 @@
 """`rewrite_call`: a legacy free function becomes a call on the client, one rule per pack change.
 
-Only `positional_to_kw` (the new call's own arguments, in legacy order) and `config_kwargs` (the
-configuration object) carry; any other keyword is refused, never passed to a method that lacks it.
+Only `positional_to_kw` (the new call's own arguments, in legacy order), `keywords` (the same, when
+written as keywords) and `config_kwargs` (the configuration object) carry; any other keyword is
+refused, never passed to a method that lacks it. Rooted on the `module`, the call stays on the name
+the author wrote and no client is needed.
 """
 
 from __future__ import annotations
 
+import re
+import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from functools import cached_property
+from typing import TYPE_CHECKING, ClassVar, Final
 
 import libcst as cst
-from libcst.metadata import ScopeProvider
+from libcst.metadata import ClassScope, ScopeProvider
 
 from obelize.models import BailCode, Edit
 from obelize.transforms import layout
@@ -21,6 +26,9 @@ from obelize.transforms.tree import Position, Tree, literal_string
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from obelize.models import Finding
     from obelize.packs.schema import ChangeKind, RewriteCallChange, RewriteCallParams
+
+# Builtins that reach a variable by its name written as a string.
+_NAMED: Final = frozenset({"eval", "exec", "globals", "locals", "vars"})
 
 # A configuration field by its new name, and the author's node, moved rather than rebuilt.
 Field = tuple[str, cst.BaseExpression]
@@ -38,6 +46,9 @@ BAILS: frozenset[BailCode] = frozenset(
         "unsupported_kwarg",
     }
 )
+
+# What only a rule rooted on the `module` raises, graded by `tests/unit/test_shared_module.py`.
+MODULE_BAILS: frozenset[BailCode] = frozenset({"from_import_unmigrated_symbol"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,16 +73,25 @@ class RewriteCall:
         self._config_module, self._config_leaf = module, leaf
         # Empty only with no configuration class, which the schema ties to no `config_kwargs`.
         self._config_kwarg = change.params.config_kwarg or ""
+        # A module rule keeps the import it was written with and needs no client.
+        self._client_side = (
+            frozenset({change.params.legacy_symbol})
+            if change.params.root == "client"
+            else frozenset()
+        )
+        self._paths = frozenset(_tokens(path) for path in change.params.result_paths)
+        # Every proper prefix of a path: a read may go on only along one of these.
+        self._stems = frozenset(path[:end] for path in self._paths for end in range(1, len(path)))
 
     @property
     def consumes(self) -> frozenset[str]:
         """The one symbol this rule replaces whole, so an import of it can go."""
-        return frozenset({self._params.legacy_symbol})
+        return self._client_side
 
     @property
     def client_readers(self) -> frozenset[str]:
         """The call becomes a client call, so the client must be placed where it can see it."""
-        return frozenset({self._params.legacy_symbol})
+        return self._client_side
 
     def claims(self, finding: Finding) -> bool:
         return finding.kind == "call" and finding.symbol == self._params.legacy_symbol
@@ -112,9 +132,7 @@ class RewriteCall:
         raised here as the projection misses free functions), arguments, result, then surroundings.
         """
         call = tree.call(position)
-        client = context.client.expression
-        if client is None:
-            raise BailError(context.client.bail or "client_source_unresolved")
+        callee = self._callee(context, call)
         read = self._arguments(call)
         self._check_the_answer_is_the_one_the_new_call_gives(tree, call, read)
         if tree.caught(call, frozenset(self._params.legacy_error_modules)):
@@ -135,14 +153,44 @@ class RewriteCall:
             call,
             layout.call(
                 call,
-                dotted(f"{client}.{self._params.new_call}"),
+                callee,
                 args,
                 indent=tree.indent(call),
                 unit=context.module.default_indent,
-                width=context.layout.line_length,
+                width=self._width(context, tree, call),
                 around=tree.around(call),
             ),
         )
+
+    def _callee(self, context: RuleContext, call: cst.Call) -> cst.BaseExpression:
+        """What the new call is made on: the file's client, or the root the author wrote.
+
+        A call written `<root>.<legacy tail>` keeps `<root>`, whatever name the file bound the
+        module to. One reached through `from M import Name` has no root to keep.
+        """
+        if self._params.root == "client":
+            client = context.client.expression
+            if client is None:
+                raise BailError(context.client.bail or "client_source_unresolved")
+            return dotted(f"{client}.{self._params.new_call}")
+        symbol = self._params.legacy_symbol
+        module = max(
+            (name for name in context.spec.legacy_modules if symbol.startswith(f"{name}.")),
+            key=len,
+        )
+        root = call.func
+        for _ in range(symbol.count(".") - module.count(".")):
+            if not isinstance(root, cst.Attribute):
+                raise BailError("from_import_unmigrated_symbol")
+            root = root.value
+        for part in self._params.new_call.split("."):
+            root = cst.Attribute(value=root, attr=cst.Name(part))
+        return root
+
+    @staticmethod
+    def _width(context: RuleContext, tree: Tree, call: cst.Call) -> int:
+        """The pack's width, except in an f-string field: before Python 3.12 that is one line."""
+        return sys.maxsize if tree.in_f_string(call) else context.layout.line_length
 
     def _arguments(self, call: cst.Call) -> _Read:
         """Every argument of the legacy call, sorted or refused one at a time.
@@ -152,6 +200,7 @@ class RewriteCall:
         repeated parameter, is ambiguous. `arg_map` renames last, so the pack lists legacy names.
         """
         positional = self._params.positional_to_kw
+        carried = {*positional, *self._params.keywords}
         args: list[cst.Arg] = []
         config: list[Field] = []
         given: dict[str, cst.BaseExpression] = {}
@@ -172,7 +221,7 @@ class RewriteCall:
             landed = self._params.arg_map.get(name, name)
             if name in self._params.config_kwargs:
                 config.append((landed, argument.value))
-            elif name in positional:
+            elif name in carried:
                 args.append(layout.keyword(landed, argument.value))
             else:
                 raise BailError("unsupported_kwarg")
@@ -199,7 +248,7 @@ class RewriteCall:
             [layout.keyword(name, value) for name, value in fields],
             indent=tree.indent(call) + unit,
             unit=unit,
-            width=context.layout.line_length,
+            width=self._width(context, tree, call),
             # `<kwarg>=` in front and a comma behind.
             around=len(self._config_kwarg) + 2,
         )
@@ -210,8 +259,9 @@ class RewriteCall:
         """Refuse a call whose result is not what the new call returns.
 
         `response_shape_changed`: a `dispatch_prefixes` argument that is not a literal with a listed
-        prefix, or, under `result_access_flags`, any use of the result (it may be read unseen). A
-        read of a field the new result lacks is `attribute_removed`, as the scan grades it.
+        prefix, under `result_access_flags` any use of the result (it may be read unseen), or under
+        `result_paths` any read that stops short of one of them. A read of a field the new result
+        lacks is `attribute_removed`, as the scan grades it.
         """
         for parameter, prefixes in sorted(self._params.dispatch_prefixes.items()):
             value = read.given.get(parameter)
@@ -222,6 +272,23 @@ class RewriteCall:
             raise BailError("response_shape_changed")
         if tree.reads(call, frozenset(self._params.result_attribute_flags)):
             raise BailError("attribute_removed")
+        if self._paths and not tree.confined(call, self._paths, self._stems):
+            raise BailError("response_shape_changed")
+
+
+def _tokens(path: str) -> tuple[str, ...]:
+    """`choices[].message` as `("choices", "[]", "message")`."""
+    return tuple(re.findall(r"\[\]|\w+", path))
+
+
+def _integer(node: cst.BaseExpression) -> bool:
+    """A subscript that is a number written out; a name or a string may select a key instead."""
+    match node:
+        case cst.Integer():
+            return True
+        case cst.UnaryOperation(operator=cst.Minus(), expression=cst.Integer()):
+            return True
+    return False
 
 
 class _Tree(Tree):
@@ -247,12 +314,75 @@ class _Tree(Tree):
                 pass
             case _:
                 return False
+        return any(self._field(node, fields) for node in self._held(target))
+
+    def confined(
+        self, call: cst.Call, leaves: frozenset[tuple[str, ...]], stems: frozenset[tuple[str, ...]]
+    ) -> bool:
+        """Whether what `call` returns is read only along `leaves`, and nowhere else.
+
+        Each use is the call or a read of the one name it is assigned to. A use climbs through
+        attributes and integer subscripts, and must reach a leaf: a string subscript, a method, a
+        loop, or the value handed on stops short of one. A result nothing reads is confined. One
+        bound in a class body is read as an attribute of the class, and one in a file that reads
+        names by their strings may be read as `locals()["r"]`: no scope links either.
+        """
+        match self.consumer(call):
+            case cst.Expr():
+                return True
+            case cst.Assign(targets=[cst.AssignTarget(target=cst.Name() as target)]):
+                if isinstance(self._scopes[target], ClassScope) or self._by_name:
+                    return False
+                uses = [*self._held(target), *self._unlinked.get(target.value, ())]
+            case _:
+                uses = [call]
+        return all(self._reaches(use, leaves, stems) for use in uses)
+
+    def _reaches(
+        self,
+        node: cst.CSTNode,
+        leaves: frozenset[tuple[str, ...]],
+        stems: frozenset[tuple[str, ...]],
+    ) -> bool:
+        path: tuple[str, ...] = ()
+        while path not in leaves:
+            parent = self.parent(node)
+            match parent:
+                case cst.Attribute(value=value, attr=cst.Name(value=name)) if value is node:
+                    path += (name,)
+                case cst.Subscript(
+                    value=value, slice=[cst.SubscriptElement(slice=cst.Index(value=index))]
+                ) if value is node and _integer(index):
+                    path += ("[]",)
+                case _:
+                    return False
+            if path not in leaves and path not in stems:
+                return False
+            node = parent
+        return True
+
+    def _held(self, target: cst.Name) -> list[cst.CSTNode]:
+        """Every read of the name `target` binds, in its own scope."""
         scope = self._scopes[target]
         found = scope[target.value] if scope is not None else set()
+        return [access.node for assignment in found for access in assignment.references]
+
+    @cached_property
+    def _unlinked(self) -> dict[str, list[cst.CSTNode]]:
+        """Reads linked to no assignment, by name: one above it, in a loop's second pass."""
+        found: dict[str, list[cst.CSTNode]] = {}
+        for each in set(self._scopes.values()):
+            for access in () if each is None else each.accesses:
+                if not access.referents and isinstance(access.node, cst.Name):
+                    found.setdefault(access.node.value, []).append(access.node)
+        return found
+
+    @cached_property
+    def _by_name(self) -> bool:
+        """Whether the file reads a name by its string (`locals()["r"]`, `eval`, `"{r}".format`)."""
         return any(
-            self._field(access.node, fields)
-            for assignment in found
-            for access in assignment.references
+            isinstance(call.func, cst.Name) and call.func.value in _NAMED
+            for call in self._calls.values()
         )
 
     def _field(self, node: cst.CSTNode, fields: frozenset[str]) -> bool:

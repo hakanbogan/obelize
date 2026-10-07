@@ -1,54 +1,67 @@
-"""The project's declared Python floor, and whether it blocks the run.
+"""What the project declares about Python and the legacy pin, and whether that blocks the run.
 
-`google-genai` needs Python 3.10+, so a repository declaring older support is blocked: it
-proposes nothing but is still reported. The floor comes from the manifest, never the parser:
-libcst's native parser ignores `PartialParserConfig(python_version=...)`.
-"Declares support for" is the test: `>=3.9` admits 3.9, where pip installs an older, different API.
+A repository declaring support for a Python the new distribution does not install on, or a legacy
+pin outside the pack's range, is blocked: it proposes nothing but is still reported. The Python
+comes from the manifest, never the parser: libcst's native parser ignores
+`PartialParserConfig(python_version=...)`. "Declares support for" is the test: `>=3.9` admits 3.9,
+where pip installs an older, different API.
 """
 
 from __future__ import annotations
 
 import configparser
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import Any, Final
 
-from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
-from obelize.models import BlockedReason, Config
+from obelize.models import BlockedReason, ScanSpec, terminal_unsafe
 from obelize.scan import parse
+from obelize.scan.manifests import Declaration, alternatives, lowest
 
-# `google-genai` 2.x does not install below it: a repository status, not a per-file bail.
-FLOOR: Final = "3.10"
-
-# Each one is asked, not one comparison: `>=3.7,!=3.9.*` admits 3.8 but not 3.9.
-BELOW_FLOOR: Final[tuple[str, ...]] = (
-    "2.7",
-    *(f"3.{minor}" for minor in range(10)),
+# Each one is asked, not one comparison: `>=3.7,!=3.9.*` admits 3.8 but not 3.9. Each minor is asked
+# at its last patch too, since `>=3.8.1` admits 3.8 only from its first patch on.
+_MINORS: Final = ("2.7", *(f"3.{minor}" for minor in range(30)))
+PYTHONS: Final[tuple[str, ...]] = tuple(
+    version for minor in _MINORS for version in (minor, f"{minor}.999999")
 )
-
-BLOCKED: Final[BlockedReason] = "runtime_unsupported"
 
 
 @dataclass(frozen=True, slots=True)
 class Declared:
-    """One declared Python constraint, and what it means for this migration."""
+    """One declared Python constraint."""
 
     path: str
     # Quoted verbatim: a version range, not source, so not redacted.
     declared: str
-    # Admits an interpreter below `FLOOR`.
-    blocked: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Blocked:
+    """Why a run proposes nothing: a repository status, not a per-file bail."""
+
+    reason: BlockedReason
+    # The distribution the declaration is about: the new one for a Python, the legacy one for a pin.
+    package: str
+    path: str
+    # `None` when the legacy pin names no version.
+    declared: str | None
+    # The set a declaration has to stay inside, as a PEP 440 specifier.
+    needed: str
 
 
 @dataclass(frozen=True, slots=True)
 class Floor:
     """What the manifests say about Python, and the ones that could not say."""
 
-    # The settling declaration; `None` when none was read.
+    # The declaration that decided: the first that blocks, else the first read; `None` if none.
     declared: Declared | None
+    blocked: Blocked | None
     # Unreadable manifests, so a floor nobody read differs from no floor.
     limitations: tuple[parse.Limitation, ...]
 
@@ -58,37 +71,83 @@ UNPARSED: Final[dict[str, str]] = {
     "pyproject.toml": "not TOML 1.0, so the Python it requires was not read",
     "setup.cfg": "not a setup.cfg setuptools can read, so the Python it requires was not read",
 }
+UNREAD: Final = "a Python requirement of a form obelize does not read, so it was not checked"
 
 
-def detect(root: Path, paths: tuple[str, ...], config: Config) -> Floor:
-    """The settling declaration, and the manifests that could not say.
+def detect(paths: tuple[str, ...], contents: parse.Contents, spec: ScanSpec) -> Floor:
+    """The first declaration that admits a Python the new distribution rejects, and the manifests
+    that could not say.
 
-    Blocked when any manifest declares below `FLOOR`. The row is the first blocking declaration,
-    else the first, by depth then path, so the root `pyproject.toml` precedes a package's.
+    The row is the first by depth then path, so the root `pyproject.toml` precedes a package's.
     """
     found: list[Declared] = []
     unparsed: list[parse.Limitation] = []
     for path in _ordered(paths):
-        row = declaration(root, path, config)
+        row = declaration(path, contents)
         if isinstance(row, parse.Limitation):
             unparsed.append(row)
         elif row is not None:
             found.append(row)
-    blocking = [row for row in found if row.blocked]
-    settled = blocking[0] if blocking else (found[0] if found else None)
-    return Floor(declared=settled, limitations=tuple(unparsed))
+    blocking = next((row for row in found if _admits_unsupported(row.declared, spec)), None)
+    blocked = None
+    if blocking is not None:
+        blocked = Blocked(
+            reason="runtime_unsupported",
+            package=spec.new_distribution,
+            path=blocking.path,
+            declared=blocking.declared,
+            needed=spec.requires_python,
+        )
+    settled = blocking or (found[0] if found else None)
+    return Floor(declared=settled, blocked=blocked, limitations=tuple(unparsed))
 
 
-def declaration(root: Path, path: str, config: Config) -> Declared | parse.Limitation | None:
+def legacy(found: Sequence[Declaration], spec: ScanSpec, used: bool) -> Blocked | None:
+    """The first legacy declaration that pins no version at or above the pack's floor.
+
+    `used` is whether any source row is an edit candidate: a repository that never imports the
+    legacy module is not blocked by a pin it does not declare.
+    """
+    if spec.legacy_floor is None:
+        return None
+    floor = Version(spec.legacy_floor)
+    needed = f">={floor}"
+    name = canonicalize_name(spec.legacy_distribution)
+    rows = sorted(
+        (row for row in found if row.name == name),
+        key=lambda row: (row.path.count("/"), row.path.encode("utf-8"), row.line),
+    )
+    for row in rows:
+        admitted = lowest(row.spec)
+        if admitted is None or admitted < floor:
+            return Blocked(
+                "legacy_version_unsupported",
+                spec.legacy_distribution,
+                row.path,
+                _shown(row.spec),
+                needed,
+            )
+    if not rows and used:
+        return Blocked("legacy_version_unsupported", spec.legacy_distribution, "", None, needed)
+    return None
+
+
+def _shown(declared: str | None) -> str | None:
+    """The text a report may quote: one that reads as a version set, so nothing else is echoed."""
+    readable = declared is not None and alternatives(declared) is not None
+    return declared if readable and terminal_unsafe(declared or "") is None else None
+
+
+def declaration(path: str, contents: parse.Contents) -> Declared | parse.Limitation | None:
     """One manifest's constraint: `None` if it declares none, a `Limitation` if it does not parse.
 
-    Read through `parse.contents`, so `max_file_bytes` and the path guard apply.
+    Read through `contents`, so `max_file_bytes` and the path guard apply.
     """
     found = PurePosixPath(path).name
     reader = _READERS.get(found)
     if reader is None:
         return None
-    data, _refused = parse.contents(root, path, config)
+    data, _refused = contents(path)
     if data is None:
         return None
     try:
@@ -97,46 +156,22 @@ def declaration(root: Path, path: str, config: Config) -> Declared | parse.Limit
         return parse.Limitation(path=path, code="input_does_not_parse", detail=UNPARSED[found])
     if declared is None:
         return None
-    return Declared(path=path, declared=declared, blocked=_admits_legacy(declared))
+    if alternatives(declared) is None:
+        return parse.Limitation(path=path, code="input_does_not_parse", detail=UNREAD)
+    return Declared(path=path, declared=declared)
 
 
-def specifier(declared: str) -> SpecifierSet | None:
-    """`declared` as a PEP 440 set, translating Poetry's `^`/`~`; `None` if unreadable.
-
-    `None` leaves the run unblocked: blocking on a string nobody parsed would be a guess.
-    """
-    text = declared.strip()
-    if not text or text == "*":
-        # Poetry's "any version": still a declaration, and it admits 3.9.
-        return SpecifierSet("")
-    if text[0] in "^~" and (translated := _caret_or_tilde(text)) is not None:
-        return translated
-    try:
-        return SpecifierSet(text)
-    except InvalidSpecifier:
-        return None
-
-
-def _admits_legacy(declared: str) -> bool:
-    """Whether the declaration admits any interpreter below the floor."""
-    parsed = specifier(declared)
-    if parsed is None:
+def _admits_unsupported(declared: str, spec: ScanSpec) -> bool:
+    """Whether the declaration admits an interpreter the new distribution does not install on."""
+    found = alternatives(declared)
+    if found is None:
         return False
-    return any(parsed.contains(version) for version in BELOW_FLOOR)
-
-
-def _caret_or_tilde(text: str) -> SpecifierSet | None:
-    """Poetry's `^3.9` as `>=3.9,<4` (a Python major is never 0), `~3.9` as `>=3.9,<3.10`."""
-    body = text[1:].strip()
-    parts = body.split(".")
-    if not body or not all(part.isdigit() for part in parts):
-        return None
-    numbers = [int(part) for part in parts]
-    if text[0] == "^" or len(numbers) == 1:
-        upper = f"{numbers[0] + 1}"
-    else:
-        upper = f"{numbers[0]}.{numbers[1] + 1}"
-    return SpecifierSet(f">={body},<{upper}")
+    supported = SpecifierSet(spec.requires_python)
+    return any(
+        part.contains(version) and not supported.contains(version)
+        for part in found
+        for version in PYTHONS
+    )
 
 
 def _ordered(paths: tuple[str, ...]) -> list[str]:
@@ -178,13 +213,14 @@ _READERS: Final[dict[str, Callable[[bytes], str | None]]] = {
 }
 
 __all__ = [
-    "BELOW_FLOOR",
-    "BLOCKED",
-    "FLOOR",
+    "PYTHONS",
     "UNPARSED",
+    "UNREAD",
+    "Blocked",
     "Declared",
     "Floor",
+    "alternatives",
     "declaration",
     "detect",
-    "specifier",
+    "legacy",
 ]

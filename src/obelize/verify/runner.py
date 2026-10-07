@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from obelize import _yaml
 from obelize.config import ConfigError, refusal
@@ -62,6 +62,20 @@ class UserConfig(BaseModel):
 
     verify: _UserVerify = Field(default_factory=_UserVerify)
     model: ModelConfig = Field(default_factory=ModelConfig)
+    # Where more migration packs live. A pack decides what is written and which imports a model may
+    # add, so only the user names them: a repository never does.
+    pack_dirs: tuple[str, ...] = ()
+
+    @field_validator("pack_dirs")
+    @classmethod
+    def _directories(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        expanded = tuple(os.path.expanduser(entry) for entry in value)
+        for entry in expanded:
+            if not os.path.isabs(entry) or not os.path.isdir(entry):
+                raise ValueError(
+                    f"{entry!r} is not an existing directory given as an absolute path"
+                )
+        return expanded
 
 
 @dataclass(frozen=True, slots=True)

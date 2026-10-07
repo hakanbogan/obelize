@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Annotated, Final, Literal, Union, get_args
+from typing import Annotated, Literal, Union, get_args
 from urllib.parse import urlsplit
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -27,6 +27,7 @@ from obelize.models import (
     QualifiedName,
     RelativePath,
     Sha256,
+    bounds,
 )
 
 # Adding a kind is a code change; the registry table must list the same set.
@@ -40,18 +41,6 @@ ChangeKind = Literal[
 ]
 CHANGE_KINDS: frozenset[ChangeKind] = frozenset(get_args(ChangeKind))
 
-# Enforced by the rule, so an unknown one is an error; PACK_SPEC must list the same set.
-Precondition = Literal[
-    "import_resolved",
-    "receiver_resolved",
-    "closed_world_binding",
-    "client_available",
-    "static_kwargs",
-    "literal_stream_flag",
-    "no_unknown_kwargs",
-]
-PRECONDITIONS: frozenset[Precondition] = frozenset(get_args(Precondition))
-
 # Closed: pack review admits only the vendor's own migration guide or API reference.
 SourceType = Literal["official_guide", "sdk_reference"]
 SOURCE_TYPES: frozenset[SourceType] = frozenset(get_args(SourceType))
@@ -59,19 +48,12 @@ SOURCE_TYPES: frozenset[SourceType] = frozenset(get_args(SourceType))
 # SDK facts that drive refusals live in code: a pack may carry nothing that drives behaviour.
 # PACK_SPEC must name each value (tested).
 
-# Never identity-mapped by `types_symbol_map`: both SDKs have `types.GenerationConfig`, and the new
-# one is not what `generate_content` accepts, so the rewrite would import cleanly and do nothing.
-NEVER_IDENTITY_MAPPED: frozenset[str] = frozenset({"GenerationConfig"})
-
 # Not a legacy `GenerationConfig` field (the server rejected it); carrying it changes behaviour.
 FORBIDDEN_CONFIG_KEYS: frozenset[str] = frozenset({"seed"})
 
 # Keys the legacy safety lookup raised `KeyError` for.
 FORBIDDEN_SAFETY_CATEGORY_KEYS: frozenset[str] = frozenset({"dangerous_content"})
 FORBIDDEN_SAFETY_THRESHOLD_KEYS: frozenset[str] = frozenset({"off", "none"})
-
-# The submodule whose symbols `types_symbol_map` renames; both SDKs spell it this way.
-TYPES_SUBMODULE: Final = "types"
 
 # In neither SDK; the new enum fabricates unknown members with only a warning.
 FORBIDDEN_SAFETY_VALUES: frozenset[str] = frozenset({"HARM_CATEGORY_HATE"})
@@ -82,8 +64,7 @@ _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 # No `+build`: comparisons ignore it, so two different packs could compare as one version.
 _SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$")
 _ENUM_MEMBER = re.compile(r"^[A-Z][A-Z0-9_]*$")
-# No slash: `models/...` is a resource name, which `model_name_looks_prefixed` warns about.
-_MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_SYMBOL_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
 
 def _pack_id(value: str) -> str:
@@ -107,15 +88,15 @@ def _semver(value: str) -> str:
     return value
 
 
-def _enum_member(value: str) -> str:
-    if not _ENUM_MEMBER.fullmatch(value):
-        raise ValueError(f"expected an UPPER_SNAKE_CASE enum member name, got {value!r}")
+def _symbol_key(value: str) -> str:
+    if not _SYMBOL_KEY.fullmatch(value):
+        raise ValueError(f"expected `Name` or `<submodule>.Name`, got {value!r}")
     return value
 
 
-def _model_name(value: str) -> str:
-    if not _MODEL_NAME.fullmatch(value):
-        raise ValueError(f"expected a bare model name such as gemini-1.5-flash-002, got {value!r}")
+def _enum_member(value: str) -> str:
+    if not _ENUM_MEMBER.fullmatch(value):
+        raise ValueError(f"expected an UPPER_SNAKE_CASE enum member name, got {value!r}")
     return value
 
 
@@ -163,13 +144,13 @@ def _fixture_path(value: str) -> str:
 
 
 def _dotted_call(value: str) -> str:
-    """`service.method` relative to the client, such as `models.embed_content`."""
+    """`service.method` relative to the client or the module, such as `models.embed_content`."""
     if not QUALIFIED_NAME.fullmatch(value):
         raise ValueError(f"expected a dotted path under the client, got {value!r}")
     if "." not in value:
         raise ValueError(
-            f"a call under the client names a service and a method on it, such as "
-            f"models.generate_content; got {value!r}"
+            f"a call under the client or the module names a service and a method on it, such "
+            f"as models.generate_content; got {value!r}"
         )
     return value
 
@@ -185,7 +166,7 @@ PackId = Annotated[str, AfterValidator(_pack_id)]
 Slug = Annotated[str, AfterValidator(_slug)]
 SemVer = Annotated[str, AfterValidator(_semver)]
 EnumMemberName = Annotated[str, AfterValidator(_enum_member)]
-ModelName = Annotated[str, AfterValidator(_model_name)]
+SymbolKey = Annotated[str, AfterValidator(_symbol_key)]
 SafetyKey = Annotated[str, AfterValidator(_lower_key)]
 SourceUrl = Annotated[str, AfterValidator(_source_url)]
 Pep440Specifier = Annotated[str, AfterValidator(_pep440_specifier)]
@@ -195,6 +176,24 @@ CallPath = Annotated[str, AfterValidator(_call_path)]
 
 # `receiver`: one legacy receiver survives as an object in the new SDK; the model does not.
 CallRoot = Literal["client", "receiver"]
+
+# `module`: the call stays on the root the author wrote, as the new SDK still has a module client.
+RewriteRoot = Literal["client", "module"]
+
+_RESULT_PATH = re.compile(r"^[A-Za-z_]\w*(?:\[\])?(?:\.[A-Za-z_]\w*(?:\[\])?)*$", re.ASCII)
+
+
+def _result_path(value: str) -> str:
+    """`choices[].message.content`: attributes, and `[]` for an integer-literal subscript."""
+    if not _RESULT_PATH.fullmatch(value) or value.endswith("[]"):
+        raise ValueError(
+            f"a result path is dotted attribute names, `[]` after one that is indexed, and ends "
+            f"in an attribute, such as choices[].message.content; got {value!r}"
+        )
+    return value
+
+
+ResultPath = Annotated[str, AfterValidator(_result_path)]
 
 
 def _literal_prefix(value: str) -> str:
@@ -242,6 +241,12 @@ class VersionRange(_Closed):
     version: Pep440Specifier
 
 
+class Target(VersionRange):
+    """The new side, which also says which Pythons it installs on."""
+
+    requires_python: Pep440Specifier
+
+
 class Match(_Closed):
     """What the scanner looks for before any rule runs."""
 
@@ -251,11 +256,15 @@ class Match(_Closed):
     # Module the legacy distribution installed and the new one does not -> its distribution. While a
     # file imports one that no manifest declares, the legacy pin stays.
     transitive: dict[QualifiedName, DistributionName] = Field(default_factory=dict)
+    # The module is the new SDK's too, so `import M` is no finding and only `symbols` are legacy.
+    shared: bool = False
 
     @model_validator(mode="after")
     def _check(self) -> Match:
         if not self.imports:
             raise ValueError("imports must name at least one module")
+        if self.shared and not self.symbols:
+            raise ValueError("a shared module has no legacy surface until symbols names it")
         if not self.prefilter_tokens:
             raise ValueError("without a prefilter token every file in the repository is parsed")
         _sorted_set(self.imports, "imports")
@@ -285,36 +294,40 @@ class RenameImportParams(_Closed):
     from_module: QualifiedName
     to_module: QualifiedName
     default_alias: PlainName
-    types_alias_fallback: PlainName
     submodule_map: dict[PlainName, QualifiedName] = Field(default_factory=dict)
-    types_symbol_map: dict[PlainName, PlainName] = Field(default_factory=dict)
+    # `Name` is a symbol of the module, `<submodule>.Name` one of a submodule in `submodule_map`.
+    symbol_map: dict[SymbolKey, PlainName] = Field(default_factory=dict)
+    # A submodule's alias when the file already binds the submodule's own name.
+    alias_fallbacks: dict[PlainName, PlainName] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check(self) -> RenameImportParams:
         if self.from_module == self.to_module:
             raise ValueError("from_module and to_module are the same; there is nothing to rename")
-        if self.default_alias == self.types_alias_fallback:
-            raise ValueError(
-                "types_alias_fallback exists for the case where the module already binds the "
-                "submodule's own name, so it must differ from default_alias"
-            )
+        for name, fallback in self.alias_fallbacks.items():
+            if name not in self.submodule_map:
+                raise ValueError(f"alias_fallbacks[{name!r}] names no submodule in submodule_map")
+            if fallback == self.default_alias:
+                raise ValueError(
+                    f"alias_fallbacks[{name!r}] exists for the case where the file already binds "
+                    f"the submodule's own name, so it must differ from default_alias"
+                )
         for name, target in self.submodule_map.items():
             if not target.startswith(f"{self.to_module}."):
                 raise ValueError(
                     f"submodule_map[{name!r}] must be under to_module {self.to_module!r}, "
                     f"got {target!r}"
                 )
-        if self.types_symbol_map and TYPES_SUBMODULE not in self.submodule_map:
-            raise ValueError(
-                f"types_symbol_map names symbols inside the {TYPES_SUBMODULE!r} submodule, so "
-                f"submodule_map has to say where that submodule moved to"
-            )
-        for name, target in self.types_symbol_map.items():
-            if name == target and name in NEVER_IDENTITY_MAPPED:
+        for key in self.symbol_map:
+            head, dot, _ = key.partition(".")
+            if dot and head not in self.submodule_map:
                 raise ValueError(
-                    f"types_symbol_map[{name!r}] maps {name!r} to itself. Both SDKs have that "
-                    f"name and they are not the same thing, so the rewrite would import "
-                    f"cleanly and do nothing"
+                    f"symbol_map[{key!r}] names a symbol inside the {head!r} submodule, so "
+                    f"submodule_map has to say where that submodule moved to"
+                )
+            if not dot and head in self.submodule_map:
+                raise ValueError(
+                    f"symbol_map[{key!r}] names a submodule, which submodule_map moves"
                 )
         return self
 
@@ -557,7 +570,6 @@ class GenerativeModelCallsParams(_Closed):
     safety: SafetySettings
     history: ChatHistory | None = None
     config_class: QualifiedName
-    default_model_name: ModelName
     # The legacy class behind `config_class`. Named, not derived: it is also reached off the legacy
     # module, and its `types` spelling is the import rule's to rewrite.
     legacy_config_symbol: QualifiedName
@@ -738,8 +750,12 @@ class RewriteCallParams(_Closed):
     # `config_class` (`config_kwargs`), or refused as `unsupported_kwarg`, the safe default.
     legacy_symbol: QualifiedName
     new_call: DottedCall
+    # `module` spells `new_call` after the root the author wrote and asks for no client.
+    root: RewriteRoot = "client"
     arg_map: dict[PlainName, PlainName] = Field(default_factory=dict)
     positional_to_kw: tuple[PlainName, ...] = ()
+    # Legacy parameters carried when written as keywords, so a positional one is still refused.
+    keywords: tuple[PlainName, ...] = ()
     config_class: QualifiedName | None = None
     config_kwargs: tuple[PlainName, ...] = ()
     config_kwarg: PlainName | None = None
@@ -748,15 +764,19 @@ class RewriteCallParams(_Closed):
     legacy_error_modules: tuple[QualifiedName, ...] = ()
     # Legacy-only result fields; reading one refuses the call as `attribute_removed`.
     result_attribute_flags: tuple[PlainName, ...] = ()
+    # The only reads of the result that carry: anything else, or the result passed on, is refused.
+    result_paths: tuple[ResultPath, ...] = ()
     dispatch_prefixes: dict[PlainName, tuple[LiteralPrefix, ...]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check(self) -> RewriteCallParams:
         # Legacy parameter order: the one sequence here that must not be sorted.
         _ordered_unique(self.positional_to_kw, "positional_to_kw")
+        _sorted_set(self.keywords, "keywords")
         _sorted_set(self.config_kwargs, "config_kwargs")
         _sorted_set(self.result_access_flags, "result_access_flags")
         _sorted_set(self.result_attribute_flags, "result_attribute_flags")
+        _sorted_set(self.result_paths, "result_paths")
         _sorted_set(self.legacy_error_modules, "legacy_error_modules")
         declared = {bool(self.config_class), bool(self.config_kwargs), bool(self.config_kwarg)}
         if len(declared) != 1:
@@ -765,11 +785,28 @@ class RewriteCallParams(_Closed):
                 "class to carry it cannot be emitted, a class with no keyword would be emitted "
                 "empty, and neither can be passed without the name the new call takes it under"
             )
+        self._check_the_result_is_read_one_way()
         self._check_no_parameter_has_two_destinations()
         self._check_every_renamed_parameter_is_one_the_rule_reads()
         self._check_no_two_parameters_land_on_one_keyword()
         self._check_every_dispatching_parameter_is_one_the_rule_reads()
         return self
+
+    def _check_the_result_is_read_one_way(self) -> None:
+        if self.result_paths and self.result_access_flags:
+            raise ValueError(
+                "result_access_flags refuses every use of the result, so result_paths, which "
+                "lists the uses that carry, would never be consulted"
+            )
+        for path in self.result_paths:
+            inside = [
+                other for other in self.result_paths if other.startswith((f"{path}.", f"{path}[]"))
+            ]
+            if inside:
+                raise ValueError(
+                    f"result_paths names {path!r} and {inside[0]!r} below it; a path ends where "
+                    f"the read is trusted, so one may not continue another"
+                )
 
     def _check_no_parameter_has_two_destinations(self) -> None:
         both = sorted(set(self.positional_to_kw) & set(self.config_kwargs))
@@ -779,25 +816,31 @@ class RewriteCallParams(_Closed):
                 f"of the new call or a field of its configuration, and a pack that says both "
                 f"leaves the rule's own order to decide"
             )
+        twice = sorted(set(self.keywords) & {*self.positional_to_kw, *self.config_kwargs})
+        if twice:
+            raise ValueError(
+                f"{twice} is in keywords and also in positional_to_kw or config_kwargs; a "
+                f"parameter has one destination"
+            )
 
     def _check_every_renamed_parameter_is_one_the_rule_reads(self) -> None:
-        known = set(self.positional_to_kw) | set(self.config_kwargs)
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
         unknown = sorted(set(self.arg_map) - known)
         if unknown:
             raise ValueError(
-                f"arg_map renames {unknown}, which positional_to_kw and config_kwargs do not "
-                f"name; a call that passes one is refused as an unsupported keyword before the "
-                f"rename is ever read"
+                f"arg_map renames {unknown}, which positional_to_kw, keywords and config_kwargs "
+                f"do not name; a call that passes one is refused as an unsupported keyword "
+                f"before the rename is ever read"
             )
 
     def _check_every_dispatching_parameter_is_one_the_rule_reads(self) -> None:
-        known = set(self.positional_to_kw) | set(self.config_kwargs)
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
         unknown = sorted(set(self.dispatch_prefixes) - known)
         if unknown:
             raise ValueError(
-                f"dispatch_prefixes names {unknown}, which positional_to_kw and config_kwargs do "
-                f"not; the rule reads an argument by its legacy name, so this prefix list is "
-                f"never consulted"
+                f"dispatch_prefixes names {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
+                f"prefix list is never consulted"
             )
         for parameter, prefixes in sorted(self.dispatch_prefixes.items()):
             if not prefixes:
@@ -810,10 +853,13 @@ class RewriteCallParams(_Closed):
     def _check_no_two_parameters_land_on_one_keyword(self) -> None:
         """After `arg_map`, no two parameters share a keyword: libcst emits that; Python refuses."""
         for field, names in (
-            ("positional_to_kw", self.positional_to_kw),
+            ("positional_to_kw and keywords", (*self.positional_to_kw, *self.keywords)),
             ("config_kwargs", self.config_kwargs),
         ):
             landed = [self.arg_map.get(name, name) for name in names]
+            if self.config_kwarg and field != "config_kwargs":
+                # The configuration object is an argument of the same call.
+                landed.append(self.config_kwarg)
             clashing = sorted({name for name in landed if landed.count(name) > 1})
             if clashing:
                 raise ValueError(
@@ -852,33 +898,23 @@ class FlagOnlyParams(_Closed):
 
 
 class ManifestDependencyParams(_Closed):
+    """The pin edit; both names may be one distribution, whose major version is the migration."""
+
     from_name: DistributionName
     to_name: DistributionName
     to_spec: Pep440Specifier
-
-    @model_validator(mode="after")
-    def _check(self) -> ManifestDependencyParams:
-        if canonicalize_name(self.from_name) == canonicalize_name(self.to_name):
-            raise ValueError(
-                f"from_name and to_name canonicalise to the same distribution "
-                f"({canonicalize_name(self.from_name)}); there is no dependency to rewrite"
-            )
-        return self
 
 
 class _ChangeBase(_Closed):
     id: Slug
     citation: DisplayText
     fixtures: tuple[FixturePath, ...]
-    preconditions: tuple[Precondition, ...] = ()
-    replacement: QualifiedName | None = None
 
     @model_validator(mode="after")
     def _check_base(self) -> _ChangeBase:
         if not self.fixtures:
             raise ValueError("every change must name at least one fixture")
         _sorted_set(self.fixtures, "fixtures")
-        _sorted_set(self.preconditions, "preconditions")
         return self
 
 
@@ -956,7 +992,7 @@ class PackDocument(_Closed):
     language: Literal["python"]
     source: PackSource
     from_: VersionRange = Field(alias="from")
-    to: VersionRange
+    to: Target
     match: Match
     changes: tuple[Change, ...]
     limitations: tuple[DisplayText, ...]
@@ -976,13 +1012,25 @@ class PackDocument(_Closed):
             raise ValueError("limitations must list at least one thing the pack does not handle")
         _ordered_unique(self.limitations, "limitations")
         self._check_change_ids()
-        self._check_one_client_source()
+        self._check_client_source()
         self._check_receivers_and_symbols_are_claimed_once()
         self._check_every_legacy_symbol_is_looked_for()
-        self._check_renamed_type_symbols_are_not_also_refused()
+        self._check_mapped_symbols_are_not_also_refused()
         self._check_manifest_matches_the_migration()
         self._check_version_ranges()
         return self
+
+    def to_modules(self) -> tuple[str, ...]:
+        """Every module a `rename_import` writes; empty authorises no new import."""
+        return tuple(
+            sorted(
+                {
+                    change.params.to_module
+                    for change in self.changes
+                    if change.kind == "rename_import"
+                }
+            )
+        )
 
     def _check_change_ids(self) -> None:
         seen: set[str] = set()
@@ -994,12 +1042,19 @@ class PackDocument(_Closed):
                 )
             seen.add(change.id)
 
-    def _check_one_client_source(self) -> None:
+    def _check_client_source(self) -> None:
         found = [change.id for change in self.changes if change.kind == "configure_to_client"]
-        if len(found) != 1:
+        needing = [
+            change.id
+            for change in self.changes
+            if change.kind == "generative_model_calls"
+            or (isinstance(change, RewriteCallChange) and change.params.root == "client")
+        ]
+        if len(found) > 1 or (needing and not found):
             raise ValueError(
-                f"a pack declares exactly one configure_to_client change, because a module has "
-                f"one client source; found {len(found)}: {found}"
+                f"a module has one client source: a pack declares at most one configure_to_client "
+                f"change, and exactly one when a change rewrites calls onto the client "
+                f"({needing}); found {len(found)}: {found}"
             )
 
     def _check_receivers_and_symbols_are_claimed_once(self) -> None:
@@ -1038,10 +1093,11 @@ class PackDocument(_Closed):
                 f"which wins"
             )
 
-    def _check_renamed_type_symbols_are_not_also_refused(self) -> None:
-        """A `types` symbol is renamed or refused, not both; the rename would silently win.
+    def _check_mapped_symbols_are_not_also_refused(self) -> None:
+        """A symbol is mapped or refused, not both; the rename would silently win.
 
-        The lists key it differently (bare name vs qualified), so this is not visible by reading.
+        The lists key it differently (relative name vs qualified), so this is not visible by
+        reading.
         """
         refused = {
             symbol
@@ -1052,24 +1108,36 @@ class PackDocument(_Closed):
         for change in self.changes:
             if not isinstance(change, RenameImportChange):
                 continue
-            prefix = f"{change.params.from_module}.{TYPES_SUBMODULE}"
             contested = sorted(
-                name for name in change.params.types_symbol_map if f"{prefix}.{name}" in refused
+                key
+                for key in change.params.symbol_map
+                if f"{change.params.from_module}.{key}" in refused
             )
             if contested:
                 raise ValueError(
-                    f"changes[{change.id!r}].params.types_symbol_map renames {contested}, which "
-                    f"a flag_only rule refuses; a symbol is renamed or refused, not both"
+                    f"changes[{change.id!r}].params.symbol_map maps {contested}, which a "
+                    f"flag_only rule refuses; a symbol is mapped or refused, not both"
                 )
 
     def _check_every_legacy_symbol_is_looked_for(self) -> None:
+        """A shared module is legacy only where `symbols` says so, so the rules must sit there."""
+        field = "match.symbols" if self.match.shared else "match.imports"
+        looked = self.match.symbols if self.match.shared else self.match.imports
         for change in self.changes:
-            for field, symbol in self._legacy_symbols(change):
-                if not under_any(symbol, self.match.imports):
+            if self.match.shared and change.kind == "rename_import":
+                raise ValueError(
+                    f"changes[{change.id!r}] renames a module that match.shared says the new SDK "
+                    f"keeps; a shared module is rewritten at its calls"
+                )
+            for name, symbol in self._legacy_symbols(change):
+                # Read for a member, never found as a usage, so no `symbols` entry can be asked.
+                if self.match.shared and name.startswith("safety."):
+                    continue
+                if not under_any(symbol, looked):
                     raise ValueError(
-                        f"changes[{change.id!r}].params.{field} names {symbol!r}, which is under "
-                        f"no module in match.imports {list(self.match.imports)}. Resolution can "
-                        f"never produce it, so the rule can never fire"
+                        f"changes[{change.id!r}].params.{name} names {symbol!r}, which is under "
+                        f"nothing in {field} {list(looked)}. Resolution can never produce it, so "
+                        f"the rule can never fire"
                     )
 
     def _check_manifest_matches_the_migration(self) -> None:
@@ -1107,8 +1175,8 @@ class PackDocument(_Closed):
                 f"admit {both[0]}, so a single installed version would be on both sides of the "
                 f"migration"
             )
-        floor = _bounds(source)[0]
-        ceiling = _bounds(target)[1]
+        floor = bounds(source)[0]
+        ceiling = bounds(target)[1]
         if floor is not None and ceiling is not None and ceiling <= floor:
             raise ValueError(
                 f"to.version {self.to.version!r} reaches no higher than {ceiling}, which is not "
@@ -1171,24 +1239,3 @@ def _named(specifiers: SpecifierSet) -> set[Version]:
         except InvalidVersion:  # pragma: no cover - `==1.*` and friends
             continue
     return found
-
-
-# `==` bounds both sides; `!=` bounds neither.
-_LOWER_BOUND_OPERATORS = (">=", ">", "==", "~=")
-_UPPER_BOUND_OPERATORS = ("<=", "<", "==")
-
-
-def _bounds(specifiers: SpecifierSet) -> tuple[Version | None, Version | None]:
-    """The floor and the ceiling a specifier set names, where it names one."""
-    lowers: list[Version] = []
-    uppers: list[Version] = []
-    for specifier in specifiers:
-        try:
-            version = Version(specifier.version)
-        except InvalidVersion:  # pragma: no cover - `==1.*` and friends
-            continue
-        if specifier.operator in _LOWER_BOUND_OPERATORS:
-            lowers.append(version)
-        if specifier.operator in _UPPER_BOUND_OPERATORS:
-            uppers.append(version)
-    return (max(lowers) if lowers else None, min(uppers) if uppers else None)

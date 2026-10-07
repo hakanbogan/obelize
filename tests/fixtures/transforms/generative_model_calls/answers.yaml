@@ -18,7 +18,7 @@
 #
 # Every one of the fifteen bails this rule raises is graded here, and all but
 # one of them is a code no `ground_truth.yaml` could grade. `ScanSpec` carries
-# no `generation_config_keys`, no `default_model_name`, no safety table, no
+# no `generation_config_keys`, no safety table, no
 # history shape, no rewrite map and no response table by construction, so
 # `obelize scan` grades those files `eligible` with no bail and only a rewrite
 # can see the defect. Seven of the cases here are the ones

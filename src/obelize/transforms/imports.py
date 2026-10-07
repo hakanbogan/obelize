@@ -98,6 +98,19 @@ class ImportPlan:
         self.append(self._first, statement_for(module_path, alias))
         return alias
 
+    def reaches(self, module_path: str, statement: cst.SimpleStatementLine) -> bool:
+        """Whether the name bound to `module_path` is also bound where `statement`'s code runs.
+
+        It is when `statement` emitted that import itself, or the import sits in the module body;
+        one in another branch or a `TYPE_CHECKING` block does not reach it.
+        """
+        emitted = _code(statement_for(module_path, self._bindings[module_path]))
+        return any(
+            anchor.statement is statement or self._runs(anchor.statement)
+            for anchor in self._anchors.values()
+            if any(_code(node) == emitted for node in anchor.nodes)
+        )
+
     def refusal(self, module_path: str) -> BailCode:
         """Why `require` gave `None`, as the bail a rule reports.
 

@@ -8,12 +8,13 @@ import os
 from pathlib import Path
 from typing import Any
 
+import acme
 import pytest
 from acme import SPEC
 
 from obelize.config import ConfigError
 from obelize.impact import planner
-from obelize.models import Config, ImpactPlan, ImpactPolicy
+from obelize.models import Config, ImpactPlan
 from obelize.native import processes
 from obelize.scan import analysis, parse, reach, runner
 from platforms import AS_ROOT, deny, posix_only
@@ -60,13 +61,8 @@ def tree(root: Path, files: dict[str, str]) -> Path:
     return root
 
 
-def scanned(
-    root: Path,
-    config: Config | None = None,
-    policy: ImpactPolicy | None = None,
-    jobs: int | None = None,
-) -> runner.Scan:
-    return runner.scan(root, config or Config(), SPEC, policy=policy, jobs=jobs)
+def scanned(root: Path, config: Config | None = None, jobs: int | None = None) -> runner.Scan:
+    return runner.scan(root, config or Config(), SPEC, jobs=jobs)
 
 
 def at(scan: runner.Scan, path: str) -> runner.FileResult:
@@ -131,10 +127,36 @@ def test_the_same_refusal_is_reported_once(tmp_path: Path) -> None:
 def test_a_manifest_whose_python_floor_does_not_parse_is_a_limitation(tmp_path: Path) -> None:
     root = tree(tmp_path, {"pyproject.toml": 'urls = { a = "x", }\n', "app.py": LEGACY})
     scan = scanned(root)
-    assert scan.runtime is None
+    assert scan.blocked == ()
     assert [(row.path, row.code) for row in scan.limitations] == [
         ("pyproject.toml", "input_does_not_parse")
     ]
+
+
+def test_a_legacy_pin_below_the_packs_floor_blocks_the_scan(tmp_path: Path) -> None:
+    root = tree(tmp_path, {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
+    (root / "requirements.txt").write_text("acme-old>=1\n", encoding="utf-8")
+    scan = runner.scan(root, Config(), acme.OLD_SPEC, jobs=1)
+    assert [(row.reason, row.path, row.declared) for row in scan.blocked] == [
+        ("legacy_version_unsupported", "requirements.txt", ">=1")
+    ]
+
+
+def test_a_pin_inside_the_range_and_a_repository_that_never_uses_the_library_are_not_blocked(
+    tmp_path: Path,
+) -> None:
+    used = tree(tmp_path / "used", {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
+    (used / "requirements.txt").write_text("acme-old>=2,<3\n", encoding="utf-8")
+    assert runner.scan(used, Config(), acme.OLD_SPEC, jobs=1).blocked == ()
+
+    unused = tree(tmp_path / "unused", {"app.py": "import os\n"})
+    assert runner.scan(unused, Config(), acme.OLD_SPEC, jobs=1).blocked == ()
+
+
+def test_a_library_used_with_no_declaration_blocks_the_scan(tmp_path: Path) -> None:
+    root = tree(tmp_path, {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
+    scan = runner.scan(root, Config(), acme.OLD_SPEC, jobs=1)
+    assert [row.path for row in scan.blocked] == [""]
 
 
 def test_the_manifest_pass_reduces_over_the_files(tmp_path: Path) -> None:
@@ -194,15 +216,6 @@ def test_the_receivers_are_paired_with_the_file_they_came_from(tmp_path: Path) -
     assert [(path, receiver.kind, receiver.name) for path, receiver in scan.receivers] == [
         ("pkg/app.py", "module_const", "MODEL")
     ]
-
-
-@pytest.mark.parametrize("jobs", [1, 2], ids=["in-process", "pooled"])
-def test_the_policy_reaches_every_plan(tmp_path: Path, jobs: int) -> None:
-    """Pooled too: the worker `initializer` rebuilds the policy, and losing it plans the default."""
-    root = tree(tmp_path, {"app.py": LEGACY, "plain.py": PLAIN})
-    scan = scanned(root, policy=ImpactPolicy(import_policy="dual"), jobs=jobs)
-
-    assert {result.plan.import_policy for result in scan.results} == {"dual"}
 
 
 @pytest.mark.parametrize(
@@ -290,27 +303,24 @@ def test_the_worker_produces_what_the_parent_would_have(tmp_path: Path) -> None:
     data = (root / "app.py").read_bytes()
     candidate = runner.Candidate(path="app.py", sha256="0" * 64, data=data)
 
-    runner._initialise(SPEC.model_dump_json(), ImpactPolicy().model_dump_json())
+    runner._initialise(SPEC.model_dump_json())
     produced = runner.restore(runner._work((candidate.path, candidate.sha256, candidate.data)))
 
-    assert produced == runner.examine(candidate, SPEC, ImpactPolicy())
+    assert produced == runner.examine(candidate, SPEC)
 
 
 def test_a_worker_that_was_never_initialised_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     """The executor always initialises first, so reaching this is a defect."""
-    monkeypatch.setattr(runner, "_WORKER", None)
+    monkeypatch.setattr(runner, "_SPEC", None)
     with pytest.raises(RuntimeError, match="obelize defect"):
         runner._work(("app.py", "0" * 64, b""))
 
 
 def test_a_spec_the_worker_was_given_is_the_spec_it_uses() -> None:
-    """`_initialise` rebuilds both arguments once per process, not once per file."""
-    runner._initialise(SPEC.model_dump_json(), ImpactPolicy(import_policy="dual").model_dump_json())
-    worker = runner._WORKER
+    """`_initialise` rebuilds the spec once per process, not once per file."""
+    runner._initialise(SPEC.model_dump_json())
 
-    assert worker is not None
-    assert worker.spec == SPEC
-    assert worker.policy.import_policy == "dual"
+    assert runner._SPEC == SPEC
 
 
 def result(path: str, digest: str) -> runner.FileResult:
@@ -480,7 +490,9 @@ def test_a_module_that_cannot_be_read_is_not_a_reader(tmp_path: Path) -> None:
 def test_a_module_that_is_gone_when_the_readers_are_gathered_is_left_out(tmp_path: Path) -> None:
     """Windows stops a denied module at the walk, so the failed read is shown by a missing one."""
     root = tree(tmp_path, {"llm.py": HOLDER})
-    assert list(reach._trees(root, ["gone.py", "llm.py"], {"M"})) == ["llm.py"]
+    assert list(reach._trees(parse.disk(root, Config()), ["gone.py", "llm.py"], {"M"})) == [
+        "llm.py"
+    ]
 
 
 def test_a_module_that_does_not_parse_is_not_a_reader(tmp_path: Path) -> None:

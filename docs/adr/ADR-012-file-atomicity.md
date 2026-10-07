@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050.
 
 ## Decision
 
@@ -52,4 +52,3 @@ carries a second, independent bail. ADR-008 carries the correction.
 - A test holds every fixture `caused_by` equal to the bails of the other findings in its file.
 - §7 of the vocabulary lists the values that belong to more than one closed set, and a test
   fails on any other overlap.
-- Dual imports would retire F-1 and most of D1-D5.

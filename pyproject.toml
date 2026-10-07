@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "obelize"
 dynamic = ["version", "readme"]
-description = "Find deprecated google-generativeai (Gemini SDK) code in a Python repo and migrate the provably safe part to google-genai, with a reviewable report."
+description = "Find code that still uses a deprecated Python library (google-generativeai, PyPDF2, openai 0.x) and migrate the provably safe part to its replacement, with a reviewable report."
 requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
@@ -13,6 +13,9 @@ authors = [{ name = "Hakan Bogan", email = "hbogan93@gmail.com" }]
 keywords = [
   "google-generativeai",
   "google-genai",
+  "pypdf",
+  "pypdf2",
+  "openai",
   "gemini",
   "gemini-api",
   "genai",
@@ -70,6 +73,14 @@ dev = [
   # the enum accepts unknown names with only a warning; without the SDK that check would skip
   # (docs/PACK_SPEC.md, "Pack test requirements").
   "google-genai>=2",
+  # Test-only, pinned to the versions `py-pdf/pypdf2-to-pypdf` was measured on: its names, members
+  # and parameters are compared on both (tests/packs/test_pypdf_facts.py).
+  "PyPDF2==3.0.1",
+  "pypdf==6.19.0",
+  # Test-only: the names, parameters and result fields `openai/openai-0-to-1` rewrites onto are
+  # read from the newest release (tests/packs/test_openai_facts.py); 0.28.1, the other side, cannot
+  # share an environment and is checked by tests/packs/openai_legacy_check.py.
+  "openai==3.26.0",
 ]
 
 [project.urls]

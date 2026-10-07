@@ -46,7 +46,9 @@ defensible advantage.
 ## v0 scope
 
 - The commands in [CLI.md](CLI.md#surface); `fix` is dry-run unless given `--apply`.
-- One bundled pack, `gemini/google-generativeai-to-google-genai`.
+- Three bundled packs, `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and
+  `py-pdf/pypdf2-to-pypdf`, and packs of your own from directories your config lists, several to a
+  run.
 - One example repository, `examples/gemini-legacy-app`.
 - The evidence run folder, the benchmark protocol and a published result file.
 
@@ -58,7 +60,6 @@ An issue asking for one of these is closed with a link here.
 - A dashboard or web UI.
 - A GitHub App.
 - Automatic pull requests, commits, branches or merges.
-- A second provider or migration family.
 - `pack create`.
 - Remote pack download or a pack registry.
 - Pack signing.

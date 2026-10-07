@@ -9,7 +9,7 @@ it. Report a vulnerability as `SECURITY.md` says, never in a public issue.
 
 | Boundary | Source -> target | Trust |
 |---|---|---|
-| B1 | MigrationPack -> parser | Untrusted data; declarative only (no code) |
+| B1 | MigrationPack -> parser | Untrusted data; declarative only (no code). Its source is the wheel, a directory your own `config.yml` lists, or a path you type; never a repository's file |
 | B2 | Repository files -> scanner and model context | Untrusted text; never instructions |
 | B3 | Model output -> patch applier | Untrusted proposal; never applied unverified |
 | B4 | `.obelize.yml` -> verification runner | Locally owned by the user; untrusted in CI |
@@ -20,7 +20,7 @@ it. Report a vulnerability as `SECURITY.md` says, never in a public issue.
 
 | # | Threat | Mitigation (concrete feature) | Test / fixture |
 |---|---|---|---|
-| TM-1 | Malicious pack (executable content, template injection) | Closed pydantic schema (`extra="forbid"`): `changes[].kind` is an enum, `replacement` a qualified-symbol regex, `verification.suggestions` display-only; a pack id has no dot, so a bundled reference cannot leave the packs directory; `source.url` is https, credential-free and **never requested**; displayed fields refuse control, format and surrogate characters, so no ANSI repaint or right-to-left override disguises a command; the run folder keeps the pack verbatim with its sha256 | Eighty-one packs under `tests/packs/_negative/`, each rejected at the field path its header comment predicts; a socket-blocking test proves loading a pack contacts nothing |
+| TM-1 | Malicious pack (executable content, template injection) | Closed pydantic schema (`extra="forbid"`): `changes[].kind` is an enum, every symbol a qualified-symbol regex, `verification.suggestions` display-only; a pack id has no dot, so a bundled reference cannot leave the packs directory; `source.url` is https, credential-free and **never requested**; displayed fields refuse control, format and surrogate characters, so no ANSI repaint or right-to-left override disguises a command; the run folder keeps the pack verbatim with its sha256; a pack that is only mistaken is covered under [What a pack can get wrong](#what-a-pack-can-get-wrong-without-being-hostile) | One hundred and two packs under `tests/packs/_negative/`, each rejected at the field path its header comment predicts; a socket-blocking test proves loading a pack contacts nothing |
 | TM-2 | Path traversal / symlink escape | Containment with **both sides resolved**; a **separate** `is_symlink()` guard; `followlinks=False`; a mandatory regular-file check; submodules pruned and reported; reads open with `O_NOFOLLOW`; writes, and every run-folder access by `verify` and `undo`, descend one directory at a time under `O_NOFOLLOW`. See [TM-2 in detail](#tm-2-in-detail) | A symlink out of the repository -> refused, exit 5; a repository under `/tmp` still produces findings; a submodule with a legacy import is neither scanned nor rewritten; six forged run folders leave every file outside the repository byte-identical |
 | TM-3 | Secret leaking to the model | Off by default: under `model.provider: none` no adapter is built and no socket opened, and a repository's `model:` block is refused with exit `2`, so a checkout cannot choose the endpoint or the key. Context comes only from a file holding a withheld finding: the smallest `def` or `class` holding the binding group, else the call site plus 20 lines either side; over 80 lines, **nothing**. It is redacted; `--show-context` prints it and sends nothing; the host is printed on stderr before the scan; no proxy, no redirect. See [TM-3 in detail](#tm-3-in-detail) | A fake `AIza...` key in a comment inside a sent context (`tests/fixtures/providers/deep/nested.py`) is in no request body, nothing printed and no file under `model/` (`tests/fixtures/providers/runs.yaml`) |
 | TM-4 | Prompt injection via repository comments, documentation or pack text | Fixed system prompt; repository text is delimited data; the model returns only structured edit JSON; `src/obelize/providers/guard.py` checks every proposal in a fixed order and records the **first** refusal as one of `models.GuardRefusal`'s fifteen words: the consulted file only, its hash still matching the disk; inside the sent range, covering the asked line and naming its symbol; bounded in lines and bytes; encodable in the file's encoding, parsing under libcst **and** compiling; adding no import outside the pack's targets, `__import__` and `importlib.import_module` included; naming only what the replaced lines named, a target import or the replacement binds, or a few pure builtins, never a double-underscore name; not changing how later lines are read; no character a terminal acts on. See [TM-4 in detail](#tm-4-in-detail) | Twenty-one hand-written proposals in `tests/fixtures/providers/proposals.yaml`, thirteen of the fifteen words between them and exactly one accepted; fake adapters patching `../../.bashrc` and adding `os.system`, refused for every consultation, every file in and outside the tree byte-identical afterwards |
@@ -108,7 +108,8 @@ absent from `model/` and **present** in the patch.
 ## TM-4 in detail
 
 A model is asked only about `needs_review` rows in a file this run could write,
-never a row the pack refused on purpose, and is sent one bounded range. A
+never a row the pack refused on purpose, and is sent one bounded range. It is asked only in a
+run that uses one pack, so the imports a proposal may add are that pack's targets and no other's, and never about a pack whose one distribution holds both APIs, which writes a whole repository or none. A
 proposal therefore answers a question naming one file, one line and one symbol.
 
 **The order is part of the mitigation.** Only the first failed check is
@@ -124,6 +125,30 @@ rewrites every line.
 correct; `--accept-model` and a reviewer cover the rest. Nothing detects an
 injected instruction: whatever the model was persuaded to answer must pass
 every check.
+
+## What a pack can get wrong without being hostile
+
+TM-1 is about a pack that is hostile. A pack that is only mistaken fails another way: it writes an edit
+that reads right and is wrong, or it reports nothing where it should report. The format keeps those
+fail-closed, with one exception.
+
+- A call is rewritten only with the keywords the pack lists (`keywords`), and its result is read only
+  along the paths it lists (`result_paths`). Anything else is refused (`unsupported_kwarg`,
+  `response_shape_changed`), so a name the pack leaves out refuses more and writes nothing wrong. A
+  name the pack lists wrongly is the open side, which `tests/packs/test_openai_facts.py` closes by
+  reading each keyword from the new method's signature and each path from the result model.
+- A shared module (`match.shared`) is the exception. Only the names `match.symbols` lists are legacy,
+  so a legacy name the pack forgot is no finding: a repository that uses only that name scans clean
+  and breaks. The mitigation is a frozen snapshot of the old release's names, which the suite holds
+  equal to `match.symbols` plus a short list of names the new release keeps, and which a weekly job
+  compares with the real old release. It covers the names the old release defined, and nothing
+  about what the pack does with one it lists ([ADR-053](adr/ADR-053-shared-module-migrations.md) D2 and D8). The ways to reach the module with no name are rows too: a repository that fetches it
+  by a string (`importlib.import_module("openai")`, `__import__`, `sys.modules`), reads its
+  `__dict__` or star-imports it is withheld and not read clean (D14). A name another module of
+  the repository re-exports is not seen ([KNOWN_ISSUES.md](KNOWN_ISSUES.md#the-openai-pack)).
+- A pack whose new library is its own distribution writes every file and the pin together or none, so the rules leave no mistaken half; a write that fails part-way (exit `5`) can, and `undo` restores every byte (ADR-053 D6). A pin the rule cannot write (extras, a URL)
+  holds the repository when the scan plans it, and the model is never asked about such a pack, since
+  its proposal is one row and is written after that rule has decided (ADR-053 D12 and D13).
 
 ## Verification command trust rule
 
@@ -246,7 +271,7 @@ those of TM-5, TM-8, TM-9 and TM-10.
 
 | # | Threat | Mitigation implemented | Test in CI |
 |---|---|---|---|
-| TM-1 | Malicious pack | yes: the schema and the evidence | yes: eighty-one negative packs, one per documented refusal, and the evidence |
+| TM-1 | Malicious pack | yes: the schema and the evidence | yes: one hundred and two negative packs, one per documented refusal, and the evidence |
 | TM-2 | Path traversal / symlink escape | yes: reads and writes in the working tree and in a run folder | yes: both halves, and six forged run folders |
 | TM-3 | Secret leaking to the model | partial: a repository cannot choose the endpoint or the credential; what is still open is in [KNOWN_ISSUES.md](KNOWN_ISSUES.md#trust-and-redaction-gaps) | yes: the message byte for byte, the proxy and the redirect, and every invocation over `model/` |
 | TM-4 | Prompt injection | yes: the guard, its fifteen words and its name allowlist | yes: twenty-one proposals and two fake adapters |

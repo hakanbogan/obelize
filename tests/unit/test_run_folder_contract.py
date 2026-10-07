@@ -55,7 +55,7 @@ def _table_under(heading: str) -> list[str]:
 
 TOP_LEVEL = set(_table_under("\n### Top level\n"))
 NESTED = {
-    "pack": set(_table_under("\n### `pack`\n")),
+    "packs": set(_table_under("\n### `packs[]`\n")),
     "config": set(_table_under("\n### `config`\n")),
     "counts": set(_table_under("\n### `counts`\n")),
     "file_edits": set(_table_under("\n### `file_edits[]`\n")),
@@ -99,8 +99,7 @@ CLAIMED_BY_THE_SPEC = [
     "run_id",
     "obelize_version",
     "mode",
-    "pack.id",
-    "pack.sha256",
+    "packs",
     "git_dirty",
     "file_edits",
     "verify.status",
@@ -142,7 +141,7 @@ def test_the_run_id_pattern_admits_what_the_specification_shows() -> None:
 
 
 MODELLED = {
-    "pack": "pack",
+    "packs": "packs",
     "config": "config",
     "counts": "counts",
     "file_edits": "file_edits",
@@ -193,7 +192,7 @@ def test_every_table_the_document_names_has_a_model_behind_it() -> None:
 def test_a_scan_carries_no_model_and_the_document_says_so() -> None:
     """`tests/unit/test_models.py` grades the refusal; this grades that the page states it."""
     section = SPEC[SPEC.index("\n### `model`\n") :]
-    assert "A scan never carries one" in SPEC[: SPEC.index("\n### `pack`\n")]
+    assert "A scan never carries one" in SPEC[: SPEC.index("\n### `packs[]`\n")]
     assert "`null` whenever `model.provider` is `none`" in section
 
 

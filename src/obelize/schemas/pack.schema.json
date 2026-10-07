@@ -58,35 +58,6 @@
         },
         "params": {
           "$ref": "#/$defs/ConfigureToClientParams"
-        },
-        "preconditions": {
-          "default": [],
-          "items": {
-            "enum": [
-              "import_resolved",
-              "receiver_resolved",
-              "closed_world_binding",
-              "client_available",
-              "static_kwargs",
-              "literal_stream_flag",
-              "no_unknown_kwargs"
-            ],
-            "type": "string"
-          },
-          "title": "Preconditions",
-          "type": "array"
-        },
-        "replacement": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Replacement"
         }
       },
       "required": [
@@ -171,35 +142,6 @@
         },
         "params": {
           "$ref": "#/$defs/FlagOnlyParams"
-        },
-        "preconditions": {
-          "default": [],
-          "items": {
-            "enum": [
-              "import_resolved",
-              "receiver_resolved",
-              "closed_world_binding",
-              "client_available",
-              "static_kwargs",
-              "literal_stream_flag",
-              "no_unknown_kwargs"
-            ],
-            "type": "string"
-          },
-          "title": "Preconditions",
-          "type": "array"
-        },
-        "replacement": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Replacement"
         }
       },
       "required": [
@@ -286,35 +228,6 @@
         },
         "params": {
           "$ref": "#/$defs/GenerativeModelCallsParams"
-        },
-        "preconditions": {
-          "default": [],
-          "items": {
-            "enum": [
-              "import_resolved",
-              "receiver_resolved",
-              "closed_world_binding",
-              "client_available",
-              "static_kwargs",
-              "literal_stream_flag",
-              "no_unknown_kwargs"
-            ],
-            "type": "string"
-          },
-          "title": "Preconditions",
-          "type": "array"
-        },
-        "replacement": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Replacement"
         }
       },
       "required": [
@@ -363,10 +276,6 @@
         },
         "ctor_symbol": {
           "title": "Ctor Symbol",
-          "type": "string"
-        },
-        "default_model_name": {
-          "title": "Default Model Name",
           "type": "string"
         },
         "generation_config_keys": {
@@ -477,7 +386,6 @@
         "generation_config_keys",
         "safety",
         "config_class",
-        "default_model_name",
         "legacy_config_symbol",
         "legacy_config_kwarg",
         "ctor_order",
@@ -529,35 +437,6 @@
         },
         "params": {
           "$ref": "#/$defs/ManifestDependencyParams"
-        },
-        "preconditions": {
-          "default": [],
-          "items": {
-            "enum": [
-              "import_resolved",
-              "receiver_resolved",
-              "closed_world_binding",
-              "client_available",
-              "static_kwargs",
-              "literal_stream_flag",
-              "no_unknown_kwargs"
-            ],
-            "type": "string"
-          },
-          "title": "Preconditions",
-          "type": "array"
-        },
-        "replacement": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Replacement"
         }
       },
       "required": [
@@ -572,6 +451,7 @@
     },
     "ManifestDependencyParams": {
       "additionalProperties": false,
+      "description": "The pin edit; both names may be one distribution, whose major version is the migration.",
       "properties": {
         "from_name": {
           "title": "From Name",
@@ -611,6 +491,11 @@
           },
           "title": "Prefilter Tokens",
           "type": "array"
+        },
+        "shared": {
+          "default": false,
+          "title": "Shared",
+          "type": "boolean"
         },
         "symbols": {
           "default": [],
@@ -810,35 +695,6 @@
         },
         "params": {
           "$ref": "#/$defs/RenameImportParams"
-        },
-        "preconditions": {
-          "default": [],
-          "items": {
-            "enum": [
-              "import_resolved",
-              "receiver_resolved",
-              "closed_world_binding",
-              "client_available",
-              "static_kwargs",
-              "literal_stream_flag",
-              "no_unknown_kwargs"
-            ],
-            "type": "string"
-          },
-          "title": "Preconditions",
-          "type": "array"
-        },
-        "replacement": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Replacement"
         }
       },
       "required": [
@@ -854,6 +710,13 @@
     "RenameImportParams": {
       "additionalProperties": false,
       "properties": {
+        "alias_fallbacks": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Alias Fallbacks",
+          "type": "object"
+        },
         "default_alias": {
           "title": "Default Alias",
           "type": "string"
@@ -869,27 +732,22 @@
           "title": "Submodule Map",
           "type": "object"
         },
-        "to_module": {
-          "title": "To Module",
-          "type": "string"
-        },
-        "types_alias_fallback": {
-          "title": "Types Alias Fallback",
-          "type": "string"
-        },
-        "types_symbol_map": {
+        "symbol_map": {
           "additionalProperties": {
             "type": "string"
           },
-          "title": "Types Symbol Map",
+          "title": "Symbol Map",
           "type": "object"
+        },
+        "to_module": {
+          "title": "To Module",
+          "type": "string"
         }
       },
       "required": [
         "from_module",
         "to_module",
-        "default_alias",
-        "types_alias_fallback"
+        "default_alias"
       ],
       "title": "RenameImportParams",
       "type": "object"
@@ -919,35 +777,6 @@
         },
         "params": {
           "$ref": "#/$defs/RewriteCallParams"
-        },
-        "preconditions": {
-          "default": [],
-          "items": {
-            "enum": [
-              "import_resolved",
-              "receiver_resolved",
-              "closed_world_binding",
-              "client_available",
-              "static_kwargs",
-              "literal_stream_flag",
-              "no_unknown_kwargs"
-            ],
-            "type": "string"
-          },
-          "title": "Preconditions",
-          "type": "array"
-        },
-        "replacement": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Replacement"
         }
       },
       "required": [
@@ -1013,6 +842,14 @@
           "title": "Dispatch Prefixes",
           "type": "object"
         },
+        "keywords": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
         "legacy_error_modules": {
           "default": [],
           "items": {
@@ -1052,6 +889,23 @@
           },
           "title": "Result Attribute Flags",
           "type": "array"
+        },
+        "result_paths": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Result Paths",
+          "type": "array"
+        },
+        "root": {
+          "default": "client",
+          "enum": [
+            "client",
+            "module"
+          ],
+          "title": "Root",
+          "type": "string"
         }
       },
       "required": [
@@ -1156,6 +1010,31 @@
         "config_field"
       ],
       "title": "SafetySettings",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "description": "The new side, which also says which Pythons it installs on.",
+      "properties": {
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "requires_python": {
+          "title": "Requires Python",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package",
+        "version",
+        "requires_python"
+      ],
+      "title": "Target",
       "type": "object"
     },
     "Verification": {
@@ -1275,7 +1154,7 @@
       "$ref": "#/$defs/PackSource"
     },
     "to": {
-      "$ref": "#/$defs/VersionRange"
+      "$ref": "#/$defs/Target"
     },
     "verification": {
       "anyOf": [

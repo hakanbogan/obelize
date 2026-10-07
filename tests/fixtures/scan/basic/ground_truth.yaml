@@ -163,7 +163,7 @@ notes: |
      because dropping it loses the author's prose. This file deliberately has none.
   3. `types` is imported as `from google.genai import types` rather than emitting
      `genai.types.GenerateContentConfig`. PACK_SPEC's `rename_import` carries both a
-     `submodule_map` (`types` -> `google.genai.types`) and a `types_alias_fallback`
+     `submodule_map` (`types` -> `google.genai.types`) and a `alias_fallbacks`
      (`genai_types`, used when the module already binds `types`), which only makes sense if the
      emitted form is a bare `types.X`. This module binds no `types`, so no fallback is needed.
   4. Layout rule used throughout both fixtures. It was written here in Phase 0, three documents

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050.
 
 ## Decision
 
@@ -107,14 +107,6 @@ otherwise `response_shape_changed`.
 The closure follows `method_returns` whether or not the producing method has a
 rewrite, so calls on a chat an unmapped method produced are refused with the
 group, not orphaned as `receiver_unresolved`: one defect, one name.
-
-### D12. A group the scan refused is refused under the scan's own code
-
-Before asking anything about a group's shape, the rule repeats the code the scan
-wrote on any of its bindings, so one defect keeps one name. Under the default
-`atomic` import policy no such group forms; under `dual` a withheld binding can
-sit in an eligible closure, which would otherwise be written with a hole.
-`tests/unit/` reaches it by passing the policy.
 
 ### D13. `chat_config_class` is removed, because no rule could reach it
 

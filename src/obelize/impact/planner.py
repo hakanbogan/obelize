@@ -17,7 +17,6 @@ from obelize.models import (
     Finding,
     FindingKind,
     ImpactPlan,
-    ImpactPolicy,
     ScanSpec,
 )
 from obelize.scan import analysis, parse
@@ -76,7 +75,11 @@ _CLIENT_KINDS: Final[frozenset[FindingKind]] = frozenset({"call", "method_call",
 def configures(finding: Finding, spec: ScanSpec) -> bool:
     """Whether this row is a `configure(...)` call: it counts calls, not a patched-target
     string."""
-    return finding.kind == "call" and finding.symbol == spec.client_symbol
+    return (
+        finding.kind == "call"
+        and spec.client_symbol is not None
+        and finding.symbol == spec.client_symbol
+    )
 
 
 def needs_client(finding: Finding, spec: ScanSpec) -> bool:
@@ -93,15 +96,13 @@ def needs_client(finding: Finding, spec: ScanSpec) -> bool:
     return bool(spec.methods_for(symbol.rpartition(".")[0]))
 
 
-def atomicity(findings: Sequence[Finding], policy: ImpactPolicy) -> tuple[Finding, ...]:
+def atomicity(findings: Sequence[Finding]) -> tuple[Finding, ...]:
     """Once any row bails, withhold every otherwise-eligible row, so the file is left as it was.
 
     `caused_by` is exactly the bails the findings carry, never the binding table's: a group can
     bail while all its findings are withheld a rung higher. `transforms/codemod.py` writes fix-time
     codes onto their rows and calls this again, so it takes no extra causes.
     """
-    if policy.import_policy == "dual":
-        return tuple(findings)
     causes = tuple(sorted({row.bail for row in findings if row.bail is not None}))
     if not causes:
         return tuple(findings)
@@ -128,32 +129,26 @@ def more_specific(codes: Iterable[BailCode | None]) -> BailCode | None:
     return min(fired, key=_RANK.__getitem__)
 
 
-def plan(
-    result: analysis.Analysis, spec: ScanSpec, policy: ImpactPolicy | None = None
-) -> ImpactPlan:
+def plan(result: analysis.Analysis, spec: ScanSpec) -> ImpactPlan:
     """Grade one analysed file: the client rung, the group rung, then atomicity."""
-    return _Plan(result, spec, policy or ImpactPolicy()).run()
+    return _Plan(result, spec).run()
 
 
 class _Plan:
     """One file's plan; single use."""
 
-    def __init__(self, result: analysis.Analysis, spec: ScanSpec, policy: ImpactPolicy) -> None:
+    def __init__(self, result: analysis.Analysis, spec: ScanSpec) -> None:
         self._result = result
         self._spec = spec
-        self._policy = policy
         self._groups = dataflow.groups(result)
         self._client = self._client_source()
 
     def run(self) -> ImpactPlan:
-        findings = atomicity(
-            [self._graded(finding) for finding in self._result.findings], self._policy
-        )
+        findings = atomicity([self._graded(finding) for finding in self._result.findings])
         return ImpactPlan(
             path=self._result.path,
             findings=tuple(findings),
             bindings=tuple(self._binding(group, findings) for group in self._groups),
-            import_policy=self._policy.import_policy,
         )
 
     def _client_source(self) -> BailCode | None:

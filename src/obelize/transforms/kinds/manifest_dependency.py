@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, ClassVar, Final
 from packaging.utils import canonicalize_name
 
 from obelize.models import BailCode, Edit
+from obelize.scan.manifests import SHAPE_BAIL
 from obelize.transforms.base import BailError
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
@@ -21,7 +22,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from obelize.transforms.manifest import ManifestContext
 
 # The one bail this rule raises; the corpus grades the set.
-SHAPE: Final[BailCode] = "manifest_pin_shape_unsupported"
+SHAPE: Final[BailCode] = SHAPE_BAIL
 BAILS: frozenset[BailCode] = frozenset({SHAPE})
 
 # An `=` before the declaration means the line also names its field (`install_requires = acme==1`),

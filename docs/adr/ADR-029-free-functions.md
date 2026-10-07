@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by [ADR-053](ADR-053-shared-module-migrations.md).
 
 ## Decision
 
@@ -20,7 +20,9 @@ onto the name at its index; its membership is the set of arguments the new call
 takes. `config_kwargs` is the other destination, and a keyword (or splat) in
 neither is `unsupported_kwarg`: passing an unknown keyword through would be a
 `TypeError` at the call under an `auto` report. A pack that omits a parameter
-therefore refuses the calls that pass it.
+therefore refuses the calls that pass it. `keywords` is a third destination, for parameters carried
+only when written as keywords: a positional argument beyond `positional_to_kw` stays
+`positional_arg_ambiguous` (ADR-053 D4).
 
 ### D3. A configuration object arrives under a name the pack gives it
 
@@ -34,21 +36,23 @@ nobody wrote.
 
 | Rule | What it would otherwise produce |
 |---|---|
-| A parameter is in `positional_to_kw` or in `config_kwargs`, never both | A destination decided by the order of the rule's own tests |
-| Every `arg_map` key is in one of those two lists | A rename that never fires: the call is refused as an unsupported keyword first |
+| A parameter is in one of `positional_to_kw`, `keywords` and `config_kwargs`, never two | A destination decided by the order of the rule's own tests |
+| Every `arg_map` key is in one of those lists | A rename that never fires: the call is refused as an unsupported keyword first |
 | No two parameters land on one keyword once `arg_map` is applied | A call naming one keyword twice, which Python refuses at compile time |
-| Every `dispatch_prefixes` key is in one of those two lists, and no list is empty | A guard nothing consults, or one that refuses every call |
+| Every `dispatch_prefixes` key is in one of those lists, and no list is empty | A guard nothing consults, or one that refuses every call |
 
-### D5. A call whose answer is not the new call's answer is refused, and the pack states both ways of knowing
+### D5. A call whose answer is not the new call's answer is refused, and the pack states how it knows
 
-`response_shape_changed`, stated two ways. Under `result_access_flags`
+`response_shape_changed`, stated three ways. Under `result_access_flags`
 (`embed_content` returned a mapping; the new object's right reading depends on
 the runtime type of `content=`) a call is written only where its result is
 discarded. Under `dispatch_prefixes` (legacy `get_model` returned another class
 for `tunedModels/...`; the new call returns `types.Model` for both) an argument
-that is not a literal under a listed prefix is refused. A field in
-`result_attribute_flags`, which the new result lacks, read off the result, off
-the `for` or comprehension target or one name it feeds, or by `getattr`, is
+that is not a literal under a listed prefix is refused. Under `result_paths`
+(a 0.28.1 result was a dictionary and a new one is not) a call is written only
+where every read of its result is a listed attribute path (ADR-053 D5). A field
+in `result_attribute_flags`, which the new result lacks, read off the result,
+off the `for` or comprehension target or one name it feeds, or by `getattr`, is
 `attribute_removed`.
 
 ### D6. The client bail is borrowed, and the scan's blind spot is written down rather than fixed here
@@ -59,7 +63,8 @@ rather than name one defect twice. The client's placement counts every free
 function a rule writes on the client (`client_readers`). The scan's
 `needs_client` does not, so `obelize scan` over-states how migratable a
 client-less module is; fixing it changes `spec_digest` and so waits for the
-next re-run of the ADR-024 measurement (`COVERAGE.md` gap 21).
+next re-run of the ADR-024 measurement (`COVERAGE.md` gap 21). A rule rooted on
+the module has no client to place and raises neither (ADR-053 D3).
 
 ### D7. `positional_arg_ambiguous` covers both shapes of "which parameter is this"
 

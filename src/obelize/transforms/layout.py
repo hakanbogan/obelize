@@ -139,10 +139,10 @@ def _tagged[Part: (cst.Arg, cst.BaseElement)](parts: Sequence[Part]) -> list[tup
     return [(part, index == len(parts) - 1) for index, part in enumerate(parts)]
 
 
-def indent_of(module: cst.Module, line: int, column: int) -> str:
+def indent_of(lines: Sequence[str], line: int, column: int) -> str:
     """The source's indent for the statement at `line`, `column` (tabs stay tabs).
 
     A statement that does not start its line (`x = 1; genai.configure(...)`) gets `column` spaces.
     """
-    text = module.code.splitlines()[line - 1][:column]
+    text = lines[line - 1][:column]
     return text if not text.strip() else " " * column

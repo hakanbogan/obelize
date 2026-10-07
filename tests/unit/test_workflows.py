@@ -1037,6 +1037,8 @@ def test_the_installed_command_is_run_four_ways_on_a_copy_of_the_example(
         "--version",
         "--help",
         "pack validate gemini/google-generativeai-to-google-genai",
+        "pack validate openai/openai-0-to-1",
+        "pack validate py-pdf/pypdf2-to-pypdf",
         f"scan --repo {temp / 'quickstart'} --json",
     ]
     assert (temp / "quickstart" / "app.py").is_file()

@@ -2,15 +2,15 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-050 and ADR-052.
 
 ## Decision
 
 ### D1. The parent reads and prefilters; only a candidate crosses into a worker
 
-The parent reads, hashes and prefilters every selected file and finishes the
-unreadable and eliminated ones itself; only a prefilter survivor reaches a
-worker, which is then a pure function of `(path, bytes, spec, policy)`. So the
+The parent reads and hashes every selected file once (`runner.read`, shared by every pack of a run,
+keeping bytes only where a pack could look) and finishes the unreadable and eliminated ones itself; only a prefilter survivor reaches a
+worker, which is then a pure function of `(path, bytes, spec)`. So the
 threshold counts candidates, not selected files (the prefilter removed 97.81% of
 a real tree), and the hash and the analysis describe one read. The survivors'
 bytes are held until their worker returns.
@@ -25,7 +25,7 @@ F-1 is checked on the far side of the process boundary.
 ### D3. `spawn` on every platform, and an initializer rather than per-task arguments
 
 `spawn`, explicitly, on Linux too: `fork` is unsafe in a process with threads,
-and a forked child inherits the parent's hash seed. The spec and policy are set
+and a forked child inherits the parent's hash seed. The spec is set
 once per worker by an `initializer` rather than pickled with every task. No
 behavioural test tells `spawn` from `fork` in a suite without threads.
 

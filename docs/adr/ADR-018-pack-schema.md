@@ -3,7 +3,7 @@
 ## Status
 
 Accepted; amended by [ADR-019](ADR-019-resolution-detection-rules.md) (D8) and
-[ADR-025](ADR-025-rule-protocol-import-manager.md) (D6).
+[ADR-025](ADR-025-rule-protocol-import-manager.md) (D6), ADR-050, ADR-051 and ADR-053.
 
 ## Decision
 
@@ -38,19 +38,23 @@ nothing and reads like a clean repository:
 
 | Rule | The defect it turns into a field error |
 |---|---|
-| Every legacy symbol a rule names is under some `match.imports` module | A typo makes the rule unreachable |
+| Every legacy symbol a rule names is under some `match.imports` module, or under a `match.symbols` entry when `match.shared` says the module is the new SDK's too | A typo makes the rule unreachable |
 | Every `match.imports` module contains some `prefilter_token` | A prefilter that drops every file the pack is about |
-| Exactly one `configure_to_client` change | `ScanSpec.client_symbol` is one module-wide answer |
+| At most one `configure_to_client` change, and one when a change rewrites calls onto the client | `ScanSpec.client_symbol` is one module-wide answer, absent for a library with no client |
 | A symbol is rewritten or refused, never both | List order, which no reader sees, would decide |
 | A `manifest_dependency` rule names the two distributions the pack migrates | A third distribution is not this migration |
 | Every receiver in `methods` is the `ctor_symbol` or the value of a `method_returns` entry (ADR-019 D8) | Methods on a receiver nothing produces never resolve |
 
-Inside one change, a `types_symbol_map` may not rename a symbol a `flag_only`
-rule refuses, and `config_kwargs` needs a `config_class` to carry it.
+Inside one change, a `symbol_map` may not map a symbol a `flag_only`
+rule refuses, and `config_kwargs` needs a `config_class` to carry it. A shared
+module needs `symbols` and has no `rename_import` change, a `rewrite_call`
+parameter has one destination among `positional_to_kw`, `keywords` and
+`config_kwargs`, and `result_paths` excludes `result_access_flags` and lets no path continue another, and `arg_map` may not rename a parameter onto `config_kwarg` ([ADR-053](ADR-053-shared-module-migrations.md)).
 
 ### D5. Version ranges are compared only where they are comparable
 
-Only when `from.package` and `to.package` canonicalise to one distribution: a
+Only when `from.package` and `to.package` canonicalise to one distribution (a
+pack may name the same one on both sides, as `openai/openai-0-to-1` does): a
 version either side names that both admit is an overlap, and a target ceiling at
 or below the source floor is backwards. Across two distributions a rename may
 keep its version. Neither test is a full specifier intersection, which `!=` and
@@ -92,12 +96,12 @@ Measured on google-generativeai 0.8.6 and google-genai 2.24.0:
 5. A fixture is `<name>.before.<ext>`, because the manifest rule's fixture is a
    `requirements.txt`.
 
-### D9. `google-genai` is a development dependency, so the enum assertion is never skipped
+### D9. The SDKs a pack names are development dependencies, so the fact checks are never skipped
 
-The safety tables are asserted against the `HarmCategory` and
+The Gemini safety tables are asserted against the `HarmCategory` and
 `HarmBlockThreshold` `__members__`, never by construction, which accepts a wrong
-name with a `UserWarning` (the test runs it as a control). The wheel gains
-nothing.
+name with a `UserWarning` (the test runs it as a control), and the PyPDF2 pack's names are read
+from both installed modules (ADR-051 D2). The wheel gains nothing.
 
 ### D10. `obelize pack validate` ships here, with T6, and takes an id or a path
 
@@ -107,7 +111,7 @@ that fails, which is a defect in obelize.
 
 ## Consequences
 
-- The bundled pack declares sixteen changes, and the registry implements every
+- The Gemini pack declares sixteen changes, and the registry implements every
   kind they use.
 - `tests/packs/_negative/` holds one generated pack per documented refusal,
   each one edit from a valid document.

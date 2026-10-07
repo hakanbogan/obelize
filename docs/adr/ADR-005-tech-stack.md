@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-021, ADR-022 and ADR-049.
+Accepted; amended by ADR-021, ADR-022, ADR-049 and ADR-050.
 
 ## Decision
 
@@ -23,7 +23,8 @@ Accepted; amended by ADR-021, ADR-022 and ADR-049.
 - **Lint and format:** **ruff** (check and format).
 - **Types:** **mypy** in `strict` mode with the pydantic plugin.
 - **Python:** **3.12-3.14** for obelize itself. A *migrated repository* may
-  target Python >= 3.10, the floor of `google-genai` (ADR-001); verification runs
+  target the Pythons the pack's `to.requires_python` allows (`>=3.10` for `google-genai`,
+  ADR-001); verification runs
   that repository's own interpreter, not obelize's.
 - **Runtime dependencies: at most seven, and that is a budget, not a coincidence.**
   Each floor is the exact version the lockfile tested when the floor was set:
@@ -70,6 +71,7 @@ Accepted; amended by ADR-021, ADR-022 and ADR-049.
 ## Consequences
 
 - Cross-module re-export cannot be resolved; it is a documented v0 limitation.
-- Repositories pinned below Python 3.10 are reported `blocked: runtime_unsupported`.
+- Repositories declaring a Python the pack's `to.requires_python` excludes are reported
+  `blocked: runtime_unsupported`.
 - Windows stops a verification command through a job object instead of a process group
   ([ADR-049](ADR-049-platform-seam.md)).

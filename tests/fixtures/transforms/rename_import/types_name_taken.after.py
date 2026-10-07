@@ -1,7 +1,7 @@
 """The same table in a module that already binds `types`, which is the stdlib's.
 
 `from google.genai import types` would shadow it, so the rewrite falls back to
-the pack's `types_alias_fallback` and reads every name through that instead.
+the pack's `alias_fallbacks` and reads every name through that instead.
 """
 
 import types

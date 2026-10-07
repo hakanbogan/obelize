@@ -221,9 +221,9 @@ jobs:
         run: |
           set -euo pipefail
           obelize="$RUNNER_TEMP/smoke/bin/obelize"
-          pack_id="gemini/google-generativeai-to-google-genai"
-
-          "$obelize" pack validate "$pack_id"
+          for pack_id in gemini/google-generativeai-to-google-genai openai/openai-0-to-1 py-pdf/pypdf2-to-pypdf; do
+            "$obelize" pack validate "$pack_id"
+          done
 
           negative=tests/packs/_negative/seed_is_not_a_legacy_config_key.yaml
           status=0
