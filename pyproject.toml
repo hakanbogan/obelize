@@ -52,7 +52,7 @@ dependencies = [
   # libcst 1.9 has no Intel macOS wheel, so an Intel Mac keeps 1.8 instead of compiling 1.9
   # with Rust; the suite passes on 1.8.6.
   "libcst>=1.9.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-  "libcst>=1.8.6,<1.9; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+  "libcst>=1.9.0,<1.10; sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "pyyaml>=6.0.3",
   "packaging>=26.3",
   "pathspec>=1.1.1",
@@ -64,8 +64,8 @@ dev = [
   "pytest>=8",
   "pytest-cov>=5",
   "coverage-conditional-plugin>=0.9.0",
-  "ruff>=0.6",
-  "mypy>=1.11",
+  "ruff>=0.16.10",
+  "mypy>=2.4.0",
   "types-PyYAML>=6",
   "pre-commit>=3.8",
   "pip-licenses>=5",
