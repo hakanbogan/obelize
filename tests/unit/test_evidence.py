@@ -235,7 +235,7 @@ def test_the_five_artefacts_a_scan_writes_are_the_five_specified(
         "run.json",
     ]
     assert sorted(
-        str(path.relative_to(written.directory / "packs"))
+        path.relative_to(written.directory / "packs").as_posix()
         for path in (written.directory / "packs").rglob("*")
         if path.is_file()
     ) == [f"{BUNDLED}/pack.sha256", f"{BUNDLED}/pack.yaml"]
