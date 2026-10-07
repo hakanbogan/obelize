@@ -206,8 +206,184 @@ def test_a_result_read_any_other_way_refuses_the_call(body: str) -> None:
     assert "talk.say" not in code
 
 
+FETCH_CALL = "acme.kit.Quote.get(symbol='x')"
+OTHER = CALL.replace("'a'", "'b'")
+# A call whose argument is a keyed read of another: each is rewritten once, whichever is read first.
+NESTED = OTHER.replace("'b'", f"{CALL}['reply']['text']")
+
+
+@pytest.mark.parametrize(
+    ("body", "line"),
+    [
+        (f"print({CALL}['reply']['text'])\n", "print(acme.kit.talk.say(who='a').reply.text)"),
+        (
+            f"r = {CALL}\nprint(r['reply']['text'], r['spent']['words'])\n",
+            "print(r.reply.text, r.spent.words)",
+        ),
+        (
+            f"r = {CALL}\nprint(r.reply['text'], r['spent'].words)\n",
+            "print(r.reply.text, r.spent.words)",
+        ),
+        (f'r = {CALL}\nprint(r["reply"][ u"text" ])\n', "print(r.reply.text)"),
+        (f"r = {CALL}\nprint((r['reply'])['text'])\n", "print((r.reply).text)"),
+        (
+            f"p = {FETCH_CALL}['rows'][0]['price']\n",
+            "p = acme.kit.quotes.fetch(symbol='x').rows[0].price",
+        ),
+        (f"r = {CALL}\nprint(r['reply']['text'].upper()[0])\n", "print(r.reply.text.upper()[0])"),
+        (
+            f"r = {CALL}\nprint([r['reply']['text'] for _ in 'ab'])\n",
+            "print([r.reply.text for _ in 'ab'])",
+        ),
+        (f"r = {CALL}\nprint(f\"{{r['reply']['text']}}\")\n", 'print(f"{r.reply.text}")'),
+        (f"r = {CALL}\nx = r['reply']['text'] or 1\n", "x = r.reply.text or 1"),
+        (
+            f"x = {OTHER}['reply']['text'] + {CALL}['reply']['text']\n",
+            "x = acme.kit.talk.say(who='b').reply.text + acme.kit.talk.say(who='a').reply.text",
+        ),
+        (
+            f"x = {NESTED}['reply']['text']\n",
+            "x = acme.kit.talk.say(who=acme.kit.talk.say(who='a').reply.text).reply.text",
+        ),
+    ],
+)
+def test_a_string_key_along_a_listed_path_is_read_as_the_attribute_of_that_name(
+    body: str, line: str
+) -> None:
+    code, edits = rewrite(body)
+    assert {row.status for row in edits} == {"auto"}, body
+    assert code.splitlines()[-1] == line
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\nr['reply']['text'] = 'x'\n",
+        f"r = {CALL}\nr['reply']['text'] += 'x'\n",
+        f"r = {CALL}\ndel r['reply']['text']\n",
+        f"r = {CALL}\nr['reply',]['text']\n",
+        f"r = {CALL}\nr['other']\n",
+        f"r = {CALL}\nr['reply']['words']\n",
+        f"r = {CALL}\nr[key]['text']\n",
+        f"r = {CALL}\nr['re' 'ply']['text']\n",
+        f"r = {CALL}\nr[f'reply']['text']\n",
+        f"r = {CALL}\nr[b'reply']['text']\n",
+        f"r = {CALL}\nr['reply'].get('text')\n",
+        f"p = {FETCH_CALL}['rows']['[]']['price']\n",
+        f"r = {CALL}\nprint(f\"{{r['reply']['text']=}}\")\n",
+        f"r = {CALL}\nr[*'reply']['text']\n",
+        f"r = {CALL}\nx = r['reply']['text']or 1\n",
+        f"r = {CALL}\nx = 1 if r['reply']['text']else 2\n",
+        f"r = {CALL}\nx = [q for q in r['reply']['text']if q]\n",
+    ],
+)
+def test_a_key_the_pack_does_not_list_or_a_write_through_it_refuses_the_call(body: str) -> None:
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {{}}\nif again:\n    r = {CALL}\nprint(r['reply']['text'])\n",
+        f"def f(r):\n    r = {CALL}\n    return r['reply']['text']\n",
+        f"r = {CALL}\nfor r in [{{}}]:\n    print(r['reply']['text'])\n",
+        f"with open('f') as r:\n    pass\nr = {CALL}\nprint(r['reply']['text'])\n",
+        f"def f():\n    r = {CALL}\n    def g():\n        nonlocal r\n        r = {{}}\n"
+        "    return r['reply']['text']\n",
+        f"def f():\n    global R\n    R = {CALL}\n    return R['reply']['text']\n"
+        "def g():\n    global R\n    R = {}\n",
+    ],
+)
+def test_a_name_that_may_hold_something_else_is_not_read_by_key(body: str) -> None:
+    """The dictionary it may hold would lose its keys; a read by attribute is no such risk."""
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+    _, edits = rewrite(body.replace("['reply']['text']", ".reply.text"))
+    assert [row.status for row in edits] == ["auto"], body
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\ndef g():\n    return r['reply']['text']\n",
+        f"r = {CALL}\ng = lambda: r['reply']['text']\n",
+        "from shared import *\n\n\ndef cached():\n    return r['reply']['text']\n\n\n"
+        f"def fresh():\n    r = {CALL}\n    return r['reply']['text']\n",
+    ],
+)
+def test_a_read_by_key_must_run_where_the_call_does_and_be_linked_to_it(body: str) -> None:
+    """A closure runs when it is called, and an unlinked name may be a module's own."""
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+
+
+@pytest.mark.parametrize(
+    ("prelude", "handler", "carried"),
+    [
+        ("", "KeyError", False),
+        ("", "LookupError", False),
+        ("", "(ValueError, KeyError)", False),
+        ("", "*KeyError", False),
+        ("EXC = (KeyError, ValueError)\n", "EXC", False),
+        ("class Mine(Exception):\n    pass\n", "Mine", False),
+        ("", "Undefined", False),
+        ("import socket\n", "socket.timeout", True),
+        ("", "Exception", True),
+        ("", "AttributeError", True),
+        ("", "ValueError", True),
+        ("", "", True),
+    ],
+)
+def test_a_handler_for_a_missing_key_would_miss_the_attribute_error_that_replaces_it(
+    prelude: str, handler: str, carried: bool
+) -> None:
+    body = f"{prelude}r = {CALL}\ntry:\n    x = r['reply']['text']\nexcept {handler}:\n    x = ''\n"
+    code, edits = rewrite(body)
+    assert [row.status for row in edits] == (["auto"] if carried else ["needs_review"]), handler
+    assert ("x = r.reply.text" in code) is carried
+
+
+@pytest.mark.parametrize(
+    ("manager", "carried"),
+    [
+        ("contextlib.suppress(KeyError)", False),
+        ("ignore(KeyError)", False),
+        ("contextlib.nullcontext()", True),
+        ("lock", True),
+    ],
+)
+def test_a_suppress_around_a_read_would_hide_the_error_that_replaces_it(
+    manager: str, carried: bool
+) -> None:
+    body = (
+        "import contextlib\nfrom contextlib import suppress as ignore\n"
+        f"r = {CALL}\nwith {manager}:\n    x = r['reply']['text']\n"
+    )
+    _, edits = rewrite(body)
+    assert [row.status for row in edits] == (["auto"] if carried else ["needs_review"]), manager
+
+
+def test_a_read_is_rewritten_only_when_its_call_is() -> None:
+    """The call is refused last of all, so its reads are recorded only once it has passed."""
+    say = kit.SAY.model_copy(
+        update={
+            "params": kit.SAY.params.model_copy(
+                update={"legacy_error_modules": ("acme.kit.errors",)}
+            )
+        }
+    )
+    body = f"try:\n    print({CALL}['reply']['text'])\nexcept acme.kit.errors.Failure:\n    pass\n"
+    code, edits = acme.transform(f"{HEADER}{body}", say, kit.FETCH, spec=kit.SPEC)
+    assert reasons(edits) == ["error_class_changed"]
+    assert "print(acme.kit.Greeter.say(name='a')['reply']['text'])" in code
+
+
 def test_an_integer_subscript_is_a_step_on_the_path_and_any_other_is_not() -> None:
-    fetch = "acme.kit.Quote.get(symbol='x')"
+    fetch = FETCH_CALL
     for index in ("0", "-1", "12"):
         code, edits = rewrite(f"p = {fetch}.rows[{index}].price\n")
         assert [row.status for row in edits] == ["auto"], index
@@ -284,6 +460,16 @@ def test_a_repository_that_migrates_whole_moves_its_files_and_its_pin_together(
     after, rows = migrate(tmp_path, {"a.py": SOURCE, "b.py": SOURCE, "requirements.txt": PINNED})
     assert after["a.py"].splitlines()[2] == "reply = acme.kit.talk.say(who='a')"
     assert after["b.py"] == after["a.py"]
+    assert after["requirements.txt"] == "acme-kit>=2,<3\n"
+    assert {status for *_, status, _ in rows} == {"auto"}
+
+
+def test_a_dictionary_style_read_no_longer_holds_the_repository(tmp_path: Path) -> None:
+    keyed = SOURCE.replace("reply.reply.text", "reply['reply']['text']")
+    after, rows = migrate(tmp_path, {"a.py": keyed, "requirements.txt": PINNED})
+    assert after["a.py"] == SOURCE.replace(
+        "acme.kit.Greeter.say(name='a')", "acme.kit.talk.say(who='a')"
+    )
     assert after["requirements.txt"] == "acme-kit>=2,<3\n"
     assert {status for *_, status, _ in rows} == {"auto"}
 

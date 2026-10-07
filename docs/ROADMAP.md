@@ -20,7 +20,7 @@ sit in a directory your config lists ([ADR-052](adr/ADR-052-several-packs-per-ru
 every argument and every read of the result is one it has checked. It reports async calls, streaming,
 Azure, the other resources, the settings and the exception classes the new SDK changed, and it
 writes nothing while any one of them is left, because `openai` 0.x and 1.x are one distribution.
-What stays out: a client object, rewriting a dictionary-style read of a result, and a Gate 1
+What stays out: a client object, a `.get` read of a result, and a Gate 1
 measurement, which neither of the two newer packs has. Another library that keeps its import name needs
 the same measurement before it gets a pack.
 

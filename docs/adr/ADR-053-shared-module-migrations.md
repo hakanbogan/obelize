@@ -13,7 +13,7 @@ migration that needs it, and the third family, **`openai` 0 to 1**, `openai/open
 things (D2 to D6). As for ADR-051, a Gate 0 measured every fact the rules rest on before any rule was
 written, with no call to the API: the calls went to a local mock, and the names, parameters and
 result fields were read from the modules. D11 to D17 are what an adversarial review of the finished
-pack changed.
+pack changed, and D18 a later rewrite.
 
 
 ### D1. What the Gate 0 measured
@@ -112,16 +112,12 @@ never carries.
 `result_paths` lists the only reads of a call's result that carry: dotted attribute paths such as
 `choices[].message.content`, where `[]` is an integer-literal subscript. A path ends in an attribute
 and no path continues another. The reads are followed off the call itself and off the one name it is
-assigned to, in that name's scope (D16 says which reads that counts). Any other use is `response_shape_changed`: a string subscript,
-`.get`, a loop over the result, the result returned or passed on, a method on a path that is not a
-leaf. A result nothing reads is fine. `result_paths` and `result_access_flags` exclude each other,
-since the second refuses every use and the first would never be consulted. Both ways of knowing are
-fail-closed.
-
-**Not done: rewriting the read.** Turning `r["choices"][0]["message"]["content"]` into
-`r.choices[0].message.content` would make the dictionary style, which 0.28.1 results allowed,
-migrate. It means a rule that edits the reads as well as the call, and `rewrite_call` replaces the
-call node only. Until a rule does, the file is withheld.
+assigned to, in that name's scope (D16 says which reads that counts). A string key that is the next
+segment of a path is the same read written as a key (D18). Any other use is `response_shape_changed`:
+a key off the path, `.get`, a loop over the result, the result returned or passed on, a method on a
+path that is not a leaf. A result nothing reads is fine. `result_paths` and `result_access_flags`
+exclude each other, since the second refuses every use and the first would never be consulted. Both
+ways of knowing are fail-closed.
 
 ### D6. One distribution makes the pin and the files one unit
 
@@ -158,7 +154,7 @@ the rest, because each of these is a measured way for the rewrite to be silently
 |---|---|
 | `acreate` | The new module client has no async form: `AsyncOpenAI` is a client the file must build and close. |
 | `stream=True`, `engine`, `deployment_id`, `request_timeout`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. |
-| A result read as a dictionary, looped over, passed on or returned | D5. |
+| A result read with `.get`, by a key off the path, looped over, passed on or returned | D5, D18. |
 | The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. |
 | `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |
 | `openai.APIError` | **Deliberately not reported.** The name exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. The cost: a handler that reads `http_status`, `json_body` or `user_message` compiles and raises `AttributeError` once the pin moves, and nothing says so. It is a limitation of the pack. |
@@ -292,6 +288,43 @@ the pack's width. `rewrite_call` lays a call inside an f-string out on one line 
 valid, so only the rule can prevent it. The other rules still wrap there
 ([KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-openai-pack)).
 
+### D18. A string key along a path is rewritten to the attribute
+
+A 0.28.1 result is a `dict` subclass on which `r["choices"]` and `r.choices` read one field (D1), so
+`r["choices"][0]["message"]["content"]` is a read along `choices[].message.content` and migrates as
+`r.choices[0].message.content`. `rewrite_call` records the read next to the call and writes both in
+the one pass, or neither: a call refused for another reason leaves its reads as written. A key
+counts only when:
+
+- it is a single string literal (no concatenation, f-string, bytes, star or trailing comma), the next
+  segment of a listed path, and an identifier;
+- the read loads: an assignment, `+=` or `del` through it is `response_shape_changed`. This is
+  conservative, not measured: a new result is a model that accepts such writes;
+- the name holds the result alone: one binding in its scope (a fallback `r = cached`, a parameter,
+  a loop or `with` target, a `global` or `nonlocal` write each make a second, and a dictionary
+  that binding holds would lose its keys), no read the scope analysis cannot link to the call
+  (D16), and every read in the call's own function, since a closure or lambda runs when something
+  calls it;
+- no `try` around it has a handler that may name the missing key: `KeyError`, `LookupError`, or a
+  name this file defines or leaves unresolved, which may be a tuple holding one; and no
+  `contextlib.suppress` encloses it. The read would raise `AttributeError`, which only a bare
+  `except:`, `Exception` or `AttributeError` catches, and a handler that never ran would hide the
+  change. Imported exception classes are not looked into, nor is a handler in a caller: both go unseen;
+- it is not in an f-string field written with `=`, which prints the source text, and no word follows
+  it with no space (`r["id"]or 1`): the attribute ends in a name, and libcst refuses to join one to
+  a keyword.
+
+The replaced node is rebuilt over the value as already rewritten, not visited again, so nested calls
+that read each other's results cost no more than nested calls do.
+
+The format gains no field: whoever lists a path says both spellings read the same field of the
+legacy result. `dict_reads` reads every listed path by its keys, a test
+(`test_the_dict_reads_fixture_reads_every_listed_path_by_its_keys`) holds it to that, and the weekly
+job prints the fixture's results on 0.28.1 and on 1.109.1 and the newest release and diffs them.
+The other spellings stay refused: `.get` has a default where the attribute read raises, and a key
+held in a name or an expression is not known to be on the path. A comment between the brackets of a
+rewritten read is dropped, as for every rule.
+
 ### Review
 
 Three adversarial reviewers each ran 150 to 450 inputs against the finished pack and the engine under
@@ -329,7 +362,7 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   also lands on the source rows of a coupled pack, an import row included,
   `manifest_pin_shape_unsupported` is also raised by the scan for a coupled pack (D12), and
   `response_shape_changed` also means a read outside `result_paths`. `CHANGELOG.md` lists the format changes (ADR-048).
-- One withheld row anywhere keeps every file as it was: a dictionary-style read, an `openai.Image`
+- One withheld row anywhere keeps every file as it was: a `.get` read of a result, an `openai.Image`
   call, an undeclared `requests` import or a pin it cannot write leaves the repository unchanged,
   with exit `4`. Gate 1 is
   not measured for this pack, so no rate says how often. [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-openai-pack)
@@ -345,6 +378,6 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   - Streaming: a `stream=True` result is read through its chunks, which have no `result_paths` yet.
   - Azure: `api_type`, `api_version`, `engine` and `deployment_id` become an `AzureOpenAI` client
     with an endpoint and an API version, which is a configuration rewrite across modules.
-  - A result-style rewrite from `r["choices"]` to `r.choices` (D5).
+  - A `.get` read of a result, which has no attribute spelling that raises the same way.
   - Client-object output: `openai.OpenAI(...)` with the module settings moved into its construction,
     for code that needs the client itself.

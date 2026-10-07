@@ -29,7 +29,10 @@ in the release that makes it.
   to 1.109.1 or later, one library whose module keeps its name. It rewrites
   `openai.ChatCompletion.create`, `Completion.create` and `Embedding.create` to the same calls on the
   module client (`openai.chat.completions.create`) when every argument and every read of the result
-  is one it has checked, and moves the pin to `openai>=1.109.1`. It reports async calls, thirteen
+  is one it has checked, and moves the pin to `openai>=1.109.1`. A read of the result by string keys
+  along a path it lists (`response["choices"][0]["message"]["content"]`) is rewritten to the
+  attribute path with the call, where the name holds the result alone and no handler for a missing key
+  or `contextlib.suppress` surrounds the read. It reports async calls, thirteen
   module settings the new releases ignore or read differently, the `openai.error` classes, the other
   resources, the modules of the 0.28.1 package and indirect use. Both versions are one distribution,
   so it writes no file while any row of the pack is withheld: each row of another file it would have written reads `repo_not_fully_migrated`, and the pin stays. A declaration that
@@ -41,7 +44,8 @@ in the release that makes it.
   `match.symbols` legacy, and a shared pack has no `rename_import` change. `rewrite_call` takes
   `root: module` (the call stays on the root the author wrote, and no `configure_to_client` is
   needed), `keywords` (parameters carried when written as keywords) and `result_paths` (the only
-  reads of a result that carry). A `manifest_dependency` may name one distribution on both sides,
+  reads of a result that carry; a string key that is the next segment of a path is rewritten to the
+  attribute). A `manifest_dependency` may name one distribution on both sides,
   the two told apart by `from.version` and `to.version`, and a declaration `to.version` already admits is
   left as written. `arg_map` may not rename a parameter onto `config_kwarg`, which named the keyword twice.
 

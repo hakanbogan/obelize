@@ -35,7 +35,7 @@ the pinned 3.26.0 and, weekly, on 1.109.1.
 
 The claim that matters, that the migrated call does what the old one did, is
 measured too: `tests/packs/openai_behaviour_check.py` runs the fixtures that
-migrate (chat completion, text completion, embedding, an aliased import) against
+migrate (chat completion, text completion, embedding, an aliased import, dictionary-style reads) against
 a local server, the `.before.py` files on 0.28.1 and the `.after.py` answer
 keys on 1.109.1, 2.0.0 and 3.26.0, and the printed results were identical. The
 weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
@@ -74,8 +74,10 @@ weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
   `r["choices"][0]["message"]["content"]` and `r.choices[0].message.content`
   both work. A 3.26.0 and 1.109.1 result is a pydantic model:
   `r["choices"]` raises `TypeError`, there is no `.get`, `"id" in r` is false
-  without an error and `json.dumps(r)` raises. Only attribute reads carry, and
-  `result_paths` lists the fields every measured release defines
+  without an error and `json.dumps(r)` raises. Only attribute reads work on the new side, so a
+  string key along a listed path is rewritten to its attribute (the `dict_reads` fixture reads every
+  listed path by its keys and prints the same on 0.28.1, 1.109.1 and the newest release), and `result_paths` lists the fields every
+  measured release defines
   (`choices[].message.content`, `usage.total_tokens`, `data[].embedding`, ...).
 - Measured: the 0.28.1 result classes are not distinct types (a chat result is
   a plain `OpenAIObject`), so nothing can be read off the type: a file is

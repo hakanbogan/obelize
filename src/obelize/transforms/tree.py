@@ -13,7 +13,12 @@ from typing import TYPE_CHECKING
 import libcst as cst
 import libcst.matchers as m
 from libcst._metadata_dependent import LazyValue
-from libcst.metadata import ParentNodeProvider, PositionProvider, QualifiedNameProvider
+from libcst.metadata import (
+    ParentNodeProvider,
+    PositionProvider,
+    QualifiedName,
+    QualifiedNameProvider,
+)
 
 from obelize.transforms import layout
 
@@ -82,10 +87,14 @@ class Tree:
     def parent(self, node: cst.CSTNode) -> cst.CSTNode:
         return self._parent[node]
 
-    def qualified(self, node: cst.CSTNode) -> str:
-        """The one qualified name, resolved lazily; `""` for none or several (already withheld)."""
+    def names(self, node: cst.CSTNode) -> set[QualifiedName]:
+        """Every qualified name `node` may mean, resolved lazily."""
         value = self._wrapper.resolve(QualifiedNameProvider).get(node, ())
-        names = {name.name for name in (value() if isinstance(value, LazyValue) else value)}
+        return set(value() if isinstance(value, LazyValue) else value)
+
+    def qualified(self, node: cst.CSTNode) -> str:
+        """The one qualified name; `""` for none or several (already withheld)."""
+        names = {name.name for name in self.names(node)}
         return names.pop() if len(names) == 1 else ""
 
     def handlers(self, node: cst.CSTNode) -> Iterator[cst.ExceptHandler]:

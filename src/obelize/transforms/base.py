@@ -260,6 +260,15 @@ class _Apply(cst.CSTTransformer):
             return updated_node
         return rewritten
 
+    def leave_Subscript(  # noqa: N802 - libcst dispatches on the node name
+        self, original_node: cst.Subscript, updated_node: cst.Subscript
+    ) -> cst.BaseExpression:
+        """A read a rule made an attribute, over the value as already rewritten: no second visit."""
+        replacement = self._rewrites.get(original_node)
+        if replacement is None:
+            return updated_node
+        return replacement.with_changes(value=updated_node.value)
+
     def leave_Name(  # noqa: N802 - libcst dispatches on the node name
         self, original_node: cst.Name, updated_node: cst.Name
     ) -> cst.BaseExpression:

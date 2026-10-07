@@ -142,14 +142,25 @@ have. A path is dotted attribute names with `[]` after one that is indexed,
 such as `choices[].message.content` or `usage.total_tokens`:
 
 - `[]` stands for a subscript that is an integer literal (`choices[0]`,
-  `choices[-1]`); a name or a string may select a key instead, and is not one.
+  `choices[-1]`); a name may select a key instead, and is not one. A string
+  literal that is the next segment of a path is that segment written as a key
+  (below).
 - A path ends in an attribute, never in `[]`, and no path continues another:
   `choices[].message` beside `choices[].message.content` is refused, since a
   path ends where the read is trusted.
 - Reads are followed off the call itself and off the one name it is assigned
-  to, in that name's scope. Anything else is `response_shape_changed`: a string
-  subscript, `.get`, a loop over the result, a read of a path that is not a
+  to, in that name's scope. Anything else is `response_shape_changed`: a key off
+  the path, `.get`, a loop over the result, a read of a path that is not a
   prefix of a listed one, a method on a non-leaf, the result passed on or returned. A result nothing reads carries.
+- A string key along a path (`r["choices"][0]["message"]["content"]`) is rewritten to the attribute
+  (`r.choices[0].message.content`) in the same pass as the call, or not at all. A path lists a field
+  both spellings read the same way on the legacy result. The key is one string literal, with no
+  trailing comma, and the read must load. Otherwise the call is `response_shape_changed`: a name
+  that may hold something else (a second binding, a read in a closure, an unlinked read), an
+  f-string field written with `=`, a read glued to a following word (`r["id"]or 1`), and a `try`
+  handler that may name a missing key (`KeyError`,
+  `LookupError`, a name the file defines) or a `contextlib.suppress`, since the attribute read
+  raises `AttributeError`. `.get` is not rewritten.
 - A read the scope analysis links to no assignment (above it, in a loop's second pass) counts as
   a read of the result, and a result bound in a class body is `response_shape_changed`: `A.r` and
   `self.r` link to no scope.
@@ -457,6 +468,8 @@ so its two halves are held differently
   `keywords` entry is a parameter of the method `new_call` names, every
   `result_paths` segment is a field of the model it returns, and
   `to.requires_python` covers the Pythons the release declares.
+- A pack with `result_paths` has a positive fixture that reads every listed path by its keys, run on
+  the old release and on the new ones, since the key rewrite rests on both spellings being one read.
 - Its negative fixtures are scanned, not prefiltered, since the module's name is
   the token of every file that already uses the new API.
 

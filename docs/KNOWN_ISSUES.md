@@ -140,17 +140,25 @@ large. A handful of docstrings still point forward to work that has since shippe
 `openai/openai-0-to-1` writes nothing until it can write everything, because `openai` 0.x and 1.x
 are one distribution and a half-migrated repository installs neither way. A single place it
 withholds anywhere in the repository (an `openai.Image` call, an async or a streamed call, a
-dictionary-style read, a file that does not parse, an import of `requests`, `aiohttp` or another
+`.get` read of a result, a file that does not parse, an import of `requests`, `aiohttp` or another
 module `openai` 0.28.1 installed that no manifest declares, or a dependency line it cannot rewrite
 in place) leaves every file and the pin as they were, and an apply exits `4`. `obelize scan` grades files one at a time, so it can show rows
 `eligible` that `fix` then withholds. I have not measured how many repositories that is: the pack
 has no Gate 1 result.
 
-A 0.28.1 result could be read as a dictionary, as in
-`response["choices"][0]["message"]["content"]` or `response.get("choices")`, and either raises on a
-1.x result. The pack rewrites a call only when every read of its result is an attribute path it lists,
-so each such call is `response_shape_changed`, and by the paragraph above it holds back the
-repository. Rewriting the read as well as the call is not done.
+A 0.28.1 result could be read as a dictionary, and a read by key raises on a 1.x result. A read by
+string keys along a path the pack lists (`response["choices"][0]["message"]["content"]`) is rewritten
+to the attribute path with the call. `response.get("choices")`, a key the pack does not list, a loop
+over the result and the result handed on are `response_shape_changed`, and by the paragraph above
+each holds back the repository. So does a key read of a name that may hold something else (a
+fallback `r = cached`, a parameter, a loop or `with` target), a key read in a closure or a lambda, one
+in an f-string field written with `=`, and one inside a `try` whose handler may name a missing key
+(`KeyError`, `LookupError`, a name the file defines or leaves unresolved) or inside
+`contextlib.suppress`: the attribute read raises `AttributeError` and that handler would stop
+running. Still unseen: a handler in a caller of the function that holds the read, an imported
+exception class that subclasses `KeyError`, and a comment between the brackets of a rewritten read,
+which is dropped. A test that replaces the module a function imports with one that returns
+dictionaries breaks with the call, as the verify commands show.
 
 A result bound to a module-level name that another module imports is checked for reads in the file
 that binds it only. A dictionary-style read in the importing module goes unseen, so the call is

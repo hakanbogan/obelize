@@ -68,7 +68,7 @@ def hello(name):
     return kit.talk.say(who=name, loud=True).reply.text
 """
 
-# A dict-style read of what 2.x returns as an object.
+# A key read that stops short of a leaf of what 2.x returns as an object.
 KIT_DICT = KIT_CLEAN.replace(".reply.text", '["reply"]')
 
 SDK_CLEAN = """import acme.sdk as sdk

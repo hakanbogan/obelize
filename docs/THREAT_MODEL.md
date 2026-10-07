@@ -133,7 +133,8 @@ that reads right and is wrong, or it reports nothing where it should report. The
 fail-closed, with one exception.
 
 - A call is rewritten only with the keywords the pack lists (`keywords`), and its result is read only
-  along the paths it lists (`result_paths`). Anything else is refused (`unsupported_kwarg`,
+  along the paths it lists (`result_paths`), as attributes or as string keys, which become the
+  attributes. Anything else is refused (`unsupported_kwarg`,
   `response_shape_changed`), so a name the pack leaves out refuses more and writes nothing wrong. A
   name the pack lists wrongly is the open side, which `tests/packs/test_openai_facts.py` closes by
   reading each keyword from the new method's signature and each path from the result model.

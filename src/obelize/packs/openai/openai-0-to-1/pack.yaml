@@ -132,6 +132,7 @@ changes:
     fixtures:
       - fixtures/negative/module_client_new.py
       - fixtures/positive/chat_completion.before.py
+      - fixtures/positive/dict_reads.before.py
       - fixtures/positive/from_import.before.py
       - fixtures/positive/import_alias.before.py
       - fixtures/positive/response_shapes.before.py
@@ -362,7 +363,7 @@ verification:
 
 limitations:
   - "Only openai.ChatCompletion.create, openai.Completion.create and openai.Embedding.create are rewritten, and only to the same call on the module (openai.chat.completions.create): no client object is built, so openai.api_key and openai.organization keep working as they did."
-  - "A result is rewritten only when every read of it is an attribute path the pack lists, such as response.choices[0].message.content. response[\"choices\"], response.get, a loop over a result and a result handed to another function withhold the file, because 0.28.1 results are dictionaries and the new ones are not."
+  - "A result is rewritten only when every read of it is a path the pack lists, such as response.choices[0].message.content; a read by string keys, response[\"choices\"][0][\"message\"][\"content\"], is rewritten to that attribute path, unless a handler for KeyError or LookupError surrounds it. response.get, a loop over a result and a result handed to another function withhold the file, because 0.28.1 results are dictionaries and the new ones are not."
   - "A call is refused unless every argument is a keyword the pack lists: positional arguments, stream, engine, deployment_id, request_timeout, timeout, api_key, api_base and a ** splat are not carried, since the new methods lack them or read them differently."
   - "Azure (api_type, api_version, engine, deployment_id) and every setting with no counterpart in the new releases are reported, never rewritten: assigning them still succeeds and changes nothing."
   - "Async calls, the other resources (Audio, Image, File, Moderation, FineTune and the rest), the openai.error classes and the modules of the 0.28.1 package are reported, never rewritten. The top-level openai.APIError exists on both sides and is not reported, since code already on the new release uses it: a handler for it that reads http_status, json_body or user_message fails with AttributeError once the pin moves."

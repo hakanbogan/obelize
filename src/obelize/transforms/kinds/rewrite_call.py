@@ -3,7 +3,8 @@
 Only `positional_to_kw` (the new call's own arguments, in legacy order), `keywords` (the same, when
 written as keywords) and `config_kwargs` (the configuration object) carry; any other keyword is
 refused, never passed to a method that lacks it. Rooted on the `module`, the call stays on the name
-the author wrote and no client is needed.
+the author wrote and no client is needed. A read of the result by a string key along a listed
+`result_paths` becomes the attribute read of the same name.
 """
 
 from __future__ import annotations
@@ -15,7 +16,15 @@ from functools import cached_property
 from typing import TYPE_CHECKING, ClassVar, Final
 
 import libcst as cst
-from libcst.metadata import ClassScope, ScopeProvider
+import libcst.matchers as m
+from libcst.metadata import (
+    BaseAssignment,
+    ClassScope,
+    ExpressionContext,
+    ExpressionContextProvider,
+    QualifiedNameSource,
+    ScopeProvider,
+)
 
 from obelize.models import BailCode, Edit
 from obelize.transforms import layout
@@ -29,6 +38,12 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
 
 # Builtins that reach a variable by its name written as a string.
 _NAMED: Final = frozenset({"eval", "exec", "globals", "locals", "vars"})
+
+# Handlers for these miss the `AttributeError` an attribute read raises in place of the key error.
+_MISSING_KEY: Final = frozenset({"builtins.KeyError", "builtins.LookupError"})
+
+# A string-keyed read and the name it becomes.
+Keyed = tuple[cst.Subscript, str]
 
 # A configuration field by its new name, and the author's node, moved rather than rebuilt.
 Field = tuple[str, cst.BaseExpression]
@@ -134,7 +149,7 @@ class RewriteCall:
         call = tree.call(position)
         callee = self._callee(context, call)
         read = self._arguments(call)
-        self._check_the_answer_is_the_one_the_new_call_gives(tree, call, read)
+        keyed = self._check_the_answer_is_the_one_the_new_call_gives(tree, call, read)
         if tree.caught(call, frozenset(self._params.legacy_error_modules)):
             raise BailError("error_class_changed")
         args = list(read.args)
@@ -161,6 +176,16 @@ class RewriteCall:
                 around=tree.around(call),
             ),
         )
+        for subscript, name in keyed:
+            context.rewrites.set(
+                subscript,
+                cst.Attribute(
+                    value=subscript.value,
+                    attr=cst.Name(name),
+                    lpar=subscript.lpar,
+                    rpar=subscript.rpar,
+                ),
+            )
 
     def _callee(self, context: RuleContext, call: cst.Call) -> cst.BaseExpression:
         """What the new call is made on: the file's client, or the root the author wrote.
@@ -255,13 +280,14 @@ class RewriteCall:
 
     def _check_the_answer_is_the_one_the_new_call_gives(
         self, tree: _Tree, call: cst.Call, read: _Read
-    ) -> None:
-        """Refuse a call whose result is not what the new call returns.
+    ) -> tuple[Keyed, ...]:
+        """Refuse a call whose result is not what the new call returns; else the reads to rewrite.
 
         `response_shape_changed`: a `dispatch_prefixes` argument that is not a literal with a listed
         prefix, under `result_access_flags` any use of the result (it may be read unseen), or under
         `result_paths` any read that stops short of one of them. A read of a field the new result
-        lacks is `attribute_removed`, as the scan grades it.
+        lacks is `attribute_removed`, as the scan grades it. A string-keyed read along a path is
+        returned, to become the attribute read the new result takes.
         """
         for parameter, prefixes in sorted(self._params.dispatch_prefixes.items()):
             value = read.given.get(parameter)
@@ -272,8 +298,12 @@ class RewriteCall:
             raise BailError("response_shape_changed")
         if tree.reads(call, frozenset(self._params.result_attribute_flags)):
             raise BailError("attribute_removed")
-        if self._paths and not tree.confined(call, self._paths, self._stems):
+        if not self._paths:
+            return ()
+        keyed = tree.confined(call, self._paths, self._stems)
+        if keyed is None:
             raise BailError("response_shape_changed")
+        return keyed
 
 
 def _tokens(path: str) -> tuple[str, ...]:
@@ -295,8 +325,9 @@ class _Tree(Tree):
     """The shared index, and the scopes a result's name is followed through."""
 
     def __init__(self, context: RuleContext) -> None:
-        super().__init__(context, [ScopeProvider])
+        super().__init__(context, [ScopeProvider, ExpressionContextProvider])
         self._scopes = context.wrapper.resolve(ScopeProvider)
+        self._contexts = context.wrapper.resolve(ExpressionContextProvider)
 
     def reads(self, call: cst.Call, fields: frozenset[str]) -> bool:
         """Whether what `call` returns is read for one of `fields`.
@@ -318,54 +349,163 @@ class _Tree(Tree):
 
     def confined(
         self, call: cst.Call, leaves: frozenset[tuple[str, ...]], stems: frozenset[tuple[str, ...]]
-    ) -> bool:
-        """Whether what `call` returns is read only along `leaves`, and nowhere else.
+    ) -> tuple[Keyed, ...] | None:
+        """The string-keyed reads of the result if it is read only along `leaves`, else None.
 
         Each use is the call or a read of the one name it is assigned to. A use climbs through
-        attributes and integer subscripts, and must reach a leaf: a string subscript, a method, a
-        loop, or the value handed on stops short of one. A result nothing reads is confined. One
-        bound in a class body is read as an attribute of the class, and one in a file that reads
-        names by their strings may be read as `locals()["r"]`: no scope links either.
+        attributes, integer subscripts and string keys, and must reach a leaf: a key off the path,
+        a method, a loop, or the value handed on stops short of one. A result nothing reads is
+        confined. One bound in a class body is read as an attribute of the class, and one in a file
+        that reads names by their strings may be read as `locals()["r"]`: no scope links either.
+        A key is rewritten only where the name is the result alone, in the call's own function, and
+        linked: a name another binding or file may hold would lose its dictionary.
         """
+        sole = True
+        unlinked: list[cst.CSTNode] = []
         match self.consumer(call):
             case cst.Expr():
-                return True
+                return ()
             case cst.Assign(targets=[cst.AssignTarget(target=cst.Name() as target)]):
                 if isinstance(self._scopes[target], ClassScope) or self._by_name:
-                    return False
-                uses = [*self._held(target), *self._unlinked.get(target.value, ())]
+                    return None
+                sole = len(self._assigned(target)) == 1
+                uses = self._held(target)
+                unlinked = self._unlinked.get(target.value, [])
             case _:
                 uses = [call]
-        return all(self._reaches(use, leaves, stems) for use in uses)
+        keyed: list[Keyed] = []
+        for use in uses:
+            found = self._reaches(use, leaves, stems)
+            if found is None:
+                return None
+            keyed += found
+        for use in unlinked:
+            if self._reaches(use, leaves, stems) != []:
+                return None
+        if keyed and not (sole and self._same_function(call, keyed)):
+            return None
+        return tuple(keyed)
+
+    def _same_function(self, call: cst.Call, keyed: list[Keyed]) -> bool:
+        """Whether every read runs where the call does: a closure runs when something calls it."""
+        frame = self._frame(call)
+        return all(self._frame(read) is frame for read, _ in keyed)
+
+    def _frame(self, node: cst.CSTNode) -> cst.CSTNode:
+        """The function, lambda, class or module that runs `node`; a comprehension runs in place."""
+        while not isinstance(node, cst.Module | cst.FunctionDef | cst.Lambda | cst.ClassDef):
+            node = self.parent(node)
+        return node
 
     def _reaches(
         self,
         node: cst.CSTNode,
         leaves: frozenset[tuple[str, ...]],
         stems: frozenset[tuple[str, ...]],
-    ) -> bool:
+    ) -> list[Keyed] | None:
+        """The keyed reads on the way from `node` to a leaf, or None if the read stops short."""
         path: tuple[str, ...] = ()
+        keyed: list[Keyed] = []
         while path not in leaves:
             parent = self.parent(node)
             match parent:
                 case cst.Attribute(value=value, attr=cst.Name(value=name)) if value is node:
                     path += (name,)
                 case cst.Subscript(
-                    value=value, slice=[cst.SubscriptElement(slice=cst.Index(value=index))]
-                ) if value is node and _integer(index):
-                    path += ("[]",)
+                    value=value,
+                    slice=[
+                        cst.SubscriptElement(
+                            slice=cst.Index(value=index, star=None), comma=cst.MaybeSentinel.DEFAULT
+                        )
+                    ],
+                ) if value is node:
+                    if _integer(index):
+                        path += ("[]",)
+                    else:
+                        key = literal_string(index)
+                        if (
+                            key is None
+                            or not key.isidentifier()
+                            or self._contexts.get(parent) is not ExpressionContext.LOAD
+                        ):
+                            return None
+                        path += (key,)
+                        keyed.append((parent, key))
                 case _:
-                    return False
+                    return None
             if path not in leaves and path not in stems:
-                return False
+                return None
             node = parent
-        return True
+        # One chain sits in one place: what surrounds its first read surrounds them all.
+        if keyed and (self._echoed(keyed[0][0]) or self._swallowed(keyed[0][0])):
+            return None
+        if keyed and self._glued(keyed[-1][0]):
+            return None
+        return keyed
+
+    def _glued(self, node: cst.CSTNode) -> bool:
+        """Whether a word follows `node` with no space: `]or` was a token end, `.id or` is not."""
+        line, column = self.end(node)
+        return self.lines[line - 1][column : column + 1].isidentifier()
+
+    def _echoed(self, node: cst.CSTNode) -> bool:
+        """Whether `node` is in an f-string field written with `=`, which prints its own source."""
+        while not isinstance(node, cst.BaseSmallStatement | cst.BaseCompoundStatement):
+            node = self.parent(node)
+            if isinstance(node, cst.FormattedStringExpression) and node.equal is not None:
+                return True
+        return False
+
+    def _swallowed(self, node: cst.CSTNode) -> bool:
+        """Whether a handler or `suppress` around `node` may have taken the missing key's error.
+
+        Up to the enclosing function, as a `try` guards its body only. A handler names a missing
+        key, or a name this file defines or leaves unresolved, which may be a tuple holding one.
+        """
+        while not isinstance(node, cst.Module | cst.FunctionDef | cst.Lambda | cst.ClassDef):
+            parent = self.parent(node)
+            match parent:
+                case cst.Try(handlers=handlers) | cst.TryStar(handlers=handlers) if (
+                    node is parent.body
+                ):
+                    if any(self._may_miss(handler) for handler in handlers):
+                        return True
+                case cst.With(items=items) if node is parent.body:
+                    if any(self._suppresses(item) for item in items):
+                        return True
+            node = parent
+        return False
+
+    def _may_miss(self, handler: cst.ExceptHandler | cst.ExceptStarHandler) -> bool:
+        """Whether `handler` may name a missing key; a bare one also takes the `AttributeError`."""
+        if handler.type is None:
+            return False
+        for name in m.findall(handler.type, m.Name() | m.Attribute()):
+            above = self.parent(name)
+            if isinstance(above, cst.Attribute) and above.attr is name:
+                continue
+            found = self.names(name)
+            if not found or any(
+                each.source is QualifiedNameSource.LOCAL or each.name in _MISSING_KEY
+                for each in found
+            ):
+                return True
+        return False
+
+    def _suppresses(self, item: cst.WithItem) -> bool:
+        return (
+            isinstance(item.item, cst.Call)
+            and self.qualified(item.item.func) == "contextlib.suppress"
+        )
+
+    def _assigned(self, target: cst.Name) -> set[BaseAssignment]:
+        """Every binding of the name `target` binds, in its own scope."""
+        scope = self._scopes[target]
+        return scope[target.value] if scope is not None else set()
 
     def _held(self, target: cst.Name) -> list[cst.CSTNode]:
         """Every read of the name `target` binds, in its own scope."""
-        scope = self._scopes[target]
-        found = scope[target.value] if scope is not None else set()
-        return [access.node for assignment in found for access in assignment.references]
+        return [access.node for found in self._assigned(target) for access in found.references]
 
     @cached_property
     def _unlinked(self) -> dict[str, list[cst.CSTNode]]:

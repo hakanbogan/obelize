@@ -194,8 +194,22 @@ def test_every_read_the_pack_carries_is_a_field_of_the_result_the_call_returns(s
             model = _model(model.model_fields[segment].annotation)
 
 
+def test_the_dict_reads_fixture_reads_every_listed_path_by_its_keys() -> None:
+    """The rewrite rests on `r["a"]` and `r.a` reading one field of a 0.28.1 result; the weekly
+    job runs the fixture on 0.28.1 and on the new releases and compares what it prints."""
+    fixture = BUNDLED.path.parent / "fixtures" / "positive" / "dict_reads.before.py"
+    source = fixture.read_text("utf-8")
+    for params in REWRITES.values():
+        for path in params.result_paths:
+            keys = "".join(
+                f'["{part.removesuffix("[]")}"]' + ("[0]" if part.endswith("[]") else "")
+                for part in path.split(".")
+            )
+            assert keys in source, f"no read of {path} by its keys"
+
+
 def test_a_new_result_is_not_a_dictionary() -> None:
-    """Why a read other than an attribute path withholds the file."""
+    """Why a string key along a path becomes an attribute, and any other read withholds the file."""
     result = openai.types.Completion.model_validate(
         {
             "id": "cmpl-1",
