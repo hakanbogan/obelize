@@ -19,16 +19,48 @@ import runpy
 import struct
 import sys
 import threading
+from email.parser import BytesParser
+from email.policy import HTTP
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any
 
 import openai
 
 
+def form(content_type: str, raw: bytes) -> dict[str, str]:
+    """The fields of a multipart body; the uploaded file is only said to be there, as the answer
+    keys and the legacy fixtures are not the same file."""
+    message = BytesParser(policy=HTTP).parsebytes(
+        b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + raw
+    )
+    fields = {}
+    for part in message.iter_parts():
+        name = str(part.get_param("name", header="content-disposition"))
+        fields[name] = "uploaded" if name == "file" else str(part.get_content())
+    return fields
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
-        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        raw = self.rfile.read(int(self.headers["Content-Length"]))
+        content_type = self.headers["Content-Type"]
+        body: dict[str, Any] = (
+            form(content_type, raw) if content_type.startswith("multipart/") else json.loads(raw)
+        )
         usage = {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
-        if self.path.endswith("/chat/completions"):
+        answer: dict[str, Any]
+        if self.path.endswith("/audio/transcriptions") or self.path.endswith("/audio/translations"):
+            answer = {"text": f"{self.path.rsplit('/', 1)[1]} {sorted(body.items())}"}
+        elif self.path.endswith("/images/generations"):
+            picture = {"url": "url " + body["prompt"]}
+            answer = {"created": 1, "data": [picture] * body.get("n", 1)}
+        elif self.path.endswith("/moderations"):
+            answer = {
+                "id": "m1",
+                "model": body.get("model", "text-moderation-latest"),
+                "results": [{"flagged": "in" in body["input"], "categories": {}}],
+            }
+        elif self.path.endswith("/chat/completions"):
             message = {"role": "assistant", "content": "chat " + body["messages"][-1]["content"]}
             answer = {
                 "id": "c1",
@@ -78,6 +110,8 @@ def main(paths: list[str]) -> int:
     os.environ["OPENAI_API_KEY"] = "unused"
     if hasattr(openai, "api_base"):
         openai.api_base = url
+        # 0.28.1 read the key when it was imported, before the line above set it.
+        openai.api_key = "unused"
     else:
         openai.base_url = url + "/"
     for path in paths:
@@ -89,7 +123,9 @@ def main(paths: list[str]) -> int:
             if inspect.isfunction(value) and value.__module__ == namespace["__name__"]
         ]
         for function in sorted(functions, key=lambda value: value.__name__):
-            print(f"{name}.{function.__name__} = {function('ping')!r}")
+            # A function that takes a `path` is handed a file to upload.
+            argument = path if "path" in inspect.signature(function).parameters else "ping"
+            print(f"{name}.{function.__name__} = {function(argument)!r}")
     return 0
 
 

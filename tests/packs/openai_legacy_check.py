@@ -47,19 +47,42 @@ def surface() -> dict[str, object]:
     }
 
 
+def _positional(method: Any, count: int) -> list[str]:
+    """The first `count` parameters of a bound method, in declared order."""
+    return list(inspect.signature(method).parameters)[:count]
+
+
 def behaviour() -> list[str]:
     """What the pack's refusals and its one rewrite rest on, as the names of what failed."""
     failed = []
     checks = {
         "results are dictionaries": issubclass(sdk.openai_object.OpenAIObject, dict),
-        "create and acreate on the three rewritten resources": all(
+        "create and acreate on the rewritten resources": all(
             inspect.ismethod(getattr(resource, method))
-            for resource in (sdk.ChatCompletion, sdk.Completion, sdk.Embedding)
+            for resource in (
+                sdk.ChatCompletion,
+                sdk.Completion,
+                sdk.Embedding,
+                sdk.Image,
+                sdk.Moderation,
+            )
             for method in ("create", "acreate")
+        ),
+        "transcribe and translate on Audio": all(
+            inspect.ismethod(getattr(sdk.Audio, method)) for method in ("transcribe", "translate")
         ),
         "acreate is a coroutine function": all(
             inspect.iscoroutinefunction(resource.acreate)
-            for resource in (sdk.ChatCompletion, sdk.Completion, sdk.Embedding)
+            for resource in (sdk.ChatCompletion, sdk.Completion, sdk.Embedding, sdk.Image)
+        ),
+        "positional order of the rewritten calls": (
+            _positional(sdk.Moderation.create, 1) == ["input"]
+            and _positional(sdk.Audio.transcribe, 2) == ["model", "file"]
+            and _positional(sdk.Audio.translate, 2) == ["model", "file"]
+        ),
+        "an image is created from keywords alone": (
+            _positional(sdk.Image.create, 1) == ["api_key"]
+            and bool(sdk.Image.create.__code__.co_flags & inspect.CO_VARKEYWORDS)
         ),
         "the settings are plain module attributes": all(
             hasattr(sdk, name)

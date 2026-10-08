@@ -16,8 +16,9 @@ sit in a directory your config lists ([ADR-052](adr/ADR-052-several-packs-per-ru
 
 `openai/openai-0-to-1` is the pack for a library that keeps its import name across a major version
 ([ADR-053](adr/ADR-053-shared-module-migrations.md)). It rewrites `openai.ChatCompletion.create`,
-`Completion.create` and `Embedding.create` to the same calls on the 1.x module client, and only when
-every argument and every read of the result is one it has checked. It reports async calls, streaming,
+`Completion.create`, `Embedding.create`, `Image.create`, `Moderation.create`, `Audio.transcribe` and
+`Audio.translate` to the same calls on the 1.x module client, and only when every argument and every
+read of the result is one it has checked. It reports async calls, streaming,
 Azure, the other resources, the settings and the exception classes the new SDK changed, and it
 writes nothing while any one of them is left, because `openai` 0.x and 1.x are one distribution.
 What stays out: a client object, a `.get` read of a result, and a Gate 1

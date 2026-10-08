@@ -27,8 +27,9 @@ in the release that makes it.
   below Python 3.9 or with PyPDF2 pinned below 3.
 - A third bundled pack, `openai/openai-0-to-1`, so obelize ships three. It migrates `openai` 0.28.1
   to 1.109.1 or later, one library whose module keeps its name. It rewrites
-  `openai.ChatCompletion.create`, `Completion.create` and `Embedding.create` to the same calls on the
-  module client (`openai.chat.completions.create`) when every argument and every read of the result
+  `openai.ChatCompletion.create`, `Completion.create`, `Embedding.create`, `Image.create`,
+  `Moderation.create`, `Audio.transcribe` and `Audio.translate` to the same calls on the module client
+  (`openai.chat.completions.create`, `openai.images.generate`) when every argument and every read of the result
   is one it has checked, and moves the pin to `openai>=1.109.1`. A read of the result by string keys
   along a path it lists (`response["choices"][0]["message"]["content"]`) is rewritten to the
   attribute path with the call, where the name holds the result alone and no handler for a missing key

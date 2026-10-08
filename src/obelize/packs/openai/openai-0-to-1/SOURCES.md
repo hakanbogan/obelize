@@ -35,10 +35,10 @@ the pinned 3.26.0 and, weekly, on 1.109.1.
 
 The claim that matters, that the migrated call does what the old one did, is
 measured too: `tests/packs/openai_behaviour_check.py` runs the fixtures that
-migrate (chat completion, text completion, embedding, an aliased import, dictionary-style reads) against
-a local server, the `.before.py` files on 0.28.1 and the `.after.py` answer
-keys on 1.109.1, 2.0.0 and 3.26.0, and the printed results were identical. The
-weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
+migrate (chat completion, text completion, embedding, an aliased import, dictionary-style reads, an
+image, a moderation and an audio call) against a local server, the `.before.py` files on 0.28.1 and
+the `.after.py` answer keys on 1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0 and 3.26.1, and the printed
+results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
 
 ---
 
@@ -83,10 +83,58 @@ weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
   a plain `OpenAIObject`), so nothing can be read off the type: a file is
   decided by the reads it contains.
 
+## image, moderation, transcription, translation
+
+- Guide: `openai.Image.create` becomes `client.images.generate`, `Moderation.create` becomes
+  `client.moderations.create`, and `Audio.transcribe` and `Audio.translate` become
+  `client.audio.transcriptions.create` and `client.audio.translations.create`. As for the chat
+  call, `openai.images`, `openai.moderations` and `openai.audio` resolve to the resources of the
+  one module client on every measured release (1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0).
+- Measured: 0.28.1's `Image.create(api_key=None, api_base=None, api_type=None, api_version=None,
+  organization=None, **params)` reads those five itself and sends every other keyword as the
+  JSON body, so its first positional parameter is the API key and no positional argument is
+  carried. `images.generate` is keyword-only and takes `prompt`, `model`, `n`, `quality`, `size`,
+  `style` and `user` on every measured release; they are what `keywords` lists. The result reads
+  (`created`, `data[].url`) are fields of `ImagesResponse` and `Image` on all of them.
+- Measured: `url`, `b64_json` and `revised_prompt` are optional on the new model, so a field the
+  server left out reads as `None` where 0.28.1 raised `KeyError` or `AttributeError`, and a handler
+  that relied on the miss (`except Exception`, a bare `except`, `except AttributeError`) stops
+  running. `url` is absent from a `b64_json` response and `revised_prompt` from a `dall-e-2` one, so
+  `response_format` is not carried and only `url`, which the default format returns, is a listed
+  path. A model that returns no url whatever the format (`gpt-image-1`) is the case this does not
+  catch.
+- Measured: 0.28.1's `Moderation.create(input, model=None, api_key=None)` dropped a `model` of
+  `None` from the body, where `moderations.create` sends `"model": null`, and raised `ValueError`
+  before any request for a model other than `text-moderation-stable` and `text-moderation-latest`,
+  which the new method sends on. So only `input` is carried, positionally or as a keyword, and a call
+  with a `model` is refused. The categories are not read: 0.28.1 keyed them `"self-harm"` and
+  `"hate/threatening"`, which the new model spells `self_harm` and `hate_threatening`, so only `id`,
+  `model` and `results[].flagged` are listed.
+- Measured: 0.28.1's `Audio.transcribe(model, file, api_key=None, ..., *, deployment_id=None,
+  **params)` sends `model` and the other keywords as form fields beside the file, and
+  `Audio.translate` takes the same arguments. Both new methods are keyword-only, so `positional_to_kw`
+  is `model, file`. `language`, `prompt` and `temperature` reach the server as the same form fields
+  (the behaviour check prints them as the mock server read them); `translations.create` has no
+  `language`, so it is not listed there. `response_format` is not carried: `text`, `srt` and
+  `vtt` return a string on both sides, and `verbose_json` a result with more fields than `text`
+  (measured against a local server on 0.28.1 and 1.109.1), so one result type cannot be assumed.
+- Measured, and not refused: the new method omits an empty `language` or `prompt` where 0.28.1
+  sent the empty field; it names the upload by its base name and guesses its type where 0.28.1 sent
+  `file.name` as written with `application/octet-stream`; it uploads from the start of a file where
+  0.28.1 uploaded from the current offset; and it refuses a file object that is not an `io.IOBase`,
+  bytes, a path or a tuple, which 0.28.1 sent if it had a `name` and a `read` (a Django upload).
+  The last is a limitation of the pack.
+- Measured on every rule of the pack: the new module client retries a request that fails with 408,
+  409, 429 or a 5xx status twice (`openai.max_retries`), where 0.28.1 retried connection errors only,
+  and connects within 5 seconds where 0.28.1 allowed 600 (`openai.timeout`). A retried image
+  generation is a second request. A CA bundle named by `REQUESTS_CA_BUNDLE` is read by 0.28.1 and not
+  by the new releases, which read `SSL_CERT_FILE`.
+
 ## flag-async-calls
 
 - Measured: `acreate` is a coroutine function on `ChatCompletion`,
-  `Completion` and `Embedding` in 0.28.1. The new module client has no async
+  `Completion`, `Embedding` and `Image` in 0.28.1, and `Moderation.acreate` returns a
+  coroutine, as do `Audio.atranscribe` and `atranslate`. The new module client has no async
   form: `openai.AsyncOpenAI` is a client the file must build and close, and no
   measured release has `acreate`.
 
@@ -126,11 +174,12 @@ weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
 - Measured: `Audio`, `Customer`, `Deployment`, `Edit`, `Engine`, `ErrorObject`,
   `File`, `FineTune`, `FineTuningJob`, `Image`, `Model` and `Moderation` are
   stubs in 3.26.0 and 1.109.1: reading one never raises and calling it raises
-  `APIRemovedInV1`. Their replacements differ in shape (`Audio.transcribe`
-  takes positional arguments where `audio.transcriptions.create` is
-  keyword-only, `Image.create` becomes `images.generate`, and
+  `APIRemovedInV1`. `Image.create`, `Moderation.create`, `Audio.transcribe` and `Audio.translate`
+  are rewritten (see their section); the rest are not, because their replacements differ in
+  shape (`Image.create_edit` and `create_variation` upload files, `Audio.*_raw` takes a file
+  name of its own, `Model.list` becomes `models.list`, which returns a `SyncPage` to iterate, and
   `Edit` and `FineTune` have no counterpart: their endpoints were shut down in
-  January 2024), so no one of them is rewritten.
+  January 2024).
 
 ## flag-removed-modules
 

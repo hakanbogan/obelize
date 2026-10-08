@@ -198,21 +198,120 @@ changes:
       - fixtures/negative/already_new.py
       - fixtures/positive/embedding.before.py
 
+  - id: image
+    kind: rewrite_call
+    citation: "openai-python v1.0.0 Migration Guide, 'Module client'"
+    params:
+      legacy_symbol: openai.Image.create
+      new_call: images.generate
+      root: module
+      # The body parameters 0.28.1 sent untouched and every measured release still takes; no
+      # positional argument, since 0.28.1's first positional one was the API key. Not
+      # response_format: the new model declares url, b64_json and revised_prompt optional, so a
+      # read of one the server left out is None where 0.28.1 raised, and a handler would stop
+      # running. The default format returns url, the one field listed.
+      keywords:
+        - model
+        - n
+        - prompt
+        - quality
+        - size
+        - style
+        - user
+      result_paths:
+        - created
+        - data[].url
+    fixtures:
+      - fixtures/negative/module_client_new.py
+      - fixtures/positive/image.before.py
+
+  - id: moderation
+    kind: rewrite_call
+    citation: "openai-python v1.0.0 Migration Guide, 'Module client'"
+    params:
+      legacy_symbol: openai.Moderation.create
+      new_call: moderations.create
+      root: module
+      # 0.28.1's signature was create(input, model=None, api_key=None). Neither is carried: it
+      # dropped a model of None where the new method sends null, and refused any name but two.
+      positional_to_kw:
+        - input
+      # Not the categories: 0.28.1 keyed them by names such as "self-harm" and "hate/threatening",
+      # which the new model spells with underscores.
+      result_paths:
+        - id
+        - model
+        - results[].flagged
+    fixtures:
+      - fixtures/negative/module_client_new.py
+      - fixtures/positive/moderation.before.py
+
+  - id: transcription
+    kind: rewrite_call
+    citation: "openai-python v1.0.0 Migration Guide, 'Module client'"
+    params:
+      legacy_symbol: openai.Audio.transcribe
+      new_call: audio.transcriptions.create
+      root: module
+      # 0.28.1's signature was transcribe(model, file, api_key=None, ...), and the new method is
+      # keyword-only. Not response_format: "text", "srt" and "vtt" return a string on both sides, and
+      # "verbose_json" a result with more fields than `text`.
+      positional_to_kw:
+        - model
+        - file
+      keywords:
+        - language
+        - prompt
+        - temperature
+      result_paths:
+        - text
+    fixtures:
+      - fixtures/negative/module_client_new.py
+      - fixtures/positive/audio.before.py
+
+  - id: translation
+    kind: rewrite_call
+    citation: "openai-python v1.0.0 Migration Guide, 'Module client'"
+    params:
+      legacy_symbol: openai.Audio.translate
+      new_call: audio.translations.create
+      root: module
+      positional_to_kw:
+        - model
+        - file
+      keywords:
+        - prompt
+        - temperature
+      result_paths:
+        - text
+    fixtures:
+      - fixtures/negative/module_client_new.py
+      - fixtures/positive/audio.before.py
+
   - id: flag-async-calls
     kind: flag_only
     citation: "openai-python v1.0.0 Migration Guide, 'Async client'"
     params:
       symbols:
+        - openai.Audio.atranscribe
+        - openai.Audio.atranscribe_raw
+        - openai.Audio.atranslate
+        - openai.Audio.atranslate_raw
         - openai.ChatCompletion.acreate
         - openai.Completion.acreate
         - openai.Embedding.acreate
+        - openai.Image.acreate
+        - openai.Image.acreate_edit
+        - openai.Image.acreate_variation
+        - openai.Moderation.acreate
       message: >-
         0.28.1 awaited these on the module. The new module client has no async
         form: an awaited call needs openai.AsyncOpenAI, which is a client the
         file must build and own.
       suggestion: >-
         Build an AsyncOpenAI client where the application starts, and await
-        client.chat.completions.create (or completions, embeddings) on it.
+        client.chat.completions.create (or completions, embeddings, images,
+        audio) on it.
     fixtures:
       - fixtures/negative/already_new.py
       - fixtures/positive/async_calls.before.py
@@ -273,7 +372,8 @@ changes:
     citation: "openai-python v1.0.0 Migration Guide, 'All name changes'"
     params:
       symbols:
-        - openai.Audio
+        - openai.Audio.transcribe_raw
+        - openai.Audio.translate_raw
         - openai.Customer
         - openai.Deployment
         - openai.Edit
@@ -282,9 +382,9 @@ changes:
         - openai.File
         - openai.FineTune
         - openai.FineTuningJob
-        - openai.Image
+        - openai.Image.create_edit
+        - openai.Image.create_variation
         - openai.Model
-        - openai.Moderation
       message: >-
         This pack does not rewrite this 0.28.1 resource. In the new releases
         the name is a stub that raises when called, and several of these
@@ -362,14 +462,17 @@ verification:
     - "pytest -q"
 
 limitations:
-  - "Only openai.ChatCompletion.create, openai.Completion.create and openai.Embedding.create are rewritten, and only to the same call on the module (openai.chat.completions.create): no client object is built, so openai.api_key and openai.organization keep working as they did."
-  - "A result is rewritten only when every read of it is a path the pack lists, such as response.choices[0].message.content; a read by string keys, response[\"choices\"][0][\"message\"][\"content\"], is rewritten to that attribute path, unless a handler for KeyError or LookupError surrounds it. response.get, a loop over a result and a result handed to another function withhold the file, because 0.28.1 results are dictionaries and the new ones are not."
-  - "A call is refused unless every argument is a keyword the pack lists: positional arguments, stream, engine, deployment_id, request_timeout, timeout, api_key, api_base and a ** splat are not carried, since the new methods lack them or read them differently."
+  - "Only openai.ChatCompletion.create, openai.Completion.create, openai.Embedding.create, openai.Image.create, openai.Moderation.create, openai.Audio.transcribe and openai.Audio.translate are rewritten, and only to the same call on the module (openai.chat.completions.create, openai.images.generate): no client object is built, so openai.api_key and openai.organization keep working as they did."
+  - "A result is rewritten only when every read of it is a path the pack lists, such as response.choices[0].message.content; a read by string keys, response[\"choices\"][0][\"message\"][\"content\"], is rewritten to that attribute path, unless a handler for KeyError or LookupError surrounds it. response.get, a loop over a result, a part of it kept in another name and a result handed to another function withhold the file, because 0.28.1 results are dictionaries and the new ones are not."
+  - "The categories of a moderation are not among the paths the pack lists: 0.28.1 named them with hyphens and slashes (self-harm, hate/threatening), which the new model spells with underscores, so a read of one withholds the file."
+  - "A call is refused unless every argument is one the pack lists, written as a keyword, or in the old order for Moderation.create and the two audio calls: other positional arguments, stream, engine, deployment_id, request_timeout, timeout, api_key, api_base, the response_format of an audio call and a ** splat are not carried, since the new methods lack them or read them differently."
   - "Azure (api_type, api_version, engine, deployment_id) and every setting with no counterpart in the new releases are reported, never rewritten: assigning them still succeeds and changes nothing."
-  - "Async calls, the other resources (Audio, Image, File, Moderation, FineTune and the rest), the openai.error classes and the modules of the 0.28.1 package are reported, never rewritten. The top-level openai.APIError exists on both sides and is not reported, since code already on the new release uses it: a handler for it that reads http_status, json_body or user_message fails with AttributeError once the pin moves."
+  - "Async calls, the other resources (File, Model, FineTune, the image edit and variation calls, the raw audio calls and the rest), the openai.error classes and the modules of the 0.28.1 package are reported, never rewritten. The top-level openai.APIError exists on both sides and is not reported, since code already on the new release uses it: a handler for it that reads http_status, json_body or user_message fails with AttributeError once the pin moves."
   - "The distribution is one, so the pin moves with the code or not at all: when any row of the repository is withheld, every file is left as it was and the pin stays (repo_not_fully_migrated)."
   - "A module that 0.28.1 installed and a release it migrates to does not (requests, aiohttp, urllib3, certifi, tqdm and the rest of what those two bring: see match.transitive), imported by a file while no manifest of the repository declares it, holds the repository until one does. Any manifest counts, not the one that governs the file."
   - "0.28.1 read OPENAI_API_BASE and OPENAI_ORGANIZATION from the environment, and the new releases read OPENAI_BASE_URL and OPENAI_ORG_ID, so a gateway or an organization set only there is lost without an error once the pin moves. Rename them where they are set: the code is not asked."
+  - "The new module client sends with httpx where 0.28.1 used requests, so some defaults change. It retries a request that fails with 408, 409, 429 or a 5xx status twice, where 0.28.1 retried connection errors only, and waits 5 seconds to connect where 0.28.1 waited 600. REQUESTS_CA_BUNDLE is not read (SSL_CERT_FILE is), and a test that intercepts requests, with responses or requests_mock, no longer sees the call. openai.max_retries and openai.timeout set the first two on the module."
+  - "The file of Audio.transcribe or Audio.translate must be a binary file object, bytes or a path on the new side: 0.28.1 accepted any object with a name and a read method, a Django upload for one, and the new methods raise RuntimeError for it before sending. The upload is also named by its base name and its type guessed, where 0.28.1 sent the name as written."
   - "A file obelize does not read holds nothing: one over the size limit, one it cannot open, a notebook under a narrower include, a script with no .py name. The pin moves beside it, and the report lists the file."
   - "A repository that does not declare openai at 0.28.1 or above is blocked, and so is one that uses it and declares it nowhere obelize reads: the rules were measured on 0.28.1 only."
   - "A repository whose pyproject.toml or setup.cfg declares a Python below 3.8 is blocked. A Python declared only in setup.py or a Pipfile is not read."

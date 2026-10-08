@@ -70,3 +70,19 @@ def guarded(prompt):
         return response["choices"][1]["message"]["content"]
     except IndexError:
         return None
+
+
+def picture(prompt):
+    response = openai.Image.create(prompt=prompt, n=1, size="256x256")
+    return response["created"], response["data"][0]["url"]
+
+
+def moderation(prompt):
+    response = openai.Moderation.create(input=prompt)
+    return response["id"], response["model"], response["results"][0]["flagged"]
+
+
+def transcription(path):
+    with open(path, "rb") as audio:
+        result = openai.Audio.transcribe("whisper-1", audio)
+    return result["text"]

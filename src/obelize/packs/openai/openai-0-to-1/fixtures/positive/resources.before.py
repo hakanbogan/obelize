@@ -1,9 +1,13 @@
 import openai
 
 
-def picture(prompt):
-    return openai.Image.create(prompt=prompt, n=1, size="256x256")
+def variation(path):
+    return openai.Image.create_variation(image=open(path, "rb"), n=1)
 
 
-def moderate(text):
-    return openai.Moderation.create(input=text)
+def models():
+    return openai.Model.list()
+
+
+def upload(path):
+    return openai.File.create(file=open(path, "rb"), purpose="fine-tune")

@@ -13,7 +13,7 @@ migration that needs it, and the third family, **`openai` 0 to 1**, `openai/open
 things (D2 to D6). As for ADR-051, a Gate 0 measured every fact the rules rest on before any rule was
 written, with no call to the API: the calls went to a local mock, and the names, parameters and
 result fields were read from the modules. D11 to D17 are what an adversarial review of the finished
-pack changed, and D18 a later rewrite.
+pack changed, D18 a later rewrite, and D19 four more calls.
 
 
 ### D1. What the Gate 0 measured
@@ -147,8 +147,8 @@ import block, as for two distributions (the survey would never see the row that 
 
 ### D7. What the first version of the pack refuses, and why
 
-The pack rewrites `ChatCompletion.create`, `Completion.create` and `Embedding.create`, and reports
-the rest, because each of these is a measured way for the rewrite to be silently wrong.
+The first version rewrites `ChatCompletion.create`, `Completion.create` and `Embedding.create`, and
+reports the rest, because each of these is a measured way for the rewrite to be silently wrong.
 
 | Surface | Why it is refused |
 |---|---|
@@ -158,8 +158,7 @@ the rest, because each of these is a measured way for the rewrite to be silently
 | The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. |
 | `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |
 | `openai.APIError` | **Deliberately not reported.** The name exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. The cost: a handler that reads `http_status`, `json_body` or `user_message` compiles and raises `AttributeError` once the pin moves, and nothing says so. It is a limitation of the pack. |
-
-| `Audio`, `Image`, `File`, `Moderation`, `FineTune`, `Edit` and the rest | Their replacements differ in shape, and the edits and fine-tunes endpoints were shut down. |
+| `File`, `Model`, `FineTune`, `Edit` and the rest, the image edit and variation calls, the raw audio calls | Their replacements differ in shape, and the edits and fine-tunes endpoints were shut down. `Audio.transcribe` and `translate`, `Image.create` and `Moderation.create` were in this row until D19. |
 | The twelve modules of the 0.28.1 package (`util`, `api_requestor`, ...) | None imports on 3.26.0, and `openai.cli` is another module on the releases that ship `openai migrate`. |
 | Dynamic access, `mock.patch` targets, `sys.modules` stubs | The legacy name is a string, so no rewrite can follow it. The bare module fetched by its string is one too (D14). A target written against your own module is not seen. |
 | `openai[datalib]` and other pins that name extras or a URL | The manifest rule cannot write the line, so the plan holds the repository (`manifest_pin_shape_unsupported`, D12). |
@@ -325,6 +324,61 @@ The other spellings stay refused: `.get` has a default where the attribute read 
 held in a name or an expression is not known to be on the path. A comment between the brackets of a
 rewritten read is dropped, as for every rule.
 
+### D19. Image, Moderation and Audio are rewritten
+
+Four more calls are `rewrite_call` changes on the module, read and written as D3 to D5 and D18 say, with
+no new rule kind and no new format value:
+
+| 0.28.1 | Becomes | Positional, in the old order | Keywords | Reads that carry |
+|---|---|---|---|---|
+| `Image.create` | `images.generate` | none | `model`, `n`, `prompt`, `quality`, `size`, `style`, `user` | `created`, `data[].url` |
+| `Moderation.create` | `moderations.create` | `input` | none | `id`, `model`, `results[].flagged` |
+| `Audio.transcribe` | `audio.transcriptions.create` | `model`, `file` | `language`, `prompt`, `temperature` | `text` |
+| `Audio.translate` | `audio.translations.create` | `model`, `file` | `prompt`, `temperature` | `text` |
+
+The Gate 0 of D1 was run on these calls too, on 0.28.1 and on 1.109.1, 2.0.0, 2.54.0, 3.0.0 and 3.26.0:
+
+- 0.28.1's `Image.create` reads five parameters itself, the first of them the API key, and sends every
+  other keyword as the body. `images.generate` takes the seven listed keywords on every release.
+- `Moderation.create(input, model=None, api_key=None)` and `Audio.transcribe(model, file, ...)` are the
+  signatures whose positional order the pack states, and the legacy check compares them with the
+  release (`openai_legacy_check.py`). The new methods are keyword-only, so the rewrite names them.
+- The behaviour check prints the same results on 0.28.1 and on every new release above for an image,
+  a moderation and both audio calls, reading the form fields as the server received them. A multipart
+  upload carries `model`, `language`, `prompt` and `temperature` under the same names.
+
+What a review of the first version changed, each confirmed by running both SDKs:
+
+- A path lists a field the server sends whatever the call carries. D5 and D18 assume a field the
+  result lacks raises on both sides, so a handler for the miss still runs. The new model declares
+  `url`, `b64_json` and `revised_prompt` optional, and reads one the server left out as `None`: the
+  handler stops running, as for the `KeyError` of D18, and no scan can see it. So `response_format` is
+  not carried, `url` (what the default format returns) is the one listed path, and `b64_json` and
+  `revised_prompt` are not. A model that returns no url whatever the format, `gpt-image-1`, is not caught.
+- `Moderation.create` carries only `input`. 0.28.1 dropped a `model` of `None` from the body and
+  raised `ValueError` before any request for a name other than two; the new method sends `"model":
+  null`, and sends any name on. A call with a `model` is `unsupported_kwarg` or `positional_arg_ambiguous`.
+- `response_format` of an audio call is not carried. `text`, `srt` and `vtt` return a string on both
+  sides, and `verbose_json` a result with more fields than `text`, so one set of `result_paths` cannot
+  hold for every value; the call is `unsupported_kwarg`.
+- The categories of a moderation are not read. 0.28.1 keyed them `self-harm` and `hate/threatening`,
+  which the new model spells with underscores and no read by key can be shown to mean the same, so a
+  read of one is `response_shape_changed`.
+- Measured and left as limitations of the pack, since no argument names them: the new client retries
+  408, 409, 429 and 5xx twice and connects within 5 seconds, 0.28.1 retried connection errors only and
+  allowed 600; `REQUESTS_CA_BUNDLE` is not read; HTTP-level test mocks stop intercepting; and an audio
+  `file` that is not a binary file, bytes or a path (a Django upload) raises `RuntimeError`. These hold
+  for every rule of the pack, and the pack's `limitations` say so.
+
+A part of a result kept in another name (`first = response["results"][0]`) is refused as for chat: a
+path must reach a listed leaf. `Image.create_edit`, `create_variation`, the `*_raw` audio calls and
+every `a`-prefixed method stay reported (`flag-resources`, `flag-async-calls`), and a bare `openai.Image`
+or `from openai import Image` is `usage_unmapped` or `from_import_unmigrated_symbol`, as for chat.
+
+**Rejected:** carrying `response_format` for the values that return a string. The rule would have to
+tell the values apart, which `dispatch_prefixes` cannot do for an argument left out, and a string
+result is read as a string, which no `result_paths` expresses.
+
 ### Review
 
 Three adversarial reviewers each ran 150 to 450 inputs against the finished pack and the engine under
@@ -362,7 +416,7 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   also lands on the source rows of a coupled pack, an import row included,
   `manifest_pin_shape_unsupported` is also raised by the scan for a coupled pack (D12), and
   `response_shape_changed` also means a read outside `result_paths`. `CHANGELOG.md` lists the format changes (ADR-048).
-- One withheld row anywhere keeps every file as it was: a `.get` read of a result, an `openai.Image`
+- One withheld row anywhere keeps every file as it was: a `.get` read of a result, an `openai.File`
   call, an undeclared `requests` import or a pin it cannot write leaves the repository unchanged,
   with exit `4`. Gate 1 is
   not measured for this pack, so no rate says how often. [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-openai-pack)

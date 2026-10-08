@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import openai
+import openai.types.audio
 import pytest
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
@@ -62,9 +63,13 @@ NOT_API = {
 }
 # The result type each rewritten call returns, by the call it becomes.
 RESULTS: dict[str, type[BaseModel]] = {
+    "audio.transcriptions.create": openai.types.audio.Transcription,
+    "audio.translations.create": openai.types.audio.Translation,
     "chat.completions.create": openai.types.chat.ChatCompletion,
     "completions.create": openai.types.Completion,
     "embeddings.create": openai.types.CreateEmbeddingResponse,
+    "images.generate": openai.types.ImagesResponse,
+    "moderations.create": openai.types.ModerationCreateResponse,
 }
 
 
@@ -178,9 +183,10 @@ def test_a_rewritten_call_is_a_keyword_only_method_of_the_module_client(symbol: 
     method = _method(params.new_call)
     parameters = inspect.signature(method).parameters
     assert all(p.kind is p.KEYWORD_ONLY for p in parameters.values()), params.new_call
-    unknown = sorted(set(params.keywords) - set(parameters))
+    carried = {*params.positional_to_kw, *params.keywords}
+    unknown = sorted(carried - set(parameters))
     assert unknown == [], f"{params.new_call} takes none of {unknown}"
-    assert not set(params.keywords) & {"stream", "timeout", "api_key", "engine", "request_timeout"}
+    assert not carried & {"stream", "timeout", "api_key", "engine", "request_timeout"}
 
 
 @pytest.mark.parametrize("symbol", sorted(REWRITES))

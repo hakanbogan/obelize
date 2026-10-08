@@ -208,7 +208,7 @@ change.
 | Pack | Rewrites | Reports and leaves to you |
 |---|---|---|
 | `gemini/google-generativeai-to-google-genai` | The import, `configure`, the model object and its generation, chat and streaming calls, safety settings, file uploads and the dependency line. | Every tool declaration, since automatic function calling is on by default in `google-genai`. |
-| `openai/openai-0-to-1` | `openai.ChatCompletion.create`, `Completion.create` and `Embedding.create`, to the same calls on the module client (`openai.chat.completions.create`), the reads of their results by string keys, and the dependency line. | Async and streamed calls, Azure, the other resources, the module settings the new releases ignore, the exception classes, and any call whose arguments or reads of its result it has not checked. |
+| `openai/openai-0-to-1` | `openai.ChatCompletion.create`, `Completion.create`, `Embedding.create`, `Image.create`, `Moderation.create`, `Audio.transcribe` and `Audio.translate`, to the same calls on the module client (`openai.chat.completions.create`), the reads of their results by string keys, and the dependency line. | Async and streamed calls, Azure, the other resources, the module settings the new releases ignore, the exception classes, and any call whose arguments or reads of its result it has not checked. |
 | `py-pdf/pypdf2-to-pypdf` | The import, the names that exist unchanged on both sides, and the dependency line. | The camelCase classes PyPDF2 3.0.0 removed and the names pypdf dropped. |
 
 The `openai` pack builds no client object, so `openai.api_key` and `openai.organization` keep their
@@ -268,7 +268,7 @@ installed side by side, and each place it leaves has a written reason.
   folder and a path longer than 260 characters are untried.
 - It handles the migrations its bundled packs describe. There is no pack registry, hosted service, dashboard, GitHub App
   or automatic pull request.
-- For `openai` it rewrites three calls and no other. A repository that uses the module in a way the pack lists is left
+- For `openai` it rewrites seven calls and no other. A repository that uses the module in a way the pack lists is left
   as it was, with each place in the report; [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md#the-openai-pack)
   says which ways it does not see.
 

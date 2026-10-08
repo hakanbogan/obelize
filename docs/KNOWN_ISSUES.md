@@ -142,7 +142,7 @@ large. A handful of docstrings still point forward to work that has since shippe
 
 `openai/openai-0-to-1` writes nothing until it can write everything, because `openai` 0.x and 1.x
 are one distribution and a half-migrated repository installs neither way. A single place it
-withholds anywhere in the repository (an `openai.Image` call, an async or a streamed call, a
+withholds anywhere in the repository (an `openai.File` call, an async or a streamed call, a
 `.get` read of a result, a file that does not parse, an import of `requests`, `aiohttp` or another
 module `openai` 0.28.1 installed that no manifest declares, or a dependency line it cannot rewrite
 in place) leaves every file and the pin as they were, and an apply exits `4`. `obelize scan` grades files one at a time, so it can show rows
@@ -162,6 +162,20 @@ running. Still unseen: a handler in a caller of the function that holds the read
 exception class that subclasses `KeyError`, and a comment between the brackets of a rewritten read,
 which is dropped. A test that replaces the module a function imports with one that returns
 dictionaries breaks with the call, as the verify commands show.
+
+The pack lists a result field only when a response always carries it. The new model reads an
+optional field the server left out as `None`, where 0.28.1 raised, so a handler that relied on the
+miss stops running. `Image.create` is where it shows: `data[].url` is the one image field listed, and
+`response_format` is not carried, since a base64 response has no url. A model that returns no url
+whatever the format (`gpt-image-1`) is not caught.
+
+The new module client also differs from 0.28.1 where no argument names it, for every call the pack
+rewrites. It retries a request that fails with 408, 409, 429 or a 5xx status twice and connects within
+5 seconds, where 0.28.1 retried connection errors only and allowed 600 (`openai.max_retries` and
+`openai.timeout` set them). It does not read `REQUESTS_CA_BUNDLE`, and a test that intercepts `requests`
+no longer sees the call. The file of an audio call must be a binary file, bytes or a path: an object
+with a `name` and a `read` method that is none of them, a Django upload, raised nothing on 0.28.1 and
+raises `RuntimeError` now.
 
 A result bound to a module-level name that another module imports is checked for reads in the file
 that binds it only. A dictionary-style read in the importing module goes unseen, so the call is
@@ -184,7 +198,7 @@ pack's list. A handler for it that reads `http_status`, `json_body` or `user_mes
 `AttributeError` once the pin moves, and obelize says nothing: search for those three names after a
 run.
 
-Where the pack does not look, and what that costs. A legacy name in the first three is neither
+Where the pack does not look, and what that costs. A legacy name in the first four is neither
 migrated nor reported, and the pin still moves when everything else does:
 
 - A name another of your modules re-exports (`from mylib import openai`), a client built in another
@@ -198,6 +212,8 @@ migrated nor reported, and the pin still moves when everything else does:
   and the pin moves. `REPORT.md` lists an excluded file that names the distribution. It says nothing
   of a file under an always-excluded directory such as `vendor/` or `build/`, or of a `.py` file an
   `include` leaves out. Run this pack over the whole repository.
+- A legacy name that appears only inside a quoted annotation (`result: "openai.Image"`). It is
+  reported as a mention and holds nothing, and a pydantic model that evaluates it fails at import.
 - Which app declares a module. The check for what 0.28.1 installed (`requests`, `aiohttp`,
   `urllib3`, `certifi`, `tqdm` and what those bring, listed in the pack's `match.transitive`) asks
   whether any manifest in the repository declares it, so in a monorepo a module one app declares
