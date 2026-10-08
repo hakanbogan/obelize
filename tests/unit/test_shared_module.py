@@ -5,6 +5,7 @@ one for both APIs. `acme.kit` is invented, so nothing here reads the openai pack
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import acme
 import acme_kept as kit
@@ -14,7 +15,7 @@ from obelize.models import Edit
 from obelize.packs import loader
 from obelize.packs.schema import PackDocument
 from obelize.scan import manifests
-from obelize.transforms.kinds.rewrite_call import MODULE_BAILS, RewriteCall
+from obelize.transforms.kinds.rewrite_call import MODULE_BAILS, RewriteCall, _Tree
 
 HEADER = "import acme.kit\n\n"
 
@@ -196,7 +197,6 @@ def test_a_result_read_only_along_a_listed_path_is_carried(body: str) -> None:
         f"a, b = {CALL}\n",
         f"r = s = {CALL}\n",
         f"r: object = {CALL}\n",
-        f"print({CALL})\n",
         f"r = {CALL}\nr.reply.text\nr.nothing\n",
     ],
 )
@@ -204,6 +204,211 @@ def test_a_result_read_any_other_way_refuses_the_call(body: str) -> None:
     code, edits = rewrite(body)
     assert reasons(edits) == ["response_shape_changed"], body
     assert "talk.say" not in code
+
+
+# A part of the result in a name, and a loop over its items.
+
+ROWS = "acme.kit.Quote.get(symbol='x')"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\nm = r.reply\nprint(m.text)\n",
+        f"r = {CALL}\nm = r.reply\nn = m\nprint(n.text)\n",
+        f"m = {CALL}.reply\nprint(m.text)\n",
+        f"r = {CALL}\nm = r.reply\n",
+        f"r = {ROWS}\nfor row in r.rows:\n    print(row.price)\n",
+        f"r = {ROWS}\nfor row in r.rows:\n    pass\n",
+        f"print([row.price for row in {ROWS}.rows])\n",
+        f"r = {ROWS}\nfirst = r.rows[0]\nprint(first.price)\n",
+        f"def f():\n    r = {ROWS}\n    return [row.price for row in r.rows]\n",
+    ],
+)
+def test_a_part_of_the_result_in_a_name_or_a_loop_is_read_on_along_the_path(body: str) -> None:
+    code, edits = rewrite(body)
+    assert [row.status for row in edits] == ["auto"], body
+    assert "talk.say" in code or "quotes.fetch" in code
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\nm = r.reply\nuse(m)\n",
+        f"r = {CALL}\nm = r.reply\nm.words\n",
+        f"r = {CALL}\nm = r.reply\nprint(m.text, m)\nx = [m]\n",
+        f"def f():\n    r = {CALL}\n    m = r.reply\n    return m\n",
+        f"r = {CALL}\nfor x in r.reply:\n    print(x)\n",
+        f"r = {CALL}\nm, n = r.reply\n",
+        f"r = {CALL}\nm: object = r.reply\n",
+        f"r = {CALL}\nm = n = r.reply\n",
+        f"r = {CALL}\nprint(*r.reply)\n",
+        f"r = {CALL}\nprint(r.reply.words)\n",
+        f"r = {ROWS}\nfor row in r.rows:\n    use(row)\n",
+        f"r = {ROWS}\nfor row in r.rows:\n    print(row.price, row.other)\n",
+        f"r = {ROWS}\nfor a, b in r.rows:\n    print(a)\n",
+        f"r = {ROWS}\nfor row in enumerate(r.rows):\n    pass\n",
+        f"r = {ROWS}\nfor row in r.rows[0:2]:\n    pass\n",
+        f"print({CALL})\n",
+        f"r = {CALL}\nprint(r)\n",
+        f"r = {CALL}\nm = r.reply\nprint(m)\n",
+        f"class A:\n    m = {CALL}.reply\n    x = m.text\n",
+        f"m = {CALL}.reply\nprint(m.text, locals())\n",
+    ],
+)
+def test_a_part_of_the_result_that_is_read_any_other_way_refuses_the_call(body: str) -> None:
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+    assert "quotes.fetch" not in code
+
+
+@pytest.mark.parametrize(
+    ("body", "lines"),
+    [
+        (
+            f"r = {CALL}\nm = r['reply']\nprint(m['text'])\n",
+            ["m = r.reply", "print(m.text)"],
+        ),
+        (
+            f"m = {CALL}['reply']\nn = m\nprint(n['text'])\n",
+            ["m = acme.kit.talk.say(who='a').reply", "n = m", "print(n.text)"],
+        ),
+        (
+            f"r = {ROWS}\nfor row in r['rows']:\n    print(row['price'])\n",
+            ["for row in r.rows:", "    print(row.price)"],
+        ),
+        (
+            f"print([row['price'] for row in {ROWS}['rows']])\n",
+            ["print([row.price for row in acme.kit.quotes.fetch(symbol='x').rows])"],
+        ),
+        (
+            f"r = {ROWS}\nfirst = r['rows'][0]\nprint(first['price'], first.price)\n",
+            ["first = r.rows[0]", "print(first.price, first.price)"],
+        ),
+    ],
+)
+def test_a_key_read_through_a_name_is_the_attribute_of_that_name(
+    body: str, lines: list[str]
+) -> None:
+    code, edits = rewrite(body)
+    assert {row.status for row in edits} == {"auto"}, body
+    assert code.splitlines()[-len(lines) :] == lines
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\nm = r['reply']\nm = {{}}\nprint(m['text'])\n",
+        f"r = {CALL}\nm = r['reply']\ndef g():\n    return m['text']\n",
+        f"r = {CALL}\nm = r['reply']\ng = lambda: m['text']\n",
+        f"r = {CALL}\nm = r['reply']\ntry:\n    x = m['text']\nexcept KeyError:\n    x = ''\n",
+        f"r = {CALL}\ntry:\n    m = r['reply']\nexcept LookupError:\n    m = None\n",
+        f"r = {CALL}\nm = r['reply']\nprint(f\"{{m['text']=}}\")\n",
+        f"r = {ROWS}\nprint([1 for row in r['rows']if row.price])\n",
+        f"row = {{}}\nr = {ROWS}\nfor row in r['rows']:\n    print(row['price'])\n",
+        f"r = {ROWS}\nfor row in r['rows']:\n    print(row['other'])\n",
+    ],
+)
+def test_a_key_read_through_a_name_that_may_hold_something_else_refuses_the_call(
+    body: str,
+) -> None:
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+    assert "quotes.fetch" not in code
+
+
+def test_a_name_that_may_hold_something_else_is_read_by_attribute_through_a_name() -> None:
+    """Only a key loses its dictionary: the attribute reads of the same code are carried."""
+    body = f"m = {{}}\nr = {CALL}\nm = r.reply\nprint(m.text)\n"
+    _, edits = rewrite(body)
+    assert [row.status for row in edits] == ["auto"]
+    _, edits = rewrite(body.replace("m.text", "m['text']").replace("r.reply", "r['reply']"))
+    assert reasons(edits) == ["response_shape_changed"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # A walrus in a comprehension binds the function's name, which its own scope never lists.
+        f"r = {CALL}\nm = r['reply']\nx = m['text']\nys = [y for y in [{{}}] if (m := y)]\n",
+        f"r = {ROWS}\nfor row in r['rows']:\n    [1 for _ in [1] if (row := {{}})]\n"
+        "    row['price']\n",
+        f"r = {CALL}\nx = r['reply']['text']\n[1 for _ in [1] if (r := {{}})]\n",
+        # A read above the binding in a loop is the second pass's, and links to a name outside.
+        f"m = {{}}\ndef f():\n    r = {CALL}\n    for i in [1, 2]:\n        if i:\n"
+        "            print(m['text'])\n        m = r['reply']\n",
+        f"row = {{}}\ndef f():\n    r = {ROWS}\n    for i in [1, 2]:\n        if i:\n"
+        "            print(row['price'])\n        for row in r['rows']:\n            pass\n",
+        f"def f():\n    m = {{}}\n    def g():\n        r = {CALL}\n        for i in [1, 2]:\n"
+        "            if i:\n                print(m['text'])\n            m = r['reply']\n",
+        # A key read where a generator runs it later, outside the handler or the call's own frame.
+        f"r = {CALL}\nm = r['reply']\ng = (m['text'] for _ in [1])\n",
+        f"r = {ROWS}\ng = (row['price'] for row in r['rows'])\n",
+        f"g = (row['price'] for row in {ROWS}['rows'])\n",
+        f"r = {CALL}\nclass K:\n    x = r['reply']['text']\n",
+        # A name that may hold something else hands that on to the name that copies it.
+        f"r = {CALL}\nm = r['reply']\nm = {{}}\nn = m\nprint(n['text'])\n",
+        # One name bound to two parts of the result is read along each of them.
+        f"r = {CALL}\nm = r.spent\nm = r.reply\nprint(m.text)\n",
+        # A dictionary-only operator reads the part and is no read of it.
+        f"r = {CALL}\nm = r.reply\nm |= {{'x': 1}}\nprint(m.text)\n",
+        f"r = {ROWS}\nfor row in r.rows:\n    row |= {{'x': 1}}\n    print(row.price)\n",
+        f"r = {CALL}\nr |= {{}}\nprint(r.reply.text)\n",
+        # A name read by its string: through a frame, a module's dictionary or an alias of `locals`.
+        f"r = {CALL}\nm = r.reply\nprint(sys._getframe().f_locals['m']['text'])\n",
+        f"r = {CALL}\nm = r.reply\nf = locals\nprint(f()['m'])\n",
+        f"r = {CALL}\nm = r.reply\nprint(builtins.locals()['m'], m.text)\n",
+        f"r = {CALL}\nm = r.reply\nev = eval\nprint(ev('m'), m.text)\n",
+        f"r = {CALL}\nm = r.reply\nprint(sys.modules[__name__].__dict__['m'])\n",
+    ],
+)
+def test_a_key_read_that_something_else_may_rebind_or_run_later_refuses_the_call(
+    body: str,
+) -> None:
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+    assert "quotes.fetch" not in code
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\nm = r.reply\nm = m\nprint(m.text)\n",
+        f"r = {CALL}\na = r.reply\nb = a\na = b\nprint(a.text)\n",
+        f"r = {CALL}\nm = r['reply']\nm = m\nprint(m['text'])\n",
+        f"r = {CALL}\nm0 = r.reply\n"
+        + "".join(f"m{n + 1} = m{n}\n" for n in range(1500))
+        + "print(m1500.text)\n",
+    ],
+)
+def test_a_name_that_takes_itself_or_a_long_chain_of_names_ends_the_walk(
+    body: str,
+) -> None:
+    _, edits = rewrite(body)
+    assert len(edits) == 1
+
+
+def test_a_script_that_reuses_its_names_walks_each_use_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reads of a result's name are the same for every call bound to it, and listed once."""
+    climbs: list[int] = []
+    climb = _Tree._climb
+
+    def counted(self: _Tree, *args: Any) -> Any:
+        climbs.append(1)
+        return climb(self, *args)
+
+    monkeypatch.setattr(_Tree, "_climb", counted)
+    body = "".join(
+        f"r = {CALL}\nm = r.reply\nprint(m.text)\nn = m\nprint(n.text)\n" for _ in range(60)
+    )
+    _, edits = rewrite(body)
+    assert len(edits) == 60
+    assert len(climbs) < 60 * 6
 
 
 FETCH_CALL = "acme.kit.Quote.get(symbol='x')"

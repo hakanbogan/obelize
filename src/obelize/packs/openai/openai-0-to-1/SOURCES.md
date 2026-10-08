@@ -35,8 +35,8 @@ the pinned 3.26.0 and, weekly, on 1.109.1.
 
 The claim that matters, that the migrated call does what the old one did, is
 measured too: `tests/packs/openai_behaviour_check.py` runs the fixtures that
-migrate (chat completion, text completion, embedding, an aliased import, dictionary-style reads, an
-image, a moderation and an audio call) against a local server, the `.before.py` files on 0.28.1 and
+migrate (chat completion, text completion, embedding, an aliased import, dictionary-style reads, a
+part of a result in a name, an image, a moderation and an audio call) against a local server, the `.before.py` files on 0.28.1 and
 the `.after.py` answer keys on 1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0 and 3.26.1, and the printed
 results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
 
@@ -82,6 +82,11 @@ results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the new
 - Measured: the 0.28.1 result classes are not distinct types (a chat result is
   a plain `OpenAIObject`), so nothing can be read off the type: a file is
   decided by the reads it contains.
+- Measured: a part of a result kept in a name (`message = r["choices"][0]["message"]`), and a loop
+  over `choices` or `data`, read the same fields on 0.28.1 and on every measured release
+  (the `result_names` fixture prints the same on all of them). `print(result)` does not: 0.28.1 writes
+  the result as indented JSON and the new releases as a one-line `ChatCompletion(...)`, so a result
+  given to `print` is refused.
 
 ## image, moderation, transcription, translation
 

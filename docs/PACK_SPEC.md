@@ -148,10 +148,14 @@ such as `choices[].message.content` or `usage.total_tokens`:
 - A path ends in an attribute, never in `[]`, and no path continues another:
   `choices[].message` beside `choices[].message.content` is refused, since a
   path ends where the read is trusted.
-- Reads are followed off the call itself and off the one name it is assigned
-  to, in that name's scope. Anything else is `response_shape_changed`: a key off
-  the path, `.get`, a loop over the result, a read of a path that is not a
-  prefix of a listed one, a method on a non-leaf, the result passed on or returned. A result nothing reads carries.
+- Reads are followed off the call itself and off the one name it is assigned to, in that name's
+  scope. A read that stops at a proper prefix of a listed path is followed on where a single name
+  takes it (`message = r.choices[0].message`) or a `for` or comprehension binds one name to each of
+  its items (`for choice in r.choices`, where `choices[]` is a prefix), under the same rules for
+  that name. Anything else is `response_shape_changed`: a key off the path, `.get`, a loop over
+  something that is not a list on the path, a read of a path that is not a prefix of a listed one, a
+  method on a non-leaf, a part or the result passed on, returned or printed. A result nothing reads
+  carries.
 - A string key along a path (`r["choices"][0]["message"]["content"]`) is rewritten to the attribute
   (`r.choices[0].message.content`) in the same pass as the call, or not at all. A path lists a field
   both spellings read the same way on the legacy result. The key is one string literal, with no

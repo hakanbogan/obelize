@@ -258,7 +258,7 @@ jobs:
           out="$(mktemp -d)"
           before=(); after=()
           for fixture in audio chat_completion completion dict_reads embedding image \
-            import_alias moderation; do
+            import_alias moderation result_names; do
             before+=("$fixtures/$fixture.before.py")
             after+=("$fixtures/$fixture.after.py")
           done

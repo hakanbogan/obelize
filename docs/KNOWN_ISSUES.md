@@ -151,16 +151,20 @@ has no Gate 1 result.
 
 A 0.28.1 result could be read as a dictionary, and a read by key raises on a 1.x result. A read by
 string keys along a path the pack lists (`response["choices"][0]["message"]["content"]`) is rewritten
-to the attribute path with the call. `response.get("choices")`, a key the pack does not list, a loop
-over the result and the result handed on are `response_shape_changed`, and by the paragraph above
-each holds back the repository. So does a key read of a name that may hold something else (a
-fallback `r = cached`, a parameter, a loop or `with` target), a key read in a closure or a lambda, one
-in an f-string field written with `=`, and one inside a `try` whose handler may name a missing key
+to the attribute path with the call, and so is one through a name that holds a part of the result
+(`message = response["choices"][0]["message"]`, `for choice in response["choices"]`).
+`response.get("choices")`, a key the pack does not list, a part or the result handed on, and
+`print(response)` (0.28.1 printed JSON and the new releases print a repr) are `response_shape_changed`,
+and by the paragraph above each holds back the repository. So does a key read of a name that may
+hold something else (a fallback `r = cached`, a parameter, a loop or `with` target, a walrus, `m |= x`,
+a read above its binding in a loop), a file that mentions `locals`, `eval`, `__dict__` or a frame's
+variables, a key read in a closure, a lambda or a generator expression, one in an f-string field
+written with `=`, and one inside a `try` whose handler may name a missing key
 (`KeyError`, `LookupError`, a name the file defines or leaves unresolved) or inside
 `contextlib.suppress`: the attribute read raises `AttributeError` and that handler would stop
 running. Still unseen: a handler in a caller of the function that holds the read, an imported
-exception class that subclasses `KeyError`, and a comment between the brackets of a rewritten read,
-which is dropped. A test that replaces the module a function imports with one that returns
+exception class that subclasses `KeyError`, a name read by its string by other means (`getattr` on a
+module), and a comment between the brackets of a rewritten read, which is dropped. A test that replaces the module a function imports with one that returns
 dictionaries breaks with the call, as the verify commands show.
 
 The pack lists a result field only when a response always carries it. The new model reads an

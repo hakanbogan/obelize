@@ -12,8 +12,8 @@ def looped(prompt):
     response = openai.ChatCompletion.create(
         model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], n=3
     )
-    for choice in response.choices:
-        print(choice.message.content)
+    for field in response:
+        print(field)
 
 
 def keyed(prompt):

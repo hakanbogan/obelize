@@ -13,7 +13,7 @@ migration that needs it, and the third family, **`openai` 0 to 1**, `openai/open
 things (D2 to D6). As for ADR-051, a Gate 0 measured every fact the rules rest on before any rule was
 written, with no call to the API: the calls went to a local mock, and the names, parameters and
 result fields were read from the modules. D11 to D17 are what an adversarial review of the finished
-pack changed, D18 a later rewrite, and D19 four more calls.
+pack changed, D18 a later rewrite, D19 four more calls and D20 a part of a result in a name.
 
 
 ### D1. What the Gate 0 measured
@@ -114,10 +114,11 @@ never carries.
 and no path continues another. The reads are followed off the call itself and off the one name it is
 assigned to, in that name's scope (D16 says which reads that counts). A string key that is the next
 segment of a path is the same read written as a key (D18). Any other use is `response_shape_changed`:
-a key off the path, `.get`, a loop over the result, the result returned or passed on, a method on a
-path that is not a leaf. A result nothing reads is fine. `result_paths` and `result_access_flags`
-exclude each other, since the second refuses every use and the first would never be consulted. Both
-ways of knowing are fail-closed.
+a key off the path, `.get`, a loop over something that is not a list on the path, the result or a part
+of it returned or passed on, a method on a path that is not a leaf (D20 says where a part may go). A
+result nothing reads is fine. `result_paths` and `result_access_flags` exclude each other, since the
+second refuses every use and the first would never be consulted. Both ways of knowing are
+fail-closed.
 
 ### D6. One distribution makes the pin and the files one unit
 
@@ -370,14 +371,58 @@ What a review of the first version changed, each confirmed by running both SDKs:
   `file` that is not a binary file, bytes or a path (a Django upload) raises `RuntimeError`. These hold
   for every rule of the pack, and the pack's `limitations` say so.
 
-A part of a result kept in another name (`first = response["results"][0]`) is refused as for chat: a
-path must reach a listed leaf. `Image.create_edit`, `create_variation`, the `*_raw` audio calls and
-every `a`-prefixed method stay reported (`flag-resources`, `flag-async-calls`), and a bare `openai.Image`
-or `from openai import Image` is `usage_unmapped` or `from_import_unmigrated_symbol`, as for chat.
+A part of a result kept in a name is followed as D20 says. `Image.create_edit`, `create_variation`,
+the `*_raw` audio calls and every `a`-prefixed method stay reported (`flag-resources`,
+`flag-async-calls`), and a bare `openai.Image` or `from openai import Image` is `usage_unmapped` or
+`from_import_unmigrated_symbol`, as for chat.
 
 **Rejected:** carrying `response_format` for the values that return a string. The rule would have to
 tell the values apart, which `dispatch_prefixes` cannot do for an argument left out, and a string
 result is read as a string, which no `result_paths` expresses.
+
+### D20. A part of a result kept in a name, and a loop over its items
+
+D5 and D18 followed the call and the one name it is assigned to. Code that takes a part of a result
+into a name of its own (`message = r["choices"][0]["message"]`, `choice = r.choices[0]`,
+`usage = r["usage"]`) or walks a list of them (`for choice in r["choices"]`) is as common as the
+reads that D5 lists, and until now held the repository. `rewrite_call` follows a read that stops at
+a proper prefix of a listed path, a stem, into:
+
+- the one name an assignment with a single name target gives it, and every read of that name; or
+- the one name a `for` or comprehension binds to each item, when the stem and `[]` is itself a
+  prefix of a path, since iterating a list reads the element that an integer subscript reads, and a
+  0.28.1 list and a new one iterate alike.
+
+Each name is held to the conditions D18 sets for the result's own name, and a key read through it is
+rewritten to its attribute on the same terms:
+
+- No name on the way is bound twice or by a walrus anywhere in the file (one in a comprehension binds
+  the function's name, which the scope analysis lists in the comprehension's own scope), and none is
+  rebound by `name |= x`, which reads the part and which no read lists. A name that may hold
+  something else makes the keys read through it, and through every name copied from it,
+  `response_shape_changed`; attribute reads of it are carried.
+- No read of it that the analysis cannot link to it, or links to a name outside its scope (a read above
+  its binding in a loop is the second pass's), no class body, and no file that mentions a way to reach
+  a name by its string: `eval`, `exec`, `globals`, `locals`, `vars`, `f_locals`, `f_globals`,
+  `currentframe`, `_getframe` or `__dict__`, called or not, since `f = locals` calls it unseen.
+- Every keyed read in the call's own frame. A generator expression is a frame of its own, since it
+  runs when something iterates it, possibly outside the handler around it, so a key read in one is
+  refused, and so is a call inside one.
+- The keys of each stretch of the chain placed as D18 says (no handler for a missing key, no `=`
+  f-string, no word glued on).
+
+A name chains into another (`n = m`). Each name is followed once per path from a worklist, so a name
+that takes itself ends the walk and a chain of thousands costs the length of the file, and the reads
+of a result's own name are gathered once for every call bound to it. An alias of the whole result,
+the empty path, is still refused. A tuple target, an annotation, a chained assignment, a walrus and a
+star are not names the rule follows, and a stem given to a call, returned, appended or put in a
+container is `response_shape_changed` as before. The `result_names` fixture reads a part of a result
+in a name and a loop over `choices` and `data`, and the weekly job prints its results on 0.28.1 and
+on the new releases and diffs them.
+
+**Rejected:** accepting `print(result)`. It reads no field, but 0.28.1 printed a result as JSON and
+the new releases print a one-line repr, so a program whose output another reads (`| jq`) would change
+with no error. A call given to `print` stays `response_shape_changed`.
 
 ### Review
 
@@ -398,6 +443,12 @@ it. They found these classes, all fixed:
 - Pack format: a keyword renamed onto the configuration keyword was emitted twice, a shared pack's
   safety enum classes were asked to be in `match.symbols`, and the error for a call with no service
   named only the client.
+- A part of a result in a name (D20), by five more reviewers: an alias or a loop variable that a walrus
+  in a comprehension rebinds, a read above a loop's binding that the scope analysis links to a name
+  outside, a key read in a generator expression that runs after the handler around it is gone, a name
+  that takes itself or a chain of hundreds that overflowed the stack, a script that reuses two
+  names 60 times, which took four minutes, a part rebound by `m |= {...}`, and a name read through
+  `sys._getframe().f_locals` or an alias of `locals`.
 - Crashes with a cause outside the pack: a `match` statement with a mapping pattern that captures a
   name broke the scan of every pack, two packs editing one `setup.py` broke `codemod.chained`, and a
   `setup.py` string literal Python cannot evaluate broke the manifest reader.

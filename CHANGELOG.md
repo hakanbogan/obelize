@@ -31,7 +31,8 @@ in the release that makes it.
   `Moderation.create`, `Audio.transcribe` and `Audio.translate` to the same calls on the module client
   (`openai.chat.completions.create`, `openai.images.generate`) when every argument and every read of the result
   is one it has checked, and moves the pin to `openai>=1.109.1`. A read of the result by string keys
-  along a path it lists (`response["choices"][0]["message"]["content"]`) is rewritten to the
+  along a path it lists (`response["choices"][0]["message"]["content"]`), also through a name that
+  holds a part of the result or a loop over its items, is rewritten to the
   attribute path with the call, where the name holds the result alone and no handler for a missing key
   or `contextlib.suppress` surrounds the read. It reports async calls, thirteen
   module settings the new releases ignore or read differently, the `openai.error` classes, the other
