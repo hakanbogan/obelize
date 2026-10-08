@@ -197,7 +197,9 @@ you trust. These gaps are known in 0.1.0:
 `gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 20
 limitations. The limitations say what it reports instead of rewriting, such as every tool
 declaration, because automatic function calling is on by default in `google-genai`; what it cannot
-find; and what it rewrites without having checked it against a live API call. [docs/CLI.md](docs/CLI.md) has every flag and exit code. Every format, from the flags to
+find; and what it rewrites without having checked it against a live API call. `scan` and `fix` print
+what a pack says about each surface it flags, and `REPORT.md` lists the limitations of every pack
+that ran. [docs/CLI.md](docs/CLI.md) has every flag and exit code. Every format, from the flags to
 the run folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability) lists each
 change.
 

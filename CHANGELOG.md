@@ -48,6 +48,12 @@ in the release that makes it.
   attribute). A `manifest_dependency` may name one distribution on both sides,
   the two told apart by `from.version` and `to.version`, and a declaration `to.version` already admits is
   left as written. `arg_map` may not rename a parameter onto `config_kwarg`, which named the keyword twice.
+- `scan` and `fix` print what a pack says about the findings it flagged: for each `flag_only` change
+  that claimed one of its own pack's, its id, how many, its message and its suggestion. `REPORT.md`
+  has the same under Guidance, lists the limitations of every pack that ran, and lists a fix's
+  `verification.suggestions` as suggested and not run. The pack format has promised all three since
+  0.1.0 and nothing printed them. `REPORT.md` escapes the Markdown and HTML characters in pack text,
+  and display text refuses `U+2028` and `U+2029`.
 
 ### Changed
 

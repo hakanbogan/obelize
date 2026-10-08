@@ -21,6 +21,7 @@ from obelize.cli import app
 from obelize.commands import CommandError
 from obelize.evidence import report, run_dir
 from obelize.native import shell, windows_programs
+from obelize.packs import loader
 from obelize.verify import runner as verifier
 from platforms import (
     AS_ROOT,
@@ -64,6 +65,9 @@ KEEP = [MODEL]
 MOCKED = (
     'from unittest import mock\n\nPATCHED = mock.patch("google.generativeai.GenerativeModel")\n'
 )
+
+
+FLAGGED = f"{PACK}:flag-legacy-module-reached-indirectly"
 
 
 @pytest.fixture
@@ -1033,3 +1037,46 @@ def test_a_run_with_a_plan_names_no_reason_for_holding_back(tree: Path) -> None:
     lines = result.stdout.splitlines()
     assert "No change planned." not in lines
     assert not [line for line in lines if line.startswith("Most common reason")]
+
+
+@pytest.mark.parametrize("extra", [(), ("--apply",)], ids=["dry_run", "apply"])
+def test_a_run_prints_what_the_pack_says_about_the_findings_it_left_for_you(
+    tree: Path, extra: tuple[str, ...]
+) -> None:
+    (tree / "adapter.py").write_text(MOCKED, encoding="utf-8")
+    change = next(
+        one for one in loader.load(PACK).pack.changes if one.id == FLAGGED.partition(":")[2]
+    )
+    message, suggestion = change.params.message, change.params.suggestion  # type: ignore[union-attr]
+    result = fix(tree, *extra)
+    assert result.exit_code == (6 if extra else 0), result.output
+    words = f"{FLAGGED}: 1 finding(s) flagged.\n  {message}\n  Suggestion: {suggestion}\n"
+    assert words in result.stdout
+    assert result.stdout.index(words) < result.stdout.index("Verification:")
+    report_text = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert f"### `{FLAGGED}`\n\n1 finding(s). {message}\n\n**Suggestion:** {suggestion}\n" in (
+        report_text
+    )
+    assert "says it does not handle:" in report_text
+
+
+def test_a_run_that_left_nothing_flagged_prints_no_guidance(tree: Path) -> None:
+    result = fix(tree)
+    assert "finding(s) flagged." not in result.stdout
+    assert "## Guidance" not in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+def test_a_pack_speaks_only_for_what_it_flagged_itself(tmp_path: Path) -> None:
+    """A shape names no pack: one pack's `__import__("PyPDF2")` is not the openai pack's row."""
+    root = tmp_path / "two"
+    root.mkdir()
+    (root / "a.py").write_text('import PyPDF2\n\nREADER = __import__("PyPDF2")\n', encoding="utf-8")
+    (root / "b.py").write_text(
+        'import openai\n\nVECTORS = openai.Embedding.create(input="x", model="m")\n',
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["fix", "--repo", str(root)])
+    assert "py-pdf/pypdf2-to-pypdf:flag-indirect-use: 1 finding(s) flagged." in result.stdout
+    assert "openai/openai-0-to-1:flag-indirect-use" not in result.stdout
+    report_text = (folder(root) / "REPORT.md").read_text(encoding="utf-8")
+    assert "openai/openai-0-to-1:flag-indirect-use" not in report_text

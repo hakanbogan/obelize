@@ -1,11 +1,12 @@
 """`flag_only`: surfaces a pack refuses to rewrite; writes nothing, only attributes the rows.
 
 The scan's refused sets are unions over the pack's `flag_only` changes, so `rule_id` is the only
-link from a row to the change's message.
+link from a row to the change's message; `guides` follows it for the report.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Final
 
 from obelize.models import (
@@ -16,10 +17,13 @@ from obelize.models import (
     FindingKind,
     FlagOnlyPattern,
 )
+from obelize.packs.schema import FlagOnlyChange
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+    from collections.abc import Sequence
+
     from obelize.models import Finding
-    from obelize.packs.schema import ChangeKind, FlagOnlyChange
+    from obelize.packs.schema import ChangeKind, PackDocument
     from obelize.transforms.base import RuleContext
 
 # The codes this rule reports; the scan raises both at rung 1, the corpus grades the set.
@@ -84,9 +88,35 @@ class FlagOnly:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class Guide:
+    rule_id: str
+    findings: int
+    message: str
+    suggestion: str
+
+
+def guides(pack: PackDocument, findings: Sequence[Finding]) -> tuple[Guide, ...]:
+    """The words of each of `pack`'s flagged changes that claims a row of its own `findings`.
+
+    A shape row names no pack, so another pack's findings would be claimed by reason alone.
+    """
+    found = []
+    for change in pack.changes:
+        if not isinstance(change, FlagOnlyChange):
+            continue
+        claimed = sum(FlagOnly(change).claims(finding) for finding in findings)
+        if claimed:
+            params = change.params
+            found.append(
+                Guide(f"{pack.id}:{change.id}", claimed, params.message, params.suggestion)
+            )
+    return tuple(found)
+
+
 def _status(finding: Finding) -> EditStatus:
     """The scan's status, narrowed for the type only: a claimed row is always withheld."""
     return "unsupported" if finding.scan_status == "unsupported" else "needs_review"
 
 
-__all__ = ["BAILS", "REASONS", "FlagOnly"]
+__all__ = ["BAILS", "REASONS", "FlagOnly", "Guide", "guides"]

@@ -120,6 +120,7 @@ def scan(
     from obelize.evidence import report, run_dir
     from obelize.models import FindingsDocument
     from obelize.scan import runner, walker
+    from obelize.transforms.kinds import flag_only
 
     root = Path(repo)
     packs, named = _packs_or_exit(pack)
@@ -142,6 +143,12 @@ def scan(
         raise typer.Exit(error.code) from error
     result = runner.merged([one.scan for one in chosen.packs], chosen.tree)
     loaded = [one.loaded for one in chosen.packs]
+    documents = [one.pack for one in loaded]
+    guides = tuple(
+        guide
+        for one in chosen.packs
+        for guide in flag_only.guides(one.loaded.pack, one.scan.findings)
+    )
     scan_ms = int((time.monotonic() - began) * 1000)
 
     document = FindingsDocument(
@@ -168,7 +175,13 @@ def scan(
         scan_ms=scan_ms,
     )
     try:
-        written = run_dir.write(root, record, findings, loaded, report.document(record, result))
+        written = run_dir.write(
+            root,
+            record,
+            findings,
+            loaded,
+            report.document(record, result, guides=guides, packs=documents),
+        )
     except run_dir.EvidenceError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from error
@@ -180,7 +193,7 @@ def scan(
         typer.echo(f"Evidence: {evidence}", err=True)
         return
     label = ", ".join(f"{one.pack.id} {one.pack.pack_version}" for one in loaded)
-    for line in report.terminal(result, label or "no pack applies", evidence):
+    for line in report.terminal(result, label or "no pack applies", evidence, guides):
         typer.echo(line)
     if not loaded:
         typer.echo(f"No pack applies. Checked: {', '.join(chosen.tried) or 'none'}.")
@@ -329,6 +342,7 @@ def fix(
             outcome.patch,
             os.environ,
             repo,
+            outcome.guides,
         ),
     )
     raise typer.Exit(outcome.exit_code)

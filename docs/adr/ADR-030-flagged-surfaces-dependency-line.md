@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-053.
+Accepted; amended by ADR-053 and ADR-054.
 
 ## Decision
 
@@ -92,8 +92,8 @@ edit: removing it would tidy a manifest on the strength of a migration this run 
 
 ## Consequences
 
-- `REPORT.md` prints each edit's `rule_id`; printing the pack's `message` and `suggestion` beside it
-  is still open.
+- `REPORT.md` prints each edit's `rule_id`, and ADR-054 prints the pack's `message` and `suggestion`
+  for it, in the report and in the terminal.
 - Two of the pack's four `attributes` are reported only as a class read, never on a `get_model` or
   `list_models` result (`tests/fixtures/scan/COVERAGE.md` gap 22).
 - An inline dependency array is read and not written (gap 23).

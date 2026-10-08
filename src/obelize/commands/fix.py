@@ -23,6 +23,7 @@ from obelize.providers import openai_compat, proposals
 from obelize.scan import manifests
 from obelize.scan import runner as scanner
 from obelize.transforms import codemod
+from obelize.transforms.kinds import flag_only
 from obelize.verify import cheap
 from obelize.verify import runner as verifier
 from obelize.verify import status as verdicts
@@ -89,6 +90,7 @@ class Outcome:
     blocked: tuple[Blocked, ...]
     # What the run did without being asked to say so, for a caller that prints it.
     notes: tuple[str, ...] = ()
+    guides: tuple[flag_only.Guide, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +164,10 @@ def run(request: Request) -> Outcome:
 
     replanning = time.monotonic()
     loaded = [one.loaded for one in passes]
+    documents = [one.pack for one in loaded]
+    guides = tuple(
+        guide for one in passes for guide in flag_only.guides(one.loaded.pack, one.run.findings)
+    )
     plan = run_dir.planned(driven, loaded, None if model.session is None else model.session.numbers)
     plan_ms += _ms(replanning)
 
@@ -216,7 +222,13 @@ def run(request: Request) -> Outcome:
             findings.model_dump_json(indent=2) + "\n",
             loaded,
             report.document(
-                record, scan, driven, plan.document, () if recorded is None else recorded[2]
+                record,
+                scan,
+                driven,
+                plan.document,
+                () if recorded is None else recorded[2],
+                guides=guides,
+                packs=documents,
             ),
             artefacts,
             journaled=journaled,
@@ -233,6 +245,7 @@ def run(request: Request) -> Outcome:
         evidence=written.relative,
         blocked=scan.blocked,
         notes=notes,
+        guides=guides,
     )
 
 

@@ -39,6 +39,12 @@ PLAIN = "def add(left: int, right: int) -> int:\n    return left + right\n"
 
 MANIFEST = "google-generativeai==0.8.6\n"
 
+# Names the legacy module as a string: the pack's flagged change for that is the one that speaks.
+MOCKED = (
+    'from unittest import mock\n\nPATCHED = mock.patch("google.generativeai.GenerativeModel")\n'
+)
+FLAGGED = f"{GEMINI}:flag-legacy-module-reached-indirectly"
+
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
@@ -57,6 +63,53 @@ def _scan(tree: Path, *extra: str) -> Result:
 def _folder(tree: Path) -> Path:
     latest = (tree / ".obelize" / "latest").read_text(encoding="utf-8").strip()
     return tree / ".obelize" / "runs" / latest
+
+
+def _words(rule_id: str) -> tuple[str, str]:
+    """The message and suggestion of one change of the Gemini pack, as the pack says them."""
+    change = next(
+        one for one in loader.load(GEMINI).pack.changes if one.id == rule_id.split(":")[1]
+    )
+    return change.params.message, change.params.suggestion  # type: ignore[union-attr]
+
+
+def test_a_flagged_finding_is_followed_by_what_the_pack_says_about_it(tree: Path) -> None:
+    (tree / "adapter.py").write_text(MOCKED, encoding="utf-8")
+    message, suggestion = _words(FLAGGED)
+    result = _scan(tree)
+    assert f"{FLAGGED}: 1 finding(s) flagged.\n  {message}\n  Suggestion: {suggestion}\n" in (
+        result.stdout
+    )
+    report = (_folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert f"### `{FLAGGED}`\n\n1 finding(s). {message}\n\n**Suggestion:** {suggestion}\n" in report
+    pack = loader.load(GEMINI).pack
+    assert f"What `{pack.id}` says it does not handle:" in report
+    assert all(f"\n- {entry}\n" in report for entry in pack.limitations)
+
+
+def test_a_pack_speaks_only_for_what_it_flagged_itself(tmp_path: Path) -> None:
+    """A shape names no pack: one pack's `__import__("PyPDF2")` is not the openai pack's row."""
+    root = tmp_path / "two"
+    root.mkdir()
+    (root / "a.py").write_text('import PyPDF2\n\nREADER = __import__("PyPDF2")\n', encoding="utf-8")
+    (root / "b.py").write_text(
+        'import openai\n\nVECTORS = openai.Embedding.create(input="x", model="m")\n',
+        encoding="utf-8",
+    )
+    stdout = _scan(root).stdout
+    assert "py-pdf/pypdf2-to-pypdf:flag-indirect-use: 1 finding(s) flagged." in stdout
+    assert "openai/openai-0-to-1:flag-indirect-use" not in stdout
+
+
+def test_a_scan_with_nothing_flagged_says_nothing_of_the_kind(tree: Path) -> None:
+    result = _scan(tree)
+    assert "finding(s) flagged." not in result.stdout
+    assert "## Guidance" not in (_folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+def test_json_carries_no_pack_prose(tree: Path) -> None:
+    (tree / "adapter.py").write_text(MOCKED, encoding="utf-8")
+    assert "finding(s) flagged." not in _scan(tree, "--json").stdout
 
 
 def test_the_default_pack_is_one_that_ships() -> None:

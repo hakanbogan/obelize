@@ -445,6 +445,8 @@ def _display_text(value: str) -> str:
             f"display text must be at most {DISPLAY_TEXT_LIMIT} characters, got {len(value)}"
         )
     _terminal_safe(value, "display text")
+    if "\u2028" in value or "\u2029" in value:
+        raise ValueError("display text must be one line, with no line or paragraph separator")
     return value
 
 

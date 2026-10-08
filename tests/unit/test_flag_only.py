@@ -10,6 +10,7 @@ import acme
 
 from obelize.models import Edit, Finding
 from obelize.packs.schema import FlagOnlyChange, FlagOnlyParams
+from obelize.transforms.kinds.flag_only import Guide, guides
 
 HEADER = "import acme.sdk as sdk\n\nsdk.configure(key='k')\n"
 
@@ -164,3 +165,55 @@ def test_a_change_that_declares_only_the_stub_shape_claims_it() -> None:
     produced, edits = run(source, change)
     assert produced == source
     assert reported(edits) == [(5, "needs_review", "flag_only_surface", "flag-stub")]
+
+
+BOTH = (
+    f"{HEADER}\ndef read():\n    m = sdk.Model('x')\n    s = m.chat()\n"
+    "    return s.log, sdk.protos\n"
+)
+
+
+def test_a_change_that_claimed_a_finding_gives_its_own_words_in_declared_order() -> None:
+    expected = (
+        Guide(
+            f"{acme.PACK.id}:flag-protos",
+            1,
+            acme.FLAGGED.params.message,
+            acme.FLAGGED.params.suggestion,
+        ),
+        Guide(
+            f"{acme.PACK.id}:flag-session-log",
+            1,
+            acme.GONE.params.message,
+            acme.GONE.params.suggestion,
+        ),
+    )
+    assert guides(acme.PACK, acme.scan(BOTH).findings) == expected
+
+
+def test_a_change_that_claimed_nothing_gives_nothing() -> None:
+    """An ordinary legacy call is another rule's row, and the pack's words are not for it."""
+    assert guides(acme.PACK, acme.scan(f"{HEADER}\nMODEL = sdk.Model('x')\n").findings) == ()
+
+
+def test_a_guide_counts_every_finding_its_change_claimed() -> None:
+    source = f"{HEADER}\nONE = sdk.protos.One()\nTWO = sdk.protos.Two()\n"
+    (guide,) = guides(acme.PACK, acme.scan(source).findings)
+    assert guide.findings == 2
+
+
+def test_a_pack_with_no_flagged_change_gives_nothing() -> None:
+    bare = acme.PACK.model_copy(update={"changes": (acme.CHANGE,)})
+    assert guides(bare, acme.scan(BOTH).findings) == ()
+
+
+def test_a_pack_speaks_only_for_its_own_changes() -> None:
+    old = acme.scan("import acme.old as old\n\nREGISTRY = old.Registry()\n", acme.OLD_SPEC)
+    both = [*acme.scan(BOTH).findings, *old.findings]
+    assert [guide.rule_id for guide in guides(acme.OLD_PACK, both)] == [
+        f"{acme.OLD_PACK.id}:flag-removed"
+    ]
+    assert [guide.rule_id for guide in guides(acme.PACK, both)] == [
+        f"{acme.PACK.id}:flag-protos",
+        f"{acme.PACK.id}:flag-session-log",
+    ]

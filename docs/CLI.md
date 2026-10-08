@@ -120,6 +120,12 @@ should accept `0` and `4`.
 with review items, `5` or `6`: a `Next:` line holding the command to run. A
 run with nothing to write names the reason that held back the most findings.
 
+**What a pack says about the findings it flagged** follows the counts, in `scan` and in `fix`: for
+each of its flagged changes that claimed a finding, its id, how many findings, its message and its
+suggestion. `REPORT.md` has the same under Guidance, and lists every limitation of the packs that
+ran under Limitations and their verification suggestions under Verification. `--json` prints none
+of it.
+
 **With a model configured**, one stderr line first names the provider, the host
 of `base_url` (never the URL, which can carry a credential) and the model. The
 run adds `run.json`'s `model` object and a `model/` directory with one file per
@@ -420,7 +426,7 @@ Highest first:
 1. `--verify "<cmd>"`: always.
 2. The allowlist in `~/.config/obelize/config.yml`.
 3. `verify.commands` in `.obelize.yml`.
-4. A pack's `verification.suggestions`: **never**, under any flag; printed as
+4. A pack's `verification.suggestions`: **never**, under any flag; listed in `REPORT.md` as
    "suggested, not run".
 
 Level 3 depends on the mode:

@@ -309,6 +309,13 @@ def test_display_text_refuses_what_a_terminal_would_act_on(
         _Shapes(prose=f"Refused.{character}Migrated.")
 
 
+@pytest.mark.parametrize("character", ["\u2028", "\u2029"], ids=["Zl", "Zp"])
+def test_display_text_is_one_line(character: str) -> None:
+    """A tool that splits on these sees a line a person's terminal does not."""
+    with pytest.raises(ValidationError, match="one line"):
+        _Shapes(prose=f"One.{character}Two.")
+
+
 def test_display_text_leaves_alone_the_two_categories_that_render_harmlessly() -> None:
     """`Co`/`Cn` render as a glyph; refusing them would pin a Unicode revision."""
     for character in ("\ue000", "\U000e0000"):

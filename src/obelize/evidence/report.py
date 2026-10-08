@@ -7,6 +7,7 @@ the `REPORT.md` header, so repeated scans print identical terminal lines apart f
 
 from __future__ import annotations
 
+import re
 import shlex
 from collections import Counter
 from pathlib import PurePath, PurePosixPath
@@ -33,9 +34,11 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
         VerifyPhaseRecord,
         VerifyRecord,
     )
+    from obelize.packs.schema import PackDocument
     from obelize.scan.runner import Scan
     from obelize.scan.runtime import Blocked
     from obelize.transforms.codemod import Run
+    from obelize.transforms.kinds.flag_only import Guide
 
 # A scan's status split in print order, with display words from `Finding.scan_status`,
 # not the fixture `verdict`.
@@ -64,6 +67,9 @@ LEGEND = (
 )
 
 
+# What turns a line of pack text into Markdown or HTML; `_` and `#` only matter at a line start.
+_MARKUP = re.compile(r"[\\`*<>&\[\]!|]")
+
 # The interpreter the hint about obelize's own environment gives as an example.
 _VENV_TESTS = '--verify "/path/to/your/project/.venv/bin/python -m pytest -q"'
 
@@ -89,7 +95,9 @@ def _inside(folder: str, name: str) -> str:
     return str(PurePath(folder, name))
 
 
-def terminal(scan: Scan, pack: str, evidence: str | None) -> list[str]:
+def terminal(
+    scan: Scan, pack: str, evidence: str | None, guides: Sequence[Guide] = ()
+) -> list[str]:
     """`obelize scan`'s non-JSON output."""
     lines = [f"obelize scan  {pack}", ""]
     for blocked in scan.blocked:
@@ -102,6 +110,7 @@ def terminal(scan: Scan, pack: str, evidence: str | None) -> list[str]:
         lines.extend([LEGEND, ""])
     lines.append(_headline(scan.counts, SPLIT))
     lines.extend(_repository(scan.manifests))
+    lines.extend(_guidance(guides))
     if scan.limitations or scan.skipped:
         lines.append(
             f"{len(scan.limitations) + len(scan.skipped)} path(s) were skipped or only partly "
@@ -114,6 +123,11 @@ def terminal(scan: Scan, pack: str, evidence: str | None) -> list[str]:
 
 # Starts the superseding note; an HTML comment so a repeat `obelize verify` can find and replace it.
 SUPERSEDED = "<!-- obelize:verified-again -->"
+
+# A repeat takes the last note that is a heading and one paragraph to the end, so text above it,
+# such as a file name with line breaks, cannot forge one and cut the report.
+_NOTE = f"{SUPERSEDED}\n\n## Verified again\n"
+_ONE_LINE = re.compile(r"\n[^\n]*\n")
 
 # The title of the baseline's rows, which the superseding note looks for.
 _BASELINE = "Baseline"
@@ -135,6 +149,7 @@ def fixed(
     patch: bytes,
     environ: Mapping[str, str],
     repo: str,
+    guides: Sequence[Guide] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
@@ -160,6 +175,7 @@ def fixed(
     for refusal in record.refused:
         subject = f"{refusal.path}: " if refusal.path else ""
         lines.append(f"Not written: {subject}{refusal.detail}")
+    lines.extend(_guidance(guides))
     # Type narrowing only: `RunRecord` rejects a plan or apply without a verification.
     assert record.verify is not None  # noqa: S101 - see above
     lines.append(_verdict(record.verify))
@@ -179,6 +195,20 @@ def _held_back(record: RunRecord) -> list[str]:
         f"({count} of {len(record.withheld)})."
         for code, count in codes.most_common(1)
     ]
+
+
+def _guidance(guides: Sequence[Guide]) -> list[str]:
+    lines = []
+    for guide in guides:
+        lines.extend(
+            [
+                "",
+                f"{guide.rule_id}: {guide.findings} finding(s) flagged.",
+                f"  {guide.message}",
+                f"  Suggestion: {guide.suggestion}",
+            ]
+        )
+    return [*lines, ""] if lines else []
 
 
 def _next(record: RunRecord, evidence: str, repo: str) -> list[str]:
@@ -321,7 +351,8 @@ def superseded(document_text: str, record: RunRecord, when: str) -> str:
     tests ran before the change, which a re-verified record no longer does.
     """
     assert record.verify is not None  # noqa: S101 - only a re-verification supersedes
-    body = document_text.split(SUPERSEDED)[0].rstrip("\n")
+    head, found, tail = document_text.rpartition(f"\n{_NOTE}")
+    body = (head if found and _ONE_LINE.fullmatch(tail) else document_text).rstrip("\n")
     verdict = f"`{record.verify.status}`" + (
         f" (`{record.verify.reason}`)" if record.verify.reason else ""
     )
@@ -335,10 +366,7 @@ def superseded(document_text: str, record: RunRecord, when: str) -> str:
         [
             body,
             "",
-            SUPERSEDED,
-            "",
-            "## Verified again",
-            "",
+            _NOTE,
             f"`obelize verify` checked this run again at {when}: {verdict}. The section "
             f"above shows the first result; `run.json` and `verify/verify.json` hold the new "
             f"one. {before}",
@@ -397,12 +425,15 @@ def document(
     run: Run | None = None,
     plan: PlanDocument | None = None,
     proposals: Sequence[ProposalRecord] = (),
+    guides: Sequence[Guide] = (),
+    packs: Sequence[PackDocument] = (),
 ) -> str:
     """`REPORT.md`: everything the run learned, in the order it learned it.
 
     `run` (driver output) and `plan` must match the mode, else ValueError. A fix keeps the findings
     table beside the edits: a file the scan refused has no edit, and that is not a hole.
-    `proposals` (from `model/`) are inlined because model hunks most need a human reader.
+    `proposals` (from `model/`) are inlined because model hunks most need a human reader. `guides`
+    and `packs` are the packs' own words: what a flagged change says, what a pack does not handle.
     """
     _agree(record, run, plan)
     lines = _preamble(record, scan, run is not None, planned=plan is not None and bool(plan.files))
@@ -418,12 +449,13 @@ def document(
     else:
         lines.extend(_findings_section(scan.findings))
     lines.extend(_withheld_section(record))
+    lines.extend(_guidance_section(guides))
     lines.extend(_manifest_section(scan.manifests if run is None else run.manifest_plan))
     if record.verify is not None:
-        lines.extend(_verification_section(record.verify))
+        lines.extend(_verification_section(record.verify, packs))
     if record.model is not None:
         lines.extend(_model_section(record.model, proposals))
-    lines.extend(_limitations_section(record))
+    lines.extend(_limitations_section(record, packs))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -493,7 +525,7 @@ def _changes_section(record: RunRecord, plan: PlanDocument) -> list[str]:
 def _edits_section(run: Run) -> list[str]:
     lines = ["## Edits", ""]
     if not run.edits:
-        return [*lines, "No rule matched anything in this repository.", ""]
+        return [*lines, "No rule planned an edit in this repository.", ""]
     lines.extend(
         ["| File | Line | Status | Rule | Reason | Warnings |", "|---|---|---|---|---|---|"]
     )
@@ -519,7 +551,7 @@ def _refused_section(record: RunRecord) -> list[str]:
     return [*lines, ""]
 
 
-def _verification_section(verify: VerifyRecord) -> list[str]:
+def _verification_section(verify: VerifyRecord, packs: Sequence[PackDocument]) -> list[str]:
     lines = [
         "## Verification",
         "",
@@ -531,6 +563,18 @@ def _verification_section(verify: VerifyRecord) -> list[str]:
     if verify.baseline is not None:
         lines.extend(_phase_rows(_BASELINE, verify.baseline))
     lines.extend(_phase_rows("After the patch", verify))
+    suggested = [
+        text for pack in packs if pack.verification for text in pack.verification.suggestions
+    ]
+    if suggested:
+        lines.extend(
+            [
+                "Suggested by the packs, not run:",
+                "",
+                *(f"- {_prose(text)}" for text in suggested),
+                "",
+            ]
+        )
     return lines
 
 
@@ -596,6 +640,29 @@ def _withheld_section(record: RunRecord) -> list[str]:
     return [*lines, ""]
 
 
+def _prose(text: str) -> str:
+    """Pack text for Markdown: a viewer then shows it as written and runs none of it."""
+    return _MARKUP.sub(r"\\\g<0>", text)
+
+
+def _guidance_section(guides: Sequence[Guide]) -> list[str]:
+    if not guides:
+        return []
+    lines = ["## Guidance", "", "What each pack says about the findings it flagged.", ""]
+    for guide in guides:
+        lines.extend(
+            [
+                f"### `{guide.rule_id}`",
+                "",
+                f"{guide.findings} finding(s). {_prose(guide.message)}",
+                "",
+                f"**Suggestion:** {_prose(guide.suggestion)}",
+                "",
+            ]
+        )
+    return lines
+
+
 def _manifest_section(plan: ManifestPlan) -> list[str]:
     lines = ["## Dependency manifests", ""]
     if not plan.findings:
@@ -644,13 +711,20 @@ def _model_section(model: RunModel, proposals: Sequence[ProposalRecord]) -> list
     return [*lines, ""]
 
 
-def _limitations_section(record: RunRecord) -> list[str]:
+def _limitations_section(record: RunRecord, packs: Sequence[PackDocument]) -> list[str]:
     if not record.limitations:
-        return ["## Limitations", "", "Every selected path was read.", ""]
-    lines = ["## Limitations", "", "| Path | Code | Detail |", "|---|---|---|"]
-    for row in record.limitations:
-        lines.append(f"| {f'`{row.path}`' if row.path else '--'} | `{row.code}` | {row.detail} |")
-    return [*lines, ""]
+        lines = ["## Limitations", "", "Every selected path was read.", ""]
+    else:
+        lines = ["## Limitations", "", "| Path | Code | Detail |", "|---|---|---|"]
+        for row in record.limitations:
+            lines.append(
+                f"| {f'`{row.path}`' if row.path else '--'} | `{row.code}` | {row.detail} |"
+            )
+        lines.append("")
+    for pack in packs:
+        lines.extend([f"What `{pack.id}` says it does not handle:", ""])
+        lines.extend([*(f"- {_prose(text)}" for text in pack.limitations), ""])
+    return lines
 
 
 def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:

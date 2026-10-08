@@ -45,7 +45,10 @@ since a baseline can have already run before the refusal.
 ## Report and terminal output
 
 A file's own name is untrusted text: an unusual one can inject Markdown into the generated report
-or control characters into a terminal that prints it.
+or control characters into a terminal that prints it. A pack's text is escaped in the report.
+
+A pack that names one surface in two `flag_only` changes has each row reported under both, and the
+guidance counts it twice; `pack validate` does not compare the changes.
 
 Some hints give a POSIX spelling on Windows. The hint after a baseline that failed in obelize's
 own environment shows `.venv/bin/python`, the refusal of a command that needs a shell advises

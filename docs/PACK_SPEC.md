@@ -43,7 +43,7 @@ Breaking one rejects the pack.
 | `changes` | list | yes | See [Change entries](#change-entries). |
 | `layout` | mapping | no | `line_length` (40-320, default `100`). See [Layout](#layout). |
 | `verification` | mapping | no | `suggestions`: displayed, never run. |
-| `limitations` | list of strings | yes | What the pack knowingly does not handle; copied into the report. |
+| `limitations` | list of strings | yes | What the pack knowingly does not handle; listed in `REPORT.md` under Limitations, whether or not the run withheld anything. |
 
 ### Source provenance
 
@@ -207,10 +207,12 @@ whole file rebound, graded by
 `tests/fixtures/scan/escapes/dynamic.py`.
 
 The scanner reads the union of all `flag_only` channels, so each refused row
-gets an edit whose `rule_id` names the refusing change: the only link from a
-report line to its message and suggestion. A resolved name is
+gets an edit whose `rule_id` names the refusing change: the link from a report
+line to its message and suggestion. A resolved name is
 claimed by `symbols` or `attributes`, a `dynamic` or `text_mention` finding by
-`patterns`, so no refusal is reported twice.
+`patterns`, so a surface is reported once as long as no two changes name it. `scan` and `fix` print the message
+and the suggestion once for each change that claimed a finding, and `REPORT.md`
+repeats them under Guidance ([ADR-054](adr/ADR-054-pack-guidance-in-the-report.md)).
 
 **`manifest_dependency.to_name` is written verbatim**; PEP 503 folding only
 decides whether two names are one distribution. `from_name` and `to_name` may be one: `openai==0.28.1` becomes `openai>=1.109.1`, the two sides told apart by the pack's `from.version` and `to.version`. A declaration whose lowest admitted version `to.version` already admits (`openai==3.26.0`, `openai>=2`) has arrived: it is left as written, with no row, while one that admits the old API (`openai>=0.28.1,<3`) is rewritten. One distribution holds both APIs, so such
@@ -535,8 +537,9 @@ Per document, seven incoherences that would otherwise scan as a clean repository
 
 And prose: `message`, `suggestion`, `citation` and `limitations` may not
 contain Unicode categories `Cc`, `Cf` or `Cs`, which can rewrite the display
-(`ESC`, `\r`, `U+202E`). They are refused, not stripped, so the shown text is
-the hashed text.
+(`ESC`, `\r`, `U+202E`), nor `U+2028` or `U+2029`, since each is one line. They are
+refused, not stripped, so the shown text is the hashed text. `REPORT.md` escapes
+the Markdown and HTML characters in it.
 
 `tests/packs/_negative/_build.py` generates one negative pack per refusal from
 one valid document, each differing in one way; its header names the field path
@@ -635,7 +638,7 @@ changes:
       - fixtures/positive/tools_flagged
       - fixtures/negative/no_tools.py
 
-# Displayed as "suggested, not run". Obelize never executes these.
+# Listed in REPORT.md as "suggested, not run". Obelize never executes these.
 verification:
   suggestions:
     - "pytest -q"

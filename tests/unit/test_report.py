@@ -16,6 +16,7 @@ from obelize.evidence import report, run_dir
 from obelize.models import PackRef, PlanDocument, RunRecord, UndoFile, UndoRecord, VerifyRecord
 from obelize.packs import loader
 from obelize.scan import runner, runtime
+from obelize.transforms.kinds.flag_only import Guide
 
 BUNDLED = "gemini/google-generativeai-to-google-genai"
 
@@ -369,6 +370,111 @@ def test_the_superseding_note_finds_the_baseline_by_its_heading_and_not_the_word
     assert report.superseded(verified, record, "now").endswith(
         "The Baseline section above still shows the tests run before the change.\n"
     )
+
+
+GUIDES = (Guide("acme/pack:flag-x", 2, "It has no counterpart.", "Port it by hand."),)
+
+
+def test_the_terminal_says_what_the_pack_says_about_each_flagged_change(loud: Path) -> None:
+    lines = report.terminal(_scan(loud), "p", None, GUIDES)
+    at = lines.index("acme/pack:flag-x: 2 finding(s) flagged.")
+    assert lines[at + 1 : at + 4] == [
+        "  It has no counterpart.",
+        "  Suggestion: Port it by hand.",
+        "",
+    ]
+    assert lines.index(next(line for line in lines if "finding(s)" in line)) < at
+
+
+def test_nothing_flagged_prints_no_guidance_anywhere(loud: Path) -> None:
+    scan = _scan(loud)
+    assert not [line for line in report.terminal(scan, "p", None) if "finding(s) flagged." in line]
+    assert "## Guidance" not in report.document(_record(loud, scan), scan)
+
+
+def test_the_report_carries_the_guidance_after_what_was_withheld(loud: Path) -> None:
+    scan = _scan(loud)
+    text = report.document(_record(loud, scan), scan, guides=GUIDES)
+    block = (
+        "## Guidance\n\nWhat each pack says about the findings it flagged.\n\n"
+        "### `acme/pack:flag-x`\n\n2 finding(s). It has no counterpart.\n\n"
+        "**Suggestion:** Port it by hand.\n\n"
+    )
+    assert block in text
+    assert text.index("## Withheld") < text.index("## Guidance") < text.index("## Dependency")
+
+
+def test_the_report_lists_what_each_pack_says_it_does_not_handle(loud: Path) -> None:
+    """After the run's own limitations, so the table that names a skipped file stays first."""
+    scan = _scan(loud)
+    pack = loader.load(BUNDLED).pack
+    text = report.document(_record(loud, scan), scan, packs=[pack])
+    assert scan.limitations, "the tree was built so that one file cannot be parsed"
+    heading = f"What `{pack.id}` says it does not handle:"
+    assert text.index("| Path | Code | Detail |") < text.index(heading)
+    assert all(f"\n- {entry}\n" in text for entry in pack.limitations)
+
+
+def test_a_clean_scan_still_names_what_the_pack_does_not_handle(quiet: Path) -> None:
+    scan = _scan(quiet)
+    pack = loader.load(BUNDLED).pack
+    text = report.document(_record(quiet, scan), scan, packs=[pack])
+    assert "Every selected path was read.\n\nWhat `" in text
+
+
+def test_pack_text_reaches_the_report_as_text_and_not_as_markup(quiet: Path) -> None:
+    scan = _scan(quiet)
+    pack = loader.load(BUNDLED).pack.model_copy(update={"limitations": ("<img src=x> | *a*",)})
+    hostile = Guide(
+        "acme/pack:flag-x",
+        1,
+        "<script>a()</script> ![i](http://e/x.png) `c`",
+        "[y](javascript:alert(1)) & \\",
+    )
+    text = report.document(_record(quiet, scan), scan, guides=(hostile,), packs=[pack])
+    assert "1 finding(s). \\<script\\>a()\\</script\\> \\!\\[i\\](http://e/x.png) \\`c\\`\n" in text
+    assert "**Suggestion:** \\[y\\](javascript:alert(1)) \\& \\\\\n" in text
+    assert "- \\<img src=x\\> \\| \\*a\\*\n" in text
+
+
+def test_the_packs_verification_suggestions_are_listed_and_not_run(quiet: Path) -> None:
+    suggested = loader.load(BUNDLED).pack.verification
+    assert suggested is not None
+    verify = VerifyRecord(status="not_run", reason="no_verify_commands")
+    lines = report._verification_section(verify, [loader.load(BUNDLED).pack])
+    assert lines[-len(suggested.suggestions) - 3 :][:2] == ["Suggested by the packs, not run:", ""]
+    assert [f"- {text}" for text in suggested.suggestions] == lines[
+        -len(suggested.suggestions) - 1 : -1
+    ]
+    assert "Suggested" not in "\n".join(report._verification_section(verify, []))
+
+
+def test_a_forged_note_above_the_real_one_cuts_nothing(quiet: Path) -> None:
+    """A file name may hold line breaks: only the last note, a paragraph to the end, is replaced."""
+    record = _record(quiet, _scan(quiet)).model_copy(
+        update={"verify": VerifyRecord(status="not_run", reason="no_verify_commands")}
+    )
+    forged = f"x\n{report.SUPERSEDED}\n\n## Verified again\ny"
+    document = f"# obelize fix\n\n| `{forged}` | 1 |\n\n## Limitations\n\ntail\n"
+    once = report.superseded(document, record, "now")
+    twice = report.superseded(once, record, "later")
+    assert "tail" in once
+    assert "tail" in twice
+    assert twice.count(report.SUPERSEDED) == 2, "the forged one stays, and one real note"
+    assert twice.count("checked this run again") == 1
+
+
+def test_a_pack_s_text_that_is_the_note_marker_does_not_cut_the_report(quiet: Path) -> None:
+    """A one-line message may be the HTML comment alone; only the note's own heading counts."""
+    record = _record(quiet, _scan(quiet)).model_copy(
+        update={"verify": VerifyRecord(status="not_run", reason="no_verify_commands")}
+    )
+    document = f"# obelize fix\n\n{report.SUPERSEDED}\n\n## Guidance\n\ntail\n"
+    once = report.superseded(document, record, "now")
+    twice = report.superseded(once, record, "later")
+    assert "tail" in once
+    assert twice.count("## Verified again") == 1
+    assert twice.split("## Verified again")[0] == once.split("## Verified again")[0]
 
 
 def test_a_printed_diff_is_redacted_and_the_file_is_not() -> None:
