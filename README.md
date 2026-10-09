@@ -164,7 +164,7 @@ network access unless you configure a model in your own `~/.config/obelize/confi
 `--model`.
 
 Run obelize in a repository that is committed or backed up, and pass only verification commands
-you trust. These gaps are known in 0.1.0:
+you trust. These gaps are known in 0.2.0:
 
 - A git command obelize runs can start a program that the repository's git configuration names,
   such as `core.fsmonitor`, and on Windows it can load a DLL from the repository that git finds
@@ -252,7 +252,7 @@ migration guide and one fixed prompt.
 | Repositories with a wrong edit | 0 | 2 | 13 |
 
 The 13 repositories are the ones obelize's rules were written against, and the agent's column is a
-snapshot from 2026-09-22 that I did not measure again for 0.1.0. The agent migrated far more, so I
+snapshot from 2026-09-22 that I have not measured again. The agent migrated far more, so I
 do not claim obelize is more accurate. Each change obelize makes was measured against both SDKs
 installed side by side, and each place it leaves has a written reason.
 

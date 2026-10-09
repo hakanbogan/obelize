@@ -12,6 +12,41 @@ in the release that makes it.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
+### Benchmark
+
+I did not run the benchmark again for this release. Its numbers are 0.1.0's and are for the Gemini
+pack alone: scan precision 100.0% and recall 98.4% over 64 usages in five repositories, and 25 of
+277 usages (9.0%) migrated in 20 repositories with no wrong edit, on the
+[results page](https://github.com/hakanbogan/obelize/blob/v0.2.0/docs/BENCHMARK_RESULTS.md). The scan
+specification the Gemini pack hands the scanner is the one measured, which `tests/unit/test_gate1.py`
+checks, and the verdict of every hand-written answer key under `tests/fixtures/scan/` is unchanged.
+The scanner and the rewriter are not, so read those numbers as dated. `openai/openai-0-to-1` and
+`py-pdf/pypdf2-to-pypdf` have no benchmark. They rest on fixtures, on each change measured against
+both library versions installed side by side, and, for `openai`, a weekly job that runs the same
+fixtures on 0.28.1 and on the new releases.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](https://github.com/hakanbogan/obelize/blob/v0.2.0/docs/KNOWN_ISSUES.md) lists
+what I know about and have chosen not to fix yet. The 0.1.0 gaps for the Gemini pack stand. The main
+gaps of the two new packs:
+
+- `openai`: async and streamed calls, Azure, every resource but the seven calls under Added, and the
+  `openai.error` classes are reported and never rewritten. A write to a module setting through
+  `exec`, `globals()`, `sys.modules` or `setattr`, `OPENAI_API_BASE` set in code, and a base URL
+  formed once at assignment are not seen. The pack writes nothing while any row of it is withheld.
+- `openai`: a handler for top-level `openai.APIError` that reads `http_status` or `json_body` fails
+  after the pin moves, with no warning.
+- `PyPDF2`: a method or a parameter is never rewritten or reported, so only your own tests find that
+  `PdfWriter(path)` starts empty on PyPDF2 and clones the file on pypdf, or that page boxes turn from
+  `Decimal` into `float`. A repository that does not declare `PyPDF2` at 3 or above, or a Python
+  below 3.9, is blocked.
+- A source file with a chain of about four hundred terms is a `parse_error` row, not a rewrite.
+- The four safety gaps in [docs/THREAT_MODEL.md](https://github.com/hakanbogan/obelize/blob/v0.2.0/docs/THREAT_MODEL.md)
+  are still open.
+
 ### Added
 
 - One run can use several packs. `obelize scan` and `obelize fix` try every known pack over one read
