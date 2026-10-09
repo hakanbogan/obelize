@@ -34,7 +34,9 @@ in the release that makes it.
   along a path it lists (`response["choices"][0]["message"]["content"]`), also through a name that
   holds a part of the result or a loop over its items, is rewritten to the
   attribute path with the call, where the name holds the result alone and no handler for a missing key
-  or `contextlib.suppress` surrounds the read. It reports async calls, thirteen
+  or `contextlib.suppress` surrounds the read. It rewrites the assignment `openai.api_base = value`
+  to `openai.base_url = value` with the value ending in `/`, which the new module client needs, and
+  refuses any other use of `api_base`. It reports async calls, twelve
   module settings the new releases ignore or read differently, the `openai.error` classes, the other
   resources, the modules of the 0.28.1 package and indirect use. Both versions are one distribution,
   so it writes no file while any row of the pack is withheld: each row of another file it would have written reads `repo_not_fully_migrated`, and the pin stays. A declaration that
@@ -42,6 +44,11 @@ in the release that makes it.
   in place (extras, a URL) holds every file (`manifest_pin_shape_unsupported`, shown by `scan`). It does
   not report top-level `openai.APIError`, which both sides have and code on the new release writes, so a
   handler that reads `http_status` or `json_body` fails after the pin moves with no warning.
+- Pack format: a seventh kind, `rename_setting` (ADR-055), for a shared module whose setting is
+  assigned under another name in the new release. `settings` maps the legacy dotted attribute to
+  its new name, and `value_ends_with` is one character the value must end with: a string literal gets
+  it, anything else is written `("%s" % (value,)).rstrip(c) + c`. Any use of the old name but a plain
+  assignment is `attribute_removed`, and a file that already uses the new name is `alias_collision`. `pack.schema.json` lists the kind. A pack field that names an identifier (a new symbol or setting name, a keyword argument) is refused when it is a Python keyword.
 - Pack format, for a library that keeps its module name. `match.shared` makes only the names in
   `match.symbols` legacy, and a shared pack has no `rename_import` change. `rewrite_call` takes
   `root: module` (the call stays on the root the author wrote, and no `configure_to_client` is

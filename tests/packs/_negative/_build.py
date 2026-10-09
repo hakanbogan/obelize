@@ -163,6 +163,15 @@ MODULE_CALL: Document = {
     },
 }
 
+# A setting the new release spells another way; only a module the new SDK keeps can have one.
+SETTING_CHANGE: Document = {
+    "id": "endpoint",
+    "kind": "rename_setting",
+    "citation": "Guide, Endpoints",
+    "fixtures": ["fixtures/negative/none.py", "fixtures/positive/one.before.py"],
+    "params": {"settings": {"demo_legacy.endpoint": "address"}, "value_ends_with": "/"},
+}
+
 MANIFEST_CHANGE: Document = {
     "id": "manifest-dependency",
     "kind": "manifest_dependency",
@@ -204,6 +213,24 @@ def _symbols_without_a_submodule_map(document: Document) -> None:
 def _shared(document: Document) -> None:
     """The module is the new SDK's too; `configure` is the one legacy name listed."""
     document["match"].update(shared=True, symbols=["demo_legacy.configure"])
+
+
+def _setting(
+    *,
+    symbols: list[str] | None = None,
+    more: tuple[Document, ...] = (),
+    **params: Any,
+) -> Callable[[Document], None]:
+    """A shared module with the setting listed as legacy, `params` set on its rule, and `more`."""
+
+    def mutate(document: Document) -> None:
+        document["match"].update(
+            shared=True, symbols=symbols or ["demo_legacy.configure", "demo_legacy.endpoint"]
+        )
+        document["changes"][1]["params"].update(params)
+        document["changes"].extend(more)
+
+    return mutate
 
 
 def _depth_is_also_a_config_field(document: Document) -> None:
@@ -1039,6 +1066,123 @@ CASES: tuple[Case, ...] = (
         says="under nothing in match.symbols",
         extra=MODULE_CALL,
         mutate=_shared,
+    ),
+    # rename_setting: a shared module's attribute, and what the new name needs of a value.
+    Case(
+        name="a_rename_setting_with_no_setting",
+        defect="a rule that renames nothing",
+        path=f"{EXTRA}.params",
+        says="a rename_setting rule must name a setting",
+        extra=SETTING_CHANGE,
+        mutate=_setting(settings={}),
+    ),
+    Case(
+        name="a_setting_that_is_no_attribute_of_a_module",
+        defect="a setting named without the module it is an attribute of",
+        path=f"{EXTRA}.params",
+        says="names an attribute of a module, so it is a dotted path",
+        extra=SETTING_CHANGE,
+        mutate=_setting(settings={"endpoint": "address"}),
+    ),
+    Case(
+        name="a_setting_that_keeps_its_name",
+        defect="a rename onto the name the setting already has",
+        path=f"{EXTRA}.params",
+        says="keeps its name, so there is nothing to rename",
+        extra=SETTING_CHANGE,
+        mutate=_setting(settings={"demo_legacy.endpoint": "endpoint"}),
+    ),
+    Case(
+        name="a_setting_renamed_onto_another_setting",
+        defect="a rename whose result the same rule renames again",
+        path=f"{EXTRA}.params",
+        says="which settings renames again",
+        extra=SETTING_CHANGE,
+        mutate=_setting(
+            symbols=["demo_legacy.address", "demo_legacy.configure", "demo_legacy.endpoint"],
+            settings={"demo_legacy.address": "place", "demo_legacy.endpoint": "address"},
+        ),
+    ),
+    Case(
+        name="a_trailing_character_that_is_a_quote",
+        defect="a character that would end the string literal it is written into",
+        path=f"{EXTRA}.params.value_ends_with",
+        says="not a quote, a backslash or a digit",
+        extra=SETTING_CHANGE,
+        mutate=_setting(value_ends_with='"'),
+    ),
+    Case(
+        name="a_trailing_character_that_is_a_digit",
+        defect="a digit, which would join the octal escape a literal may end with",
+        path=f"{EXTRA}.params.value_ends_with",
+        says="not a quote, a backslash or a digit",
+        extra=SETTING_CHANGE,
+        mutate=_setting(value_ends_with="1"),
+    ),
+    Case(
+        name="a_setting_renamed_onto_a_keyword",
+        defect="a new name that no attribute access can spell",
+        path=f"{EXTRA}.params.settings.demo_legacy.endpoint",
+        says="not a keyword",
+        extra=SETTING_CHANGE,
+        mutate=_setting(settings={"demo_legacy.endpoint": "class"}),
+    ),
+    Case(
+        name="a_trailing_character_of_two",
+        defect="an ending of more than one character, which `rstrip` would take as a set",
+        path=f"{EXTRA}.params.value_ends_with",
+        says="one visible ASCII character",
+        extra=SETTING_CHANGE,
+        mutate=_setting(value_ends_with="/v"),
+    ),
+    Case(
+        name="a_setting_in_a_module_that_moves",
+        defect="a renamed setting in a pack whose module is renamed too",
+        path="",
+        says="renames a setting and keeps its module",
+        extra=SETTING_CHANGE,
+    ),
+    Case(
+        name="a_setting_outside_the_listed_legacy_names",
+        defect="a setting the module's own imports reach but `symbols` does not list",
+        path="",
+        says="under nothing in match.symbols",
+        extra=SETTING_CHANGE,
+        mutate=_shared,
+    ),
+    Case(
+        name="a_setting_renamed_onto_a_legacy_name",
+        defect="a rename that lands on a name `symbols` lists, so the result is found again",
+        path="",
+        says="which match.symbols lists as legacy",
+        extra=SETTING_CHANGE,
+        mutate=_setting(
+            symbols=["demo_legacy.address", "demo_legacy.configure", "demo_legacy.endpoint"]
+        ),
+    ),
+    Case(
+        name="two_changes_that_claim_one_setting",
+        defect="two rules on one setting, so the order of the list would pick",
+        path="",
+        says="two changes claim 'demo_legacy.endpoint'",
+        extra=SETTING_CHANGE,
+        mutate=_setting(more=({**SETTING_CHANGE, "id": "endpoint-again"},)),
+    ),
+    Case(
+        name="a_setting_both_renamed_and_refused",
+        defect="a setting one rule renames and another reports",
+        path="",
+        says="is both rewritten and refused",
+        extra=SETTING_CHANGE,
+        mutate=_setting(
+            more=(
+                {
+                    **FLAG_CHANGE,
+                    "id": "flag-endpoint",
+                    "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.endpoint"]},
+                },
+            )
+        ),
     ),
     # rewrite_call rooted on the module: where it is spelled, and what it reads of the result.
     Case(

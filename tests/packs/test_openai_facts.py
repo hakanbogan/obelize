@@ -36,6 +36,12 @@ REWRITES = {
     for change in PACK.changes
     if isinstance(change, schema.RewriteCallChange)
 }
+SETTINGS = {
+    key: new
+    for change in PACK.changes
+    if isinstance(change, schema.RenameSettingChange)
+    for key, new in change.params.settings.items()
+}
 FLAGGED = {
     symbol
     for change in PACK.changes
@@ -235,3 +241,15 @@ def test_the_module_settings_the_pack_leaves_alone_are_read_by_the_module_client
     """`api_key` and `organization` are module attributes the lazily built client reads."""
     assert {"api_key", "organization"} <= {*dir(openai)}
     assert type(openai.chat).__name__ == "ChatProxy"
+
+
+@pytest.mark.parametrize(("legacy", "new"), sorted(SETTINGS.items()))
+def test_a_renamed_setting_is_read_by_the_module_client_as_written(
+    monkeypatch: pytest.MonkeyPatch, legacy: str, new: str
+) -> None:
+    """The new name exists, the old one does not, and no trailing slash is added to a value."""
+    assert hasattr(openai, new)
+    assert not hasattr(openai, legacy.rpartition(".")[2])
+    for written in ("http://example.invalid/v1", "http://example.invalid/v1/"):
+        monkeypatch.setattr(openai, new, written)
+        assert str(openai.chat.completions._client.base_url) == written

@@ -36,6 +36,7 @@ ChangeKind = Literal[
     "configure_to_client",
     "generative_model_calls",
     "rewrite_call",
+    "rename_setting",
     "flag_only",
     "manifest_dependency",
 ]
@@ -65,6 +66,9 @@ _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$")
 _ENUM_MEMBER = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _SYMBOL_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
+# One visible ASCII character, no quote, backslash or digit, so it ends a string literal as written
+# (a digit after an octal escape would join it).
+_TRAILING = re.compile(r"^[!#-&(-/:-\[\]-~]$")
 
 
 def _pack_id(value: str) -> str:
@@ -91,6 +95,15 @@ def _semver(value: str) -> str:
 def _symbol_key(value: str) -> str:
     if not _SYMBOL_KEY.fullmatch(value):
         raise ValueError(f"expected `Name` or `<submodule>.Name`, got {value!r}")
+    return value
+
+
+def _trailing_character(value: str) -> str:
+    if not _TRAILING.fullmatch(value):
+        raise ValueError(
+            f"expected one visible ASCII character that is not a quote, a backslash or a "
+            f"digit, got {value!r}"
+        )
     return value
 
 
@@ -167,6 +180,7 @@ Slug = Annotated[str, AfterValidator(_slug)]
 SemVer = Annotated[str, AfterValidator(_semver)]
 EnumMemberName = Annotated[str, AfterValidator(_enum_member)]
 SymbolKey = Annotated[str, AfterValidator(_symbol_key)]
+TrailingCharacter = Annotated[str, AfterValidator(_trailing_character)]
 SafetyKey = Annotated[str, AfterValidator(_lower_key)]
 SourceUrl = Annotated[str, AfterValidator(_source_url)]
 Pep440Specifier = Annotated[str, AfterValidator(_pep440_specifier)]
@@ -868,6 +882,33 @@ class RewriteCallParams(_Closed):
                 )
 
 
+class RenameSettingParams(_Closed):
+    """Module settings the new release spells another way, assigned as the old ones were."""
+
+    # A legacy attribute by its dotted path, and the name it takes on the same module.
+    settings: dict[QualifiedName, PlainName]
+    # A string literal lacking it gets it; any other value is written `str(v).rstrip(c) + c`.
+    value_ends_with: TrailingCharacter | None = None
+
+    @model_validator(mode="after")
+    def _check(self) -> RenameSettingParams:
+        if not self.settings:
+            raise ValueError("a rename_setting rule must name a setting")
+        for key, new in self.settings.items():
+            module, dot, name = key.rpartition(".")
+            if not dot:
+                raise ValueError(
+                    f"settings names an attribute of a module, so it is a dotted path: got {key!r}"
+                )
+            if new == name:
+                raise ValueError(f"settings[{key!r}] keeps its name, so there is nothing to rename")
+            if f"{module}.{new}" in self.settings:
+                raise ValueError(
+                    f"settings[{key!r}] is renamed onto {new!r}, which settings renames again"
+                )
+        return self
+
+
 class FlagOnlyParams(_Closed):
     """Symbols, string patterns and removed attributes a pack refuses, and what it says instead."""
 
@@ -938,6 +979,11 @@ class RewriteCallChange(_ChangeBase):
     params: RewriteCallParams
 
 
+class RenameSettingChange(_ChangeBase):
+    kind: Literal["rename_setting"]
+    params: RenameSettingParams
+
+
 class FlagOnlyChange(_ChangeBase):
     kind: Literal["flag_only"]
     params: FlagOnlyParams
@@ -956,6 +1002,7 @@ Change = Annotated[
         ConfigureToClientChange,
         GenerativeModelCallsChange,
         RewriteCallChange,
+        RenameSettingChange,
         FlagOnlyChange,
         ManifestDependencyChange,
     ],
@@ -1016,6 +1063,7 @@ class PackDocument(_Closed):
         self._check_receivers_and_symbols_are_claimed_once()
         self._check_every_legacy_symbol_is_looked_for()
         self._check_mapped_symbols_are_not_also_refused()
+        self._check_a_setting_is_not_renamed_onto_a_legacy_name()
         self._check_manifest_matches_the_migration()
         self._check_version_ranges()
         return self
@@ -1071,14 +1119,19 @@ class PackDocument(_Closed):
                 receivers.add(receiver)
         rewritten: set[str] = set()
         for change in self.changes:
-            if not isinstance(change, RewriteCallChange):
+            if isinstance(change, RewriteCallChange):
+                claimed: tuple[str, ...] = (change.params.legacy_symbol,)
+            elif isinstance(change, RenameSettingChange):
+                claimed = tuple(change.params.settings)
+            else:
                 continue
-            if change.params.legacy_symbol in rewritten:
-                raise ValueError(
-                    f"two rewrite_call changes claim {change.params.legacy_symbol!r}; which one "
-                    f"applies would be decided by the order of the list"
-                )
-            rewritten.add(change.params.legacy_symbol)
+            for symbol in claimed:
+                if symbol in rewritten:
+                    raise ValueError(
+                        f"two changes claim {symbol!r}; which one applies would be decided by "
+                        f"the order of the list"
+                    )
+                rewritten.add(symbol)
 
         refused = {
             symbol
@@ -1119,6 +1172,19 @@ class PackDocument(_Closed):
                     f"flag_only rule refuses; a symbol is mapped or refused, not both"
                 )
 
+    def _check_a_setting_is_not_renamed_onto_a_legacy_name(self) -> None:
+        """The new name must be one the scan lets pass, or the rewritten file is a finding again."""
+        for change in self.changes:
+            if not isinstance(change, RenameSettingChange):
+                continue
+            for key, new in change.params.settings.items():
+                landed = f"{key.rpartition('.')[0]}.{new}"
+                if under_any(landed, self.match.symbols):
+                    raise ValueError(
+                        f"changes[{change.id!r}].params.settings[{key!r}] is renamed onto "
+                        f"{landed!r}, which match.symbols lists as legacy"
+                    )
+
     def _check_every_legacy_symbol_is_looked_for(self) -> None:
         """A shared module is legacy only where `symbols` says so, so the rules must sit there."""
         field = "match.symbols" if self.match.shared else "match.imports"
@@ -1128,6 +1194,11 @@ class PackDocument(_Closed):
                 raise ValueError(
                     f"changes[{change.id!r}] renames a module that match.shared says the new SDK "
                     f"keeps; a shared module is rewritten at its calls"
+                )
+            if not self.match.shared and change.kind == "rename_setting":
+                raise ValueError(
+                    f"changes[{change.id!r}] renames a setting and keeps its module, which "
+                    f"match.shared says; a module that moves is renamed by rename_import"
                 )
             for name, symbol in self._legacy_symbols(change):
                 # Read for a member, never found as a usage, so no `symbols` entry can be asked.
@@ -1197,6 +1268,8 @@ class PackDocument(_Closed):
                 symbols.update(change.params.methods)
             elif isinstance(change, RewriteCallChange):
                 symbols.add(change.params.legacy_symbol)
+            elif isinstance(change, RenameSettingChange):
+                symbols.update(change.params.settings)
         return frozenset(symbols)
 
     @staticmethod
@@ -1222,6 +1295,8 @@ class PackDocument(_Closed):
             )
         if isinstance(change, RewriteCallChange):
             return (("legacy_symbol", change.params.legacy_symbol),)
+        if isinstance(change, RenameSettingChange):
+            return tuple(("settings", key) for key in change.params.settings)
         if isinstance(change, FlagOnlyChange):
             return (
                 *(("symbols", symbol) for symbol in change.params.symbols),

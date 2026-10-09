@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by [ADR-055](ADR-055-rename-setting.md).
 
 ## Decision
 
@@ -156,7 +156,7 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 | `acreate` | The new module client has no async form: `AsyncOpenAI` is a client the file must build and close. |
 | `stream=True`, `engine`, `deployment_id`, `request_timeout`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. |
 | A result read with `.get`, by a key off the path, looped over, passed on or returned | D5, D18. |
-| The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. |
+| The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. `api_base` has a counterpart and is rewritten (ADR-055). |
 | `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |
 | `openai.APIError` | **Deliberately not reported.** The name exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. The cost: a handler that reads `http_status`, `json_body` or `user_message` compiles and raises `AttributeError` once the pin moves, and nothing says so. It is a limitation of the pack. |
 | `File`, `Model`, `FineTune`, `Edit` and the rest, the image edit and variation calls, the raw audio calls | Their replacements differ in shape, and the edits and fine-tunes endpoints were shut down. `Audio.transcribe` and `translate`, `Image.create` and `Moderation.create` were in this row until D19. |

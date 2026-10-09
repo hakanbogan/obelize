@@ -95,8 +95,8 @@ file's own) past the statement, with a trailing comma.
 
 ## Rule kind registry
 
-The six kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
-one. All six are implemented: `registry.IMPLEMENTED`
+The seven kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
+one. All seven are implemented: `registry.IMPLEMENTED`
 (`src/obelize/transforms/registry.py`) equals the schema's set, and
 `tests/packs/test_all_packs.py` reads the registry. A method listed in
 `generative_model_calls.methods` but absent from `rewrites` is recognised, and
@@ -108,6 +108,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `configure_to_client` | `legacy_symbol`, `client_symbol` (fully qualified), `client_name` and `client_name_fallback` (tried in order), `allowed_kwargs`, `credential_kwarg` (validated by the new client at construction) and `credentials_object_kwarg` (an object where the legacy call also took a mapping) |
 | `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields`, `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
 | `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `positional_to_kw`, `keywords`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes` |
+| `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec` |
 
@@ -180,6 +181,17 @@ call reproduces; any other argument is `response_shape_changed`. With
 mapping, now an object), any use of the result is `response_shape_changed`, so
 the call is rewritten only where its result is discarded; the flags record the
 reads the legacy result allowed.
+
+**`rename_setting`** is for a module the new release keeps (`match.shared`), whose setting is
+assigned under another name there: `openai.api_base = x` becomes `openai.base_url = x`. It rewrites
+a plain single-target assignment, keeps the root as written, and refuses every other use of the old
+name as `attribute_removed`: a read, `+=`, `del`, a tuple or chained target, an annotation. List the
+setting in `match.symbols` and in no `flag_only` change. With `value_ends_with`, a string literal
+lacking that character gets it and anything else is written `("%s" % (value,)).rstrip(c) + c`, which
+names no builtin. A file that already uses the new name is `alias_collision`. The schema checks that
+every setting is under `match.symbols` and its new name is not, that none renames onto another and
+none onto a keyword, that the pack is `shared`, that no other change claims or refuses a setting,
+and that the character is one visible ASCII character that is no quote, backslash or digit.
 
 **`flag_only`** never edits code: it reports a finding with a message and a
 suggestion, for anything that is not 1:1. Its channels:

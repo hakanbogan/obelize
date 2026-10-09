@@ -19,7 +19,7 @@ sit in a directory your config lists ([ADR-052](adr/ADR-052-several-packs-per-ru
 `Completion.create`, `Embedding.create`, `Image.create`, `Moderation.create`, `Audio.transcribe` and
 `Audio.translate` to the same calls on the 1.x module client, and only when every argument and every
 read of the result is one it has checked. It reports async calls, streaming,
-Azure, the other resources, the settings and the exception classes the new SDK changed, and it
+Azure, the other resources, the settings (but `openai.api_base`, which it renames, ADR-055) and the exception classes the new SDK changed, and it
 writes nothing while any one of them is left, because `openai` 0.x and 1.x are one distribution.
 What stays out: a client object, a `.get` read of a result, and a Gate 1
 measurement, which neither of the two newer packs has. Another library that keeps its import name needs

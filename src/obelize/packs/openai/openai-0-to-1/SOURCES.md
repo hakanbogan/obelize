@@ -36,7 +36,8 @@ the pinned 3.26.0 and, weekly, on 1.109.1.
 The claim that matters, that the migrated call does what the old one did, is
 measured too: `tests/packs/openai_behaviour_check.py` runs the fixtures that
 migrate (chat completion, text completion, embedding, an aliased import, dictionary-style reads, a
-part of a result in a name, an image, a moderation and an audio call) against a local server, the `.before.py` files on 0.28.1 and
+part of a result in a name, an image, a moderation, an audio call and the base URL setting) against
+a local server, the `.before.py` files on 0.28.1 and
 the `.after.py` answer keys on 1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0 and 3.26.1, and the printed
 results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
 
@@ -135,6 +136,31 @@ results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the new
   generation is a second request. A CA bundle named by `REQUESTS_CA_BUNDLE` is read by 0.28.1 and not
   by the new releases, which read `SSL_CERT_FILE`.
 
+## api-base
+
+- Guide: the module client takes `openai.base_url` where 0.28.1 took `openai.api_base`. Measured
+  on 0.28.1 and on 1.109.1, 2.0.0, 2.54.0 and 3.0.0 against a local server: both are plain module
+  attributes read at each call, so assigning one again moves the next call, and neither release
+  defines the other's name (a read of the old name on a new release is an `AttributeError`, and
+  assigning it sets nothing the client reads).
+- Measured: 0.28.1 built the address as `"%s%s" % (api_base, route)` with a route that begins with
+  `/`, so `http://host/v1` worked and `http://host/v1/` sent to `/v1//chat/completions`. The module
+  client joins a route that has no leading slash onto `base_url` as it stands, so `http://host/v1`
+  sends to `/v1chat/completions` and answers 404, and only `http://host/v1/` works. The rule
+  therefore writes a string literal with a `/` added when it lacks one, and any other value as
+  `("%s" % (value,)).rstrip("/") + "/"`: the formatting 0.28.1 did, with exactly one separator, so
+  the address is the one it formed for any value that formatted as a URL. It is formed once, at the
+  assignment, where 0.28.1 formed it at each request.
+- Measured: `None`, an empty string and `"/"` fail at the first call on 0.28.1 (`Invalid URL`) and
+  on 1.109.1 and 3.0.0 (`UnsupportedProtocol`, both an `APIConnectionError`), and so does the
+  wrapped `None` (`"None/"`); a bare rename of `None` would have sent the call to `api.openai.com`.
+  A base with leading whitespace worked on 0.28.1, where `requests` trims it, and fails on the new
+  releases. A file that already writes `openai.base_url` is withheld: its write lacks the ending.
+- Measured: the `api_base` fixture prints the same on 0.28.1 and on the four releases for an
+  assignment from the environment, one that already ends in a slash, a literal, and a name.
+- Not carried: `OPENAI_API_BASE` is read by 0.28.1 and not by the new releases, which read
+  `OPENAI_BASE_URL`; a per-call `api_base=` keyword is not an argument of the new methods.
+
 ## flag-async-calls
 
 - Measured: `acreate` is a coroutine function on `ChatCompletion`,
@@ -151,7 +177,8 @@ results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the new
   as module attributes. 3.26.0 and 1.109.1 define only `api_type` and
   `api_version` of these, and read them once, when the first call builds the
   client; assigning any of the others succeeds and changes nothing, which no
-  scan, import or test of the migrated code shows.
+  scan, import or test of the migrated code shows. `api_base` is not flagged: the
+  `api-base` change rewrites its assignment.
 - Measured: the old `api_type` values `open_ai` and `azure_ad` build a plain
   client in 3.26.0 without an error. A base URL set on the module must end in a
   slash or the request path is joined onto it without one.

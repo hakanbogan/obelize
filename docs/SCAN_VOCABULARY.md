@@ -110,7 +110,7 @@ A bail withholds its whole binding group; the group is atomic.
 
 | Code | Raised when |
 |---|---|
-| `alias_collision` | The target alias is already bound to something else. |
+| `alias_collision` | The target alias is already bound to something else; for `rename_setting`, the file already uses the setting's new name. |
 | `type_symbol_unmapped` | A `from google.generativeai.types import X` whose `X` is not in `symbol_map`. |
 | `from_import_unmigrated_symbol` | A `from … import` line whose symbols are not all rewritten; also a call a module-rooted `rewrite_call` reaches through such an import (`ChatCompletion.create` after `from openai import ChatCompletion`), which has no root to keep. |
 | `local_import` | The legacy import is inside a function, method or class body. One under `if TYPE_CHECKING:` counts as module level. |
@@ -138,7 +138,7 @@ A bail withholds its whole binding group; the group is atomic.
 | `afc_semantics_differ` | `tools=`, `tool_config=`, or `enable_automatic_function_calling=`. |
 | `response_shape_changed` | The pack says the new call returns a different shape. `result_access_flags`: the legacy result was a mapping; raised on a call whose result is used, or a stream read other than as a `for` iterable. `dispatch_prefixes`: the argument is not a literal under a prefix the new call reproduces (`get_model("tunedModels/…")` would silently return the wrong class). `result_paths`: a read of the result that is not along a listed path, written as attributes or as string keys (a key off the path, `.get`, a loop over the whole result, a part that stops short of a leaf and is not carried on into a name or a loop over its items, a key read of a name that may hold something else, in a closure or a generator expression, or in a `try` that catches `KeyError`, the result or a part passed on or returned). |
 | `count_tokens_config_carries_semantics` | `count_tokens` on a constructor with `system_instruction=` or `tools=`, which change the count. |
-| `attribute_removed` | An attribute only the legacy object has (`supported_generation_methods`) or that became a method (`chat.history` -> `chat.get_history()`); at fix time, a call result read for a field listed in `result_attribute_flags`. |
+| `attribute_removed` | An attribute only the legacy object has (`supported_generation_methods`) or that became a method (`chat.history` -> `chat.get_history()`); at fix time, a call result read for a field listed in `result_attribute_flags`, or a use other than a plain assignment of a setting a `rename_setting` change renames. |
 | `flag_only_surface` | The pack's `flag_only` rule matched: a `mock.patch` target, a dynamic import, a `sys.modules` stub, `protos`/`caching`, the PaLM-era surface. Reported with a suggestion, never rewritten. |
 | `error_class_changed` | A rewritten call is in a `try` whose handler, in the same function, names an exception from the change's `legacy_error_modules` (`google.api_core.exceptions`). The new SDK raises `google.genai.errors`, so the handler would never run. |
 | `types_import_typing_only` | The rewrite needs a submodule (Gemini's `types`) at run time and the file imports it only under `if TYPE_CHECKING:`, with no replaced statement that runs to anchor a fresh import. |

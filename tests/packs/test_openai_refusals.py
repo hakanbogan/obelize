@@ -74,6 +74,20 @@ CASES = [
     ("return await openai.Image.acreate(prompt=x)", "flag_only_surface"),
     ("return await openai.Moderation.acreate(input=x)", "flag_only_surface"),
     ('return await openai.Audio.atranscribe("whisper-1", a)', "flag_only_surface"),
+    ('openai.api_base = "http://h/v1"', None),
+    ("openai.api_base = x", None),
+    ('openai.api_base = x or "http://h/v1"', None),
+    ("return openai.api_base", "attribute_removed"),
+    ('openai.api_base += "/v1"', "attribute_removed"),
+    ("del openai.api_base", "attribute_removed"),
+    ("openai.api_base, a = x, 1", "attribute_removed"),
+    ("openai.api_base = a = x", "attribute_removed"),
+    ('openai.api_base = openai.api_base + "/v1"', "attribute_removed"),
+    ('openai.api_base = "http://h/v1"; openai.api_type = "azure"', "flag_only_surface"),
+    (
+        'return openai.ChatCompletion.create(model=x, messages=a, api_base="http://h/v1")',
+        "unsupported_kwarg",
+    ),
     ("return openai.Image", "usage_unmapped"),
     ("return openai.Moderation.get_url()", "usage_unmapped"),
     ("return openai.Audio.OBJECT_NAME", "usage_unmapped"),
@@ -97,7 +111,12 @@ def test_a_call_is_written_or_withheld_by_the_code_the_pack_says(
 
 
 @pytest.mark.parametrize(
-    "header", ["from openai import Image\n", "from openai import Audio as sound\n"]
+    "header",
+    [
+        "from openai import Image\n",
+        "from openai import Audio as sound\n",
+        "from openai import api_base\n",
+    ],
 )
 def test_a_name_imported_from_the_module_holds_the_file(tmp_path: Path, header: str) -> None:
     (tmp_path / "app.py").write_text(f"{header}\nx = 1\n", encoding="utf-8")

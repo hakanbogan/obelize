@@ -8,6 +8,7 @@ repair: one that sorted its input would hide a determinism bug. No libcst, typer
 
 from __future__ import annotations
 
+import keyword
 import re
 import shlex
 import unicodedata
@@ -427,8 +428,10 @@ def _distribution_name(value: str) -> str:
 
 
 def _plain_name(value: str) -> str:
-    if not _PLAIN_NAME.fullmatch(value):
-        raise ValueError(f"expected a single Python identifier, got {value!r}")
+    if not _PLAIN_NAME.fullmatch(value) or keyword.iskeyword(value):
+        raise ValueError(
+            f"expected a single Python identifier that is not a keyword, got {value!r}"
+        )
     return value
 
 

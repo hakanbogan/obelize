@@ -752,6 +752,73 @@
       "title": "RenameImportParams",
       "type": "object"
     },
+    "RenameSettingChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rename_setting",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RenameSettingParams"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "RenameSettingChange",
+      "type": "object"
+    },
+    "RenameSettingParams": {
+      "additionalProperties": false,
+      "description": "Module settings the new release spells another way, assigned as the old ones were.",
+      "properties": {
+        "settings": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Settings",
+          "type": "object"
+        },
+        "value_ends_with": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Ends With"
+        }
+      },
+      "required": [
+        "settings"
+      ],
+      "title": "RenameSettingParams",
+      "type": "object"
+    },
     "RewriteCallChange": {
       "additionalProperties": false,
       "properties": {
@@ -1089,6 +1156,7 @@
             "generative_model_calls": "#/$defs/GenerativeModelCallsChange",
             "manifest_dependency": "#/$defs/ManifestDependencyChange",
             "rename_import": "#/$defs/RenameImportChange",
+            "rename_setting": "#/$defs/RenameSettingChange",
             "rewrite_call": "#/$defs/RewriteCallChange"
           },
           "propertyName": "kind"
@@ -1105,6 +1173,9 @@
           },
           {
             "$ref": "#/$defs/RewriteCallChange"
+          },
+          {
+            "$ref": "#/$defs/RenameSettingChange"
           },
           {
             "$ref": "#/$defs/FlagOnlyChange"

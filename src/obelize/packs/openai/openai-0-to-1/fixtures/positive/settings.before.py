@@ -3,7 +3,7 @@ import os
 import openai
 
 openai.api_key = os.environ["OPENAI_API_KEY"]
-openai.api_base = "https://proxy.example.com/v1"
+openai.proxy = "http://proxy.example.com:3128"
 openai.api_type = "azure"
 openai.api_version = "2023-05-15"
 

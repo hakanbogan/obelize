@@ -80,6 +80,30 @@ class Tree:
         """The call a finding names. A finding names one, because a scan found it."""
         return self._calls[position]
 
+    def attribute(self, position: Position, symbol: str) -> cst.Attribute | None:
+        """The attribute a finding names, or None where it names a name or a decorator."""
+        return next(
+            (node for node in self._attributes.get(position, ()) if self.qualified(node) == symbol),
+            None,
+        )
+
+    def mentions(self, symbol: str) -> bool:
+        """Whether some attribute in the file resolves to `symbol`."""
+        leaf = symbol.rpartition(".")[2]
+        return any(
+            node.attr.value == leaf and self.qualified(node) == symbol
+            for nodes in self._attributes.values()
+            for node in nodes
+        )
+
+    @cached_property
+    def _attributes(self) -> dict[Position, list[cst.Attribute]]:
+        found: dict[Position, list[cst.Attribute]] = {}
+        for node, span in self._pos.items():
+            if isinstance(node, cst.Attribute):
+                found.setdefault((span.start.line, span.start.column), []).append(node)
+        return found
+
     def inside(self, outer: cst.CSTNode, position: Position) -> bool:
         """Whether something starting at `position` is written inside `outer`."""
         return self.start(outer) <= position <= self.end(outer)

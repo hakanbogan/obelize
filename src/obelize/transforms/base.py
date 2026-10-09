@@ -240,6 +240,17 @@ class _Apply(cst.CSTTransformer):
         self, original_node: cst.Expr, updated_node: cst.Expr
     ) -> cst.BaseSmallStatement:
         """A replaced expression statement, visited again: other rules' swaps inside it apply."""
+        return self._replaced(original_node, updated_node)
+
+    def leave_Assign(  # noqa: N802 - libcst dispatches on the node name
+        self, original_node: cst.Assign, updated_node: cst.Assign
+    ) -> cst.BaseSmallStatement:
+        """A replaced assignment, as `leave_Expr`."""
+        return self._replaced(original_node, updated_node)
+
+    def _replaced(
+        self, original_node: cst.BaseSmallStatement, updated_node: cst.BaseSmallStatement
+    ) -> cst.BaseSmallStatement:
         replacement = self._rewrites.statement(original_node)
         if replacement is None:
             return updated_node

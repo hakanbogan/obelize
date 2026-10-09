@@ -17,6 +17,8 @@ from obelize.packs.schema import (
     Match,
     PackDocument,
     PackSource,
+    RenameSettingChange,
+    RenameSettingParams,
     RewriteCallChange,
     RewriteCallParams,
     Target,
@@ -52,6 +54,24 @@ FETCH = RewriteCallChange(
         keywords=("symbol",),
         result_paths=("rows[].price",),
     ),
+)
+
+# 2.x renamed the endpoint setting, and its value is joined onto routes as it stands.
+TUNE = RenameSettingChange(
+    id="tune",
+    kind="rename_setting",
+    citation="Acme Kit 2 notes, 'Endpoints'",
+    fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+    params=RenameSettingParams(settings={"acme.kit.endpoint": "address"}, value_ends_with="/"),
+)
+
+# The same rename with no demand of the value.
+BARE = RenameSettingChange(
+    id="bare",
+    kind="rename_setting",
+    citation="Acme Kit 2 notes, 'Endpoints'",
+    fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+    params=RenameSettingParams(settings={"acme.kit.endpoint": "address"}),
 )
 
 FLAGGED = FlagOnlyChange(
@@ -91,13 +111,14 @@ PACK = PackDocument(
         symbols=(
             "acme.kit.Greeter",
             "acme.kit.Quote",
+            "acme.kit.endpoint",
             "acme.kit.legacy",
             "acme.kit.proxy",
         ),
         prefilter_tokens=("acme",),
         shared=True,
     ),
-    changes=(SAY, FETCH, FLAGGED, PIN),
+    changes=(SAY, FETCH, TUNE, FLAGGED, PIN),
     limitations=("Invented for the tests; no library of this name exists.",),
 )
 

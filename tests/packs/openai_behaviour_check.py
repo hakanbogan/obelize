@@ -108,6 +108,8 @@ def main(paths: list[str]) -> int:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_port}/v1"
     os.environ["OPENAI_API_KEY"] = "unused"
+    # Without the trailing slash the new module client would join a route onto `/v1` unseparated.
+    os.environ["MOCK_URL"] = url
     if hasattr(openai, "api_base"):
         openai.api_base = url
         # 0.28.1 read the key when it was imported, before the line above set it.

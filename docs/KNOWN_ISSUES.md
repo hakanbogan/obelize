@@ -167,6 +167,18 @@ exception class that subclasses `KeyError`, a name read by its string by other m
 module), and a comment between the brackets of a rewritten read, which is dropped. A test that replaces the module a function imports with one that returns
 dictionaries breaks with the call, as the verify commands show.
 
+`openai.api_base = value` is rewritten to `openai.base_url = value` with a `/` on the end, because
+the new module client joins a route onto it unseparated. A read of `openai.api_base` (a library
+that prints or extends it), `+=`, `del` and a tuple target withhold the repository, as does
+`from openai import api_base` and a file that already uses `openai.base_url`. Not seen: a read of
+the setting in another distribution, a write through `exec`, `globals()`, `sys.modules` or
+`setattr`, and `OPENAI_API_BASE`, set outside the code or in it, which the new releases do not read
+(`OPENAI_BASE_URL`). A value that is not a string literal is written as
+`("%s" % (value,)).rstrip("/") + "/"`, which forms the address once, at the assignment, where 0.28.1
+formed it at each request. A value that is no URL (`None`, an empty string) fails at the first call
+on both sides, and one with leading whitespace, which 0.28.1 sent through `requests`, fails on the
+new releases. A long line can pass the formatter's width.
+
 The pack lists a result field only when a response always carries it. The new model reads an
 optional field the server left out as `None`, where 0.28.1 raised, so a handler that relied on the
 miss stops running. `Image.create` is where it shows: `data[].url` is the one image field listed, and
