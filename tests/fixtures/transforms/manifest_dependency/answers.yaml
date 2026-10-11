@@ -222,18 +222,18 @@ cases:
           - {line: 3, status: needs_review, reason: manifest_code_mismatch}
 
   # =====================================================================
-  # dormant -- a pin nothing uses, in a repository with no legacy import.
+  # dormant -- a pin nothing imports, in a repository with no legacy import.
   # =====================================================================
   - case: dormant
     what_it_is: >-
-      The state F-2 does not name and `SCAN_VOCABULARY.md` section 3 does: a
-      manifest line that merely disagrees with the code. It is graded
-      `not_a_usage`, so there is no hunk under it and the rule reports no edit
-      at all -- removing it would be tidying somebody's manifest on the strength
-      of a migration this run did not make.
+      The state F-2 does not name: the code already imports only the new
+      distribution and the manifest still pins the old one. It is a review item,
+      never an edit -- there is no hunk under it, and removing a pin the user may
+      be keeping for another library is theirs to do.
     migrated: []
     blocking: []
     manifests:
       - file: requirements.txt
         after: absent
-        edits: []
+        edits:
+          - {line: 1, status: needs_review, reason: manifest_code_mismatch}

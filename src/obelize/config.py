@@ -176,16 +176,16 @@ class Selection:
             return "not_included"
         return "excluded" if self._exclude.match_file(candidate) else "selected"
 
-    def selects(self, path: str) -> bool:
-        return self.decide(path) == "selected"
+    def excludes(self, path: str) -> bool:
+        """Whether the user's `exclude` removes `path`, whatever `include` says of it."""
+        return bool(self._exclude.match_file(_relative(path)))
 
     def selects_manifest(self, path: str) -> bool:
         """Whether the scan reads `path` as a dependency manifest.
 
         Ignores `include` (the default `**/*.py` would drop every manifest), not `exclude`.
         """
-        candidate = _relative(path)
-        return not self._always.match_file(candidate) and not self._exclude.match_file(candidate)
+        return not self._always.match_file(_relative(path)) and not self.excludes(path)
 
     def prunes_directory(self, path: str) -> bool:
         """Whether a directory can be skipped whole, without looking inside.

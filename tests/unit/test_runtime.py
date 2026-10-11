@@ -294,6 +294,11 @@ def test_a_declaration_of_another_distribution_is_not_the_legacy_pin() -> None:
     assert blocked.path == ""
 
 
+def test_a_pin_below_the_floor_blocks_nothing_where_no_code_uses_it() -> None:
+    """The code has moved on and the pin was left: that is the manifest pass's row to report."""
+    assert runtime.legacy(_pins(("requirements.txt", "==1.9")), OLD, used=False) is None
+
+
 def test_a_legacy_distribution_declared_nowhere_blocks_only_where_the_code_uses_it() -> None:
     assert runtime.legacy([], OLD, used=False) is None
     assert runtime.legacy([], OLD, used=True) == runtime.Blocked(

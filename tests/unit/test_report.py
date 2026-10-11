@@ -257,7 +257,10 @@ def test_the_withheld_rows_are_exactly_the_findings_a_rule_withheld(loud: Path) 
 def test_a_manifest_row_with_nothing_behind_it_prints_neither_list(pinned: Path) -> None:
     scan = _scan(pinned)
     text = report.document(_record(pinned, scan), scan)
-    assert "- `requirements.txt`:1 `google-generativeai`: not_a_usage" in text
+    assert (
+        "- `requirements.txt`:1 `google-generativeai`: needs_review (`manifest_code_mismatch`)"
+        in text
+    )
     assert "Still importing" not in text
     assert "Excluded from the scan" not in text
 

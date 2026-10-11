@@ -226,8 +226,8 @@ def test_the_example_application_configuration_loads_exactly_as_written() -> Non
 
 def test_the_example_applications_excluded_script_is_not_selected() -> None:
     selection = Selection(load(EXAMPLE_APP).config)
-    assert not selection.selects("scripts/one_off_summary.py")
-    assert selection.selects("src/gemini_legacy_app/config.py")
+    assert selection.decide("scripts/one_off_summary.py") != "selected"
+    assert selection.decide("src/gemini_legacy_app/config.py") == "selected"
 
 
 def test_a_configuration_file_under_the_other_spelling_is_refused_not_ignored(
@@ -638,43 +638,43 @@ def test_an_override_carries_only_the_flags_that_overlap_the_file() -> None:
 )
 def test_each_always_excluded_pattern_excludes_something(pattern: str, path: str) -> None:
     assert pattern in ALWAYS_EXCLUDED
-    assert not Selection(Config(include="**/*")).selects(path)
+    assert Selection(Config(include="**/*")).decide(path) != "selected"
 
 
 def test_a_virtual_environment_is_caught_by_its_contents_not_by_its_name() -> None:
     """A venv can have any name, which is why `site-packages/` is in the set."""
     selection = Selection(Config())
-    assert not selection.selects("whatever-i-called-it/lib/python3.12/site-packages/x.py")
+    assert selection.decide("whatever-i-called-it/lib/python3.12/site-packages/x.py") != "selected"
 
 
 def test_the_always_excluded_set_cannot_be_undone_by_the_configuration() -> None:
     """Otherwise the second scan of a repository reports the first one's report."""
     selection = Selection(Config(include="**/*", exclude=("!.obelize/**",)))
-    assert not selection.selects(".obelize/runs/a/REPORT.md")
+    assert selection.decide(".obelize/runs/a/REPORT.md") != "selected"
 
 
 def test_a_negation_re_includes_something_the_same_list_excluded() -> None:
     selection = Selection(Config(exclude=("a/**", "!a/keep.py")))
-    assert not selection.selects("a/drop.py")
-    assert selection.selects("a/keep.py")
+    assert selection.decide("a/drop.py") != "selected"
+    assert selection.decide("a/keep.py") == "selected"
 
 
 def test_include_is_applied_and_a_readme_is_never_a_python_file() -> None:
     """The byte prefilter runs after this; a README about a migration matches every token."""
     selection = Selection(Config())
-    assert not selection.selects("README.md")
-    assert not selection.selects("docs/MIGRATING.md")
-    assert selection.selects("src/app.py")
+    assert selection.decide("README.md") != "selected"
+    assert selection.decide("docs/MIGRATING.md") != "selected"
+    assert selection.decide("src/app.py") == "selected"
 
 
 def test_include_narrows_what_is_already_allowed_and_never_widens_it() -> None:
     selection = Selection(Config(include="src/**/*.py"))
-    assert selection.selects("src/app.py")
-    assert not selection.selects("tests/test_app.py")
+    assert selection.decide("src/app.py") == "selected"
+    assert selection.decide("tests/test_app.py") != "selected"
 
 
 def test_selection_does_not_touch_the_filesystem(tmp_path: Path) -> None:
-    assert Selection(Config()).selects("nothing/like/this/exists.py")
+    assert Selection(Config()).decide("nothing/like/this/exists.py") == "selected"
     assert not list(tmp_path.iterdir())
 
 
@@ -682,7 +682,7 @@ def test_selection_does_not_touch_the_filesystem(tmp_path: Path) -> None:
 def test_a_path_that_is_not_repository_relative_is_refused(path: str) -> None:
     """A silent `False` here is a file that is never scanned and never explained."""
     with pytest.raises(ValueError, match="path to match"):
-        Selection(Config()).selects(path)
+        Selection(Config()).decide(path)
 
 
 def test_a_manifest_is_asked_about_without_include() -> None:
@@ -710,8 +710,8 @@ def test_a_directory_the_user_excluded_is_still_walked(tmp_path: Path) -> None:
 
 def test_a_negating_list_still_re_includes_the_file_it_names() -> None:
     selection = Selection(Config(exclude=("a/**", "!a/keep.py")))
-    assert selection.selects("a/keep.py")
-    assert not selection.selects("a/drop.py")
+    assert selection.decide("a/keep.py") == "selected"
+    assert selection.decide("a/drop.py") != "selected"
 
 
 def test_an_ordinary_directory_is_not_skipped() -> None:
@@ -732,12 +732,6 @@ def test_an_ordinary_directory_is_not_skipped() -> None:
 )
 def test_decide_names_the_rule_that_answered(path: str, expected: str) -> None:
     assert Selection(Config(exclude=("scripts/**",))).decide(path) == expected
-
-
-def test_selects_is_exactly_the_selected_answer() -> None:
-    selection = Selection(Config(exclude=("scripts/**",)))
-    for path in ("src/app.py", "scripts/one_off.py", "README.md", ".obelize/x.py"):
-        assert selection.selects(path) is (selection.decide(path) == "selected")
 
 
 def test_the_key_list_is_dotted_and_in_declaration_order() -> None:

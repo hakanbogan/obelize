@@ -228,8 +228,8 @@ migrated nor reported, and the pin still moves when everything else does:
   target by hand once the code has moved.
 - Files outside `.obelize.yml`'s `include` and `exclude`. They are neither migrated nor checked,
   and the pin moves. `REPORT.md` lists an excluded file that names the distribution. It says nothing
-  of a file under an always-excluded directory such as `vendor/` or `build/`, or of a `.py` file an
-  `include` leaves out. Run this pack over the whole repository.
+  of a file under an always-excluded directory such as `vendor/` or `build/`. Run this pack over the
+  whole repository.
 - A legacy name that appears only inside a quoted annotation (`result: "openai.Image"`). It is
   reported as a mention and holds nothing, and a pydantic model that evaluates it fails at import.
 - Which app declares a module. The check for what 0.28.1 installed (`requests`, `aiohttp`,
@@ -254,6 +254,11 @@ migrated nor reported, and the pin still moves when everything else does:
   reads but cannot honour blocks the repository instead: a hash-pinned line, `openai===0.28.1`,
   `openai==0.*`, an editable or VCS requirement and a local wheel are `legacy_version_unsupported`,
   and a Poetry or Pipfile inline table with only a version is `manifest_pin_shape_unsupported`.
+
+A 0.x pin (`openai==0.28.1`) beside code that already uses the new client is not reported.
+`google-generativeai` and `PyPDF2` get a `manifest_code_mismatch` row for a pin nothing imports, but
+here one distribution holds both APIs, so the scan cannot tell a stale pin from a live one, and the
+install then runs 1.x code on 0.28.1.
 
 Writing is per file, not for the repository. A failure part-way (exit `5`, for example a read-only
 directory) can leave the code written and the pin not, or the reverse. `obelize undo --run <id>`

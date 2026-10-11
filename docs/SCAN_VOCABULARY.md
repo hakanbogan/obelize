@@ -50,7 +50,7 @@ The ground truth's grade. The runtime counterpart is `Edit.status` (§8).
 | `auto` | **yes** | Rewritten. No `bail`. |
 | `needs_review` | **no** | A bail fired; listed in REPORT.md with its code and a suggested diff. `bail` required. |
 | `unsupported` | **no** | No expressible change and no suggestion. `bail` required. |
-| `not_a_usage` | **no** | Context only: a `text_mention`, or a legacy pin nothing imports where nothing migrated. A manifest declaring the **new** distribution over legacy code is `manifest_code_mismatch` instead. |
+| `not_a_usage` | **no** | Context only: a `text_mention`, or a legacy pin that something other than this migration may still need (an excluded file names it, a module only it installs is imported, or the new SDK is the same distribution). A manifest that disagrees with the code in either direction is `manifest_code_mismatch` instead. |
 
 Ground-truth rules (`tests/unit/test_fixture_vocabulary.py`):
 
@@ -119,7 +119,7 @@ A bail withholds its whole binding group; the group is atomic.
 | `file_not_fully_migrated` | **Import atomicity.** A resolved legacy usage in the file is not `auto`, so the file is left exactly as it was: every otherwise-`auto` finding in it carries this code. |
 | `repo_not_fully_migrated` | **Manifest atomicity.** An in-scope file still imports the legacy distribution, so removing its pin is withheld. Adding the new pin is a separate `auto` edit once anything migrated. Where the new distribution is the legacy one (`openai`), any withheld row of the pack holds the one pin, and a `fix` run then leaves every file as it was, each row of another file that would have been `auto` naming this code too (the rows of the file that holds the cause read `file_not_fully_migrated`). A declaration already in the new range has no row. |
 | `transitive_dependency_in_use` | Nothing imports the legacy distribution, but an in-scope file imports a module only it installed (the pack's `match.transitive`) that no manifest declares. Removing the pin is withheld; the files are listed in the manifest plan's `transitive`. |
-| `manifest_code_mismatch` | The manifest declares the new distribution and **no** legacy pin, while an in-scope file imports the legacy one. Reported, never edited. The no-legacy-pin clause keeps a half-migrated manifest from matching. |
+| `manifest_code_mismatch` | The manifest and the code disagree, either way. It declares the new distribution and **no** legacy pin while an in-scope file imports the legacy one (the no-legacy-pin clause keeps a half-migrated manifest from matching); or it still pins the legacy distribution while nothing imports it, which is how a pin kept on purpose for another library reads until it is removed. Reported, never edited. A pack whose one distribution holds both APIs is never judged the second way. |
 | `manifest_pin_shape_unsupported` | The legacy declaration or its line holds more than name and version: extras, a URL, a non-string table value, a shared key, a second declaration. The line is left alone. Fix time, except for a pack whose one distribution holds both APIs: its scan raises it for a declaration with extras, a URL or a non-string table value once anything migrated, and `fix` then leaves every file as it was. |
 
 ### Call rewrites

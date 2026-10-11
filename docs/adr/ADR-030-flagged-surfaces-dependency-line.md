@@ -86,9 +86,10 @@ test.
 
 ### D10. A `not_a_usage` manifest row is not an edit
 
-A legacy pin in a repository where nothing migrated and nothing imports the distribution gets no
-edit: removing it would tidy a manifest on the strength of a migration this run did not make, and no
-`Edit` status could carry it.
+A legacy pin that something other than this migration may still need (ADR-021 D4) gets no edit:
+removing it would tidy a manifest on the strength of a migration this run did not make, and no `Edit`
+status could carry it. A pin nothing imports is `manifest_code_mismatch`, a review item and no edit
+either.
 
 ## Consequences
 

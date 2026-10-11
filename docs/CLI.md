@@ -63,8 +63,10 @@ uvx obelize scan --json | python3 -c "import json, sys; c = json.load(sys.stdin)
 ```
 
 It exits `1` on any finding except `not_a_usage`, which is context only: a
-mention in a comment or string, or a legacy pin nothing imports. Test
-`c['findings']` alone to fail on those too. A scan that fails prints no JSON,
+mention in a comment or string, or a legacy pin something else may still need.
+A legacy pin that nothing imports is a finding, `manifest_code_mismatch`: remove
+it, or filter that row out. Test `c['findings']` alone to fail on `not_a_usage`
+too. A scan that fails prints no JSON,
 so the check exits `1` then as well. The run folder's path goes to stderr and
 stdout holds the JSON alone. The scan still writes its run folder under
 `.obelize/` in the checkout, and the `.gitignore` inside keeps it out of

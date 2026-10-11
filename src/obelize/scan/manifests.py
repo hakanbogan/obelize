@@ -313,7 +313,13 @@ def _legacy(
     Both clear: one rewrite. Nothing migrated or importing: `not_a_usage` context, never an edit.
     """
     if not migration.migrated:
-        code = REPO_ATOMICITY_BAIL if migration.blocking else None
+        code = (
+            REPO_ATOMICITY_BAIL
+            if migration.blocking
+            else None
+            if needed or migration.excluded or coupled(spec)
+            else "manifest_code_mismatch"
+        )
         yield _row(declaration, spec.legacy_distribution, code, absent=code is None)
         return
     if spec.new_range is not None and declaration.pin is None:

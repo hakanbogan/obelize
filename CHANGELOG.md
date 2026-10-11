@@ -27,6 +27,17 @@ in the release that makes it.
   that still used it. The statement is now one `needs_review` row, `lazy_import`, a new value of
   the closed `bail` vocabulary in `findings`, `plan`, `run` and `proposal` schemas; the file and
   the pin stay.
+- A legacy pin that nothing imports is no longer `not_a_usage`. Code already on `google-genai` or
+  `pypdf` with `google-generativeai` or `PyPDF2` still pinned is now a `needs_review` row,
+  `manifest_code_mismatch`, so the CI check in `docs/CLI.md` exits `1` on it and a pack that only a leftover pin
+  names is chosen. `fix` still writes nothing for it. An excluded file that names the library, a
+  module only it installs, and `openai` (one distribution for both APIs) keep `not_a_usage`.
+  `legacy_version_unsupported` is no longer raised for a pin below the floor when no code uses the
+  library.
+- A notebook, stub or windowed script that the default `include` leaves out and that names the
+  library kept the pin whatever `exclude` said. `exclude` now releases it: the file is named as
+  excluded and blocks nothing, so the rest migrates. A module a narrower `include` leaves out is
+  named the same way instead of dropped without a word.
 
 ## [0.2.0] - 2026-10-10
 

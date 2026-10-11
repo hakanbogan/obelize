@@ -65,8 +65,9 @@ class Skipped:
     detail: str
 
 
-# Suffixes that can hold Python but the default `include` does not take.
-PYTHON_BEARING: Final = (".ipynb", ".pyi", ".pyw")
+# Suffixes that can hold Python: a notebook or stub the default `include` leaves out, or a module a
+# narrower one does.
+PYTHON_BEARING: Final = (".py", ".ipynb", ".pyi", ".pyw")
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,8 +76,8 @@ class Walk:
 
     source: ListingSource
     files: tuple[str, ...]
-    # Taken by `include`, removed by the user's `exclude`. Those the prefilter matches are still
-    # named: excluding a file from the scan does not exclude it from the install.
+    # Removed by the user's `exclude`, whether `include` took it or not. Those the prefilter matches
+    # are still named: excluding a file from the scan does not exclude it from the install.
     excluded: tuple[str, ...]
     # Chosen by name, not `include` (default `**/*.py`), under the same `exclude` and path guard.
     # `setup.py` is here and in `files`: both passes read it and report different things.
@@ -110,7 +111,7 @@ def walk(root: Path, config: Config) -> Walk:
             continue
         decision = selection.decide(name)
         manifest = manifests.is_manifest(name) and selection.selects_manifest(name)
-        python = decision == "not_included" and name.endswith(PYTHON_BEARING)
+        python = not manifest and decision == "not_included" and name.endswith(PYTHON_BEARING)
         if not manifest and not python and decision in {"always_excluded", "not_included"}:
             continue
         # Stat only after matching, so a huge excluded tree costs no filesystem calls.
@@ -122,7 +123,7 @@ def walk(root: Path, config: Config) -> Walk:
             found.append(name)
         if decision == "selected":
             files.append(name)
-        elif decision == "excluded":
+        elif decision == "excluded" or (python and selection.excludes(name)):
             excluded.append(name)
         elif python:
             unincluded.append(name)

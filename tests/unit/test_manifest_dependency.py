@@ -178,11 +178,11 @@ def test_a_declaration_alone_on_a_continuation_line_is_copied() -> None:
     )
 
 
-def test_a_pin_nothing_uses_is_context_and_not_an_edit() -> None:
+def test_a_pin_nothing_imports_is_a_review_item_and_not_an_edit() -> None:
     """Nothing migrated or imports it; removing it would tidy a manifest for an unmade migration."""
     produced, edits = acme.declared("requirements.txt", "acme-sdk==1.2.3\n", DORMANT)
     assert produced == "acme-sdk==1.2.3\n"
-    assert edits == []
+    assert reported(edits) == [(1, "needs_review", "manifest_code_mismatch")]
 
 
 def test_a_pin_in_a_repository_that_migrated_nothing_is_withheld() -> None:

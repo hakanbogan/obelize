@@ -141,7 +141,8 @@ naming the command to run:
   when they already failed before the change.
 
 obelize writes a file only when it can migrate all of it, and keeps the old dependency line
-until nothing in the repository uses the old SDK. On a real project the usual result is `4`: obelize
+until nothing in the repository uses the old SDK. It never removes a pin that nothing imports; a scan
+lists it as `manifest_code_mismatch`. On a real project the usual result is `4`: obelize
 migrates the files it can prove, which can be none, and lists the rest in the report. All the codes are in
 [docs/CLI.md](docs/CLI.md#exit-codes).
 
@@ -261,7 +262,8 @@ installed side by side, and each place it leaves has a written reason.
 - It keeps model names as they are. Google has retired the `gemini-1.5` models, so change a name
   such as `gemini-1.5-flash` yourself.
 - It finds notebooks (`.ipynb`) that use the old SDK but does not migrate them, and while one
-  does, the old dependency line stays.
+  does, the old dependency line stays. List the notebook under `exclude` in `.obelize.yml` and the
+  rest migrates and the pin moves; the notebook then loses the old SDK, so fix it by hand.
 - It does not find every use. Code that reaches the SDK through a function's return value, a star
   import in another file or a container is missed, and the benchmark counts those misses.
 - On Windows, the test suite on GitHub's runner is all that has run. A real console, a OneDrive

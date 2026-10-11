@@ -487,9 +487,30 @@ def test_nothing_migrated_and_something_importing_withholds_the_pin() -> None:
     ]
 
 
-def test_a_pin_no_code_uses_is_context_and_never_an_edit() -> None:
-    """Removing it would tidy the manifest for a migration this run did not make."""
-    assert graded((pin(),), NOTHING) == [("requirements.txt", 1, LEGACY, "not_a_usage", None)]
+def test_a_pin_no_code_uses_is_a_review_item_and_never_an_edit() -> None:
+    """Code already on the new SDK with the old pin left: removing it is the user's to decide."""
+    assert graded((pin(),), NOTHING) == [
+        ("requirements.txt", 1, LEGACY, "needs_review", "manifest_code_mismatch")
+    ]
+
+
+@pytest.mark.parametrize(
+    "migration",
+    [
+        manifests.Migration(excluded=("scripts/old.py",)),
+        manifests.Migration(transitive=(("app.py", "acme-wire"),)),
+    ],
+    ids=["an excluded file names it", "a module only it installs is imported"],
+)
+def test_a_pin_something_may_still_need_is_context(migration: manifests.Migration) -> None:
+    assert graded((pin(),), migration) == [("requirements.txt", 1, LEGACY, "not_a_usage", None)]
+
+
+def test_one_distribution_for_both_apis_is_not_a_pin_over_new_code() -> None:
+    """`openai>=1` over 1.x code is the same line as `openai==0.28.1` over 1.x code: not judged."""
+    one = SPEC.model_copy(update={"new_distribution": LEGACY})
+    found = manifests.plan((pin(),), NOTHING, one).findings
+    assert [(r.scan_status, r.bail) for r in found] == [("not_a_usage", None)]
 
 
 def test_the_new_distribution_over_legacy_code_is_a_review_item() -> None:
@@ -600,6 +621,20 @@ def test_a_notebook_keeps_the_pin_under_the_default_include(tmp_path: Path) -> N
     narrowed = runner.scan(tmp_path, Config(include="*.py"), SPEC, jobs=1)
     assert narrowed.manifests.blocking == ()
     assert narrowed.manifests.excluded == ("analysis.ipynb",)
+
+
+def test_a_notebook_the_user_excludes_no_longer_keeps_the_pin(tmp_path: Path) -> None:
+    for name, text in (
+        ("app.py", MIGRATES),
+        ("analysis.ipynb", NOTEBOOK),
+        ("requirements.txt", "acme-sdk==0.1.0\n"),
+    ):
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    scanned = runner.scan(tmp_path, Config(exclude=("*.ipynb",)), SPEC, jobs=1)
+    assert scanned.manifests.blocking == ()
+    assert scanned.manifests.excluded == ("analysis.ipynb",)
+    assert scanned.unanalysed == ()
+    assert scanned.counts.eligible > 0
 
 
 def test_a_scan_reads_the_imports_of_every_selected_file(tmp_path: Path) -> None:

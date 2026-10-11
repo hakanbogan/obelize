@@ -32,23 +32,31 @@ the removal when a non-eligible row still loads the distribution: `import`,
 which imports the module when the patch is entered; a prose mention does not.
 A file the default `include` leaves out (a notebook, a stub, a windowed script)
 that matches the byte prefilter blocks as an import does; under a narrowed
-`include` it is named as excluded. Neither is analysed.
+`include`, or when the user's `exclude` matches it, it is named as excluded and
+blocks nothing. Neither is analysed.
 
 ### D4. Nothing migrated means nothing is added, and the pin is not touched
 
 With nothing migrated the manifest is not edited. The legacy pin is withheld
 with `repo_not_fully_migrated` while a file still imports it (D12 where one distribution holds
-both APIs), and otherwise
-graded `not_a_usage` ([SCAN_VOCABULARY.md](../SCAN_VOCABULARY.md) §3's line
-that "merely disagrees with the code"), because removing it would edit a
-manifest for a migration this run did not make.
+both APIs). Where nothing imports it, the pin is `manifest_code_mismatch`
+(D5): the code has moved on and the manifest has not, and removing the pin
+would edit a manifest for a migration this run did not make. It stays
+`not_a_usage`, context only, where something else may still need it: a file the
+user's `exclude` removed names the distribution, a module only it installs is
+imported, or one distribution holds both APIs (a pin of it over new-SDK code is
+`openai==0.28.1` beside 1.x code, which no row here can tell from a pin the code
+still runs on).
 
-### D5. `manifest_code_mismatch` is the other direction, and it is a review item
+### D5. `manifest_code_mismatch` is both directions, and it is a review item
 
 A manifest that declares the new distribution and no legacy pin, while code
 still imports the legacy one, is `manifest_code_mismatch`: `needs_review`,
 never an edit, because the code is what must change. The "no legacy pin" clause
-keeps the rule idempotent: F-2's own intermediate state declares both.
+keeps the rule idempotent: F-2's own intermediate state declares both. A legacy
+pin nothing imports (D4) is the same code for the opposite disagreement, and
+also never an edit: a pin kept on purpose for another library reads this way
+until it is removed.
 
 ### D6. Manifest rows get their own plan, and `ImpactPlan`'s refusal stands
 

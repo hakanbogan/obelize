@@ -465,6 +465,28 @@ def test_a_file_include_leaves_out_that_can_hold_python_is_named(tmp_path: Path)
     assert result.unincluded == ("analysis.ipynb", "gui.pyw", "stubs.pyi")
 
 
+def test_a_notebook_the_user_excludes_is_named_as_excluded_and_not_as_unincluded(
+    tmp_path: Path,
+) -> None:
+    """`include` is asked first, so the exclude must be too, or nothing releases the notebook."""
+    for name in ("app.py", "analysis.ipynb", "gui.pyw"):
+        (tmp_path / name).write_text("x\n", encoding="utf-8")
+    result = walk(tmp_path, Config(exclude=("*.ipynb",)))
+    assert result.excluded == ("analysis.ipynb",)
+    assert result.unincluded == ("gui.pyw",)
+
+
+def test_a_module_a_narrower_include_leaves_out_is_named_too(tmp_path: Path) -> None:
+    """Dropped silently, it would import the legacy SDK under a pin the run then removes."""
+    for name in ("src/app.py", "tests/test_app.py", "setup.py"):
+        (tmp_path / name).parent.mkdir(exist_ok=True)
+        (tmp_path / name).write_text("x\n", encoding="utf-8")
+    result = walk(tmp_path, Config(include="src/**/*.py"))
+    assert result.files == ("src/app.py",)
+    assert result.unincluded == ("tests/test_app.py",)
+    assert result.manifests == ("setup.py",)
+
+
 def test_the_fallback_walk_reports_a_junction_and_lists_nothing_below_it(
     plain_tree: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

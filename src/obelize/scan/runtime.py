@@ -106,9 +106,9 @@ def legacy(found: Sequence[Declaration], spec: ScanSpec, used: bool) -> Blocked 
     """The first legacy declaration that pins no version at or above the pack's floor.
 
     `used` is whether any source row is an edit candidate: a repository that never imports the
-    legacy module is not blocked by a pin it does not declare.
+    legacy module is not blocked, by a pin below the floor or by one it does not declare.
     """
-    if spec.legacy_floor is None:
+    if spec.legacy_floor is None or not used:
         return None
     floor = Version(spec.legacy_floor)
     needed = f">={floor}"
@@ -127,7 +127,7 @@ def legacy(found: Sequence[Declaration], spec: ScanSpec, used: bool) -> Blocked 
                 _shown(row.spec),
                 needed,
             )
-    if not rows and used:
+    if not rows:
         return Blocked("legacy_version_unsupported", spec.legacy_distribution, "", None, needed)
     return None
 

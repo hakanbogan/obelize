@@ -115,9 +115,37 @@ def test_the_packs_a_repository_uses_are_the_ones_chosen(both: Path) -> None:
 
 
 def test_a_pack_whose_library_the_repository_does_not_use_is_not_chosen(tmp_path: Path) -> None:
-    tree = repository(tmp_path / "repo", {"chat.py": CHAT, "requirements.txt": PINS})
+    pins = "google-generativeai==0.8.6\nrequests>=2.31\n"
+    tree = repository(tmp_path / "repo", {"chat.py": CHAT, "requirements.txt": pins})
     result = run(tree, "scan", "--json")
     assert [pack["id"] for pack in json.loads(result.stdout)["packs"]] == [GEMINI]
+
+
+@pytest.mark.parametrize(
+    ("pack", "code", "pin", "status", "bail"),
+    [
+        (
+            GEMINI,
+            "from google import genai\n",
+            "google-generativeai==0.8.6",
+            "needs_review",
+            "manifest_code_mismatch",
+        ),
+        (PYPDF, "import pypdf\n", "PyPDF2==1.26.0", "needs_review", "manifest_code_mismatch"),
+        (OPENAI, "from openai import OpenAI\n", "openai==0.28.1", "not_a_usage", None),
+    ],
+    ids=["gemini", "pypdf", "openai"],
+)
+def test_a_pin_the_code_has_moved_past_is_reported_and_blocks_nothing(
+    tmp_path: Path, pack: str, code: str, pin: str, status: str, bail: str | None
+) -> None:
+    """One distribution for both APIs of `openai` cannot tell a stale pin from a live one."""
+    tree = repository(tmp_path / "repo", {"app.py": code, "requirements.txt": pin + "\n"})
+    result = run(tree, "scan", "--json", "--pack", pack)
+    assert result.exit_code == 0, result.output
+    found = json.loads(result.stdout)["findings"]
+    assert [(row["scan_status"], row["bail"]) for row in found] == [(status, bail)]
+    assert [pack["blocked"] for pack in document(tree, "run.json")["packs"]] == [None]
 
 
 def test_a_pack_the_user_names_runs_whether_or_not_the_repository_uses_it(tmp_path: Path) -> None:

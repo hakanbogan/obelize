@@ -141,8 +141,8 @@ findings:
       file declares `google-genai` and no legacy pin at all, so there is nothing
       here to rewrite and nothing to add -- and a test environment built from it
       cannot import what `legacy.py` imports. It is a review item and not
-      `not_a_usage`, because a manifest that merely *disagrees* with the code
-      declares a dependency nothing uses; this one contradicts it.
+      `not_a_usage`, because this manifest contradicts the code. The other direction, a
+      legacy pin nothing imports, gets the same code.
 
   # =====================================================================
   # pyproject.toml - PEP 621 `[project] dependencies` and a Poetry group,
