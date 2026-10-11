@@ -187,28 +187,23 @@ findings:
 
   # ---- parser_syntax_error.py: C-08, the other branch. One parse_error finding. ----
   - file: parser_syntax_error.py
-    line: 8
-    symbol: '    model = genai.GenerativeModel("gemini-1.5-flash")'
+    line: 6
+    symbol: 'client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", "")'
     kind: parse_error
     confidence_reason: parse_error
     verdict: unsupported
     bail: input_does_not_parse
     note: >-
-      `cst.parse_module(data)` raises `cst.ParserSyntaxError` with `raw_line=8`, `raw_column=4` and
-      `editor_line=8`, `editor_column=5` (observed). This is the branch `python2.py` cannot reach:
-      there libcst parses and only `compile()` refuses, here libcst refuses first and no tree is built
-      at all, so nothing else about the file can be reported. Three rules meet in this one row.
-      `cst.ParserSyntaxError` is **not** a `SyntaxError` subclass, so a handler spelled
-      `except SyntaxError` lets it out and ends the run. The coordinates come from
-      `.raw_line`/`.raw_column` and not from `.editor_*`, which are one greater in the column and
-      would look plausible. And `compile()` on the same bytes raises
-      `SyntaxError: '(' was never closed` at `lineno=6`, `offset=22` -- **two lines earlier**, where
-      the bracket was actually left open -- so which number a report carries is decided by which gate
-      runs first, which ADR-017 settles rather than leaving it to whichever exception is handy.
-      `symbol` here is the source line at `line`, recorded the way `python2.py` records its own; the
-      runtime must emit `symbol: null` and `evidence: null`, because a source excerpt is exactly what
-      ADR-008 keeps out of the evidence -- and `cst.ParserSyntaxError.context`, which `str(exc)`
-      renders, is this very line with a caret under it.
+      Both gates refuse this file and they name different lines, so which number a report carries is
+      decided by which gate runs first, which ADR-017 D1 settles: `compile()`, which raises
+      `SyntaxError: '(' was never closed` at `lineno=6`, `offset=22`, where the bracket was actually
+      left open. `cst.parse_module(data)` would raise `cst.ParserSyntaxError` with `raw_line=8`,
+      `raw_column=4` two lines later, but it never runs: libcst's parser overruns the C stack on a
+      pathologically deep expression where `compile()` raises, so `compile()` goes first. No tree is
+      built, so nothing else about the file can be reported. `symbol` here is the source line at
+      `line`, recorded the way `python2.py` records its own; the runtime must emit `symbol: null` and
+      `evidence: null`, because a source excerpt is exactly what ADR-008 keeps out of the evidence --
+      and `SyntaxError.text`, like `cst.ParserSyntaxError.context`, is this very line.
 
   # ---- no_trailing_newline.py: last line unterminated. ----
   - file: no_trailing_newline.py

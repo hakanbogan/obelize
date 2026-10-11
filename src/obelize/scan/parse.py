@@ -15,6 +15,7 @@ import libcst as cst
 
 from obelize import fsutil
 from obelize.models import BailCode, Config, Finding, ScanSpec
+from obelize.verify import cheap
 
 # Only `parsed` carries a tree; run.json's `files_parsed` counts it, round-trip failures included.
 ReadStatus = Literal["parsed", "does_not_parse", "not_a_candidate", "not_read"]
@@ -115,26 +116,28 @@ def candidate(data: bytes, tokens: tuple[str, ...]) -> bool:
 
 
 def gates(path: str, data: bytes) -> Read:
-    """Gate bytes, in order: libcst parses, `compile()` accepts, the bytes round-trip.
+    """Gate bytes, in order: `compile()` accepts, libcst parses, the bytes round-trip.
 
-    `compile()` refuses some libcst trees (a late `__future__` import, module-level `return`); a
-    failure of either is one never-edited `parse_error` finding. Round-trip is last: its failure
-    (a lost bare-CR terminator, which compiles) leaves the file analysed but never written.
-    `path` must be repo-relative: it lands in the exception's `.filename`.
+    `compile()` goes first because it answers a pathologically deep expression with an exception
+    where libcst's parser overruns the C stack and kills the process. It refuses some libcst trees
+    (a late `__future__` import, module-level `return`) and a failure of either is one never-edited
+    `parse_error` finding. Round-trip is last: its failure (a lost bare-CR terminator, which
+    compiles) leaves the file analysed but never written. `path` must be repo-relative: it lands
+    in the exception's `.filename`.
     """
+    try:
+        compile(data, path, "exec")
+    except cheap.COMPILE_REFUSALS as error:
+        return does_not_parse(path, data, "compile", error)
     try:
         module = cst.parse_module(data)
     except (cst.ParserSyntaxError, SyntaxError, ValueError) as error:
-        return _does_not_parse(path, data, "libcst", error)
-    try:
-        compile(data, path, "exec")
-    except SyntaxError as error:
-        return _does_not_parse(path, data, "compile", error)
+        return does_not_parse(path, data, "libcst", error)
     try:
         faithful = module.bytes == data
     except RecursionError as error:
         # libcst renders a tree one frame per level, so a very long chain overruns the stack.
-        return _does_not_parse(path, data, "libcst", error)
+        return does_not_parse(path, data, "libcst", error)
     return Read(
         path=path,
         status="parsed",
@@ -188,7 +191,7 @@ def disk(root: Path, config: Config) -> Contents:
     return lambda path: contents(root, path, config)
 
 
-def _does_not_parse(path: str, data: bytes, gate: Gate, error: Exception) -> Read:
+def does_not_parse(path: str, data: bytes, gate: Gate, error: Exception) -> Read:
     """The single finding and the row naming the gate; `evidence=None` so no line is quoted."""
     line, column = _coordinates(error)
     finding = Finding(
@@ -237,7 +240,7 @@ def _message(error: Exception) -> str:
         # Typed `str`, but `SyntaxError().msg` is `None`.
         text = error.msg or ""
     else:
-        text = str(error)
+        text = str(error) or type(error).__name__
     first = (text.splitlines() or [""])[0].strip()
     return first if len(first) <= MESSAGE_LIMIT else first[: MESSAGE_LIMIT - 3] + "..."
 
@@ -260,6 +263,7 @@ __all__ = [
     "ReadStatus",
     "candidate",
     "contents",
+    "does_not_parse",
     "gates",
     "limitation",
     "read",

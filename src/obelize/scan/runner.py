@@ -178,7 +178,12 @@ def ordered(results: Iterable[FileResult]) -> tuple[FileResult, ...]:
 def examine(candidate: Candidate, spec: ScanSpec) -> FileResult:
     """A worker's whole job: a pure function of bytes and spec, the cache key."""
     read = parse.gates(candidate.path, candidate.data)
-    return _graded(candidate.path, candidate.sha256, read, spec)
+    try:
+        return _graded(candidate.path, candidate.sha256, read, spec)
+    except (RecursionError, MemoryError) as error:
+        # Parsed but too deep for the analysis visitors: one finding, never edited.
+        refused = parse.does_not_parse(candidate.path, candidate.data, "libcst", error)
+        return _graded(candidate.path, candidate.sha256, refused, spec)
 
 
 def payload(result: FileResult) -> dict[str, Any]:

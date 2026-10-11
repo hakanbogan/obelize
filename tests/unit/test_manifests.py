@@ -353,15 +353,15 @@ setup(install_requires=["!!!", b"acme-sdk", "acme-sdk==1.0"])
     assert declared(text, "setup.py") == [(3, 45, "acme-sdk")]
 
 
-def test_a_setup_py_string_python_cannot_read_declares_nothing_and_stops_nothing() -> None:
-    """`"C:\\Users"` is no string at all; the requirement beside it still reads."""
+def test_a_setup_py_with_a_string_python_cannot_read_declares_nothing() -> None:
+    """`"C:\\Users"` is no string at all, so the file is not Python and the code pass reports it."""
     text = (
         "setup(install_requires=[\n"
         '    "acme-sdk==1",\n'
         '    "pkg @ file:///C:\\Users\\x\\pkg.whl",\n'
         "])\n"
     )
-    assert names(text, "setup.py") == ["acme-sdk"]
+    assert names(text, "setup.py") == []
 
 
 def test_a_setup_py_that_does_not_parse_declares_nothing() -> None:

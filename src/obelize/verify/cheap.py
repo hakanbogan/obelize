@@ -13,8 +13,9 @@ from pathlib import Path
 
 from obelize import fsutil
 
-# What `compile()` raises for rejected source, a NUL byte included (only pre-3.12 used ValueError).
-COMPILE_REFUSALS = (SyntaxError,)
+# What `compile()` raises for rejected source, a NUL byte included (only pre-3.12 used ValueError);
+# a deeply nested expression overruns the parser's stack or memory instead.
+COMPILE_REFUSALS = (SyntaxError, RecursionError, MemoryError)
 
 
 def refusal(root: Path, path: str) -> str | None:
@@ -36,7 +37,7 @@ def refusal(root: Path, path: str) -> str | None:
 
 def _said(error: BaseException) -> str:
     """The message without the "(app.py, line 1)" `str()` appends, which names the wrong path."""
-    return str(getattr(error, "msg", None) or error)
+    return str(getattr(error, "msg", None) or error) or type(error).__name__
 
 
 def uncompilable(root: Path, paths: Iterable[str]) -> tuple[str, ...]:

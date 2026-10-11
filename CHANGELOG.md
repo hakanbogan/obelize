@@ -16,6 +16,12 @@ in the release that makes it.
 
 - A manifest that already declares the new distribution is no longer given a second line for it:
   the legacy row is withheld as `manifest_pin_shape_unsupported` and the file stays as written.
+- One deeply nested expression no longer ends the whole scan. `compile()` now runs before libcst's
+  parser, which overruns the C stack on thousands of nested parentheses, a chain of tens of
+  thousands of operands or a stack of `not`s and killed the process; the file is one
+  `input_does_not_parse` row. A tree that parses but overruns the analysis or the rewrite is that
+  row, or is kept as it was with `output_does_not_parse`. A file `compile()` and libcst both refuse
+  is now blamed on the line `compile()` names. A `setup.py` that does not compile declares nothing.
 
 ## [0.2.0] - 2026-10-10
 

@@ -58,9 +58,11 @@ own environment shows `.venv/bin/python`, the refusal of a command that needs a 
 ## Scanning and rewriting
 
 The syntax check obelize runs before touching a file inherits `from __future__ import
-annotations` from its own source, so it can refuse code that is actually valid. A very long chain
-of operators can crash the scan with a recursion error, or segfault it outright once the chain is
-long enough. Several matching rules key off a spelling or a line position rather than the actual
+annotations` from its own source, so it can refuse code that is actually valid. An
+expression nested deeply enough to overrun the interpreter's stack (thousands of nested
+parentheses, tens of thousands of operands) is refused by `compile()` and reported as a file that
+does not parse; Python 3.14 and later accept chains that long, and libcst can still segfault the
+scan on them. Several matching rules key off a spelling or a line position rather than the actual
 binding, which can both over-match and under-match in unusual code: a private import used without
 a version bound on the library that defines it, a combined import whose surviving names can
 shadow the standard library's own `types` module, and a `.text` read rewritten with no warning

@@ -27,6 +27,14 @@ def test_source_holding_a_null_byte_is_refused_too(tmp_path: Path) -> None:
     assert cheap.uncompilable(tmp_path, ["app.py"]) == ("app.py",)
 
 
+def test_an_expression_too_deep_to_compile_is_refused_rather_than_raised(tmp_path: Path) -> None:
+    """A stack of `not`s exhausts memory in `compile()`, which is not a `SyntaxError`."""
+    (tmp_path / "app.py").write_bytes(b"x = " + b"not " * 10_000 + b"y\n")
+    message = cheap.refusal(tmp_path, "app.py")
+    assert message is not None
+    assert message.startswith("app.py: ")
+
+
 def test_a_file_that_is_not_python_is_not_compiled(tmp_path: Path) -> None:
     """obelize changes manifests too, and a manifest is not a program."""
     (tmp_path / "requirements.txt").write_text("google-genai>=1,<3\n", encoding="utf-8")

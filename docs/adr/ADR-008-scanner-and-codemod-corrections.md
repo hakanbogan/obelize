@@ -38,13 +38,13 @@ repository cites. The closed vocabularies they use live in
   `read_text()` or `parse_module(str)` (C-10).
 - **Gate every file on a byte round-trip before any edit.** A file where
   `cst.parse_module(data).bytes != data` is analysed and reported but never
-  written: **`roundtrip_mismatch`** (C-09, C-43). The gates run libcst, then
-  `compile()`, then the round-trip (ADR-017 D1).
+  written: **`roundtrip_mismatch`** (C-09, C-43). The gates run `compile()`, then
+  libcst, then the round-trip (ADR-017 D1).
 - **Run `compile()` on the input as well as the output.** A file libcst parses
   but `compile()` rejects is a `parse_error` and never edited (C-08).
 - **`cst.ParserSyntaxError` is not a `SyntaxError` subclass.** The libcst gate
   catches `(cst.ParserSyntaxError, SyntaxError, ValueError)` and the `compile()`
-  gate `SyntaxError` (ADR-017 D2); coordinates come from `.raw_line` (1-based)
+  gate `SyntaxError`, `RecursionError` and `MemoryError` (ADR-017 D2); coordinates come from `.raw_line` (1-based)
   and `.raw_column` (0-based), or `.lineno`. No source excerpt goes into
   evidence: `.context` is one (C-08).
 

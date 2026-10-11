@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -133,15 +134,48 @@ def test_a_python_2_file_is_refused_by_the_compile_gate() -> None:
     assert "Refused by compile:" in result.limitations[0].detail
 
 
-def test_a_file_libcst_refuses_never_reaches_the_compile_gate() -> None:
-    """libcst blames line 8 and `compile()` line 6, so the line shows which gate ran first."""
+def test_a_file_compile_refuses_never_reaches_libcst() -> None:
+    """`compile()` blames line 6 and libcst line 8, so the line shows which gate ran first."""
     data = _fixture("parser_syntax_error.py")
     result = gates("parser_syntax_error.py", data)
     assert result.status == "does_not_parse"
     finding = result.findings[0]
-    assert (finding.line, finding.column) == (8, 4)
-    assert finding.line != 6
+    assert (finding.line, finding.column) == (6, 21)
+    assert "Refused by compile:" in result.limitations[0].detail
+
+
+def test_a_file_only_libcst_refuses_is_refused_by_libcst() -> None:
+    """The mirror of `python2.py`: `compile()` accepts a lone latin-1 byte in a comment."""
+    result = gates("odd.py", AWKWARD["a non-UTF-8 byte and no cookie"])
+    assert result.status == "does_not_parse"
+    assert (result.findings[0].line, result.findings[0].column) == (1, 0)
     assert "Refused by libcst:" in result.limitations[0].detail
+
+
+# Each overruns libcst's parser (the process dies with SIGSEGV) after `compile()` has refused it.
+DEEP: dict[str, bytes] = {
+    "nested parentheses": b"x = " + b"(" * 3000 + b"1" + b")" * 3000 + b"\n",
+    "a very long chain": b"x = " + b" + ".join([b"1"] * 100_000) + b"\n",
+    "a stack of nots": b"x = " + b"not " * 10_000 + b"y\n",
+}
+
+
+@pytest.mark.parametrize("shape", sorted(DEEP), ids=sorted(DEEP))
+def test_an_expression_too_deep_for_the_parsers_is_one_unparsable_file(shape: str) -> None:
+    """In a subprocess: a regression kills the interpreter, which a test must survive to report."""
+    code = (
+        "import sys; from obelize.scan.parse import gates; "
+        "print(gates('deep.py', sys.stdin.buffer.read()).status)"
+    )
+    done = subprocess.run(
+        [sys.executable, "-I", "-c", code], input=DEEP[shape], capture_output=True, check=False
+    )
+    assert (done.returncode, done.stdout.strip()) == (0, b"does_not_parse")
+
+
+def test_a_refusal_with_no_message_is_named_by_its_type() -> None:
+    """`MemoryError()` has no text, and a report reading "Refused by compile: " says nothing."""
+    assert parse._message(MemoryError()) == "MemoryError"
 
 
 @pytest.mark.parametrize("name", ["python2.py", "parser_syntax_error.py"])
@@ -220,22 +254,31 @@ def test_a_refusal_always_has_coordinates_a_finding_can_hold(shape: str) -> None
 def test_a_refusal_records_the_parsers_words_and_never_a_line_of_the_file() -> None:
     """`str(exc)` embeds a source excerpt; the control proves it, so this cannot pass vacuously."""
     data = _fixture("parser_syntax_error.py")
-    detail = gates("pkg/mailer.py", data).limitations[0].detail
-
-    with pytest.raises(cst.ParserSyntaxError) as excinfo:
+    with pytest.raises(SyntaxError) as compiled:
+        compile(data, "pkg/mailer.py", "exec")
+    assert compiled.value.text is not None
+    assert compiled.value.text.startswith("client = genai.Client(")
+    with pytest.raises(cst.ParserSyntaxError) as parsed:
         cst.parse_module(data)
-    context = excinfo.value.context
+    context = parsed.value.context
     assert context is not None
     assert context.startswith('    model = genai.GenerativeModel("gemini-1.5-flash")')
     assert context.rstrip().endswith("^")
-    assert context in str(excinfo.value)
+    assert context in str(parsed.value)
 
-    assert context.splitlines()[0] not in detail
-    assert "GenerativeModel" not in detail
-    assert "gemini-1.5-flash" not in detail
-    # The excerpt is two lines; a lone `^` proves nothing, as libcst lists it as an expected token.
-    assert "\n" not in detail
+    refusals: list[tuple[parse.Gate, Exception]] = [
+        ("compile", compiled.value),
+        ("libcst", parsed.value),
+    ]
+    for gate, error in refusals:
+        detail = parse.does_not_parse("pkg/mailer.py", data, gate, error).limitations[0].detail
+        assert context.splitlines()[0] not in detail
+        assert "client = genai.Client(" not in detail
+        assert "GenerativeModel" not in detail
+        assert "gemini-1.5-flash" not in detail
+        assert "\n" not in detail
     assert "parser error" in detail
+    assert "was never closed" in gates("pkg/mailer.py", data).limitations[0].detail
 
 
 def test_compile_is_given_the_relative_path_so_no_absolute_path_can_leak() -> None:

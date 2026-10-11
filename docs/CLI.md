@@ -383,9 +383,10 @@ Other flags have no file equivalent.
 
 1. Size: over `max_file_bytes`, not read; a limitation names both numbers.
 2. Byte prefilter: without any of the pack's tokens, reported as nothing.
-3. libcst, then `compile()`: a refusal by either is one `parse_error` and
+3. `compile()`, then libcst: a refusal by either is one `parse_error` and
    no edit. `compile()` also catches what libcst accepts, such as `return`
-   outside a function or a late `__future__` import.
+   outside a function or a late `__future__` import, and an expression nested
+   so deeply that libcst's parser would crash the process.
 4. Byte round-trip: if libcst does not reproduce the file exactly (bare-CR
    line endings, for example), every finding in it is withheld.
 

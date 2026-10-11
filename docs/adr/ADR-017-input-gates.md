@@ -6,17 +6,25 @@ Accepted.
 
 ## Decision
 
-**D1. The order is libcst, then `compile()`, then the byte round-trip.** A file
+**D1. The order is `compile()`, then libcst, then the byte round-trip.** A file
 failing only the round-trip is valid Python, so it is analysed and every finding
 carries `roundtrip_mismatch`; one also failing `compile()` (bare-CR terminators
 and a late `__future__` import, in `tests/unit/test_parse.py`) is one
 `input_does_not_parse` finding, not analysis of source that is not Python.
+`compile()` goes first because a pathologically deep expression (3,000 nested
+parentheses, a chain of 100,000 operands, 10,000 `not`s) overruns libcst's
+parser and kills the process with SIGSEGV, where `compile()` raises. The
+analysis and the codemod catch `RecursionError` and `MemoryError` per file for
+the trees that do parse: the file is one `input_does_not_parse` finding, or, when
+only the rewrite overruns, kept as it was with `output_does_not_parse`.
 
 **D2. The handler is `except (cst.ParserSyntaxError, SyntaxError, ValueError)`.**
 That is libcst's handler: `cst.ParserSyntaxError` is not a `SyntaxError`, and
 bytes that contradict their coding cookie raise `UnicodeDecodeError`, a
-`ValueError`. The `compile()` handler catches `SyntaxError` alone, which every
-supported interpreter raises even for a null byte:
+`ValueError`. The `compile()` handler catches `SyntaxError`, which every
+supported interpreter raises even for a null byte, and `RecursionError` and
+`MemoryError`, which a deep expression raises instead
+(`verify.cheap.COMPILE_REFUSALS`, also the always-on check of changed files):
 
 | Bytes | `cst.parse_module` | `compile(...)` |
 |---|---|---|

@@ -22,7 +22,7 @@ reason this script has two expectation tables instead of one: there is no
 round-trip to compare when no tree was built.  It was added for COVERAGE.md gap
 15 -- the ``cst.ParserSyntaxError`` branch, which ``python2.py`` cannot reach
 because libcst parses Python 2 happily.  The two gates disagree about where it
-went wrong, by two lines, and both numbers are recorded below.
+went wrong, by two lines; `compile()` runs first, so its number is the one reported.
 
 It also generates the four ``*.after.py`` answer keys -- the output
 ``obelize fix --apply`` must produce for the four files that migrate -- from the
@@ -177,7 +177,7 @@ NO_NEWLINE_LINES = [
 # is built and there is nothing to round-trip.  A hand migration that was never
 # finished -- `genai.Client(` written against the legacy alias, one bracket left
 # open, no blank line before the `def` that followed.  Both gates refuse it and
-# they name different lines: libcst stops at 8, `compile()` blames 6 (C-08).
+# they name different lines: `compile()` blames 6 and runs first, libcst stops at 8 (C-08).
 PARSER_SYNTAX_ERROR_LINES = [
     '"""Nightly report mailer. A hand migration that was never finished."""',
     "import os",

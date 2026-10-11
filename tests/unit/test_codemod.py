@@ -10,7 +10,7 @@ import pytest
 
 from obelize.models import Config, Edit
 from obelize.scan import parse, runner
-from obelize.transforms import codemod, registry
+from obelize.transforms import base, codemod, registry
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from pathlib import Path
@@ -382,6 +382,22 @@ def test_the_output_gates_withhold_every_row_of_the_file(tmp_path: Path) -> None
     assert outcome.after == outcome.before
     assert {(row.status, row.reason, row.caused_by) for row in outcome.edits} == {
         ("needs_review", "output_does_not_parse", None)
+    }
+    assert {row.bail for row in run.plans[0].findings} == {"output_does_not_parse"}
+
+
+def test_a_file_too_deep_for_the_rewriter_is_kept_and_gated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def overrun(_context: RuleContext) -> cst.Module:
+        raise RecursionError
+
+    monkeypatch.setattr(base, "finish", overrun)
+    run = acme.repository(tmp_path, {"app.py": CLEAN})
+    outcome = run.files[0]
+    assert outcome.after == outcome.before
+    assert {(row.status, row.reason) for row in outcome.edits} == {
+        ("needs_review", "output_does_not_parse")
     }
     assert {row.bail for row in run.plans[0].findings} == {"output_does_not_parse"}
 

@@ -215,7 +215,7 @@ def provided(path: str, data: bytes, spec: ScanSpec) -> tuple[tuple[str, str], .
         return ()
     try:
         tree = ast.parse(data)
-    except (SyntaxError, ValueError):
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
         return ()
     imported: set[str] = set()
     for node in ast.walk(tree):
@@ -666,9 +666,8 @@ class _Requirements(cst.CSTVisitor):
 
 def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
     """`setup.py`: only literals under requirement keywords declare; unparsable yields nothing."""
-    try:
-        module = cst.parse_module(data)
-    except (cst.ParserSyntaxError, SyntaxError, ValueError):
+    module = parse.gates(path, data).module
+    if module is None:
         return
     # Without `unsafe_skip_copy` the wrapper deep-copies, and collected nodes lack positions.
     wrapper = MetadataWrapper(module, unsafe_skip_copy=True)
@@ -676,11 +675,7 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
     collector = _Requirements()
     module.visit(collector)
     for node in collector.strings:
-        try:
-            text = node.evaluated_value
-        except (SyntaxError, ValueError):
-            # `"C:\Users"` is no string at all: Python refuses the escape, so it names nothing.
-            continue
+        text = node.evaluated_value
         if not isinstance(text, str):
             continue
         at = positions[node].start

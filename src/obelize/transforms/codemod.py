@@ -127,7 +127,10 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
         if data is None or not result.parsed:
             plans.append(result.plan)
             continue
-        outcome, plan = _file(result, data, pack, spec)
+        try:
+            outcome, plan = _file(result, data, pack, spec)
+        except (RecursionError, MemoryError):
+            outcome, plan = _too_deep(result, data)
         files.append(outcome)
         plans.append(plan)
 
@@ -311,6 +314,14 @@ def _file(
         after=data if withheld or not faithful else produced,
         edits=tuple(rows),
     ), plan
+
+
+def _too_deep(result: FileResult, data: bytes) -> tuple[Outcome, ImpactPlan]:
+    """A file libcst's visitors overrun the stack on: kept as it was, every eligible row gated."""
+    eligible = [row for row in result.plan.findings if row.scan_status == "eligible"]
+    plan = _revised(result.plan, {id(row): GATE for row in eligible})
+    rows = _ordered([_row(row, GATE) for row in eligible])
+    return Outcome(result.path, data, data, tuple(rows)), plan
 
 
 def _gate(path: str, module: cst.Module, produced: bytes) -> BailCode | None:

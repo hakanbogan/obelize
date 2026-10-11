@@ -79,7 +79,7 @@ def _trees(contents: Contents, paths: Sequence[str], names: set[str]) -> dict[st
             continue
         try:
             trees[path] = ast.parse(data)
-        except (SyntaxError, ValueError):
+        except (SyntaxError, ValueError, RecursionError, MemoryError):
             continue
     return trees
 

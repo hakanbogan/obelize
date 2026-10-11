@@ -309,6 +309,27 @@ def test_the_worker_produces_what_the_parent_would_have(tmp_path: Path) -> None:
     assert produced == runner.examine(candidate, SPEC)
 
 
+def test_a_file_too_deep_for_the_analysis_is_one_unparsable_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The trees that parse still overrun the visitors' stack when nested deeply enough."""
+    real = analysis.analyse
+
+    def overrun(read: parse.Read, spec: Any) -> Any:
+        if read.module is not None:
+            raise RecursionError
+        return real(read, spec)
+
+    monkeypatch.setattr(analysis, "analyse", overrun)
+    candidate = runner.Candidate(path="app.py", sha256="0" * 64, data=LEGACY.encode())
+
+    result = runner.examine(candidate, SPEC)
+
+    assert result.parsed is False
+    assert [finding.bail for finding in result.plan.findings] == ["input_does_not_parse"]
+    assert [row.code for row in result.limitations] == ["input_does_not_parse"]
+
+
 def test_a_worker_that_was_never_initialised_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     """The executor always initialises first, so reaching this is a defect."""
     monkeypatch.setattr(runner, "_SPEC", None)
