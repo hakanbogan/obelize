@@ -7,7 +7,7 @@ import pytest
 from acme import SPEC, rows, scan, statuses
 
 from obelize.impact import planner
-from obelize.models import Finding, ReceiverMethods
+from obelize.models import Finding, ReceiverMethods, ScanSpec
 from obelize.scan import analysis, parse
 
 
@@ -67,6 +67,52 @@ def test_a_refused_surface_outranks_where_the_statement_sits() -> None:
         (2, "needs_review", "local_import"),
         (4, "needs_review", "flag_only_surface"),
     ]
+
+
+def lazy(source: str, spec: ScanSpec = SPEC) -> analysis.Analysis:
+    """`compile()` refuses `lazy import` before 3.15, so the tree is handed over as it is."""
+    data = source.encode()
+    module = cst.parse_module(data)
+    return analysis.analyse(parse.Read("probe.py", "parsed", data=data, module=module), spec)
+
+
+@pytest.mark.parametrize(
+    ("source", "reason", "symbol"),
+    [
+        ("lazy import acme.sdk as sdk\n", "direct_import_resolved", "acme.sdk"),
+        ("lazy import acme.sdk.extra\n", "direct_import_resolved", "acme.sdk.extra"),
+        ("lazy from acme.sdk import Model\n", "from_import_resolved", "acme.sdk"),
+        ("lazy from acme.sdk import *\n", "from_import_resolved", "acme.sdk"),
+        ("def build():\n    lazy import acme.sdk\n", "direct_import_resolved", "acme.sdk"),
+    ],
+)
+def test_a_lazy_import_of_the_legacy_module_is_one_withheld_row(
+    source: str, reason: str, symbol: str
+) -> None:
+    """libcst binds no name for it, so the uses after it never resolve and only it can say so."""
+    result = lazy(source + "\nsdk.configure(api_key='k')\n")
+    assert [(f.kind, f.confidence_reason, f.symbol) for f in result.findings] == [
+        ("import", reason, symbol)
+    ]
+    assert [(f.scan_status, f.bail) for f in result.findings] == [("needs_review", "lazy_import")]
+
+
+def test_a_lazy_import_of_something_else_is_not_reported() -> None:
+    assert (
+        lazy("lazy import os\nlazy from . import config\nlazy from json import loads\n").findings
+        == ()
+    )
+
+
+def test_a_lazy_import_into_a_shared_module_names_only_what_is_legacy() -> None:
+    """The module keeps its name in the new SDK: only the bare module or a legacy symbol counts."""
+    shared = SPEC.model_copy(update={"shared": True})
+    reported = lazy("lazy import acme.sdk\nlazy from acme.sdk import Model, Other\n", shared)
+    assert [(f.line, f.symbol) for f in reported.findings] == [
+        (1, "acme.sdk"),
+        (2, "acme.sdk.Model"),
+    ]
+    assert lazy("lazy from acme.sdk import Other\n", shared).findings == ()
 
 
 def test_a_relative_import_is_never_the_legacy_module() -> None:

@@ -213,6 +213,7 @@ def test_the_import_bail_list_is_a_pinned_subset_of_the_bail_codes() -> None:
         "conditional_binding",
         "star_import",
         "local_import",
+        "lazy_import",
         "alias_collision",
         "type_symbol_unmapped",
         "from_import_unmigrated_symbol",

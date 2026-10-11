@@ -22,6 +22,11 @@ in the release that makes it.
   `input_does_not_parse` row. A tree that parses but overruns the analysis or the rewrite is that
   row, or is kept as it was with `output_does_not_parse`. A file `compile()` and libcst both refuse
   is now blamed on the line `compile()` names. A `setup.py` that does not compile declares nothing.
+- A PEP 810 `lazy import` of the legacy module (Python 3.15) is no longer invisible. libcst binds
+  no name for it, so the uses after it were never seen and the pin could be rewritten under code
+  that still used it. The statement is now one `needs_review` row, `lazy_import`, a new value of
+  the closed `bail` vocabulary in `findings`, `plan`, `run` and `proposal` schemas; the file and
+  the pin stay.
 
 ## [0.2.0] - 2026-10-10
 

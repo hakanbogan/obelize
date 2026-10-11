@@ -58,6 +58,7 @@ ORDER: Final[tuple[BailCode, ...]] = (
     "conditional_binding",
     "module_alias_rebound",
     "local_import",
+    "lazy_import",
     "multiple_configure_calls",
     "client_source_unresolved",
     *dataflow.ORDER,

@@ -74,6 +74,7 @@
         "type_symbol_unmapped",
         "from_import_unmigrated_symbol",
         "local_import",
+        "lazy_import",
         "star_import",
         "file_not_fully_migrated",
         "repo_not_fully_migrated",

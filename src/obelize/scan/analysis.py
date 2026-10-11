@@ -48,6 +48,7 @@ BAILS: frozenset[BailCode] = frozenset(
         "attribute_removed",
         "conditional_binding",
         "flag_only_surface",
+        "lazy_import",
         "local_import",
         "module_alias_rebound",
         "receiver_unresolved",
@@ -65,6 +66,7 @@ RUNG: Final[dict[BailCode, int]] = {
     "conditional_binding": 3,
     "module_alias_rebound": 3,
     "local_import": 3,
+    "lazy_import": 3,
     "receiver_unresolved": 5,
 }
 
@@ -153,6 +155,8 @@ class _Nodes(cst.CSTVisitor):
 
     def __init__(self) -> None:
         self.imports: list[cst.Import | cst.ImportFrom] = []
+        self.lazy_plain: list[cst.LazyImport] = []
+        self.lazy_from: list[cst.LazyImportFrom] = []
         self.calls: list[cst.Call] = []
         self.subscripts: list[cst.Subscript] = []
         self.classes: list[cst.ClassDef] = []
@@ -167,6 +171,12 @@ class _Nodes(cst.CSTVisitor):
 
     def visit_ImportFrom(self, node: cst.ImportFrom) -> None:
         self.imports.append(node)
+
+    def visit_LazyImport(self, node: cst.LazyImport) -> None:
+        self.lazy_plain.append(node)
+
+    def visit_LazyImportFrom(self, node: cst.LazyImportFrom) -> None:
+        self.lazy_from.append(node)
 
     def visit_Call(self, node: cst.Call) -> None:
         self.calls.append(node)
@@ -382,6 +392,26 @@ class _Pass:
                 self._plain_import(statement)
             else:
                 self._from_import(statement)
+        for plain in self._nodes.lazy_plain:
+            self._lazy(plain, "direct_import_resolved", [a.evaluated_name for a in plain.names])
+        for source in self._nodes.lazy_from:
+            if source.module is None or source.relative:
+                continue
+            module = _dotted(source.module)
+            if self._under_legacy(module) or isinstance(source.names, cst.ImportStar):
+                names = [module]
+            else:
+                names = [f"{module}.{a.evaluated_name}" for a in source.names]
+            self._lazy(source, "from_import_resolved", names)
+
+    def _lazy(self, statement: cst.CSTNode, reason: ConfidenceReason, names: list[str]) -> None:
+        """A PEP 810 `lazy import` binds no name libcst resolves, so what follows it goes unseen.
+
+        The statement is reported on its own and withholds the file. `cst.LazyImport` exists only
+        from libcst 1.9, which is why nothing here names it at run time.
+        """
+        for name in dict.fromkeys(name for name in names if self._fetches(name)):
+            self._add(statement, "import", reason, name, bail="lazy_import")
 
     def _plain_import(self, statement: cst.Import) -> None:
         for alias in statement.names:

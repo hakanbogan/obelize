@@ -114,6 +114,7 @@ A bail withholds its whole binding group; the group is atomic.
 | `type_symbol_unmapped` | A `from google.generativeai.types import X` whose `X` is not in `symbol_map`. |
 | `from_import_unmigrated_symbol` | A `from … import` line whose symbols are not all rewritten; also a call a module-rooted `rewrite_call` reaches through such an import (`ChatCompletion.create` after `from openai import ChatCompletion`), which has no root to keep. |
 | `local_import` | The legacy import is inside a function, method or class body. One under `if TYPE_CHECKING:` counts as module level. |
+| `lazy_import` | A PEP 810 `lazy import` or `lazy from … import` names the legacy module (Python 3.15). libcst binds no name for it, so nothing after it resolves: the statement is the one row, and the file and the pin stay. |
 | `star_import` | `from google.generativeai import *`. |
 | `file_not_fully_migrated` | **Import atomicity.** A resolved legacy usage in the file is not `auto`, so the file is left exactly as it was: every otherwise-`auto` finding in it carries this code. |
 | `repo_not_fully_migrated` | **Manifest atomicity.** An in-scope file still imports the legacy distribution, so removing its pin is withheld. Adding the new pin is a separate `auto` edit once anything migrated. Where the new distribution is the legacy one (`openai`), any withheld row of the pack holds the one pin, and a `fix` run then leaves every file as it was, each row of another file that would have been `auto` naming this code too (the rows of the file that holds the cause read `file_not_fully_migrated`). A declaration already in the new range has no row. |
@@ -178,7 +179,7 @@ the defect's code on its rows and `file_not_fully_migrated` on the rest
 |:---:|---|---|
 | 1 | the pack refuses the surface outright (`flag_only_surface`, `attribute_removed`) | `scan/analysis.py` |
 | 2 | a file-level gate (`input_does_not_parse`, `roundtrip_mismatch`, `output_does_not_parse`, `output_names_unresolved`) | `scan/parse.py`; the last two `transforms/codemod.py`, on the bytes a run would write |
-| 3 | a whole-file resolution defect (`module_alias_rebound`, `conditional_binding`, `star_import`) or where an import statement sits (`local_import`) | `scan/analysis.py` |
+| 3 | a whole-file resolution defect (`module_alias_rebound`, `conditional_binding`, `star_import`) or where an import statement sits (`local_import`, `lazy_import`) | `scan/analysis.py` |
 | 4 | the module's client (`client_source_unresolved`, `multiple_configure_calls`) | `impact/planner.py` |
 | 5 | the binding group (`receiver_unresolved`, `model_object_escapes`, `class_attr_binding`, `multiple_assignments`) | `receiver_unresolved` by `scan/analysis.py`, the rest by `impact/dataflow.py` |
 | 6 | atomicity (`file_not_fully_migrated`, `repo_not_fully_migrated`, `transitive_dependency_in_use`) | `impact/planner.py`, `scan/manifests.py`; at fix time `transforms/codemod.py` also puts `repo_not_fully_migrated` on the source rows of a pack whose new distribution is its legacy one, import rows included |
@@ -230,6 +231,7 @@ other.
 | `conditional_binding` | It is one of two statements binding the same name. |
 | `star_import` | It is the star import. |
 | `local_import` | It is inside a function or method body. |
+| `lazy_import` | It is a `lazy import` statement. |
 | `alias_collision` | Its new alias is already bound. |
 | `type_symbol_unmapped` | A symbol on this `from ... .<submodule> import` line is not in `symbol_map`. |
 | `from_import_unmigrated_symbol` | Not every symbol on this `from ... import` line is rewritten. |

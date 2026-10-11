@@ -23,6 +23,10 @@ IMPACT_OWNED: frozenset[BailCode] = (
     | {parse.PARSE_BAIL}
 )
 
+# Raised only where `compile()` accepts a `lazy import` (3.15), so no key grades it on every
+# interpreter: `tests/unit/test_analysis.py` does.
+UNKEYED: frozenset[BailCode] = frozenset({"lazy_import"})
+
 # Graded but unranked by §6: a manifest row names one declaration, so `manifest_code_mismatch`
 # never meets `repo_not_fully_migrated`; `model_object_read_elsewhere` lands only where none fired.
 UNRANKED: frozenset[BailCode] = frozenset({"manifest_code_mismatch", reach.CODE})
@@ -162,9 +166,9 @@ def test_what_the_passes_claim_is_exactly_what_the_oracle_grades() -> None:
                     graded.add(row["bail"])
                 graded.update(row.get("caused_by") or ())
     assert graded <= BAIL_CODES
-    assert graded == set(IMPACT_OWNED), (
+    assert graded | UNKEYED == set(IMPACT_OWNED), (
         f"graded and raised by nothing: {sorted(graded - set(IMPACT_OWNED))}; "
-        f"claimed and never graded: {sorted(set(IMPACT_OWNED) - graded)}"
+        f"claimed and never graded: {sorted(set(IMPACT_OWNED) - graded - UNKEYED)}"
     )
 
 
