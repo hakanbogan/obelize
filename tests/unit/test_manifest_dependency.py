@@ -83,6 +83,13 @@ def test_nothing_is_added_where_the_new_distribution_is_already_declared() -> No
     assert reported(edits) == [(1, "needs_review", "repo_not_fully_migrated")]
 
 
+def test_a_replacement_that_would_declare_the_new_distribution_twice_is_refused() -> None:
+    source = "acme-sdk==1.2.3\nacme-client>=2\n"
+    produced, edits = acme.declared("requirements.txt", source, CLEAR)
+    assert produced == source
+    assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")]
+
+
 @pytest.mark.parametrize(
     ("what", "line"),
     [

@@ -12,6 +12,11 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Fixed
+
+- A manifest that already declares the new distribution is no longer given a second line for it:
+  the legacy row is withheld as `manifest_pin_shape_unsupported` and the file stays as written.
+
 ## [0.2.0] - 2026-10-10
 
 ### Benchmark

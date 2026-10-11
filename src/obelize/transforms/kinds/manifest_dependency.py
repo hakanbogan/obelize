@@ -79,13 +79,16 @@ class ManifestDependency:
         """Record the replacement or the insertion one eligible row asks for.
 
         A declaration without a plain pin (extras, a direct URL, a non-version table value) is
-        refused: none of those survives a change of distribution.
+        refused: none of those survives a change of distribution. So is a replacement that would
+        declare the new distribution a second time.
         """
         declaration = context.declaration(finding)
         if declaration is None or declaration.pin is None:
             raise BailError(SHAPE)
         line = context.line(declaration.line)
         if _named(finding) == self._legacy:
+            if self._new != self._legacy and any(o.name == self._new for o in context.declarations):
+                raise BailError(SHAPE)
             context.rewrites.splice(declaration.line, *declaration.pin, self._spec)
             context.rewrites.splice(
                 declaration.line, declaration.column, declaration.end, self._written
