@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from obelize import __version__, fsutil, gitutil
 from obelize.commands import CommandError, reports
 from obelize.evidence import report, run_dir
-from obelize.models import FindingsDocument, ModelConfig, VerifyPhase, VerifyResult
+from obelize.models import FindingsDocument, ManifestPlan, ModelConfig, VerifyPhase, VerifyResult
 from obelize.packs import loader
 from obelize.providers import base as providers
 from obelize.providers import openai_compat, proposals
@@ -91,6 +91,8 @@ class Outcome:
     # What the run did without being asked to say so, for a caller that prints it.
     notes: tuple[str, ...] = ()
     guides: tuple[flag_only.Guide, ...] = ()
+    # The pin check, in memory only: it names files that hold a pin without a row in `withheld`.
+    manifest_plan: ManifestPlan = field(default_factory=ManifestPlan)
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +248,7 @@ def run(request: Request) -> Outcome:
         blocked=scan.blocked,
         notes=notes,
         guides=guides,
+        manifest_plan=driven.manifest_plan,
     )
 
 

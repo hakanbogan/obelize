@@ -158,14 +158,14 @@ The codemod driver's own codes.
 A warning never withholds an `auto` edit; it is printed with it and recorded in
 REPORT.md.
 
-| Code | Meaning |
-|---|---|
-| `client_constructed_eagerly` | `genai.Client(...)` validates the key when constructed, unlike `configure(...)`, so importing the rewritten module can raise `ValueError`. Fires when the new `Client(...)` is at module level and `api_key=` is not a non-empty string literal. |
-| `model_name_looks_prefixed` | The model-name literal starts with `models/`. |
-| `count_tokens_config_dropped` | The constructor's `generation_config` was not carried into `count_tokens`. |
-| `positional_args_mapped_by_index` | A positional `GenerativeModel(...)` argument past index 0 was mapped by the legacy order `(model_name, safety_settings, generation_config, tools, tool_config, system_instruction)`; printed because `safety_settings` precedes `generation_config`. |
-| `history_parts_rewritten` | Each string part of a `start_chat(history=...)` literal became `{"text": <the string>}`. |
-| `async_stream_await_preserved` | An `await` before an async streaming call survived the rename; dropping it raises `TypeError`. |
+| Code | Meaning | Fires when |
+|---|---|---|
+| `client_constructed_eagerly` | The new client checks the API key when it is built, and this one is built when the module is imported, so the import can raise ValueError where configure() did not. | The new `Client(...)` is at module level and `api_key=` is not a non-empty string literal. |
+| `model_name_looks_prefixed` | The model name starts with models/. The new SDK accepts the prefix, so it was left as written. | The model-name literal starts with `models/`. |
+| `count_tokens_config_dropped` | The model's generation_config or safety_settings were not carried into count_tokens. | The constructor's `generation_config` was not carried into `count_tokens`. |
+| `positional_args_mapped_by_index` | A positional argument past the model name was matched by the old SDK's order (model_name, safety_settings, generation_config, tools, tool_config, system_instruction); safety_settings comes first, so check each landed where you meant. | A positional `GenerativeModel(...)` argument past index 0 was mapped by that order. |
+| `history_parts_rewritten` | Each string part of the start_chat history literal became {"text": the string}. | A `start_chat(history=...)` literal held string parts. |
+| `async_stream_await_preserved` | An await before an async streaming call was kept after the rename; dropping it raises TypeError. | An `await` precedes an async streaming call that was renamed. |
 
 ## 6. Bail selection -- which code a withheld finding names
 

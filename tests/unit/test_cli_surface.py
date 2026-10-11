@@ -79,6 +79,8 @@ def test_help_names_each_migration_a_bundled_pack_makes() -> None:
 # An installed wheel has no `docs/`, so the text a user reads points at the repository instead.
 URLS = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["urls"]
 PAGE = f"{URLS['Repository']}/blob/main/"
+# What a report prints for a code's meaning: the page as this release ships it.
+RELEASED = f"{URLS['Repository']}/blob/v"
 
 
 def _help(command: Any) -> list[str]:
@@ -151,7 +153,7 @@ def test_no_message_names_a_path_in_a_checkout() -> None:
         str(path.relative_to(ROOT)): pointer
         for path in modules
         for pointer in _pointers(_messages(path))
-        if not pointer.startswith(PAGE)
+        if not pointer.startswith((PAGE, RELEASED))
     }
     assert found == {}
 

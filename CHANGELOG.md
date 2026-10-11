@@ -39,6 +39,28 @@ in the release that makes it.
   excluded and blocks nothing, so the rest migrates. A module a narrower `include` leaves out is
   named the same way instead of dropped without a word.
 
+### Changed
+
+- The `fix` summary says why findings were left for you, with a file written or not: how many, the
+  most common reasons, up to five of the rows that cause them (`path:line symbol code`), the files
+  that hold the pin without a row (a notebook, a file importing a module only the old distribution
+  installed), and a link to what each code means at this release's tag. A pack whose one
+  distribution holds both APIs says that the repository moves whole or not at all.
+- A warning on an edit that is written, or would be, is printed as
+  `Check <file>:<line>: <code>: <what to look at>`.
+- A command that follows: `Next: obelize fix --apply ... writes it.` after a dry run that planned a
+  file, and `Next: obelize fix ... shows what it would change.` after a `scan` with an `eligible`
+  row and no blocked pack. Both repeat `--pack` and `--repo`. After exit `6` the step is now one path
+  for every pack: undo, `fix --apply`, install what it wrote, then `verify --run <new id>`, since
+  a baseline that failed leaves nothing to compare with; when the tests merely gave no verdict, the
+  line says to install what the run wrote into the manifest first.
+- `scan` names the first three files that block a pin and, in `REPORT.md`, the files that import a
+  module only the old distribution installed. A blocked pack's rows are introduced as what `fix`
+  would try once the block is lifted. The limitations of a pack name its guide.
+- `--verify` says in its help that it runs only with `--apply`.
+- `REPORT.md` no longer lists a manifest as "still importing the legacy distribution" when the
+  pin waits on a module only that distribution installed; it lists the files that import it.
+
 ## [0.2.0] - 2026-10-10
 
 ### Benchmark

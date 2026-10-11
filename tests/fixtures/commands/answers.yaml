@@ -112,7 +112,7 @@ cases:
     runs:
       - what: the default, which writes nothing and shows what it would write
         argv: [fix]
-        next: null
+        next: &planned "Next: obelize fix --apply --pack {pack} --repo {repo} writes it."
         exit_code: 0
         mode: plan
         diff_lines: 25
@@ -239,7 +239,7 @@ cases:
       # items, and this is the only repository in the corpus where those two
       # readings differ.
       - argv: [fix]
-        next: null
+        next: *planned
         exit_code: 0
         mode: plan
         # `held.py` is not on the plan, so it is not in the diff either.
@@ -325,7 +325,7 @@ cases:
     git: {init: true}
     runs:
       - argv: [fix]
-        next: null
+        next: *planned
         exit_code: 0
         mode: plan
         diff_lines: 245
@@ -408,7 +408,7 @@ cases:
     git: {init: true}
     runs:
       - argv: [fix, --apply, --verify, '{red}']
-        next: "Next: obelize undo --run {run} --repo {repo}, then obelize fix --apply --repo {repo} --verify {tests}, with tests that pass before the change."
+        next: "Next: obelize undo --run {run} --repo {repo}, then obelize fix --apply --pack {pack} --repo {repo}, install what it writes, and run obelize verify --run <new id> --repo {repo} --verify {tests}."
         exit_code: 6
         mode: apply
         file_edits: [app.py, requirements.txt]
@@ -483,7 +483,7 @@ cases:
     git: {init: true}
     runs:
       - argv: [fix, --apply]
-        next: "Next: obelize verify --run {run} --repo {repo} --verify {tests} checks the change with your tests."
+        next: "Next: install what this run wrote into the manifest in your project's environment, then obelize verify --run {run} --repo {repo} --verify {tests} checks the change with your tests."
         exit_code: 6
         mode: apply
         file_edits: [app.py, requirements.txt]

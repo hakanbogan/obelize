@@ -13,7 +13,14 @@ from collections import Counter
 from pathlib import PurePath, PurePosixPath
 from typing import TYPE_CHECKING
 
-from obelize.models import WITHHELD, terminal_unsafe
+from obelize import __version__
+from obelize.models import (
+    ATOMICITY_BAIL,
+    REPO_ATOMICITY_BAIL,
+    WARNING_MEANINGS,
+    WITHHELD,
+    terminal_unsafe,
+)
 from obelize.native import shell
 from obelize.verify import redact
 from obelize.verify import status as verdicts
@@ -63,12 +70,22 @@ UNTRACKED = "commit them (git add, then git commit), or pass --allow-dirty"
 LEGEND = (
     "Columns: line, kind, symbol, status, reason. eligible: obelize fix will try to migrate "
     "it; needs_review: left for you, for the reason shown; unsupported: the new SDK has no "
-    "equivalent; not_a_usage: shown for context only."
+    "equivalent; not_a_usage: shown for context only. fix writes a file only when every row in it "
+    "is eligible (for openai, every row in the repository)."
 )
 
 
 # What turns a line of pack text into Markdown or HTML; `_` and `#` only matter at a line start.
 _MARKUP = re.compile(r"[\\`*<>&\[\]!|]")
+
+# Where `Edit.reason` is defined, at the tag of this release so the table is the one that ships.
+CODES = (
+    "https://github.com/hakanbogan/obelize/blob/v{version}/docs/SCAN_VOCABULARY.md"
+    "#4-bail-codes-editreason"
+)
+
+# Rows `_left` names with their file and line; the rest are in REPORT.md.
+ROOT_ROWS = 5
 
 # The interpreter the hint about obelize's own environment gives as an example.
 _VENV_TESTS = '--verify "/path/to/your/project/.venv/bin/python -m pytest -q"'
@@ -95,13 +112,29 @@ def _inside(folder: str, name: str) -> str:
     return str(PurePath(folder, name))
 
 
+def flags(repo: str, packs: Sequence[str] = ()) -> str:
+    """What a suggested `fix` repeats of this command: the packs named, and `--repo` as typed."""
+    where = "" if PurePath(repo) == PurePath(".") else f" --repo {shell.quote(repo)}"
+    return "".join(f" --pack {shell.quote(one)}" for one in packs) + where
+
+
 def terminal(
-    scan: Scan, pack: str, evidence: str | None, guides: Sequence[Guide] = ()
+    scan: Scan,
+    pack: str,
+    evidence: str | None,
+    guides: Sequence[Guide] = (),
+    fix: str = "",
 ) -> list[str]:
-    """`obelize scan`'s non-JSON output."""
+    """`obelize scan`'s non-JSON output; `fix` is `flags(...)` for the command it suggests."""
     lines = [f"obelize scan  {pack}", ""]
     for blocked in scan.blocked:
-        lines.extend([_blocked(blocked, _bare), ""])
+        lines.extend(
+            [
+                _blocked(blocked, _bare),
+                "The rows below show what fix would try once that is changed.",
+                "",
+            ]
+        )
     for path, findings in _by_path(scan.findings):
         lines.append(f"  {path}")
         lines.extend(_rows(findings))
@@ -118,6 +151,8 @@ def terminal(
         )
     if evidence is not None:
         lines.append(f"Evidence: {evidence}")
+    if not scan.blocked and scan.counts.eligible:
+        lines.append(f"Next: obelize fix{fix} shows what it would change.")
     return lines
 
 
@@ -149,11 +184,15 @@ def fixed(
     patch: bytes,
     environ: Mapping[str, str],
     repo: str,
+    packs: Sequence[str],
+    held: ManifestPlan,
     guides: Sequence[Guide] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
-    `repo` is `--repo` as typed, so the closing `Next:` command runs where the user is.
+    `repo` is `--repo` as typed and `packs` the `--pack` values, so the closing `Next:` command
+    runs where the user is, on what the user chose. `held` is the pin check, which names the
+    files that hold a pin without a row.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -163,13 +202,14 @@ def fixed(
         lines.extend([_blocked(stopped, _bare), ""])
     if not plan.files:
         lines.append("No change planned.")
-        lines.extend(_held_back(record))
     for row in plan.files:
         mark = "" if not applying else ("  written" if row.path in written else "  not written")
         rules = ", ".join(_rule(name, record) for name in row.rules)
         lines.append(f"  {row.path}  ({row.hunks} hunk(s), {rules}){mark}")
     if not applying and patch:
         lines.extend(["", *diff(patch, evidence, environ)])
+    lines.extend(_check(plan, written if applying else {row.path for row in plan.files}))
+    lines.extend(_left(record, held, evidence))
     lines.append("")
     lines.append(_headline(record.counts, FIX_SPLIT))
     for refusal in record.refused:
@@ -183,18 +223,65 @@ def fixed(
     if record.model is not None:
         lines.append(_consulted(record.model))
     lines.append(f"Evidence: {evidence}")
-    lines.extend(_next(record, evidence, repo))
+    lines.extend(_next(record, plan, evidence, repo, packs))
     return lines
 
 
-def _held_back(record: RunRecord) -> list[str]:
-    """The code that held back the most findings; an atomicity row counts for each of its causes."""
-    codes = Counter(code for row in record.withheld for code in row.caused_by or (row.bail,))
+def _check(plan: PlanDocument, files: set[str]) -> list[str]:
+    """One line per warning on an edit that is, or would be, written: `auto` never withholds."""
     return [
-        f"Most common reason a finding was left for review: {code} "
-        f"({count} of {len(record.withheld)})."
-        for code, count in codes.most_common(1)
+        f"Check {edit.path}:{edit.line}: {code}: {WARNING_MEANINGS[code]}"
+        for edit in plan.edits
+        if edit.status == "auto" and edit.path in files
+        for code in edit.warnings
     ]
+
+
+def _left(record: RunRecord, held: ManifestPlan, evidence: str) -> list[str]:
+    """Why findings were left for you, from the cause down.
+
+    Counted by cause: an atomicity row counts for each reason its file was held, and is not
+    counted for itself while another reason exists. The rows named are the causes, not the rows
+    they held.
+    """
+    if not record.withheld:
+        return []
+    atomic = {ATOMICITY_BAIL, REPO_ATOMICITY_BAIL}
+    codes = Counter(code for row in record.withheld for code in row.caused_by or (row.bail,))
+    concrete = Counter({code: count for code, count in codes.items() if code not in atomic})
+    reasons = ", ".join(f"{code} ({count})" for code, count in (concrete or codes).most_common(3))
+    lines = [
+        "",
+        f"{len(record.withheld)} finding(s) left for you. Most common reasons: {reasons}.",
+    ]
+    roots = [row for row in record.withheld if row.bail not in atomic]
+    lines.extend(
+        f"  {row.path}:{row.line}  {row.symbol or '--'}  {row.bail}" for row in roots[:ROOT_ROWS]
+    )
+    if len(roots) > ROOT_ROWS:
+        lines.append(f"  and {len(roots) - ROOT_ROWS} more in {_inside(evidence, 'REPORT.md')}")
+    named = {row.path for row in record.withheld}
+    unread = [path for path in held.blocking if path not in named]
+    if unread:
+        lines.append(
+            f"  Not analysed, so they hold the pin: {', '.join(unread)}. List a notebook "
+            f"under exclude in .obelize.yml to migrate the rest."
+        )
+    if held.transitive:
+        lines.append(
+            f"  Import a module only the old distribution installed, which no manifest "
+            f"declares: {', '.join(held.transitive)}."
+        )
+    manifests = {row.path for row in held.findings}
+    if any(
+        row.bail == REPO_ATOMICITY_BAIL and row.path not in manifests for row in record.withheld
+    ):
+        lines.append(
+            "  This pack moves a whole repository or none of it: fix the rows above by hand, "
+            "commit, and run obelize fix --apply again."
+        )
+    lines.append(f"What each code means: {CODES.format(version=__version__)}")
+    return lines
 
 
 def _guidance(guides: Sequence[Guide]) -> list[str]:
@@ -211,10 +298,14 @@ def _guidance(guides: Sequence[Guide]) -> list[str]:
     return [*lines, ""] if lines else []
 
 
-def _next(record: RunRecord, evidence: str, repo: str) -> list[str]:
-    """The command after an apply, by exit code; a dry run, `3` and `4` with none left have none."""
+def _next(
+    record: RunRecord, plan: PlanDocument, evidence: str, repo: str, packs: Sequence[str]
+) -> list[str]:
+    """The command after a run, by exit code; a dry run with nothing planned, `3` and `4` with
+    none left have none."""
+    fix = flags(repo, packs)
     if record.mode != "apply":
-        return []
+        return [f"Next: obelize fix --apply{fix} writes it."] if plan.files else []
     here = PurePath(repo) == PurePath(".")
     flag = "" if here else f" --repo {shell.quote(repo)}"
     git = "git" if here else f"git -C {shell.quote(repo)}"
@@ -236,11 +327,14 @@ def _next(record: RunRecord, evidence: str, repo: str) -> list[str]:
         step = _unblocked(record, record.verify, git, run)
     elif record.exit_code == 6 and verdicts.settled(record.verify):
         step = (
-            f"obelize undo {run}, then obelize fix --apply{flag} {_tests()}, with tests that "
-            f"pass before the change."
+            f"obelize undo {run}, then obelize fix --apply{fix}, install what it writes, and "
+            f"run obelize verify --run <new id>{flag} {_tests()}."
         )
     elif record.exit_code == 6:
-        step = f"obelize verify {run} {_tests()} checks the change with your tests."
+        step = (
+            f"install what this run wrote into the manifest in your project's environment, "
+            f"then obelize verify {run} {_tests()} checks the change with your tests."
+        )
     else:
         return []
     return [f"Next: {step}"]
@@ -677,6 +771,11 @@ def _manifest_section(plan: ManifestPlan) -> list[str]:
             ["", "Still importing the legacy distribution:", ""]
             + [f"- `{path}`" for path in plan.blocking]
         )
+    if plan.transitive:
+        lines.extend(
+            ["", "Importing a module only the legacy distribution installed:", ""]
+            + [f"- `{path}`" for path in plan.transitive]
+        )
     if plan.excluded:
         lines.extend(
             ["", "Excluded from the scan but still importing it:", ""]
@@ -722,7 +821,9 @@ def _limitations_section(record: RunRecord, packs: Sequence[PackDocument]) -> li
             )
         lines.append("")
     for pack in packs:
-        lines.extend([f"What `{pack.id}` says it does not handle:", ""])
+        lines.extend(
+            [f"What `{pack.id}` says it does not handle (its guide: {pack.source.url}):", ""]
+        )
         lines.extend([*(f"- {_prose(text)}" for text in pack.limitations), ""])
     return lines
 
@@ -773,7 +874,9 @@ def _repository(plan: ManifestPlan) -> list[str]:
     return [
         f"{len(plan.findings)} dependency declaration(s)"
         + (
-            f", blocked by {len(plan.blocking)} file(s) that still import it"
+            f", blocked by {len(plan.blocking)} file(s) that still import it: "
+            + ", ".join(plan.blocking[:3])
+            + (", ..." if len(plan.blocking) > 3 else "")
             if plan.blocking
             else ""
         )

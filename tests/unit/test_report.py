@@ -6,14 +6,29 @@ so the renderer never agrees with a value no pass produces.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path, PureWindowsPath
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
 from obelize import gitutil
 from obelize.config import load as load_config
 from obelize.evidence import report, run_dir
-from obelize.models import PackRef, PlanDocument, RunRecord, UndoFile, UndoRecord, VerifyRecord
+from obelize.models import (
+    WARNING_MEANINGS,
+    Edit,
+    Finding,
+    ManifestPlan,
+    PackRef,
+    PlanDocument,
+    RunRecord,
+    UndoFile,
+    UndoRecord,
+    VerifyRecord,
+    Withheld,
+)
 from obelize.packs import loader
 from obelize.scan import runner, runtime
 from obelize.transforms.kinds.flag_only import Guide
@@ -122,7 +137,8 @@ def test_the_table_is_followed_by_what_its_columns_mean(loud: Path) -> None:
     legend = (
         "Columns: line, kind, symbol, status, reason. eligible: obelize fix will try to migrate "
         "it; needs_review: left for you, for the reason shown; unsupported: the new SDK has no "
-        "equivalent; not_a_usage: shown for context only."
+        "equivalent; not_a_usage: shown for context only. fix writes a file only when every row "
+        "in it is eligible (for openai, every row in the repository)."
     )
     headline = next(index for index, line in enumerate(lines) if "finding(s)" in line)
     assert lines[headline - 3 : headline] == ["", legend, ""]
@@ -413,7 +429,7 @@ def test_the_report_lists_what_each_pack_says_it_does_not_handle(loud: Path) -> 
     pack = loader.load(BUNDLED).pack
     text = report.document(_record(loud, scan), scan, packs=[pack])
     assert scan.limitations, "the tree was built so that one file cannot be parsed"
-    heading = f"What `{pack.id}` says it does not handle:"
+    heading = f"What `{pack.id}` says it does not handle (its guide: {pack.source.url}):"
     assert text.index("| Path | Code | Detail |") < text.index(heading)
     assert all(f"\n- {entry}\n" in text for entry in pack.limitations)
 
@@ -495,3 +511,127 @@ def test_a_key_block_across_the_cut_is_redacted_whole() -> None:
     shown = report.diff((" x\n" * 198 + context + " y\n").encode(), "f", {})
     assert " [REDACTED]" in shown
     assert not [row for row in shown if "Tk9U" in row or "BEGIN" in row]
+
+
+def _withheld(*rows: tuple[str, int, str | None, str, tuple[str, ...] | None]) -> RunRecord:
+    """Only `withheld` is read, so only it is built; a full record needs a whole run."""
+    held = tuple(
+        Withheld.model_validate(
+            {"path": path, "line": line, "symbol": symbol, "bail": bail, "caused_by": caused}
+        )
+        for path, line, symbol, bail, caused in rows
+    )
+    return cast("RunRecord", SimpleNamespace(withheld=held))
+
+
+NO_PINS = ManifestPlan()
+
+
+def _pin(path: str = "requirements.txt") -> Finding:
+    return Finding(
+        path=path,
+        line=1,
+        column=0,
+        kind="manifest",
+        confidence_reason="manifest_dependency",
+        symbol="acme-sdk",
+        evidence=None,
+        scan_status="needs_review",
+        bail="repo_not_fully_migrated",
+    )
+
+
+def test_the_most_common_causes_are_named_and_the_files_they_held_are_not_counted_alone() -> None:
+    record = _withheld(
+        ("a.py", 3, "acme.sdk.Model", "model_object_escapes", None),
+        ("a.py", 4, "acme.sdk.Model.run", "file_not_fully_migrated", ("model_object_escapes",)),
+        ("a.py", 5, "acme.sdk.Model.run", "file_not_fully_migrated", ("model_object_escapes",)),
+        ("b.py", 1, "acme.sdk", "local_import", None),
+        ("requirements.txt", 1, "acme-sdk", "repo_not_fully_migrated", None),
+    )
+    held = ManifestPlan(findings=(_pin(),), blocking=("a.py",))
+    lines = report._left(record, held, ".obelize/runs/x")
+    assert lines[1] == (
+        "5 finding(s) left for you. Most common reasons: model_object_escapes (3), "
+        "local_import (1)."
+    )
+    assert lines[2:4] == [
+        "  a.py:3  acme.sdk.Model  model_object_escapes",
+        "  b.py:1  acme.sdk  local_import",
+    ]
+    assert not [line for line in lines if "whole repository" in line]
+
+
+def test_a_repository_held_only_by_atomicity_still_names_that() -> None:
+    record = _withheld(("requirements.txt", 1, "acme-sdk", "repo_not_fully_migrated", None))
+    lines = report._left(record, ManifestPlan(findings=(_pin(),), blocking=("a.py",)), "x")
+    assert lines[1].endswith("Most common reasons: repo_not_fully_migrated (1).")
+
+
+def test_only_five_causes_are_named_and_the_rest_are_counted() -> None:
+    record = _withheld(*((f"m{n}.py", 1, "acme.sdk", "local_import", None) for n in range(7)))
+    lines = report._left(record, NO_PINS, ".obelize/runs/x")
+    assert len([line for line in lines if line.startswith("  m")]) == 5
+    assert lines[7] == f"  and 2 more in {Path('.obelize/runs/x', 'REPORT.md')}"
+
+
+def test_files_that_hold_the_pin_without_a_row_are_named_apart() -> None:
+    record = _withheld(("a.py", 1, "acme.sdk", "local_import", None))
+    held = ManifestPlan(blocking=("a.py", "analysis.ipynb"), transitive=("retry.py",))
+    text = "\n".join(report._left(record, held, ".obelize/runs/x"))
+    assert "Not analysed, so they hold the pin: analysis.ipynb." in text
+    assert "a.py." not in text.split("Not analysed")[1]
+    assert "declares: retry.py." in text
+
+
+def test_a_pack_that_moves_a_whole_repository_says_so_for_its_source_rows_only() -> None:
+    source = _withheld(
+        ("a.py", 1, "openai.File", "flag_only_surface", None),
+        ("b.py", 2, "openai.api_key", "repo_not_fully_migrated", None),
+    )
+    held = ManifestPlan(findings=(_pin(),), blocking=("a.py",))
+    assert [line for line in report._left(source, held, "x") if "whole repository" in line]
+    pin_only = _withheld(("requirements.txt", 1, "acme-sdk", "repo_not_fully_migrated", None))
+    assert not [line for line in report._left(pin_only, held, "x") if "whole repository" in line]
+
+
+def test_no_reason_is_given_where_nothing_was_held() -> None:
+    assert report._left(_withheld(), NO_PINS, "x") == []
+
+
+def test_the_link_to_what_the_codes_mean_points_at_the_heading_that_defines_them() -> None:
+    page = Path(__file__).resolve().parents[2] / "docs" / "SCAN_VOCABULARY.md"
+    anchor = report.CODES.rpartition("#")[2]
+    slugs = {
+        re.sub(r"[^a-z0-9 -]", "", line.lstrip("# ").lower()).replace(" ", "-")
+        for line in page.read_text(encoding="utf-8").splitlines()
+        if line.startswith("## ")
+    }
+    assert anchor in slugs
+
+
+def test_a_warning_is_printed_for_an_edit_that_is_written_and_not_for_one_that_is_not() -> None:
+    def edit(path: str, status: str, *codes: str) -> Edit:
+        return Edit.model_validate(
+            {
+                "path": path,
+                "line": 2 if status == "auto" else 3,
+                "status": status,
+                "rule_id": "r" if status == "auto" else None,
+                "reason": None if status == "auto" else "local_import",
+                "warnings": codes,
+            }
+        )
+
+    plan = PlanDocument(
+        obelize_version="0",
+        edits=(
+            edit("held.py", "auto", "history_parts_rewritten"),
+            edit("held.py", "needs_review", "async_stream_await_preserved"),
+            edit("kept.py", "auto", "model_name_looks_prefixed"),
+        ),
+    )
+    meaning = WARNING_MEANINGS["model_name_looks_prefixed"]
+    assert report._check(plan, {"kept.py"}) == [
+        f"Check kept.py:2: model_name_looks_prefixed: {meaning}"
+    ]

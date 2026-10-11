@@ -16,10 +16,11 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner, Result
 
-from obelize import cli, commands, gitutil
+from obelize import __version__, cli, commands, gitutil
 from obelize.cli import app
 from obelize.commands import CommandError
 from obelize.evidence import report, run_dir
+from obelize.models import WARNING_MEANINGS
 from obelize.native import shell, windows_programs
 from obelize.packs import loader
 from obelize.verify import runner as verifier
@@ -778,7 +779,7 @@ def test_a_blocked_run_says_why_nothing_is_planned_and_how_to_unblock_it(
         "To migrate, raise the minimum in pyproject.toml to >=3.10 and run again."
     )
     assert lines[5:7] == ["", "No change planned."]
-    assert "runtime_unsupported (5 of 5)" in lines[7]
+    assert lines[8] == "5 finding(s) left for you. Most common reasons: runtime_unsupported (5)."
     assert any("5 finding(s): 5 needs review" in line for line in lines)
 
 
@@ -887,13 +888,15 @@ WINDOWS_TESTS = '--verify "<project python> -m pytest -q"'
             True,
             LEGACY,
             "/nonexistent/obelize-no-such-program -q",
-            'obelize undo --run {run} --repo "my repo", then obelize fix --apply --repo "my repo" '
-            f"{WINDOWS_TESTS}, with tests that pass before the change.",
+            'obelize undo --run {run} --repo "my repo", then obelize fix --apply --repo "my repo", '
+            f'install what it writes, and run obelize verify --run <new id> --repo "my repo" '
+            f"{WINDOWS_TESTS}.",
         ),
         (
             True,
             LEGACY,
             None,
+            "install what this run wrote into the manifest in your project's environment, then "
             f'obelize verify --run {{run}} --repo "my repo" {WINDOWS_TESTS} checks the change '
             "with your tests.",
         ),
@@ -1000,7 +1003,8 @@ def test_a_command_that_never_started_is_named_with_the_interpreter_to_try(tree:
     # It never started, so the baseline did not pass and `obelize verify` would run nothing.
     assert result.stdout.splitlines()[-1] == (
         f"Next: obelize undo --run {folder(tree).name} --repo {copied(tree)}, then obelize fix "
-        f"--apply --repo {copied(tree)} {TESTS}, with tests that pass before the change."
+        f"--apply --pack {PACK} --repo {copied(tree)}, install what it writes, and run "
+        f"obelize verify --run <new id> --repo {copied(tree)} {TESTS}."
     )
     hint = (
         "{0} did not start: there is no such program, or no permission to run it. "
@@ -1023,12 +1027,18 @@ def test_a_run_with_nothing_to_write_names_what_held_back_the_most(
     lines = result.stdout.splitlines()
     start = lines.index("No change planned.")
     assert lines[start + 1 : start + 3] == [
-        "Most common reason a finding was left for review: model_object_escapes (3 of 4).",
         "",
+        "4 finding(s) left for you. Most common reasons: model_object_escapes (3), "
+        "flag_only_surface (1).",
+    ]
+    assert lines[start + 3 : start + 6] == [
+        "  adapter.py:3  google.generativeai.GenerativeModel  flag_only_surface",
+        "  app.py:4  google.generativeai.GenerativeModel  model_object_escapes",
+        "What each code means: " + report.CODES.format(version=__version__),
     ]
 
 
-def test_a_run_with_a_plan_names_no_reason_for_holding_back(tree: Path) -> None:
+def test_a_run_with_a_plan_still_says_why_the_rest_was_left(tree: Path) -> None:
     (tree / "adapter.py").write_text(MOCKED, encoding="utf-8")
     result = fix(tree)
     assert result.exit_code == 0, result.output
@@ -1036,7 +1046,48 @@ def test_a_run_with_a_plan_names_no_reason_for_holding_back(tree: Path) -> None:
     assert record["withheld"], "something is held back"
     lines = result.stdout.splitlines()
     assert "No change planned." not in lines
-    assert not [line for line in lines if line.startswith("Most common reason")]
+    assert [line for line in lines if "left for you. Most common reasons:" in line]
+    assert "What each code means: " + report.CODES.format(version=__version__) in lines
+
+
+EAGER = """import os
+
+import google.generativeai as genai
+
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+MODEL = genai.GenerativeModel("models/gemini-1.5-flash")
+
+
+def note(diff):
+    return MODEL.generate_content(diff).text
+"""
+
+
+@pytest.mark.parametrize("extra", [(), ("--apply",)], ids=["dry_run", "apply"])
+def test_a_warning_on_an_edit_that_is_written_is_printed_with_what_to_look_at(
+    tree: Path, extra: tuple[str, ...]
+) -> None:
+    (tree / "app.py").write_text(EAGER, encoding="utf-8")
+    _commit(tree)
+    lines = fix(tree, *extra).stdout.splitlines()
+    eager = WARNING_MEANINGS["client_constructed_eagerly"]
+    prefixed = WARNING_MEANINGS["model_name_looks_prefixed"]
+    assert f"Check app.py:5: client_constructed_eagerly: {eager}" in lines
+    assert f"Check app.py:6: model_name_looks_prefixed: {prefixed}" in lines
+
+
+def test_a_warning_on_an_edit_that_is_not_written_is_not_printed(tree: Path) -> None:
+    (tree / "app.py").write_text(EAGER + "KEEP = [MODEL]\n", encoding="utf-8")
+    _commit(tree)
+    assert "Check app.py" not in fix(tree).stdout
+
+
+def test_the_flags_a_suggested_command_repeats_are_the_ones_it_was_given() -> None:
+    assert report.flags(".") == ""
+    assert report.flags(".", ["a/b"]) == " --pack a/b"
+    assert (
+        report.flags("my repo", ["x", "y"]) == f" --pack x --pack y --repo {shell.quote('my repo')}"
+    )
 
 
 @pytest.mark.parametrize("extra", [(), ("--apply",)], ids=["dry_run", "apply"])
@@ -1057,7 +1108,7 @@ def test_a_run_prints_what_the_pack_says_about_the_findings_it_left_for_you(
     assert f"### `{FLAGGED}`\n\n1 finding(s). {message}\n\n**Suggestion:** {suggestion}\n" in (
         report_text
     )
-    assert "says it does not handle:" in report_text
+    assert "says it does not handle (its guide: " in report_text
 
 
 def test_a_run_that_left_nothing_flagged_prints_no_guidance(tree: Path) -> None:

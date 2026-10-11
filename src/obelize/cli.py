@@ -193,7 +193,8 @@ def scan(
         typer.echo(f"Evidence: {evidence}", err=True)
         return
     label = ", ".join(f"{one.pack.id} {one.pack.pack_version}" for one in loaded)
-    for line in report.terminal(result, label or "no pack applies", evidence, guides):
+    fix_flags = report.flags(repo, pack or ())
+    for line in report.terminal(result, label or "no pack applies", evidence, guides, fix_flags):
         typer.echo(line)
     if not loaded:
         typer.echo(f"No pack applies. Checked: {', '.join(chosen.tried) or 'none'}.")
@@ -229,8 +230,8 @@ def fix(
         None,
         "--verify",
         metavar='"<cmd>"',
-        help="A verification command to run, such as your tests. Repeatable. Replaces "
-        "the commands in .obelize.yml, and runs without asking.",
+        help="A verification command to run, such as your tests. Runs only with --apply. "
+        "Repeatable. Replaces the commands in .obelize.yml, and runs without asking.",
     ),
     timeout: int | None = typer.Option(
         None,
@@ -275,7 +276,8 @@ def fix(
     Dry run by default: the change is printed and saved as patch.diff in the run
     folder. --apply needs a clean tree and runs, in order: your tests, the
     write, a compile check, your tests again. If your tests fail before the
-    write, the change is still written and the tests are not run a second time.
+    write, the change is still written and neither the compile check nor the
+    tests run again. Without a test command, only the write happens.
     """
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
@@ -342,6 +344,8 @@ def fix(
             outcome.patch,
             os.environ,
             repo,
+            pack or (),
+            outcome.manifest_plan,
             outcome.guides,
         ),
     )

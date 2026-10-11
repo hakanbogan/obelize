@@ -19,7 +19,8 @@ keep `bench/work/`.
 For pytest, `0` is `pass`, `1` is `fail`, `2` is `fail` when the junit report counts a failure or
 an error (an unimportable test module), and every other code is `inconclusive`. Other commands read
 `0` as `pass` and the rest as `fail`; a timeout is `inconclusive`. So "the tests failed" stays apart
-from "we never learned", as in `obelize verify`.
+from "we never learned". `obelize verify` is stricter: it reads every non-zero exit as `fail`,
+pytest's `5` (no test collected) too, since it reads a command and not a test runner.
 
 ### D3 -- A published result carries no absolute path
 

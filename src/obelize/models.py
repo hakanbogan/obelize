@@ -129,6 +129,35 @@ WarningCode = Literal[
 ]
 WARNING_CODES: frozenset[WarningCode] = frozenset(get_args(WarningCode))
 
+# What a terminal prints beside an applied edit; `SCAN_VOCABULARY.md` section 5 holds the same
+# sentences, and a test keeps the two equal.
+WARNING_MEANINGS: dict[WarningCode, str] = {
+    "client_constructed_eagerly": (
+        "The new client checks the API key when it is built, and this one is built when the "
+        "module is imported, so the import can raise ValueError where configure() did not."
+    ),
+    "model_name_looks_prefixed": (
+        "The model name starts with models/. The new SDK accepts the prefix, so it was left "
+        "as written."
+    ),
+    "count_tokens_config_dropped": (
+        "The model's generation_config or safety_settings were not carried into count_tokens."
+    ),
+    "positional_args_mapped_by_index": (
+        "A positional argument past the model name was matched by the old SDK's order "
+        "(model_name, safety_settings, generation_config, tools, tool_config, "
+        "system_instruction); safety_settings comes first, so check each landed where you "
+        "meant."
+    ),
+    "history_parts_rewritten": (
+        'Each string part of the start_chat history literal became {"text": the string}.'
+    ),
+    "async_stream_await_preserved": (
+        "An await before an async streaming call was kept after the rename; dropping it raises "
+        "TypeError."
+    ),
+}
+
 # An import finding is the statement itself, so only a bail about the statement, the
 # whole file or atomicity may withhold it; a downstream group's bail would double-count its defect.
 IMPORT_BAILS: frozenset[BailCode] = frozenset(
@@ -2011,6 +2040,7 @@ __all__ = [
     "VERIFY_STATUSES",
     "VERIFY_STATUS_ORDER",
     "WARNING_CODES",
+    "WARNING_MEANINGS",
     "WITHHELD",
     "BailCode",
     "Binding",

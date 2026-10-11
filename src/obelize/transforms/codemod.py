@@ -471,11 +471,19 @@ def _unfinished(plans: Sequence[ImpactPlan], graded: ManifestPlan) -> bool:
 
 
 def _withholding(plans: Sequence[ImpactPlan], graded: ManifestPlan) -> tuple[str, ...]:
-    """The files that hold a withheld row: what every other row of the pack waits on."""
+    """The files that hold a withheld row: what every other row of the pack waits on.
+
+    A pin withheld for a module only the legacy distribution installed waits on the files that
+    import it, not on the manifest.
+    """
     named = {
         str(plan.path) for plan in plans for row in plan.findings if row.scan_status in WITHHELD
     }
-    named.update(str(row.path) for row in graded.findings if row.scan_status in WITHHELD)
+    for row in graded.findings:
+        if row.scan_status in WITHHELD:
+            named.update(
+                graded.transitive if row.bail == manifests.TRANSITIVE_BAIL else [str(row.path)]
+            )
     return tuple(sorted(named))
 
 

@@ -83,8 +83,39 @@ def test_a_flagged_finding_is_followed_by_what_the_pack_says_about_it(tree: Path
     report = (_folder(tree) / "REPORT.md").read_text(encoding="utf-8")
     assert f"### `{FLAGGED}`\n\n1 finding(s). {message}\n\n**Suggestion:** {suggestion}\n" in report
     pack = loader.load(GEMINI).pack
-    assert f"What `{pack.id}` says it does not handle:" in report
+    assert f"What `{pack.id}` says it does not handle (its guide: {pack.source.url}):" in report
     assert all(f"\n- {entry}\n" in report for entry in pack.limitations)
+
+
+def test_a_scan_with_an_eligible_row_ends_with_the_command_that_shows_the_change(
+    tree: Path,
+) -> None:
+    (tree / "app.py").write_text(LEGACY.replace("KEEP = [MODEL]\n", ""), encoding="utf-8")
+    lines = _scan(tree, "--pack", GEMINI).stdout.splitlines()
+    assert (
+        lines[-1] == f"Next: obelize fix --pack {GEMINI} --repo {tree} shows what it would change."
+    )
+
+
+def test_a_scan_with_nothing_eligible_suggests_nothing(tree: Path) -> None:
+    result = _scan(tree)
+    assert result.exit_code == 0, result.output
+    assert not [line for line in result.stdout.splitlines() if line.startswith("Next:")]
+
+
+def test_a_scan_blocked_by_the_declared_python_says_what_the_rows_are(tree: Path) -> None:
+    (tree / "app.py").write_text(LEGACY.replace("KEEP = [MODEL]\n", ""), encoding="utf-8")
+    (tree / "pyproject.toml").write_text(
+        '[project]\nname = "x"\nrequires-python = ">=3.9"\n', encoding="utf-8"
+    )
+    lines = _scan(tree).stdout.splitlines()
+    assert "The rows below show what fix would try once that is changed." in lines
+    assert not [line for line in lines if line.startswith("Next:")]
+
+
+def test_the_files_that_keep_the_pin_are_named_where_they_are_counted(tree: Path) -> None:
+    lines = _scan(tree).stdout.splitlines()
+    assert "1 dependency declaration(s), blocked by 1 file(s) that still import it: app.py" in lines
 
 
 def test_a_pack_speaks_only_for_what_it_flagged_itself(tmp_path: Path) -> None:

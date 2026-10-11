@@ -84,7 +84,7 @@ modified.
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--apply` | Write the planned edits. Without it no source file is written: the terminal lists each file's hunks, then prints up to 200 lines of the unified diff, with secrets redacted and control characters escaped, and the path of `.obelize/runs/<id>/patch.diff`, which holds all of it as it is. |
 | `--allow-dirty` | Permit `--apply` with uncommitted changes. Without it, **any** modified or staged tracked file in the whole repository, or an untracked file on the plan, refuses the apply (other untracked files do not count, and the report counts the paths and never names them), so the `git diff` is the migration alone; so does `tree_unknown` (git failed, timed out or refused the directory). A dirty tree is recorded in the report. |
-| `--verify "<cmd>"` | A verification command. Repeatable. Replaces the repository's, and runs without asking. |
+| `--verify "<cmd>"` | A verification command. Runs only with `--apply`. Repeatable. Replaces the repository's, and runs without asking. |
 | `--timeout <s>` | Override `verify.timeout_s` (at least 1). |
 | `--non-interactive` | Never prompt; refuse a repository command not on the user allowlist unless `--trust-repo-config` is passed. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` in a non-interactive or CI run. |
@@ -95,7 +95,10 @@ modified.
 
 **Phase order:** check the working tree and every planned path; consult a
 configured model; run the baseline verification; write the patch; compile every
-`.py` file written; verify again. Consequences, each a case in
+`.py` file written; verify again. The last two belong to the verification: with
+no command to run, or after a failing baseline, they do not run, and the only
+compile check of the written bytes is the one the rules already made in memory
+(`output_does_not_parse`). Consequences, each a case in
 `tests/fixtures/commands/` or `tests/fixtures/providers/runs.yaml`:
 
 - A refused apply runs no command and sends nothing to a model.
@@ -116,11 +119,24 @@ run folder.
 
 **Review items** are `run.json`'s `withheld[]` rows, so `4` is the usual result
 on a real repository and `0` claims the whole repository migrated. A pipeline
-should accept `0` and `4`.
+should accept `0` and `4`. `--json` prints `plan.json`, which holds the edits the
+rules made or refused; the findings left for review, one row each with the code
+that held it, are in `run.json`'s `withheld[]`, so read that file to list them.
 
-**The summary ends with the next step** after an apply that exits `0`, `4`
-with review items, `5` or `6`: a `Next:` line holding the command to run. A
-run with nothing to write names the reason that held back the most findings.
+**The summary ends with the next step**: a `Next:` line holding the command to run after a dry run
+that planned a file (`obelize fix --apply`), after an apply that exits `0`, `4` with review items,
+`5` or `6`, and after a `scan` with an `eligible` row and no blocked pack (`obelize fix`). A command
+repeats the `--pack` and `--repo` you gave.
+
+**Findings left for you** are summarised whenever there are any, with a file written or not: how
+many, the most common reasons, up to five of the rows that cause them (`path:line symbol code`,
+with `and N more in REPORT.md` after them), the files that hold the pin without a row (a notebook
+is read but not analysed; list it under `exclude` to migrate the rest), and a link to what each
+code means. A pack whose one distribution holds both APIs adds a line saying the whole repository
+moves or none of it.
+
+**A warning on an edit that is written** (or would be, in a dry run) is printed as
+`Check <file>:<line>: <code>: <what to look at>`.
 
 **What a pack says about the findings it flagged** follows the counts, in `scan` and in `fix`: for
 each of its flagged changes that claimed a finding, its id, how many findings, its message and its
@@ -302,8 +318,8 @@ to these tables by `tests/unit/test_verify_vocabulary.py`.
 | Value | Under | Means |
 |---|---|---|
 | `baseline_failed` | `inconclusive` | The commands failed **before** the patch, so the after-run is skipped. Fix your tests. |
-| `changed_file_does_not_compile` | `fail` | A `.py` file obelize wrote does not compile. Always checked first. |
-| `command_failed` | `fail` | A command exited non-zero. |
+| `changed_file_does_not_compile` | `fail` | A `.py` file obelize wrote does not compile. Checked before the commands of the phase after the write, and so only where there are commands to run. |
+| `command_failed` | `fail` | A command exited non-zero, any non-zero exit: pytest's `5`, which means no test was collected, is a failure here. |
 | `command_not_executable` | `inconclusive` | A command never started: no such program, or no permission. |
 | `dry_run` | `not_run` | No `--apply`. No exit code of its own. |
 | `no_changes_to_verify` | `not_run` | An apply that wrote no file. No exit code of its own. |

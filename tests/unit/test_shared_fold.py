@@ -262,6 +262,9 @@ def test_a_module_only_the_legacy_distribution_installs_holds_the_shared_pack_un
         ("good.py", "needs_review", HELD),
         ("requirements.txt", "needs_review", "transitive_dependency_in_use"),
     }
+    # The files that wait are the ones that import the module, not the manifest that lacks it.
+    assert held.manifest_plan.transitive == ("net.py",)
+    assert held.manifest_plan.blocking == ("net.py",)
 
     (tree / "requirements.txt").write_text("acme-kit==1.5\nwirelib>=1\n", encoding="utf-8")
     released = fold(tree, WIRED)
@@ -447,6 +450,8 @@ def test_a_pin_the_rule_cannot_write_holds_the_files_the_shared_pack_would_write
         ("good.py", "needs_review", HELD),
         ("requirements.txt", "needs_review", "manifest_pin_shape_unsupported"),
     }
+    # A pin the rule cannot write is itself what the rest waits on.
+    assert outcome.manifest_plan.blocking == ("requirements.txt",)
 
 
 def test_a_setup_py_naming_both_distributions_is_one_row_of_the_plan(tmp_path: Path) -> None:

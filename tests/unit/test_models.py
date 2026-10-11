@@ -34,6 +34,7 @@ from obelize.models import (
     SKIP_REASONS,
     VERDICTS,
     WARNING_CODES,
+    WARNING_MEANINGS,
     WITHHELD,
     Binding,
     CommandRecord,
@@ -125,6 +126,12 @@ DECLARED_IN_CODE: dict[str, frozenset[str]] = {
 # Hoisted and annotated: inside `parametrize` mypy infers `object` for `sorted`'s key.
 ALL_SECTIONS: list[str] = sorted(SECTIONS, key=_by_number)
 DECLARED_SECTIONS: list[str] = sorted(DECLARED_IN_CODE, key=_by_number)
+
+
+def test_the_sentences_a_terminal_prints_are_the_ones_the_document_gives() -> None:
+    body = TEXT[TEXT.index("## 5. ") : TEXT.index("## 6. ")]
+    documented = dict(re.findall(r"^\| `([a-z_]+)` \| (.+?) \|", body, re.MULTILINE))
+    assert documented == WARNING_MEANINGS
 
 
 def test_the_document_parses_into_the_thirteen_sections_it_claims() -> None:

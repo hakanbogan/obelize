@@ -373,6 +373,7 @@ def test_a_fix_run_ends_with_the_step_after_it(state: dict[str, Any]) -> None:
         repo=copied(state["work"]),
         tests=copied("<project python> -m pytest -q"),
         report=Path(_evidence(state), "REPORT.md"),
+        pack=PACK,
     )
 
 
