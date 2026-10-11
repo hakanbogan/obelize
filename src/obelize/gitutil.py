@@ -43,10 +43,14 @@ class Tree:
 
 
 def run(root: Path, *arguments: str) -> str | None:
-    """One git command in `root`, or `None`; `surrogateescape` keeps non-UTF-8 paths intact."""
+    """One git command in `root`, or `None`; `surrogateescape` keeps non-UTF-8 paths intact.
+
+    `core.fsmonitor` is emptied first: a hook the repository's own config names would otherwise
+    run as `status` asks it which files changed, before anything has been approved.
+    """
     try:
         completed = subprocess.run(
-            [processes.git(), "-C", str(root), *arguments],
+            [processes.git(), "-c", "core.fsmonitor=", "-C", str(root), *arguments],
             capture_output=True,
             check=False,
             timeout=TIMEOUT_S,

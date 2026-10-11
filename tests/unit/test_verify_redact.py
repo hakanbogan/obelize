@@ -5,6 +5,8 @@ Each sample joins two literals at import time, so no line on disk matches a secr
 
 from __future__ import annotations
 
+import shlex
+
 import pytest
 
 from obelize.verify import redact
@@ -15,6 +17,15 @@ AWS = "AKIA" + "NOTAREALAWSKEY12"
 GITHUB = "ghp_" + "notarealgithubtoken000000000000000000"
 # Split like the four above: written whole, the header trips `detect-private-key`.
 PEM = "-----BEGIN RSA " + "PRIVATE KEY-----\nTk9UQVJFQUxLRVk=\n-----END RSA PRIVATE KEY-----"
+AWS_SESSION = "ASIA" + "NOTAREALAWSKEY12"
+GITHUB_OAUTH = "gho_" + "notarealgithubtoken000000000000000000"
+GITHUB_FINE = "github_pat_" + "NotARealFineGrainedToken0_" + "x" * 30
+HUGGING_FACE = "hf_" + "notarealhuggingfacetoken00000000000"
+SLACK = "xoxb-" + "0000000000-aaaaaaaaaaaa"
+STRIPE = "sk_live_" + "notarealstripekey0000"
+GITLAB = "glpat-" + "notarealgitlabtoken0000"
+PYPI = "pypi-" + "NotARealPyPIToken" * 3
+JWT = "eyJ" + "hbGciOiJIUzI1NiJ9" + "." + "eyJzdWIiOiJub3QifQ" + "." + "bm90LWEtcmVhbC1zaWduYXR1cmU"
 
 SHAPES = [
     (GOOGLE, "google"),
@@ -22,6 +33,15 @@ SHAPES = [
     (AWS, "aws"),
     (GITHUB, "github"),
     (PEM, "pem"),
+    (AWS_SESSION, "aws session"),
+    (GITHUB_OAUTH, "github oauth"),
+    (GITHUB_FINE, "github fine grained"),
+    (HUGGING_FACE, "hugging face"),
+    (SLACK, "slack"),
+    (STRIPE, "stripe"),
+    (GITLAB, "gitlab"),
+    (PYPI, "pypi"),
+    (JWT, "jwt"),
 ]
 
 
@@ -100,7 +120,43 @@ def test_the_name_rule_ignores_case_and_therefore_over_matches() -> None:
 
 def test_a_format_that_is_not_on_the_list_is_not_removed() -> None:
     """A limit `docs/PRIVACY.md` promises users, asserted so it cannot drift either way."""
-    assert redact.redact("xoxb-0000000000-aaaaaaaaaaaa", {}) == "xoxb-0000000000-aaaaaaaaaaaa"
+    twilio = "SK" + "0123456789abcdef0123456789abcdef"
+    assert redact.redact(twilio, {}) == twilio
+
+
+@pytest.mark.parametrize(
+    ("text", "kept"),
+    [
+        ("Authorization: Bearer abcdefghijklmnop0123", "Authorization: Bearer "),
+        ("curl -H 'authorization: bearer abcdefghijklmnop0123'", "curl -H 'authorization: bearer "),
+        ("postgres://app:hunter2hunter2@db.example/x", "postgres://app:"),
+    ],
+    ids=["bearer", "bearer lower case in quotes", "password in a url"],
+)
+def test_what_labels_a_secret_stays_and_the_secret_goes(text: str, kept: str) -> None:
+    cleaned = redact.redact(text, {})
+    assert cleaned.startswith(kept)
+    assert cleaned[len(kept) :].startswith(redact.REDACTED)
+    assert "hunter2" not in cleaned
+    assert "abcdefghij" not in cleaned
+
+
+def test_a_url_without_a_password_and_a_short_bearer_word_are_left_alone() -> None:
+    text = "https://example.invalid:8080/path Bearer short user@host.invalid"
+    assert redact.redact(text, {}) == text
+
+
+def test_a_quoted_password_keeps_its_name() -> None:
+    assert redact.redact("PASSWORD = 'hunter2hunter2'", {}) == "PASSWORD = '[REDACTED]'"
+    assert redact.redact('db_passwd: "hunter2hunter2"', {}) == 'db_passwd: "[REDACTED]"'
+
+
+@pytest.mark.parametrize("secret", [SLACK, JWT, PYPI, GITHUB_FINE])
+def test_a_redacted_command_still_splits_into_the_arguments_it_had(secret: str) -> None:
+    """A command is recorded as text, and the record is refused when `shlex` cannot split it."""
+    command = f"python -c 'print(1)' --token {secret} --header \"Authorization: Bearer {secret}\""
+    before, after = shlex.split(command), shlex.split(redact.redact(command, {}))
+    assert len(before) == len(after)
 
 
 def test_nothing_is_elided_below_the_cap() -> None:

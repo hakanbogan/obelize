@@ -22,15 +22,16 @@ only the **first** refusal is recorded:
 | 7 | `symbol_mismatch` | the proposal names a symbol other than the question's |
 | 8 | `replacement_too_large` | over the line or byte limit (D5) |
 | 9 | `replacement_not_displayable` | it holds a character a terminal acts on |
-| 10 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
-| 11 | `output_does_not_parse` | libcst refuses the resulting module |
-| 12 | `output_does_not_compile` | `compile()` refuses it (D6) |
-| 13 | `replacement_runs_past_its_range` | it changes how the lines after it are read |
-| 14 | `import_outside_the_target` | the result imports a module the pack does not target (D7) |
-| 15 | `name_outside_the_question` | it names something the question did not license (D7) |
+| 10 | `replacement_carries_redaction` | it holds `[REDACTED`, which the lines it replaces do not (D10) |
+| 11 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
+| 12 | `output_does_not_parse` | libcst refuses the resulting module |
+| 13 | `output_does_not_compile` | `compile()` refuses it (D6) |
+| 14 | `replacement_runs_past_its_range` | it changes how the lines after it are read |
+| 15 | `import_outside_the_target` | the result imports a module the pack does not target (D7) |
+| 16 | `name_outside_the_question` | it names something the question did not license (D7) |
 
 Three groups: may this file be touched (1-4), is this an answer to the question
-(5-7), and is the result Python that brings nothing in (8-15), last because
+(5-7), and is the result Python that brings nothing in (8-16), last because
 those cost a parse. `../../.bashrc` is reported as an escape, not an unplanned
 file, because that is what a reviewer must learn first.
 
@@ -94,6 +95,15 @@ Because bytes rebuilt by a caller need not be the bytes that were checked.
 
 Superseded by ADR-039: `providers/proposals.py` checks every proposal before
 `obelize fix` may write it.
+
+### D10. A placeholder the model echoes is refused
+
+The context a model is shown is redacted, so a secret stands in it as `[REDACTED...]`. A
+replacement that repeats the marker would write the word into the file where the value stood, and
+what ran with the value would run with the word. `replacement_carries_redaction` compares the
+`[REDACTED` prefix in the replacement with the lines it replaces: a marker those lines already hold
+is the file's own text and passes. Because a proposal that compiles and imports nothing can still
+destroy a credential, and the later checks cannot see it.
 
 ## Consequences
 

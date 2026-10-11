@@ -63,7 +63,9 @@ def end(group: int) -> None:
 
 
 def close(process: subprocess.Popen[bytes]) -> None:
-    """Nothing to release: a process group is no handle, and `end` kills what the command left."""
+    """Kill what is still in the command's group: its session is not obelize's, so a Ctrl-C that
+    ends obelize does not reach it."""
+    end(process.pid)
 
 
 def git() -> str:

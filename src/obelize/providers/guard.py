@@ -20,7 +20,7 @@ from obelize.models import terminal_unsafe
 from obelize.native import files
 from obelize.packs.schema import under_any
 from obelize.providers import base
-from obelize.verify import cheap
+from obelize.verify import cheap, redact
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Sequence
@@ -182,6 +182,19 @@ def _produced(
             proposal,
             "replacement_not_displayable",
             f"the replacement carries a character a terminal acts on instead of printing: {unsafe}",
+        )
+
+    # The model was shown `[REDACTED...]` where a secret stood, so a marker it echoes would be
+    # written into the file as text, unless the lines it replaces already hold one.
+    marker = redact.REDACTED[:-1]
+    if marker in proposal.replacement and marker not in "".join(
+        lines[proposal.start_line - 1 : proposal.end_line]
+    ):
+        return Checked(
+            proposal,
+            "replacement_carries_redaction",
+            f"the replacement holds {marker!r}, a placeholder for a secret the model was shown "
+            f"instead of the value, and the lines it replaces hold none",
         )
 
     # A second parse of `before`, for its encoding and imports; `split_lines` owns line splitting.

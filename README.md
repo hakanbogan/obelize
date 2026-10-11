@@ -165,21 +165,20 @@ network access unless you configure a model in your own `~/.config/obelize/confi
 `--model`.
 
 Run obelize in a repository that is committed or backed up, and pass only verification commands
-you trust. These gaps are known in 0.2.0:
+you trust. These gaps are known in 0.3.0:
 
-- A git command obelize runs can start a program that the repository's git configuration names,
-  such as `core.fsmonitor`, and on Windows it can load a DLL from the repository that git finds
-  neither beside itself nor in the system directories.
+- obelize turns `core.fsmonitor` off for its own git calls, but a repository's `.git/config` can
+  still name a filter driver that a git command starts. A clone does not carry that file, so it
+  takes a repository you already trust. On Windows git can also load a DLL from the repository
+  that it finds neither beside itself nor in the system directories.
 - Running `obelize verify` again on a run, or `obelize undo` twice, can overwrite the record of
   the earlier attempt.
-- Redaction misses common credential shapes, the recorded command line is not redacted, and a
-  key can reach a traceback. obelize reads a command's output as UTF-8, so a secret that a
-  Windows program writes as UTF-16, or with non-ASCII characters in an older code page, is not
-  redacted. Read a run folder before you share it.
-- On Linux and macOS, Ctrl-C leaves the verification command's processes running, and a child
-  process that ignores `SIGTERM` or has closed its output can outlive the command. On Windows
-  the command runs in a job object that ends with it, but a process that WMI, Task Scheduler or
-  `docker` starts on its behalf is outside the job and outlives it.
+- Redaction knows the credential shapes [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md#secret-redaction)
+  lists and no others, and a key can reach a traceback from the model adapter. obelize reads a
+  command's output as UTF-8, so a secret that a Windows program writes as UTF-16, or with non-ASCII
+  characters in an older code page, is not redacted. Read a run folder before you share it.
+- On Windows the verification command runs in a job object that ends with it, but a process that
+  WMI, Task Scheduler or `docker` starts on its behalf is outside the job and outlives it.
 
 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) has the details, and
 [docs/PRIVACY.md](docs/PRIVACY.md) lists what a run folder holds.

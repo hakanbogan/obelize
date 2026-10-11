@@ -295,12 +295,14 @@ def execute(
     """
     argv, junit = _argv(command, junit_dir, index)
     environment = {**environ, OBELIZE_RUN: "1"}
+    # What is recorded: a credential typed into the command must not outlive the run.
+    shown = redact.redact(command.text, environment)
     started = time.monotonic()
     try:
         process = processes.spawn(argv, root, environment)
     except OSError as error:
         return CommandResult(
-            command=command.text,
+            command=shown,
             source=command.source,
             status="inconclusive",
             reason="command_not_executable",
@@ -320,7 +322,7 @@ def execute(
     text, truncated = redact.cap(head, tail, elided)
     produced = _produced(junit_dir, junit)
     return CommandResult(
-        command=command.text,
+        command=shown,
         source=command.source,
         status="inconclusive" if timed_out else ("pass" if code == 0 else "fail"),
         reason="timeout" if timed_out else (None if code == 0 else "command_failed"),

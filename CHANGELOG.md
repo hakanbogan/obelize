@@ -61,6 +61,20 @@ in the release that makes it.
 - `REPORT.md` no longer lists a manifest as "still importing the legacy distribution" when the
   pin waits on a module only that distribution installed; it lists the files that import it.
 
+### Security
+
+- Every git command obelize runs sets `core.fsmonitor` to empty, so a hook the repository's own
+  `.git/config` names no longer runs while obelize reads the tree. A filter driver in that file,
+  which a clone does not carry, and on Windows a DLL placed in the repository, remain.
+- Ctrl-C no longer leaves a verification command running on Linux and macOS: closing the command
+  kills what is left of its process group.
+- The command and the command line a run records are redacted, and the redactor knows more shapes:
+  AWS session keys, GitHub OAuth, server and fine-grained tokens, Hugging Face, Slack, Stripe, GitLab
+  and PyPI tokens, JWTs, a `Bearer` token, the password of a URL and a quoted `password`.
+- A model proposal that repeats a `[REDACTED` placeholder it was shown, where the lines it replaces
+  hold none, is refused as `replacement_carries_redaction`, a new value of `GuardRefusal` in the
+  `proposal` schema and `run.json`.
+
 ## [0.2.0] - 2026-10-10
 
 ### Benchmark

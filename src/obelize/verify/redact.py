@@ -23,18 +23,33 @@ MIN_SECRET_LENGTH = 8
 # The secret shapes, in `THREAT_MODEL.md`'s order. The generic assignment keeps the setting's name,
 # which the reader needs in order to rotate it.
 _GENERIC_ASSIGNMENT = re.compile(
-    r"""(?P<name>api[_-]?key|token|secret)(?P<gap>\s*[:=]\s*)(?P<quote>['"])[^'"]{8,}(?P=quote)""",
+    r"""(?P<name>api[_-]?key|token|secret|passw(?:or)?d)(?P<gap>\s*[:=]\s*)"""
+    r"""(?P<quote>['"])[^'"]{8,}(?P=quote)""",
     re.IGNORECASE,
 )
+# A command is recorded as text `shlex` must still split, so no class below takes a quote or a
+# space, and a match is replaced by a word with neither.
 _PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"AIza[0-9A-Za-z_-]{35}"),
     re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"ghp_[A-Za-z0-9]{36}"),
+    re.compile(r"A[KS]IA[0-9A-Z]{16}"),
+    re.compile(r"gh[pousr]_[A-Za-z0-9]{36,}"),
+    re.compile(r"github_pat_[A-Za-z0-9_]{22,}"),
+    re.compile(r"hf_[A-Za-z0-9]{30,}"),
+    re.compile(r"xox[a-z]-[A-Za-z0-9-]{10,}"),
+    re.compile(r"[sr]k_live_[A-Za-z0-9]{16,}"),
+    re.compile(r"glpat-[A-Za-z0-9_.-]{20,}"),
+    re.compile(r"pypi-[A-Za-z0-9_-]{40,}"),
+    re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
     re.compile(
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
         re.DOTALL,
     ),
+)
+# What precedes the secret stays, since it says what to rotate or where it was sent.
+_LABELLED: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?P<head>\bBearer\s+)(?P<secret>[A-Za-z0-9._~+/=-]{16,})", re.IGNORECASE),
+    re.compile(r"""(?P<head>://[^/\s:@'"]+:)(?P<secret>[^/\s@'"]+)(?=@)"""),
 )
 
 # One mebibyte kept as its two ends: the first thing that went wrong, and the summary.
@@ -69,6 +84,8 @@ def redact(text: str, environ: Mapping[str, str]) -> str:
         text = text.replace(value, replacement)
     for pattern in _PATTERNS:
         text = pattern.sub(REDACTED, text)
+    for labelled in _LABELLED:
+        text = labelled.sub(lambda match: f"{match['head']}{REDACTED}", text)
     return _GENERIC_ASSIGNMENT.sub(
         lambda match: f"{match['name']}{match['gap']}{match['quote']}{REDACTED}{match['quote']}",
         text,

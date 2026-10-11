@@ -15,7 +15,7 @@ import pytest
 
 from obelize import fsutil, gitutil
 from obelize.native import processes
-from platforms import program, windows_only
+from platforms import posix_only, program, windows_only
 
 HEX = 40
 
@@ -48,6 +48,22 @@ def test_a_clean_repository_reports_its_head_and_its_branch(repository: Path) ->
     assert len(state.sha or "") == HEX
     assert state.branch == "work"
     assert state.dirty is False
+
+
+@posix_only("the hook is a shell script")
+def test_a_hook_the_repository_names_for_the_file_monitor_is_not_run(repository: Path) -> None:
+    marker = repository.parent / "ran"
+    hook = repository / ".git" / "hook.sh"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+    hook.chmod(0o755)
+    _git(repository, "config", "core.fsmonitor", str(hook))
+    _git(repository, "status", "--porcelain")
+    assert marker.exists(), "control: git runs the hook when nothing stops it"
+    marker.unlink()
+
+    gitutil.state(repository)
+    gitutil.tree(repository, ["app.py"])
+    assert not marker.exists()
 
 
 def test_a_modified_tracked_file_is_dirty(repository: Path) -> None:

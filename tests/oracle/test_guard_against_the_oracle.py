@@ -135,7 +135,7 @@ def test_a_refusal_says_something_about_this_proposal(case: dict[str, Any], driv
 
 
 def test_every_word_the_key_reaches_is_reached_by_something() -> None:
-    """Thirteen of fifteen; the key's header says where the other two are graded."""
+    """Fourteen of sixteen; the key's header says where the other two are graded."""
     named = {case["refusal"] for case in CASES} - {None}
     assert named == GUARD_REFUSALS - {
         "replacement_not_encodable",

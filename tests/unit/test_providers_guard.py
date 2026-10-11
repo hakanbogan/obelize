@@ -73,8 +73,8 @@ def check(
     )
 
 
-def test_the_vocabulary_is_the_fifteen_words_the_adrs_name() -> None:
-    """Twelve from ADR-037 D1, three more from D7, for what an import check cannot see."""
+def test_the_vocabulary_is_the_sixteen_words_the_adrs_name() -> None:
+    """Thirteen from ADR-037 D1, three more from D7, for what an import check cannot see."""
     assert {
         "file_changed_since_read",
         "import_outside_the_target",
@@ -85,6 +85,7 @@ def test_the_vocabulary_is_the_fifteen_words_the_adrs_name() -> None:
         "path_not_python",
         "path_not_the_consulted_file",
         "path_outside_root",
+        "replacement_carries_redaction",
         "replacement_not_displayable",
         "replacement_not_encodable",
         "replacement_runs_past_its_range",
@@ -461,6 +462,20 @@ SWALLOW_SOURCE = b"""import google.generativeai as genai
 model = genai.GenerativeModel("m")
 require_auth()
 """
+
+
+def test_a_placeholder_the_model_was_shown_is_not_written_back(tmp_path: Path) -> None:
+    """It saw `[REDACTED]` where a secret stood; a repeat would put the word in the file."""
+    echoed = 'model = genai.GenerativeModel("m", api_key="[REDACTED]")'
+    checked = check(tmp_path, f"def ask(prompt):\n    {echoed}\n    return model")
+    assert checked.refusal == "replacement_carries_redaction"
+    assert checked.after is None
+
+
+def test_a_marker_the_replaced_lines_already_hold_is_the_files_own_text(tmp_path: Path) -> None:
+    source = SOURCE.replace(b'{"seed": 7}', b'"[REDACTED by hand]"')
+    replacement = 'def ask(prompt):\n    model = None  # "[REDACTED by hand]"\n    return model'
+    assert check(tmp_path, replacement, source=source).refusal is None
 
 
 def test_a_replacement_that_runs_past_its_range_is_refused(tmp_path: Path) -> None:

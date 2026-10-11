@@ -437,3 +437,18 @@ def test_importing_the_cli_does_not_pull_in_a_heavy_dependency(module: str) -> N
         f"importing obelize.cli imported {module}. Move the import into the command body "
         f"that needs it -- see the module docstring in src/obelize/cli.py."
     )
+
+
+def test_the_command_line_a_run_records_has_no_credential_in_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MY_TOKEN", "abcdefghijklmnop")
+    monkeypatch.setattr(
+        sys, "argv", ["obelize", "fix", "--verify", "pytest --note abcdefghijklmnop", "--apply"]
+    )
+    assert cli._recorded_argv() == (
+        "fix",
+        "--verify",
+        "pytest --note [REDACTED:MY_TOKEN]",
+        "--apply",
+    )

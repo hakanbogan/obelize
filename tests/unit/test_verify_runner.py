@@ -13,6 +13,7 @@ import sys
 import time
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -410,6 +411,44 @@ def test_killing_a_process_that_is_already_gone_is_not_an_error(tmp_path: Path) 
         processes.close(process)
         with process:
             pass
+
+
+def test_a_credential_typed_into_a_command_is_not_recorded_with_it(tmp_path: Path) -> None:
+    """The record is what outlives the run; the process still gets the text it was given."""
+    value = "abcdefghijklmnop"
+    command = runner.Command.of(f"{PYTHON} -c pass --note {value}", "cli")
+    result = runner.execute(tmp_path, command, timeout_s=30, environ={"MY_TOKEN": value})
+    assert result.status == "pass"
+    assert result.command == f"{PYTHON} -c pass --note [REDACTED:MY_TOKEN]"
+
+    missing = runner.Command.of(f"/nonexistent/program {value}", "cli")
+    refused = runner.execute(tmp_path, missing, timeout_s=30, environ={"MY_TOKEN": value})
+    assert refused.command == "/nonexistent/program [REDACTED:MY_TOKEN]"
+
+
+@SIGNALS
+def test_an_interrupt_leaves_no_command_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The command has its own session, so the terminal's Ctrl-C never reached it."""
+    started: list[subprocess.Popen[bytes]] = []
+    spawn = processes.spawn
+
+    def spy(*arguments: Any) -> subprocess.Popen[bytes]:
+        started.append(spawn(*arguments))
+        return started[-1]
+
+    def interrupted(*_arguments: object) -> bytes:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(processes, "spawn", spy)
+    monkeypatch.setattr(processes, "read", interrupted)
+    command = runner.Command.of(f"{PYTHON} {quoted(TOOLS / 'slow.py')} 60", "cli")
+    with pytest.raises(KeyboardInterrupt):
+        runner.execute(tmp_path, command, timeout_s=30, environ=dict(os.environ))
+    started[0].wait(timeout=10)
+    with pytest.raises(ProcessLookupError):
+        os.kill(-started[0].pid, 0)
 
 
 @pytest.mark.parametrize(

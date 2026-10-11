@@ -1,7 +1,7 @@
 # The answer key for what a model's proposal must survive, written by hand
 # before `src/obelize/providers/guard.py` existed.
 #
-# One repository, one question, twenty-one answers to it. Every other corpus in
+# One repository, one question, twenty-two answers to it. Every other corpus in
 # this project grades what obelize decided about somebody's code; this one
 # grades what obelize decides about somebody *else's* proposal, which is the
 # only corpus here whose subject is hostile.
@@ -21,8 +21,8 @@
 # range are all graded elsewhere -- `answers.yaml` for the range,
 # `tests/fixtures/scan/` for the finding, `tests/fixtures/commands/` for the
 # rest. What is hand-written here is only what the guard decides: which of the
-# fifteen words each proposal is refused with, in which order the checks are
-# asked, and that exactly one of the twenty-one is accepted.
+# sixteen words each proposal is refused with, in which order the checks are
+# asked, and that exactly one of the twenty-two is accepted.
 #
 # Both halves again. A guard graded only by what it refuses would pass while
 # refusing everything, so `accepted` is a case and it is the one that also
@@ -34,7 +34,7 @@
 # well-formed, in range, about the right symbol and imports only the target; it
 # is not a working migration, and nothing here says it is.
 #
-# Thirteen of the fifteen words are reached here. `replacement_not_encodable`
+# Fourteen of the sixteen words are reached here. `replacement_not_encodable`
 # needs a file whose encoding cannot hold what the proposal says, and this
 # repository is UTF-8 throughout; it is graded in
 # `tests/unit/test_providers_guard.py` against the latin-1 shape
@@ -293,6 +293,18 @@ cases:
     symbol: google.generativeai.GenerativeModel
     replacement: "        getattr(__builtins__, \"__im\" + \"port__\")(\"os\")\n        model = None"
     refusal: name_outside_the_question
+
+  - case: echoes_the_placeholder_it_was_shown
+    what_it_is: >-
+      The context a model is shown has every secret replaced by a placeholder. A
+      replacement that repeats one would put the word `[REDACTED]` into the file
+      where a value stood, and the lines it replaces held no such marker.
+    path: nested.py
+    start_line: 31
+    end_line: 34
+    symbol: google.generativeai.GenerativeModel
+    replacement: "        model = \"[REDACTED]\""
+    refusal: replacement_carries_redaction
 
   - case: hides_text_behind_a_bidirectional_override
     what_it_is: >-

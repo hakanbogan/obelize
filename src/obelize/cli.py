@@ -168,7 +168,7 @@ def scan(
         config=configuration.config,
         source=configuration.source,
         git=gitutil.state(root),
-        argv=tuple(sys.argv[1:]),
+        argv=_recorded_argv(),
         started=started,
         finished=run_dir.now(),
         total_ms=int((time.monotonic() - began) * 1000),
@@ -304,7 +304,7 @@ def fix(
         mode=_trust(non_interactive=non_interactive, trust_repo_config=trust_repo_config),
         config_dir=_config_dir(),
         environ=os.environ,
-        argv=tuple(sys.argv[1:]),
+        argv=_recorded_argv(),
         apply=apply_changes,
         accept_model=accept_model,
         ask=_ask,
@@ -462,7 +462,7 @@ def undo(
         typer.echo(str(error), err=True)
         raise typer.Exit(2) from error
     try:
-        outcome = reverter.run(reverter.Request(root=root, run_id=run_id, argv=tuple(sys.argv[1:])))
+        outcome = reverter.run(reverter.Request(root=root, run_id=run_id, argv=_recorded_argv()))
     except CommandError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(error.code) from error
@@ -471,6 +471,13 @@ def undo(
     ):
         typer.echo(line)
     raise typer.Exit(outcome.exit_code)
+
+
+def _recorded_argv() -> tuple[str, ...]:
+    """The command line as `run.json` keeps it: a `--verify` command can carry a credential."""
+    from obelize.verify import redact
+
+    return tuple(redact.redact(argument, os.environ) for argument in sys.argv[1:])
 
 
 def _under(repo: str, relative: str) -> str:

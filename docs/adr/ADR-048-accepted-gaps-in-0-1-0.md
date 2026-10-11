@@ -13,19 +13,25 @@ instead of holding the release for them:
 - TM-5: a git call obelize makes can run a program the repository configured,
   such as `core.fsmonitor`, and on Windows can load a DLL placed in the
   repository that git finds neither beside itself nor in the system
-  directories.
+  directories. Since 0.3.0 `core.fsmonitor` is emptied on every call
+  (`gitutil.run`); a filter driver named in the repository's `.git/config`, which
+  a clone does not carry, and the DLL remain.
 - TM-8: running `obelize verify` again on a run, or `obelize undo` twice, can
   overwrite the record of the earlier attempt.
 - TM-9: the redactor misses common credential shapes, the recorded argv is not
   redacted, and a key can reach a traceback. Command output is read as UTF-8,
   so a secret that a Windows program writes as UTF-16, or with non-ASCII
-  characters in an older code page, is not matched.
+  characters in an older code page, is not matched. Since 0.3.0 the recorded
+  command and argv are redacted and the list holds the shapes THREAT_MODEL.md
+  names; a format not on it, and a key in the model adapter's traceback, remain.
 - TM-10: on POSIX, Ctrl-C leaves the command's process group running, a member
   that ignores `SIGTERM` outlives a leader that obeys it, and a member that has
   closed its output outlives the command's exit. On Windows, where the command
   runs in a job object instead, a process it has a broker start, such as WMI,
   Task Scheduler, a COM server, `runas`, `wsl` or `docker`, is outside the job
-  and outlives it.
+  and outlives it. Since 0.3.0 closing the command also kills its group, so
+  Ctrl-C leaves nothing running, and the end of the read already killed what a
+  leader left; only the Windows broker case remains.
 
 [THREAT_MODEL.md](../THREAT_MODEL.md) states each one, and the README tells
 users to run obelize on a repository that is committed or backed up and to pass

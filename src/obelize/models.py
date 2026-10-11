@@ -254,6 +254,7 @@ GuardRefusal = Literal[
     "path_not_python",
     "path_not_the_consulted_file",
     "path_outside_root",
+    "replacement_carries_redaction",
     "replacement_not_displayable",
     "replacement_not_encodable",
     "replacement_runs_past_its_range",
