@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ from obelize.scan.parse import (
     gates,
     read,
 )
+from obelize.verify import cheap
 from platforms import AS_ROOT, deny
 
 ENCODING = Path(__file__).resolve().parents[1] / "fixtures" / "scan" / "encoding"
@@ -147,11 +149,20 @@ def test_a_file_compile_refuses_never_reaches_libcst() -> None:
 def test_a_file_only_libcst_refuses_is_refused_by_libcst(monkeypatch: pytest.MonkeyPatch) -> None:
     """The mirror of `python2.py`: 3.12 and 3.13 accept a lone latin-1 byte in a comment, and 3.14
     refuses it, so `compile()` is made to accept it on every version."""
-    monkeypatch.setattr(parse, "compile", lambda *_args, **_kwargs: None, raising=False)
+    monkeypatch.setattr(cheap, "compiles", lambda *_args: None)
     result = gates("odd.py", AWKWARD["a non-UTF-8 byte and no cookie"])
     assert result.status == "does_not_parse"
     assert (result.findings[0].line, result.findings[0].column) == (1, 0)
     assert "Refused by libcst:" in result.limitations[0].detail
+
+
+def test_a_warning_compile_raises_is_not_printed_with_the_line_that_caused_it() -> None:
+    """An invalid escape is the author's business; the default filter would quote it on stderr."""
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        result = gates("old.py", b'import PyPDF2\nPATTERN = "\\d+"\nassert (1, "always true")\n')
+    assert result.status == "parsed"
+    assert seen == []
 
 
 # Each overruns libcst's parser (the process dies with SIGSEGV) after `compile()` has refused it.

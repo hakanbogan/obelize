@@ -126,7 +126,7 @@ def gates(path: str, data: bytes) -> Read:
     in the exception's `.filename`.
     """
     try:
-        compile(data, path, "exec")
+        cheap.compiles(data, path)
     except cheap.COMPILE_REFUSALS as error:
         return does_not_parse(path, data, "compile", error)
     try:

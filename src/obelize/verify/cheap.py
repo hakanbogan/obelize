@@ -8,6 +8,7 @@ interpreter that accepted the input.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -18,6 +19,14 @@ from obelize import fsutil
 COMPILE_REFUSALS = (SyntaxError, RecursionError, MemoryError)
 
 
+def compiles(data: bytes, path: str) -> None:
+    """`compile()` for its verdict alone. A `SyntaxWarning` (an invalid escape, `is` with a
+    literal) is the author's, and would quote their line on stderr."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SyntaxWarning)
+        compile(data, path, "exec")
+
+
 def refusal(root: Path, path: str) -> str | None:
     """Why this file does not compile or cannot be read, or `None` when it compiles.
 
@@ -26,7 +35,7 @@ def refusal(root: Path, path: str) -> str | None:
     A NUL-byte refusal has no line number.
     """
     try:
-        compile(fsutil.read(root / path), path, "exec")
+        compiles(fsutil.read(root / path), path)
     except COMPILE_REFUSALS as error:
         line = getattr(error, "lineno", None)
         return f"{path}:{line}: {_said(error)}" if line else f"{path}: {_said(error)}"
@@ -47,4 +56,4 @@ def uncompilable(root: Path, paths: Iterable[str]) -> tuple[str, ...]:
     )
 
 
-__all__ = ["COMPILE_REFUSALS", "refusal", "uncompilable"]
+__all__ = ["COMPILE_REFUSALS", "compiles", "refusal", "uncompilable"]
