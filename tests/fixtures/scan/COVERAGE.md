@@ -17,7 +17,7 @@ line, use lines, verdict and bail; and that the files blocking the manifest edit
 are the ones the key leaves importing the legacy distribution. Nothing is
 excluded, so a new code arrives with the fixture that grades it.
 
-The gaps are numbered: thirty-seven are written down and **eighteen are
+The gaps are numbered: thirty-seven are written down and **nineteen are
 closed**. None of the open ones is a shipped surface without a fixture; they are
 measurements and decisions. A closed gap is struck through and keeps its number,
 because task rows, ADRs, fixtures and `bench/errors.yaml` cite gaps by number.
@@ -110,10 +110,7 @@ Each lever is how many round-one rows would migrate if that cause alone were fix
     `local_import` refuses any import that is not module-level (ADR-020 D8), though the rename is
     mechanical and the open question is where the client goes. *Closes: rename in place, hoist, or
     refuse with the lever in the reason, with a fixture grading the choice.*
-29. **A configuration argument that is a name, and the prediction it reverses.** Lever +26:
-    `generation_config_not_static` refuses a name assigned once and readable, which ADR-012 D6
-    predicted would buy zero edits. *Closes: a decision about a name with exactly one binding in
-    reach, with fixtures for one binding and for two.*
+29. ~~A configuration argument that is a name, and the prediction it reverses~~ — closed.
 30. **A name assigned twice, both times a legacy model.** Lever +9: `multiple_assignments` is
     `len(scope[name]) > 1`, so reusing `model` for two legacy models is refused, and nothing grades
     it. *Closes: a decision about a second legacy constructor in one scope, with its fixture.*

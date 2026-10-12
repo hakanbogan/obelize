@@ -1015,20 +1015,22 @@ cases:
 
   - file: safety_not_static
     what_it_is: >-
-      A safety table this rule cannot read, because it is a name.
+      A safety table held by a name, changed after the name is assigned.
     complete: false
     after: present
     unclaimed: []
     edits:
-      - {line: 12, rule: rename-import, status: auto}
-      - {line: 14, rule: configure-to-client, status: auto}
-      - {line: 18, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
-      - {line: 22, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
+      - {line: 24, rule: generative-model-calls, status: needs_review, reason: safety_settings_not_static}
     notes: >-
       Every category and every threshold is resolved against a closed table
       before one is emitted, because the new enums fabricate an unknown member
       with only a `warnings.warn` and nothing downstream will ever raise. A
-      name is a value this rule would have to run the program to know.
+      table that a later line adds to is not the one written where the name is
+      assigned, and a name held to one plain assignment (`safety_name_module`)
+      is read.
 
   - file: chat_role_unknown
     what_it_is: >-
@@ -1322,3 +1324,163 @@ cases:
     notes: >-
       The retry inside the first handler is not itself inside the `try` it
       belongs to; the group goes with the calls that are.
+
+  # --- a configuration held by a name (tests/fixtures/scan/COVERAGE.md gap 29) -----------
+  - file: config_name_module
+    what_it_is: >-
+      A generation config held by a module-level name, read by a model built
+      in a function.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto}
+      - {line: 25, rule: generative-model-calls, status: auto}
+      - {line: 26, rule: generative-model-calls, status: auto}
+    notes: >-
+      The name has one assignment and the model is its only reader, so the
+      four keys are written into `chats.create`, the call the group's chat
+      is made by. The name stays where it is.
+
+  - file: config_name_local
+    what_it_is: >-
+      A configuration held by a name that belongs to the function that
+      builds the model.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto}
+    notes: >-
+      The assignment goes with the constructor, and so does the legacy
+      `GenerationConfig` call in the second function: line 20 is that call,
+      a row of the group and not a loose object.
+
+  - file: safety_name_module
+    what_it_is: >-
+      A safety table held by a module-level name, with the legacy enum
+      members as its keys.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 14, rule: rename-import, status: auto}
+      - {line: 14, rule: rename-import, status: auto}
+      - {line: 15, rule: rename-import, status: auto}
+      - {line: 15, rule: rename-import, status: auto}
+      - {line: 16, rule: rename-import, status: auto}
+      - {line: 17, rule: rename-import, status: auto}
+      - {line: 11, rule: configure-to-client, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 25, rule: generative-model-calls, status: auto}
+    notes: >-
+      The mapping is read where it is assigned and rebuilt as
+      `SafetySetting` objects. Its own lines stay, with the names of the new
+      enums, which `rename_import` writes for every attribute it finds: each
+      line of the mapping holds two, a key and a value.
+
+  - file: safety_name_on_the_call
+    what_it_is: >-
+      A list of mappings held by a module-level name, passed to a chat's
+      streaming call.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto}
+    notes: >-
+      The model has no configuration, so the call restates only the table.
+      The stream is read by a `for`, which is what lets
+      `send_message_stream` replace it.
+
+  - file: config_name_assigned_twice
+    what_it_is: >-
+      A configuration name with two assignments.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 24, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+    notes: >-
+      Two assignments leave the call's value to whichever ran last.
+
+  - file: config_name_changed
+    what_it_is: >-
+      A configuration name whose mapping is changed after it is assigned.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 20, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 25, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 25, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+    notes: >-
+      A key stored and `update` each make the literal the rule would copy
+      something other than what the model was built with. Line 25 holds both
+      generating calls.
+
+  - file: config_name_read_elsewhere
+    what_it_is: >-
+      A configuration name that something besides the model reads.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 11, rule: rename-import, status: auto}
+      - {line: 13, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 22, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+    notes: >-
+      Only a name whose every read is the configuration of a call the rule
+      rewrites is followed.
+
+  - file: config_name_shadowed
+    what_it_is: >-
+      A configuration name that is a parameter where the model is built.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 18, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+    notes: >-
+      The parameter is the binding the constructor sees, so the module's
+      mapping of that spelling is not what the call reads.
+
+  - file: config_name_shared
+    what_it_is: >-
+      A function's own configuration name, read by two models.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 18, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 19, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+    notes: >-
+      The name goes with a group, so a second reader would be left on a name
+      that is gone. Line 19 holds both generating calls.

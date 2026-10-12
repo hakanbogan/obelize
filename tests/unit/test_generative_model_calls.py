@@ -115,7 +115,7 @@ def test_the_configuration_class_and_its_submodule_spelling_are_both_read() -> N
         ('{"seed": 1}', "the same key, in the form nothing validated"),
         ("{**base}", "a mapping spread into another"),
         ("{KEY: 1}", "a key that is not a literal"),
-        ("base", "a name this rule cannot follow"),
+        ("unbound", "a name nothing in the file binds"),
         ("[1, 2]", "a shape that is neither"),
         ("dict(heat=1)", "a call that is not the configuration class"),
     ],
@@ -127,6 +127,184 @@ def test_a_configuration_this_rule_cannot_read(value: str, why: str) -> None:
         "def a(p):\n    return MODEL.run(p).answer\n"
     )
     assert refusals(edits) == ["generation_config_not_static"] * len(refusals(edits)), why
+
+
+def test_a_configuration_held_by_a_module_name_is_read_where_the_name_is_assigned() -> None:
+    """The name stays: another module may import it, and nothing about it needs to change."""
+    produced, edits = run(
+        "BASE = {'heat': 1}\nMODEL = sdk.Model('m', settings=BASE)\n\n\n"
+        "def a(p):\n    return MODEL.run(p).answer\n"
+    )
+    assert "options=types.RunConfig(heat=1)" in produced
+    assert "BASE = {'heat': 1}" in produced
+    assert refusals(edits) == [None, None]
+
+
+def test_two_models_may_read_one_module_name() -> None:
+    produced, edits = run(
+        "BASE = {'heat': 1}\nONE = sdk.Model('a', settings=BASE)\n"
+        "TWO = sdk.Model('b', settings=BASE)\n\n\n"
+        "def f(p):\n    return ONE.run(p).answer + TWO.run(p).answer\n"
+    )
+    assert produced.count("options=types.RunConfig(heat=1)") == 2
+    assert set(refusals(edits)) == {None}
+
+
+def test_a_function_s_own_configuration_name_goes_with_the_model() -> None:
+    produced, edits = run(
+        "def a(p):\n    base = {'heat': 1}\n    m = sdk.Model('m', settings=base)\n"
+        "    return m.run(p).answer\n"
+    )
+    assert "options=types.RunConfig(heat=1)" in produced
+    assert "base" not in produced
+    assert refusals(edits) == [None, None]
+
+
+def test_a_name_on_the_call_is_read_the_same_way() -> None:
+    produced, edits = run(
+        "BASE = {'heat': 1}\nMODEL = sdk.Model('m')\n\n\n"
+        "def a(p):\n    return MODEL.run(p, settings=BASE).answer\n"
+    )
+    assert "options=types.RunConfig(heat=1)" in produced
+    assert refusals(edits) == [None, None]
+
+
+def test_a_safety_table_held_by_a_name_is_read_the_same_way() -> None:
+    produced, edits = run(
+        "POLICY = {'rude': 'some'}\nMODEL = sdk.Model('m', guard=POLICY)\n\n\n"
+        "def a(p):\n    return MODEL.run(p).answer\n"
+        "\n\ndef b(p):\n    table = [{'kind': 'rude', 'level': 'some'}]\n"
+        "    return MODEL.run(p, guard=table).answer\n"
+    )
+    assert "POLICY = " in produced
+    assert "table = " not in produced
+    assert produced.count("types.Guard(kind=types.Rudeness.CATEGORY_RUDE") == 2
+    assert set(refusals(edits)) == {None}
+
+
+def test_a_legacy_configuration_object_a_function_holds_is_read_and_goes() -> None:
+    """Its legacy class has no counterpart by that name, so the object cannot stay."""
+    produced, edits = run(
+        "def a(p):\n    base = sdk.Config(heat=1)\n    m = sdk.Model('m', settings=base)\n"
+        "    return m.run(p).answer\n"
+    )
+    assert "options=types.RunConfig(heat=1)" in produced
+    assert "sdk.Config" not in produced
+    assert refusals(edits) == [None, None, None]
+
+
+def test_a_legacy_configuration_object_a_module_holds_keeps_the_file_as_it_was() -> None:
+    _produced, edits = run(
+        "BASE = sdk.Config(heat=1)\nMODEL = sdk.Model('m', settings=BASE)\n\n\n"
+        "def a(p):\n    return MODEL.run(p).answer\n"
+    )
+    assert set(refusals(edits)) == {"generation_config_not_static"}
+
+
+def test_a_function_s_name_two_models_read_is_not_followed() -> None:
+    """It goes with a group, and the other would be left reading a name that is gone."""
+    _produced, edits = run(
+        "def a(p):\n    base = {'heat': 1}\n    one = sdk.Model('a', settings=base)\n"
+        "    two = sdk.Model('b', settings=base)\n"
+        "    return one.run(p).answer + two.run(p).answer\n"
+    )
+    assert set(refusals(edits)) == {"generation_config_not_static"}
+
+
+@pytest.mark.parametrize(
+    "setup",
+    [
+        "BASE = {'heat': 1}\nBASE = {'heat': 2}\n",
+        "BASE = {'heat': 1}\nBASE |= {'limit': 2}\n",
+        "BASE = OTHER = {'heat': 1}\n",
+        "BASE, OTHER = {'heat': 1}, 2\n",
+        "for BASE in [{'heat': 1}]:\n    pass\n",
+        "import os as BASE\n",
+        "BASE = {'heat': 1}\nBASE['limit'] = 2\n",
+        "BASE = {'heat': 1}\nBASE.update(limit=2)\n",
+        "BASE = {'heat': 1}\nprint(BASE)\n",
+        "BASE = {'heat': 1}\nALIAS = BASE\n",
+        "BASE = {'heat': 1}\nOTHER = sdk.Config(settings=BASE)\n",
+        "BASE = {'heat': 1}\nMODEL_COPY = sdk.Model('m', preamble=BASE)\n",
+        "BASE = dict\n",
+    ],
+    ids=[
+        "assigned-twice",
+        "augmented",
+        "chained",
+        "unpacked",
+        "a-loop-target",
+        "an-import",
+        "a-subscript-store",
+        "an-update",
+        "another-reader",
+        "an-alias",
+        "a-call-that-is-not-a-models",
+        "another-parameter",
+        "a-builtin",
+    ],
+)
+def test_a_name_that_is_not_one_plain_assignment_read_only_as_a_configuration(setup: str) -> None:
+    """Each leaves the value open to change, or to a reader the copy would not reach."""
+    _produced, edits = run(
+        f"{setup}MODEL = sdk.Model('m', settings=BASE)\n\n\n"
+        "def a(p):\n    return MODEL.run(p).answer\n"
+    )
+    assert "generation_config_not_static" in refusals(edits)
+
+
+def test_a_parameter_that_shares_the_name_is_not_the_assignment() -> None:
+    _produced, edits = run(
+        "BASE = {'heat': 1}\n\n\ndef a(p, BASE):\n    m = sdk.Model('m', settings=BASE)\n"
+        "    return m.run(p).answer\n"
+    )
+    assert set(refusals(edits)) == {"generation_config_not_static"}
+
+
+def test_a_table_name_is_held_to_the_same_rules() -> None:
+    _produced, edits = run(
+        "POLICY = {'rude': 'some'}\nPOLICY = {}\nMODEL = sdk.Model('m', guard=POLICY)\n\n\n"
+        "def a(p):\n    return MODEL.run(p).answer\n"
+    )
+    assert set(refusals(edits)) == {"safety_settings_not_static"}
+
+
+@pytest.mark.parametrize(
+    "setup",
+    [
+        "def compute():\n    return 1\n\n\nBASE = {'heat': compute()}\n",
+        "LEVEL = 1\nBASE = {'heat': LEVEL}\n",
+    ],
+    ids=["a-value-that-runs", "a-name-the-call-binds-otherwise"],
+)
+def test_a_value_that_would_mean_something_else_at_the_call_is_not_carried(setup: str) -> None:
+    _produced, edits = run(
+        f"{setup}MODEL = sdk.Model('m', settings=BASE)\n\n\n"
+        "def a(p):\n    LEVEL = 2\n    return MODEL.run(p).answer\n"
+    )
+    assert set(refusals(edits)) == {"ctor_argument_not_portable"}
+
+
+def test_a_value_a_name_holds_is_checked_against_each_call_that_reads_it() -> None:
+    _produced, edits = run(
+        "def compute():\n    return 1\n\n\nBASE = {'heat': compute()}\nMODEL = sdk.Model('m')\n\n\n"
+        "def a(p):\n    return MODEL.run(p, settings=BASE).answer\n"
+    )
+    assert set(refusals(edits)) == {"ctor_argument_not_portable"}
+
+
+def test_a_configuration_object_with_no_name_to_follow_is_loose() -> None:
+    """Assigned to an attribute, to two names, or used as a statement: nothing reads it by name."""
+    for statement in (
+        "holder.settings = sdk.Config(heat=1)",
+        "ONE = TWO = sdk.Config(heat=1)",
+        "sdk.Config(heat=1)",
+    ):
+        _produced, edits = run(
+            f"holder = None\n{statement}\nMODEL = sdk.Model('m')\n\n\n"
+            "def a(p):\n    return MODEL.run(p).answer\n"
+        )
+        assert refusals(edits) == ["generation_config_not_static", None, None], statement
 
 
 def test_a_constructor_field_comes_before_the_configurations_own_keys() -> None:
@@ -209,7 +387,7 @@ def test_the_safety_tables_are_merged_by_category_and_not_wholesale() -> None:
         ("[{KEY: 'rude', 'level': 'some'}]", "a key of the list form that is not a literal"),
         ("[{'kind': 'rude'}]", "half a row"),
         ("[{'kind': 'rude', 'level': 'some', 'why': 1}]", "a row with a key too many"),
-        ("base", "a name this rule cannot follow"),
+        ("unbound", "a name nothing in the file binds"),
         ("'rude'", "a shape that is neither"),
     ],
 )

@@ -188,7 +188,7 @@ repository cites. The closed vocabularies they use live in
 | C-28 | `match.imports` is a dotted-prefix match on `google.generativeai`, not a list of names. |
 | C-29 | The manifest reader includes `tool.poetry.group.<name>.dependencies`. |
 | C-30 | Corpus code calls `configure()` inside functions and helper methods, so the client source is module-wide. |
-| C-31 | A `generation_config` that is a name assigned once in reach should resolve like a literal instead of bailing `generation_config_not_static`; open as COVERAGE gap 29. |
+| C-31 | A `generation_config` or `safety_settings` that is a name assigned once, and read only as such an argument, resolves like a literal instead of bailing `generation_config_not_static` (ADR-027 D4); COVERAGE gap 29 is closed. |
 | C-32 | The only static `safety_settings` in the corpus writes the canonical long forms, which is why the identity rows are required. |
 | C-33 | The pool pays from 32 candidate files once the default worker count leaves the parent a core. |
 | C-35 | `ParentNodeProvider` adds 17-30% to metadata resolution, paid only by the 2.19% of files that survive the byte prefilter. |

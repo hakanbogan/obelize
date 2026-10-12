@@ -8,12 +8,12 @@ written whole or refused whole.
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, ClassVar
 
 import libcst as cst
 import libcst.matchers as m
-from libcst.metadata import Assignment, QualifiedNameProvider, ScopeProvider
+from libcst.metadata import Assignment, FunctionScope, QualifiedNameProvider, ScopeProvider
 
 from obelize.models import BailCode, Edit
 from obelize.transforms import layout
@@ -143,6 +143,19 @@ class _Group:
     refusal: BailCode | None
     # Every claimed finding it decides, config-class calls inside it included.
     governed: tuple[Position, ...]
+    # Where a constructor or a call this rule rewrites starts: the readers of a configuration name.
+    claimed: frozenset[Position]
+
+
+@dataclass(frozen=True, slots=True)
+class _Definition:
+    """The one plain `name = value` a name has, and every place the name is read."""
+
+    statement: cst.Assign
+    value: cst.BaseExpression
+    reads: tuple[cst.CSTNode, ...]
+    # Whether the name is a function's own, which nothing outside the function reads by name.
+    local: bool
 
 
 class GenerativeModelCalls:
@@ -222,6 +235,11 @@ class GenerativeModelCalls:
         Deliberately no binding-eligibility check: a withheld binding has no eligible constructor.
         """
         groups = []
+        claimed = frozenset(
+            where
+            for where, finding in eligible.items()
+            if finding.kind == "method_call" or finding.symbol == self._params.ctor_symbol
+        )
         for binding in context.plan.bindings:
             position = next(
                 (
@@ -251,12 +269,26 @@ class GenerativeModelCalls:
                             where
                             for where, finding in sorted(eligible.items())
                             if finding.symbol == self._params.legacy_config_symbol
-                            and any(tree.inside(node, where) for node in written_in)
+                            and (
+                                any(tree.inside(node, where) for node in written_in)
+                                or self._read_through(tree, tree.call(where), written_in)
+                            )
                         ),
                     ),
+                    claimed=claimed,
                 )
             )
         return groups
+
+    @staticmethod
+    def _read_through(tree: _Tree, call: cst.Call, nodes: Sequence[cst.Call]) -> bool:
+        """Whether `call` is assigned to a function's own name that one of `nodes` reads."""
+        found = tree.defined_by(call)
+        return (
+            found is not None
+            and found.local
+            and any(tree.inside(node, tree.start(read)) for node in nodes for read in found.reads)
+        )
 
     def _closure(
         self,
@@ -378,11 +410,12 @@ class GenerativeModelCalls:
             raise BailError(context.client.bail or "client_source_unresolved")
         if group.refusal is not None:
             raise BailError(group.refusal)
-        ctor = self._constructor(tree, group)
+        named: list[_Definition] = []
+        ctor = self._constructor(tree, group, named)
         held: dict[int, _Config] = {0: ctor.config}
         plans: list[_Plan] = []
         for use in group.uses:
-            plan = self._plan(tree, held.get(use.owner, _EMPTY), use)
+            plan = self._plan(tree, group, held.get(use.owner, _EMPTY), use, named)
             plans.append(plan)
             for produced in use.produces:
                 held[produced] = plan.config
@@ -397,6 +430,8 @@ class GenerativeModelCalls:
             emitted = self._emit(context, tree, client, ctor, plan, alias)
             context.rewrites.set(plan.use.call, emitted)
         self._drop(context, tree, ctor.statement)
+        for found in {id(held.statement): held for held in named if held.local}.values():
+            self._drop(context, tree, found.statement)
         return {
             group.position: ctor.warnings,
             **{plan.use.position: plan.warnings for plan in plans},
@@ -412,13 +447,13 @@ class GenerativeModelCalls:
         """
         copied = [ctor.model, *(value for _name, value in ctor.config.fields)]
         for plan in plans:
-            if not all(tree.travels(value, group.call, plan.use.call) for value in copied):
+            if not all(tree.travels(value, plan.use.call) for value in copied):
                 raise BailError("ctor_argument_not_portable")
 
-    def _constructor(self, tree: _Tree, group: _Group) -> _Ctor:
+    def _constructor(self, tree: _Tree, group: _Group, named: list[_Definition]) -> _Ctor:
         """Read `GenerativeModel(...)` once for the group, or refuse it."""
-        named, warnings = self._ctor_arguments(group.call)
-        refused = sorted(set(named) & set(self._params.ctor_afc_kwargs))
+        given, warnings = self._ctor_arguments(group.call)
+        refused = sorted(set(given) & set(self._params.ctor_afc_kwargs))
         if refused:
             raise BailError("afc_semantics_differ")
         placed = {
@@ -427,9 +462,9 @@ class GenerativeModelCalls:
             self._safety_of.legacy_kwarg,
             *self._params.ctor_config_fields,
         }
-        if set(named) - placed:
+        if set(given) - placed:
             raise BailError("unknown_ctor_kwarg")
-        model = named.get(self._params.ctor_model_kwarg)
+        model = given.get(self._params.ctor_model_kwarg)
         if model is None:
             raise BailError("default_model_name_required")
         if self._prefixed(model):
@@ -441,7 +476,7 @@ class GenerativeModelCalls:
             raise BailError("receiver_unresolved")
         return _Ctor(
             model=model,
-            config=self._config(tree, named),
+            config=self._config(tree, group, given, named),
             statement=statement,
             warnings=tuple(sorted(warnings)),
         )
@@ -484,24 +519,34 @@ class GenerativeModelCalls:
         value = model.evaluated_value
         return isinstance(value, str) and value.startswith(self._params.model_name_prefix)
 
-    def _config(self, tree: _Tree, named: dict[str, cst.BaseExpression]) -> _Config:
+    def _config(
+        self,
+        tree: _Tree,
+        group: _Group,
+        given: dict[str, cst.BaseExpression],
+        named: list[_Definition],
+    ) -> _Config:
         """Config parameters in legacy order, then the config object's keys as written, then safety.
 
         Safety is rebuilt rather than carried, so it goes below the author's own spellings.
         """
         fields: list[Field] = [
-            (name, named[name])
+            (name, given[name])
             for name in self._params.ctor_order
-            if name in self._params.ctor_config_fields and name in named
+            if name in self._params.ctor_config_fields and name in given
         ]
         names = {name for name, _ in fields}
-        source = named.get(self._params.legacy_config_kwarg)
+        source = given.get(self._params.legacy_config_kwarg)
         if source is not None:
+            source = self._literal(tree, group, source, "generation_config_not_static", named)
             fields.extend(self._keys(tree, source))
             names.add(self._params.legacy_config_kwarg)
-        safety_source = named.get(self._safety_of.legacy_kwarg)
+        safety_source = given.get(self._safety_of.legacy_kwarg)
         safety: tuple[Row, ...] = ()
         if safety_source is not None:
+            safety_source = self._literal(
+                tree, group, safety_source, "safety_settings_not_static", named
+            )
             safety = tuple(_merged((), self._safety(tree, safety_source)))
             names.add(self._safety_of.legacy_kwarg)
         return _Config(
@@ -510,6 +555,55 @@ class GenerativeModelCalls:
             source=source,
             safety_source=safety_source,
             names=frozenset(names),
+        )
+
+    def _literal(
+        self,
+        tree: _Tree,
+        group: _Group,
+        node: cst.BaseExpression,
+        code: BailCode,
+        named: list[_Definition],
+    ) -> cst.BaseExpression:
+        """What a configuration argument is: itself, or the value of the name it is.
+
+        The name needs one plain assignment and no reader but a configuration argument of a call
+        this rule rewrites, so nothing else sees the value or changes it before the call. A
+        function's own name goes with the group, so no other group may read it; a module's stays,
+        and so does a legacy configuration call it holds, which would not survive the import.
+        """
+        if not isinstance(node, cst.Name):
+            return node
+        found = tree.defined(node)
+        if found is None or not all(self._configures(tree, group, read) for read in found.reads):
+            raise BailError(code)
+        if found.local:
+            nodes = (group.call, *(use.call for use in group.uses))
+            if not all(
+                any(tree.inside(call, tree.start(read)) for call in nodes) for read in found.reads
+            ):
+                raise BailError(code)
+            named.append(found)
+        elif isinstance(found.value, cst.Call):
+            raise BailError(code)
+        return found.value
+
+    def _configures(self, tree: _Tree, group: _Group, read: cst.CSTNode) -> bool:
+        """Whether `read` is the configuration or safety argument of a call this rule rewrites."""
+        argument = tree.parent(read)
+        if not (
+            isinstance(argument, cst.Arg)
+            and argument.value is read
+            and argument.keyword is not None
+            and argument.keyword.value
+            in {self._params.legacy_config_kwarg, self._safety_of.legacy_kwarg}
+        ):
+            return False
+        call = tree.parent(argument)
+        return (
+            isinstance(call, cst.Call)
+            and tree.start(call) in group.claimed
+            and tree.call(tree.start(call)) is call
         )
 
     def _keys(self, tree: _Tree, node: cst.BaseExpression) -> list[Field]:
@@ -751,7 +845,9 @@ class GenerativeModelCalls:
         only = part.elements[0]
         return isinstance(only, cst.DictElement) and literal_string(only.key) == shape.text_key
 
-    def _plan(self, tree: _Tree, base: _Config, use: _Use) -> _Plan:
+    def _plan(
+        self, tree: _Tree, group: _Group, base: _Config, use: _Use, named: list[_Definition]
+    ) -> _Plan:
         if tree.caught(use.call, frozenset(self._params.legacy_error_modules)):
             raise BailError("error_class_changed")
         read = self._call_arguments(tree, use)
@@ -762,8 +858,20 @@ class GenerativeModelCalls:
             target, streaming = use.rewrite.stream_call, True
             if not tree.iterated(use.call):
                 raise BailError("response_shape_changed")
-        own_fields = self._keys(tree, read.config) if read.config is not None else []
-        own_safety = self._safety(tree, read.safety) if read.safety is not None else []
+        own_fields: list[Field] = []
+        if read.config is not None:
+            written = self._literal(tree, group, read.config, "generation_config_not_static", named)
+            own_fields = self._keys(tree, written)
+            if written is not read.config and not all(
+                tree.travels(value, use.call) for _name, value in own_fields
+            ):
+                raise BailError("ctor_argument_not_portable")
+            read = replace(read, config=written)
+        own_safety: list[Row] = []
+        if read.safety is not None:
+            kept = self._literal(tree, group, read.safety, "safety_settings_not_static", named)
+            own_safety = self._safety(tree, kept)
+            read = replace(read, safety=kept)
         config = self._carried(base, read, own_fields, own_safety, use)
         warnings = read.warnings
         if use.rewrite.config_kwarg is None:
@@ -1020,13 +1128,44 @@ class _Tree(Tree):
             and not (isinstance(parent := self.parent(node), cst.Attribute) and parent.attr is node)
         )
 
-    def travels(self, value: cst.BaseExpression, source: cst.Call, target: cst.Call) -> bool:
-        """Whether `value` runs nothing and each name in it has one assignment, the same at both."""
+    def defined(self, name: cst.Name) -> _Definition | None:
+        """The one plain assignment `name` reads, or `None` for anything else: a second binding, a
+        parameter, an import, an unpacking, a loop or `with` target, an annotated assignment."""
+        scope = self._scopes[name]
+        found = scope[name.value] if scope is not None else set()
+        if len(found) != 1:
+            return None
+        (assignment,) = found
+        target = assignment.node if isinstance(assignment, Assignment) else None
+        link = self.parent(target) if isinstance(target, cst.Name) else None
+        statement = self.parent(link) if isinstance(link, cst.AssignTarget) else None
+        if not isinstance(statement, cst.Assign) or len(statement.targets) != 1:
+            return None
+        return _Definition(
+            statement=statement,
+            value=statement.value,
+            reads=tuple(access.node for access in assignment.references),
+            local=isinstance(self._scopes[statement.value], FunctionScope),
+        )
+
+    def defined_by(self, value: cst.BaseExpression) -> _Definition | None:
+        """The definition of the name `value` is the only value of, if it is a plain assignment."""
+        statement = self.parent(value)
+        if not isinstance(statement, cst.Assign) or len(statement.targets) != 1:
+            return None
+        target = statement.targets[0].target
+        return self.defined(target) if isinstance(target, cst.Name) else None
+
+    def travels(self, value: cst.BaseExpression, target: cst.Call) -> bool:
+        """Whether `value` runs nothing and each name in it has one assignment, the same at both.
+
+        "Here" is where `value` is written, which is not the call when it came from a name.
+        """
         reads = _Pasted()
         value.visit(reads)
         if reads.runs:
             return False
-        here, there = self._scopes[source], self._scopes[target]
+        here, there = self._scopes[value], self._scopes[target]
         for name in reads.names:
             found = here[name] if here is not None else set()
             if len(found) != 1 or there is None or there[name] != found:

@@ -130,8 +130,8 @@ A bail withholds its whole binding group; the group is atomic.
 | `ctor_argument_not_portable` | Folding the model's name or configuration into each call would change its meaning: it runs something (a call, an `await`, a comprehension), or a name in it is bound more than once or differently at the call. |
 | `positional_arg_ambiguous` | A parameter given by position and by keyword, or more positional arguments than the signature has (a parameter the pack lists only under `keywords` is not carried by position). Already a `TypeError`; refusing keeps it from becoming a silently wrong model. |
 | `default_model_name_required` | `GenerativeModel()` with no model name. |
-| `generation_config_not_static` | `generation_config=` is a spread, a computed `dict(...)`, an unresolvable name, or has a key outside the legal 15; or a configuration object is not a constructor argument. |
-| `safety_settings_not_static` | A category or threshold outside the closed tables, or a shape other than a category-to-threshold mapping or a list of one-row mappings. |
+| `generation_config_not_static` | `generation_config=` is a spread, a computed `dict(...)`, a name that is not one plain assignment read only as a configuration (assigned twice, changed, read elsewhere, a parameter, a legacy configuration call held at module level), or has a key outside the legal 15; or a configuration object is not a constructor argument. |
+| `safety_settings_not_static` | A category or threshold outside the closed tables, a shape other than a category-to-threshold mapping or a list of one-row mappings, or a name that is not one plain assignment read only as a configuration. |
 | `history_parts_shape_incompatible` | `start_chat(history=…)` outside the rewritable shape; also a model request that is a single turn, a name filled with a mapping, or any turn on a chat's `send_message`. A literal list of turns in a client call is reshaped instead. |
 | `dynamic_stream_flag` | `stream=` is not a literal. |
 | `async_stream_await_missing` | `async for` over `generate_content_async(..., stream=True)` with no `await`: already a `TypeError`, since the legacy method is a coroutine function. |

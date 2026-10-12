@@ -45,13 +45,27 @@ into a silently wrong model.
 The configuration is read from the legacy configuration class (by
 `legacy_config_symbol`, which this rule claims, or through `types` by
 `legacy_config_aliases`, which the import rule renames) or from a mapping
-literal. A key outside the fifteen in `generation_config_keys`, and any other
-shape (a name, a computed call, a splat, a non-literal key), is
-`generation_config_not_static`, because the unvalidated mapping is how `seed`
-reached the server (C-23). Fields are emitted as the constructor parameters in
-legacy order, then the configuration's keys as written (then the safety table,
-ADR-028 D6). A call's configuration merges over the constructor's key by key, as
-the legacy SDK did.
+literal, written in the argument or held by a name. A key outside the fifteen
+in `generation_config_keys`, and any other shape (a computed call, a splat, a
+non-literal key), is `generation_config_not_static`, because the unvalidated
+mapping is how `seed` reached the server (C-23). Fields are emitted as the
+constructor parameters in legacy order, then the configuration's keys as written
+(then the safety table, ADR-028 D6). A call's configuration merges over the
+constructor's key by key, as the legacy SDK did.
+
+A name is followed when it has one plain assignment (`name = value`: not a
+second binding, a parameter, an import, an unpacking, a loop or `with` target,
+or an augmented or annotated assignment) and every place it is read is the
+`generation_config` or `safety_settings` keyword of a constructor or call this
+rule rewrites. Then no other reader sees the value and nothing changes it between
+the assignment and the call (a stored key, `update`, an alias and a `print` each
+refuse), and the value is read as if it were written in the argument. A
+function's own name goes with its group, so a second group that reads it refuses
+both; a module's name stays where it is. A legacy configuration call held by a
+module's name is refused, since its class has no counterpart under that name once
+the import is renamed. What was copied must mean the same at each call as where it
+was assigned, which D2's `ctor_argument_not_portable` decides. A module's name
+that another module changes after importing it is not seen.
 
 ### D5. The token count drops the configuration, and the one keyword that stops it
 

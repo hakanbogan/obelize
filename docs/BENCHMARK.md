@@ -124,6 +124,12 @@ is a field of the record, and a `null` is never read as a zero or a true. Tiers 
   side.
 - The holdout is frozen at the start of a round. A case whose holdout failure
   led to a rule change moves to `dev`, and the round number increments.
+- Round 2 starts with `kvcops__Virtual-Herbal-Garden` and
+  `LJX2017__A-Song-of-Ice-and-Fire` in `dev`: they were holdout cases in round 1, and the
+  rule that closed COVERAGE gap 29 was written from their code. `bench/cases.yaml` still reads
+  `round: 1` and `holdout` for them, because `bench/results/round-1/` and the results page are
+  round 1's and `bench/summarize.py --check` holds the two together. The file changes in the
+  commit that publishes round 2.
 
 ## Anti-inflation rules
 

@@ -44,7 +44,8 @@ raised `KeyError`), so the pack carries string maps and member lists apart under
 the member name, so a finding would be a row no rule claims. Accepted shapes: a
 category-to-threshold mapping, or a sequence of one-row mappings keyed by
 `legacy_category_key` and `legacy_threshold_key`, declared apart from the new
-class's keywords. A name outside the tables, and any other shape, is
+class's keywords, written in the argument or held by a name that ADR-027 D4
+follows. A name outside the tables, and any other shape, is
 `safety_settings_not_static`, because the new enums fabricate an unknown member
 with only a warning (C-02).
 
