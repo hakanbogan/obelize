@@ -14,7 +14,8 @@ instead of holding the release for them:
   such as `core.fsmonitor`, and on Windows can load a DLL placed in the
   repository that git finds neither beside itself nor in the system
   directories. Since 0.3.0 `core.fsmonitor` is emptied on every call
-  (`gitutil.run`); a filter driver named in the repository's `.git/config`, which
+  and no optional lock is taken (`gitutil.run`), so `status` runs neither a file monitor nor a
+  `post-index-change` hook; a filter driver named in the repository's `.git/config`, which
   a clone does not carry, and the DLL remain.
 - TM-8: running `obelize verify` again on a run, or `obelize undo` twice, can
   overwrite the record of the earlier attempt.
@@ -31,7 +32,9 @@ instead of holding the release for them:
   Task Scheduler, a COM server, `runas`, `wsl` or `docker`, is outside the job
   and outlives it. Since 0.3.0 closing the command also kills its group, so
   Ctrl-C leaves nothing running, and the end of the read already killed what a
-  leader left; only the Windows broker case remains.
+  leader left; only the Windows broker case remains, and on POSIX a `SIGTERM`, `SIGHUP` or
+  `SIGKILL` sent to obelize itself, unlike Ctrl-C, still leaves the command running, as does a
+  descendant that starts its own session.
 
 [THREAT_MODEL.md](../THREAT_MODEL.md) states each one, and the README tells
 users to run obelize on a repository that is committed or backed up and to pass

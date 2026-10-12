@@ -86,8 +86,8 @@ uv tool install obelize
 pipx install --python python3.12 obelize
 ```
 
-`uvx` keeps the version it first downloaded; `uvx obelize@latest` fetches the newest. Every `Next:`
-line starts with `obelize`, so put `uvx` in front of it when you did not install the tool.
+`uvx` keeps the version it first downloaded; `uvx obelize@latest` fetches the newest. When you did
+not install the tool, put `uvx` in front of each `obelize` command a `Next:` line names.
 
 obelize is a command-line tool, so install it as one and not into your project's environment. It
 needs Python 3.12 or newer, and pipx takes the one `--python` names. The project it migrates
@@ -197,7 +197,8 @@ part it can prove, give the agent the rest, and keep the check:
 | `obelize pack validate` | Checks a migration pack against the [pack format](docs/PACK_SPEC.md). |
 
 `scan` and `fix` run every pack your repository uses, or the ones `--pack` names, and your own packs
-can sit in a directory your `.obelize.yml` lists (`pack_dirs`). The Gemini pack,
+can sit in a directory your own `~/.config/obelize/config.yml` lists as `pack_dirs`; a
+repository's `.obelize.yml` may not. The Gemini pack,
 `gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 22
 limitations. The limitations say what it reports instead of rewriting, such as every tool
 declaration, because automatic function calling is on by default in `google-genai`; what it cannot
@@ -244,8 +245,9 @@ network access unless you configure a model in your own `~/.config/obelize/confi
 Run obelize in a repository that is committed or backed up, and pass only verification commands
 you trust. These gaps are known in 0.3.0:
 
-- obelize turns `core.fsmonitor` off for its own git calls, but a repository's `.git/config` can
-  still name a filter driver that a git command starts. A clone does not carry that file, so it
+- obelize turns `core.fsmonitor` off for its own git calls and keeps `git status` from refreshing a
+  stale index, which would run a `post-index-change` hook. A repository's `.git/config` can still
+  name a filter driver that a git command starts. A clone does not carry that file, so it
   takes a repository you already trust. On Windows git can also load a DLL from the repository
   that it finds neither beside itself nor in the system directories.
 - Running `obelize verify` again on a run, or `obelize undo` twice, can overwrite the record of
@@ -254,6 +256,8 @@ you trust. These gaps are known in 0.3.0:
   lists and no others, and a key can reach a traceback from the model adapter. obelize reads a
   command's output as UTF-8, so a secret that a Windows program writes as UTF-16, or with non-ASCII
   characters in an older code page, is not redacted. Read a run folder before you share it.
+- On Linux and macOS, Ctrl-C stops the verification command, but killing obelize itself with
+  `SIGTERM` or `SIGHUP` leaves it running, as does a process it started in a session of its own.
 - On Windows the verification command runs in a job object that ends with it, but a process that
   WMI, Task Scheduler or `docker` starts on its behalf is outside the job and outlives it.
 

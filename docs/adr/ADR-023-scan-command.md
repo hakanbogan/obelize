@@ -99,7 +99,8 @@ timeout.
 ### D11. `argv` is what the *process* received
 
 `argv` records the arguments as received, excluding `argv[0]`, absolute paths
-included, because it is the audit record of what somebody typed (including
+included and, since 0.3.0, redacted ([ADR-048](ADR-048-accepted-gaps-in-0-1-0.md)), because it is
+the audit record of what somebody typed (including
 `--trust-repo-config`). An embedder calling `app()` in process therefore
 records its host's `sys.argv`.
 

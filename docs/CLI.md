@@ -56,7 +56,7 @@ that is not an existing directory, a `--repo` that is not a directory, `--jobs` 
 ### A CI check
 
 To fail a CI job while the repository still uses the legacy SDK, read the
-counts `--json` prints:
+findings `--json` prints:
 
 ```sh
 uvx obelize@X.Y.Z scan --json | python3 -c "import json, sys; rows = [r for r in json.load(sys.stdin)['findings'] if r['scan_status'] != 'not_a_usage']; [print(f\"::error file={r['path']},line={r['line']}::{r['symbol']} {r['scan_status']} {r['bail'] or ''}\") for r in rows]; sys.exit(1 if rows else 0)"
@@ -92,7 +92,7 @@ modified.
 | `--timeout <s>` | Override `verify.timeout_s` (at least 1). |
 | `--non-interactive` | Never prompt; refuse a repository command not on the user allowlist unless `--trust-repo-config` is passed. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` in a non-interactive or CI run. |
-| `--model <provider>` | `none` or `openai_compat`, replacing `model.provider` from [your own file](#the-user-files-configobelize) for this run. With more than one pack, or a pack that [moves a whole repository](#several-packs-in-one-run), a model is not asked: `--model` or `--accept-model` exits `2`, and a model only your own file configures is skipped with one line on stderr. |
+| `--model <provider>` | `none` or `openai_compat`, replacing `model.provider` from [your own file](#the-user-files-configobelize) for this run. With more than one pack, or a pack that [moves a whole repository](#several-packs-in-one-run), a model is not asked: `--model openai_compat`, or `--accept-model` while a model is configured, exits `2`, and a model only your own file configures is skipped with one line on stderr. `--model none`, and `--accept-model` with no model configured, change nothing. |
 | `--accept-model` | Also write the model's edits that passed validation. Requires `--apply` (exit `2` otherwise). Without this flag a proposal is only in `plan.json`, `patch.diff` and `model/`. |
 | `--show-context` | Print what would be sent to a model and stop: no request, no run folder. Works with `provider: none`; not with `--apply`; needs exactly one pack, and not one that [moves a whole repository](#several-packs-in-one-run). |
 | `--json` | `plan.json`'s bytes on stdout; the run folder's path on **stderr**. |
@@ -140,7 +140,8 @@ code means. A pack whose one distribution holds both APIs adds a line saying the
 moves or none of it.
 
 **A warning on an edit that is written** (or would be, in a dry run) is printed as
-`Check <file>:<line>: <code>: <what to look at>`.
+`Check <file>:<line>: <code>: <what to look at>`. After `--apply` the line is the one before the
+change, and the line says so.
 
 **What a pack says about the findings it flagged** follows the counts, in `scan` and in `fix`: for
 each of its flagged changes that claimed a finding, its id, how many findings, its message and its
@@ -183,7 +184,8 @@ of `openai` that already admits only 1.109.1 or later is left as written. One th
 in place, with extras or a URL, holds every file too: `scan` marks it `manifest_pin_shape_unsupported`.
 
 A model is never asked about such a pack: a proposal is one row, and the pack writes a whole
-repository or none. `--model`, `--accept-model` and `--show-context` exit `2` with it, as with several packs, and a model
+repository or none. `--model openai_compat`, `--accept-model` while a model is configured, and `--show-context` exit `2`
+with it, as with several packs, and a model
 only your own file configures is skipped with one line on stderr:
 `The configured model was not asked: <pack> moves a whole repository.` For several packs the line
 ends `this run uses more than one pack.` `fix` prints it, and `No pack applies`, on stderr, so

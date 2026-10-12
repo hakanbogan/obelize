@@ -47,16 +47,18 @@ gaps of the two other packs:
   blocked.
 - Model names are kept as they are, in every pack.
 - A source file with a chain of about four hundred terms is a `parse_error` row, not a rewrite. On
-  Python 3.14 and later `compile()` accepts a chain of tens of thousands of terms and libcst can
-  still segfault on it.
+  every Python `compile()` accepts a chain of about thirteen thousand `and` or `or` operands, and
+  on 3.14 and later a chain of tens of thousands of terms, and libcst can still segfault on them.
 - Python 3.15 is not in the supported range yet.
 - The four safety gaps in
   [docs/THREAT_MODEL.md](https://github.com/hakanbogan/obelize/blob/v0.3.0/docs/THREAT_MODEL.md) are
   narrower and still open: a filter driver named in a repository's own `.git/config` and, on
   Windows, a DLL placed in the repository; `obelize verify` or `obelize undo` run twice overwriting
   the record of the first; a credential shape the redactor does not list, a secret a Windows program
-  writes as UTF-16 and a key in the model adapter's traceback; and, on Windows, a process that WMI,
-  Task Scheduler or `docker` starts for a verification command.
+  writes as UTF-16 and a key in the model adapter's traceback; on Linux and macOS, `SIGTERM` or
+  `SIGHUP` sent to obelize itself, which leaves a verification command running where Ctrl-C does
+  not; and, on Windows, a process that WMI, Task Scheduler or `docker` starts for a verification
+  command.
 
 ### Fixed
 
@@ -85,6 +87,23 @@ gaps of the two other packs:
   excluded and blocks nothing, so the rest migrates. A module a narrower `include` leaves out is
   named the same way instead of dropped without a word.
 
+- A pin copied below a legacy one that something still imports is no longer joined to its
+  neighbour. A quoted array element that no comma follows (the last one of a `pyproject.toml` list
+  or a `setup.py` `install_requires`) was copied as it stood, which left a `pyproject.toml` that
+  `tomllib` refuses and a `setup.py` requirement of `PyPDF2==3.0.1pypdf>=6.19`. The row is now
+  withheld as `manifest_pin_shape_unsupported`.
+- A manifest edit that its rule would not write (extras, a URL, the case above, the new
+  distribution already declared) is withheld like a source rule's refusal. It was reported `auto`
+  with the manifest unchanged, so the run said `Verification: pass` and exited `0` or `6`. It is now
+  in `withheld[]`, is not counted in `counts.auto`, and the exit is `4`.
+- A `setup.py` with a lone carriage return before the requirement, or a byte order mark on its
+  line, no longer has its pin written at the wrong place (a `SyntaxError` on a line ending
+  `)>=6.19pypdf`): libcst counts those lines differently from the edit, so the row is named
+  without a pin. One that parses but overruns the stack in libcst's metadata pass (about four
+  hundred terms) declares nothing, where it ended `scan` and `fix` with a `RecursionError`.
+- `compile()` no longer prints a `SyntaxWarning` (an invalid escape, `is` with a literal) to
+  stderr with the source line that caused it.
+
 ### Changed
 
 - The `fix` summary says why findings were left for you, with a file written or not: how many, the
@@ -104,6 +123,16 @@ gaps of the two other packs:
   module only the old distribution installed. A blocked pack's rows are introduced as what `fix`
   would try once the block is lifted. The limitations of a pack name its guide.
 - `--verify` says in its help that it runs only with `--apply`.
+- A report that was misleading now is not. An apply that wrote nothing prints no `Next:` line,
+  since there is nothing to undo; a `Check` line after `--apply` says its line number is the one
+  before the change; a blocked migration says that migration plans no change, not the run; the
+  importers of a module only the old distribution installed are not listed as unanalysed; the
+  count of dependency declarations counts declarations, not the rows one is graded into; the
+  legend says a file is left as it was when any row in it is `needs_review` or `unsupported`; a
+  verification command with a `|` and the words of a model endpoint no longer break the tables of
+  `REPORT.md`.
+- A pack's `source.url` may hold no whitespace, control character or Markdown or HTML character,
+  since the report prints it.
 - `REPORT.md` no longer lists a manifest as "still importing the legacy distribution" when the
   pin waits on a module only that distribution installed; it lists the files that import it.
 
@@ -128,7 +157,7 @@ gaps of the two other packs:
 - `openai/openai-0-to-1` (0.2.0) migrates from `openai` 0.27.0, not only 0.28.1. A second Gate 0
   found one surface across 0.27.0 to 0.28.1 and identical results from the ten legacy fixtures;
   a pin below 0.27.0 blocks the pack. The weekly job runs the legacy fixtures on 0.27.0 too.
-- All three packs name model deprecations (openai, Gemini), suggest `<project python> -m pytest -q`
+- The openai and Gemini packs name model deprecations. All three suggest `<project python> -m pytest -q`
   and say a patch target "stops standing in for the code once it has moved". The Gemini pack
   (0.2.0) also names the class-wrapper refusal and the optional types `google-genai` returns. The
   openai pack names the Azure environment variables, `httpx2`, optional types, libraries that call
@@ -146,9 +175,16 @@ gaps of the two other packs:
 - The command and the command line a run records are redacted, and the redactor knows more shapes:
   AWS session keys, GitHub OAuth, server and fine-grained tokens, Hugging Face, Slack, Stripe, GitLab
   and PyPI tokens, JWTs, a `Bearer` token, the password of a URL and a quoted `password`.
+- Every git command also takes `--no-optional-locks`, so `status` does not rewrite a stale index
+  and run a `post-index-change` hook that the repository's config names through `core.hooksPath`.
+- The JWT and PEM patterns of the redactor took minutes on a megabyte of repeated starts
+  (`eyJeyJ...`, a `BEGIN` line with no `END`); both are read once now. A URL password with no user
+  (`redis://:secret@host`) is redacted. A redaction that crossed a quote no longer leaves a
+  record that cannot be split, which raised after the command had run: the record keeps the program
+  and `[REDACTED]`.
 - A model proposal that repeats a `[REDACTED` placeholder it was shown, where the lines it replaces
   hold none, is refused as `replacement_carries_redaction`, a new value of `GuardRefusal` in the
-  `proposal` schema and `run.json`.
+  `proposal` schema (the `refusal` of `model/proposals-<n>.json`); `run.json` is unchanged.
 
 ## [0.2.0] - 2026-10-10
 

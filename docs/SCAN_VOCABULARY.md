@@ -162,7 +162,7 @@ REPORT.md.
 |---|---|---|
 | `client_constructed_eagerly` | The new client checks the API key when it is built, and this one is built when the module is imported, so the import can raise ValueError where configure() did not. | The new `Client(...)` is at module level and `api_key=` is not a non-empty string literal. |
 | `model_name_looks_prefixed` | The model name starts with models/. The new SDK accepts the prefix, so it was left as written. | The model-name literal starts with `models/`. |
-| `count_tokens_config_dropped` | The model's generation_config or safety_settings were not carried into count_tokens. | The constructor's `generation_config` was not carried into `count_tokens`. |
+| `count_tokens_config_dropped` | The model's generation_config or safety_settings were not carried into count_tokens. | The model or the call set `generation_config` or `safety_settings`, which `count_tokens` does not carry. |
 | `positional_args_mapped_by_index` | A positional argument past the model name was matched by the old SDK's order (model_name, safety_settings, generation_config, tools, tool_config, system_instruction); safety_settings comes first, so check each landed where you meant. | A positional `GenerativeModel(...)` argument past index 0 was mapped by that order. |
 | `history_parts_rewritten` | Each string part of the start_chat history literal became {"text": the string}. | A `start_chat(history=...)` literal held string parts. |
 | `async_stream_await_preserved` | An await before an async streaming call was kept after the rename; dropping it raises TypeError. | An `await` precedes an async streaming call that was renamed. |

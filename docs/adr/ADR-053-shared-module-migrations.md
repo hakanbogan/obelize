@@ -26,7 +26,7 @@ The old side was widened to **0.27.0** (`from.version` `>=0.27.0,<1`) by a secon
 0.27.0, 0.27.2, 0.27.4, 0.27.6, 0.27.8, 0.27.10 and 0.28.0 beside 0.28.1 (3.12): the submodules and
 the `openai.error` classes are the same on all eight, the module's names are the same except
 `VERSION` and `requestssession`, which 0.27.0 to 0.27.4 do not define (and `FineTuningJob`, which
-0.27.6 and 0.27.8 do not), each Requires-Dist set is the same, and the ten `.before.py` fixtures print
+0.27.0 to 0.27.8 do not), each Requires-Dist set is the same, and the ten `.before.py` fixtures print
 identical results on every one against a local server. A name only the newer releases define is one
 code written for an older release could not use, so the rules mean the same on all of them.
 `openai` 0.26 and older have no `ChatCompletion`: a pin below 0.27.0 blocks the pack.

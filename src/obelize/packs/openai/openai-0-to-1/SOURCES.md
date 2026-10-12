@@ -70,8 +70,10 @@ The limitations that rest on the SDK's own text and not on a fixture:
   HTTPX cannot intercept it. Its `requires_python` is `>=3.10`, which is where the pin resolves to 3.x.
 - Azure environment variables: `openai/__init__.py` of 3.26.0 reads `OPENAI_API_TYPE`,
   `OPENAI_API_VERSION` and `AZURE_OPENAI_ENDPOINT` at import, and `_load_client` chooses an Azure
-  client when only Azure credentials are set and raises `_AmbiguousModuleClientUsageError` when both
-  sets are. 0.28.1 read none of them.
+  client when only Azure credentials (`AZURE_OPENAI_API_KEY` included) are set and raises
+  `_AmbiguousModuleClientUsageError` when both sets are. 0.28.1 read `OPENAI_API_TYPE` and
+  `OPENAI_API_VERSION` into module settings, and neither `AZURE_OPENAI_ENDPOINT` nor
+  `AZURE_OPENAI_API_KEY`.
 - Optional types: 3.26.0 types `usage` and `message.content` of a chat completion, `data` and `url`
   of an image result as `Optional`, where the 0.28.1 `create` was untyped and returned `Any`.
 - Libraries that call 0.x themselves: langchain 0.0.330 assigns `openai.ChatCompletion` in

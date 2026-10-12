@@ -103,7 +103,7 @@ report is empty. Neither is ever absent.
 | `obelize_version` | string | all | The writing obelize's `__version__`. |
 | `mode` | string | all | `scan`, `plan` or `apply`. |
 | `exit_code` | integer | all | The process exit code ([CLI.md](CLI.md#exit-codes)); known last, so `run.json` follows every other artefact. |
-| `argv` | array of strings | all | The arguments as received, excluding `argv[0]`, unredacted: `--verify` values and `--trust-repo-config` included. |
+| `argv` | array of strings | all | The arguments as received, excluding `argv[0]`, redacted like command output ([THREAT_MODEL.md](THREAT_MODEL.md#secret-redaction)): a credential of a shape it lists reads `[REDACTED]`, one it does not list is kept, so review the folder before sharing it. `--trust-repo-config` is included. |
 | `python` | object | all | `{version, implementation}`, for example `{"version": "3.12.9", "implementation": "CPython"}`. No interpreter path: it names the machine and often the person. |
 | `platform` | object | all | `{system, release, machine}` from `platform`. |
 | `git_sha` | string or null | all | `HEAD` at the start of the run; `null` when the target is not the top of a git repository. |
@@ -225,7 +225,7 @@ One row per command that ran, under `verify` and under `verify.baseline`.
 
 | Field | Type | Description |
 |---|---|---|
-| `command` | string | The command as given. |
+| `command` | string | The command as given, redacted the same way as `argv`; the process still ran the text you typed. |
 | `source` | string | `cli`, `user_allowlist` or `repo_config`: its trust rung. A pack's `verification.suggestions` are never executed. |
 | `status` | string | This command's verdict; only exit code `0` passes. |
 | `reason` | string or null | Set exactly when it did not pass: `command_failed`, `command_not_executable` or `timeout`. |
@@ -477,8 +477,8 @@ Is what it produces Python, and does it bring anything in:
 | Value | Meaning |
 |---|---|
 | `replacement_too_large` | Over ADR-003's diff size limit, in lines or bytes. |
-| `replacement_carries_redaction` | It holds `[REDACTED`, the placeholder for a secret the model was shown instead of the value, and the lines it replaces hold none: written as it stands it would put the word in the file. |
 | `replacement_not_displayable` | A control, format or surrogate character other than tab or line break: the line a reviewer reads is not the line that runs. |
+| `replacement_carries_redaction` | It holds `[REDACTED`, the placeholder for a secret the model was shown instead of the value, and the lines it replaces hold none: written as it stands it would put the word in the file. |
 | `replacement_not_encodable` | Not writable in the file's own encoding. |
 | `output_does_not_parse` | libcst refuses the result. |
 | `output_does_not_compile` | `compile()` refuses it: `await` outside `async` passes libcst and fails here. |

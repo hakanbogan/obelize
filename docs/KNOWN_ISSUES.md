@@ -37,8 +37,8 @@ it. A stored configuration file or run record that is unreadable or holds an une
 blocks `undo` instead of explaining what is wrong. There is no check that a directory is writable
 before a migration starts, so a read-only one can be left half migrated. A few files, including
 `.obelize/latest` itself, are written by truncating and rewriting rather than by the same
-crash-safe rename the rest of the run folder uses. The `fix` summary gives counts of what changed
-without saying why an item was left for review or what to do about it. A refusal partway through a
+crash-safe rename the rest of the run folder uses. The `fix` summary names why findings were left
+for you and links what each code means, but not what to change. A refusal partway through a
 run can still leave the CLI's documented promise that "a refused apply runs no command" untrue,
 since a baseline can have already run before the refusal.
 
@@ -61,7 +61,8 @@ The syntax check obelize runs before touching a file inherits `from __future__ i
 annotations` from its own source, so it can refuse code that is actually valid. An
 expression nested deeply enough to overrun the interpreter's stack (thousands of nested
 parentheses, tens of thousands of operands) is refused by `compile()` and reported as a file that
-does not parse; Python 3.14 and later accept chains that long, and libcst can still segfault the
+does not parse; Python 3.14 and later accept chains that long, and a chain of about thirteen
+thousand `and` or `or` operands is accepted on every version, and libcst can still segfault the
 scan on them. Several matching rules key off a spelling or a line position rather than the actual
 binding, which can both over-match and under-match in unusual code: a private import used without
 a version bound on the library that defines it, a combined import whose surviving names can
@@ -77,7 +78,7 @@ names it.
 
 A file half migrated by hand can hold the whole repository. A call on a client the agent or you
 built with `genai.Client()` has a receiver that resolves to no legacy model, so the scan reports it
-as `receiver_unresolved` (ADR-019 D5), every other row of the file becomes
+as `receiver_unresolved` ([the receiver rule](adr/ADR-019-resolution-detection-rules.md)), every other row of the file becomes
 `file_not_fully_migrated` and the pin stays. The reverse is also unseen: `genai.configure(...)` or
 `genai.GenerativeModel(...)` read off `from google import genai`, and `from pypdf import
 PdfFileReader`, produce no row, because the file is never parsed (COVERAGE gap 36); the new module
@@ -195,7 +196,7 @@ the setting in another distribution, a write through `exec`, `globals()`, `sys.m
 formed it at each request. A value that is no URL (`None`, an empty string) fails at the first call
 on both sides, and one with leading whitespace, which 0.28.1 sent through `requests`, fails on the
 new releases. A long line can pass the formatter's width, and ruff's `UP031` flags the `%` format,
-which is kept so that a file rebinding `str` is still rewritten (ADR-055 D2).
+which is kept so that a file rebinding `str` is still rewritten ([the setting rule](adr/ADR-055-rename-setting.md)).
 
 The pack lists a result field only when a response always carries it. The new model reads an
 optional field the server left out as `None`, where 0.28.1 raised, so a handler that relied on the
