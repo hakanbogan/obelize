@@ -1157,7 +1157,8 @@ def test_a_typed_program_that_cannot_start_is_refused_before_anything_is_read(
     result = fix(tree, "--apply", "--verify", command)
     assert result.exit_code == 2, result.output
     program = command.split()[0]
-    assert result.stderr.splitlines()[0].startswith(f"--verify: {program} is not ")
+    # Each system words why; the program is named first and the promise last.
+    assert result.stderr.splitlines()[0].startswith(f"--verify: {program}")
     assert result.stderr.splitlines()[0].endswith(". Nothing was read or written.")
     assert (tree / "app.py").read_bytes() == before
     assert not (tree / ".obelize").exists()
