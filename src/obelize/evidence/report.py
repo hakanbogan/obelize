@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import shlex
 from collections import Counter
-from pathlib import PurePath, PurePosixPath
+from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 from obelize import __version__
@@ -20,7 +20,7 @@ from obelize.models import (
     TIMEOUT_S,
     WARNING_MEANINGS,
     WITHHELD,
-    terminal_unsafe,
+    printable,
 )
 from obelize.native import shell
 from obelize.verify import redact
@@ -93,8 +93,13 @@ _VENV_TESTS = '--verify "/path/to/your/project/.venv/bin/python -m pytest -q"'
 
 
 def _code(text: str) -> str:
-    """A code span in `REPORT.md`; a terminal would print the backticks."""
-    return f"`{text}`"
+    """A code span in `REPORT.md`; a terminal would print the backticks.
+
+    The fence is longer than any run of backticks inside, so a command that holds one stays in it.
+    """
+    fence = "`" * (max(map(len, re.findall(r"`+", text)), default=0) + 1)
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
 
 
 def _bare(text: str) -> str:
@@ -368,6 +373,12 @@ def _unblocked(record: RunRecord, verify: VerifyRecord, git: str, run: str) -> s
         return f"run {git} status to see why git failed, or run again with --allow-dirty."
     if verify.reason == "policy_refused":
         return f"obelize verify {run} --trust-repo-config runs the commands in .obelize.yml."
+    if record.file_edits:
+        # A race stopped the write partway: some files hold the migration and some do not.
+        return (
+            f"obelize undo {run} puts back the file(s) that were written; fix what the Not "
+            f"written line names, then run again."
+        )
     return "fix what the Not written line names and run again; no flag skips this check."
 
 
@@ -388,12 +399,7 @@ def _printable(row: str) -> str:
 
     A CRLF line's CR is dropped, since the line ends there anyway.
     """
-    return "".join(
-        character
-        if terminal_unsafe(character, allowed="\t") is None
-        else character.encode("unicode_escape").decode("ascii")
-        for character in row.removesuffix("\r")
-    )
+    return printable(row.removesuffix("\r"), allowed="\t")
 
 
 def _consulted(model: RunModel) -> str:
@@ -420,16 +426,13 @@ def reverted(record: UndoRecord, folder: str, evidence: str) -> list[str]:
     A snapshot is named by its sha256, so a file whose hash is that name holds the original.
     """
     done = [row for row in record.files if row.outcome == "reverted"]
+    held = [row for row in record.files if row.restored and row.outcome != "reverted"]
     lines = [f"obelize undo  {record.run_id}", ""]
     for row in record.files:
         lines.append(
             f"  {row.path}  {row.outcome}"
             + (f"  {row.reason}" if row.reason else "")
-            + (
-                "  (already the original)"
-                if PurePosixPath(row.snapshot).name == row.current_sha256
-                else ""
-            )
+            + ("  (already the original)" if row in held else "")
         )
         if row.outcome == "reverted":
             continue
@@ -443,7 +446,8 @@ def reverted(record: UndoRecord, folder: str, evidence: str) -> list[str]:
     return [
         *lines,
         "",
-        f"{len(done)} of {len(record.files)} file(s) put back.",
+        f"{len(done)} of {len(record.files)} file(s) put back"
+        + (f"; {len(held)} already held the original." if held else "."),
         f"Evidence: {evidence}",
     ]
 
@@ -460,6 +464,9 @@ def superseded(document_text: str, record: RunRecord, when: str) -> str:
     verdict = f"`{record.verify.status}`" + (
         f" (`{record.verify.reason}`)" if record.verify.reason else ""
     )
+    # One line, since a repeat finds the note as a heading and one paragraph; a newline in a
+    # command is spelled out.
+    ran = ", ".join(_code(printable(row.command)) for row in record.verify.commands)
     # Tests that print nothing leave no `verify/baseline/`, so the note points at their section.
     before = (
         f"The {_BASELINE} section above still shows the tests run before the change."
@@ -471,9 +478,10 @@ def superseded(document_text: str, record: RunRecord, when: str) -> str:
             body,
             "",
             _NOTE,
-            f"`obelize verify` checked this run again at {when}: {verdict}. The section "
-            f"above shows the first result; `run.json` and `verify/verify.json` hold the new "
-            f"one. {before}",
+            f"`obelize verify` checked this run again at {when}: {verdict}"
+            + (f", with {ran}" if ran else "")
+            + f". The section above shows the first result; `run.json` and `verify/verify.json` "
+            f"hold the new one. {before}",
             "",
         ]
     )
@@ -837,7 +845,7 @@ def _limitations_section(record: RunRecord, packs: Sequence[PackDocument]) -> li
         lines = ["## Limitations", "", "| Path | Code | Detail |", "|---|---|---|"]
         for row in record.limitations:
             lines.append(
-                f"| {f'`{row.path}`' if row.path else '--'} | `{row.code}` | {row.detail} |"
+                f"| {f'`{row.path}`' if row.path else '--'} | `{row.code}` | {_prose(row.detail)} |"
             )
         lines.append("")
     for pack in packs:

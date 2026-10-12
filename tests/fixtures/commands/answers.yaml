@@ -169,17 +169,19 @@ cases:
         tree: legacy
 
       # Both files hold the original again, so neither is what the run wrote:
-      # skipped as `hash_mismatch`, and `4`, as any undo that put nothing back.
-      # The terminal says that what is there is already the original, which a
-      # file edited by hand (`stale/`) is not.
+      # skipped as `hash_mismatch`. Each already holds the original, which the
+      # terminal says and a file edited by hand (`stale/`) does not earn, so
+      # nothing is left to put back and the exit is `0`. `undo.json` keeps the
+      # first undo's account, since this one put nothing back.
       - what: putting it back a second time
         argv: [undo]
         undo_of: 1
-        exit_code: 4
+        exit_code: 0
         undo:
           - {path: app.py, outcome: skipped, reason: hash_mismatch}
           - {path: requirements.txt, outcome: skipped, reason: hash_mismatch}
         already: [app.py, requirements.txt]
+        kept: true
         tree: legacy
 
   # =====================================================================

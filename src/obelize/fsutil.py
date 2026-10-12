@@ -192,10 +192,12 @@ def gate(root: Path, changes: Sequence[Change], *, allow_dirty: bool = False) ->
                 dirty=tuple(sorted({*found.modified, *found.untracked})),
                 untracked=not found.modified,
             )
+    probed: dict[tuple[str, ...], bool] = {}
     stopped = tuple(
         row
         for row in (
-            _preflight(root, change) for change in sorted(changes, key=lambda change: change.path)
+            _preflight(root, change, probed)
+            for change in sorted(changes, key=lambda change: change.path)
         )
         if row is not None
     )
@@ -232,8 +234,12 @@ def apply(root: Path, changes: Sequence[Change], *, allow_dirty: bool = False) -
     return Apply(written=tuple(written), refused=tuple(refused))
 
 
-def _preflight(root: Path, change: Change) -> Refused | None:
-    """The guard and the staleness check for one change."""
+def _preflight(root: Path, change: Change, probed: dict[tuple[str, ...], bool]) -> Refused | None:
+    """The guard, the staleness check and a directory that takes a file, for one change.
+
+    A directory that cannot is found here, before any file is written: the write itself would
+    stop partway and leave a half-migrated tree.
+    """
     if unusable(change.path):
         return Refused(path=change.path, reason="outside_root")
     absolute = root / change.path
@@ -246,7 +252,27 @@ def _preflight(root: Path, change: Change) -> Refused | None:
         return Refused(path=change.path, reason="unreadable")
     if current != change.before:
         return Refused(path=change.path, reason="file_changed_since_read")
-    return None
+    directory = PurePosixPath(change.path).parts[:-1]
+    if directory not in probed:
+        probed[directory] = _takes_a_file(root, directory)
+    return None if probed[directory] else Refused(path=change.path, reason="unreadable")
+
+
+def _takes_a_file(root: Path, parts: tuple[str, ...]) -> bool:
+    """Whether a file can be made, and removed, in the directory that `parts` name."""
+    try:
+        directory = _descend(root, parts)
+    except OSError:
+        return False
+    name = f".{uuid.uuid4().hex}{TEMPORARY_SUFFIX}"
+    try:
+        os.close(files.create(directory, name, 0o600))
+        files.unlink(directory, name)
+    except OSError:
+        return False
+    finally:
+        files.close(directory)
+    return True
 
 
 def unusable(path: str) -> bool:

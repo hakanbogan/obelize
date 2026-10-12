@@ -10,12 +10,9 @@ page does not repeat those.
 ## Trust and redaction gaps
 
 A plain `http://` model endpoint to a non-loopback host is still accepted. A `base_url` with a
-query string or fragment is accepted too, and either can end up in an error message. A relative
-`XDG_CONFIG_HOME` is honoured as given, so a user's own configuration can resolve to a path
-inside the repository being scanned. Approving a new verification command overwrites the stored
-text of an earlier approval rather than adding to it. The request timeout bounds each read from
-the network, not the whole request, so a slow reply in small pieces can run far longer than the
-configured limit. A few sentences in the documentation cite the wrong safeguard for the wrong
+query string or fragment is accepted too, and either can end up in an error message. The request
+timeout bounds each read from the network, not the whole request, so a slow reply in small pieces
+can run far longer than the configured limit. A few sentences in the documentation cite the wrong safeguard for the wrong
 risk; they need a pass to line back up with what the code does.
 
 ## Model replies and editing
@@ -31,21 +28,16 @@ re-serialising than it needs to.
 ## Running commands
 
 An invalid entry in the local list of pre-approved verification commands can still crash instead
-of exiting cleanly, the way an invalid `--verify` or `--model` value now does. A baseline command
-that modifies a tracked file makes an apply refuse, but the summary does not say the tests did
-it. A stored configuration file or run record that is unreadable or holds an unexpected field
-blocks `undo` instead of explaining what is wrong. There is no check that a directory is writable
-before a migration starts, so a read-only one can be left half migrated. A few files, including
-`.obelize/latest` itself, are written by truncating and rewriting rather than by the same
-crash-safe rename the rest of the run folder uses. The `fix` summary names why findings were left
+of exiting cleanly, the way an invalid `--verify` or `--model` value now does. A stored
+configuration file that is unreadable or holds an unexpected field blocks `undo` instead of
+explaining what is wrong. A few files of the run folder, such as `findings.json`, `REPORT.md` and
+`run.json`, are written by truncating and rewriting rather than by the same crash-safe rename the
+pointer `.obelize/latest` now uses. The `fix` summary names why findings were left
 for you and links what each code means, but not what to change. A refusal partway through a
 run can still leave the CLI's documented promise that "a refused apply runs no command" untrue,
 since a baseline can have already run before the refusal.
 
 ## Report and terminal output
-
-A file's own name is untrusted text: an unusual one can inject Markdown into the generated report
-or control characters into a terminal that prints it. A pack's text is escaped in the report.
 
 A pack that names one surface in two `flag_only` changes has each row reported under both, and the
 guidance counts it twice; `pack validate` does not compare the changes.

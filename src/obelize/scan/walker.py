@@ -14,7 +14,7 @@ from typing import Final, Literal
 from obelize import gitutil
 from obelize.config import ConfigError, Selection
 from obelize.fsutil import refusal
-from obelize.models import Config, SkipReason
+from obelize.models import Config, SkipReason, printable, terminal_unsafe
 from obelize.native import files
 from obelize.scan import manifests
 
@@ -50,8 +50,9 @@ _DETAIL: dict[SkipReason, str] = {
     ),
     "unusable_name": (
         "The name is not valid UTF-8 or contains a backslash, so no report can name it "
-        "exactly, or Windows reserves it (a device such as aux.py, a ':' stream, a trailing "
-        "dot or space); skipped."
+        "exactly; or it holds a control or format character, a backtick or a pipe, which would "
+        "act on a terminal or break out of the report; or Windows reserves it (a device such as "
+        "aux.py, a ':' stream, a trailing dot or space); skipped."
     ),
 }
 
@@ -208,8 +209,14 @@ def _skip(path: str, reason: SkipReason) -> Skipped:
 
 
 def _usable(name: str) -> bool:
-    """False for a non-UTF-8 name, a backslash (a separator elsewhere) or a reserved name."""
-    if "\\" in name or files.reserved(name):
+    """False for a non-UTF-8 name, a backslash (a separator elsewhere) or a reserved name.
+
+    Also for one a terminal would act on, and for a backtick or a pipe, which end a code span or a
+    table cell in a report: the report names a path, and a path is not a place to be read as text.
+    """
+    if "\\" in name or "`" in name or "|" in name or files.reserved(name):
+        return False
+    if terminal_unsafe(name) is not None:
         return False
     try:
         name.encode("utf-8")
@@ -223,12 +230,13 @@ def _printable(name: str) -> str:
 
     Not `os.fsencode`: Windows encodes with `surrogatepass`, which spells the byte differently.
     A Windows listing can also hold a lone surrogate no byte decoded to; it prints as `\\ud800`.
+    A control or format character prints spelled out, as `\\x1b`.
     """
     try:
         data = name.encode("utf-8", "surrogateescape")
     except UnicodeEncodeError:
-        return name.encode("utf-8", "backslashreplace").decode("utf-8")
-    return data.decode("utf-8", "backslashreplace")
+        return printable(name.encode("utf-8", "backslashreplace").decode("utf-8"))
+    return printable(data.decode("utf-8", "backslashreplace"))
 
 
 __all__ = [

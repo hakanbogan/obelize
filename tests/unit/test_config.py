@@ -32,7 +32,7 @@ from obelize.config import (
 from obelize.models import DEFAULT_INCLUDE, PROVIDER_NAMES, Config, ModelConfig, VerifyConfig
 from obelize.native import processes
 from obelize.verify.runner import user_config
-from platforms import AS_ROOT, deny, windows_only
+from platforms import AS_ROOT, deny, link, windows_only
 
 ROOT = Path(__file__).resolve().parents[2]
 CLI_DOC = (ROOT / "docs" / "CLI.md").read_text(encoding="utf-8")
@@ -248,6 +248,18 @@ def test_a_configuration_file_that_is_not_utf8_is_refused(tmp_path: Path) -> Non
     (tmp_path / CONFIG_FILENAME).write_bytes(b"include: '\xff\xfe.py'\n")
     with pytest.raises(ConfigError, match="not UTF-8"):
         load(tmp_path)
+
+
+def test_a_configuration_file_that_is_a_link_is_not_read_through(tmp_path: Path) -> None:
+    """A repository can link it to a file elsewhere, and a parse error would quote the file."""
+    secret = tmp_path / "secret.txt"
+    secret.write_text("password: hunter2: [\n", encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    link(repo / CONFIG_FILENAME, secret)
+    with pytest.raises(ConfigError, match="cannot be read") as raised:
+        load(repo)
+    assert "hunter2" not in str(raised.value)
 
 
 def test_something_named_like_the_configuration_file_that_is_not_one_is_refused(

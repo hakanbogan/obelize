@@ -13,6 +13,7 @@ import re
 import shlex
 import unicodedata
 from collections.abc import Sequence
+from pathlib import PurePosixPath
 from typing import Annotated, Any, Final, Literal, get_args
 from urllib.parse import urlsplit
 
@@ -491,6 +492,16 @@ def terminal_unsafe(value: str, allowed: str = "") -> str | None:
         if character not in allowed and unicodedata.category(character) in _REFUSED_CATEGORIES:
             return f"U+{ord(character):04X} is {unicodedata.category(character)}"
     return None
+
+
+def printable(value: str, allowed: str = "") -> str:
+    """`value` with every character `terminal_unsafe` names spelled out, as `\\x1b` or `\\u202e`."""
+    return "".join(
+        character
+        if terminal_unsafe(character, allowed) is None
+        else character.encode("unicode_escape").decode("ascii")
+        for character in value
+    )
 
 
 def _terminal_safe(value: str, what: str, allowed: str = "") -> None:
@@ -1975,6 +1986,18 @@ class UndoFile(_Frozen):
             raise ValueError(f"{self.path} was put back and what it held first is not recorded")
         return self
 
+    @property
+    def restored(self) -> bool:
+        """Whether the file holds what it held before the run: put back now, or already.
+
+        A snapshot is named by its sha256, so a `hash_mismatch` whose current hash is that name is
+        the original again, after an earlier undo.
+        """
+        return self.outcome == "reverted" or (
+            self.reason == "hash_mismatch"
+            and PurePosixPath(self.snapshot).name == self.current_sha256
+        )
+
 
 class UndoRecord(_Frozen):
     """The `undo.json` document one `obelize undo` writes into the run folder it reverted."""
@@ -1995,11 +2018,12 @@ class UndoRecord(_Frozen):
             raise ValueError("the files are written in path order, `file_edits[]`'s own order")
         if len(set(paths)) != len(paths):
             raise ValueError("one file is undone once; two rows for one path is two answers")
-        reverted = [row for row in self.files if row.outcome == "reverted"]
-        if (self.exit_code == 0) != bool(reverted and len(reverted) == len(self.files)):
+        restored = [row for row in self.files if row.restored]
+        if (self.exit_code == 0) != bool(restored and len(restored) == len(self.files)):
             raise ValueError(
-                f"exit {self.exit_code} over {len(reverted)} of {len(self.files)} file(s) put "
-                f"back; `0` is every file reverted and `4` is anything else"
+                f"exit {self.exit_code} over {len(restored)} of {len(self.files)} file(s) holding "
+                f"the original; `0` is every file reverted, or already the original, and `4` is "
+                f"anything else"
             )
         return self
 
@@ -2123,5 +2147,6 @@ __all__ = [
     "WarningCode",
     "Withheld",
     "bounds",
+    "printable",
     "terminal_unsafe",
 ]

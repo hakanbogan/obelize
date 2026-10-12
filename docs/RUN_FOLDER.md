@@ -505,13 +505,14 @@ the run did with it.
 ## `undo.json`
 
 Written into an existing run folder by `obelize undo` only. Not a run; no id of
-its own.
+its own. An undo that put no file back leaves an `undo.json` already there as it is, so a
+repeat of a finished undo does not replace the account of what was put back.
 
 | Field | Type | Description |
 |---|---|---|
 | `run_id` | string | The run whose `file_edits[]` and snapshots it used. |
 | `obelize_version` | string | The `__version__` that performed the undo. |
-| `exit_code` | integer | `0` when every file was reverted, `4` otherwise; derived from `files[]`. |
+| `exit_code` | integer | `0` when every file was reverted or already held the original, `4` otherwise; derived from `files[]`. |
 | `argv` | array of strings | The arguments the undo was invoked with. |
 | `undone_at` | string | UTC, to the second, with the `Z`. |
 | `files` | array | One row per file the run recorded writing, in path order. No count beside it, which could disagree. |

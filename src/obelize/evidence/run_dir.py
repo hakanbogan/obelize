@@ -451,7 +451,7 @@ def write(
         if journaled:
             _pruned(folder, {name for name, _data in fix.snapshots} if fix else set())
             (folder / JOURNAL).unlink()
-        _pointer(home / LATEST, record.run_id)
+        _pointer(root, record.run_id)
     except OSError as error:
         raise EvidenceError(
             f"the run folder under {HOME}/{RUNS}/{record.run_id} could not be written: "
@@ -597,9 +597,15 @@ def rewrite(loaded: Loaded, record: RunRecord, verified: Verified, note: str | N
 
 
 def undone(folder: RunFolder, relative: str, record: UndoRecord) -> str:
-    """Write `undo.json` into the reverted run's folder; return its repository-relative path."""
+    """Write `undo.json` into the reverted run's folder; return its repository-relative path.
+
+    An undo that put nothing back leaves an earlier `undo.json` as it was: that one says what was.
+    """
+    write = (
+        folder.write if any(row.outcome == "reverted" for row in record.files) else folder.create
+    )
     try:
-        folder.write(UNDO, (record.model_dump_json(indent=2) + "\n").encode("utf-8"))
+        write(UNDO, (record.model_dump_json(indent=2) + "\n").encode("utf-8"))
     except OSError as error:
         raise EvidenceError(
             f"{relative}/{UNDO} could not be written: {error.strerror}. The files were "
@@ -835,14 +841,13 @@ def _directory(path: Path) -> Path:
     return path
 
 
-def _pointer(path: Path, run_id: str) -> None:
-    """`.obelize/latest`: the id plus a newline, so `$(cat ...)` needs no trim. Never a link."""
-    if path.is_symlink() or path.is_junction():
-        raise EvidenceError(
-            f"{HOME}/{LATEST} is a symbolic link or a junction. Remove it and run again; obelize "
-            f"writes it as a regular file."
-        )
-    path.write_bytes(f"{run_id}\n".encode())
+def _pointer(root: Path, run_id: str) -> None:
+    """`.obelize/latest`: the id plus a newline, so `$(cat ...)` needs no trim.
+
+    Written beside the name and renamed over it, below `.obelize` opened without following a link:
+    a link at the name is replaced, and what it pointed at is not written.
+    """
+    RunFolder(root, HOME).write(LATEST, f"{run_id}\n".encode())
 
 
 def _limitations(scan: Scan) -> tuple[RunLimitation, ...]:

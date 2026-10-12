@@ -617,6 +617,28 @@ def test_an_apply_that_would_write_nothing_still_asks_before_a_model_is_sent_any
     assert _refusal(result.output).endswith("commit or stash them, or pass --allow-dirty")
 
 
+def test_a_write_that_stops_partway_names_the_undo_that_puts_back_what_was_written(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A race: `app.py` lands, then `requirements.txt` cannot be replaced."""
+    from obelize import fsutil
+
+    real = fsutil.write
+
+    def stop_at_the_manifest(root: Path, path: str, data: bytes) -> fsutil.WriteRefusal | None:
+        return "unreadable" if path == "requirements.txt" else real(root, path, data)
+
+    monkeypatch.setattr(fsutil, "write", stop_at_the_manifest)
+    result = fix(tree, "--apply")
+    assert result.exit_code == 5, result.output
+    record = json.loads((folder(tree) / "run.json").read_text(encoding="utf-8"))
+    assert [row["path"] for row in record["file_edits"]] == ["app.py"]
+    assert result.stdout.splitlines()[-1] == (
+        f"Next: obelize undo --run {folder(tree).name} --repo {copied(tree)} puts back the "
+        f"file(s) that were written; fix what the Not written line names, then run again."
+    )
+
+
 def test_an_apply_refused_only_over_an_untracked_file_says_to_commit_it(tree: Path) -> None:
     """`git stash` leaves an untracked file where it is, so it would not unblock this run."""
     subprocess.run(["git", "-C", str(tree), "rm", "-q", "--cached", "requirements.txt"], check=True)

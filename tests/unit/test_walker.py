@@ -250,6 +250,36 @@ def test_a_name_holding_a_lone_surrogate_is_refused_by_a_name_a_report_can_print
     assert _table(result) == {"bad\\ud800.py": "unusable_name"}
 
 
+@pytest.mark.parametrize(
+    ("name", "shown"),
+    [
+        ("a`b.py", "a`b.py"),
+        ("p|q.py", "p|q.py"),
+        ("esc\x1b[31m.py", "esc\\x1b[31m.py"),
+        ("nl\nx.py", "nl\\nx.py"),
+        ("bell\x07.py", "bell\\x07.py"),
+        ("rtl\u202e.py", "rtl\\u202e.py"),
+        ("zero\u200bwidth.py", "zero\\u200bwidth.py"),
+    ],
+    ids=["backtick", "pipe", "escape", "newline", "bell", "right-to-left", "zero-width"],
+)
+def test_a_name_a_terminal_acts_on_or_a_report_cannot_hold_is_refused_and_spelled_out(
+    git_tree: Path, monkeypatch: pytest.MonkeyPatch, name: str, shown: str
+) -> None:
+    """Printed raw it would move a cursor or end a table cell; so it is skipped, never read."""
+    real = subprocess.run
+
+    def listing(argv: Any, **keywords: Any) -> Any:
+        if "ls-files" in argv:
+            return subprocess.CompletedProcess(argv, 0, f"pkg/app.py\0{name}\0".encode(), b"")
+        return real(argv, **keywords)
+
+    monkeypatch.setattr(subprocess, "run", listing)
+    result = walk(git_tree, Config())
+    assert result.files == ("pkg/app.py",)
+    assert _table(result) == {shown: "unusable_name"}
+
+
 def test_a_listed_name_the_system_reserves_is_refused_by_name(
     git_tree: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

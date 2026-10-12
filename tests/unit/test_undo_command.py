@@ -123,6 +123,18 @@ def test_a_repo_that_is_not_a_directory_is_a_usage_error(tmp_path: Path) -> None
     assert result.exit_code == 2
 
 
+def test_a_second_undo_succeeds_and_leaves_the_first_account_as_it_was(
+    tree: Path, run_id: str
+) -> None:
+    """Every file already holds the original, so nothing is left to do; undo.json says what was."""
+    assert undo(tree, run_id).exit_code == 0
+    kept = (tree / ".obelize" / "runs" / run_id / "undo.json").read_bytes()
+    again = undo(tree, run_id)
+    assert again.exit_code == 0, again.output
+    assert "0 of 2 file(s) put back; 2 already held the original." in again.stdout
+    assert (tree / ".obelize" / "runs" / run_id / "undo.json").read_bytes() == kept
+
+
 def test_a_file_that_is_gone_is_skipped_with_the_guard_s_own_word(tree: Path, run_id: str) -> None:
     (tree / "app.py").unlink()
     result = undo(tree, run_id)
@@ -156,11 +168,15 @@ def test_a_snapshot_that_is_not_what_its_name_says_is_not_written(tree: Path, ru
     target.write_bytes(b"not what this file is called\n")
     assert undo(tree, run_id).exit_code == 4
     assert row(tree, run_id, "app.py")["reason"] == "snapshot_unusable"
-    # A missing copy. `requirements.txt` was restored above, so its row is now `hash_mismatch`.
+    # A missing copy. `requirements.txt` was restored above, so it is already the original; the
+    # undo that put nothing back leaves the first account, which says what was put back.
     target.unlink()
-    assert undo(tree, run_id).exit_code == 4
+    second = undo(tree, run_id)
+    assert second.exit_code == 4
+    assert "  app.py  skipped  snapshot_unusable" in second.stdout
+    assert "  requirements.txt  skipped  hash_mismatch  (already the original)" in second.stdout
     assert row(tree, run_id, "app.py")["reason"] == "snapshot_unusable"
-    assert row(tree, run_id, "requirements.txt")["reason"] == "hash_mismatch"
+    assert row(tree, run_id, "requirements.txt")["outcome"] == "reverted"
 
 
 @pytest.mark.skipif(AS_ROOT, reason="root writes into a directory it may not")

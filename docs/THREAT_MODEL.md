@@ -63,9 +63,15 @@ through `src/obelize/evidence/folder.py`: each directory from `.obelize/` down
 opens relative to its parent with `O_DIRECTORY | O_NOFOLLOW`, files are read
 with `O_NOFOLLOW`, and a write goes beside its name and is renamed over it.
 `obelize fix` creates its folder under a fresh random id and refuses a link at
-`.obelize/`, `runs/` and `latest`. `.obelize/.gitignore` is written the same way
-as a verify or undo write, and only where nothing, a link included, is at that
-name.
+`.obelize/` and `runs/`. `latest` and `.obelize/.gitignore` are written the same way
+as a verify or undo write: a link at `latest` is replaced and what it names is not written, and
+the ignore file is written only where nothing, a link included, is at that name. `fix --apply`
+tries to make a file in each directory it will write into before it writes any, so a directory
+that takes none refuses the whole apply, where the write would have stopped partway. `.obelize.yml`
+is read without following a link, and a relative `XDG_CONFIG_HOME` is ignored, since a user's own
+configuration decides the model, the allowlist and the pack directories and a repository does not.
+A file name with a control or format character, a backtick or a pipe is skipped, and its name is
+spelled out and escaped wherever a report or a terminal shows it.
 
 **On Windows** the same calls are made in
 `src/obelize/native/files_windows.py`. The root is opened with `CreateFileW`,

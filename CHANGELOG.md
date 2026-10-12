@@ -29,6 +29,14 @@ in the release that makes it.
 
 ### Fixed
 
+- A second `obelize undo` of a run exits `0` when every file already holds its original, where it
+  exited `4` as if something had gone wrong, and it leaves the first `undo.json`, which says what
+  was put back, instead of replacing it with a row of `hash_mismatch` skips. `undo.json`'s
+  `exit_code` is now derived from files that were reverted or already original.
+- The note `obelize verify` appends to `REPORT.md` names the commands it ran, on one line, so a
+  reader of the report is not left with the first run's. A command with a backtick or a newline in
+  it stays inside its code span: the fence is longer than any run of backticks, and the newline
+  is spelled out.
 - A run folder that an older obelize wrote and this one cannot read now names the release that
   wrote it and the command that undoes the run (`uvx obelize@0.2.0 undo --run <id>`), where `undo`
   and `verify` only said the record was unreadable.
@@ -50,6 +58,25 @@ in the release that makes it.
   clean when the run began, which `git_dirty: false` already recorded.
 - A verification command that timed out gets a hint naming `--timeout <s>` and the default of 600
   seconds, which the flag's help and `docs/CLI.md` now state.
+
+### Security
+
+- `fix --apply` tries to make a file in each directory it will write into before it writes any,
+  and refuses the whole apply as `unreadable` for a directory that takes none. A read-only
+  directory used to stop the write partway and leave a half-migrated tree; a partial write that a
+  race still causes now ends with `obelize undo` in its `Next:` line.
+- A file name that holds a control or format character, a backtick or a pipe is skipped as
+  `unusable_name`. Printed as it was, an escape sequence in a name moved a terminal's cursor or
+  colours, and a backtick or a pipe ended a code span or a table cell in `REPORT.md`. Its name is
+  spelled out (`\x1b`) in the skip, and the detail of a limitations row is escaped as a pack's
+  text is.
+- `.obelize/latest` is replaced by a rename below a `.obelize` opened without following a link,
+  where a check for a link and then a write could race a swap; a link there is now replaced and
+  what it named is not written. `.obelize.yml` is read without following a link, so a repository
+  cannot make a parse error quote another file. A relative `XDG_CONFIG_HOME` is ignored, as the
+  specification says, where it could have put the user's model block, allowlist and pack
+  directories under the repository being scanned. Approving a command appends a row and keeps the
+  rows already there, with their command text, where it rebuilt the file from the keys.
 
 ### Added
 

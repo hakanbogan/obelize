@@ -465,6 +465,67 @@ def test_a_file_the_preflight_cannot_read_is_refused(tree: Path) -> None:
     assert [(row.path, row.reason) for row in applied.refused] == [("app.py", "unreadable")]
 
 
+@posix_only("a read-only directory refuses a new name on POSIX; Windows grants it by ACL")
+@pytest.mark.skipif(AS_ROOT, reason="root ignores the permission bits this test removes")
+def test_a_directory_that_takes_no_new_file_stops_the_whole_apply_before_a_write(
+    tree: Path,
+) -> None:
+    """The rename needs a new name beside the file, so a write there would stop partway."""
+    with deny(tree / "pkg", writes_only=True):
+        applied = fsutil.apply(
+            tree,
+            [
+                fsutil.Change(path="app.py", before=b"VALUE = 1\n", after=b"VALUE = 2\n"),
+                fsutil.Change(path="pkg/mod.py", before=b"INNER = 1\n", after=b"INNER = 2\n"),
+            ],
+        )
+    assert applied.written == ()
+    assert [(row.path, row.reason) for row in applied.refused] == [("pkg/mod.py", "unreadable")]
+    assert (tree / "app.py").read_bytes() == b"VALUE = 1\n"
+    assert temporaries(tree) == []
+
+
+@pytest.mark.parametrize("step", ["directory", "create", "unlink"])
+def test_a_directory_that_fails_the_probe_at_any_step_refuses_its_files(
+    tree: Path, monkeypatch: pytest.MonkeyPatch, step: str
+) -> None:
+    """Swapped for a link, a file that cannot be made, or one that cannot be removed again."""
+
+    def refuse(*_arguments: object) -> None:
+        raise OSError(errno.EACCES, "not today")
+
+    monkeypatch.setattr(files, step, refuse)
+    stopped = fsutil.gate(
+        tree,
+        [fsutil.Change(path="pkg/mod.py", before=b"INNER = 1\n", after=b"INNER = 2\n")],
+        allow_dirty=True,
+    )
+    assert stopped is not None
+    assert [(row.path, row.reason) for row in stopped.refused] == [("pkg/mod.py", "unreadable")]
+
+
+def test_a_directory_is_asked_once_however_many_files_it_holds(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tree / "pkg" / "other.py").write_text("OTHER = 1\n", encoding="utf-8", newline="\n")
+    asked: list[tuple[str, ...]] = []
+    real = fsutil._takes_a_file
+
+    def count(root: Path, parts: tuple[str, ...]) -> bool:
+        asked.append(parts)
+        return real(root, parts)
+
+    monkeypatch.setattr(fsutil, "_takes_a_file", count)
+    changes = [
+        fsutil.Change(path="pkg/mod.py", before=b"INNER = 1\n", after=b"INNER = 2\n"),
+        fsutil.Change(path="pkg/other.py", before=b"OTHER = 1\n", after=b"OTHER = 2\n"),
+        fsutil.Change(path="app.py", before=b"VALUE = 1\n", after=b"VALUE = 2\n"),
+    ]
+    assert fsutil.gate(tree, changes, allow_dirty=True) is None
+    assert sorted(asked) == [(), ("pkg",)]
+    assert temporaries(tree) == []
+
+
 def test_a_file_that_passes_the_guard_and_then_fails_to_open_is_refused(
     tree: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

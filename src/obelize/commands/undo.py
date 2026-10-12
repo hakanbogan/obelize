@@ -59,8 +59,8 @@ def run(request: Request) -> Outcome:
         rows, folder, relative = record.file_edits, loaded.folder, loaded.relative
 
     files = tuple(_one(request.root, folder, row) for row in rows)
-    reverted = [row for row in files if row.outcome == "reverted"]
-    code: ExitCode = 0 if files and len(reverted) == len(files) else 4
+    # A file already holding the original has nothing left to put back: a second undo succeeds.
+    code: ExitCode = 0 if files and all(row.restored for row in files) else 4
     undo = UndoRecord(
         run_id=request.run_id,
         obelize_version=__version__,

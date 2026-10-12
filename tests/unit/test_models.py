@@ -1420,20 +1420,39 @@ def test_the_files_are_written_in_the_order_the_run_wrote_them() -> None:
         UndoRecord(**UNDONE, exit_code=0, files=(undone(), undone()))
 
 
+def test_a_file_that_already_holds_the_original_is_restored_and_a_stranger_is_not() -> None:
+    """The snapshot is named by its hash, so the disk holding that hash is the original again."""
+    snapshot = "snapshots/before/" + "b" * 64
+    original = undone(outcome="skipped", reason="hash_mismatch", current_sha256="b" * 64)
+    assert original.snapshot == snapshot
+    assert original.restored is True
+    stranger = undone(outcome="skipped", reason="hash_mismatch", current_sha256="c" * 64)
+    assert stranger.restored is False
+    assert undone().restored is True
+    assert undone(outcome="skipped", reason="missing", current_sha256=None).restored is False
+    assert UndoRecord(**UNDONE, exit_code=0, files=(original, undone("z.py"))).exit_code == 0
+
+
 def test_the_exit_code_is_derived_from_the_rows_and_not_reported_beside_them() -> None:
     """`0` only if every file was reverted; `4` otherwise, including a run that wrote none."""
     both = (undone("a.py"), undone("z.py"))
     assert UndoRecord(**UNDONE, exit_code=0, files=both).exit_code == 0
-    with pytest.raises(ValidationError, match="is every file reverted and `4` is anything else"):
+    with pytest.raises(
+        ValidationError, match="`0` is every file reverted, or already the original"
+    ):
         UndoRecord(**UNDONE, exit_code=4, files=both)
     partial = (
         undone("a.py"),
         undone("z.py", outcome="skipped", reason="hash_mismatch", current_sha256="c" * 64),
     )
-    with pytest.raises(ValidationError, match="is every file reverted and `4` is anything else"):
+    with pytest.raises(
+        ValidationError, match="`0` is every file reverted, or already the original"
+    ):
         UndoRecord(**UNDONE, exit_code=0, files=partial)
     assert UndoRecord(**UNDONE, exit_code=4, files=partial).exit_code == 4
-    with pytest.raises(ValidationError, match="is every file reverted and `4` is anything else"):
+    with pytest.raises(
+        ValidationError, match="`0` is every file reverted, or already the original"
+    ):
         UndoRecord(**UNDONE, exit_code=0)
     assert UndoRecord(**UNDONE, exit_code=4).files == ()
 

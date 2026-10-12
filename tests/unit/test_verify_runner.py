@@ -31,13 +31,21 @@ def written(config_dir: Path, text: str) -> None:
     (config_dir / runner.ALLOWLIST_FILENAME).write_text(text, encoding="utf-8")
 
 
-def test_the_configuration_home_is_the_xdg_one_when_it_is_set() -> None:
-    assert runner.config_home({"XDG_CONFIG_HOME": "/x", "HOME": "/h"}) == Path("/x/obelize")
+def test_the_configuration_home_is_the_xdg_one_when_it_is_set(tmp_path: Path) -> None:
+    assert runner.config_home({"XDG_CONFIG_HOME": str(tmp_path), "HOME": "/h"}) == (
+        tmp_path / "obelize"
+    )
 
 
 def test_and_the_conventional_one_when_it_is_not() -> None:
     assert runner.config_home({"HOME": "/h"}) == Path("/h/.config/obelize")
     assert runner.config_home({"XDG_CONFIG_HOME": "", "HOME": "/h"}) == Path("/h/.config/obelize")
+
+
+def test_a_relative_xdg_home_is_invalid_and_ignored() -> None:
+    """Followed, it names a directory under wherever the command runs: a repository, perhaps."""
+    environ = {"XDG_CONFIG_HOME": ".obelize-config", "HOME": "/h"}
+    assert runner.config_home(environ) == Path("/h/.config/obelize")
 
 
 def test_an_environment_with_no_home_at_all_still_answers() -> None:
@@ -164,6 +172,26 @@ def test_the_store_is_the_user_s_alone(tmp_path: Path) -> None:
     runner.remember(home, "/repo", "pytest -q")
     assert stat.S_IMODE((home / runner.APPROVALS_FILENAME).stat().st_mode) == 0o600
     assert stat.S_IMODE(home.stat().st_mode) == 0o700
+
+
+def test_a_row_already_stored_is_kept_as_it_is_when_another_is_added(tmp_path: Path) -> None:
+    """Including what it carries beyond the key: the command text, and what a later release adds."""
+    (tmp_path / runner.APPROVALS_FILENAME).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "approvals": [
+                    {"repo": "/b", "sha256": "f" * 64, "command": "make test", "note": "kept"},
+                    {"repo": "/a", "sha256": "e" * 64, "command": "tox"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    runner.remember(tmp_path, "/repo", "pytest -q")
+    stored = json.loads((tmp_path / runner.APPROVALS_FILENAME).read_text(encoding="utf-8"))
+    assert [row["command"] for row in stored["approvals"]] == ["make test", "tox", "pytest -q"]
+    assert stored["approvals"][0]["note"] == "kept"
 
 
 def test_the_store_records_the_command_it_showed_somebody(tmp_path: Path) -> None:

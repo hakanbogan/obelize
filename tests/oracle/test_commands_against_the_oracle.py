@@ -280,24 +280,34 @@ def test_undo_puts_back_what_it_wrote_and_names_what_it_would_not(
     spec = state["spec"]
     if "undo" not in spec:
         return
-    # As the run left it: a later undo of the same run replaces the file.
     document = json.loads(state["after"]["undo.json"])
     assert document["run_id"] == state["folder"].name
-    assert document["exit_code"] == spec["exit_code"]
-    assert [
-        {"path": row["path"], "outcome": row["outcome"], "reason": row["reason"]}
-        for row in document["files"]
-    ] == spec["undo"]
+    if spec.get("kept"):
+        # An undo that put nothing back leaves the earlier account, which says what was put back.
+        assert state["after"]["undo.json"] == state["before"]["undo.json"]
+        rows = spec["undo"]
+    else:
+        assert document["exit_code"] == spec["exit_code"]
+        assert [
+            {"path": row["path"], "outcome": row["outcome"], "reason": row["reason"]}
+            for row in document["files"]
+        ] == spec["undo"]
+        rows = [{"path": row["path"], **row} for row in document["files"]]
+    assert state["result"].exit_code == spec["exit_code"]
     shown = state["result"].stdout.splitlines()
     already = spec.get("already", [])
     for row in document["files"]:
         assert (state["folder"] / row["snapshot"]).is_file(), row["path"]
+    for row in rows:
         line = f"  {row['path']}  {row['outcome']}" + (
             f"  {row['reason']}" if row["reason"] else ""
         )
         assert line + ("  (already the original)" if row["path"] in already else "") in shown
         if row["outcome"] == "skipped":
-            assert f"      original  {Path(_evidence(state), row['snapshot'])}" in shown
+            snapshot = next(
+                one["snapshot"] for one in document["files"] if one["path"] == row["path"]
+            )
+            assert f"      original  {Path(_evidence(state), snapshot)}" in shown
 
 
 @parametrised

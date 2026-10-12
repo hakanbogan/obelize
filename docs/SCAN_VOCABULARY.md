@@ -333,7 +333,7 @@ like an empty repository. `src/obelize/scan/walker.py` raises these;
 | `submodule` | A directory with its own `.git`, pruned by the fallback walk: this repository's diff cannot show its files. |
 | `symlink` | A symbolic link, file or directory, or a Windows junction. Never followed. |
 | `unreadable` | The filesystem would not answer (a directory would not list, permissions hide a path). A denial is a refusal, never a pass. |
-| `unusable_name` | Not valid UTF-8, holds a backslash, or on Windows is a name it reserves: a device such as `aux.py`, a `:` stream, a trailing dot or space. It cannot be reported and read back as one path, so its `limitations[]` row has no `path` and the detail quotes the name. The fallback walk refuses a directory with such a name whole. |
+| `unusable_name` | Not valid UTF-8, holds a backslash, a control or format character, a backtick or a pipe, or on Windows is a name it reserves: a device such as `aux.py`, a `:` stream, a trailing dot or space. It cannot be reported and read back as one path, so its `limitations[]` row has no `path` and the detail quotes the name. The fallback walk refuses a directory with such a name whole. |
 
 `limitations[].code` adds the reader's `file_too_large` and
 `input_does_not_parse` ([RUN_FOLDER.md](RUN_FOLDER.md#limitations)). The reader

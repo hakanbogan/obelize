@@ -17,7 +17,7 @@ import pathspec
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from obelize import _yaml
+from obelize import _yaml, fsutil
 from obelize.models import (
     Config,
     ConfiguredCommand,
@@ -210,7 +210,7 @@ def load(repo: Path) -> LoadedConfig:
             )
         return LoadedConfig(config=Config(), source="defaults")
     try:
-        text = path.read_text(encoding="utf-8")
+        text = fsutil.read(path).decode("utf-8")
     except UnicodeDecodeError as error:
         raise ConfigError(
             f"{CONFIG_FILENAME} is not UTF-8: {error.reason} at byte {error.start}"

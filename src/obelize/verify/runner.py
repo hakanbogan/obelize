@@ -139,8 +139,13 @@ class Refused:
 
 
 def config_home(environ: Mapping[str, str]) -> Path:
+    """The user's directory; a relative `XDG_CONFIG_HOME` is invalid, and ignored as the spec says.
+
+    Followed, it would name a directory under wherever the command runs, which can be a repository,
+    and a repository does not choose the model, the allowlist or the pack directories.
+    """
     base = environ.get("XDG_CONFIG_HOME")
-    if base:
+    if base and Path(base).is_absolute():
         return Path(base) / CONFIG_DIRNAME
     return Path(environ.get("HOME", "~")).expanduser() / ".config" / CONFIG_DIRNAME
 
@@ -184,37 +189,44 @@ def digest(command: str) -> str:
 
 def approvals(config_dir: Path) -> frozenset[tuple[str, str]]:
     """The approved `(repository, sha256)` pairs; an unreadable store fails closed, to empty."""
+    return frozenset((row["repo"], row["sha256"]) for row in _stored(config_dir))
+
+
+def _stored(config_dir: Path) -> list[dict[str, Any]]:
+    """The rows of the store as they are written, those that name a repository and a hash."""
     try:
         data: Any = json.loads((config_dir / APPROVALS_FILENAME).read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return frozenset()
+        return []
     if not isinstance(data, dict) or not isinstance(data.get("approvals"), list):
-        return frozenset()
-    return frozenset(
-        (row["repo"], row["sha256"])
+        return []
+    return [
+        row
         for row in data["approvals"]
         if isinstance(row, dict)
         and isinstance(row.get("repo"), str)
         and isinstance(row.get("sha256"), str)
-    )
+    ]
 
 
 def remember(config_dir: Path, repository: str, command: str) -> None:
-    """Add one approval atomically (temporary file, rename), keeping the rest.
+    """Append one approval atomically (temporary file, rename), keeping every row as it is.
 
-    0700 and 0600: a store another account can append to is an allowlist it maintains.
+    The rows already there keep the command text they were given, which says what was approved.
+    0700 and 0600, from the first byte: a store another account can append to is an allowlist it
+    maintains.
     """
     config_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = config_dir / APPROVALS_FILENAME
-    rows = [{"repo": repo, "sha256": sha256} for repo, sha256 in sorted(approvals(config_dir))]
+    rows = _stored(config_dir)
     key = {"repo": repository, "sha256": digest(command)}
-    if key not in rows:
+    if (repository, key["sha256"]) not in approvals(config_dir):
         rows.append({**key, "command": command})
     temporary = path.with_name(f"{APPROVALS_FILENAME}.{os.getpid()}.tmp")
-    temporary.write_text(
-        json.dumps({"version": 1, "approvals": rows}, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    document = json.dumps({"version": 1, "approvals": rows}, indent=2, sort_keys=True) + "\n"
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(document)
     temporary.chmod(0o600)
     os.replace(temporary, path)
 

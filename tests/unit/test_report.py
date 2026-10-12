@@ -18,6 +18,7 @@ from obelize.config import load as load_config
 from obelize.evidence import report, run_dir
 from obelize.models import (
     WARNING_MEANINGS,
+    CommandRecord,
     Edit,
     Finding,
     ManifestPlan,
@@ -34,6 +35,7 @@ from obelize.models import (
 from obelize.packs import loader
 from obelize.scan import runner, runtime
 from obelize.transforms.kinds.flag_only import Guide
+from platforms import posix_only
 
 BUNDLED = "gemini/google-generativeai-to-google-genai"
 
@@ -493,6 +495,46 @@ def test_an_eligible_row_gives_no_confidence_code_and_a_withheld_one_its_reason(
     assert [line for line in rows if not line.endswith("eligible")] == []
     withheld = [line for line in report.terminal(_scan(loud), "p", None) if "needs_review" in line]
     assert any(line.endswith("model_object_escapes") for line in withheld)
+
+
+@posix_only("Windows cannot create a name with a pipe or a backtick")
+def test_a_name_that_would_break_the_report_is_skipped_and_cannot_end_a_cell(
+    tmp_path: Path,
+) -> None:
+    root = _tree(tmp_path / "odd", {"ok.py": LEGACY, "p|q.py": LEGACY, "a`b.py": LEGACY})
+    scan = _scan(root)
+    text = report.document(_record(root, scan), scan)
+    rows = [line for line in text.splitlines() if "`unusable_name`" in line]
+    assert len(rows) == 2
+    for row in rows:
+        assert len(re.split(r"(?<!\\)\|", row)) == 5, row
+    assert "p\\|q.py: " in text
+    assert "a\\`b.py: " in text
+
+
+def test_the_superseding_note_names_the_commands_that_ran_on_one_line(quiet: Path) -> None:
+    """A repeat finds the note as a heading and one paragraph, so a newline would orphan it."""
+    command = "sh -c 'echo `date`\nexit 0'"
+    verify = VerifyRecord(
+        status="pass",
+        commands=(
+            CommandRecord(command=command, source="cli", status="pass", exit_code=0, duration_ms=1),
+        ),
+    )
+    record = _record(quiet, _scan(quiet)).model_copy(update={"verify": verify})
+    once = report.superseded("# obelize fix\n", record, "now")
+    note = once.rsplit("\n## Verified again\n", 1)[1].strip().splitlines()
+    assert len(note) == 1, note
+    assert "with ``sh -c 'echo `date`" + chr(92) + "nexit 0'``" in note[0]
+    twice = report.superseded(once, record, "later")
+    assert twice.count("checked this run again") == 1
+
+
+def test_a_code_span_outlasts_the_backticks_inside_it() -> None:
+    assert report._code("ls") == "`ls`"
+    assert report._code("echo `date`") == "`` echo `date` ``"
+    assert report._code("a`b") == "``a`b``"
+    assert report._code("`a`") == "`` `a` ``"
 
 
 def test_a_forged_note_above_the_real_one_cuts_nothing(quiet: Path) -> None:

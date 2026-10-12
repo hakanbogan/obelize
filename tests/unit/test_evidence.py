@@ -260,6 +260,14 @@ def test_the_artefacts_land_before_run_json_and_latest_lands_after_it(
 
     monkeypatch.setattr(Path, "write_text", note_text)
     monkeypatch.setattr(Path, "write_bytes", note_bytes)
+    pointer = RunFolder.write
+
+    def note_pointer(self: RunFolder, relative: str, data: bytes) -> None:
+        if relative == run_dir.LATEST:
+            order.append(relative)
+        pointer(self, relative, data)
+
+    monkeypatch.setattr(RunFolder, "write", note_pointer)
     _write(scanned, tree, _record(scanned, tree))
     assert order == ["findings.json", "pack.yaml", "pack.sha256", "REPORT.md", "run.json", "latest"]
 
@@ -300,7 +308,6 @@ def test_a_run_folder_is_never_written_twice(scanned: runner.Scan, tree: Path) -
 LINKS = [
     (".obelize", "is a symbolic link"),
     (".obelize/runs", "is a symbolic link"),
-    (".obelize/latest", "is a symbolic link"),
 ]
 
 
@@ -312,9 +319,24 @@ def test_nothing_is_written_through_a_symbolic_link(
     elsewhere.mkdir()
     target = tree / where
     target.parent.mkdir(parents=True, exist_ok=True)
-    link(target, elsewhere if where != ".obelize/latest" else elsewhere / "pointer")
+    link(target, elsewhere)
     with pytest.raises(run_dir.EvidenceError, match=message):
         _write(scanned, tree, _record(scanned, tree))
+
+
+def test_a_link_at_the_latest_pointer_is_replaced_and_what_it_names_is_not_written(
+    scanned: runner.Scan, tree: Path, tmp_path: Path
+) -> None:
+    """Renamed over, below a `.obelize` opened without following a link: no check races a swap."""
+    outside = tmp_path / "pointer"
+    outside.write_text("mine\n", encoding="utf-8")
+    (tree / ".obelize").mkdir(parents=True, exist_ok=True)
+    link(tree / ".obelize" / "latest", outside)
+    written = _write(scanned, tree, _record(scanned, tree))
+    assert outside.read_text(encoding="utf-8") == "mine\n"
+    pointer = tree / ".obelize" / "latest"
+    assert not pointer.is_symlink()
+    assert pointer.read_text(encoding="utf-8") == f"{written.run_id}\n"
 
 
 @pytest.mark.parametrize("where", [where for where, _ in LINKS])
@@ -577,6 +599,14 @@ def test_a_fix_writes_its_artefacts_before_run_json_too(
     )
     monkeypatch.setattr(Path, "write_text", note_text)
     monkeypatch.setattr(Path, "write_bytes", note_bytes)
+    pointer = RunFolder.write
+
+    def note_pointer(self: RunFolder, relative: str, data: bytes) -> None:
+        if relative == run_dir.LATEST:
+            order.append(relative)
+        pointer(self, relative, data)
+
+    monkeypatch.setattr(RunFolder, "write", note_pointer)
     run_dir.write(
         tree,
         record,
