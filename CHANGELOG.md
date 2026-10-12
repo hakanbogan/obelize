@@ -12,6 +12,52 @@ in the release that makes it.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-12
+
+### Benchmark
+
+I did not run the benchmark again for this release. Its numbers are 0.1.0's and are for the Gemini
+pack alone: scan precision 100.0% and recall 98.4% over 64 usages in five repositories, and 25 of
+277 usages (9.0%) migrated in 20 repositories with no wrong edit, on the
+[results page](https://github.com/hakanbogan/obelize/blob/v0.3.0/docs/BENCHMARK_RESULTS.md). The scan
+specification the Gemini pack hands the scanner is the one measured, which `tests/unit/test_gate1.py`
+checks, and the verdict of every hand-written answer key under `tests/fixtures/scan/` is unchanged;
+one row of the encoding key moved from line 8 to line 6, the line `compile()` names. The scanner and
+the rewriter are not unchanged, so read those numbers as dated. `openai/openai-0-to-1` and
+`py-pdf/pypdf2-to-pypdf` have no benchmark. They rest on fixtures, on each change measured against
+both library versions installed side by side, and, for `openai`, a weekly job that runs the same
+fixtures on 0.27.0, on 0.28.1 and on the new releases.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](https://github.com/hakanbogan/obelize/blob/v0.3.0/docs/KNOWN_ISSUES.md) lists
+what I know about and have chosen not to fix yet. The 0.1.0 gaps for the Gemini pack stand. The main
+gaps of the two other packs:
+
+- `openai`: async and streamed calls, Azure, every resource but the seven calls under 0.2.0's Added,
+  and the `openai.error` classes are reported and never rewritten. A write to a module setting
+  through `exec`, `globals()`, `sys.modules` or `setattr`, `OPENAI_API_BASE` set in code, and a base
+  URL formed once at assignment are not seen. A handler for top-level `openai.APIError` that reads
+  `http_status` or `json_body` fails after the pin moves, with no warning. The pack writes nothing
+  while any row of it is withheld.
+- `PyPDF2`: a method or a parameter is never rewritten or reported, so only your own tests find that
+  `PdfWriter(path)` starts empty on PyPDF2 and clones the file on pypdf, that page boxes turn from
+  `Decimal` into `float`, or that `extract_text` puts different whitespace between the pieces of a
+  line. A repository that does not declare `PyPDF2` at 3 or above, or a Python below 3.9, is
+  blocked.
+- Model names are kept as they are, in every pack.
+- A source file with a chain of about four hundred terms is a `parse_error` row, not a rewrite. On
+  Python 3.14 and later `compile()` accepts a chain of tens of thousands of terms and libcst can
+  still segfault on it.
+- Python 3.15 is not in the supported range yet.
+- The four safety gaps in
+  [docs/THREAT_MODEL.md](https://github.com/hakanbogan/obelize/blob/v0.3.0/docs/THREAT_MODEL.md) are
+  narrower and still open: a filter driver named in a repository's own `.git/config` and, on
+  Windows, a DLL placed in the repository; `obelize verify` or `obelize undo` run twice overwriting
+  the record of the first; a credential shape the redactor does not list, a secret a Windows program
+  writes as UTF-16 and a key in the model adapter's traceback; and, on Windows, a process that WMI,
+  Task Scheduler or `docker` starts for a verification command.
+
 ### Fixed
 
 - A manifest that already declares the new distribution is no longer given a second line for it:
@@ -72,7 +118,10 @@ in the release that makes it.
   that pytest's exit `5` is a failure here. `PACK_SPEC.md` no longer promises the rewrite matches
   your formatter. `KNOWN_ISSUES.md` names the half-migrated file, the import order, lockfiles and
   an `openai` notebook on a pin that has already moved. `PRODUCT.md` fixes Gate 5 at 2026-11-03 and
-  updates the neighbouring tools.
+  updates the neighbouring tools. The issue templates name no single pack. `BENCHMARK_RESULTS.md`,
+  `bench/errors.yaml` and ADR-044 no longer give counts and levers that disagree with the table
+  `bench/errors.py` generates: an `alias_collision` is worth nothing alone, and ADR-044 says 25
+  migrated rows where it said 34.
 
 ### Packs
 
