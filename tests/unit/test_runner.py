@@ -482,7 +482,7 @@ def test_a_file_already_withheld_for_another_group_names_this_one_too(tmp_path: 
     )
 
 
-def test_a_module_that_never_names_the_model_is_not_parsed(
+def test_a_module_that_names_neither_the_model_nor_its_module_is_not_parsed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     parsed: list[bytes] = []
@@ -495,8 +495,11 @@ def test_a_module_that_never_names_the_model_is_not_parsed(
         return real(source, *args, **kwargs)
 
     monkeypatch.setattr(ast, "parse", spy)
-    scanned(tree(tmp_path, {"llm.py": HOLDER, "app.py": "print('hello')\n"}))
-    assert parsed == [HOLDER.encode()]
+    reader = "from llm import M\n"
+    files = {"llm.py": HOLDER, "app.py": reader, "plain.py": "print('hello')\n"}
+    # Its name without its module, and its module without its name.
+    scanned(tree(tmp_path, {**files, "same.py": "M = 1\n", "twin.py": "import llm\n"}))
+    assert parsed == [reader.encode()]
 
 
 @pytest.mark.skipif(AS_ROOT, reason="root reads a file it may not")
@@ -511,9 +514,8 @@ def test_a_module_that_cannot_be_read_is_not_a_reader(tmp_path: Path) -> None:
 def test_a_module_that_is_gone_when_the_readers_are_gathered_is_left_out(tmp_path: Path) -> None:
     """Windows stops a denied module at the walk, so the failed read is shown by a missing one."""
     root = tree(tmp_path, {"llm.py": HOLDER})
-    assert list(reach._trees(parse.disk(root, Config()), ["gone.py", "llm.py"], {"M"})) == [
-        "llm.py"
-    ]
+    trees = reach._trees(parse.disk(root, Config()), ["gone.py", "llm.py"], {"M"}, {"sdk"})
+    assert list(trees) == ["llm.py"]
 
 
 def test_a_module_that_does_not_parse_is_not_a_reader(tmp_path: Path) -> None:

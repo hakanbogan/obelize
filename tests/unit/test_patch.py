@@ -7,6 +7,7 @@ decoding can be chosen for a file whose encoding is under test.
 from __future__ import annotations
 
 import subprocess
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import pytest
@@ -232,3 +233,30 @@ def test_the_context_is_the_three_lines_every_differ_defaults_to() -> None:
     assert len(context) == 2 * patch.CONTEXT, context
     hunk = one[0].text.split(b"@@ -2,7 +2,7 @@\n")[1]
     assert b"0\n" not in hunk, "the first line is four away and out of range"
+
+
+@pytest.mark.parametrize(
+    ("lines", "junk"), [(2000, False), (2001, True)], ids=["at the limit", "past the limit"]
+)
+def test_a_large_file_lets_the_differ_ignore_repeated_lines(
+    lines: int, junk: bool, repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cost of a repeated line is its count squared; git must still read what comes out."""
+    asked: list[bool] = []
+
+    def spy(
+        isjunk: None, old: list[bytes], new: list[bytes], *, autojunk: bool
+    ) -> SequenceMatcher[bytes]:
+        asked.append(autojunk)
+        return SequenceMatcher(isjunk, old, new, autojunk=autojunk)
+
+    monkeypatch.setattr("obelize.evidence.patch.SequenceMatcher", spy)
+    before = b"x = (\n    1\n)\n" * (lines // 3) + b"y = 2\n" * (lines % 3)
+    after = before.replace(b"    1\n", b"    2\n", 3).replace(b"y = 2\n", b"y = 3\n", 1)
+    one = patch.diff([Change(path="big.py", before=before, after=after)])
+    assert asked == [junk]
+    (repository / "big.py").write_bytes(before)
+    (repository / "change.patch").write_bytes(one[0].text)
+    git(repository, "apply", "--check", "change.patch")
+    git(repository, "apply", "change.patch")
+    assert (repository / "big.py").read_bytes() == after

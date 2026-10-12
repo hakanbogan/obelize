@@ -49,6 +49,9 @@ SHAPE_BAIL: Final[BailCode] = "manifest_pin_shape_unsupported"
 # Keeps a legacy pin for a module only it installs; asked once nothing imports the legacy one.
 TRANSITIVE_BAIL: Final[BailCode] = "transitive_dependency_in_use"
 
+# The fields of a statement, handler or `case` that hold statements.
+_BODIES: Final = ("body", "orelse", "finalbody", "handlers", "cases")
+
 # Only `setup_py` is Python.
 Layout = Literal["requirements", "toml", "cfg", "setup_py"]
 
@@ -218,11 +221,18 @@ def provided(path: str, data: bytes, spec: ScanSpec) -> tuple[tuple[str, str], .
     except (SyntaxError, ValueError, RecursionError, MemoryError):
         return ()
     imported: set[str] = set()
-    for node in ast.walk(tree):
+    # Only a statement holds one, so the walk skips expressions, most of a tree's nodes.
+    pending: list[ast.AST] = [tree]
+    while pending:
+        node = pending.pop()
         if isinstance(node, ast.Import):
             imported.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
-            imported.update(f"{node.module}.{alias.name}" for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module and not node.level:
+                imported.update(f"{node.module}.{alias.name}" for alias in node.names)
+        else:
+            for field in _BODIES:
+                pending.extend(getattr(node, field, ()))
     return tuple(
         sorted(
             {
@@ -233,6 +243,12 @@ def provided(path: str, data: bytes, spec: ScanSpec) -> tuple[tuple[str, str], .
             }
         )
     )
+
+
+def declares(found: Iterable[Declaration], spec: ScanSpec) -> bool:
+    """Whether a manifest declares the pack's legacy distribution."""
+    legacy = canonicalize_name(spec.legacy_distribution)
+    return any(declaration.name == legacy for declaration in found)
 
 
 def prefiltered(

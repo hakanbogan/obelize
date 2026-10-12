@@ -127,6 +127,11 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
         if data is None or not result.parsed:
             plans.append(result.plan)
             continue
+        if all(row.scan_status == "not_a_usage" for row in result.plan.findings):
+            # Mentions only: no rule has a row to claim, so the bytes stay and a parse is waste.
+            files.append(Outcome(result.path, data, data, ()))
+            plans.append(result.plan)
+            continue
         try:
             outcome, plan = _file(result, data, pack, spec)
         except (RecursionError, MemoryError):
@@ -292,7 +297,7 @@ def _file(
     # from its bytes: writing `produced` would change a file the run decided not to change.
     faithful = module.bytes == data
     gate = (
-        _gate(result.path, module, produced)
+        _gate(result.path, context.wrapper, produced)
         if not withheld and faithful and produced != data
         else None
     )
@@ -323,23 +328,23 @@ def _too_deep(result: FileResult, data: bytes) -> tuple[Outcome, ImpactPlan]:
     return Outcome(result.path, data, data, tuple(rows)), plan
 
 
-def _gate(path: str, module: cst.Module, produced: bytes) -> BailCode | None:
+def _gate(path: str, wrapper: MetadataWrapper, produced: bytes) -> BailCode | None:
     """Do the bytes parse and compile, and read no unbound name the input did not already read."""
     read = parse.gates(path, produced)
     if read.module is None:
         return GATE
-    if _unresolved(read.module) - _unresolved(module):
+    if _unresolved(MetadataWrapper(read.module, unsafe_skip_copy=True)) - _unresolved(wrapper):
         return UNRESOLVED
     return None
 
 
-def _unresolved(module: cst.Module) -> frozenset[str]:
+def _unresolved(wrapper: MetadataWrapper) -> frozenset[str]:
     """Names the module reads that nothing binds, builtins aside; string annotations count."""
-    scopes = MetadataWrapper(module, unsafe_skip_copy=True).resolve(ScopeProvider)
+    scopes = wrapper.resolve(ScopeProvider)
     # Typed `Scope | None`, but no node has been seen to map to `None`.
     every = cast("Collection[Scope]", set(scopes.values()))
     return frozenset(
-        module.code_for_node(access.node)
+        wrapper.module.code_for_node(access.node)
         for scope in every
         for access in scope.accesses
         if not access.referents

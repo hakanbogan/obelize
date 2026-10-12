@@ -12,7 +12,7 @@ import pytest
 from acme import SPEC
 
 from obelize.impact import planner
-from obelize.models import Config, ImpactPlan, ManifestPlan
+from obelize.models import Config, ImpactPlan, ManifestPlan, ProvidedModule
 from obelize.scan import analysis, manifests, parse, runner
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -609,6 +609,15 @@ def test_an_import_of_the_legacy_distribution_is_the_reason_given_first() -> Non
         ("# acme.wire is what the retry uses\n", False),
         ("from .acme.wire import frames\n", False),
         ("import acme.wire\ndef (:\n", False),
+        ("def go():\n    import acme.wire\n", True),
+        ("try:\n    pass\nexcept OSError:\n    import acme.wire\n", True),
+        ("try:\n    pass\nfinally:\n    import acme.wire\n", True),
+        ("for _ in ():\n    pass\nelse:\n    import acme.wire\n", True),
+        ("match 1:\n    case 1:\n        import acme.wire\n", True),
+        (
+            "if x:\n    pass\n" + "elif x:\n    pass\n" * 2000 + "else:\n    import acme.wire\n",
+            True,
+        ),
     ],
     ids=[
         "an import",
@@ -619,12 +628,42 @@ def test_an_import_of_the_legacy_distribution_is_the_reason_given_first() -> Non
         "a comment",
         "a relative import",
         "a file that does not parse",
+        "in a function",
+        "in a handler",
+        "in a finally",
+        "in a loop's else",
+        "in a case",
+        "after a long elif chain",
     ],
 )
 def test_the_imports_that_need_a_transitive_distribution(source: str, found: bool) -> None:
     """By the imports the code makes, and never by the text."""
     rows = manifests.provided("retry.py", source.encode(), SPEC)
     assert rows == ((("retry.py", "acme-wire"),) if found else ())
+
+
+# `retry.py` names no token of the pack, so it is no candidate; its import of `requests` counts.
+REQUESTS = SPEC.model_copy(
+    update={"transitive_modules": (ProvidedModule(module="requests", distribution="acme-wire"),)}
+)
+
+
+def test_a_pack_with_no_code_and_no_pin_does_not_survey_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Parsing every file that names a module for a pack the repository does not use is waste."""
+    (tmp_path / "retry.py").write_text("import requests\n", encoding="utf-8")
+    monkeypatch.setattr(manifests, "provided", pytest.fail)
+    assert runner.scan(tmp_path, Config(), REQUESTS, jobs=1).transitive == ()
+
+
+def test_a_pin_with_no_code_still_waits_for_the_module_only_it_installs(tmp_path: Path) -> None:
+    """Dropping it would break `retry.py`, so it is not reported as an unused pin."""
+    (tmp_path / "retry.py").write_text("import requests\n", encoding="utf-8")
+    (tmp_path / "requirements.txt").write_text("acme-sdk==0.1.0\n", encoding="utf-8")
+    scanned = runner.scan(tmp_path, Config(), REQUESTS, jobs=1)
+    assert [row.scan_status for row in scanned.manifests.findings] == ["not_a_usage"]
+    assert scanned.transitive == (("retry.py", "acme-wire"),)
 
 
 def test_a_file_include_leaves_out_blocks_like_an_import() -> None:

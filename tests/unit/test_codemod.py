@@ -573,6 +573,33 @@ def test_a_file_this_run_does_not_write_is_not_parsed_a_second_time(
     assert asked == ["writes.py"]
 
 
+def test_a_file_with_only_mentions_is_not_parsed_for_the_rules(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No rule has a row to claim in it; the file is kept as it was and still in the run."""
+    quiet = '"""Mentions acme.sdk in prose."""\n'
+    files = {"writes.py": CLEAN, "quiet.py": quiet, "plain.py": "x = 1\n"}
+    for name, text in files.items():
+        (tmp_path / name).write_text(text, encoding="utf-8", newline="\n")
+    scan = runner.scan(tmp_path, Config(), acme.SPEC, jobs=1)
+    sources = {name: text.encode("utf-8") for name, text in files.items()}
+
+    parsed: list[bytes] = []
+    real = cst.parse_module
+
+    def spy(source: bytes | str) -> cst.Module:
+        parsed.append(source if isinstance(source, bytes) else source.encode())
+        return real(source)
+
+    monkeypatch.setattr(cst, "parse_module", spy)
+    run = codemod.run(scan, sources, acme.PACK, acme.SPEC)
+    assert CLEAN.encode() in parsed
+    assert quiet.encode() not in parsed
+    held = {outcome.path: outcome for outcome in run.files}["quiet.py"]
+    assert (held.before, held.after, held.edits) == (quiet.encode(), quiet.encode(), ())
+    assert [plan.path for plan in run.plans] == [result.path for result in scan.results]
+
+
 def test_the_codes_this_module_raises_are_the_ones_it_declares(tmp_path: Path) -> None:
     assert {
         "usage_unmapped",

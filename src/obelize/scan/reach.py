@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import ast
 import re
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
@@ -41,13 +41,15 @@ def revised(
     names = {_attribute(row) for rows in wanted.values() for row in rows}
     if not names:
         return tuple(files)
-    trees = _trees(contents, [path for path in paths if path.endswith(".py")], names)
+    segments = {_segment(path) for path, rows in wanted.items() if rows}
+    trees = _trees(contents, [path for path in paths if path.endswith(".py")], names, segments)
+    reads = [_reads(tree) for tree in trees.values()]
     revision = []
     for result in files:
         reached = [
             row
             for row in wanted[result.path]
-            if any(_reaches(tree, _segment(result.path), row) for tree in trees.values())
+            if any(_reaches(read, _segment(result.path), row) for read in reads)
         ]
         revision.append(replace(result, plan=_withheld(result, reached)) if reached else result)
     return tuple(revision)
@@ -68,14 +70,20 @@ def _segment(path: str) -> str:
     return module.parent.name if module.name == "__init__.py" else module.stem
 
 
-def _trees(contents: Contents, paths: Sequence[str], names: set[str]) -> dict[str, ast.Module]:
-    """Parse only modules whose bytes hold one of `names` or a star import (which spells none)."""
+def _trees(
+    contents: Contents, paths: Sequence[str], names: set[str], segments: set[str]
+) -> dict[str, ast.Module]:
+    """Parse only modules whose bytes hold a module's segment and a name or a star import.
+
+    An import spells the segment, and what it takes spells the name or `*`.
+    """
     trees = {}
     for path in paths:
         data, _refused = contents(path)
         if data is None:
             continue
-        if not (_STAR.search(data) or any(name.encode() in data for name in names)):
+        named = _STAR.search(data) or any(name.encode() in data for name in names)
+        if not (named and any(segment.encode() in data for segment in segments)):
             continue
         try:
             trees[path] = ast.parse(data)
@@ -84,27 +92,43 @@ def _trees(contents: Contents, paths: Sequence[str], names: set[str]) -> dict[st
     return trees
 
 
-def _reaches(tree: ast.Module, segment: str, row: Binding) -> bool:
-    """Whether `tree` reaches `row` of module `segment`.
+@dataclass(frozen=True, slots=True)
+class _Reads:
+    """What one module imports and reads, from one walk of it."""
+
+    # The last segment of each module it imports from, with the names it takes from that one.
+    taken: dict[str, set[str]]
+    # Every module it names, in a `from` or an `import`.
+    modules: set[str]
+    attributes: set[str]
+
+
+def _reads(tree: ast.Module) -> _Reads:
+    reads = _Reads({}, set(), set())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            segment = (node.module or "").rpartition(".")[2]
+            reads.taken.setdefault(segment, set()).update(alias.name for alias in node.names)
+            reads.modules.add(segment)
+            reads.modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.Import):
+            reads.modules.update(alias.name.rpartition(".")[2] for alias in node.names)
+        elif isinstance(node, ast.Attribute):
+            reads.attributes.add(node.attr)
+    return reads
+
+
+def _reaches(reads: _Reads, segment: str, row: Binding) -> bool:
+    """Whether a module reaches `row` of module `segment`.
 
     A constant: imported by name or `*`, or its module imported and the attribute read. An
     instance attribute: anything imported from the module and that attribute read off anything.
     """
     name = _attribute(row)
-    imported = module = read = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            if (node.module or "").rpartition(".")[2] == segment:
-                module = True
-                imported = imported or any(alias.name in (name, "*") for alias in node.names)
-            module = module or any(alias.name == segment for alias in node.names)
-        elif isinstance(node, ast.Import):
-            module = module or any(alias.name.rpartition(".")[2] == segment for alias in node.names)
-        elif isinstance(node, ast.Attribute) and node.attr == name:
-            read = True
+    module_read = segment in reads.modules and name in reads.attributes
     if row.kind == "module_const":
-        return imported or (module and read)
-    return module and read
+        return bool(reads.taken.get(segment, set()) & {name, "*"}) or module_read
+    return module_read
 
 
 def _withheld(result: FileResult, reached: Sequence[Binding]) -> ImpactPlan:

@@ -285,7 +285,7 @@ def scan(
     """
     tree = tree or read(root, config, (spec,))
     selection = tree.walk
-    candidates, results, transitive = _sift(tree, selection.files, spec)
+    candidates, results = _sift(tree, selection.files, spec)
 
     workers = worker_count(jobs)
     if workers == 1 or (jobs is None and len(candidates) < POOL_THRESHOLD):
@@ -306,6 +306,12 @@ def scan(
     unanalysed = unread if config.include == DEFAULT_INCLUDE else ()
     hits = tuple(sorted({*hits, *unread})) if not unanalysed else hits
     declared = tuple(row for reading in readings for row in reading.declarations)
+    # Without code to migrate or a pin to judge, the pack has no use for them.
+    transitive = (
+        _imports(tree, selection.files, spec)
+        if candidates or manifests.declares(declared, spec)
+        else []
+    )
     migration = manifests.survey(
         [result.plan for result in files],
         hits,
@@ -346,14 +352,10 @@ def scan(
 
 def _sift(
     tree: Tree, files: Sequence[str], spec: ScanSpec
-) -> tuple[list[Candidate], list[FileResult], list[tuple[str, str]]]:
-    """Finish the unreadable and prefilter-eliminated files, return the rest to parse.
-
-    Legacy-only imports are collected here, since a non-candidate's bytes are not kept.
-    """
+) -> tuple[list[Candidate], list[FileResult]]:
+    """Finish the unreadable and prefilter-eliminated files, return the rest to parse."""
     candidates: list[Candidate] = []
     finished: list[FileResult] = []
-    transitive: list[tuple[str, str]] = []
     for path in files:
         entry = tree.entries[path]
         if entry.sha256 == "":
@@ -361,14 +363,22 @@ def _sift(
             finished.append(_graded(path, "", read, spec))
             continue
         data = entry.data
-        if data is not None:
-            transitive.extend(manifests.provided(path, data, spec))
         if data is None or not parse.candidate(data, spec.prefilter_tokens):
             read = parse.Read(path=path, status="not_a_candidate", data=data)
             finished.append(_graded(path, entry.sha256, read, spec))
             continue
         candidates.append(Candidate(path=path, sha256=entry.sha256, data=data))
-    return candidates, finished, transitive
+    return candidates, finished
+
+
+def _imports(tree: Tree, files: Sequence[str], spec: ScanSpec) -> list[tuple[str, str]]:
+    """Legacy-only imports, from the bytes kept: a non-candidate's are kept for a module only."""
+    return [
+        row
+        for path in files
+        if (data := tree.entries[path].data) is not None
+        for row in manifests.provided(path, data, spec)
+    ]
 
 
 def _pooled(candidates: Sequence[Candidate], spec: ScanSpec, workers: int) -> list[FileResult]:

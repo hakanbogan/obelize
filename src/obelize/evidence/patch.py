@@ -20,6 +20,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # Context lines either side, the `diff -u` and git default.
 CONTEXT = 3
 
+# Line pairs (old times new) above which the differ may ignore the lines a file repeats: a file of
+# repeated lines costs it the square of their count, and a diff of that size is still valid.
+LARGE = 4_000_000
+
 # Git's marker for a last line without terminator; appliers read it.
 NO_NEWLINE = b"\\ No newline at end of file\n"
 
@@ -71,11 +75,12 @@ def _one(path: str, before: bytes, after: bytes) -> FilePatch | None:
         return None
     old, new = _lines(before), _lines(after)
     groups = SequenceMatcher(
-        # autojunk skips lines in >1% of a 200+ line file (blank lines, `)`), bloating hunks.
+        # autojunk skips lines in >1% of a 200+ line file (blank lines, `)`), bloating hunks. Left
+        # off below `LARGE`, so a file that size has the same hunks as before.
         None,
         old,
         new,
-        autojunk=False,
+        autojunk=len(old) * len(new) > LARGE,
     ).get_grouped_opcodes(CONTEXT)
     body: list[bytes] = []
     count = 0

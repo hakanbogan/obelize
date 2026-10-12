@@ -12,6 +12,21 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Changed
+
+- `scan` and `fix` do less work on a large repository and write the same findings. The pass that
+  finds a module another one reads (`model_object_read_elsewhere`) parses only the modules that
+  spell both the module's name and a name read, and walks each once, where it walked every parsed
+  module again for each model (9.5 s to 3.5 s on 800 synthetic modules). `fix` no longer parses
+  a file that only mentions the library in prose or a comment: 28 s to 4 s on 200 files, 180 of
+  them such. A pack the repository does not use, with no code to migrate and no pin to judge, no
+  longer parses the files that name a module only its legacy distribution installed, and one that
+  does reads imports only where a statement can hold one (11 s to 6 s over 5,000 files).
+- `patch.diff` for a file of more than four million line pairs (about 2,000 lines each side) is
+  made without the matcher's repeated-line pass, which cost the square of a repeated line's
+  count. Below that size the hunks are the ones 0.3.0 wrote; above it a hunk can be larger or
+  split differently, and `git apply` reads the patch the same.
+
 ## [0.3.0] - 2026-10-12
 
 ### Benchmark
