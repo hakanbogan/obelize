@@ -155,9 +155,9 @@ for python in 3.12 3.13 3.14; do
     --python-platform x86_64-apple-darwin --only-binary :all: > /dev/null
 done
 
-# The suite passes on the libcst an Intel Mac installs; `uv sync` restores the lock's.
-uv run --with 'libcst==1.8.6' pytest
-uv sync
+# The suite passes on the libcst an Intel Mac installs. libcst 1.8 cannot parse `lazy import`, so
+# those tests skip there, and coverage is the gate of ci, not of this run.
+uv run --with 'libcst==1.8.6' pytest --no-cov
 ```
 
 `obelize --version` must print the version being released, and `obelize --help` must return in

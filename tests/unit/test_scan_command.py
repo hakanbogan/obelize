@@ -12,6 +12,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import libcst as cst
 import pytest
 from typer.testing import CliRunner, Result
 
@@ -74,7 +75,8 @@ def _words(rule_id: str) -> tuple[str, str]:
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 15), reason="compile() refuses `lazy import` before Python 3.15"
+    sys.version_info < (3, 15) or not hasattr(cst, "LazyImport"),
+    reason="compile() refuses `lazy import` before Python 3.15, and libcst 1.8 cannot parse it",
 )
 def test_a_lazy_import_of_the_legacy_module_holds_the_file_and_the_pin(tree: Path) -> None:
     """libcst binds no name for it, so the uses after it are invisible and the pin could go."""

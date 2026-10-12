@@ -71,6 +71,8 @@ def test_a_refused_surface_outranks_where_the_statement_sits() -> None:
 
 def lazy(source: str, spec: ScanSpec = SPEC) -> analysis.Analysis:
     """`compile()` refuses `lazy import` before 3.15, so the tree is handed over as it is."""
+    if not hasattr(cst, "LazyImport"):
+        pytest.skip("libcst 1.8, which an Intel Mac installs, cannot parse `lazy import`")
     data = source.encode()
     module = cst.parse_module(data)
     return analysis.analyse(parse.Read("probe.py", "parsed", data=data, module=module), spec)
