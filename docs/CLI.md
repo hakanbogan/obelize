@@ -155,6 +155,10 @@ run adds `run.json`'s `model` object and a `model/` directory with one file per
 consultation ([RUN_FOLDER.md](RUN_FOLDER.md)). A written model proposal stays
 in `withheld[]`: validation shows that an edit is safe to apply, not that it is correct.
 
+**With verification commands**, one stderr line comes before each phase of tests, before the write
+and after it (`verify` prints it for its one phase): how many commands are about to run and after
+how many seconds each is stopped. It never names a command, which can carry a credential.
+
 ### Several packs in one run
 
 `scan` and `fix` read the repository once and scan it with every pack they try. A pack runs when

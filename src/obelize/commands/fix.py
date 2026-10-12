@@ -69,6 +69,8 @@ class Request:
     # Model proposals are written only with this and `--apply`.
     accept_model: bool = False
     ask: Callable[[str], bool] | None = None
+    # Told before each phase of tests, which can run for minutes in silence.
+    say: Callable[[str], None] | None = None
     # The user's own block with `--model` over it; never the repository's.
     model: ModelConfig = field(default_factory=ModelConfig)
     # Whether a flag, and not only the user's file, asked for the model.
@@ -503,6 +505,8 @@ def _checked(
         before.mkdir()
         after.mkdir()
 
+        if request.say is not None:
+            request.say(_running(request, commands, "before writing the change"))
         verifying = time.monotonic()
         baseline = verdicts.phase(
             verifier.run(
@@ -548,6 +552,8 @@ def _after_the_patch(
         return VerifyResult(
             status="fail", reason="changed_file_does_not_compile", baseline=baseline
         )
+    if request.say is not None:
+        request.say(_running(request, commands, "on the written change"))
     return verdicts.decide(
         verdicts.phase(
             verifier.run(
@@ -559,6 +565,14 @@ def _after_the_patch(
             )
         ),
         baseline=baseline,
+    )
+
+
+def _running(request: Request, commands: Sequence[verifier.Command], when: str) -> str:
+    """What a terminal shows before a phase of tests; the commands themselves can carry secrets."""
+    return (
+        f"Running {len(commands)} verification command(s) {when}, "
+        f"each stopped after {request.config.verify.timeout_s} s."
     )
 
 

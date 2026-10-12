@@ -1085,6 +1085,32 @@ def test_a_command_that_never_started_is_named_with_the_interpreter_to_try(tree:
     assert documented in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
 
 
+def test_each_phase_of_tests_is_announced_on_stderr_before_it_starts(tree: Path) -> None:
+    """The tests can run for minutes; stdout stays what a script reads."""
+    command = f"{PYTHON} -c pass"
+    result = fix(tree, "--apply", "--verify", command)
+    assert result.exit_code == 0, result.output
+    assert result.stderr.splitlines() == [
+        "Running 1 verification command(s) before writing the change, each stopped after 600 s.",
+        "Running 1 verification command(s) on the written change, each stopped after 600 s.",
+    ]
+    assert command not in result.stderr, "a command can carry a credential"
+
+
+def test_a_run_with_no_tests_says_nothing_of_them(tree: Path) -> None:
+    assert fix(tree, "--apply").stderr == ""
+    assert fix(tree, "--verify", f"{PYTHON} -c pass").stderr == ""
+
+
+def test_a_baseline_that_failed_is_announced_once(tree: Path) -> None:
+    """The after-phase never runs, so it is not announced."""
+    result = fix(tree, "--apply", "--verify", f'{PYTHON} -c "raise SystemExit(1)"')
+    assert result.exit_code == 6, result.output
+    assert result.stderr.splitlines() == [
+        "Running 1 verification command(s) before writing the change, each stopped after 600 s."
+    ]
+
+
 @pytest.mark.parametrize(
     "command",
     ["/nonexistent/obelize-no-such-program -q", "obelize-no-such-program -q"],

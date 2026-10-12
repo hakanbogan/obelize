@@ -87,6 +87,14 @@ def folder(tree: Path, run_id: str) -> Path:
     return tree / ".obelize" / "runs" / run_id
 
 
+def test_the_tests_are_announced_on_stderr_before_they_start(tree: Path) -> None:
+    result = verify(tree, applied(tree), "--verify", QUIET)
+    assert result.exit_code == 0, result.output
+    assert result.stderr.splitlines() == [
+        "Running 1 verification command(s) on the written change, each stopped after 600 s."
+    ]
+
+
 def test_a_run_id_that_is_not_one_is_refused_before_it_becomes_a_path(tree: Path) -> None:
     """The id is checked as a shape, not left to a later containment check."""
     result = verify(tree, "../../etc")

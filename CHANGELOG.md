@@ -45,6 +45,9 @@ in the release that makes it.
 
 ### Added
 
+- `fix --apply` and `verify` print one line on stderr before each phase of tests: how many
+  commands are about to run and after how many seconds each is stopped, so a long suite no longer
+  looks like a hang. It names no command, since one can carry a credential, and stdout is unchanged.
 - The Gemini pack rewrites a `generation_config` or `safety_settings` held by a name, where it
   refused as `generation_config_not_static` or `safety_settings_not_static` (COVERAGE gap 29).
   The name needs one plain assignment, a mapping or a list of mappings, and no reader but that

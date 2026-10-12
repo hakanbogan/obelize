@@ -35,6 +35,8 @@ class Request:
     config_dir: Path
     environ: Mapping[str, str]
     ask: Callable[[str], bool] | None = None
+    # Told before the tests, which can run for minutes in silence.
+    say: Callable[[str], None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +104,11 @@ def _run(request: Request, junit: Path) -> VerifyResult:
         return VerifyResult(status="not_run", reason="policy_refused")
     if not permitted.commands:
         return VerifyResult(status="not_run", reason="no_verify_commands")
+    if request.say is not None:
+        request.say(
+            f"Running {len(permitted.commands)} verification command(s) on the written change, "
+            f"each stopped after {request.config.verify.timeout_s} s."
+        )
     return verdicts.decide(
         verdicts.phase(
             verifier.run(

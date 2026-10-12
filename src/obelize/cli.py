@@ -309,6 +309,7 @@ def fix(
         apply=apply_changes,
         accept_model=accept_model,
         ask=_ask,
+        say=_say,
         model=model,
         model_flagged=provider is not None or accept_model,
     )
@@ -417,6 +418,7 @@ def verify(
                 config_dir=_config_dir(),
                 environ=os.environ,
                 ask=_ask,
+                say=_say,
             )
         )
     except CommandError as error:
@@ -568,6 +570,11 @@ def _ask(command: str) -> bool:
     """Ask once whether a repository's command may run; a yes is remembered for that command."""
     typer.echo(f"This repository asks to run: {command}")
     return typer.confirm("Run it, and remember the answer for this repository?", default=False)
+
+
+def _say(text: str) -> None:
+    """Progress goes to stderr, so a `--json` document stays the whole of stdout."""
+    typer.echo(text, err=True)
 
 
 def _configuration(root: Path) -> LoadedConfig:
