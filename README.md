@@ -244,7 +244,7 @@ network access unless you configure a model in your own `~/.config/obelize/confi
 `--model`.
 
 Run obelize in a repository that is committed or backed up, and pass only verification commands
-you trust. These gaps are known in 0.3.0:
+you trust. These gaps are known in 0.4.0:
 
 - obelize turns `core.fsmonitor` off for its own git calls and keeps `git status` from refreshing a
   stale index, which would run a `post-index-change` hook. A repository's `.git/config` can still
@@ -272,8 +272,8 @@ grades every usage: migrated, or left and why. The first five were written befor
 existed. The suite reproduces every key, and each rewritten file matches its expected file byte for
 byte. [tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 37 gaps the fixtures
 do not cover, 19 of them closed. CI runs the suite on Linux for every supported Python and on macOS
-and Windows for the oldest and newest, and holds each system to 100% branch coverage of the code it
-runs.
+and Windows for the oldest, the newest and 3.14, and holds each system to 100% branch coverage of the
+code it runs.
 
 ## Benchmark
 

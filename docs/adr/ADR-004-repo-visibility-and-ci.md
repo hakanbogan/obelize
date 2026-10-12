@@ -22,19 +22,18 @@ breaks a fresh install shows within a week. `bench-smoke.yml`, `dependency-revie
 `release.yml` and `stale.yml` run from the first commit.
 
 The `main` ruleset blocks deletion and non-fast-forward pushes, allows admin bypass and requires
-these eleven checks, written as GitHub shows them:
+these fourteen checks, written as GitHub shows them:
 
 - `lint (ruff + mypy)`
 - `lock (uv.lock is in sync)`
-- `test (ubuntu, py3.12)`, `test (ubuntu, py3.13)` and `test (ubuntu, py3.14)`
-- `test (macos, py3.12)` and `test (macos, py3.14)`
-- `test (windows, py3.12)` and `test (windows, py3.14)`
+- `test (ubuntu, py3.12)`, `test (ubuntu, py3.13)`, `test (ubuntu, py3.14)` and `test (ubuntu, py3.15)`
+- `test (macos, py3.12)`, `test (macos, py3.14)` and `test (macos, py3.15)`
+- `test (windows, py3.12)`, `test (windows, py3.14)` and `test (windows, py3.15)`
 - `smoke (built wheel, clean venv)`
 - `schema-drift (JSON Schemas match the models)`
 
-The ruleset names no `py3.15` check yet. The three 3.15 legs run and a red one holds a release,
-as every leg does, but they gate a merge only once the ruleset names them; then macOS and Windows
-can drop 3.14, which Ubuntu covers.
+macOS and Windows keep 3.14 beside 3.12 and 3.15. Ubuntu covers 3.14 too, so a later change can
+drop it from the two, once the ruleset stops requiring it.
 
 A tag ruleset restricts `v*` to me. CodeQL's default setup for Python and private vulnerability
 reporting, which `SECURITY.md` points at, are on.
@@ -45,6 +44,6 @@ reporting, which `SECURITY.md` points at, are on.
   unexpanded template, so the macOS and Windows checks can be required only while the repository
   stays public.
 - The release workflow accepts only a successful `ci.yml` run on the commit it publishes, so a red
-  leg on any of the eleven checks holds a release.
+  leg on any of the fourteen checks holds a release.
 - GitHub turns scheduled workflows off after 60 days without activity in the repository. They
   start again from the Actions tab.

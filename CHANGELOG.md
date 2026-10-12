@@ -12,6 +12,33 @@ in the release that makes it.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
+### Benchmark
+
+I did not run the benchmark again for this release. Its numbers are still 0.1.0's and are for the
+Gemini pack alone: scan precision 100.0% and recall 98.4% over 64 usages in five repositories, and
+25 of 277 usages (9.0%) migrated in 20 repositories with no wrong edit, on the
+[results page](https://github.com/hakanbogan/obelize/blob/v0.4.0/docs/BENCHMARK_RESULTS.md). The
+scanner and the rewriter have changed since, so read those numbers as dated. The rule for a held
+generation config is measured without the tests: a `fix` dry run over the 23 round-1 repositories at
+their pinned commits gives the rows 0.3.0 gave, except 26 that moved from `needs_review` to `auto`
+(20 in `kvcops__Virtual-Herbal-Garden`, 6 in
+`Momen2410__Question-Answering-ChatBot-Using-Gemini1.5`). That says what is written, not whether it
+passes a repository's tests, which a new round measures, with those two repositories in `dev`.
+`openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf` have no benchmark. They rest on fixtures, on
+each change measured against both library versions installed side by side, and on a weekly job that
+runs their facts on the oldest and newest releases.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](https://github.com/hakanbogan/obelize/blob/v0.4.0/docs/KNOWN_ISSUES.md) lists
+what I know about and have chosen not to fix yet. The gaps listed under 0.3.0 stand, except that
+Python 3.15 is supported. The Gemini pack still withholds a model and the chat it starts in one
+chain (`GenerativeModel(...).start_chat(...)`), and a generation config or safety settings held by a
+name that is assigned twice, changed after its assignment, passed on, read by anything but the call
+or taken as a parameter.
+
 ### Added
 
 - `fix --apply` and `verify` print one line on stderr before each phase of tests: how many
@@ -177,7 +204,8 @@ gaps of the two other packs:
   no name for it, so the uses after it were never seen and the pin could be rewritten under code
   that still used it. The statement is now one `needs_review` row, `lazy_import`, a new value of
   the closed `bail` vocabulary in `findings`, `plan`, `run` and `proposal` schemas; the file and
-  the pin stay.
+  the pin stay. libcst 1.8, which an Intel Mac installs, cannot parse the statement, so there such
+  a file is an `input_does_not_parse` row and is not written.
 - A legacy pin that nothing imports is no longer `not_a_usage`. Code already on `google-genai` or
   `pypdf` with `google-generativeai` or `PyPDF2` still pinned is now a `needs_review` row,
   `manifest_code_mismatch`, so the CI check in `docs/CLI.md` exits `1` on it and a pack that only a leftover pin
