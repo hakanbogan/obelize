@@ -12,6 +12,21 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Added
+
+- `fix --apply` and `verify` print one line on stderr before each phase of tests: how many
+  commands are about to run and after how many seconds each is stopped, so a long suite no longer
+  looks like a hang. It names no command, since one can carry a credential, and stdout is unchanged.
+- The Gemini pack rewrites a `generation_config` or `safety_settings` held by a name, where it
+  refused as `generation_config_not_static` or `safety_settings_not_static` (COVERAGE gap 29).
+  The name needs one plain assignment, a mapping or a list of mappings, and no reader but that
+  argument of a call the rule rewrites, so nothing else sees the value or changes it between the
+  assignment and the call. The keys are written into each call. A module's name stays where it
+  is; a function's own goes with the model, and so does a `GenerationConfig(...)` it holds. A name
+  assigned twice, changed by a stored key or `update`, passed on, read elsewhere, a parameter, or
+  a `GenerationConfig(...)` held at module level is still refused. A module's name that another
+  module changes after importing it is not seen.
+
 ### Changed
 
 - `scan` and `fix` do less work on a large repository and write the same findings. The pass that
@@ -77,21 +92,6 @@ in the release that makes it.
   specification says, where it could have put the user's model block, allowlist and pack
   directories under the repository being scanned. Approving a command appends a row and keeps the
   rows already there, with their command text, where it rebuilt the file from the keys.
-
-### Added
-
-- `fix --apply` and `verify` print one line on stderr before each phase of tests: how many
-  commands are about to run and after how many seconds each is stopped, so a long suite no longer
-  looks like a hang. It names no command, since one can carry a credential, and stdout is unchanged.
-- The Gemini pack rewrites a `generation_config` or `safety_settings` held by a name, where it
-  refused as `generation_config_not_static` or `safety_settings_not_static` (COVERAGE gap 29).
-  The name needs one plain assignment, a mapping or a list of mappings, and no reader but that
-  argument of a call the rule rewrites, so nothing else sees the value or changes it between the
-  assignment and the call. The keys are written into each call. A module's name stays where it
-  is; a function's own goes with the model, and so does a `GenerationConfig(...)` it holds. A name
-  assigned twice, changed by a stored key or `update`, passed on, read elsewhere, a parameter, or
-  a `GenerationConfig(...)` held at module level is still refused. A module's name that another
-  module changes after importing it is not seen.
 
 ### Python 3.15
 
