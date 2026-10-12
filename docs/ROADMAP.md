@@ -26,8 +26,10 @@ measurement, which neither of the two newer packs has. Another library that keep
 the same measurement before it gets a pack.
 
 One optional model adapter can answer a call the pack cannot resolve on its own. It stays off
-unless you configure an endpoint yourself, and whatever it proposes still has to pass the same
-guard a human edit would before anything is written.
+unless you configure an endpoint yourself. A guard checks each proposal before anything is
+written: it must stay inside the lines it was shown and the file it was asked about, parse, and
+add no import or name outside the question. That proves a proposal safe to write, not correct, so
+an accepted one is still a line to review.
 
 ## What the release accepts as a gap
 

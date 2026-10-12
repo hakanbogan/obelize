@@ -447,8 +447,8 @@ Defined in [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md); a pack's fixtures and
 - positives contain a prefilter token and negatives none, so a negative yields
   no finding; a shared module's negatives name the module, so they are scanned
   instead and yield nothing but `not_a_usage`;
-- **a `<name>.after.<ext>` exists for exactly the positives a run migrates
-  whole** (nothing withheld, every finding claimed), computed from a scan;
+- a `<name>.after.<ext>` exists for exactly the positives a run migrates
+  whole (nothing withheld, every finding claimed), computed from a scan;
   the manifest fixture's test sets up that case itself, its
   verdict being repository-wide;
 - applying the pack turns each `.before.` into its `.after.` byte for byte, a
@@ -573,7 +573,7 @@ sixteen changes). The second change shows the **wrong** tools form:
 `GenerativeModel.tools` is a constructor keyword, not a symbol.
 
 ```yaml
-# A migration pack -- declarative only. No code, no shell, no templates.
+# A migration pack: declarative only. No code, no shell, no templates.
 
 # Pack identity. This is also the value accepted by `obelize fix --pack <id>`.
 id: gemini/google-generativeai-to-google-genai

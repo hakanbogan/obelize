@@ -22,7 +22,7 @@ causes:
     why: >-
       F-1. Not a failure of its own: the row is ready and the file is not, so it
       is withheld with the rest of the file. It is the commonest code in the
-      round by a factor of four and it means only that the round's blocked files
+      round and it means only that the round's blocked files
       each hold several rows. Every one of these rows is attributed to the bails
       its `caused_by` names, which is where the lever is computed.
   repo_not_fully_migrated:
@@ -50,7 +50,7 @@ causes:
     disposition: rule_change
     recorded: COVERAGE 28
     why: >-
-      Eighteen rows and the joint-largest lever in the round, +26. Every one is
+      One of the two largest levers in the round. Every one is
       `import google.generativeai as genai` or a `from ... import` inside a
       function body, in a diagnostic script or a lazy importer. v0 rewrites an
       import where it stands and refuses one that is not module-level, which is
@@ -60,7 +60,7 @@ causes:
     disposition: limitation
     recorded: ADR-019
     why: >-
-      Seventeen rows, lever +18, and in this corpus the shape is always the
+      In this corpus the shape is always the
       same one -- the module object itself handed to somebody else, as
       `ChatGoogleGenerativeAI(client=genai)` or a `return genai` from a factory.
       The new SDK has no module to hand over, so the rewrite is not a rename but
@@ -71,7 +71,7 @@ causes:
     disposition: rule_change
     recorded: COVERAGE 29
     why: >-
-      Fifteen rows and the other joint-largest lever, +26. In all three
+      The other of the two largest levers in the round. In all three
       repositories the argument is a **name assigned once and readable** -- a
       module-level `genai.GenerationConfig(...)`, a module-level dict literal
       read inside a function, or a local built two lines above the call. This
@@ -84,7 +84,7 @@ causes:
     disposition: limitation
     recorded: ADR-030
     why: >-
-      Eleven rows, lever +12, and every one of them is the pack doing what it
+      Every one of these rows is the pack doing what it
       says: a `mock.patch` target, a `sys.modules` stub, a dynamic import. The
       lever is real and taking it would mean editing strings that name a module
       by hand-written convention, which is the thing `flag_only` exists not to
@@ -94,7 +94,7 @@ causes:
     disposition: limitation
     recorded: ADR-019
     why: >-
-      D5. Eight rows, lever +12. A supported method called on something with no
+      D5. A supported method called on something with no
       binding record -- a parameter, a container element, a value from another
       module. Resolving it needs a return-type analysis the scan does not have,
       and the same rule is what produced the round's one non-chained false
@@ -104,7 +104,7 @@ causes:
     disposition: limitation
     recorded: ADR-028
     why: >-
-      Six rows, lever +10, and two lines. Both are
+      Two lines. Both are
       `model.start_chat(history=str(time.time()))`, in two near-identical copies
       of one file: a float rendered as a string, which is not a history in
       either SDK. The refusal is right and a rule that rewrote it would be
@@ -115,7 +115,7 @@ causes:
     disposition: limitation
     recorded: ADR-026
     why: >-
-      D3. Five rows, lever zero. The `configure(...)` is inside a function and
+      D3. The `configure(...)` is inside a function and
       the calls it would serve are not, so no single placement reaches them all
       and moving the author's setup is a change the rule will not make.
   model_object_escapes:
@@ -123,7 +123,7 @@ causes:
     disposition: limitation
     recorded: ADR-027
     why: >-
-      Five rows, lever zero. A bound legacy object referenced somewhere that is
+      A bound legacy object referenced somewhere that is
       not the receiver of a supported method, so what it becomes depends on code
       this file cannot see.
   model_object_read_elsewhere:
@@ -131,7 +131,7 @@ causes:
     disposition: limitation
     recorded: ADR-006
     why: >-
-      New this round. Nine rows, one case, one file, lever zero: another module
+      New this round. One case, one file: another module
       in the same repository binds an unrelated attribute under the same short
       name (`generation_model`, `check_model`), and the rule matches by name,
       never by object, so it withholds on the safe side. The same closed-world
@@ -142,7 +142,7 @@ causes:
     disposition: limitation
     recorded: ADR-026
     why: >-
-      New this round. Three rows, one case, one file, lever zero: the class
+      New this round. One case, one file: the class
       subclasses a base defined in another file, so the rule cannot read what
       that base already sets on `self` and treats both ladder names as taken
       on the safe side, exactly as its own docstring says a base it cannot
@@ -164,7 +164,7 @@ causes:
     disposition: limitation
     recorded: ADR-030
     why: >-
-      Four rows, lever zero. An attribute the new SDK does not have. There is no
+      An attribute the new SDK does not have. There is no
       rule to write: what the code does with the value has to be rethought,
       which is what the flag is for.
   multiple_assignments:
@@ -172,7 +172,7 @@ causes:
     disposition: rule_change
     recorded: COVERAGE 30
     why: >-
-      Four rows, lever +9, all four in one file where `model` is assigned twice
+      All of these rows are in one file where `model` is assigned twice
       in one scope -- `gemini-pro-vision` and then `gemini-pro` -- and read once
       after each. The bail is `len(scope[name]) > 1` exactly, so it fires on a
       name reused for two legacy models as readily as on a name that means two
@@ -184,7 +184,7 @@ causes:
     disposition: limitation
     recorded: ADR-020
     why: >-
-      D2. Two rows, lever zero. No `configure(...)` in the module, so there is
+      D2. No `configure(...)` in the module, so there is
       nothing to build a client out of here. This is the cross-module client
       setup the pack already publishes as a limitation.
   alias_collision:
@@ -192,17 +192,18 @@ causes:
     disposition: rule_change
     recorded: COVERAGE 31
     why: >-
-      One row, lever +6, and the best ratio in the round. The file imports the
+      The file imports the
       legacy module **twice** -- `from google.generativeai import upload_file,
       get_file` on one line and `import google.generativeai as genai` on the
       next -- and rewriting the first asks for the default alias the second
-      already binds.
+      already binds. Fixing it alone buys nothing: three
+      `client_placement_ambiguous` rows in the same file are withheld too.
   from_import_unmigrated_symbol:
     class: withheld
     disposition: limitation
     recorded: ADR-025
     why: >-
-      One row, lever zero. `from google.generativeai import ChatCompletion`, a
+      `from google.generativeai import ChatCompletion`, a
       symbol the legacy SDK does not export either, in a file whose own comment
       says "or the correct import from the library you are". Nothing can be
       migrated to a name that was never there.
@@ -211,7 +212,7 @@ causes:
     disposition: limitation
     recorded: ADR-031
     why: >-
-      D3. One row, lever zero, and the same file as the entry above -- the
+      D3. The same file as the entry above -- the
       `ChatCompletion(...)` call that import feeds. The pack detects the usage
       and no change rewrites it, so no rule claims the row.
 
@@ -306,8 +307,8 @@ causes:
       whose *next* class builds a legacy model -- so D5's rule fires, because a
       method name the pack declares was called on an unresolved receiver in a
       file that has a resolved legacy import. Narrowing it needs a return-type
-      analysis, and the same rule earns eight correctly reported rows with a
-      lever of +12, so the trade is not obviously worth making. Nothing was
+      analysis, and the same rule also earns correctly reported rows, so the
+      trade is not obviously worth making. Nothing was
       written -- the finding is withheld under `client_source_unresolved` --
       which is the difference between a false positive and a false-positive
       edit.

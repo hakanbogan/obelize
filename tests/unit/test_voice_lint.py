@@ -1,8 +1,10 @@
 """Front-facing text keeps the voice CONTRIBUTING.md's "Beyond that" section describes.
 
-Scope is the files a newcomer reads first: README, CONTRIBUTING, SECURITY, CHANGELOG and the
-issue/PR templates. The ADR corpus is not scanned, and docs/DECISIONS.md keeps a
-historical record that may legitimately need what this file bans, so neither is scanned here.
+Scope is the files a newcomer reads first: README, CONTRIBUTING, SECURITY, CHANGELOG, the
+issue/PR templates and the pages under docs/ that a link from the terminal or the README opens.
+The ADR corpus is not scanned, docs/DECISIONS.md keeps a historical record that may legitimately
+need what this file bans, and the benchmark protocol and its generated results keep their numbered
+rules and `--` table cells, so none of them is scanned here.
 """
 
 from __future__ import annotations
@@ -22,6 +24,11 @@ FRONT_FACING_FILES: tuple[Path, ...] = (
     ROOT / "CHANGELOG.md",
     ROOT / ".github" / "PULL_REQUEST_TEMPLATE.md",
     *sorted((ROOT / ".github" / "ISSUE_TEMPLATE").glob("*.yml")),
+    *(
+        page
+        for page in sorted((ROOT / "docs").glob("*.md"))
+        if not page.name.startswith(("BENCHMARK", "DECISIONS"))
+    ),
 )
 
 TASK_ID = re.compile(r"\bT[0-9]+\b")

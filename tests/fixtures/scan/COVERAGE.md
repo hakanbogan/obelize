@@ -106,7 +106,7 @@ because task rows, ADRs, fixtures and `bench/errors.yaml` cite gaps by number.
 Each lever is how many round-one rows would migrate if that cause alone were fixed
 ([ADR-044](../../../docs/adr/ADR-044-error-analysis.md)).
 
-28. **An import inside a function body, and the largest lever in the round.** Lever +26:
+28. **An import inside a function body, and one of the two largest levers in the round.** Lever +26:
     `local_import` refuses any import that is not module-level (ADR-020 D8), though the rename is
     mechanical and the open question is where the client goes. *Closes: rename in place, hoist, or
     refuse with the lever in the reason, with a fixture grading the choice.*
@@ -117,9 +117,10 @@ Each lever is how many round-one rows would migrate if that cause alone were fix
 30. **A name assigned twice, both times a legacy model.** Lever +9: `multiple_assignments` is
     `len(scope[name]) > 1`, so reusing `model` for two legacy models is refused, and nothing grades
     it. *Closes: a decision about a second legacy constructor in one scope, with its fixture.*
-31. **A file that imports the legacy module twice.** Lever +6: a `from google.generativeai import …`
-    beside `import google.generativeai as genai` bails `alias_collision`, though `rename_import`
-    reuses an existing binding elsewhere. *Closes: a decision, with a fixture holding both.*
+31. **A file that imports the legacy module twice.** Lever 0, because the file holds three
+    `client_placement_ambiguous` rows as well: a `from google.generativeai import …` beside
+    `import google.generativeai as genai` bails `alias_collision`, though `rename_import` reuses an
+    existing binding elsewhere. *Closes: a decision, with a fixture holding both.*
 32. **A legacy module name as a bare string in a list.** Such a string is `not_a_usage`, while the
     same string where a `flag_only` pattern looks is flagged, so a `sys.modules` assertion stays
     true for the wrong reason. *Closes: with gap 17, or not at all.*

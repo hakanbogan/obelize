@@ -6,7 +6,7 @@ unless each section's values equal its `Literal` in `src/obelize/models.py`, so
 a member is added to both in one commit; `tests/unit/test_fixture_vocabulary.py`
 grades the fixtures against them. §6 and §7 derive from §1-§5.
 
-## 1. `Finding.kind` — what was found (9 values)
+## 1. `Finding.kind`: what was found (9 values)
 
 | Value | Meaning |
 |---|---|
@@ -20,7 +20,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `manifest` | A dependency declaration in `requirements*.txt` (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. Lockfiles are not read: a line edit would break their hashes. |
 | `parse_error` | libcst or `compile()` refused the file. Reported, never edited. |
 
-## 2. `Finding.confidence_reason` — why we believe it (16 values)
+## 2. `Finding.confidence_reason`: why we believe it (16 values)
 
 | Value | Meaning |
 |---|---|
@@ -41,7 +41,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `manifest_dependency` | A dependency declaration naming the legacy distribution. |
 | `parse_error` | The file did not parse; coordinates come from the exception. |
 
-## 3. Fixture `verdict` — what `obelize fix --apply` does (4 values)
+## 3. Fixture `verdict`: what `obelize fix --apply` does (4 values)
 
 The ground truth's grade. The runtime counterpart is `Edit.status` (§8).
 
@@ -167,7 +167,7 @@ REPORT.md.
 | `history_parts_rewritten` | Each string part of the start_chat history literal became {"text": the string}. | A `start_chat(history=...)` literal held string parts. |
 | `async_stream_await_preserved` | An await before an async streaming call was kept after the rename; dropping it raises TypeError. | An `await` precedes an async streaming call that was renamed. |
 
-## 6. Bail selection -- which code a withheld finding names
+## 6. Bail selection: which code a withheld finding names
 
 A finding names one `bail`: the **most specific rule that fired**. Atomicity comes last:
 `file_not_fully_migrated` never displaces a code that names a defect. A file
@@ -267,7 +267,7 @@ exists. §8 and §10 reuse §3's `needs_review` and `unsupported` and are checke
 against §3 directly; §9, §11 and §12 are checked disjoint from the finding sets,
 except that §11 and §12 share five values (§12).
 
-## 8. `Edit.status` — what a run recorded (4 values)
+## 8. `Edit.status`: what a run recorded (4 values)
 
 §3 grades a **fixture**; this grades a **run**.
 
@@ -284,7 +284,7 @@ hand-written key cannot grade a model's answer without assuming it.
 `§8 - §3 == {model_proposed}`. The separate status keeps model edits out of the
 model-free headline ([BENCHMARK.md](BENCHMARK.md)).
 
-## 9. `Binding.kind` — how a legacy object was bound (4 values)
+## 9. `Binding.kind`: how a legacy object was bound (4 values)
 
 The closed-world table of [ADR-006](adr/ADR-006-pack-carries-no-code.md): a
 method call is rewritten only when the receiver's whole world is visible.
@@ -302,7 +302,7 @@ method's receiver withholds the whole group (`model_object_escapes`,
 `multiple_assignments`): a new constructor with an old call site, or the
 reverse, breaks working code.
 
-## 10. `Finding.scan_status` — what a scan alone may say (4 values)
+## 10. `Finding.scan_status`: what a scan alone may say (4 values)
 
 `obelize scan` applies no rule, so it cannot claim a fix-time status.
 
@@ -318,7 +318,7 @@ run's [`counts`](RUN_FOLDER.md#counts) use this split; `plan` and `apply` use
 §3's. `tests/unit/test_models.py` asserts `§3 - §10 == {auto}` and
 `§10 - §3 == {eligible}`.
 
-## 11. `Skipped.reason` — why a path was not looked at (7 values)
+## 11. `Skipped.reason`: why a path was not looked at (7 values)
 
 A path the walker did not hand on; closed because silently dropped files look
 like an empty repository. `src/obelize/scan/walker.py` raises these;
@@ -340,7 +340,7 @@ like an empty repository. `src/obelize/scan/walker.py` raises these;
 raises `unreadable` too, for a selected file that will not open, including one
 that became a symbolic link.
 
-## 12. `WriteRefusal` — why a planned write did not happen (6 values)
+## 12. `WriteRefusal`: why a planned write did not happen (6 values)
 
 What an apply declined to write; closed in `src/obelize/fsutil.py`.
 
@@ -356,7 +356,7 @@ What an apply declined to write; closed in `src/obelize/fsutil.py`.
 Five are §11's words (`models.PathRefusal`): one question, one word. A refused
 write is reported in `run.json`'s `refused[]` (§13), not in `limitations[]`.
 
-## 13. `RefusalCode` — what `run.json`'s `refused[]` may say (8 values)
+## 13. `RefusalCode`: what `run.json`'s `refused[]` may say (8 values)
 
 §12 plus two refusals about the repository. Declared in `src/obelize/models.py`
 as that union, since `obelize.fsutil` imports `models`;

@@ -18,7 +18,7 @@ can recompute cannot be checked.
 
 The collector refuses a checkout without exactly one run folder, and a run whose
 `git_sha`, pack sha256 or obelize version differs from the published result; the
-model with nothing lifted must reproduce the published 34 migrated rows. A
+model with nothing lifted must reproduce the published 25 migrated rows. A
 finding's `evidence` is never collected: it can quote a stranger's source.
 
 ### D2. Three dispositions, a closed set, and a test that closes it
@@ -51,16 +51,21 @@ simulating `local_import` alone released none of its published +26.
 
 ### D5. What the round found, and what it changes
 
-Of 27 causes, four are rule changes, four scan changes (two on existing gaps 22
-and 25) and nineteen limitations; gaps 28 to 33 carry the rest. A disposition
-sits beside each lever instead of a ranking:
-* `generation_config_not_static` (C-31) is the joint-largest lever, +26 over 15
-  rows, each a name assigned once, where ADR-012 D6 predicted zero (gap 29).
-* `multiple_configure_calls`, 19 rows, is worth 0: each of its files also
+Four causes are rule changes and four are scan changes (two on existing gaps 22
+and 25); the rest are limitations, and gaps 28 to 33 carry the other six. A
+disposition sits beside each lever instead of a ranking:
+* `generation_config_not_static` (C-31) is one of the two largest levers, each
+  row a name assigned once, where ADR-012 D6 predicted zero (gap 29).
+* `multiple_configure_calls` is worth nothing alone: each of its files also
   carries `local_import`.
-* One `alias_collision` row is worth six (gap 31).
-* `history_parts_shape_incompatible` (+10) must not be taken: its rows pass
+* `alias_collision` is worth nothing alone either: its file also carries three
+  `client_placement_ambiguous` rows (gap 31).
+* `history_parts_shape_incompatible` must not be taken: its rows pass
   `str(time.time())`, which is not a history in either SDK.
+
+The counts and levers are in the generated table of `BENCHMARK_RESULTS.md` and
+nowhere else, since `tests/unit/test_bench_errors.py` recomputes that table and
+cannot recompute a number written into prose.
 
 ### D6. A key that turns out to be wrong is corrected in place and said out loud
 

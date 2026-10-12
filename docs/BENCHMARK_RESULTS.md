@@ -362,11 +362,12 @@ that corpus under-represented the commonest way to write a generation config.
 `multiple_configure_calls` is worth nothing on its own, because every file
 it touches also carries `local_import`. Ranked by count it would come second.
 
-One `alias_collision` is all that stands between
-`Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents` and a
-complete migration. `from google.generativeai import upload_file,get_file`
-on line 5 and `import google.generativeai as genai` on line 6: rewriting the
-first asks for the alias the second already binds.
+One `alias_collision` has a lever of zero, because the file it sits in also
+carries three `client_placement_ambiguous` rows.
+`Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents` imports
+`from google.generativeai import upload_file,get_file` on line 5 and
+`import google.generativeai as genai` on line 6: rewriting the first asks for
+the alias the second already binds.
 
 One lever must not be taken. `history_parts_shape_incompatible` is two
 lines, in two near-identical copies of one file, reading

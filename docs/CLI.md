@@ -294,7 +294,7 @@ the rest the first match wins, in detection order: `7`, `5`, `3`, `6`, `4`,
 
 | `verify.status` | `verify.reason` | Exit | When |
 |---|---|---|---|
-| `pass` | -- | `0` | Every command succeeded after the patch |
+| `pass` | none | `0` | Every command succeeded after the patch |
 | `fail` | `command_failed`, `changed_file_does_not_compile` | `3` | A command failed after the patch, or a changed file does not compile |
 | `inconclusive` | `timeout`, `tree_changed`, `baseline_failed`, `command_not_executable` | `6` | A verdict was expected and none was obtained |
 | `not_run` | `no_verify_commands` | `6` | The patch was applied and no command was configured |
