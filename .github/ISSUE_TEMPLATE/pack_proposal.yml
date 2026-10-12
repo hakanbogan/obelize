@@ -23,7 +23,7 @@ body:
     attributes:
       label: From package
       description: The distribution name and the version range being migrated away from.
-      placeholder: "google-generativeai (<=0.8.6)"
+      placeholder: "the distribution and range, such as PyPDF2 (>=3,<4)"
     validations:
       required: true
 
@@ -32,7 +32,7 @@ body:
     attributes:
       label: To package
       description: The distribution name and the version range being migrated to.
-      placeholder: "google-genai (>=2.0)"
+      placeholder: "the replacement and range, such as pypdf (>=6.19)"
     validations:
       required: true
 

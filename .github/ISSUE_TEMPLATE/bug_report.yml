@@ -23,7 +23,7 @@ body:
     attributes:
       label: obelize version
       description: Output of `obelize --version`, or the commit SHA if you run from a clone.
-      placeholder: "obelize 0.1.0"
+      placeholder: "obelize 0.x.y"
     validations:
       required: true
 
@@ -68,7 +68,7 @@ body:
       label: Command you ran
       description: The exact command line, including every flag.
       render: shell
-      placeholder: "obelize scan --repo . --pack gemini/google-generativeai-to-google-genai --json"
+      placeholder: "obelize fix --repo . --pack <the pack id from the first line of the output>"
     validations:
       required: true
 
@@ -111,7 +111,9 @@ body:
       label: Reproduction
       description: >-
         A public repository with a commit SHA, or the smallest snippet that
-        triggers the problem. No proprietary code.
+        triggers the problem, for any of the three packs (`google-generativeai`, `openai` 0.x,
+        `PyPDF2`). No proprietary code: if the problem needs private code, say what shape of
+        code it is.
     validations:
       required: true
 

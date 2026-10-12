@@ -52,8 +52,8 @@ body:
       label: Which SDK pattern
       description: >-
         The old-SDK symbols and their file:line, e.g. `genai.configure` inside a
-        function, `start_chat` + `send_message`, `safety_settings` as a dict, a
-        `mock.patch("google.generativeai...")` target.
+        function, `openai.ChatCompletion.create` whose result is passed on,
+        `PyPDF2.PdfFileReader`, a `mock.patch("google.generativeai...")` target.
     validations:
       required: true
 
