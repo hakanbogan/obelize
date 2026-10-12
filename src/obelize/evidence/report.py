@@ -69,10 +69,10 @@ UNTRACKED = "commit them (git add, then git commit), or pass --allow-dirty"
 
 # Under a scan's table; `SCAN_VOCABULARY.md`, which defines the codes, is not installed.
 LEGEND = (
-    "Columns: line, kind, symbol, status, reason. eligible: obelize fix will try to migrate "
-    "it; needs_review: left for you, for the reason shown; unsupported: the new SDK has no "
-    "equivalent; not_a_usage: shown for context only. fix leaves a file as it was when any row "
-    "in it is needs_review or unsupported (for openai, any row in the repository)."
+    "Columns: line, kind, symbol, status, reason (blank when eligible). eligible: obelize fix "
+    "will try to migrate it; needs_review: left for you, for the reason shown; unsupported: the "
+    "new SDK has no equivalent; not_a_usage: shown for context only. fix leaves a file as it was "
+    "when any row in it is needs_review or unsupported (for openai, any row in the repository)."
 )
 
 
@@ -205,8 +205,7 @@ def fixed(
         lines.append("No change planned.")
     for row in plan.files:
         mark = "" if not applying else ("  written" if row.path in written else "  not written")
-        rules = ", ".join(_rule(name, record) for name in row.rules)
-        lines.append(f"  {row.path}  ({row.hunks} hunk(s), {rules}){mark}")
+        lines.append(f"  {row.path}  ({row.hunks} hunk(s)){mark}")
     if not applying and patch:
         lines.extend(["", *diff(patch, evidence, environ)])
     lines.extend(_check(plan, written if applying else {row.path for row in plan.files}, applying))
@@ -219,8 +218,9 @@ def fixed(
     lines.extend(_guidance(guides))
     # Type narrowing only: `RunRecord` rejects a plan or apply without a verification.
     assert record.verify is not None  # noqa: S101 - see above
-    lines.append(_verdict(record.verify))
-    lines.extend(f"Hint: {hint}" for hint in _hints(record.verify, _bare))
+    if applying:
+        lines.append(_verdict(record.verify))
+        lines.extend(f"Hint: {hint}" for hint in _hints(record.verify, _bare))
     if record.model is not None:
         lines.append(_consulted(record.model))
     lines.append(f"Evidence: {evidence}")
@@ -668,12 +668,16 @@ def _verification_section(verify: VerifyRecord, packs: Sequence[PackDocument]) -
     ]
     for hint in _hints(verify, _code):
         lines.extend([f"**Hint:** {hint}", ""])
-    if verify.baseline is not None:
-        lines.extend(_phase_rows(_BASELINE, verify.baseline))
-    lines.extend(_phase_rows("After the patch", verify))
-    suggested = [
-        text for pack in packs if pack.verification for text in pack.verification.suggestions
-    ]
+    # A dry run has no phase to show; each pack suggests the same tests, so say them once.
+    if verify.reason != "dry_run":
+        if verify.baseline is not None:
+            lines.extend(_phase_rows(_BASELINE, verify.baseline))
+        lines.extend(_phase_rows("After the patch", verify))
+    suggested = list(
+        dict.fromkeys(
+            text for pack in packs if pack.verification for text in pack.verification.suggestions
+        )
+    )
     if suggested:
         lines.extend(
             [
@@ -907,10 +911,13 @@ def _rows(findings: list[Finding]) -> list[str]:
     symbol = max(len(_symbol(finding)) for finding in findings)
     rows = []
     for finding in findings:
-        reason = finding.bail or finding.confidence_reason
+        # An eligible row says why only in the report: the code is no reason to wait.
+        reason = finding.bail or (
+            "" if finding.scan_status == "eligible" else finding.confidence_reason
+        )
         rows.append(
             f"    {finding.line:>{width}}  {finding.kind:<{kind}}  "
-            f"{_symbol(finding):<{symbol}}  {finding.scan_status:<12}  {reason}"
+            f"{_symbol(finding):<{symbol}}  {finding.scan_status:<12}  {reason}".rstrip()
         )
     return rows
 

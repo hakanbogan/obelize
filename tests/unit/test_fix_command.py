@@ -191,9 +191,22 @@ def test_the_summary_names_every_file_on_the_plan_and_where_the_evidence_went(
 ) -> None:
     result = fix(tree)
     assert result.exit_code == 0
-    assert "app.py  (1 hunk(s), configure-to-client" in result.output
+    assert "  app.py  (1 hunk(s))" in result.output
+    assert "configure-to-client" not in result.output.split("Diff:")[0], (
+        "the rules are in REPORT.md"
+    )
     assert "Mode plan: a dry run. Nothing in the repository was written;" in result.output
     assert f"Evidence: {folder(tree)}" in result.output
+
+
+def test_a_dry_run_prints_no_verification_line_for_tests_it_never_attempted(tree: Path) -> None:
+    result = fix(tree)
+    assert result.exit_code == 0, result.output
+    assert "Verification:" not in result.output
+    documented = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert "**not_run** (`dry_run`)" in documented
+    assert "### After the patch" not in documented
+    assert "Verification:" in fix(tree, "--apply", "--verify", f"{PYTHON} -c pass").output
 
 
 def test_the_printed_diff_hides_the_value_of_a_secret_named_variable(
@@ -484,9 +497,7 @@ def test_the_summary_says_which_planned_files_were_written_and_which_were_not(
     assert not [line for line in planned.splitlines() if line.endswith("  written")]
     applied = fix(tree, "--apply", "--verify", f"{PYTHON} -c pass")
     assert applied.exit_code == 0
-    assert "app.py  (1 hunk(s), configure-to-client, generative-model-calls, rename-import)" in (
-        applied.output
-    )
+    assert "  app.py  (1 hunk(s))  written" in applied.output
     for line in applied.output.splitlines():
         if line.startswith("  app.py") or line.startswith("  requirements.txt"):
             assert line.endswith("  written"), line
@@ -1241,7 +1252,7 @@ def test_a_run_prints_what_the_pack_says_about_the_findings_it_left_for_you(
     assert result.exit_code == (6 if extra else 0), result.output
     words = f"{FLAGGED}: 1 finding(s) flagged.\n  {message}\n  Suggestion: {suggestion}\n"
     assert words in result.stdout
-    assert result.stdout.index(words) < result.stdout.index("Verification:")
+    assert result.stdout.index(words) < result.stdout.index("Evidence:")
     report_text = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
     assert f"### `{FLAGGED}`\n\n1 finding(s). {message}\n\n**Suggestion:** {suggestion}\n" in (
         report_text

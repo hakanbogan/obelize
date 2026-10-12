@@ -137,10 +137,11 @@ def test_the_table_is_followed_by_what_its_columns_mean(loud: Path) -> None:
     scan = _scan(loud)
     lines = report.terminal(scan, "p", None)
     legend = (
-        "Columns: line, kind, symbol, status, reason. eligible: obelize fix will try to migrate "
-        "it; needs_review: left for you, for the reason shown; unsupported: the new SDK has no "
-        "equivalent; not_a_usage: shown for context only. fix leaves a file as it was when any row "
-        "in it is needs_review or unsupported (for openai, any row in the repository)."
+        "Columns: line, kind, symbol, status, reason (blank when eligible). eligible: obelize "
+        "fix will try to migrate it; needs_review: left for you, for the reason shown; "
+        "unsupported: the new SDK has no equivalent; not_a_usage: shown for context only. fix "
+        "leaves a file as it was when any row in it is needs_review or unsupported (for "
+        "openai, any row in the repository)."
     )
     headline = next(index for index, line in enumerate(lines) if "finding(s)" in line)
     assert lines[headline - 3 : headline] == ["", legend, ""]
@@ -468,6 +469,30 @@ def test_the_packs_verification_suggestions_are_listed_and_not_run(quiet: Path) 
         -len(suggested.suggestions) - 1 : -1
     ]
     assert "Suggested" not in "\n".join(report._verification_section(verify, []))
+
+
+def test_two_packs_that_suggest_the_same_tests_say_them_once(quiet: Path) -> None:
+    pack = loader.load(BUNDLED).pack
+    verify = VerifyRecord(status="not_run", reason="no_verify_commands")
+    once = report._verification_section(verify, [pack])
+    assert report._verification_section(verify, [pack, pack]) == once
+
+
+def test_a_dry_run_shows_no_phase_it_did_not_attempt(quiet: Path) -> None:
+    verify = VerifyRecord(status="not_run", reason="dry_run")
+    lines = report._verification_section(verify, [])
+    assert lines == ["## Verification", "", "**not_run** (`dry_run`)", ""]
+
+
+def test_an_eligible_row_gives_no_confidence_code_and_a_withheld_one_its_reason(
+    tmp_path: Path, loud: Path
+) -> None:
+    ready = _tree(tmp_path / "ready", {"app.py": LEGACY})
+    rows = [line for line in report.terminal(_scan(ready), "p", None) if line.startswith("    ")]
+    assert rows
+    assert [line for line in rows if not line.endswith("eligible")] == []
+    withheld = [line for line in report.terminal(_scan(loud), "p", None) if "needs_review" in line]
+    assert any(line.endswith("model_object_escapes") for line in withheld)
 
 
 def test_a_forged_note_above_the_real_one_cuts_nothing(quiet: Path) -> None:

@@ -29,6 +29,11 @@ in the release that makes it.
 
 ### Fixed
 
+- The terminal output of `scan` and `fix` has less in it that nobody acts on. A planned file shows
+  `path  (N hunk(s))` and not the list of rules that produced the hunks, which `REPORT.md` and
+  `plan.json` keep. An eligible row has a blank reason, where it printed the code that resolved
+  its name. A dry run prints no `Verification:` line and its `REPORT.md` no empty phase, since no
+  test was attempted, and two packs that suggest the same tests say them once.
 - `fix --apply` no longer refuses a dirty tree when it has nothing to write. A repository where
   every finding is held back used to exit `5` with "uncommitted changes", which hid the real
   reason; it now exits `4` with the findings. A configured model keeps the gate, since a
