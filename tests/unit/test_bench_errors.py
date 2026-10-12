@@ -236,7 +236,12 @@ def test_a_limitation_names_an_adr_that_exists() -> None:
         assert list(ROOT.glob(f"docs/adr/ADR-{number.group(1)}-*.md")), cause
 
 
-def test_a_change_names_a_coverage_gap_that_is_open() -> None:
+# Gaps the round recorded as open and a later release closed; the round's record stays as it was
+# published, and a gap closed any other way is a record gone stale.
+CLOSED_SINCE = frozenset({"29"})
+
+
+def test_a_change_names_a_coverage_gap_that_was_open_when_the_round_was_recorded() -> None:
     text = COVERAGE.read_text(encoding="utf-8")
     state = errors.load()
     for cause, entry in state.key["causes"].items():
@@ -246,7 +251,8 @@ def test_a_change_names_a_coverage_gap_that_is_open() -> None:
         assert number is not None, f"{cause}: {entry['recorded']!r} is not a gap"
         heading = f"\n{number.group(1)}. "
         assert heading in text, cause
-        assert f"{heading}~~" not in text, f"{cause}: gap {number.group(1)} is closed"
+        if f"{heading}~~" in text:
+            assert number.group(1) in CLOSED_SINCE, f"{cause}: gap {number.group(1)} is closed"
 
 
 def test_the_hand_written_misses_are_exactly_the_rounds_misses() -> None:
