@@ -462,7 +462,7 @@ def test_the_packs_verification_suggestions_are_listed_and_not_run(quiet: Path) 
     verify = VerifyRecord(status="not_run", reason="no_verify_commands")
     lines = report._verification_section(verify, [loader.load(BUNDLED).pack])
     assert lines[-len(suggested.suggestions) - 3 :][:2] == ["Suggested by the packs, not run:", ""]
-    assert [f"- {text}" for text in suggested.suggestions] == lines[
+    assert [f"- {report._prose(text)}" for text in suggested.suggestions] == lines[
         -len(suggested.suggestions) - 1 : -1
     ]
     assert "Suggested" not in "\n".join(report._verification_section(verify, []))
