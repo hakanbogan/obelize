@@ -17,6 +17,7 @@ from obelize import __version__, fsutil, gitutil
 from obelize.commands import CommandError, reports
 from obelize.evidence import report, run_dir
 from obelize.models import FindingsDocument, ManifestPlan, ModelConfig, VerifyPhase, VerifyResult
+from obelize.native import processes
 from obelize.packs import loader
 from obelize.providers import base as providers
 from obelize.providers import openai_compat, proposals
@@ -116,6 +117,7 @@ class _Model:
 
 def run(request: Request) -> Outcome:
     """One `obelize fix`, from the walk to `.obelize/latest`."""
+    _startable(request)
     started = run_dir.now()
     began = time.monotonic()
     chosen = select(request.root, request.config, request.packs, named=request.named, jobs=None)
@@ -251,6 +253,21 @@ def run(request: Request) -> Outcome:
         guides=guides,
         manifest_plan=driven.manifest_plan,
     )
+
+
+def _startable(request: Request) -> None:
+    """Refuse a `--verify` program that cannot start, before a file is read or written.
+
+    Only the commands typed on the command line: a typo there would otherwise write the patch and
+    end `inconclusive`, with nothing verified. A repository's own are the trust ladder's.
+    """
+    if not request.apply:
+        return
+    for text in request.cli_commands:
+        (program, *_rest) = verifier.Command.of(text, "cli").argv
+        problem = processes.missing(program, request.environ, request.root)
+        if problem is not None:
+            raise CommandError(f"--verify: {problem}. Nothing was read or written.", 2)
 
 
 @dataclass(frozen=True, slots=True)

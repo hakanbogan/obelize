@@ -33,6 +33,10 @@ in the release that makes it.
   every finding is held back used to exit `5` with "uncommitted changes", which hid the real
   reason; it now exits `4` with the findings. A configured model keeps the gate, since a
   proposal could write.
+- `fix --apply --verify "<cmd>"` looks for the command's program before it reads a file. A typo, or
+  a `.venv/bin/python` that is not there, is a usage error (exit `2`) and nothing is written; it
+  used to write the patch and end `inconclusive` (exit `6`) with `command_not_executable`. A
+  command from `.obelize.yml` or the allowlist is still started, and still ends that way.
 
 ### Added
 
@@ -53,6 +57,8 @@ in the release that makes it.
   older pair made pip compile pydantic-core with Rust. PyYAML has no 3.15 wheel yet, so pip builds
   it in pure Python, with no compiler. An Intel Mac installs libcst 1.8, which has no 3.15 wheel,
   so it compiles that with Rust there; the other systems install libcst 1.9's wheel.
+  `tomllib` reads TOML 1.1 from 3.15 on, so a `pyproject.toml` that uses it has its Python floor
+  read there, and is still reported as unreadable on 3.12 to 3.14.
 
 ### Packs
 

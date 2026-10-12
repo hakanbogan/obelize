@@ -80,6 +80,15 @@ def locate(program: str, env: Mapping[str, str]) -> str | None:
     return shutil.which(program, path=env.get("PATH", os.defpath))
 
 
+def missing(program: str, env: Mapping[str, str], cwd: Path) -> str | None:
+    """Why `program` would not start from `cwd` on the command's own `PATH`, or `None`."""
+    if os.sep in program:
+        found = cwd / program
+        runs = found.is_file() and os.access(found, os.X_OK)
+        return None if runs else f"{program} is not an executable file"
+    return None if locate(program, env) else f"{program} is not on its PATH"
+
+
 def program_name(program: str) -> str:
     return PurePosixPath(program).name
 
@@ -96,6 +105,7 @@ __all__ = [
     "end",
     "git",
     "locate",
+    "missing",
     "program_name",
     "read",
     "spawn",

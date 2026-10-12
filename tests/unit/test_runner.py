@@ -125,7 +125,7 @@ def test_the_same_refusal_is_reported_once(tmp_path: Path) -> None:
 
 
 def test_a_manifest_whose_python_floor_does_not_parse_is_a_limitation(tmp_path: Path) -> None:
-    root = tree(tmp_path, {"pyproject.toml": 'urls = { a = "x", }\n', "app.py": LEGACY})
+    root = tree(tmp_path, {"pyproject.toml": "[project\n", "app.py": LEGACY})
     scan = scanned(root)
     assert scan.blocked == ()
     assert [(row.path, row.code) for row in scan.limitations] == [

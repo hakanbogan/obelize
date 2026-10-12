@@ -21,7 +21,7 @@ import pytest
 from obelize.config import ConfigError
 from obelize.native import processes, windows_programs
 from obelize.verify import runner
-from platforms import MODE_BITS, PYTHON, SIGNALS, deny, program, quoted, windows_only
+from platforms import MODE_BITS, PYTHON, SIGNALS, deny, posix_only, program, quoted, windows_only
 
 TOOLS = Path(__file__).resolve().parents[1] / "fixtures" / "verify" / "tools"
 
@@ -708,3 +708,16 @@ def test_a_program_relative_to_a_drive_s_current_directory_is_refused(
     )
     assert (result.status, result.reason) == ("inconclusive", "command_not_executable")
     assert "current directory" in result.output
+
+
+@posix_only("a program is looked up on the command's PATH, by the file's mode")
+def test_a_program_is_missing_when_the_commands_own_path_does_not_hold_it(tmp_path: Path) -> None:
+    tool = tmp_path / "bin" / "tool"
+    tool.parent.mkdir()
+    tool.write_text("#!/bin/sh\n", encoding="utf-8")
+    tool.chmod(0o755)
+    env = {"PATH": str(tool.parent)}
+    assert processes.missing("tool", env, tmp_path) is None
+    assert processes.missing("bin/tool", env, tmp_path) is None
+    assert processes.missing("tool", {"PATH": str(tmp_path)}, tmp_path) == "tool is not on its PATH"
+    assert processes.missing("bin/other", env, tmp_path) == "bin/other is not an executable file"

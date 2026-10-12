@@ -88,7 +88,7 @@ modified.
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--apply` | Write the planned edits. Without it no source file is written: the terminal lists each file's hunks, then prints up to 200 lines of the unified diff, with secrets redacted and control characters escaped, and the path of `.obelize/runs/<id>/patch.diff`, which holds all of it as it is. |
 | `--allow-dirty` | Permit `--apply` with uncommitted changes. Without it, **any** modified or staged tracked file in the whole repository, or an untracked file on the plan, refuses the apply (other untracked files do not count, and the report counts the paths and never names them), so the `git diff` is the migration alone; so does `tree_unknown` (git failed, timed out or refused the directory). A run with no file to write and no model configured does not look at the tree. A dirty tree is recorded in the report. |
-| `--verify "<cmd>"` | A verification command. Runs only with `--apply`. Repeatable. Replaces the repository's, and runs without asking. |
+| `--verify "<cmd>"` | A verification command. Runs only with `--apply`, which refuses a program that cannot start (not on `PATH`, or not an executable file) with exit `2` before anything is read. Repeatable. Replaces the repository's, and runs without asking. |
 | `--timeout <s>` | Override `verify.timeout_s` (at least 1). |
 | `--non-interactive` | Never prompt; refuse a repository command not on the user allowlist unless `--trust-repo-config` is passed. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` in a non-interactive or CI run. |

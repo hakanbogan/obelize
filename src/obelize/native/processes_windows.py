@@ -136,6 +136,15 @@ def locate(program: str, env: Mapping[str, str]) -> str | None:
         return None
 
 
+def missing(program: str, env: Mapping[str, str], cwd: Path) -> str | None:
+    """Why `program` would not start from `cwd` on the command's own `PATH`, or `None`."""
+    try:
+        resolve(program, env, cwd)
+    except OSError as error:
+        return f"{program}: {error}"
+    return None
+
+
 def git() -> str:
     """git on obelize's own `PATH`, looked up once per `PATH`; `FileNotFoundError` if absent."""
     return _git(os.environ.get("PATH", ""))
@@ -153,6 +162,7 @@ __all__ = [
     "end",
     "git",
     "locate",
+    "missing",
     "program_name",
     "read",
     "resolve",

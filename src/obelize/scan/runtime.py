@@ -180,9 +180,10 @@ def _ordered(paths: tuple[str, ...]) -> list[str]:
 
 
 def _from_toml(data: bytes) -> str | None:
-    """`[project] requires-python`, then Poetry's key; `ValueError` unless UTF-8 TOML 1.0.
+    """`[project] requires-python`, then Poetry's key; `ValueError` unless UTF-8 TOML.
 
-    Both decode errors are `ValueError`s, and every supported `tomllib` refuses TOML 1.1 alike.
+    Both decode errors are `ValueError`s. TOML 1.1 reads from Python 3.15 on, and before that it
+    fails like any other syntax error.
     """
     document = tomllib.loads(data.decode("utf-8"))
     project = document.get("project")

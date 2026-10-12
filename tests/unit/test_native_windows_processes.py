@@ -331,6 +331,19 @@ def test_a_command_whose_job_cannot_be_made_is_never_started(
     assert len(started) == 1
 
 
+def test_a_program_named_without_its_extension_starts_when_the_executable_exists(
+    tmp_path: Path,
+) -> None:
+    """`.venv\\Scripts\\python` is `python.exe`; a check of the name as written would miss it."""
+    scripts = tmp_path / ".venv" / "Scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "python.exe").write_bytes(b"")
+    assert processes.missing(".venv\\Scripts\\python", {"PATH": ""}, tmp_path) is None
+    problem = processes.missing(".venv\\Scripts\\pytest", {"PATH": ""}, tmp_path)
+    assert problem is not None
+    assert problem.startswith(".venv\\Scripts\\pytest: ")
+
+
 def test_a_bare_name_the_commands_path_does_not_hold_is_nowhere(tmp_path: Path) -> None:
     """The caller reads that as a program that is not obelize's own."""
     assert processes.locate("no-such-program", {"PATH": str(tmp_path)}) is None

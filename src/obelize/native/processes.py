@@ -2,8 +2,8 @@
 
 `close` releases what `spawn` holds for a command, whatever ended its run. `WORKER_LIMIT` is the
 most workers a process pool takes here, or `None` for no limit. `git`, `locate` and
-`program_name` say which program runs, and `command_problem` why a configured command would not
-read here as written.
+`program_name` say which program runs, `missing` why one would not start, and `command_problem`
+why a configured command would not read here as written.
 """
 
 import sys
@@ -16,6 +16,7 @@ if sys.platform == "win32":
         end,
         git,
         locate,
+        missing,
         program_name,
         read,
         spawn,
@@ -29,6 +30,7 @@ else:
         end,
         git,
         locate,
+        missing,
         program_name,
         read,
         spawn,
@@ -42,6 +44,7 @@ __all__ = [
     "end",
     "git",
     "locate",
+    "missing",
     "program_name",
     "read",
     "spawn",

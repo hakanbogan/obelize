@@ -99,6 +99,21 @@ def folder(tree: Path) -> Path:
     return tree / ".obelize" / "runs" / run_id
 
 
+def repo_command(root: Path, command: str) -> list[str]:
+    """Put `command` in the repository's own `.obelize.yml`, committed, and the flags to run it.
+
+    A command typed with `--verify` is checked before anything is read, so only a repository's
+    can be one that never starts.
+    """
+    (root / ".obelize.yml").write_text(f"verify:\n  commands:\n    - {command}\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "command"],
+        check=True,
+    )
+    return ["--trust-repo-config", "--non-interactive"]
+
+
 def test_without_a_pack_the_bundled_one_is_used_as_scan_uses_it(tree: Path) -> None:
     result = runner.invoke(app, ["fix", "--repo", str(tree)])
     assert result.exit_code == 0, result.output
@@ -853,9 +868,8 @@ def test_a_dry_run_calls_the_patch_a_change_only_when_there_is_one(tree: Path, e
     [
         (f"{PYTHON} -c pass", "1 command(s) ran"),
         (f'{PYTHON} -c "raise SystemExit(1)"', "1 command(s) ran before the patch"),
-        ("/nonexistent/obelize-no-such-program", "0 command(s) ran before the patch"),
     ],
-    ids=["both_phases", "baseline_failed", "not_executable"],
+    ids=["both_phases", "baseline_failed"],
 )
 def test_the_summary_counts_the_commands_that_really_ran(
     tree: Path, command: str, ran: str
@@ -864,6 +878,13 @@ def test_the_summary_counts_the_commands_that_really_ran(
     result = fix(tree, "--apply", "--verify", command)
     (line,) = [one for one in result.output.splitlines() if one.startswith("Verification:")]
     assert line.endswith(f", {ran}"), line
+
+
+def test_the_summary_counts_none_for_a_command_that_never_started(tree: Path) -> None:
+    flags = repo_command(tree, "/nonexistent/obelize-no-such-program")
+    result = fix(tree, "--apply", *flags)
+    (line,) = [one for one in result.output.splitlines() if one.startswith("Verification:")]
+    assert line.endswith(", 0 command(s) ran before the patch"), line
 
 
 TESTS = f"--verify {copied('<project python> -m pytest -q')}"
@@ -962,6 +983,8 @@ def test_a_next_step_is_spelled_for_windows_shells_where_they_read_it(
         (spaced / "app.py").write_text(source, encoding="utf-8")
     monkeypatch.chdir(spaced.parent)
     extra = [] if verify is None else ["--verify", verify]
+    if verify is not None and verify.startswith("/nonexistent/"):
+        extra = repo_command(spaced, verify)
     lines = runner.invoke(app, ["fix", "--repo", "my repo", "--apply", *extra]).stdout.splitlines()
     record = json.loads((folder(spaced) / "run.json").read_text(encoding="utf-8"))
     run = folder(spaced).name
@@ -1037,7 +1060,7 @@ def test_a_path_printed_under_the_repository_takes_one_separator(tmp_path: Path)
 
 def test_a_command_that_never_started_is_named_with_the_interpreter_to_try(tree: Path) -> None:
     program = "/nonexistent/obelize-no-such-program"
-    result = fix(tree, "--apply", "--verify", f"{program} -q")
+    result = fix(tree, "--apply", *repo_command(tree, f"{program} -q"))
     assert result.exit_code == 6, result.output
     # It never started, so the baseline did not pass and `obelize verify` would run nothing.
     assert result.stdout.splitlines()[-1] == (
@@ -1052,6 +1075,47 @@ def test_a_command_that_never_started_is_named_with_the_interpreter_to_try(tree:
     assert f"Hint: {hint.format(program, TESTS)}" in result.stdout.splitlines()
     documented = f"**Hint:** {hint.format(f'`{program}`', f'`{TESTS}`')}"
     assert documented in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["/nonexistent/obelize-no-such-program -q", "obelize-no-such-program -q"],
+    ids=["a_path", "a_bare_name"],
+)
+def test_a_typed_program_that_cannot_start_is_refused_before_anything_is_read(
+    tree: Path, command: str
+) -> None:
+    """Otherwise the patch is written and the run ends `inconclusive`, with nothing verified."""
+    before = (tree / "app.py").read_bytes()
+    result = fix(tree, "--apply", "--verify", command)
+    assert result.exit_code == 2, result.output
+    program = command.split()[0]
+    assert result.stderr.splitlines()[0].startswith(f"--verify: {program} is not ")
+    assert result.stderr.splitlines()[0].endswith(". Nothing was read or written.")
+    assert (tree / "app.py").read_bytes() == before
+    assert not (tree / ".obelize").exists()
+
+
+def test_a_typed_program_is_not_asked_about_without_an_apply(tree: Path) -> None:
+    """A dry run starts no command, so there is nothing to refuse."""
+    result = fix(tree, "--verify", "/nonexistent/obelize-no-such-program -q")
+    assert result.exit_code == 0, result.output
+
+
+@posix_only("POSIX runs a file by its mode; Windows runs what its extension says")
+def test_a_typed_program_that_exists_but_does_not_run_is_refused_too(tree: Path) -> None:
+    script = tree / "check.sh"
+    script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    script.chmod(0o644)
+    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "script"],
+        check=True,
+    )
+    refused = fix(tree, "--apply", "--verify", "./check.sh")
+    assert refused.exit_code == 2, refused.output
+    script.chmod(0o755)
+    assert fix(tree, "--apply", "--allow-dirty", "--verify", "./check.sh").exit_code == 0
 
 
 @pytest.mark.parametrize("extra", [(), ("--apply",)], ids=["dry_run", "apply"])

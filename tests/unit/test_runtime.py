@@ -6,6 +6,7 @@ With `requires_python: ">=3.10"` (on 3.9 pip quietly installs an older, differen
 
 from __future__ import annotations
 
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -144,18 +145,30 @@ def test_a_manifest_that_is_not_there_declares_nothing(tmp_path: Path) -> None:
     assert runtime.declaration("pyproject.toml", parse.disk(tmp_path, _config())) is None
 
 
-# An unread requirement is `input_does_not_parse` on the manifest; TOML 1.1 fails on every Python.
+# An unread requirement is `input_does_not_parse` on the manifest; TOML 1.1 fails before 3.15.
 NOT_TOML = "not TOML 1.0, so the Python it requires was not read"
+BEFORE_3_15 = pytest.mark.skipif(
+    sys.version_info >= (3, 15), reason="tomllib reads TOML 1.1 from 3.15"
+)
 NOT_CFG = "not a setup.cfg setuptools can read, so the Python it requires was not read"
+TOML_1_1 = b'[project]\nrequires-python = ">=3.9"\nurls = { a = "x", }\n'
 UNPARSED = [
     ("pyproject.toml", b"[project\n", NOT_TOML),
-    ("pyproject.toml", b'[project]\nrequires-python = ">=3.9"\nurls = { a = "x", }\n', NOT_TOML),
+    pytest.param("pyproject.toml", TOML_1_1, NOT_TOML, marks=BEFORE_3_15),
     ("pyproject.toml", b'[project]\nrequires-python = ">=\xff3.9"\n', NOT_TOML),
     # `compile()` accepts a BOM before Python; TOML does not, and stripping it invents a dialect.
     ("pyproject.toml", b'\xef\xbb\xbf[project]\nrequires-python = ">=3.9"\n', NOT_TOML),
     ("setup.cfg", b"= not ini\n", NOT_CFG),
     ("setup.cfg", b"[options]\npython_requires = >=\xff3.9\n", NOT_CFG),
 ]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="tomllib refuses TOML 1.1 before 3.15")
+def test_a_manifest_in_toml_1_1_is_read_where_tomllib_reads_it(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_bytes(TOML_1_1)
+    floor = runtime.detect(("pyproject.toml",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor.limitations == ()
+    assert floor.declared == runtime.Declared(path="pyproject.toml", declared=">=3.9")
 
 
 @pytest.mark.parametrize(

@@ -39,7 +39,11 @@ prompt.
 
 A command that never became a process (no such program, no permission) is `inconclusive` with
 `command_not_executable`, not `fail` with `command_failed`, whose exit `3` would tell the reader the
-migration broke a suite that never started. One reason per required action.
+migration broke a suite that never started. One reason per required action. A program typed with
+`--verify` is the exception: `fix --apply` looks for it on the command's own `PATH` (or at its
+path, as a file it may run) before it reads a file, and a miss is a usage error (`2`), because
+the patch would otherwise be written and the run end here, with nothing verified. A command from
+the repository or the allowlist is not looked for, and ends here.
 
 ### D6 -- "a verdict was expected" needs no parameter
 
