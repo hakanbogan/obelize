@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import multiprocessing
 import os
+import warnings
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ProcessPoolExecutor
@@ -389,6 +390,7 @@ def _pooled(candidates: Sequence[Candidate], spec: ScanSpec, workers: int) -> li
 def _initialise(spec: str) -> None:
     global _SPEC
     _SPEC = ScanSpec.model_validate_json(spec)
+    warnings.simplefilter("ignore", SyntaxWarning)  # as in `cli.main`: a spawned process is new
 
 
 def _work(task: tuple[str, str, bytes]) -> dict[str, Any]:

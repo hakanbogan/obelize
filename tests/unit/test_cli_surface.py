@@ -158,6 +158,43 @@ def test_no_message_names_a_path_in_a_checkout() -> None:
     assert found == {}
 
 
+@pytest.mark.parametrize("jobs", ["1", "2"], ids=["in_process", "workers"])
+def test_a_syntax_warning_from_the_code_it_reads_is_not_printed(tmp_path: Path, jobs: str) -> None:
+    """An invalid escape and an always-true assert are the author's; every `evaluated_value` and
+    `compile()` would otherwise report them, in a spawned worker as well."""
+    (tmp_path / "a.py").write_text(
+        'import PyPDF2\nP = "\\d+"\nassert (1, "always true")\n', encoding="utf-8"
+    )
+    arguments = [
+        "scan",
+        "--repo",
+        str(tmp_path),
+        "--pack",
+        "py-pdf/pypdf2-to-pypdf",
+        "--jobs",
+        jobs,
+    ]
+    # `-W always` reaches a spawned worker too, so the control and the test see the same flag.
+    quiet = subprocess.run(
+        [sys.executable, "-W", "always", "-m", "obelize", *arguments],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert quiet.returncode == 0, quiet.stderr
+    assert "SyntaxWarning" not in quiet.stderr
+    loud = subprocess.run(
+        [sys.executable, "-W", "always", "-c", "from obelize.cli import app; app()", *arguments],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # A spawned worker sets its own filter, so only the in-process control can show the warning.
+    assert ("SyntaxWarning" in loud.stderr) is (jobs == "1"), (
+        "control: the entry point keeps it quiet"
+    )
+
+
 def test_a_defect_in_obelize_says_where_to_report_it(monkeypatch: pytest.MonkeyPatch) -> None:
     def refuse(reference: str, root: Path | None = None, dirs: object = ()) -> object:
         raise loader.PackInvalidError(reference, ["id: Field required"], bundled=True)

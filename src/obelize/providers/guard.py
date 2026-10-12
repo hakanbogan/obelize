@@ -216,7 +216,7 @@ def _produced(
     except (cst.ParserSyntaxError, SyntaxError) as error:
         return Checked(proposal, "output_does_not_parse", f"{proposal.path}: {_said(error)}")
     try:
-        cheap.compiles(after, proposal.path)
+        compile(after, proposal.path, "exec")
     except cheap.COMPILE_REFUSALS as error:
         return Checked(proposal, "output_does_not_compile", f"{proposal.path}: {_said(error)}")
 

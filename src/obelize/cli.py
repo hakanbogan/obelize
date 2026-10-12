@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -690,6 +691,9 @@ def main() -> None:
     console.utf8_stdio()
     if colour_is_disabled(sys.argv[1:], os.environ):
         disable_colour()
+    # An invalid escape or an always-true assert in the code read is the author's to fix, and
+    # compile() and libcst would report each one on stderr.
+    warnings.simplefilter("ignore", SyntaxWarning)
     app()
 
 

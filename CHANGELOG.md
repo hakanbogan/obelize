@@ -101,8 +101,9 @@ gaps of the two other packs:
   `)>=6.19pypdf`): libcst counts those lines differently from the edit, so the row is named
   without a pin. One that parses but overruns the stack in libcst's metadata pass (about four
   hundred terms) declares nothing, where it ended `scan` and `fix` with a `RecursionError`.
-- `compile()` no longer prints a `SyntaxWarning` (an invalid escape, `is` with a literal) to
-  stderr with the source line that caused it.
+- A `SyntaxWarning` in the code obelize reads (an invalid escape, `is` with a literal) is no longer
+  printed to stderr, where `compile()` and libcst printed one for each use, with the line that
+  caused it.
 
 ### Changed
 
