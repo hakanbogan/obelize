@@ -862,7 +862,8 @@ cases:
 
   - file: standalone_config
     what_it_is: >-
-      A configuration object that lives on its own and is handed over by name.
+      A configuration object that lives on its own, read by nothing in the
+      file.
     complete: false
     after: present
     unclaimed: []
@@ -870,14 +871,13 @@ cases:
       - {line: 13, rule: rename-import, status: auto}
       - {line: 15, rule: configure-to-client, status: auto}
       - {line: 17, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
-      - {line: 19, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
-      - {line: 23, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
+      - {line: 19, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto}
     notes: >-
-      Three rows and two reasons that are the same reason from two ends. Line
-      19 is the constructor, which was handed a name rather than a shape it can
-      read; line 17 is the object itself, which no group consumed because the
-      only place a rewrite can put a configuration is inside the call it
-      configures.
+      One row refused, and it is the object itself: no group consumed it,
+      because the only place a rewrite can put a configuration is inside the
+      call it configures, and no call reads this one. The model was never
+      handed it, so its own rows are written.
 
   - file: discarded_constructor
     what_it_is: >-
@@ -1343,6 +1343,45 @@ cases:
       The name has one assignment and the model is its only reader, so the
       four keys are written into `chats.create`, the call the group's chat
       is made by. The name stays where it is.
+
+  - file: config_name_module_class
+    what_it_is: >-
+      A configuration class held by a module-level name, imported by its own
+      name.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 9, rule: rename-import, status: auto}
+      - {line: 10, rule: rename-import, status: auto}
+      - {line: 14, rule: rename-import, status: auto}
+      - {line: 12, rule: configure-to-client, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto}
+      - {line: 24, rule: generative-model-calls, status: auto}
+    notes: >-
+      The model is the name's only reader, so the three keys are written into
+      the call. The name stays where it is, and the class it holds is the new
+      SDK's: the import rule renames the spelling where it stands. The comment
+      on its last key stays beside the statement it belongs to.
+
+  - file: config_name_module_attribute
+    what_it_is: >-
+      A configuration object held by a module-level name, spelled through the
+      module.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 14, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto}
+    notes: >-
+      The spelling through the module is this rule's own symbol, so the
+      object's row is its own and it is the rule that makes the class the new
+      SDK's. The model is the only reader, so its keys are written into the
+      call, and the name stays where it is.
 
   - file: config_name_local
     what_it_is: >-

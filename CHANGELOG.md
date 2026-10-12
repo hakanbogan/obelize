@@ -19,13 +19,13 @@ in the release that makes it.
   looks like a hang. It names no command, since one can carry a credential, and stdout is unchanged.
 - The Gemini pack rewrites a `generation_config` or `safety_settings` held by a name, where it
   refused as `generation_config_not_static` or `safety_settings_not_static` (COVERAGE gap 29).
-  The name needs one plain assignment, a mapping or a list of mappings, and no reader but that
-  argument of a call the rule rewrites, so nothing else sees the value or changes it between the
-  assignment and the call. The keys are written into each call. A module's name stays where it
-  is; a function's own goes with the model, and so does a `GenerationConfig(...)` it holds. A name
-  assigned twice, changed by a stored key or `update`, passed on, read elsewhere, a parameter, or
-  a `GenerationConfig(...)` held at module level is still refused. A module's name that another
-  module changes after importing it is not seen.
+  The name needs one plain assignment, a mapping, a list of mappings or a `GenerationConfig(...)`,
+  and no reader but that argument of a call the rule rewrites, so nothing else sees the value or
+  changes it between the assignment and the call. The keys are written into each call. A module's name stays where it
+  is, and a `GenerationConfig(...)` it holds becomes the new SDK's `GenerateContentConfig(...)`;
+  a function's own goes with the model, and so does the `GenerationConfig(...)` it holds. A name
+  assigned twice, changed by a stored key or `update`, passed on, read elsewhere or a parameter is
+  still refused. A module's name that another module changes after importing it is not seen.
 
 ### Changed
 

@@ -282,12 +282,10 @@ class GenerativeModelCalls:
 
     @staticmethod
     def _read_through(tree: _Tree, call: cst.Call, nodes: Sequence[cst.Call]) -> bool:
-        """Whether `call` is assigned to a function's own name that one of `nodes` reads."""
+        """Whether `call` is assigned to a name that one of `nodes` reads."""
         found = tree.defined_by(call)
-        return (
-            found is not None
-            and found.local
-            and any(tree.inside(node, tree.start(read)) for node in nodes for read in found.reads)
+        return found is not None and any(
+            tree.inside(node, tree.start(read)) for node in nodes for read in found.reads
         )
 
     def _closure(
@@ -421,8 +419,14 @@ class GenerativeModelCalls:
                 held[produced] = plan.config
         self._check_the_response_is_still_read_the_old_way(tree, group)
         self._check_what_the_constructor_wrote_travels(tree, group, ctor, plans)
+        # A module's name stays and is read by no one else, so its class is the new one.
+        kept = {
+            id(held.statement): held.value.func
+            for held in named
+            if not held.local and isinstance(held.value, cst.Call)
+        }
         alias = None
-        if any(plan.config.fields or plan.config.safety for plan in plans):
+        if kept or any(plan.config.fields or plan.config.safety for plan in plans):
             alias = context.imports.require(self._config_module)
             if alias is None:
                 raise BailError(context.imports.refusal(self._config_module))
@@ -432,6 +436,9 @@ class GenerativeModelCalls:
         self._drop(context, tree, ctor.statement)
         for found in {id(held.statement): held for held in named if held.local}.values():
             self._drop(context, tree, found.statement)
+        if alias is not None:
+            for func in kept.values():
+                context.rewrites.set(func, self._config_class(alias))
         return {
             group.position: ctor.warnings,
             **{plan.use.position: plan.warnings for plan in plans},
@@ -570,7 +577,7 @@ class GenerativeModelCalls:
         The name needs one plain assignment and no reader but a configuration argument of a call
         this rule rewrites, so nothing else sees the value or changes it before the call. A
         function's own name goes with the group, so no other group may read it; a module's stays,
-        and so does a legacy configuration call it holds, which would not survive the import.
+        and so does a legacy configuration call it holds, which `_rewrite` makes the new class.
         """
         if not isinstance(node, cst.Name):
             return node
@@ -583,9 +590,8 @@ class GenerativeModelCalls:
                 any(tree.inside(call, tree.start(read)) for call in nodes) for read in found.reads
             ):
                 raise BailError(code)
+        if found.local or isinstance(found.value, cst.Call):
             named.append(found)
-        elif isinstance(found.value, cst.Call):
-            raise BailError(code)
         return found.value
 
     def _configures(self, tree: _Tree, group: _Group, read: cst.CSTNode) -> bool:
@@ -1055,13 +1061,16 @@ class GenerativeModelCalls:
             )
         return layout.call(
             plan.config.source,
-            cst.Attribute(value=cst.Name(alias), attr=cst.Name(self._config_leaf)),
+            self._config_class(alias),
             args,
             indent=indent,
             unit=unit,
             width=width,
             around=around,
         )
+
+    def _config_class(self, alias: str) -> cst.Attribute:
+        return cst.Attribute(value=cst.Name(alias), attr=cst.Name(self._config_leaf))
 
     def _drop(self, context: RuleContext, tree: _Tree, statement: cst.BaseSmallStatement) -> None:
         """Delete the constructor, handing its leading comment to what follows.

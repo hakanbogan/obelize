@@ -61,9 +61,9 @@ rule rewrites. Then no other reader sees the value and nothing changes it betwee
 the assignment and the call (a stored key, `update`, an alias and a `print` each
 refuse), and the value is read as if it were written in the argument. A
 function's own name goes with its group, so a second group that reads it refuses
-both; a module's name stays where it is. A legacy configuration call held by a
-module's name is refused, since its class has no counterpart under that name once
-the import is renamed. What was copied must mean the same at each call as where it
+both; a module's name stays where it is. A legacy configuration call a module's
+name holds stays too and becomes the new SDK's class, since the legacy class has
+no counterpart under that name once the import is renamed. What was copied must mean the same at each call as where it
 was assigned, which D2's `ctor_argument_not_portable` decides. A module's name
 that another module changes after importing it is not seen.
 

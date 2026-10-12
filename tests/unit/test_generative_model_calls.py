@@ -193,9 +193,42 @@ def test_a_legacy_configuration_object_a_function_holds_is_read_and_goes() -> No
     assert refusals(edits) == [None, None, None]
 
 
-def test_a_legacy_configuration_object_a_module_holds_keeps_the_file_as_it_was() -> None:
-    _produced, edits = run(
+def test_a_legacy_configuration_object_a_module_holds_stays_as_the_new_class() -> None:
+    """The name stays, as another module may import it, so its class must be one that exists."""
+    produced, edits = run(
         "BASE = sdk.Config(heat=1)\nMODEL = sdk.Model('m', settings=BASE)\n\n\n"
+        "def a(p):\n    return MODEL.run(p).answer\n"
+    )
+    assert "BASE = types.RunConfig(heat=1)" in produced
+    assert "options=types.RunConfig(heat=1)" in produced
+    assert "sdk.Config" not in produced
+    assert set(refusals(edits)) == {None}
+
+
+def test_a_legacy_configuration_object_with_no_keys_is_made_the_new_class_too() -> None:
+    produced, edits = run(
+        "BASE = sdk.Config()\nMODEL = sdk.Model('m', settings=BASE)\n\n\n"
+        "def a(p):\n    return MODEL.run(p).answer\n"
+    )
+    assert "BASE = types.RunConfig()" in produced
+    assert set(refusals(edits)) == {None}
+
+
+def test_a_legacy_configuration_object_two_models_read_is_made_the_new_class_once() -> None:
+    produced, edits = run(
+        "BASE = sdk.Config(heat=1)\nONE = sdk.Model('a', settings=BASE)\n"
+        "TWO = sdk.Model('b', settings=BASE)\n\n\n"
+        "def a(p):\n    return ONE.run(p).answer + TWO.run(p).answer\n"
+    )
+    assert produced.count("BASE = types.RunConfig(heat=1)") == 1
+    assert produced.count("options=types.RunConfig(heat=1)") == 2
+    assert set(refusals(edits)) == {None}
+
+
+def test_a_legacy_configuration_object_a_module_holds_and_something_reads_is_refused() -> None:
+    """A copy in the call would leave the other reader on an object of a class that is gone."""
+    _produced, edits = run(
+        "BASE = sdk.Config(heat=1)\nprint(BASE)\nMODEL = sdk.Model('m', settings=BASE)\n\n\n"
         "def a(p):\n    return MODEL.run(p).answer\n"
     )
     assert set(refusals(edits)) == {"generation_config_not_static"}
