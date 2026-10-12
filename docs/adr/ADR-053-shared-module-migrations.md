@@ -6,7 +6,7 @@ Accepted; amended by [ADR-055](ADR-055-rename-setting.md).
 
 ## Decision
 
-A migration may keep its module name. `openai` 0.28.1 and `openai` 1.109.1 or later are one
+A migration may keep its module name. `openai` 0.27.0 to 0.28.1 and `openai` 1.109.1 or later are one
 distribution and one import, so no import statement says which API a file was written for, and every
 pack so far found its legacy code by the module it leaves. ADR-050 lets the format widen only for a
 migration that needs it, and the third family, **`openai` 0 to 1**, `openai/openai-0-to-1`, needs five
@@ -21,6 +21,15 @@ pack changed, D18 a later rewrite, D19 four more calls and D20 a part of a resul
 Run on openai 0.28.1 (CPython 3.12, 3.13 and 3.14) and on 1.109.1, 2.0.0, 2.34.0, 2.54.0, 3.0.0 and
 3.26.0 (3.12; 3.26.0 also on 3.13 and 3.14). The facts the pack rests on hold on all six releases
 of the new side, and 3.26.0 is the newest.
+
+The old side was widened to **0.27.0** (`from.version` `>=0.27.0,<1`) by a second Gate 0, run on
+0.27.0, 0.27.2, 0.27.4, 0.27.6, 0.27.8, 0.27.10 and 0.28.0 beside 0.28.1 (3.12): the submodules and
+the `openai.error` classes are the same on all eight, the module's names are the same except
+`VERSION` and `requestssession`, which 0.27.0 to 0.27.4 do not define (and `FineTuningJob`, which
+0.27.6 and 0.27.8 do not), each Requires-Dist set is the same, and the ten `.before.py` fixtures print
+identical results on every one against a local server. A name only the newer releases define is one
+code written for an older release could not use, so the rules mean the same on all of them.
+`openai` 0.26 and older have no `ChatCompletion`: a pin below 0.27.0 blocks the pack.
 
 - A 0.28.1 result is an `OpenAIObject`, a `dict` subclass, so `r["choices"][0]["message"]["content"]`
   and `r.choices[0].message.content` both work. From 1.109.1 a result is a pydantic model:
@@ -166,7 +175,7 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 
 
 The repository is blocked, as ADR-050 D4 and D5 say, when it declares Python below 3.8, declares
-openai below 0.28.1, or uses openai and declares it nowhere obelize reads.
+openai below 0.27.0, or uses openai and declares it nowhere obelize reads.
 
 ### D8. The facts are tests, and the legacy side is frozen
 
@@ -187,7 +196,8 @@ are held differently:
   answer to D2's price. `tests/packs/openai_legacy_check.py`, standard library
   only, compares the snapshot to the real 0.28.1 weekly, with
   `uv run --isolated --no-project --python 3.12 --with openai==0.28.1`, and asserts the behaviours the
-  refusals rest on.
+  refusals rest on. The weekly job also runs the `.before.py` fixtures on 0.27.0, the floor of
+  `from.version`, and requires the printed results to equal 0.28.1's.
 
 The weekly job is `.github/workflows/e2e.yml`. Dependabot leaves the dev pin alone, since a newer
 release is a different surface until it is measured, and the weekly job is what looks at the floor.

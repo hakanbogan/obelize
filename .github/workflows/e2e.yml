@@ -248,8 +248,8 @@ jobs:
           pytest tests/packs/test_openai_facts.py -q --no-cov -p no:cacheprovider
 
       - name: The migrated openai fixtures do what the legacy ones did
-        # The legacy fixtures run on 0.28.1 and their answer keys on the floor and the newest
-        # release, each against a local server; the printed results must be the same.
+        # The legacy fixtures run on 0.28.1 and 0.27.0, and their answer keys on the floor and the
+        # newest release, each against a local server; the printed results must be the same.
         env:
           UV_FROZEN: "0"
         run: |
@@ -271,6 +271,11 @@ jobs:
             diff "$out/legacy.txt" "$out/new.txt" \
               || { echo "::error::$release prints something else than 0.28.1 did"; exit 1; }
           done
+          # `from.version` starts at 0.27.0, so the legacy fixtures must print the same there.
+          uv run --isolated --no-project --python 3.12 --with openai==0.27.0 --with numpy \
+            python -I "$check" "${before[@]}" > "$out/floor.txt"
+          diff "$out/legacy.txt" "$out/floor.txt" \
+            || { echo "::error::openai 0.27.0 prints something else than 0.28.1 did"; exit 1; }
 
       - name: Upload the evidence directory
         if: always() && steps.guard.outputs.present == 'true'

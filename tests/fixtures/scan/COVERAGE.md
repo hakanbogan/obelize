@@ -17,7 +17,7 @@ line, use lines, verdict and bail; and that the files blocking the manifest edit
 are the ones the key leaves importing the legacy distribution. Nothing is
 excluded, so a new code arrives with the fixture that grades it.
 
-The gaps are numbered: thirty-six are written down and **eighteen are
+The gaps are numbered: thirty-seven are written down and **eighteen are
 closed**. None of the open ones is a shipped surface without a fixture; they are
 measurements and decisions. A closed gap is struck through and keeps its number,
 because task rows, ADRs, fixtures and `bench/errors.yaml` cite gaps by number.
@@ -143,3 +143,10 @@ Each lever is how many round-one rows would migrate if that cause alone were fix
     `google.genai`, which the pack does not describe. The new module has neither name, so such
     code already fails when it runs. *Closes: a prefilter that reads the new import and a
     decision on reporting a legacy name read off it, with the fixture that grades both.*
+37. **A class that builds the model from a parameter or an attribute.**
+    `self.model = genai.GenerativeModel(model_name)` in `__init__` and
+    `self.model.generate_content(...)` in another method are refused `ctor_argument_not_portable`:
+    the rule needs the same single assignment at the constructor and at the call, which `self` and a
+    parameter never give (ADR-027 D2). The pack's limitations name it. *Closes: reusing the
+    existing binding (`self.model = <name>`, `model=self.model` at each call), with a fixture that
+    grades a class wrapper.*

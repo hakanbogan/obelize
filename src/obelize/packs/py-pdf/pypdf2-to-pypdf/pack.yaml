@@ -1,7 +1,7 @@
 # Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
 # Measured on PyPDF2 3.0.1 and pypdf 6.19.0 (SOURCES.md).
 id: py-pdf/pypdf2-to-pypdf
-pack_version: 0.1.0
+pack_version: 0.2.0
 provider: py-pdf
 language: python
 
@@ -167,8 +167,8 @@ changes:
       message: >-
         The legacy module is reached here as a string or through a dynamic
         import rather than by an import statement, so the rewrite cannot follow
-        it. A patch target left pointing at PyPDF2 keeps passing and stops
-        testing anything.
+        it. A patch target left pointing at PyPDF2 stops standing in for the
+        code once it has moved, so the test reaches the real library instead.
       suggestion: >-
         Update the target by hand once the code it patches has moved to pypdf.
     fixtures:
@@ -188,12 +188,13 @@ changes:
 
 verification:
   suggestions:
-    - "pytest -q"
+    - "<project python> -m pytest -q"
 
 limitations:
   - "Only imports and the reads of the names listed in symbol_map are rewritten. A method or a parameter is never rewritten or reported, because the engine has no rule that follows an object, so the differences below are found by the tests of the migrated repository (--verify), not by obelize."
   - "PdfWriter(path) and PdfWriter(reader) start empty on PyPDF2 3.0.1 and clone the file on pypdf 6, so a script that passes either grows its output on every run."
   - "Page boxes and generic.FloatObject hold decimal.Decimal numbers on PyPDF2 3.0.1 and float on pypdf 6, so arithmetic that mixes them with Decimal raises TypeError."
+  - "extract_text puts different whitespace between the pieces of a line on valid files: a page that draws Hello and World with two Tj operators reads HelloWorld on PyPDF2 3.0.1 and Hello World on pypdf 6, so a snapshot or a text pipeline that compares extracted text can differ."
   - "pypdf 6 also lacks, among other things, PdfWriter.set_page_mode and the user_pwd, owner_pwd, pageNumber, Tj_sep and TJ_sep parameters that PyPDF2 3.0.1 accepts; the last four warn on 3.0.1."
   - "The names compared are those of the two projects, not their behaviour: pypdf 3 to 6 fixed parsing bugs and tightened limits, so a damaged file that PyPDF2 3.0.1 read one way may be read differently, or refused."
   - "PdfFileReader, PdfFileWriter and PdfFileMerger have raised DeprecationError since PyPDF2 3.0.0, and PdfMerger, generic.AnnotationBuilder and generic.Bookmark no longer exist in pypdf 6, so all of them are reported and never rewritten."

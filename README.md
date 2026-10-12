@@ -7,7 +7,7 @@
 
 obelize migrates Python code off libraries and library versions that are being retired:
 `google-generativeai`, the deprecated Gemini SDK, to `google-genai`, `PyPDF2` to `pypdf`, and `openai`
-0.28.1 to 1.109.1 or later. Each migration is a pack that ships with it:
+0.x (0.27.0 and later) to 1.109.1 or later. Each migration is a pack that ships with it:
 `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf`.
 
 It finds every legacy call it can resolve, rewrites what it can prove, and leaves the rest with a
@@ -194,7 +194,7 @@ you trust. These gaps are known in 0.3.0:
 | `obelize pack validate` | Checks a migration pack against the [pack format](docs/PACK_SPEC.md). |
 
 `scan` and `fix` run every pack your repository uses, or the ones `--pack` names. The Gemini pack,
-`gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 20
+`gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 22
 limitations. The limitations say what it reports instead of rewriting, such as every tool
 declaration, because automatic function calling is on by default in `google-genai`; what it cannot
 find; and what it rewrites without having checked it against a live API call. `scan` and `fix` print
@@ -224,7 +224,7 @@ packs write each file they can migrate whole and leave the rest.
 Each case under [tests/fixtures/scan/](tests/fixtures/scan/) has an answer key written by hand that
 grades every usage: migrated, or left and why. The first five were written before the scanner
 existed. The suite reproduces every key, and each rewritten file matches its expected file byte for
-byte. [tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 36 gaps the fixtures
+byte. [tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 37 gaps the fixtures
 do not cover, 18 of them closed. CI runs the suite on Linux for every supported Python and on macOS
 and Windows for the oldest and newest, and holds each system to 100% branch coverage of the code it
 runs.
@@ -258,8 +258,9 @@ installed side by side, and each place it leaves has a written reason.
 
 ## Limits
 
-- It keeps model names as they are. Google has retired the `gemini-1.5` models, so change a name
-  such as `gemini-1.5-flash` yourself.
+- It keeps model names as they are. Google and OpenAI retire models on published schedules
+  ([Gemini](https://ai.google.dev/gemini-api/docs/deprecations),
+  [OpenAI](https://platform.openai.com/docs/deprecations)), so check each name your calls use.
 - It finds notebooks (`.ipynb`) that use the old SDK but does not migrate them, and while one
   does, the old dependency line stays. List the notebook under `exclude` in `.obelize.yml` and the
   rest migrates and the pin moves; the notebook then loses the old SDK, so fix it by hand.

@@ -61,6 +61,19 @@ in the release that makes it.
 - `REPORT.md` no longer lists a manifest as "still importing the legacy distribution" when the
   pin waits on a module only that distribution installed; it lists the files that import it.
 
+### Packs
+
+- `openai/openai-0-to-1` (0.2.0) migrates from `openai` 0.27.0, not only 0.28.1. A second Gate 0
+  found one surface across 0.27.0 to 0.28.1 and identical results from the ten legacy fixtures;
+  a pin below 0.27.0 blocks the pack. The weekly job runs the legacy fixtures on 0.27.0 too.
+- All three packs name model deprecations (openai, Gemini), suggest `<project python> -m pytest -q`
+  and say a patch target "stops standing in for the code once it has moved". The Gemini pack
+  (0.2.0) also names the class-wrapper refusal and the optional types `google-genai` returns. The
+  openai pack names the Azure environment variables, `httpx2`, optional types, libraries that call
+  0.x themselves, and what a notebook does to the pin. The pypdf pack (0.2.0) names that
+  `extract_text` spaces text differently. The Gemini pack's `pack_version` rises from 0.1.0, which
+  0.2.0 should have done.
+
 ### Security
 
 - Every git command obelize runs sets `core.fsmonitor` to empty, so a hook the repository's own

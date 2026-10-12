@@ -28,6 +28,25 @@ on the httpx a fresh install resolves they fail at the first client
 (`TypeError: Client.__init__() got an unexpected keyword argument 'proxies'`),
 which is why `to.version` starts at 1.109.1.
 
+The old side was widened to 0.27.0 by a second measurement, kept here because it is the claim
+`from.version` rests on. The surface of 0.27.0, 0.27.2, 0.27.4, 0.27.6, 0.27.8, 0.27.10 and 0.28.0
+was read with `tests/packs/openai_legacy_check.py`'s `surface()` and `behaviour()` beside 0.28.1
+(CPython 3.12, no call to the API):
+
+| Release | Submodules and `openai.error` classes | Names the snapshot has and it lacks | Behaviour claims |
+|---|---|---|---|
+| 0.27.0, 0.27.2, 0.27.4 | equal | `FineTuningJob`, `VERSION`, `requestssession`, and the leaked `Callable`, `Union`, `aiohttp`, `sys` | all hold except that `openai.VERSION` is not defined |
+| 0.27.6, 0.27.8 | equal | `FineTuningJob` | all hold |
+| 0.27.10, 0.28.0 | equal | none | all hold |
+
+Every release asks for `requests>=2.20`, `tqdm` and `aiohttp` (and `typing-extensions` below Python
+3.8), so `match.transitive` is the same list. The ten `.before.py` fixtures, run by
+`tests/packs/openai_behaviour_check.py` against a local server, printed the same results on all
+eight releases. A name that only the newer releases define is one code written for an older release
+could not use, so the rules mean the same on 0.27.0. `ChatCompletion` does not exist before 0.27.0,
+which is the floor. The weekly job runs the `.before.py` fixtures on 0.27.0 and requires the
+results to equal 0.28.1's.
+
 Facts about the old release are held in `tests/packs/openai_legacy_surface.json`
 and compared to the real 0.28.1 weekly by `tests/packs/openai_legacy_check.py`;
 facts about the new one are checked by `tests/packs/test_openai_facts.py` on
@@ -40,6 +59,24 @@ part of a result in a name, an image, a moderation, an audio call and the base U
 a local server, the `.before.py` files on 0.28.1 and
 the `.after.py` answer keys on 1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0 and 3.26.1, and the printed
 results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
+
+The limitations that rest on the SDK's own text and not on a fixture:
+
+- The module client is "legacy": the openai-python README on `main` (3.29.0, 2026-10-11) calls it the
+  legacy module client where it says that `openai.api_type = "amazon-bedrock"` is still supported,
+  and `src/openai/__init__.py` still defines `_ModuleClient` with no deprecation warning.
+- httpx2: openai 3.0.0 (2026-08-12), CHANGELOG: "HTTPX2 is now the default HTTP client, and `httpx`
+  is no longer installed automatically"; the SDK's `httpx2.md` says a RESPX that patches only legacy
+  HTTPX cannot intercept it. Its `requires_python` is `>=3.10`, which is where the pin resolves to 3.x.
+- Azure environment variables: `openai/__init__.py` of 3.26.0 reads `OPENAI_API_TYPE`,
+  `OPENAI_API_VERSION` and `AZURE_OPENAI_ENDPOINT` at import, and `_load_client` chooses an Azure
+  client when only Azure credentials are set and raises `_AmbiguousModuleClientUsageError` when both
+  sets are. 0.28.1 read none of them.
+- Optional types: 3.26.0 types `usage` and `message.content` of a chat completion, `data` and `url`
+  of an image result as `Optional`, where the 0.28.1 `create` was untyped and returned `Any`.
+- Libraries that call 0.x themselves: langchain 0.0.330 assigns `openai.ChatCompletion` in
+  `chat_models/openai.py` and 0.0.332 is the first to test `is_openai_v1`; guidance 0.0.64 calls
+  `openai.ChatCompletion.acreate` and asks for `openai>=0.27.8` with no upper bound.
 
 ---
 

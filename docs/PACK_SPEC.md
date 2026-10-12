@@ -371,7 +371,7 @@ An excerpt of `src/obelize/packs/openai/openai-0-to-1/pack.yaml`:
 ```yaml
 from:
   package: openai
-  version: ">=0.28.1,<1"
+  version: ">=0.27.0,<1"
 to:
   package: openai
   version: ">=1.109.1"

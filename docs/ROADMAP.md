@@ -3,7 +3,7 @@
 ## What works today
 
 obelize migrates Python code from `google-generativeai`, the deprecated Gemini SDK, to
-`google-genai`, from `PyPDF2` to `pypdf`, and from `openai` 0.28.1 to 1.109.1 or later. `scan` finds every call, import and dependency line
+`google-genai`, from `PyPDF2` to `pypdf`, and from `openai` 0.x (0.27.0 and later) to 1.109.1 or later. `scan` finds every call, import and dependency line
 the migrations touch. `fix` plans the rewrite and, with `--apply`, writes it; `--verify` runs your tests before and
 after. `verify` re-runs that check against an applied run, and `undo` puts the files back
 unless they were hand-edited since. The Gemini pack covers the constructor, generation, chat,

@@ -12,7 +12,7 @@ import inspect
 import io
 import warnings
 from importlib.metadata import metadata, version
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from packaging.specifiers import SpecifierSet
@@ -175,6 +175,43 @@ def test_a_writer_given_a_file_or_a_reader_holds_nothing_then_the_whole_of_it() 
     assert len(pypdf.PdfWriter(_pdf(pypdf)).pages) == 2
     assert len(pypdf.PdfWriter(pypdf.PdfReader(_pdf(pypdf))).pages) == 2
     assert "PdfWriter(path)" in " ".join(PACK.limitations)
+
+
+def _page_drawing_two_words() -> io.BytesIO:
+    """One page whose content draws Hello, moves 40 units right and draws World, built in memory."""
+    writer = pypdf.PdfWriter()
+    page = writer.add_blank_page(595.276, 841.89)
+    font = pypdf.generic.DictionaryObject(
+        {
+            pypdf.generic.NameObject("/Type"): pypdf.generic.NameObject("/Font"),
+            pypdf.generic.NameObject("/Subtype"): pypdf.generic.NameObject("/Type1"),
+            pypdf.generic.NameObject("/BaseFont"): pypdf.generic.NameObject("/Helvetica"),
+        }
+    )
+    page[pypdf.generic.NameObject("/Resources")] = pypdf.generic.DictionaryObject(
+        {
+            pypdf.generic.NameObject("/Font"): pypdf.generic.DictionaryObject(
+                {pypdf.generic.NameObject("/F1"): font}
+            )
+        }
+    )
+    stream = pypdf.generic.DecodedStreamObject()
+    stream.set_data(b"BT /F1 12 Tf 72 720 Td (Hello) Tj 40 0 Td (World) Tj ET")
+    # Typed for a parsed content stream; any stream object is accepted.
+    page.replace_contents(cast("Any", stream))
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def test_extract_text_spaces_the_pieces_of_a_line_differently_on_a_valid_file() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        old = PyPDF2.PdfReader(_page_drawing_two_words()).pages[0].extract_text()
+    new = pypdf.PdfReader(_page_drawing_two_words()).pages[0].extract_text()
+    assert (old, new) == ("HelloWorld", "Hello World")
+    assert "extract_text puts different whitespace" in " ".join(PACK.limitations)
 
 
 def test_page_boxes_and_float_objects_change_numeric_type() -> None:
