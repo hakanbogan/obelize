@@ -39,11 +39,15 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy
 uv run mypy --platform win32
+uv run --only-group workflows zizmor .github
 ```
 
 `uv run mypy` is strict over `src`, `tests` and `bench`, and `--platform win32` checks them as
 Windows sees them. `uv sync` installs the `dev` group; `pip install -e . --group dev` (pip 25.1
 or later) installs the same, but `uv.lock` is authoritative and CI checks it with `uv lock --check`.
+zizmor audits the workflows, and with `GH_TOKEN` set it also runs its online audits. CI gates
+coverage on each system's newest Python only: `uv run --python 3.15 pytest` is that gate, and
+`pytest --no-cov` is the quicker run.
 
 ## Project layout
 

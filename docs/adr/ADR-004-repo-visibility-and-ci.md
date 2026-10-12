@@ -10,16 +10,17 @@ The repository `hakanbogan/obelize` is public, and its history starts with the 0
 runs from the first commit, and Trusted Publishing on PyPI is a pending publisher against
 `hakanbogan/obelize` and `release.yml` with environment `pypi`.
 
-Every push and pull request runs `ci.yml`: lint, lock, the test suite on Ubuntu with Python
-3.12, 3.13, 3.14 and 3.15, the suite on macOS and on Windows with 3.12, 3.14 and 3.15, a smoke
-test of the built wheel, and a check that the JSON Schemas match the models. `test-macos` and `test-windows`
-carry the same `if:` guard. On a public repository it passes every event, and on a private one it
-admits only a manual run and a tag, because private Actions minutes are a 2,000 minute monthly
-quota that macOS bills at 10x and Windows at 2x. `tests/unit/test_workflows.py` evaluates the
-guard for every event a workflow starts on. `e2e.yml` runs weekly and installs the built wheel
-with the newest releases its dependency ranges allow, so a pydantic, libcst or typer release that
-breaks a fresh install shows within a week. `bench-smoke.yml`, `dependency-review.yml`,
-`release.yml` and `stale.yml` run from the first commit.
+Every push and pull request runs `ci.yml`: lint, lock, the test suite on Ubuntu with Python 3.12,
+3.13, 3.14 and 3.15, the suite on macOS and on Windows with 3.12, 3.14 and 3.15, a smoke test of the
+built wheel, a check that the JSON Schemas match the models, and zizmor's audit of the workflows.
+Coverage is measured on the newest Python of each system; the other legs run `--no-cov`.
+`test-macos` and `test-windows` carry the same `if:` guard. On a public repository it passes every
+event, and on a private one it admits only a manual run and a tag, because private Actions minutes
+are a 2,000 minute monthly quota that macOS bills at 10x and Windows at 2x.
+`tests/unit/test_workflows.py` evaluates the guard for every event a workflow starts on. `e2e.yml`
+runs weekly and installs the built wheel with the newest releases its dependency ranges allow, so a
+pydantic, libcst or typer release that breaks a fresh install shows within a week.
+`bench-smoke.yml`, `dependency-review.yml`, `release.yml` and `stale.yml` run from the first commit.
 
 The `main` ruleset blocks deletion and non-fast-forward pushes, allows admin bypass and requires
 these fourteen checks, written as GitHub shows them:
@@ -31,6 +32,8 @@ these fourteen checks, written as GitHub shows them:
 - `test (windows, py3.12)`, `test (windows, py3.14)` and `test (windows, py3.15)`
 - `smoke (built wheel, clean venv)`
 - `schema-drift (JSON Schemas match the models)`
+
+`workflows (zizmor)` runs on every event and is not in the ruleset yet.
 
 macOS and Windows keep 3.14 beside 3.12 and 3.15. Ubuntu covers 3.14 too, so a later change can
 drop it from the two, once the ruleset stops requiring it.
@@ -44,6 +47,6 @@ reporting, which `SECURITY.md` points at, are on.
   unexpanded template, so the macOS and Windows checks can be required only while the repository
   stays public.
 - The release workflow accepts only a successful `ci.yml` run on the commit it publishes, so a red
-  leg on any of the fourteen checks holds a release.
+  job in `ci.yml`, required or not, holds a release.
 - GitHub turns scheduled workflows off after 60 days without activity in the repository. They
   start again from the Actions tab.

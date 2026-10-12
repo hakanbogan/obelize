@@ -243,48 +243,6 @@ def test_an_unknown_atom_is_refused_even_where_the_answer_is_known(expression: s
         _holds(expression, _event("public", "push", "refs/tags/x"))
 
 
-# A commit, which nobody can move to other code after review, as a tag or a branch can be.
-PINNED = re.compile(r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$")
-
-
-def _unpinned(documents: dict[str, dict[str, Any]]) -> list[str]:
-    found = []
-    for workflow, document in documents.items():
-        for name, job in document["jobs"].items():
-            steps = [job] if "uses" in job else job.get("steps", [])
-            found += [
-                f"{workflow} / {name}: {step['uses']}"
-                for step in steps
-                if "uses" in step
-                and not step["uses"].startswith("./")
-                and not PINNED.match(step["uses"])
-            ]
-    return found
-
-
-def test_every_action_a_workflow_uses_is_pinned_to_a_commit() -> None:
-    documents = {path.name: yaml.safe_load(path.read_text(encoding="utf-8")) for path in WORKFLOWS}
-    assert _unpinned(documents) == []
-
-
-def test_the_pin_check_finds_a_tag_a_branch_and_a_short_commit() -> None:
-    steps = [
-        {"uses": "actions/checkout@v7"},
-        {"uses": "owner/repo@main"},
-        {"uses": "owner/repo@3d3c42e"},
-        {"uses": "owner/repo/path@" + "3d3c42e5" * 5},
-        {"uses": "./.github/actions/local"},
-        {"run": "true"},
-    ]
-    planted = {"x.yml": {"jobs": {"a": {"steps": steps}, "b": {"uses": "o/r/w.yml@v1"}}}}
-    assert _unpinned(planted) == [
-        "x.yml / a: actions/checkout@v7",
-        "x.yml / a: owner/repo@main",
-        "x.yml / a: owner/repo@3d3c42e",
-        "x.yml / b: o/r/w.yml@v1",
-    ]
-
-
 # The release workflow.
 
 
@@ -1169,6 +1127,15 @@ def test_before_approval_a_link_the_tag_does_not_serve_or_no_link_stops_it(
     result = _checked_links(tmp_path, description, missing)
     assert result.returncode != 0
     assert (f"404 {missing}" in result.stdout.splitlines()) is bool(missing)
+
+
+@pytest.mark.parametrize("name", ["test", "test-macos", "test-windows"])
+def test_coverage_is_measured_once_per_system_on_its_newest_python(name: str) -> None:
+    """Every other leg runs `--no-cov`."""
+    matrix = _job("ci.yml", name)["strategy"]["matrix"]
+    newest = max(matrix["python-version"], key=Version)
+    assert matrix["include"] == [{"python-version": newest, "coverage": True}]
+    assert "${{ !matrix.coverage && '--no-cov' || '' }}" in _step("ci.yml", name, "pytest")["run"]
 
 
 def test_a_windows_run_reports_every_failure_and_where_a_test_hangs() -> None:

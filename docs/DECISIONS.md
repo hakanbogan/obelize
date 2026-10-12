@@ -10,8 +10,8 @@ row and on a row without an ADR.
 |---|---|---|---|
 | ADR-001 | [First migration family](adr/ADR-001-first-migration-family.md) | Accepted; amended by ADR-050 and ADR-051 | The first v0 migration is `google-generativeai` to `google-genai`, chosen for its end-of-life status, official migration guide, corpus size and lack of an existing codemod. |
 | ADR-003 | [Model adapter](adr/ADR-003-model-adapter.md) | Accepted | Model help is one OpenAI-compatible adapter on stdlib `urllib`, configured only by the user, asked only about `needs_review` rows, and its untrusted proposals are applied only after the guard and with `--accept-model`. |
-| ADR-004 | [Repo visibility and CI](adr/ADR-004-repo-visibility-and-ci.md) | Accepted | The repository is public and CI runs on Linux, macOS and Windows for every push and pull request; the `main` ruleset requires eleven named checks and a tag ruleset restricts `v*` to me. |
-| ADR-005 | [Technical stack](adr/ADR-005-tech-stack.md) | Accepted; amended by ADR-021, ADR-022, ADR-049 and ADR-050 | obelize is built with hatchling, uv, Typer, pydantic v2, libcst, subprocess git, pytest, ruff and strict mypy, runs on Python 3.12-3.14, and has at most seven runtime dependencies. |
+| ADR-004 | [Repo visibility and CI](adr/ADR-004-repo-visibility-and-ci.md) | Accepted | The repository is public and CI runs on Linux, macOS and Windows for every push and pull request; the `main` ruleset requires fourteen named checks and a tag ruleset restricts `v*` to me. |
+| ADR-005 | [Technical stack](adr/ADR-005-tech-stack.md) | Accepted; amended by ADR-021, ADR-022, ADR-049 and ADR-050 | obelize is built with hatchling, uv, Typer, pydantic v2, libcst, subprocess git, pytest, ruff and strict mypy, runs on Python 3.12-3.15, and has at most seven runtime dependencies. |
 | ADR-006 | [Pack carries no code](adr/ADR-006-pack-carries-no-code.md) | Accepted; amended by ADR-050, ADR-053 and ADR-055 | A pack is declarative YAML that selects rule kinds from a Python registry and carries no code, and whatever a rule cannot prove becomes `needs_review` or `unsupported`, never a guess. |
 | ADR-007 | [Verify command trust](adr/ADR-007-verify-command-trust.md) | Accepted; amended by ADR-011 and ADR-033 | Verification commands come only from the user: `--verify`, the user allowlist, or `.obelize.yml` once approved (non-interactively only with `--trust-repo-config`); they run without a shell, and a pack's suggestions are shown, never run. |
 | ADR-008 | [Scanner and codemod corrections](adr/ADR-008-scanner-and-codemod-corrections.md) | Accepted; amended by ADR-010, ADR-012, ADR-017, ADR-019, ADR-022 and ADR-050 | Resolution branches on the qualified-name set, files are bytes in and bytes out behind a round-trip gate, path containment resolves both sides, output uses a total sort key, and benchmark versions are pinned. |
@@ -70,8 +70,9 @@ Settled and implemented, but too small for an ADR; one that is questioned gets o
   imports stay in obelize's hands.
 - The version is single-sourced from `src/obelize/__init__.py` via `[tool.hatch.version]`;
   `obelize --version`, the wheel and the release tag check all read it.
-- Development tools are a PEP 735 dependency group (`[dependency-groups].dev`), never an extra, which
-  PyPI would publish as installable; a unit test enforces it.
+- Development tools are PEP 735 dependency groups (`[dependency-groups]`: `dev`, and `workflows` for
+  the workflow audit), never an extra, which PyPI would publish as installable; a unit test
+  enforces it.
 
 ## How to add a decision
 

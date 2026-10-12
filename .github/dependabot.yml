@@ -1,5 +1,7 @@
 # `examples/` and `bench/` are deliberately not covered: their SDK pins are fixtures (the example
 # must stay on `google-generativeai`; bench cases pin measured versions).
+# A bump waits a week after the release, so a version that was just published, or hijacked, is
+# not proposed at once; security updates ignore the wait.
 ---
 version: 2
 
@@ -10,6 +12,8 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       actions-minor-and-patch:
         patterns:
@@ -26,6 +30,8 @@ updates:
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       python-minor-and-patch:
         patterns:
