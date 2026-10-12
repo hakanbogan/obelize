@@ -129,7 +129,9 @@ is a field of the record, and a `null` is never read as a zero or a true. Tiers 
   rule that closed COVERAGE gap 29 was written from their code. `bench/cases.yaml` still reads
   `round: 1` and `holdout` for them, because `bench/results/round-1/` and the results page are
   round 1's and `bench/summarize.py --check` holds the two together. The file changes in the
-  commit that publishes round 2.
+  commit that publishes round 2. A `fix` dry run over the 23 round-1 repositories at their pinned
+  commits gives the rows 0.3.0 gave, except the 26 that the rule moved from `needs_review` to
+  `auto`: 20 in kvcops and 6 in `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5`.
 
 ## Anti-inflation rules
 

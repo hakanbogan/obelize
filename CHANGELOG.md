@@ -37,6 +37,8 @@ in the release that makes it.
   them such. A pack the repository does not use, with no code to migrate and no pin to judge, no
   longer parses the files that name a module only its legacy distribution installed, and one that
   does reads imports only where a statement can hold one (11 s to 6 s over 5,000 files).
+  End to end, `fix` takes 4.6 s on a repository of 1,000 files where 200 use the legacy SDK, which
+  took 40 s, and 4.4 s on one file of 800 calls, which took 15 s.
 - `patch.diff` for a file of more than four million line pairs (about 2,000 lines each side) is
   made without the matcher's repeated-line pass, which cost the square of a repeated line's
   count. Below that size the hunks are the ones 0.3.0 wrote; above it a hunk can be larger or
