@@ -404,7 +404,7 @@ notes: |
   produces one. F-2 is two edits on one declaration, graded separately. When
   nothing blocks the removal the two collapse into a single rewrite of the
   legacy line, which is what `basic/` grades and what its note calls
-  `google-generativeai==0.8.6` -> `google-genai>=1`. Here the removal is
+  `google-generativeai==0.8.6` -> `google-genai>=1.55`. Here the removal is
   blocked, so the add survives on its own and the legacy line keeps its text:
   the same two edits, no longer expressible as one. Both rows sit on the
   declaration's line because that is the address the edit has -- the new pin is

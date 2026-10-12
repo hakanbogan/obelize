@@ -64,7 +64,7 @@ diff --git a/requirements.txt b/requirements.txt
 @@ -1,2 +1,2 @@
 -google-generativeai==0.8.6
 -PyPDF2==3.0.1
-+google-genai>=1
++google-genai>=1.55
 +pypdf>=6.19
 ```
 

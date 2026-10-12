@@ -1,7 +1,8 @@
 """What the PyPDF2 pack claims about the two projects, checked against both installed.
 
 PyPDF2 3.0.1 and pypdf 6.19.0 are pinned in the dev group because these facts are about those
-releases; each is a name, a member or a parameter, read from the module and never from a PDF.
+releases; each is a name, a member or a parameter, read from the module and never from a PDF. The
+weekly job runs the file on the newest pypdf as well.
 """
 
 from __future__ import annotations
@@ -16,7 +17,9 @@ from typing import Any, cast
 
 import pytest
 from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
+from obelize.models import bounds
 from obelize.packs import loader, schema
 
 with warnings.catch_warnings():
@@ -66,11 +69,11 @@ def test_the_pack_is_the_migration_the_history_page_describes() -> None:
     assert (RENAME.from_module, RENAME.to_module) == ("PyPDF2", "pypdf")
 
 
-def test_the_installed_projects_are_the_ones_the_pack_was_measured_on() -> None:
+def test_the_installed_projects_are_inside_the_ranges_the_pack_was_measured_on() -> None:
     assert version("PyPDF2") in SpecifierSet(PACK.from_.version)
     assert version("pypdf") in SpecifierSet(PACK.to.version)
     assert version("PyPDF2") == "3.0.1"
-    assert version("pypdf") == "6.19.0"
+    assert bounds(SpecifierSet(PACK.to.version))[0] == Version("6.19")
 
 
 def test_the_python_the_pack_requires_is_what_the_new_project_declares() -> None:

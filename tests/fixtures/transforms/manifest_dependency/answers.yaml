@@ -61,7 +61,7 @@ cases:
         why: >-
           Two layouts in one file and they are written differently. Line 5 is a
           PEP 621 requirement string, so the whole `Google_GenerativeAI == 0.8.6`
-          becomes `google-genai>=1` -- the spelling folds under PEP 503 and the
+          becomes `google-genai>=1.55` -- the spelling folds under PEP 503 and the
           spaces around `==` go with the version they belonged to. Line 10 is a
           Poetry table *key*, so the distribution is the key and the version is
           the value inside its quotes, and the `=` between them is untouched.

@@ -1,7 +1,8 @@
 # Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
-# Measured on google-generativeai 0.8.6 and google-genai 2.24.0, overriding the guide (SOURCES.md).
+# Measured on google-generativeai 0.8.6 and google-genai 2.24.0 and 1.55.0, overriding the guide
+# (SOURCES.md).
 id: gemini/google-generativeai-to-google-genai
-pack_version: 0.2.0
+pack_version: 0.3.0
 provider: gemini
 language: python
 
@@ -16,7 +17,7 @@ from:
   version: "<1"
 to:
   package: google-genai
-  version: ">=1"
+  version: ">=1.55"
   requires_python: ">=3.10"
 
 # Emitted-code wrap width, not style: a line past the user's formatter limit is a second diff.
@@ -588,7 +589,7 @@ changes:
     params:
       from_name: google-generativeai
       to_name: google-genai
-      to_spec: ">=1"
+      to_spec: ">=1.55"
     fixtures:
       - fixtures/negative/requirements_already_new.txt
       - fixtures/positive/requirements.before.txt

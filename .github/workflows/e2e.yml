@@ -1,7 +1,8 @@
 # scan -> fix --apply on the bundled example app from a built wheel in a clean venv, asserting
 # docs/CLI.md exit codes and docs/RUN_FOLDER.md evidence; `tests/e2e/` runs the flow in-process.
-# The app's own suite is not run: the flow writes nothing to verify. Two steps check what the
-# `openai/openai-0-to-1` pack claims on the releases the dev environment cannot hold.
+# The app's own suite is not run: the flow writes nothing to verify. Steps after the flow check
+# what the three packs claim on the releases the dev environment does not hold: the floor of the
+# release each migrates to, and the newest.
 name: e2e
 
 on:
@@ -246,6 +247,24 @@ jobs:
         run: >
           uv run --with openai==1.109.1
           pytest tests/packs/test_openai_facts.py -q --no-cov -p no:cacheprovider
+
+      - name: The Gemini pack's claims hold on 1.55.0, the floor of the release it migrates to
+        # The dev group locks 2.24.0; `--with` puts the floor ahead of it for this one file.
+        run: >
+          uv run --with google-genai==1.55.0
+          pytest tests/packs/test_gemini_facts.py -q --no-cov -p no:cacheprovider
+
+      - name: The Gemini pack's claims hold on the newest google-genai
+        # Above the release the pack was measured on, so a rename shows the week it ships.
+        run: >
+          uv run --with "google-genai>2.24.0"
+          pytest tests/packs/test_gemini_facts.py -q --no-cov -p no:cacheprovider
+
+      - name: The PyPDF2 pack's claims hold on the newest pypdf
+        # The dev group pins 6.19.0, the floor; the same file runs here on whatever is newer.
+        run: >
+          uv run --with "pypdf>6.19.0"
+          pytest tests/packs/test_pypdf_facts.py -q --no-cov -p no:cacheprovider
 
       - name: The migrated openai fixtures do what the legacy ones did
         # The legacy fixtures run on 0.28.1 and 0.27.0, and their answer keys on the floor and the

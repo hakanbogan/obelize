@@ -4,5 +4,5 @@ description = helpers around google-generativeai
 
 [options]
 install_requires =
-    google-genai>=1
+    google-genai>=1.55
     requests>=2.31

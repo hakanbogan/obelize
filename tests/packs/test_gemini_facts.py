@@ -7,14 +7,18 @@ construction, which fabricates unknown enum members.
 from __future__ import annotations
 
 import importlib
+import inspect
 import typing
+from importlib.metadata import version
 from types import SimpleNamespace
 from typing import cast
 
 import pytest
-from google.genai import types
+from google.genai import chats, files, models, types
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
-from obelize.models import ReceiverMethods
+from obelize.models import ReceiverMethods, bounds
 from obelize.packs import loader, schema
 
 BUNDLED_ID = "gemini/google-generativeai-to-google-genai"
@@ -36,6 +40,12 @@ def test_the_pack_is_the_migration_adr_001_chose() -> None:
     assert PACK.to.package == "google-genai"
     assert PACK.match.imports == ("google.generativeai",)
     assert PACK.match.prefilter_tokens == ("generativeai",)
+
+
+def test_the_installed_sdk_is_inside_the_range_the_pack_migrates_to() -> None:
+    """The weekly job runs this file on the floor and on the newest release as well."""
+    assert version("google-genai") in SpecifierSet(PACK.to.version)
+    assert bounds(SpecifierSet(PACK.to.version))[0] == Version("1.55")
 
 
 def test_the_safety_tables_are_asserted_against_members_and_not_construction() -> None:
@@ -88,6 +98,62 @@ def test_the_generation_config_keys_are_the_fifteen_that_exist_on_both_sides() -
         # `seed` exists on the new config, so mapping it looks free, but it was never a legacy key.
         assert "seed" in fields
         assert "seed" not in params.generation_config_keys
+
+
+# The class a `new_call` is a method of, by the service it is spelled on.
+SERVICES: dict[str, type] = {
+    "models": models.Models,
+    "aio.models": models.AsyncModels,
+    "chats": chats.Chats,
+    "files": files.Files,
+}
+
+
+def _method(path: str, root: str) -> typing.Callable[..., typing.Any]:
+    if root == "receiver":
+        return cast("typing.Callable[..., typing.Any]", getattr(chats.Chat, path))
+    service, _, name = path.rpartition(".")
+    return cast("typing.Callable[..., typing.Any]", getattr(SERVICES[service], name))
+
+
+def _keywords(path: str, root: str, names: set[str], config: str | None) -> None:
+    """Every keyword a rule writes is one the method takes, by name."""
+    taken = inspect.signature(_method(path, root)).parameters
+    named = {*names, *([config] if config else [])}
+    missing = sorted(
+        name
+        for name in named
+        if name not in taken
+        or taken[name].kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL}
+    )
+    assert missing == [], f"{path} takes no keyword {missing}"
+
+
+def test_every_call_the_pack_writes_takes_the_keywords_it_writes() -> None:
+    """A name that moved or was renamed in a later release is a `TypeError` after migration."""
+    for params in MODEL_PARAMS:
+        for rewrite in params.rewrites.values():
+            names = {rewrite.arg_map.get(name, name) for name in rewrite.positional_to_kw}
+            if rewrite.history_kwarg:
+                names.add(rewrite.arg_map.get(rewrite.history_kwarg, rewrite.history_kwarg))
+            if rewrite.root == "client":
+                names.add(params.model_kwarg)
+            for path in (rewrite.new_call, rewrite.stream_call):
+                if path:
+                    _keywords(path, rewrite.root, names, rewrite.config_kwarg)
+    for call in CALL_PARAMS:
+        names = {call.arg_map.get(name, name) for name in (*call.positional_to_kw, *call.keywords)}
+        _keywords(call.new_call, "client", names, call.config_kwarg)
+
+
+def test_the_fields_the_pack_moves_into_a_config_are_fields_of_it() -> None:
+    for params in MODEL_PARAMS:
+        fields = types.GenerateContentConfig.model_fields
+        assert set(params.ctor_config_fields) <= set(fields)
+    for call in CALL_PARAMS:
+        if call.config_class:
+            config = getattr(types, call.config_class.rpartition(".")[2])
+            assert set(call.config_kwargs) <= set(config.model_fields), call.legacy_symbol
 
 
 def test_every_class_the_pack_names_on_the_new_side_exists() -> None:

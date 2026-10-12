@@ -2,10 +2,10 @@
 name = "clear-fixture"
 version = "0.1.0"
 dependencies = [
-  "google-genai>=1",
+  "google-genai>=1.55",
   "requests>=2.31",
 ]
 
 [tool.poetry.group.test.dependencies]
-google-genai = ">=1"
+google-genai = ">=1.55"
 pytest = "^8.3"

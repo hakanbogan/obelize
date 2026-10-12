@@ -93,7 +93,7 @@ findings:
     confidence_reason: manifest_dependency
     verdict: auto
     note: >-
-      `manifest_dependency`: `google-generativeai==0.8.6` -> `google-genai>=1`. A bare
+      `manifest_dependency`: `google-generativeai==0.8.6` -> `google-genai>=1.55`. A bare
       requirements.txt line is the shape `llegomark/gemini-pro-chat` uses (C-29). Since T15
       the directory carries `requirements.after.txt` and this row is produced rather than
       described: `tests/oracle/test_manifest_dependency_against_the_oracle.py` runs the rule

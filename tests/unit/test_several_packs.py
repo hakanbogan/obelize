@@ -187,7 +187,7 @@ def test_one_run_over_two_packs_writes_what_two_runs_one_after_the_other_write(
     migrated = sources(together)
     assert "import pypdf" in migrated["app.py"]
     assert "from google import genai" in migrated["app.py"]
-    assert migrated["requirements.txt"] == "google-genai>=1\npypdf>=6.19\nrequests>=2.31\n"
+    assert migrated["requirements.txt"] == "google-genai>=1.55\npypdf>=6.19\nrequests>=2.31\n"
 
 
 def test_a_second_run_changes_nothing(both: Path) -> None:

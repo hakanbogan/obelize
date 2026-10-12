@@ -27,6 +27,16 @@ in the release that makes it.
   count. Below that size the hunks are the ones 0.3.0 wrote; above it a hunk can be larger or
   split differently, and `git apply` reads the patch the same.
 
+### Packs
+
+- `gemini/google-generativeai-to-google-genai` 0.3.0 writes `google-genai>=1.55` where it wrote
+  `>=1`. Releases 1.0 to 1.54 do not hold what the pack claims: 1.54 has no
+  `enable_enhanced_civic_answers`, one of the fifteen generation-config keys the pack moves into a
+  config, so code it wrote could fail on an install `>=1` admitted. A `google-genai` line you
+  already declare is left as you wrote it. The weekly job now runs the pack's facts on 1.55.0 and
+  on the newest `google-genai`, and the `py-pdf/pypdf2-to-pypdf` facts on the newest `pypdf`; the
+  Gemini facts also check that every keyword a rewritten call carries is one its method takes.
+
 ## [0.3.0] - 2026-10-12
 
 ### Benchmark

@@ -224,7 +224,7 @@ findings:
     confidence_reason: manifest_dependency
     verdict: auto
     note: >-
-      ADR-010 F-2, first half: ADD the new distribution. `google-genai>=1` is inserted after line 3
+      ADR-010 F-2, first half: ADD the new distribution. `google-genai>=1.55` is inserted after line 3
       because at least one in-scope file -- `summarizer/config.py` -- was migrated, and without the
       pin that file imports a package the environment does not have. Measured: with the two
       `config.py` edits applied and this line missing, `import summarizer.config` raises

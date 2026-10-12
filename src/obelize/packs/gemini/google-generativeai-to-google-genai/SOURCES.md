@@ -16,9 +16,10 @@ Hashes are of the page body as served. obelize never requests either URL.
 ## The measurement, and why it outranks the page
 
 "Measured" means checked against **google-generativeai 0.8.6** and
-**google-genai 2.24.0** installed side by side on CPython 3.12. Where it
-disagrees with the guide, the pack follows the measurement: a mapping read off
-the guide alone needed 57 corrections.
+**google-genai 2.24.0** installed side by side on CPython 3.12, and the facts
+tests also against **google-genai 1.55.0**, the lowest release the pack
+migrates to. Where it disagrees with the guide, the pack follows the
+measurement: a mapping read off the guide alone needed 57 corrections.
 
 ---
 
@@ -179,5 +180,9 @@ the guide alone needed 57 corrections.
   google-api-core, proto-plus, protobuf or grpcio. google-generativeai 0.8.6
   pins google-ai-generativelanguage, and the side-by-side environment had
   google-api-core, proto-plus, protobuf and grpcio installed with it.
-- Measured: `google-genai` is GA on 2.x and requires Python 3.10+, so `>=1` is
-  a floor, not a pin.
+- Measured: `google-genai` is GA on 2.x and requires Python 3.10+, so `>=1.55`
+  is a floor, not a pin. 1.55.0 is the first release whose
+  `GenerateContentConfig` has every field the pack's
+  `generation_config_keys` names (1.54.0 lacks `enable_enhanced_civic_answers`),
+  and the facts tests pass on it and on 2.24.0. Below it the pack's claims do
+  not hold, so it is not written.

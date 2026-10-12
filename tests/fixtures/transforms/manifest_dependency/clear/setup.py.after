@@ -6,7 +6,7 @@ from setuptools import setup
 setup(
     name="clear-fixture",
     install_requires=[
-        "google-genai>=1",
+        "google-genai>=1.55",
         "requests>=2.31",
     ],
 )

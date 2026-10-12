@@ -179,5 +179,5 @@ def test_the_example_application_gets_the_third_edit_its_key_has_always_named() 
     produced = manifest_transform.finish(context).decode("utf-8")
     assert produced == data.decode("utf-8").replace(
         "google-generativeai==0.8.6\n",
-        "google-generativeai==0.8.6\ngoogle-genai>=1\n",
+        "google-generativeai==0.8.6\ngoogle-genai>=1.55\n",
     )

@@ -502,7 +502,7 @@ obelize's version. `+build` metadata is refused: comparisons ignore it.
 
 - MAJOR: changes what is rewritten automatically, or moves an edit between
   automatic and refused.
-- MINOR: new changes, symbols or limitations.
+- MINOR: new changes, symbols or limitations, or a change to `from.version` or `to.version`.
 - PATCH: citations, messages, suggestions, fixtures, wording.
 
 Every run records the pack id, `pack_version` and sha256.

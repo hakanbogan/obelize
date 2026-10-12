@@ -1,5 +1,5 @@
 [packages]
-google-genai = ">=1"
+google-genai = ">=1.55"
 requests = ">=2.31"
 
 [dev-packages]

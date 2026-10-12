@@ -353,7 +353,7 @@ LEGACY = {
 NEW = {
     "chat.py": positive(OPENAI, "chat_completion.after.py"),
     "answer.py": positive(GEMINI, "configure_module_level.after.py"),
-    "requirements.txt": "openai>=1.109.1\ngoogle-genai>=1\n",
+    "requirements.txt": "openai>=1.109.1\ngoogle-genai>=1.55\n",
 }
 
 
@@ -397,18 +397,20 @@ def test_an_openai_pin_held_by_requests_leaves_gemini_to_write(tmp_path: Path) -
     assert sources(tree) == {
         **files,
         "answer.py": NEW["answer.py"],
-        "requirements.txt": "openai==0.28.1\ngoogle-genai>=1\n",
+        "requirements.txt": "openai==0.28.1\ngoogle-genai>=1.55\n",
     }
     withheld = {row["bail"] for row in document(tree, "run.json")["withheld"]}
     assert withheld == {HELD, "transitive_dependency_in_use"}
 
     (tree / "requirements.txt").write_text(
-        "openai==0.28.1\ngoogle-genai>=1\nrequests>=2.31\n", encoding="utf-8"
+        "openai==0.28.1\ngoogle-genai>=1.55\nrequests>=2.31\n", encoding="utf-8"
     )
     released = run(tree, "fix", "--apply", "--allow-dirty", "--verify", QUIET)
     assert released.exit_code == 0, released.output
     assert sources(tree)["chat.py"] == NEW["chat.py"]
-    assert sources(tree)["requirements.txt"] == "openai>=1.109.1\ngoogle-genai>=1\nrequests>=2.31\n"
+    assert (
+        sources(tree)["requirements.txt"] == "openai>=1.109.1\ngoogle-genai>=1.55\nrequests>=2.31\n"
+    )
 
 
 # What the all-or-nothing pack changes about the rest of the run.
