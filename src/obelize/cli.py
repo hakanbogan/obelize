@@ -239,7 +239,7 @@ def fix(
         "--timeout",
         metavar="<s>",
         min=1,
-        help="Per-command timeout, overriding verify.timeout_s for this run.",
+        help="Per-command timeout in seconds, overriding verify.timeout_s (default 600).",
     ),
     non_interactive: bool = typer.Option(
         False,
@@ -376,7 +376,7 @@ def verify(
         "--timeout",
         metavar="<s>",
         min=1,
-        help="Per-command timeout, overriding verify.timeout_s for this run.",
+        help="Per-command timeout in seconds, overriding verify.timeout_s (default 600).",
     ),
     non_interactive: bool = typer.Option(
         False,

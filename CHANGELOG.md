@@ -37,6 +37,11 @@ in the release that makes it.
   a `.venv/bin/python` that is not there, is a usage error (exit `2`) and nothing is written; it
   used to write the patch and end `inconclusive` (exit `6`) with `command_not_executable`. A
   command from `.obelize.yml` or the allowlist is still started, and still ends that way.
+- When the commands you pass to `--verify` change a tracked file, the refusal of `fix --apply`
+  says they did, where it asked you to commit or stash changes you had not made. The tree was
+  clean when the run began, which `git_dirty: false` already recorded.
+- A verification command that timed out gets a hint naming `--timeout <s>` and the default of 600
+  seconds, which the flag's help and `docs/CLI.md` now state.
 
 ### Added
 

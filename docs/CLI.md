@@ -89,7 +89,7 @@ modified.
 | `--apply` | Write the planned edits. Without it no source file is written: the terminal lists each file's hunks, then prints up to 200 lines of the unified diff, with secrets redacted and control characters escaped, and the path of `.obelize/runs/<id>/patch.diff`, which holds all of it as it is. |
 | `--allow-dirty` | Permit `--apply` with uncommitted changes. Without it, **any** modified or staged tracked file in the whole repository, or an untracked file on the plan, refuses the apply (other untracked files do not count, and the report counts the paths and never names them), so the `git diff` is the migration alone; so does `tree_unknown` (git failed, timed out or refused the directory). A run with no file to write and no model configured does not look at the tree. A dirty tree is recorded in the report. |
 | `--verify "<cmd>"` | A verification command. Runs only with `--apply`, which refuses a program that cannot start (not on `PATH`, or not an executable file) with exit `2` before anything is read. Repeatable. Replaces the repository's, and runs without asking. |
-| `--timeout <s>` | Override `verify.timeout_s` (at least 1). |
+| `--timeout <s>` | Override `verify.timeout_s` (at least 1). Neither set, it is 600. |
 | `--non-interactive` | Never prompt; refuse a repository command not on the user allowlist unless `--trust-repo-config` is passed. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` in a non-interactive or CI run. |
 | `--model <provider>` | `none` or `openai_compat`, replacing `model.provider` from [your own file](#the-user-files-configobelize) for this run. With more than one pack, or a pack that [moves a whole repository](#several-packs-in-one-run), a model is not asked: `--model openai_compat`, or `--accept-model` while a model is configured, exits `2`, and a model only your own file configures is skipped with one line on stderr. `--model none`, and `--accept-model` with no model configured, change nothing. |
@@ -200,7 +200,7 @@ Re-run an existing run's verification and update its evidence.
 | `--run <id>` | Required. The run id under `.obelize/runs/`. |
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--verify "<cmd>"` | A verification command. Repeatable. Replaces the repository's. |
-| `--timeout <s>` | Override `verify.timeout_s` (at least 1). |
+| `--timeout <s>` | Override `verify.timeout_s` (at least 1). Neither set, it is 600. |
 | `--non-interactive` | Never prompt; refuse a repository command instead. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` for this run. |
 

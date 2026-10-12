@@ -387,8 +387,12 @@ def test_a_baseline_that_timed_out_in_obelizes_own_environment_is_not_said_to_ha
     assert result.exit_code == 6, result.output
     record = json.loads((folder(tree) / "run.json").read_text(encoding="utf-8"))
     assert record["verify"]["baseline"]["commands"][0]["reason"] == "timeout"
-    (hint,) = [line for line in result.stdout.splitlines() if line.startswith("Hint:")]
+    hint, slow = [line for line in result.stdout.splitlines() if line.startswith("Hint:")]
     assert hint.startswith(f"Hint: pytest -q timed out, and its program {HINT}, ")
+    assert slow == (
+        "Hint: pytest -q timed out. To allow it longer, pass --timeout <s>; "
+        "the default is 600 seconds."
+    )
 
 
 def test_a_model_flag_that_is_not_valid_names_the_file_obelize_read(
@@ -630,9 +634,13 @@ def test_a_tracked_file_the_baseline_changes_is_not_called_untracked(tree: Path)
     assert result.exit_code == 5, result.output
     record = json.loads((folder(tree) / "run.json").read_text(encoding="utf-8"))
     assert record["git_dirty"] is False
-    assert _refusal(result.output).endswith("commit or stash them, or pass --allow-dirty")
+    assert _refusal(result.output) == (
+        "Not written: your verification commands changed 1 tracked file(s), and git diff should "
+        "show only the migration; stop them writing there, or pass --allow-dirty"
+    )
     assert result.stdout.splitlines()[-1] == (
-        "Next: commit or stash your changes, or run again with --allow-dirty."
+        "Next: your verification commands changed tracked files; stop them writing there, "
+        "or run again with --allow-dirty."
     )
 
 

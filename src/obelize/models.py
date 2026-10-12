@@ -13,7 +13,7 @@ import re
 import shlex
 import unicodedata
 from collections.abc import Sequence
-from typing import Annotated, Any, Literal, get_args
+from typing import Annotated, Any, Final, Literal, get_args
 from urllib.parse import urlsplit
 
 from packaging.specifiers import SpecifierSet
@@ -1034,6 +1034,10 @@ class ManifestPlan(_Frozen):
         return self
 
 
+# Seconds a verification command may run when neither `verify.timeout_s` nor `--timeout` says.
+TIMEOUT_S: Final = 600
+
+
 class VerifyConfig(_Frozen):
     """`verify:` in `.obelize.yml`.
 
@@ -1043,7 +1047,7 @@ class VerifyConfig(_Frozen):
     """
 
     commands: tuple[ConfiguredCommand, ...] = ()
-    timeout_s: int = Field(default=600, gt=0)
+    timeout_s: int = Field(default=TIMEOUT_S, gt=0)
     junit: bool = True
 
 

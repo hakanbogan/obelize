@@ -17,6 +17,7 @@ from obelize import __version__
 from obelize.models import (
     ATOMICITY_BAIL,
     REPO_ATOMICITY_BAIL,
+    TIMEOUT_S,
     WARNING_MEANINGS,
     WITHHELD,
     terminal_unsafe,
@@ -356,6 +357,11 @@ def _unblocked(record: RunRecord, verify: VerifyRecord, git: str, run: str) -> s
             "commit the file(s) git does not track (git add, then git commit), "
             "or run again with --allow-dirty."
         )
+    if "tree_dirty" in codes and record.git_dirty is False:
+        return (
+            "your verification commands changed tracked files; stop them writing there, "
+            "or run again with --allow-dirty."
+        )
     if "tree_dirty" in codes:
         return "commit or stash your changes, or run again with --allow-dirty."
     if "tree_unknown" in codes:
@@ -495,9 +501,7 @@ def _hints(verify: VerifyRecord, code: Callable[[str], str]) -> list[str]:
 
     The environment is inherited by design, so this does not guess which program was meant.
     """
-    if verify.baseline is None:
-        return []
-    rows = verify.baseline.commands
+    rows = () if verify.baseline is None else verify.baseline.commands
     return [
         *(
             f"{code(row.command)} {'timed out' if row.reason == 'timeout' else 'failed'}, and "
@@ -513,6 +517,12 @@ def _hints(verify: VerifyRecord, code: Callable[[str], str]) -> list[str]:
             f"{code(_tests())}."
             for row in rows
             if row.reason == "command_not_executable"
+        ),
+        *(
+            f"{code(row.command)} timed out. To allow it longer, pass "
+            f"{code('--timeout <s>')}; the default is {TIMEOUT_S} seconds."
+            for row in (*rows, *verify.commands)
+            if row.reason == "timeout"
         ),
     ]
 

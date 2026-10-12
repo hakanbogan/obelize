@@ -367,7 +367,7 @@ def compose_fix(
         config=_config(config, source),
         counts=_fix_counts(scan, run),
         file_edits=edits,
-        refused=_refused(applied),
+        refused=_refused(applied, clean=git.dirty is False),
         idempotent=None if mode == "plan" else not edits,
         withheld=tuple(Withheld.of(finding) for finding in report.withheld_rows(run.findings)),
         verify=verified.record,
@@ -675,10 +675,12 @@ def _written(plan: Planned, applied: Apply | None) -> tuple[FileEdit, ...]:
     return tuple(row for row in plan.document.files if row.path in done)
 
 
-def _refused(applied: Apply | None) -> tuple[RunRefusal, ...]:
+def _refused(applied: Apply | None, *, clean: bool) -> tuple[RunRefusal, ...]:
     """What the apply planned and did not write, and why.
 
     A dirty or unknown tree refuses the whole apply before any file opens, so it stands alone.
+    `clean`: the tree was clean when the run began, so what is dirty now the verification
+    commands changed.
     """
     if applied is None:
         return ()
@@ -690,6 +692,9 @@ def _refused(applied: Apply | None) -> tuple[RunRefusal, ...]:
             f"git does not track {count} file(s) this run would edit, so git diff could not "
             f"show the change; {report.UNTRACKED}"
             if applied.untracked
+            else f"your verification commands changed {count} tracked file(s), and git diff "
+            f"should show only the migration; stop them writing there, or pass --allow-dirty"
+            if clean
             else f"{count} path(s) in the working tree have uncommitted changes, and git diff "
             f"should show only the migration; {REFUSALS['tree_dirty']}"
         )

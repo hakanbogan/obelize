@@ -280,6 +280,15 @@ def test_the_jobs_flag_states_the_cap_on_its_default() -> None:
     assert f"at most {MAX_WORKERS}" in shown
 
 
+def test_the_timeout_flags_state_the_default_the_report_names() -> None:
+    from obelize.models import TIMEOUT_S
+
+    for name in ("fix", "verify"):
+        command = typer.main.get_command(app).commands[name]  # type: ignore[attr-defined]
+        shown = next(one.help for one in command.params if "--timeout" in one.opts)
+        assert f"default {TIMEOUT_S}" in shown, name
+
+
 def _options(command: object) -> list[tuple[str, ...]]:
     """Every option spelling one registered typer command declares."""
     import typer
