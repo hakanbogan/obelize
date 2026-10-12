@@ -11,8 +11,8 @@ runs from the first commit, and Trusted Publishing on PyPI is a pending publishe
 `hakanbogan/obelize` and `release.yml` with environment `pypi`.
 
 Every push and pull request runs `ci.yml`: lint, lock, the test suite on Ubuntu with Python
-3.12, 3.13 and 3.14, the suite on macOS and on Windows with 3.12 and 3.14, a smoke test of the
-built wheel, and a check that the JSON Schemas match the models. `test-macos` and `test-windows`
+3.12, 3.13, 3.14 and 3.15, the suite on macOS and on Windows with 3.12, 3.14 and 3.15, a smoke
+test of the built wheel, and a check that the JSON Schemas match the models. `test-macos` and `test-windows`
 carry the same `if:` guard. On a public repository it passes every event, and on a private one it
 admits only a manual run and a tag, because private Actions minutes are a 2,000 minute monthly
 quota that macOS bills at 10x and Windows at 2x. `tests/unit/test_workflows.py` evaluates the
@@ -31,6 +31,10 @@ these eleven checks, written as GitHub shows them:
 - `test (windows, py3.12)` and `test (windows, py3.14)`
 - `smoke (built wheel, clean venv)`
 - `schema-drift (JSON Schemas match the models)`
+
+The ruleset names no `py3.15` check yet. The three 3.15 legs run and a red one holds a release,
+as every leg does, but they gate a merge only once the ruleset names them; then macOS and Windows
+can drop 3.14, which Ubuntu covers.
 
 A tag ruleset restricts `v*` to me. CodeQL's default setup for Python and private vulnerability
 reporting, which `SECURITY.md` points at, are on.

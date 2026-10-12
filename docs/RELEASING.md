@@ -135,7 +135,7 @@ uvx --from twine==7.0.0 --with packaging==26.2 twine check --strict dist/*
 
 # Install the wheel where nothing else is installed, at both ends of the supported range,
 # and run the example.
-for image in python:3.12-slim python:3.14-slim; do
+for image in python:3.12-slim python:3.15-slim; do
   docker run --rm -v "$PWD:/w:ro" "$image" bash -c '
     set -e
     python -m venv /tmp/v
@@ -148,7 +148,8 @@ for image in python:3.12-slim python:3.14-slim; do
   '
 done
 
-# An Intel Mac installs from wheels alone, so it needs no Rust compiler for libcst.
+# An Intel Mac installs from wheels alone, so it needs no Rust compiler for libcst. Python 3.15 is
+# the exception: libcst 1.8 has no cp315 wheel for it, and pyyaml has none on any system.
 for python in 3.12 3.13 3.14; do
   uv pip compile pyproject.toml --quiet --python-version "$python" \
     --python-platform x86_64-apple-darwin --only-binary :all: > /dev/null
@@ -162,6 +163,3 @@ uv sync
 `obelize --version` must print the version being released, and `obelize --help` must return in
 well under 300 ms.
 
-Python 3.15 joins the supported range, classifier included, once the pydantic-core that a
-stable pydantic pins has cp315 wheels; without them a 3.15 install compiles pydantic-core with
-Rust.

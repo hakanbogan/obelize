@@ -46,6 +46,14 @@ in the release that makes it.
   a `GenerationConfig(...)` held at module level is still refused. A module's name that another
   module changes after importing it is not seen.
 
+### Python 3.15
+
+- obelize supports Python 3.15, which CI runs on Linux, macOS and Windows and the classifier names.
+  `uv.lock` moves to pydantic 2.14.1 and pydantic-core 2.50.1, which have 3.15 wheels, where the
+  older pair made pip compile pydantic-core with Rust. PyYAML has no 3.15 wheel yet, so pip builds
+  it in pure Python, with no compiler. An Intel Mac installs libcst 1.8, which has no 3.15 wheel,
+  so it compiles that with Rust there; the other systems install libcst 1.9's wheel.
+
 ### Packs
 
 - `gemini/google-generativeai-to-google-genai` 0.3.0 writes `google-genai>=1.55` where it wrote

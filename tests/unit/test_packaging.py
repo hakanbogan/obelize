@@ -199,7 +199,7 @@ def test_the_pypi_page_links_each_file_at_the_release_tag(tmp_path: Path) -> Non
 
 
 # Stated once; every file that names the supported Pythons is compared with it.
-SUPPORTED = ("3.12", "3.13", "3.14")
+SUPPORTED = ("3.12", "3.13", "3.14", "3.15")
 
 
 def _ci_jobs() -> dict[str, Any]:
@@ -228,9 +228,9 @@ def test_every_place_that_names_the_supported_pythons_names_the_same_ones(
     assert pyproject["tool"]["ruff"]["target-version"] == "py" + SUPPORTED[0].replace(".", "")
     assert pyproject["tool"]["mypy"]["python_version"] == SUPPORTED[0]
     assert _ci_matrix("test") == list(SUPPORTED)
-    # macOS and Windows run the ends only; the ubuntu matrix covers the middle.
-    assert _ci_matrix("test-macos") == [SUPPORTED[0], SUPPORTED[-1]]
-    assert _ci_matrix("test-windows") == [SUPPORTED[0], SUPPORTED[-1]]
+    # macOS and Windows run the ends and the 3.14 the main ruleset still requires; ubuntu runs all.
+    assert _ci_matrix("test-macos") == [SUPPORTED[0], "3.14", SUPPORTED[-1]]
+    assert _ci_matrix("test-windows") == [SUPPORTED[0], "3.14", SUPPORTED[-1]]
     # pipx otherwise installs with its own default interpreter, which may be older.
     readme = " ".join((REPO_ROOT / "README.md").read_text(encoding="utf-8").split())
     assert f"needs Python {SUPPORTED[0]} or newer" in readme

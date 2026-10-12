@@ -22,7 +22,7 @@ Accepted; amended by ADR-021, ADR-022, ADR-049 and ADR-050.
 - **Tests:** **pytest**.
 - **Lint and format:** **ruff** (check and format).
 - **Types:** **mypy** in `strict` mode with the pydantic plugin.
-- **Python:** **3.12-3.14** for obelize itself. A *migrated repository* may
+- **Python:** **3.12-3.15** for obelize itself. A *migrated repository* may
   target the Pythons the pack's `to.requires_python` allows (`>=3.10` for `google-genai`,
   ADR-001); verification runs
   that repository's own interpreter, not obelize's.

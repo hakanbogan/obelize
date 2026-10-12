@@ -73,6 +73,23 @@ def _words(rule_id: str) -> tuple[str, str]:
     return change.params.message, change.params.suggestion  # type: ignore[union-attr]
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 15), reason="compile() refuses `lazy import` before Python 3.15"
+)
+def test_a_lazy_import_of_the_legacy_module_holds_the_file_and_the_pin(tree: Path) -> None:
+    """libcst binds no name for it, so the uses after it are invisible and the pin could go."""
+    lazy = LEGACY.replace("import google", "lazy import google", 1)
+    (tree / "app.py").write_text(lazy, encoding="utf-8")
+    document = json.loads(_scan(tree, "--json").stdout)
+    rows = [(row["path"], row["scan_status"], row["bail"]) for row in document["findings"]]
+    assert rows[0] == ("app.py", "needs_review", "lazy_import")
+    shown = runner.invoke(app, ["fix", "--repo", str(tree)])
+    assert shown.exit_code == 0, shown.output
+    assert "lazy_import" in shown.output
+    assert (tree / "app.py").read_text(encoding="utf-8") == lazy
+    assert (tree / "requirements.txt").read_text(encoding="utf-8") == MANIFEST
+
+
 def test_a_flagged_finding_is_followed_by_what_the_pack_says_about_it(tree: Path) -> None:
     (tree / "adapter.py").write_text(MOCKED, encoding="utf-8")
     message, suggestion = _words(FLAGGED)

@@ -93,7 +93,8 @@ obelize is a command-line tool, so install it as one and not into your project's
 needs Python 3.12 or newer, and pipx takes the one `--python` names. The project it migrates
 needs the Python its new library does: 3.10 or newer for `google-genai`, 3.9 or newer for `pypdf`,
 3.8 or newer for `openai`, where pip picks the newest release that installs. obelize runs on Linux,
-macOS and Windows.
+macOS and Windows. On Python 3.15, PyYAML has no wheel yet, so pip builds it (in pure Python, with
+no compiler), and an Intel Mac, whose libcst has no 3.15 wheel either, compiles that with Rust.
 
 ## Quickstart
 

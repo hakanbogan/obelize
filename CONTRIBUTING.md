@@ -21,7 +21,7 @@ failing test.
 
 ## Development setup
 
-You need Python 3.12-3.14 and [uv](https://docs.astral.sh/uv/). Linux, macOS and Windows are
+You need Python 3.12-3.15 and [uv](https://docs.astral.sh/uv/). Linux, macOS and Windows are
 supported; the `bench/` scripts build POSIX virtual environments and are not run on Windows.
 
 ```bash
