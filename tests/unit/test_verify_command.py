@@ -123,6 +123,24 @@ def test_an_index_that_cannot_be_read_and_one_that_is_not_a_record(tree: Path) -
     assert "cannot be read" in result.output
 
 
+def test_a_record_another_release_wrote_names_the_release_that_can_undo_it(tree: Path) -> None:
+    run_id = applied(tree)
+    index = folder(tree, run_id) / "run.json"
+    record = json.loads(index.read_text(encoding="utf-8"))
+    for version, named in (
+        ("0.2.0", True),
+        (record["obelize_version"], False),
+        ("x\x1b[31m", False),
+    ):
+        index.write_text(json.dumps({**record, "obelize_version": version, "mode": "gone"}))
+        message = verify(tree, run_id).output
+        assert "is not a run record" in message
+        said = f"uvx obelize@{version} undo --run {run_id}"
+        assert (said in message) is named, version
+    index.write_text('["a list"]', encoding="utf-8")
+    assert "uvx" not in verify(tree, run_id).output
+
+
 def test_a_dry_run_has_no_after_state_to_verify(tree: Path) -> None:
     result = verify(tree, planned(tree))
     assert result.exit_code == 2

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import platform as platform_module
+import re
 import secrets
 from collections import Counter
 from dataclasses import dataclass
@@ -523,9 +524,31 @@ def load(root: Path, run_id: str) -> Loaded:
     except (ValueError, TypeError) as error:
         raise EvidenceError(
             f"{HOME}/{RUNS}/{run_id}/run.json is not a run record this version of obelize "
-            f"can read: {error}"
+            f"can read: {error}{_writer(data, run_id)}"
         ) from error
     return Loaded(record=record, folder=folder, relative=f"{HOME}/{RUNS}/{run_id}")
+
+
+# A release number as the record writes it: a forged record's is printed back to a terminal.
+_VERSION = re.compile(r"\d{1,3}(\.\d{1,3}){1,3}")
+
+
+def _writer(text: str, run_id: str) -> str:
+    """Which obelize wrote a record this one cannot read, and the command that undoes its run.
+
+    Formats change between 0.x releases, so the release that wrote a folder is the one that reads
+    it back. Nothing when the record does not name another release.
+    """
+    try:
+        version = json.loads(text).get("obelize_version")
+    except (ValueError, AttributeError):
+        return ""
+    if not isinstance(version, str) or not _VERSION.fullmatch(version) or version == __version__:
+        return ""
+    return (
+        f". It was written by obelize {version}; undo it with: "
+        f"uvx obelize@{version} undo --run {run_id}"
+    )
 
 
 def snapshot(digest: str, half: str = BEFORE) -> str:

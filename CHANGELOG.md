@@ -29,6 +29,9 @@ in the release that makes it.
 
 ### Fixed
 
+- A run folder that an older obelize wrote and this one cannot read now names the release that
+  wrote it and the command that undoes the run (`uvx obelize@0.2.0 undo --run <id>`), where `undo`
+  and `verify` only said the record was unreadable.
 - The terminal output of `scan` and `fix` has less in it that nobody acts on. A planned file shows
   `path  (N hunk(s))` and not the list of rules that produced the hunks, which `REPORT.md` and
   `plan.json` keep. An eligible row has a blank reason, where it printed the code that resolved

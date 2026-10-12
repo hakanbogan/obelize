@@ -241,6 +241,10 @@ content it did not write. `undo.json` gets a row for **every** file the run
 wrote, so a partial undo cannot read as complete
 ([RUN_FOLDER.md](RUN_FOLDER.md#undojson)).
 
+The record formats change between 0.x releases. A run another release wrote, whose `run.json` this
+one cannot read, exits `2` and names that release with the command that undoes the run:
+`uvx obelize@<version> undo --run <id>`. `verify` says the same.
+
 ### Why a file was not put back
 
 A closed set (`models.UndoSkip`).
