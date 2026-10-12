@@ -27,6 +27,13 @@ in the release that makes it.
   count. Below that size the hunks are the ones 0.3.0 wrote; above it a hunk can be larger or
   split differently, and `git apply` reads the patch the same.
 
+### Fixed
+
+- `fix --apply` no longer refuses a dirty tree when it has nothing to write. A repository where
+  every finding is held back used to exit `5` with "uncommitted changes", which hid the real
+  reason; it now exits `4` with the findings. A configured model keeps the gate, since a
+  proposal could write.
+
 ### Added
 
 - The Gemini pack rewrites a `generation_config` or `safety_settings` held by a name, where it

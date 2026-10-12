@@ -12,7 +12,8 @@ Accepted; amended by ADR-049.
 path on the plan, because a clean tree makes `git diff` the migration and `git checkout` the
 recovery (ADR-011 drops `undo --force` on that). `docs/CLI.md` says the tree. `fsutil.apply`
 returns every dirty path (D2); the report counts them and never names them, because they are the
-user's own uncommitted work (ADR-034). `--allow-dirty` skips the check.
+user's own uncommitted work (ADR-034). `--allow-dirty` skips the check, and so does a run with
+nothing to write and no model configured, because there is no `git diff` to protect.
 
 ### D2. `--untracked-files=no` survives its first contact with a real apply
 

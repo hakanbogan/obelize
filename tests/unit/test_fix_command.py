@@ -548,6 +548,45 @@ def test_an_apply_on_a_dirty_tree_names_the_flag_that_permits_it(tree: Path) -> 
     assert _refusal(result.output).endswith("commit or stash them, or pass --allow-dirty")
 
 
+def _nothing_to_write(tree: Path) -> None:
+    """Everything the pack finds is held back, and another file has an uncommitted change."""
+    (tree / "app.py").write_text(ESCAPING, encoding="utf-8", newline="\n")
+    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "held"], check=True
+    )
+    (tree / "notes.txt").write_text("mine\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tree), "add", "notes.txt"], check=True)
+
+
+def test_an_apply_that_would_write_nothing_leaves_a_dirty_tree_alone(tree: Path) -> None:
+    """There is no `git diff` to protect, so the refusal would only hide the real reason."""
+    _nothing_to_write(tree)
+    result = fix(tree, "--apply")
+    assert result.exit_code == 4, result.output
+    record = json.loads((folder(tree) / "run.json").read_text(encoding="utf-8"))
+    assert record["git_dirty"] is True
+    assert record["verify"]["reason"] == "no_changes_to_verify"
+    assert "git does not track" not in result.output
+
+
+def test_an_apply_that_would_write_nothing_still_asks_before_a_model_is_sent_anything(
+    tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A proposal could write, so the model waits for the same gate."""
+    _nothing_to_write(tree)
+    home = tmp_path / "home"
+    (home / "obelize").mkdir(parents=True)
+    (home / "obelize" / "config.yml").write_text(
+        "model:\n  provider: openai_compat\n  base_url: http://127.0.0.1:9/v1\n  model: m\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
+    result = fix(tree, "--apply")
+    assert result.exit_code == 5, result.output
+    assert _refusal(result.output).endswith("commit or stash them, or pass --allow-dirty")
+
+
 def test_an_apply_refused_only_over_an_untracked_file_says_to_commit_it(tree: Path) -> None:
     """`git stash` leaves an untracked file where it is, so it would not unblock this run."""
     subprocess.run(["git", "-C", str(tree), "rm", "-q", "--cached", "requirements.txt"], check=True)

@@ -128,10 +128,11 @@ def run(request: Request) -> Outcome:
     plan_ms = _ms(planning)
 
     gating = time.monotonic()
+    ruled = _changes(driven)
+    # A run that writes nothing leaves a dirty tree alone; a model's proposal could write.
+    asked = request.apply and bool(ruled or request.model.provider != "none")
     stopped = (
-        fsutil.gate(request.root, _changes(driven), allow_dirty=request.config.allow_dirty)
-        if request.apply
-        else None
+        fsutil.gate(request.root, ruled, allow_dirty=request.config.allow_dirty) if asked else None
     )
     gate_ms = _ms(gating)
 
@@ -451,9 +452,9 @@ def _phases(
     if stopped is not None:
         return _Phases(stopped, _silent("no_changes_to_verify"), gate_ms)
 
-    # Nothing to write, so no command is asked about or refused.
+    # Nothing to write, so no tree is looked at and no command is asked about or refused.
     if not changes:
-        return _Phases(_write(request, changes)[0], _silent("no_changes_to_verify"), gate_ms)
+        return _Phases(fsutil.Apply(), _silent("no_changes_to_verify"), gate_ms)
 
     permitted = verifier.resolve(
         request.root,
