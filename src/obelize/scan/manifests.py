@@ -677,21 +677,28 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
         return
     # Without `unsafe_skip_copy` the wrapper deep-copies, and collected nodes lack positions.
     wrapper = MetadataWrapper(module, unsafe_skip_copy=True)
-    positions = wrapper.resolve(PositionProvider)
     collector = _Requirements()
-    module.visit(collector)
+    try:
+        positions = wrapper.resolve(PositionProvider)
+        module.visit(collector)
+    except (RecursionError, MemoryError):  # parsed, but too deep to walk: declares nothing
+        return
+    lines = data.decode("utf-8", "surrogateescape").split("\n")
     for node in collector.strings:
         text = node.evaluated_value
         if not isinstance(text, str):
             continue
         at = positions[node].start
-        opening = len(node.prefix) + len(node.quote)
-        declaration = _declare(path, at.line, at.column + opening, text)
+        declaration = _declare(path, at.line, at.column + len(node.prefix) + len(node.quote), text)
         if declaration is None:
             continue
-        # Spans are source columns only when the literal's bytes are its value; an escape (a
-        # multi-line literal is an escaped newline) breaks that. The row stays; the pin goes.
-        yield declaration if node.raw_value == text else replace(declaration, pin=None)
+        # Spans are source columns only when the literal's bytes are its value (an escape, and a
+        # multi-line literal is an escaped newline, breaks that) and libcst's line is the edit's:
+        # it breaks a line at a lone CR and drops a BOM. The row stays; the pin goes.
+        line = "".join(lines[at.line - 1 : at.line])
+        opening = node.prefix + node.quote + node.raw_value.split("\n")[0]
+        faithful = node.raw_value == text and line.startswith(opening, at.column)
+        yield declaration if faithful else replace(declaration, pin=None)
 
 
 __all__ = [

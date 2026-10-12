@@ -207,6 +207,23 @@ def test_nothing_migrated_leaves_the_manifest_exactly_as_it_was(tmp_path: Path) 
     assert [row.reason for row in manifest.edits] == ["repo_not_fully_migrated"]
 
 
+def test_a_pin_the_rule_would_not_write_is_a_review_item_and_not_auto(tmp_path: Path) -> None:
+    """The scan grades `acme-sdk[extra]` eligible; the rule refuses it, and the run must say so."""
+    run = acme.repository(
+        tmp_path, {"app.py": CLEAN, "requirements.txt": "acme-sdk[extra]==0.1.0\n"}
+    )
+    manifest = run.manifests[0]
+    assert manifest.after == manifest.before
+    assert [(row.line, row.status, row.reason) for row in manifest.edits] == [
+        (1, "needs_review", "manifest_pin_shape_unsupported")
+    ]
+    pins = [row for row in run.findings if row.path == "requirements.txt"]
+    assert [(row.scan_status, row.bail) for row in pins] == [
+        ("needs_review", "manifest_pin_shape_unsupported")
+    ]
+    assert [outcome.path for outcome in run.written] == ["app.py"]
+
+
 def test_a_repository_with_no_manifest_has_no_manifest_outcome(tmp_path: Path) -> None:
     run = acme.repository(tmp_path, {"app.py": CLEAN})
     assert run.manifests == ()

@@ -364,6 +364,34 @@ def test_a_setup_py_with_a_string_python_cannot_read_declares_nothing() -> None:
     assert names(text, "setup.py") == []
 
 
+@pytest.mark.parametrize(
+    ("what", "data"),
+    [
+        ("a lone CR in the docstring", b'"""a\rb"""\nsetup(install_requires=["acme-sdk==1"])\n'),
+        ("a BOM on the line", b'\xef\xbb\xbfsetup(install_requires=["acme-sdk==1"])\n'),
+    ],
+)
+def test_a_setup_py_whose_lines_libcst_counts_differently_names_the_row_without_a_pin(
+    what: str, data: bytes
+) -> None:
+    """libcst breaks a line at a lone CR and drops a BOM; the edit's lines do neither."""
+    (found,) = manifests.declarations("setup.py", data)
+    assert (found.name, found.pin) == ("acme-sdk", None), what
+
+
+def test_a_setup_py_libcst_cannot_walk_declares_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """It parses and compiles, then overruns the stack in the metadata pass (about 400 terms)."""
+
+    class TooDeep:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None: ...
+
+        def resolve(self, *_args: Any) -> None:
+            raise RecursionError
+
+    monkeypatch.setattr(manifests, "MetadataWrapper", TooDeep)
+    assert manifests.declarations("setup.py", b'setup(install_requires=["acme-sdk==1"])\n') == ()
+
+
 def test_a_setup_py_that_does_not_parse_declares_nothing() -> None:
     """The code pass reads the same bytes and owns the `parse_error` row."""
     assert manifests.declarations("setup.py", b"setup(install_requires=[\n") == ()

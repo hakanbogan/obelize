@@ -7,6 +7,7 @@ stays because something still imports it.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, ClassVar, Final
 
 from packaging.utils import canonicalize_name
@@ -28,6 +29,10 @@ BAILS: frozenset[BailCode] = frozenset({SHAPE})
 # An `=` before the declaration means the line also names its field (`install_requires = acme==1`),
 # which a copy would declare twice. A declaration's own `=` never precedes it.
 _KEY: Final = "="
+
+# All that may follow a quoted array element for a copy of its line to be another element: its
+# comma. Without one the copy joins the string, and `]` after it would close the array twice.
+_SIBLING: Final = re.compile(r"\s*,\s*(?:#.*)?")
 
 
 class ManifestDependency:
@@ -109,6 +114,11 @@ class ManifestDependency:
         ]
         if beside:
             raise BailError(SHAPE)
+        quote = line[declaration.column - 1 : declaration.column]
+        if quote in ('"', "'"):
+            closing = line.find(quote, declaration.end)
+            if closing < 0 or not _SIBLING.fullmatch(line, closing + 1):
+                raise BailError(SHAPE)
 
     def _swapped(self, declaration: Declaration, pin: tuple[int, int], line: str) -> str:
         """`line` with only the name and pin spans swapped; indent, quotes and comment stay."""

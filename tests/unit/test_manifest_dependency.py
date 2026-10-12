@@ -178,6 +178,35 @@ def test_a_declaration_alone_on_a_continuation_line_is_copied() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("what", "tail"),
+    [
+        ("the last element, with no comma", '"acme-sdk==1.2.3"\n]'),
+        ("the last element, closing the array on its line", '"acme-sdk==1.2.3"]\n'),
+        ("an element whose comma is followed by the closing bracket", '"acme-sdk==1.2.3", ]\n'),
+        ("a single-quoted last element", "'acme-sdk==1.2.3'\n]"),
+    ],
+)
+def test_a_quoted_element_that_no_comma_follows_is_not_copied(what: str, tail: str) -> None:
+    """A copy would join the string to its neighbour, or close the array twice."""
+    source = f'[project]\ndependencies = [\n  "httpx>=0.27",\n  {tail}'
+    produced, edits = acme.declared("pyproject.toml", source, BLOCKED)
+    assert produced == source, what
+    assert reported(edits) == [
+        (4, "needs_review", "manifest_pin_shape_unsupported"),
+        (4, "needs_review", "repo_not_fully_migrated"),
+    ]
+
+
+def test_a_quoted_element_with_a_comment_after_its_comma_is_copied() -> None:
+    source = '[project]\ndependencies = [\n  "acme-sdk==1.2.3",  # the old one\n]\n'
+    produced, _edits = acme.declared("pyproject.toml", source, BLOCKED)
+    assert produced == (
+        '[project]\ndependencies = [\n  "acme-sdk==1.2.3",  # the old one\n'
+        '  "acme-client>=2",  # the old one\n]\n'
+    )
+
+
 def test_a_pin_nothing_imports_is_a_review_item_and_not_an_edit() -> None:
     """Nothing migrated or imports it; removing it would tidy a manifest for an unmade migration."""
     produced, edits = acme.declared("requirements.txt", "acme-sdk==1.2.3\n", DORMANT)

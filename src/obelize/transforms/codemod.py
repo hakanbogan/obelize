@@ -142,14 +142,13 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
         files, plans = _together(files, plans)
         graded = _pins_held(graded, waiting)
     read = _edited(files, sources)
-    kept, declared = _joined(
-        files, [_manifest(name, read[name], graded, pack) for name in _named(graded)]
-    )
+    written = [_manifest(name, read[name], graded, pack) for name in _named(graded)]
+    kept, declared = _joined(files, written)
     return Run(
         files=tuple(kept),
         manifests=tuple(declared),
         plans=tuple(plans),
-        manifest_plan=graded,
+        manifest_plan=_refused(graded, written),
     )
 
 
@@ -552,6 +551,28 @@ def _manifest_plan(
         for declaration in manifests.declarations(name, sources[name])
     ]
     return manifests.plan(declared, migration, spec)
+
+
+def _refused(graded: ManifestPlan, written: Sequence[Outcome]) -> ManifestPlan:
+    """The pin check's rows, with each `eligible` one a manifest rule would not write withheld, as
+    a source rule's refusal is; otherwise the run reports it `auto` and exits `0`."""
+    shapes = {
+        (outcome.path, edit.line)
+        for outcome in written
+        for edit in outcome.edits
+        if edit.reason == manifests.SHAPE_BAIL
+    }
+    return ManifestPlan(
+        findings=tuple(
+            _withheld(row, manifests.SHAPE_BAIL)
+            if row.scan_status == "eligible" and (str(row.path), row.line) in shapes
+            else row
+            for row in graded.findings
+        ),
+        blocking=graded.blocking,
+        excluded=graded.excluded,
+        transitive=graded.transitive,
+    )
 
 
 def _named(plan: ManifestPlan) -> tuple[str, ...]:
