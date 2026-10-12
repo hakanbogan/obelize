@@ -144,8 +144,10 @@ def test_a_file_compile_refuses_never_reaches_libcst() -> None:
     assert "Refused by compile:" in result.limitations[0].detail
 
 
-def test_a_file_only_libcst_refuses_is_refused_by_libcst() -> None:
-    """The mirror of `python2.py`: `compile()` accepts a lone latin-1 byte in a comment."""
+def test_a_file_only_libcst_refuses_is_refused_by_libcst(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The mirror of `python2.py`: 3.12 and 3.13 accept a lone latin-1 byte in a comment, and 3.14
+    refuses it, so `compile()` is made to accept it on every version."""
+    monkeypatch.setattr(parse, "compile", lambda *_args, **_kwargs: None, raising=False)
     result = gates("odd.py", AWKWARD["a non-UTF-8 byte and no cookie"])
     assert result.status == "does_not_parse"
     assert (result.findings[0].line, result.findings[0].column) == (1, 0)
@@ -224,7 +226,7 @@ AWKWARD: dict[str, bytes] = {
     "a null byte": b"import google.generativeai as genai\nx = 1\x00\n",
     # libcst: plain `SyntaxError`, `lineno=None`. compile(): SyntaxError, `lineno=0`.
     "an unknown coding cookie": b"# -*- coding: nonsense-42 -*-\nimport x\n",
-    # libcst: plain `SyntaxError`. compile(): accepts it, the mirror of `python2.py`.
+    # libcst: plain `SyntaxError`. compile(): accepts it before 3.14, the mirror of `python2.py`.
     "a non-UTF-8 byte and no cookie": b"# a lone latin-1 byte: \xe9\nimport x\n",
     # libcst: `UnicodeDecodeError`, a `ValueError` the documented handler would let out.
     "bytes that contradict the cookie": b'# -*- coding: utf-8 -*-\nX = "caf\xe9"\n',
