@@ -10,11 +10,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 import libcst as cst
-from libcst._metadata_dependent import LazyValue
 from libcst.metadata import PositionProvider, QualifiedNameProvider
 
 from obelize.models import Edit
 from obelize.packs.schema import RenameImportChange
+from obelize.scan.analysis import qualified_names
 from obelize.transforms.base import BailError, RuleContext
 from obelize.transforms.imports import dotted, dotted_name, statement_for
 
@@ -398,8 +398,7 @@ class _Names:
 
     def qualified(self, node: cst.CSTNode) -> str:
         """The one qualified name, or `""` if none or several (`conditional_binding`, withheld)."""
-        value = self._qnp.get(node, ())
-        names = {name.name for name in (value() if isinstance(value, LazyValue) else value)}
+        names = {name.name for name in qualified_names(self._qnp, node)}
         return names.pop() if len(names) == 1 else ""
 
     def root(self, node: cst.CSTNode) -> str:

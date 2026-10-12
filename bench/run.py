@@ -79,9 +79,6 @@ ERROR_REASONS: tuple[str, ...] = (
     "work_root_not_isolated",
 )
 
-# The same four words as `obelize verify`.
-TEST_STATUSES: tuple[str, ...] = ("pass", "fail", "inconclusive", "not_run")
-
 # pytest's codes, not a shell's: 2-5 (interrupted, internal, usage, none collected) and signals
 # give no verdict; `suite_status` fails a `2` whose report counts an error.
 PYTEST_EXITS: Mapping[int, str] = {

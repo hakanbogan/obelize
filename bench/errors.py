@@ -42,9 +42,6 @@ DERIVED_BAILS: tuple[str, ...] = ("file_not_fully_migrated", "repo_not_fully_mig
 # `withheld`: the row's own bail; `derived`: a `DERIVED_BAILS` code; `missed`: never delivered.
 STATES: tuple[str, ...] = ("migrated", "withheld", "derived", "missed")
 
-# The three unmigrated states, plus `unexpected`: a reported row no key claims.
-CAUSE_CLASSES: tuple[str, ...] = ("withheld", "derived", "missed", "unexpected")
-
 # Closed: every cause becomes one of these, with no fourth option to escape into.
 DISPOSITIONS: tuple[str, ...] = ("rule_change", "scan_change", "limitation")
 

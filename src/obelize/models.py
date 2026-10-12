@@ -1,9 +1,10 @@
 """Shared pydantic models and the closed vocabularies every other module reads.
 
-Vocabularies are `Literal`s (wire strings, unlike an Enum) with a `get_args` frozenset each;
-tests/unit/test_models.py checks them against docs/SCAN_VOCABULARY.md. Models refuse, never
-repair: one that sorted its input would hide a determinism bug. No libcst, typer or pyyaml, and
-`obelize.cli` must print `--help` without pydantic.
+Vocabularies are `Literal`s (wire strings, unlike an Enum), with a `get_args` frozenset where
+something reads the members; tests/unit/test_models.py checks them against
+docs/SCAN_VOCABULARY.md. Models refuse, never repair: one that sorted its input would hide a
+determinism bug. No libcst, typer or pyyaml, and `obelize.cli` must print `--help` without
+pydantic.
 """
 
 from __future__ import annotations
@@ -1469,7 +1470,6 @@ FIX_MODES: frozenset[RunMode] = frozenset({"plan", "apply"})
 # project declares, or the legacy pin is outside the pack's range, so the run reports findings
 # and proposes no migration.
 BlockedReason = Literal["runtime_unsupported", "legacy_version_unsupported"]
-BLOCKED_REASONS: frozenset[BlockedReason] = frozenset(get_args(BlockedReason))
 
 # `SkipReason` plus `obelize.scan.parse.ReadRefusal`, written out because that module imports
 # this one; tests/unit/test_models.py asserts the union.
@@ -1517,7 +1517,6 @@ UNDO_SKIPS: frozenset[UndoSkip] = frozenset(get_args(UndoSkip))
 
 # No `partly`: a rename either put the bytes back or did not.
 UndoOutcome = Literal["reverted", "skipped"]
-UNDO_OUTCOMES: frozenset[UndoOutcome] = frozenset(get_args(UndoOutcome))
 
 # Also declared in `obelize.config` for the import direction; test_config.py asserts they match.
 ConfigOrigin = Literal["file", "defaults"]
@@ -1526,7 +1525,6 @@ CONFIG_ORIGINS: frozenset[ConfigOrigin] = frozenset(get_args(ConfigOrigin))
 # No pack path is recorded: it could be absolute on the scanning machine (TM-1); the sha256 and
 # the copy in the run folder identify the pack.
 PackOrigin = Literal["bundled", "file"]
-PACK_ORIGINS: frozenset[PackOrigin] = frozenset(get_args(PackOrigin))
 
 # docs/CLI.md's exit codes, shared by every command (test_cli_surface.py checks both ways).
 ExitCode = Literal[0, 1, 2, 3, 4, 5, 6, 7]
@@ -2032,7 +2030,6 @@ __all__ = [
     "ATOMICITY_BAIL",
     "BAIL_CODES",
     "BINDING_KINDS",
-    "BLOCKED_REASONS",
     "COMMAND_REASONS",
     "COMMAND_SOURCES",
     "CONFIDENCE_REASONS",
@@ -2049,7 +2046,6 @@ __all__ = [
     "IMPORT_KINDS",
     "LIMITATION_CODES",
     "NO_VERDICT_EXPECTED",
-    "PACK_ORIGINS",
     "PATH_REFUSALS",
     "PROPOSAL_HELD",
     "PROPOSAL_OUTCOMES",
@@ -2062,7 +2058,6 @@ __all__ = [
     "RUN_MODES",
     "SCAN_STATUSES",
     "SKIP_REASONS",
-    "UNDO_OUTCOMES",
     "UNDO_SKIPS",
     "VERDICTS",
     "VERIFY_REASONS",

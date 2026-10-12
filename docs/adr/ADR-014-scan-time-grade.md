@@ -8,8 +8,8 @@ Accepted; amended by ADR-050.
 
 ### D1. Each vocabulary is a `Literal` with a `frozenset` derived from it, and the document is asserted against the code in both directions
 
-Each closed vocabulary is a `Literal` in `src/obelize/models.py` with its set derived by
-`frozenset(get_args(...))`, so the two cannot disagree; not an `Enum` or `StrEnum`, because
+Each closed vocabulary is a `Literal` in `src/obelize/models.py`, with its set derived by
+`frozenset(get_args(...))` where code or a test reads the members, so the two cannot disagree; not an `Enum` or `StrEnum`, because
 each is a wire format of plain strings. `tests/unit/test_models.py` asserts that every
 [SCAN_VOCABULARY.md](../SCAN_VOCABULARY.md) table, and its heading's member count, matches its
 `Literal`; the fixture tests import the sets from the code.

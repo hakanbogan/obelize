@@ -8,7 +8,7 @@ Whether a file may be rewritten is `impact/`'s decision.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -150,6 +150,14 @@ def analyse(read: Read, spec: ScanSpec) -> Analysis:
     return _Pass(read.path, read.module, spec, read.bail).run()
 
 
+def qualified_names(
+    provided: Mapping[cst.CSTNode, Collection[QualifiedName]], node: cst.CSTNode
+) -> set[QualifiedName]:
+    """`node`'s qualified names; read outside a visitor, the mapping holds a `LazyValue`."""
+    value = provided.get(node, ())
+    return set(value() if isinstance(value, LazyValue) else value)
+
+
 class _Nodes(cst.CSTVisitor):
     """One walk, collecting the node kinds the passes need."""
 
@@ -261,14 +269,9 @@ class _Pass:
             receivers=tuple(sorted(self._receivers, key=lambda r: (r.ctor_line, r.scope, r.name))),
         )
 
-    def _names(self, node: cst.CSTNode) -> set[QualifiedName]:
-        """`node`'s qualified names; read outside a visitor, the mapping holds a `LazyValue`."""
-        value = self._qnp.get(node, ())
-        return set(value()) if isinstance(value, LazyValue) else set(value)
-
     def _legacy(self, node: cst.CSTNode) -> tuple[str, ...]:
         """The legacy names `node` resolves to; a shared module itself counts, since it escapes."""
-        names = self._names(node)
+        names = qualified_names(self._qnp, node)
         return tuple(
             sorted(
                 name.name
@@ -282,7 +285,7 @@ class _Pass:
         """Whether `node` resolves into a legacy module, which a legacy name or not."""
         return any(
             name.source is QualifiedNameSource.IMPORT and self._in_module(name.name)
-            for name in self._names(node)
+            for name in qualified_names(self._qnp, node)
         )
 
     @staticmethod
@@ -499,7 +502,7 @@ class _Pass:
         if "dynamic_access" not in self._spec.flag_only_patterns:
             return
         for call in self._nodes.calls:
-            names = {name.name for name in self._names(call.func)}
+            names = {name.name for name in qualified_names(self._qnp, call.func)}
             if not call.args:
                 continue
             first = call.args[0].value
@@ -531,7 +534,9 @@ class _Pass:
                         bail="module_alias_rebound",
                     )
         for subscript in self._nodes.subscripts:
-            if _SYS_MODULES not in {name.name for name in self._names(subscript.value)}:
+            if _SYS_MODULES not in {
+                name.name for name in qualified_names(self._qnp, subscript.value)
+            }:
                 continue
             for element in subscript.slice:
                 index = element.slice
@@ -558,7 +563,7 @@ class _Pass:
                 legacy = tuple(name for name in legacy if not self._bare(name))
             if not legacy or self._is_link(node) or self._shared_after_call(node):
                 continue
-            names = self._names(node)
+            names = qualified_names(self._qnp, node)
             imports = {n.name for n in names if n.source is QualifiedNameSource.IMPORT}
             symbol = legacy[0]
             if len(imports) > 1:

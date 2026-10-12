@@ -45,7 +45,6 @@ CHANGE_KINDS: frozenset[ChangeKind] = frozenset(get_args(ChangeKind))
 
 # Closed: pack review admits only the vendor's own migration guide or API reference.
 SourceType = Literal["official_guide", "sdk_reference"]
-SOURCE_TYPES: frozenset[SourceType] = frozenset(get_args(SourceType))
 
 # SDK facts that drive refusals live in code: a pack may carry nothing that drives behaviour.
 # PACK_SPEC must name each value (tested).

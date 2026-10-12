@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 
 import libcst as cst
 import libcst.matchers as m
-from libcst._metadata_dependent import LazyValue
 from libcst.metadata import (
     ParentNodeProvider,
     PositionProvider,
@@ -20,6 +19,7 @@ from libcst.metadata import (
     QualifiedNameProvider,
 )
 
+from obelize.scan.analysis import qualified_names
 from obelize.transforms import layout
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
@@ -113,8 +113,7 @@ class Tree:
 
     def names(self, node: cst.CSTNode) -> set[QualifiedName]:
         """Every qualified name `node` may mean, resolved lazily."""
-        value = self._wrapper.resolve(QualifiedNameProvider).get(node, ())
-        return set(value() if isinstance(value, LazyValue) else value)
+        return qualified_names(self._wrapper.resolve(QualifiedNameProvider), node)
 
     def qualified(self, node: cst.CSTNode) -> str:
         """The one qualified name; `""` for none or several (already withheld)."""
