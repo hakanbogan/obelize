@@ -437,9 +437,37 @@ def test_the_prompt_asks_once_and_answers_what_it_was_told(
     assert "This repository asks to run: pytest -q" in capsys.readouterr().out
 
 
+def test_a_write_a_race_refuses_after_the_baseline_ran(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The directory took a file when the gate asked: the rename is what fails, after the tests."""
+    from obelize import fsutil
+
+    root = tmp_path / "locked"
+    (root / "pkg").mkdir(parents=True)
+    (root / "pkg" / "app.py").write_text(LEGACY, encoding="utf-8")
+    monkeypatch.setattr(fsutil, "write", lambda *_arguments: "unreadable")
+    result = runner.invoke(
+        app,
+        ["fix", "--repo", str(root), "--pack", PACK, "--apply", "--verify", f"{PYTHON} -c pass"],
+    )
+    assert result.exit_code == 5, result.output
+    record = json.loads((folder(root) / "run.json").read_text(encoding="utf-8"))
+    assert record["file_edits"] == []
+    assert [one["code"] for one in record["refused"]] == ["unreadable"]
+    assert record["verify"]["reason"] == "no_changes_to_verify"
+    assert record["verify"]["baseline"]["status"] == "pass"
+    assert "Not written: pkg/app.py: the file could not be read or written" in result.stdout
+    assert result.stdout.splitlines()[-1] == (
+        "Next: fix what the Not written line names and run again; no flag skips this check."
+    )
+    # The journal's copy is discarded with the failed write.
+    assert not (folder(root) / "snapshots").exists()
+
+
 @pytest.mark.skipif(AS_ROOT, reason="root writes into a directory it may not")
-def test_a_write_the_filesystem_refuses_after_the_baseline_ran(tmp_path: Path) -> None:
-    """A read-only directory passes the preflight but fails the rename: nothing to verify."""
+def test_a_directory_that_takes_no_file_is_refused_before_the_tests_run(tmp_path: Path) -> None:
+    """The gate asks for a file in each directory, so no baseline is spent on a write that fails."""
     root = tmp_path / "locked"
     (root / "pkg").mkdir(parents=True)
     (root / "pkg" / "app.py").write_text(LEGACY, encoding="utf-8")
@@ -459,16 +487,11 @@ def test_a_write_the_filesystem_refuses_after_the_baseline_ran(tmp_path: Path) -
         )
     assert result.exit_code == 5, result.output
     record = json.loads((folder(root) / "run.json").read_text(encoding="utf-8"))
-    assert record["file_edits"] == []
-    assert [one["code"] for one in record["refused"]] == ["unreadable"]
-    assert record["verify"]["reason"] == "no_changes_to_verify"
-    assert record["verify"]["baseline"]["status"] == "pass"
-    assert "Not written: pkg/app.py: the file could not be read or written" in result.stdout
-    assert result.stdout.splitlines()[-1] == (
-        "Next: fix what the Not written line names and run again; no flag skips this check."
-    )
-    # The journal's copy is discarded with the failed write.
-    assert not (folder(root) / "snapshots").exists()
+    assert [(one["path"], one["code"]) for one in record["refused"]] == [
+        ("pkg/app.py", "unreadable")
+    ]
+    assert record["verify"]["baseline"] is None
+    assert result.stderr == "", "no phase of tests was announced"
 
 
 @pytest.mark.skipif(AS_ROOT, reason="root writes into a directory it may not")

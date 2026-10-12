@@ -40,7 +40,7 @@ COMMANDS_RUN = {
     "what", "argv", "exit_code", "mode", "file_edits", "idempotent", "refused", "verify",
     "verify_files", "snapshots", "tree", "git_dirty", "updates", "keeps", "superseded",
     "undo_of", "undo", "commit", "counts", "started", "appended", "blocked", "plan_files",
-    "diff_lines", "next", "already",
+    "diff_lines", "next", "already", "kept",
 }  # fmt: skip
 
 EVIDENCE_RUN = {

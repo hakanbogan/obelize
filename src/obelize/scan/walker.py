@@ -209,20 +209,15 @@ def _skip(path: str, reason: SkipReason) -> Skipped:
 
 
 def _usable(name: str) -> bool:
-    """False for a non-UTF-8 name, a backslash (a separator elsewhere) or a reserved name.
+    """False for a backslash (a separator elsewhere), a reserved name, or one a report cannot hold.
 
-    Also for one a terminal would act on, and for a backtick or a pipe, which end a code span or a
-    table cell in a report: the report names a path, and a path is not a place to be read as text.
+    That is a control, format or surrogate character (the surrogates are how a name that is not
+    UTF-8 reads), which a terminal acts on, and a backtick or a pipe, which end a code span or a
+    table cell in a report. The report names a path, and a path is not a place to be read as text.
     """
     if "\\" in name or "`" in name or "|" in name or files.reserved(name):
         return False
-    if terminal_unsafe(name) is not None:
-        return False
-    try:
-        name.encode("utf-8")
-    except UnicodeEncodeError:
-        return False
-    return True
+    return terminal_unsafe(name) is None
 
 
 def _printable(name: str) -> str:

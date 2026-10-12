@@ -6,6 +6,7 @@ A bad run id, missing folder, unreadable index or run with no after-state is exi
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -85,6 +86,27 @@ def verify(tree: Path, run_id: str, *extra: str) -> Result:
 
 def folder(tree: Path, run_id: str) -> Path:
     return tree / ".obelize" / "runs" / run_id
+
+
+def test_a_verification_with_nobody_to_tell_runs_without_saying_anything(
+    tree: Path, tmp_path: Path
+) -> None:
+    from obelize.commands import verify as command
+    from obelize.config import load
+    from obelize.verify.runner import Mode
+
+    outcome = command.run(
+        command.Request(
+            root=tree,
+            run_id=applied(tree),
+            config=load(tree).config,
+            cli_commands=(QUIET,),
+            mode=Mode.of({}),
+            config_dir=tmp_path / "config",
+            environ=dict(os.environ),
+        )
+    )
+    assert outcome.exit_code == 0
 
 
 def test_the_tests_are_announced_on_stderr_before_they_start(tree: Path) -> None:
@@ -340,7 +362,10 @@ def test_the_superseding_note_names_the_new_verdict_and_its_reason(
     verify(tree, run_id, "--verify", command)
     note = (folder(tree, run_id) / "REPORT.md").read_text(encoding="utf-8")
     (said,) = [line for line in note.splitlines() if line.startswith("`obelize verify` checked")]
-    assert said.split(": ", 1)[1].startswith(f"{verdict}. The section above")
+    after = said.split(": ", 1)[1]
+    assert after.startswith(f"{verdict}, with ")
+    assert command in after, "the note names what ran"
+    assert ". The section above" in after
 
 
 @pytest.mark.parametrize(
