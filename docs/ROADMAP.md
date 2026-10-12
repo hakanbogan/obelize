@@ -29,7 +29,7 @@ One optional model adapter can answer a call the pack cannot resolve on its own.
 unless you configure an endpoint yourself, and whatever it proposes still has to pass the same
 guard a human edit would before anything is written.
 
-## What 0.1.0 accepts as a gap
+## What the release accepts as a gap
 
 Before opening the repository, I ran a security-focused pass over the whole codebase and fixed
 what could hurt someone running obelize or a number published about it.

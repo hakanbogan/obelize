@@ -352,6 +352,8 @@ round's misses.
   migrated. The lever is the round recomputed with one cause fixed. With
   nothing lifted it reproduces the round's migrated count; with everything
   lifted it falls short by exactly the rows no pass reported. Levers do not add
-  up.
+  up, and each is an upper bound: a rule refuses at its first failed check, so a
+  refusal behind the recorded one is not in the record, and fixing the recorded
+  cause can release fewer rows than the lever says.
 - **A wrong key** is corrected in `bench/cases.yaml` with the reason in the
   row's `why`; the round is republished only if a published number moves.

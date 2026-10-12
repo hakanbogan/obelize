@@ -45,6 +45,9 @@ everything lifted stops at 252 of 277, short by exactly the 25 rows no pass
 reported. Levers do not add up (`local_import` +26 and
 `multiple_configure_calls` +0 alone, +54 together), so no total or share of a
 row is printed: fixing half a file's causes unblocks none of it.
+A lever is also an upper bound. A rule refuses at its first failed check, and a scan-time
+refusal hides every fix-time one, so a refusal behind the recorded cause is not in the record:
+simulating `local_import` alone released none of its published +26.
 
 ### D5. What the round found, and what it changes
 

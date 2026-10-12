@@ -206,7 +206,7 @@ If the files still match the run's `after_sha256`, the after-phase runs again;
 otherwise the result is `inconclusive` / `tree_changed` and nothing runs. If
 the run's baseline did not pass, nothing runs and the recorded verdict stands.
 Commands come from your configuration and trust is decided again, never from
-the run folder, which a repository could forge (threat TM-9). Only the
+the run folder, which a repository could forge (a forged record). Only the
 verification parts of the folder are replaced
 ([RUN_FOLDER.md](RUN_FOLDER.md#layout)); the original baseline is kept but not
 carried into the new record.

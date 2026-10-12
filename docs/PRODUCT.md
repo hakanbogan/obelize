@@ -49,7 +49,7 @@ defensible advantage.
 - Three bundled packs, `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and
   `py-pdf/pypdf2-to-pypdf`, and packs of your own from directories your config lists, several to a
   run.
-- One example repository, `examples/gemini-legacy-app`.
+- Two example repositories, `examples/gemini-legacy-app` and `examples/quickstart`.
 - The evidence run folder, the benchmark protocol and a published result file.
 
 ## v0 non-goals
@@ -66,7 +66,7 @@ An issue asking for one of these is closed with a link here.
 - Telemetry of any kind.
 - More than one model adapter.
 - An advanced cache.
-- The `--guide` flow that reads a migration guide directly (candidate for v0.2).
+- The `--guide` flow that reads a migration guide directly.
 - Finding migrations without a pack, and checking HTTP API integrations.
 
 ## What would make this a product

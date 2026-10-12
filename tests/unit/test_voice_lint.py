@@ -1,7 +1,7 @@
 """Front-facing text keeps the voice CONTRIBUTING.md's "Beyond that" section describes.
 
 Scope is the files a newcomer reads first: README, CONTRIBUTING, SECURITY, CHANGELOG and the
-issue/PR templates. The ADR corpus is plan item 5.5's job, and docs/DECISIONS.md keeps a
+issue/PR templates. The ADR corpus is not scanned, and docs/DECISIONS.md keeps a
 historical record that may legitimately need what this file bans, so neither is scanned here.
 """
 
