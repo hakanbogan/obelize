@@ -83,6 +83,16 @@ def test_every_command_the_quickstart_shows_parses() -> None:
         parse(args)
 
 
+def test_every_command_the_agent_skill_shows_parses() -> None:
+    skill = ROOT / "skills" / "obelize" / "SKILL.md"
+    text = skill.read_text(encoding="utf-8")
+    assert text.startswith("---\nname: obelize\ndescription: ")
+    shown = shown_commands(re.sub(r"^ +", "", text, flags=re.MULTILINE))
+    assert [args[0] for args in shown] == ["scan", "fix", "verify"]
+    for args in shown:
+        parse(args)
+
+
 def test_a_mistyped_command_or_flag_does_not_parse() -> None:
     parse(["fix", "--apply", "--verify", "pytest"])
     with pytest.raises(KeyError):

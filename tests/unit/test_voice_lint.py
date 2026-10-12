@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 FRONT_FACING_FILES: tuple[Path, ...] = (
     ROOT / "README.md",
+    ROOT / "skills" / "obelize" / "SKILL.md",
     ROOT / "CONTRIBUTING.md",
     ROOT / "SECURITY.md",
     ROOT / "CHANGELOG.md",

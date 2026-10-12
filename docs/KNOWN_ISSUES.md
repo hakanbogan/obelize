@@ -75,6 +75,21 @@ Python-floor check ignores `Pipfile`'s own `[requires]`. A directory of your own
 inside the repository is scanned like any other path, so its fixtures are rewritten unless `exclude`
 names it.
 
+A file half migrated by hand can hold the whole repository. A call on a client the agent or you
+built with `genai.Client()` has a receiver that resolves to no legacy model, so the scan reports it
+as `receiver_unresolved` (ADR-019 D5), every other row of the file becomes
+`file_not_fully_migrated` and the pin stays. The reverse is also unseen: `genai.configure(...)` or
+`genai.GenerativeModel(...)` read off `from google import genai`, and `from pypdf import
+PdfFileReader`, produce no row, because the file is never parsed (COVERAGE gap 36); the new module
+has neither name, so such code fails when it runs.
+
+A rewritten import takes the place of the one it replaces, and a new `from google.genai import
+types` follows it, so an import sorter may move them. obelize does not format: run your formatter
+and sorter on the changed files after the run, then commit. Once you have formatted a file,
+`obelize undo` reverts only the files still as it wrote them and would put back the dependency line
+alone, and `obelize verify --run` reports `tree_changed`; use `git restore` instead. A lockfile
+(`uv.lock`, `poetry.lock`, `Pipfile.lock`) is not read or written; regenerate it after a run.
+
 ## Codemod editing quality
 
 A defect in one file can abort an entire run instead of being reported against that file alone,
@@ -179,7 +194,8 @@ the setting in another distribution, a write through `exec`, `globals()`, `sys.m
 `("%s" % (value,)).rstrip("/") + "/"`, which forms the address once, at the assignment, where 0.28.1
 formed it at each request. A value that is no URL (`None`, an empty string) fails at the first call
 on both sides, and one with leading whitespace, which 0.28.1 sent through `requests`, fails on the
-new releases. A long line can pass the formatter's width.
+new releases. A long line can pass the formatter's width, and ruff's `UP031` flags the `%` format,
+which is kept so that a file rebinding `str` is still rewritten (ADR-055 D2).
 
 The pack lists a result field only when a response always carries it. The new model reads an
 optional field the server left out as `None`, where 0.28.1 raised, so a handler that relied on the
@@ -254,6 +270,11 @@ migrated nor reported, and the pin still moves when everything else does:
   reads but cannot honour blocks the repository instead: a hash-pinned line, `openai===0.28.1`,
   `openai==0.*`, an editable or VCS requirement and a local wheel are `legacy_version_unsupported`,
   and a Poetry or Pipfile inline table with only a version is `manifest_pin_shape_unsupported`.
+
+A notebook that still calls the old API while the pin is already `openai>=1.109.1` is not reported
+by an `openai` scan: the declaration has arrived, so it gets no row, and `REPORT.md` says no
+manifest declares the legacy distribution. The same notebook under the Gemini or the pypdf pack
+gets a `manifest_code_mismatch` row.
 
 A 0.x pin (`openai==0.28.1`) beside code that already uses the new client is not reported.
 `google-generativeai` and `PyPDF2` get a `manifest_code_mismatch` row for a pin nothing imports, but

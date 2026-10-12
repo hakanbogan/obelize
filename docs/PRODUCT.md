@@ -94,14 +94,15 @@ by adding work.
   decides what the announcement says, not whether there is one. At >= 70% `verified_success`
   on unique patterns the announcement leads with the rewrite; below that it leads with the
   scan, puts the failure table first and gives each rewrite number with its `n`.
-- Gate 5: four weeks after release, I count what needs no telemetry: downloads outside CI
-  by installer (PyPI's public BigQuery data), issues and migration-case reports, and stars. No
+- Gate 5: on 2026-11-03, I count what needs no telemetry: downloads outside CI
+  by installer (PyPI's public BigQuery data), issues and migration-case reports, and stars. An
+  outside post in Discussions counts as a report, and the date does not move. No
   outside issue, report or pull request means feature work stops, five interviews are held,
   and a pivot is decided (scan-only, a different migration family, or stopping).
 
 ## Neighbouring tools
 
-As of September 2026, from each project's own public material, which states its claims about
+As of October 2026, from each project's own public material, which states its claims about
 itself; re-check before any public comparison.
 
 - Portover, closest to Obelize's long-term direction: detects call sites in consenting
@@ -111,6 +112,11 @@ itself; re-check before any public comparison.
 - GitHub can assign security-focused Dependabot alerts to coding agents that open draft
   remediation pull requests; Renovate covers dependency updates; OpenRewrite and Moderne cover
   bulk source transformation; oasdiff and Bump.sh cover API diffing.
+
+OpenAI's own `openai migrate` command was removed in `openai` 2.35.0, and `bump-pydantic` is
+archived. A coding agent, given a library's migration guide, edits more than Obelize does, and
+that is the nearest competitor; Obelize is the part around it that an agent's own report cannot
+be: a deterministic scan that says what is left, a diff that changes nothing else, and an undo.
 
 Obelize has to earn, not assert, its difference: free local scanning and fixing that works,
 distribution starting with the individual developer, usage and impact evidence for specific

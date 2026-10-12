@@ -75,8 +75,11 @@ layout:
   line_length: 100
 ```
 
-The rewrite's wrap width, set to the migrated repository's formatter limit so
-the formatter does not rewrite the diff. One number per pack, never per change.
+The width a rewritten call wraps at, chosen by the pack (100 by default); obelize reads no
+formatter setting ([ADR-026](adr/ADR-026-client-placement-layout.md)). A wrapped call ends with a
+trailing comma, so a formatter with a wider limit keeps it. A narrower limit, the formatter's own
+layout of chains and comprehensions, and an import sorter can still change the written lines: run
+them on the changed files after `fix --apply`. One number per pack, never per change.
 [`src/obelize/transforms/layout.py`](../src/obelize/transforms/layout.py) owns
 the layout: a rewritten call goes multi-line when the source call was, when an
 argument is, or when the whole line (indent and trailing comment included)

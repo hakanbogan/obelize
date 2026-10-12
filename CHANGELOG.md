@@ -61,6 +61,19 @@ in the release that makes it.
 - `REPORT.md` no longer lists a manifest as "still importing the legacy distribution" when the
   pin waits on a module only that distribution installed; it lists the files that import it.
 
+### Documentation
+
+- The README leads with the example, says what to do after each exit code (three guides for `4`,
+  two causes for `3`), gives `openai` a four-step way to check a migration whose two versions are one
+  install, and has a "With a coding agent" section. `skills/obelize/SKILL.md` is the same workflow as
+  a skill file, and a test parses every command in it.
+- `docs/CLI.md`'s CI check prints one `::error` annotation per finding and pins `X.Y.Z`, and has a
+  paragraph on monorepos. The phase order says the compile check belongs to the verification, and
+  that pytest's exit `5` is a failure here. `PACK_SPEC.md` no longer promises the rewrite matches
+  your formatter. `KNOWN_ISSUES.md` names the half-migrated file, the import order, lockfiles and
+  an `openai` notebook on a pin that has already moved. `PRODUCT.md` fixes Gate 5 at 2026-11-03 and
+  updates the neighbouring tools.
+
 ### Packs
 
 - `openai/openai-0-to-1` (0.2.0) migrates from `openai` 0.27.0, not only 0.28.1. A second Gate 0

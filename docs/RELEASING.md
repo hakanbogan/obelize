@@ -60,7 +60,8 @@ Run in order. A failed step stops the release.
    benchmark tables; `tests/unit/test_readme.py` fails until they match.
 3. CLI contract. Check the real `--help` output of every command and the real exit codes
    against [CLI.md](CLI.md), and fix any difference, in the code or the page, before the
-   release.
+   release. Run the CI recipe in CLI.md and the commands in `skills/obelize/SKILL.md` against the
+   release candidate, and check that the recipe's `X.Y.Z` is still a placeholder.
 4. Pre-flight. Run [Pre-flight](#pre-flight) from a clean tree.
 5. Changelog. Write this version's section as `## [0.x.y] - YYYY-MM-DD` in Keep a Changelog
    format, saying which formats changed, with the benchmark headline and its `n` and the

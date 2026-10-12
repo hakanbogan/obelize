@@ -59,19 +59,23 @@ To fail a CI job while the repository still uses the legacy SDK, read the
 counts `--json` prints:
 
 ```sh
-uvx obelize scan --json | python3 -c "import json, sys; c = json.load(sys.stdin)['counts']; sys.exit(1 if c['findings'] - c['not_a_usage'] else 0)"
+uvx obelize@X.Y.Z scan --json | python3 -c "import json, sys; rows = [r for r in json.load(sys.stdin)['findings'] if r['scan_status'] != 'not_a_usage']; [print(f\"::error file={r['path']},line={r['line']}::{r['symbol']} {r['scan_status']} {r['bail'] or ''}\") for r in rows]; sys.exit(1 if rows else 0)"
 ```
 
-It exits `1` on any finding except `not_a_usage`, which is context only: a
-mention in a comment or string, or a legacy pin something else may still need.
-A legacy pin that nothing imports is a finding, `manifest_code_mismatch`: remove
-it, or filter that row out. Test `c['findings']` alone to fail on `not_a_usage`
-too. A scan that fails prints no JSON,
-so the check exits `1` then as well. The run folder's path goes to stderr and
-stdout holds the JSON alone. The scan still writes its run folder under
-`.obelize/` in the checkout, and the `.gitignore` inside keeps it out of
-`git status`. Pin a version, as in `uvx obelize==0.1.0`, since any 0.x release
-can change the JSON ([CHANGELOG.md](../CHANGELOG.md#stability)).
+It prints one GitHub Actions `::error` annotation per finding, on the file and line, and exits `1`
+if there is any, except `not_a_usage`, which is context only: a mention in a comment or string, or
+a legacy pin something else may still need. A legacy pin that nothing imports is a finding,
+`manifest_code_mismatch`: remove it, or filter that row out. A scan that fails prints no JSON, so the
+check exits `1` then as well. The run folder's path goes to stderr and stdout holds the JSON
+alone. The scan still writes its run folder under `.obelize/` in the checkout, and the `.gitignore`
+inside keeps it out of `git status`. Replace `X.Y.Z` with the version you tested, since any 0.x
+release can change the JSON ([CHANGELOG.md](../CHANGELOG.md#stability)).
+
+**Monorepos.** The root is `--repo` (default: the current directory). The configuration,
+`.obelize/` and every `include` and `exclude` pattern are relative to it, and every dependency
+manifest below it is read. Run once at the top to migrate everything in one run, or once per package
+with `--repo` to keep one package's run folder and one `undo` apart. A pack that moves a whole
+repository (`openai`) moves the whole root or none of it.
 
 ## `obelize fix`
 
@@ -167,7 +171,11 @@ reason. An edit's `rule_id` is `<pack id>:<rule id>`, and its `line` is in the f
 it.
 
 A pack whose new library is the same distribution as the old one (`openai/openai-0-to-1`: `openai`
-0.x and 1.x are one install) is all or nothing inside its own turn. One pin serves both APIs, so
+0.x and 1.x are one install) is all or nothing inside its own turn, and its tests can run against
+only one release at a time. To check it: pass your tests on 0.x, run `obelize fix --apply`, install
+the release the pin names (`uv pip install --python .venv/bin/python "openai>=1.109.1"`), then
+`obelize verify --run <id>` with the `<id>` the `Next:` line or `.obelize/latest` gives. `--verify` on
+the `fix` itself cannot work once 1.x is installed, because the baseline then fails. One pin serves both APIs, so
 while any row of the pack is withheld, whatever the reason, it writes no file and leaves the pin,
 each row of another file it would have written reads `repo_not_fully_migrated`, and an apply exits `4`. `scan` still
 grades each file on its own, so it can show `eligible` rows that `fix` then withholds. A declaration
