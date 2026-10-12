@@ -47,10 +47,20 @@ def run(root: Path, *arguments: str) -> str | None:
 
     `core.fsmonitor` is emptied first: a hook the repository's own config names would otherwise
     run as `status` asks it which files changed, before anything has been approved.
+    `--no-optional-locks` keeps `status` from rewriting a stale index, which runs the repository's
+    `post-index-change` hook.
     """
     try:
         completed = subprocess.run(
-            [processes.git(), "-c", "core.fsmonitor=", "-C", str(root), *arguments],
+            [
+                processes.git(),
+                "--no-optional-locks",
+                "-c",
+                "core.fsmonitor=",
+                "-C",
+                str(root),
+                *arguments,
+            ],
             capture_output=True,
             check=False,
             timeout=TIMEOUT_S,

@@ -295,8 +295,7 @@ def execute(
     """
     argv, junit = _argv(command, junit_dir, index)
     environment = {**environ, OBELIZE_RUN: "1"}
-    # What is recorded: a credential typed into the command must not outlive the run.
-    shown = redact.redact(command.text, environment)
+    shown = _shown(command, environment)
     started = time.monotonic()
     try:
         process = processes.spawn(argv, root, environment)
@@ -333,6 +332,21 @@ def execute(
         junit=produced,
         in_obelize_environment=_ours(argv[0], environment),
     )
+
+
+def _shown(command: Command, environment: Mapping[str, str]) -> str:
+    """What is recorded: a credential typed into the command must not outlive the run.
+
+    The record must still split into arguments. A match that crossed a quote (a PEM block, or a
+    secret value holding one) leaves the program and `[REDACTED]` instead.
+    """
+    shown = redact.redact(command.text, environment)
+    try:
+        shlex.split(shown)
+    except ValueError:
+        program = redact.redact(shlex.split(command.text)[0], environment)
+        return f"{shlex.quote(program)} {redact.REDACTED}"
+    return shown
 
 
 def _ours(program: str, environment: Mapping[str, str]) -> bool:

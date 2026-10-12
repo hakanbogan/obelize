@@ -66,6 +66,30 @@ def test_a_hook_the_repository_names_for_the_file_monitor_is_not_run(repository:
     assert not marker.exists()
 
 
+@posix_only("the hook is a shell script")
+def test_a_hook_a_stale_index_would_run_is_not(repository: Path) -> None:
+    """`status` refreshes an index whose stat data is stale, and the repository's config can name
+    the hook that runs when it does."""
+    marker = repository.parent / "refreshed"
+    hooks = repository / ".githooks"
+    hooks.mkdir()
+    hook = hooks / "post-index-change"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+    hook.chmod(0o755)
+    _git(repository, "config", "core.hooksPath", str(hooks))
+    app = repository / "app.py"
+
+    os.utime(app, (1, 1))
+    _git(repository, "status", "--porcelain")
+    assert marker.exists(), "control: git runs the hook when nothing stops it"
+    marker.unlink()
+
+    os.utime(app, (2, 2))
+    gitutil.state(repository)
+    gitutil.tree(repository, ["app.py"])
+    assert not marker.exists()
+
+
 def test_a_modified_tracked_file_is_dirty(repository: Path) -> None:
     (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
     assert gitutil.state(repository).dirty is True

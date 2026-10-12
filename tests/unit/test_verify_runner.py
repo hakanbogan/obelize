@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import shlex
 import shutil
 import signal
 import stat
@@ -424,6 +425,18 @@ def test_a_credential_typed_into_a_command_is_not_recorded_with_it(tmp_path: Pat
     missing = runner.Command.of(f"/nonexistent/program {value}", "cli")
     refused = runner.execute(tmp_path, missing, timeout_s=30, environ={"MY_TOKEN": value})
     assert refused.command == "/nonexistent/program [REDACTED:MY_TOKEN]"
+
+
+def test_a_redaction_that_crossed_a_quote_records_the_program_and_nothing_else(
+    tmp_path: Path,
+) -> None:
+    """The record must split into arguments, or it is refused after the command has run."""
+    block = "-----BEGIN RSA " + "PRIVATE KEY-----"
+    text = f"{PYTHON} -c pass '{block}' x -----END RSA PRIVATE KEY-----"
+    result = runner.execute(tmp_path, runner.Command.of(text, "cli"), timeout_s=30, environ={})
+    assert result.status == "pass"
+    assert shlex.split(result.command)[-1] == "[REDACTED]"
+    assert "PRIVATE" not in result.command
 
 
 @SIGNALS

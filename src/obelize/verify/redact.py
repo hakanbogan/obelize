@@ -27,8 +27,8 @@ _GENERIC_ASSIGNMENT = re.compile(
     r"""(?P<quote>['"])[^'"]{8,}(?P=quote)""",
     re.IGNORECASE,
 )
-# A command is recorded as text `shlex` must still split, so no class below takes a quote or a
-# space, and a match is replaced by a word with neither.
+# A command is recorded as text `shlex` must still split, so no class below but the PEM block's
+# takes a quote or a space, and a match is replaced by a word with neither.
 _PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"AIza[0-9A-Za-z_-]{35}"),
     re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
@@ -40,16 +40,18 @@ _PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"[sr]k_live_[A-Za-z0-9]{16,}"),
     re.compile(r"glpat-[A-Za-z0-9_.-]{20,}"),
     re.compile(r"pypi-[A-Za-z0-9_-]{40,}"),
-    re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
+    # A start dies at the next `eyJ`, and a PEM body at the next dash run, so a long run of them
+    # without an end is read once and not once per start.
+    re.compile(r"eyJ(?:(?!eyJ)[A-Za-z0-9_-]){8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
     re.compile(
-        r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?!-----).)*-----END [A-Z ]*PRIVATE KEY-----",
         re.DOTALL,
     ),
 )
 # What precedes the secret stays, since it says what to rotate or where it was sent.
 _LABELLED: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?P<head>\bBearer\s+)(?P<secret>[A-Za-z0-9._~+/=-]{16,})", re.IGNORECASE),
-    re.compile(r"""(?P<head>://[^/\s:@'"]+:)(?P<secret>[^/\s@'"]+)(?=@)"""),
+    re.compile(r"""(?P<head>://[^/\s:@'"]*:)(?P<secret>[^/\s@'"]+)(?=@)"""),
 )
 
 # One mebibyte kept as its two ends: the first thing that went wrong, and the summary.

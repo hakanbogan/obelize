@@ -6,6 +6,7 @@ Each sample joins two literals at import time, so no line on disk matches a secr
 from __future__ import annotations
 
 import shlex
+import time
 
 import pytest
 
@@ -130,8 +131,9 @@ def test_a_format_that_is_not_on_the_list_is_not_removed() -> None:
         ("Authorization: Bearer abcdefghijklmnop0123", "Authorization: Bearer "),
         ("curl -H 'authorization: bearer abcdefghijklmnop0123'", "curl -H 'authorization: bearer "),
         ("postgres://app:hunter2hunter2@db.example/x", "postgres://app:"),
+        ("redis://:hunter2hunter2@cache.example:6379/0", "redis://:"),
     ],
-    ids=["bearer", "bearer lower case in quotes", "password in a url"],
+    ids=["bearer", "bearer lower case in quotes", "password in a url", "password and no user"],
 )
 def test_what_labels_a_secret_stays_and_the_secret_goes(text: str, kept: str) -> None:
     cleaned = redact.redact(text, {})
@@ -157,6 +159,28 @@ def test_a_redacted_command_still_splits_into_the_arguments_it_had(secret: str) 
     command = f"python -c 'print(1)' --token {secret} --header \"Authorization: Bearer {secret}\""
     before, after = shlex.split(command), shlex.split(redact.redact(command, {}))
     assert len(before) == len(after)
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "eyJ" * 400_000,
+        ("-----BEGIN RSA " + "PRIVATE KEY-----\n") * 40_000,
+        "eyJ" + "a" * 1_000_000,
+        "-----BEGIN RSA " + "PRIVATE KEY-----\n" + "a" * 1_000_000,
+    ],
+    ids=["jwt starts", "pem headers", "one long jwt header", "one long pem body"],
+)
+def test_a_megabyte_of_unfinished_secrets_is_read_once(hostile: str) -> None:
+    """The shapes were quadratic: minutes per megabyte, with the command's timeout out of reach."""
+    started = time.monotonic()
+    redact.redact(hostile, {})
+    assert time.monotonic() - started < 5
+
+
+def test_a_pem_block_with_a_header_stacked_on_it_is_still_removed() -> None:
+    header = "-----BEGIN RSA " + "PRIVATE KEY-----\n"
+    assert "Tk9UQVJFQUxLRVk=" not in redact.redact(header + PEM, {})
 
 
 def test_nothing_is_elided_below_the_cap() -> None:
