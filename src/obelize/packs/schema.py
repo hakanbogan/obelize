@@ -28,6 +28,7 @@ from obelize.models import (
     RelativePath,
     Sha256,
     bounds,
+    terminal_unsafe,
 )
 
 # Adding a kind is a code change; the registry table must list the same set.
@@ -125,6 +126,10 @@ def _lower_key(value: str) -> str:
     return value
 
 
+# What turns a URL in the run report into Markdown or HTML, or into a second line of it.
+_URL_MARKUP = re.compile(r"""[\s`<>\\|"]""")
+
+
 def _source_url(value: str) -> str:
     """Provenance, never requested. No credential: the host is copied into the run report."""
     parts = urlsplit(value)
@@ -134,6 +139,10 @@ def _source_url(value: str) -> str:
         raise ValueError(f"a source url must name a host, got {value!r}")
     if parts.username or parts.password:
         raise ValueError("a source url must not carry a credential; it is copied into evidence")
+    if terminal_unsafe(value) is not None or _URL_MARKUP.search(value):
+        raise ValueError(
+            f"a source url must hold no whitespace, control or markup character: {value!r}"
+        )
     return value
 
 

@@ -109,7 +109,7 @@ def test_a_scan_blocked_by_the_declared_python_says_what_the_rows_are(tree: Path
         '[project]\nname = "x"\nrequires-python = ">=3.9"\n', encoding="utf-8"
     )
     lines = _scan(tree).stdout.splitlines()
-    assert "The rows below show what fix would try once that is changed." in lines
+    assert "That migration's rows below show what fix would try once that is changed." in lines
     assert not [line for line in lines if line.startswith("Next:")]
 
 

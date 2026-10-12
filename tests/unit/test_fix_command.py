@@ -1072,8 +1072,9 @@ def test_a_warning_on_an_edit_that_is_written_is_printed_with_what_to_look_at(
     lines = fix(tree, *extra).stdout.splitlines()
     eager = WARNING_MEANINGS["client_constructed_eagerly"]
     prefixed = WARNING_MEANINGS["model_name_looks_prefixed"]
-    assert f"Check app.py:5: client_constructed_eagerly: {eager}" in lines
-    assert f"Check app.py:6: model_name_looks_prefixed: {prefixed}" in lines
+    note = " (line before the change)" if extra else ""
+    assert f"Check app.py:5{note}: client_constructed_eagerly: {eager}" in lines
+    assert f"Check app.py:6{note}: model_name_looks_prefixed: {prefixed}" in lines
 
 
 def test_a_warning_on_an_edit_that_is_not_written_is_not_printed(tree: Path) -> None:

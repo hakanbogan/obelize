@@ -304,6 +304,13 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: _with(d["source"], "url", "http://example.invalid/guide"),
     ),
     Case(
+        name="source_url_holds_markup",
+        defect="a source url with a character that makes Markdown or a second line of the report",
+        path="source.url",
+        says="no whitespace, control or markup character",
+        mutate=lambda d: _with(d["source"], "url", "https://example.invalid/g`<img src=x>"),
+    ),
+    Case(
         name="language_is_not_python",
         defect="a language this tool does not read",
         path="language",

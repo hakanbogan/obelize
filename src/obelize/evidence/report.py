@@ -70,8 +70,8 @@ UNTRACKED = "commit them (git add, then git commit), or pass --allow-dirty"
 LEGEND = (
     "Columns: line, kind, symbol, status, reason. eligible: obelize fix will try to migrate "
     "it; needs_review: left for you, for the reason shown; unsupported: the new SDK has no "
-    "equivalent; not_a_usage: shown for context only. fix writes a file only when every row in it "
-    "is eligible (for openai, every row in the repository)."
+    "equivalent; not_a_usage: shown for context only. fix leaves a file as it was when any row "
+    "in it is needs_review or unsupported (for openai, any row in the repository)."
 )
 
 
@@ -131,7 +131,7 @@ def terminal(
         lines.extend(
             [
                 _blocked(blocked, _bare),
-                "The rows below show what fix would try once that is changed.",
+                "That migration's rows below show what fix would try once that is changed.",
                 "",
             ]
         )
@@ -208,7 +208,7 @@ def fixed(
         lines.append(f"  {row.path}  ({row.hunks} hunk(s), {rules}){mark}")
     if not applying and patch:
         lines.extend(["", *diff(patch, evidence, environ)])
-    lines.extend(_check(plan, written if applying else {row.path for row in plan.files}))
+    lines.extend(_check(plan, written if applying else {row.path for row in plan.files}, applying))
     lines.extend(_left(record, held, evidence))
     lines.append("")
     lines.append(_headline(record.counts, FIX_SPLIT))
@@ -227,10 +227,14 @@ def fixed(
     return lines
 
 
-def _check(plan: PlanDocument, files: set[str]) -> list[str]:
-    """One line per warning on an edit that is, or would be, written: `auto` never withholds."""
+def _check(plan: PlanDocument, files: set[str], applying: bool = False) -> list[str]:
+    """One line per warning on an edit that is, or would be, written: `auto` never withholds.
+
+    An edit's line is the one before the change, which a written file no longer has.
+    """
+    note = " (line before the change)" if applying else ""
     return [
-        f"Check {edit.path}:{edit.line}: {code}: {WARNING_MEANINGS[code]}"
+        f"Check {edit.path}:{edit.line}{note}: {code}: {WARNING_MEANINGS[code]}"
         for edit in plan.edits
         if edit.status == "auto" and edit.path in files
         for code in edit.warnings
@@ -261,7 +265,7 @@ def _left(record: RunRecord, held: ManifestPlan, evidence: str) -> list[str]:
     if len(roots) > ROOT_ROWS:
         lines.append(f"  and {len(roots) - ROOT_ROWS} more in {_inside(evidence, 'REPORT.md')}")
     named = {row.path for row in record.withheld}
-    unread = [path for path in held.blocking if path not in named]
+    unread = [path for path in held.blocking if path not in named | set(held.transitive)]
     if unread:
         lines.append(
             f"  Not analysed, so they hold the pin: {', '.join(unread)}. List a notebook "
@@ -312,7 +316,7 @@ def _next(
     run = f"--run {record.run_id}{flag}"
     # Type narrowing only: `RunRecord` rejects an apply without a verification.
     assert record.verify is not None  # noqa: S101 - see above
-    if record.exit_code == 0:
+    if record.exit_code == 0 and record.file_edits:
         # `git_sha` is null outside the top of a repository, where `git diff` may have no tree.
         shown = (
             f"{git} diff shows" if record.git_sha else f"{_inside(evidence, 'patch.diff')} holds"
@@ -685,8 +689,9 @@ def _phase_rows(title: str, phase: VerifyPhaseRecord) -> list[str]:
         ["| Command | Source | Status | Exit | Duration | Output |", "|---|---|---|---|---|---|"]
     )
     for row in phase.commands:
+        command = row.command.replace("|", "\\|")  # a pipe splits a cell, even in a code span
         lines.append(
-            f"| `{row.command}` | {row.source} | {row.status} "
+            f"| `{command}` | {row.source} | {row.status} "
             f"| {'--' if row.exit_code is None else row.exit_code} | {row.duration_ms} ms "
             f"| {f'`{row.log}`' if row.log else '--'}"
             f"{' (truncated)' if row.truncated else ''} |"
@@ -803,9 +808,10 @@ def _model_section(model: RunModel, proposals: Sequence[ProposalRecord]) -> list
     ]
     for row in proposals:
         word = row.failure or row.refusal
+        detail = _prose(" ".join((row.detail or "").split())) or "--"
         lines.append(
             f"| {row.index} | `{row.path}:{row.line}` | `{row.outcome}` | "
-            f"{f'`{word}`' if word else '--'} | {row.detail or '--'} |"
+            f"{f'`{word}`' if word else '--'} | {detail} |"
         )
     return [*lines, ""]
 
@@ -834,27 +840,28 @@ def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
         path = code(blocked.path)
         return (
             f"{path} declares Python {code(blocked.declared or '')}, which allows versions "
-            f"{package} does not install on, so this run reports its findings and plans no "
-            f"change. To migrate, raise the minimum in {path} to {needed} and run again."
+            f"{package} does not install on, so this migration reports its findings and plans "
+            f"no change. To migrate, raise the minimum in {path} to {needed} and run again."
         )
     if not blocked.path:
         return (
-            f"No manifest declares {package}, so the version in use is not known and this run "
-            f"reports its findings and plans no change. To migrate, declare {package} {needed} "
-            f"in a manifest obelize reads and run again."
+            f"No manifest declares {package}, so the version in use is not known and this "
+            f"migration reports its findings and plans no change. To migrate, declare "
+            f"{package} {needed} in a manifest obelize reads and run again."
         )
     path = code(blocked.path)
     if blocked.declared is None:
         return (
-            f"{path} declares {package} in a form obelize cannot read, so this run reports its "
-            f"findings and plans no change. To migrate, write it as a plain requirement such as "
-            f"{code(f'{blocked.package}{blocked.needed}')} in {path} and run again."
+            f"{path} declares {package} in a form obelize cannot read, so this migration "
+            f"reports its findings and plans no change. To migrate, write it as a plain "
+            f"requirement such as {code(f'{blocked.package}{blocked.needed}')} in {path} and "
+            f"run again."
         )
     declared = code(blocked.declared) if blocked.declared else "with no version"
     return (
         f"{path} declares {package} {declared}, which allows versions this migration does not "
-        f"cover, so this run reports its findings and plans no change. To migrate, pin {package} "
-        f"to {needed} in {path} and run again."
+        f"cover, so this migration reports its findings and plans no change. To migrate, pin "
+        f"{package} to {needed} in {path} and run again."
     )
 
 
@@ -872,7 +879,8 @@ def _repository(plan: ManifestPlan) -> list[str]:
     if not plan.findings:
         return []
     return [
-        f"{len(plan.findings)} dependency declaration(s)"
+        f"{len({(row.path, row.line, row.column) for row in plan.findings})} dependency "
+        f"declaration(s)"
         + (
             f", blocked by {len(plan.blocking)} file(s) that still import it: "
             + ", ".join(plan.blocking[:3])

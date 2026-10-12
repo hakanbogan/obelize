@@ -149,6 +149,12 @@ SOURCE_URLS = [
     ("https:///guide", "must name a host"),
     ("https://user:secret@example.invalid/guide", "must not carry a credential"),
     ("example.invalid/guide", "must be https"),
+    ("https://example.invalid/g|h", "markup character"),
+    ("https://example.invalid/g`h", "markup character"),
+    ("https://example.invalid/g<h>", "markup character"),
+    ("https://example.invalid/g h", "markup character"),
+    ("https://example.invalid/g\nh", "markup character"),
+    ("https://example.invalid/g\u202eh", "markup character"),
 ]
 
 

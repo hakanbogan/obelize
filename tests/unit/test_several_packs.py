@@ -166,6 +166,9 @@ def test_a_repository_no_pack_applies_to_says_so_and_exits_zero(tmp_path: Path) 
     fixed = run(tree, "fix")
     assert fixed.exit_code == 0, fixed.output
     assert "No pack applies" in fixed.output
+    applied = run(tree, "fix", "--apply")
+    assert applied.exit_code == 0, applied.output
+    assert "Next:" not in applied.output, "nothing was written, so there is nothing to undo"
 
 
 def test_one_run_over_two_packs_writes_what_two_runs_one_after_the_other_write(

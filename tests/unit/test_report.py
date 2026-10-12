@@ -23,6 +23,8 @@ from obelize.models import (
     ManifestPlan,
     PackRef,
     PlanDocument,
+    ProposalRecord,
+    RunModel,
     RunRecord,
     UndoFile,
     UndoRecord,
@@ -137,8 +139,8 @@ def test_the_table_is_followed_by_what_its_columns_mean(loud: Path) -> None:
     legend = (
         "Columns: line, kind, symbol, status, reason. eligible: obelize fix will try to migrate "
         "it; needs_review: left for you, for the reason shown; unsupported: the new SDK has no "
-        "equivalent; not_a_usage: shown for context only. fix writes a file only when every row "
-        "in it is eligible (for openai, every row in the repository)."
+        "equivalent; not_a_usage: shown for context only. fix leaves a file as it was when any row "
+        "in it is needs_review or unsupported (for openai, any row in the repository)."
     )
     headline = next(index for index, line in enumerate(lines) if "finding(s)" in line)
     assert lines[headline - 3 : headline] == ["", legend, ""]
@@ -172,7 +174,7 @@ def test_the_blocked_repository_says_so_before_anything_else(tmp_path: Path) -> 
         (
             runtime.Blocked("runtime_unsupported", "new-sdk", "pyproject.toml", ">=3.8", ">=3.10"),
             "pyproject.toml declares Python >=3.8, which allows versions new-sdk does not install "
-            "on, so this run reports its findings and plans no change. To migrate, raise the "
+            "on, so this migration reports its findings and plans no change. To migrate, raise the "
             "minimum in pyproject.toml to >=3.10 and run again.",
         ),
         (
@@ -180,26 +182,26 @@ def test_the_blocked_repository_says_so_before_anything_else(tmp_path: Path) -> 
                 "legacy_version_unsupported", "old-sdk", "requirements.txt", ">=1", ">=3"
             ),
             "requirements.txt declares old-sdk >=1, which allows versions this migration does "
-            "not cover, so this run reports its findings and plans no change. To migrate, pin "
-            "old-sdk to >=3 in requirements.txt and run again.",
+            "not cover, so this migration reports its findings and plans no change. To migrate, "
+            "pin old-sdk to >=3 in requirements.txt and run again.",
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "requirements.txt", "", ">=3"),
             "requirements.txt declares old-sdk with no version, which allows versions this "
-            "migration does not cover, so this run reports its findings and plans no change. To "
-            "migrate, pin old-sdk to >=3 in requirements.txt and run again.",
+            "migration does not cover, so this migration reports its findings and plans no "
+            "change. To migrate, pin old-sdk to >=3 in requirements.txt and run again.",
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "pyproject.toml", None, ">=3"),
-            "pyproject.toml declares old-sdk in a form obelize cannot read, so this run reports "
-            "its findings and plans no change. To migrate, write it as a plain requirement such "
-            "as old-sdk>=3 in pyproject.toml and run again.",
+            "pyproject.toml declares old-sdk in a form obelize cannot read, so this migration "
+            "reports its findings and plans no change. To migrate, write it as a plain "
+            "requirement such as old-sdk>=3 in pyproject.toml and run again.",
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "", None, ">=3"),
-            "No manifest declares old-sdk, so the version in use is not known and this run "
-            "reports its findings and plans no change. To migrate, declare old-sdk >=3 in a "
-            "manifest obelize reads and run again.",
+            "No manifest declares old-sdk, so the version in use is not known and this "
+            "migration reports its findings and plans no change. To migrate, declare old-sdk "
+            ">=3 in a manifest obelize reads and run again.",
         ),
     ],
     ids=["python", "pinned-below", "unpinned", "unreadable", "undeclared"],
@@ -582,6 +584,72 @@ def test_files_that_hold_the_pin_without_a_row_are_named_apart() -> None:
     assert "Not analysed, so they hold the pin: analysis.ipynb." in text
     assert "a.py." not in text.split("Not analysed")[1]
     assert "declares: retry.py." in text
+
+
+def test_a_file_importing_a_module_only_the_old_distribution_installed_is_not_unanalysed() -> None:
+    record = _withheld(("a.py", 1, "acme.sdk", "local_import", None))
+    held = ManifestPlan(blocking=("net.py",), transitive=("net.py",))
+    text = "\n".join(report._left(record, held, ".obelize/runs/x"))
+    assert "Not analysed" not in text
+    assert "declares: net.py." in text
+
+
+def test_a_declaration_the_pin_check_graded_twice_is_counted_once() -> None:
+    legacy = _pin()
+    new = Finding(**{**legacy.model_dump(), "symbol": "acme-client"})
+    held = ManifestPlan(findings=(new, legacy), blocking=("a.py",))
+    assert report._repository(held)[0].startswith("1 dependency declaration(s), blocked by 1 file")
+
+
+def test_a_command_with_a_pipe_keeps_its_row_in_the_table() -> None:
+    command = SimpleNamespace(
+        command='sh -c "true | cat"',
+        source="cli",
+        status="pass",
+        exit_code=0,
+        duration_ms=3,
+        log=None,
+        truncated=False,
+    )
+    phase = SimpleNamespace(status="pass", reason=None, commands=(command,))
+    row = report._phase_rows("After the patch", cast("VerifyRecord", phase))[-2]
+    assert row.count("|") - row.count("\\|") == 7, row
+
+
+def test_an_endpoint_that_said_nothing_has_a_dash_in_the_model_table() -> None:
+    silent = SimpleNamespace(
+        index=1, path="a.py", line=1, outcome="failed", failure=None, refusal=None, detail=None
+    )
+    model = SimpleNamespace(
+        provider="p", model="m", host="h", proposals=0, accepted=0, tokens_in=0, tokens_out=0
+    )
+    row = report._model_section(cast("RunModel", model), [cast("ProposalRecord", silent)])[-2]
+    assert row.endswith("| -- | -- |")
+
+
+def test_what_an_endpoint_answered_is_one_escaped_line_in_the_model_table() -> None:
+    proposal = SimpleNamespace(
+        index=1,
+        path="app.py",
+        line=3,
+        outcome="failed",
+        failure="http_error",
+        refusal=None,
+        detail="HTTP 502\n<html><img src=https://t.example/p.png>\r\n| x |",
+    )
+    model = SimpleNamespace(
+        provider="openai_compat",
+        model="m",
+        host="h",
+        proposals=0,
+        accepted=0,
+        tokens_in=0,
+        tokens_out=0,
+    )
+    row = report._model_section(cast("RunModel", model), [cast("ProposalRecord", proposal)])[-2]
+    assert "\n" not in row
+    assert not re.search(r"(?<!\\)[<>]", row), row
+    assert row.count("|") - row.count("\\|") == 6, row
 
 
 def test_a_pack_that_moves_a_whole_repository_says_so_for_its_source_rows_only() -> None:

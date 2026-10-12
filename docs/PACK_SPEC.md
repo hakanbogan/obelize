@@ -55,8 +55,9 @@ source:
   sha256: "<sha256 of the retrieved page>"
 ```
 
-- `url` (**https**, with a host and no credential, since the host goes into the
-  report) and `retrieved_at` are required. The URL is never requested.
+- `url` (**https**, with a host, no credential and no whitespace, control character or
+  Markdown or HTML character, since it goes into the report) and `retrieved_at` are
+  required. The URL is never requested.
 - `type` is `official_guide` or `sdk_reference`, the sources pack review
   admits.
 - `sha256`, optional, hashes the page as retrieved so a reviewer can see it
