@@ -132,8 +132,8 @@ tools themselves need a pass. Dependabot never proposes an upgrade for the one d
 targets, while the scheduled end-to-end job always installs its latest release regardless, so the
 two can drift apart. The ruff version is set in two separate places, no job in continuous
 integration runs pre-commit itself, and the secret-scanning configuration only excludes the test
-fixtures directory rather than every path a planted example could reach. The workflow audit (zizmor) is not yet a
-required check, and it lets a `docker://` image pinned only by a tag through; no workflow uses one.
+fixtures directory rather than every path a planted example could reach. The workflow audit (zizmor) lets a
+`docker://` image pinned only by a tag through; no workflow uses one.
 
 ## Documentation and examples
 

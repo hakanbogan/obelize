@@ -23,7 +23,7 @@ pydantic, libcst or typer release that breaks a fresh install shows within a wee
 `bench-smoke.yml`, `dependency-review.yml`, `release.yml` and `stale.yml` run from the first commit.
 
 The `main` ruleset blocks deletion and non-fast-forward pushes, allows admin bypass and requires
-these fourteen checks, written as GitHub shows them:
+these fifteen checks, written as GitHub shows them:
 
 - `lint (ruff + mypy)`
 - `lock (uv.lock is in sync)`
@@ -32,8 +32,7 @@ these fourteen checks, written as GitHub shows them:
 - `test (windows, py3.12)`, `test (windows, py3.14)` and `test (windows, py3.15)`
 - `smoke (built wheel, clean venv)`
 - `schema-drift (JSON Schemas match the models)`
-
-`workflows (zizmor)` runs on every event and is not in the ruleset yet.
+- `workflows (zizmor)`
 
 macOS and Windows keep 3.14 beside 3.12 and 3.15. Ubuntu covers 3.14 too, so a later change can
 drop it from the two, once the ruleset stops requiring it.
