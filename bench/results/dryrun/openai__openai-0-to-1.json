@@ -1,0 +1,3930 @@
+{
+  "obelize_version": "0.4.0",
+  "pack": "openai/openai-0-to-1",
+  "pack_sha256": "816a428e043052b97b2d371924fc6aec842f774c2e36b64d0f3b2cef54f80496",
+  "spec_sha256": "0fe3444f27212b9b348aef25ab595b552ce4ac93a7bede05c3cfbdf0c0196456",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "frame": "bench/gate1/openai__openai-0-to-1/sample.yaml",
+  "dry_run": [
+    {
+      "full_name": "soygul/QuanticDev",
+      "sha": "d0a360b7628108dfd0396b2357f99fa8fbd2fa52",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gpt.py",
+          "line": 6,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 8.28
+    },
+    {
+      "full_name": "glaive-ai/function-calling-server",
+      "sha": "f6112eb3e8b3065f961f7b46629a3c731d9f619a",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "client.py",
+          "line": 3,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "client.py",
+          "line": 6,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.77
+    },
+    {
+      "full_name": "YasmeenY/Hacktember-Backend",
+      "sha": "cfecfb7e521d43d672e05602cc00146c0cacaf13",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "Pipfile",
+          "line": 18,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 22,
+          "symbol": "openai.Audio.transcribe",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 27,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "chat.py",
+          "line": 10,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.58
+    },
+    {
+      "full_name": "apockill/clai",
+      "sha": "c9e97bfe17b2e12f1c69d12ce1de6ee755cfe306",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "clai/api.py",
+          "line": 17,
+          "symbol": "openai",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 11,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.84
+    },
+    {
+      "full_name": "ericsoderstrom/connectionsGPT",
+      "sha": "d658191963aa7a882fae7c6e362bf04751d5940d",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 11,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 19,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        }
+      ],
+      "seconds": 1.67
+    },
+    {
+      "full_name": "vinod-soni-microsoft/text-to-speech-wishper",
+      "sha": "c5ccda3acd97e938bb803a95eeb1270bc013eabf",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "src/main.py",
+          "line": 9,
+          "symbol": "openai.Audio.transcribe",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "src/main.py",
+          "line": 15,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "src/requirements.txt",
+          "line": 1,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.19
+    },
+    {
+      "full_name": "gethsun1/flask_task_manager",
+      "sha": "afc505fca803620e1715402f2d65512df6d59b30",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 4.0
+    },
+    {
+      "full_name": "franalgaba/chatgpt-telegram-bot-serverless",
+      "sha": "5ddaaba492a3c5ce19ae4f897a86ae1740201aa4",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 41,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 7,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.2
+    },
+    {
+      "full_name": "Zheng-Chong/FashionMatrix",
+      "sha": "52f6d4be06f038a66bf21a70005ceb7d0fe6767a",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "api.py",
+          "line": 62,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "api.py",
+          "line": 72,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "models/llm.py",
+          "line": 13,
+          "symbol": "openai.api_base",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "models/llm.py",
+          "line": 23,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 7,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.59
+    },
+    {
+      "full_name": "yixinL7/SumLLM",
+      "sha": "9870f7f0e4a3af1915dd89272388f0f6356624f1",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gpt.py",
+          "line": 25,
+          "symbol": "openai.Completion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 41,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 7,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 5.14
+    },
+    {
+      "full_name": "cwzsquare/chatgpt-streamlit",
+      "sha": "d06513e5d44db8c82b01e98803462504a5eed5af",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 8,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.64
+    },
+    {
+      "full_name": "unconv/gpt-pdfreader",
+      "sha": "d1c188b608d0945c3eb95be2026906ee895ea217",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gpt.py",
+          "line": 11,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 65,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.79
+    },
+    {
+      "full_name": "batuhantoker/Flask-OpenAI-Chatbot",
+      "sha": "9fba123b99028e67b33f1984896dd3d3d87425fb",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 48,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.7
+    },
+    {
+      "full_name": "fshnkarimi/Chat-Bot-using-Streamlit-and-OpenAI",
+      "sha": "8b3b60be4ae5d802aa83702c8d4ea5b9fd4dc7f9",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 29,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.86
+    },
+    {
+      "full_name": "swapp1990/doctor-ai-appointment",
+      "sha": "4b563fda0f2b854480685a39adfc661b679d2fa1",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "bot.py",
+          "line": 13,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "bot.py",
+          "line": 21,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "bot.py",
+          "line": 31,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "bot.py",
+          "line": 42,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 37,
+          "symbol": "openai.Audio.transcribe",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 60,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.93
+    },
+    {
+      "full_name": "SanthoshSetty/terms-and-conditions-analyzer",
+      "sha": "19999ac58a2c07c01ffa926ee850f3be212047df",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.78
+    },
+    {
+      "full_name": "kdrkdrkdr/AronaSpeaker",
+      "sha": "d913dd51cc4cfac32080eaa291bad3fa82a508a8",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "llm.py",
+          "line": 15,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.19
+    },
+    {
+      "full_name": "divinrkz/agentic-scene-graph",
+      "sha": "75506507bc0360f472af119fd612533ae6375166",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 36,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 67,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 33,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.52
+    },
+    {
+      "full_name": "imevro/chatgpt_repl",
+      "sha": "bc9c17d47931a259c66bee96689aa2b841e38fe2",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "cli.py",
+          "line": 39,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.72
+    },
+    {
+      "full_name": "wsy258-strar/DocGPT",
+      "sha": "19703d0c5538810e9dbc787e61ef20f1dbdc065b",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 7,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "ui.py",
+          "line": 55,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.35
+    },
+    {
+      "full_name": "Kerem1989/allsvenskan-gpt",
+      "sha": "677fd6a215bb4a604d89d8ebc0ad6d58a8abdc4b",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 31,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 49,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 61,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.08
+    },
+    {
+      "full_name": "ecielyang/Auto-ICL",
+      "sha": "d22b5d4d77e7e81bb0d0d974a7a4a14164df0277",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 8,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "API.py",
+          "line": 14,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "API.py",
+          "line": 26,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "API.py",
+          "line": 38,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "API.py",
+          "line": 49,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "API.py",
+          "line": 61,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "API.py",
+          "line": 72,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "API.py",
+          "line": 83,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "API.py",
+          "line": 94,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.73
+    },
+    {
+      "full_name": "lulu-wang/Creative-Writing-AI-Webapp",
+      "sha": "06f9ecca7bee29f9d397771d83db1654c15e00ed",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.92
+    },
+    {
+      "full_name": "riseworksco/jobGPT",
+      "sha": "60697e14704860a90a74bccfae5e80270b0570bc",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 23,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 41,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 59,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.85
+    },
+    {
+      "full_name": "MZneverABANDON/gogakuGPTaipitest1",
+      "sha": "0f7f524365b217634329609921a3169a09aa3d59",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 21,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.04
+    },
+    {
+      "full_name": "ZhichuCen/ChunJi",
+      "sha": "d5b15364bab727053e608faf0386ccc14a83afb5",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gpt.py",
+          "line": 11,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 10,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.16
+    },
+    {
+      "full_name": "pritam20ps05/Substation-ChatBot",
+      "sha": "4c1c2741af3d9d13e216dbb5694c9665f6c7d496",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "bot.py",
+          "line": 18,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.95
+    },
+    {
+      "full_name": "dfgdyt/ChatGPT4APIKEY-",
+      "sha": "0d26c1b1f0c7157e5d44844b6cf570971bac3fe4",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "demo.py",
+          "line": 5,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "demo.py",
+          "line": 24,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.7
+    },
+    {
+      "full_name": "saasscaleup/openai-jarvis",
+      "sha": "7cf3859d6741f33b373ed4140f9b91333bb2c71a",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 64,
+          "symbol": "openai.Audio.transcribe",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 83,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        }
+      ],
+      "seconds": 1.73
+    },
+    {
+      "full_name": "eduardo-meik/SemanticSearch",
+      "sha": "740810575b41ed9dc3f99f447d96290501ec0231",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 6,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "qa.py",
+          "line": 18,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "qa.py",
+          "line": 37,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "qals.py",
+          "line": 9,
+          "symbol": "openai.Completion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "qals.py",
+          "line": 22,
+          "symbol": "openai.Completion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 24,
+          "symbol": "openai.Completion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "vector_search.py",
+          "line": 15,
+          "symbol": "openai.Embedding.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.93
+    },
+    {
+      "full_name": "AyoFemi10/ayomikun-md",
+      "sha": "981e23d101970868c1fe2cc9a2535189a8983b7b",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "ai.py",
+          "line": 10,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.7
+    },
+    {
+      "full_name": "MatthewHilliard/SpotifyPlaylistProject",
+      "sha": "b213c790234448b21b4c4867022560734aa29826",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 29,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "terminalBased/main.py",
+          "line": 23,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.87
+    },
+    {
+      "full_name": "David-Li0406/DALK",
+      "sha": "bcdedb387fb4336b26953ccf0efbd46d3534e847",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "KG4LLM/MindMap_revised.py",
+          "line": 57,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "KG4LLM/MindMap_revised.py",
+          "line": 65,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "KG4LLM/MindMap_revised.py",
+          "line": 344,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "KG4LLM/run_ner.py",
+          "line": 25,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "LLM4KG/api_utils.py",
+          "line": 48,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 57,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 9.87
+    },
+    {
+      "full_name": "rajpdus/MeetingSummarizer",
+      "sha": "1ac2ec17a921fd57cb9a51a0c3d3d650f612790a",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.39
+    },
+    {
+      "full_name": "IgnoranceAI/hugh",
+      "sha": "31ec917e4349c233b826c6524c48c2733b07a6f5",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.27
+    },
+    {
+      "full_name": "g0ldencybersec/sus_params",
+      "sha": "d9442b5edf9a313192f37a1e701d3802350aaaf5",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "PoC.py",
+          "line": 11,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "PoC.py",
+          "line": 192,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PoC.py",
+          "line": 201,
+          "symbol": "openai.error.ServiceUnavailableError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.21
+    },
+    {
+      "full_name": "aogara-ds/hoodwinked",
+      "sha": "f66b2fcc7a12ab391ab446ffff19de57cb2eb527",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 6,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gpt.py",
+          "line": 37,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "gpt.py",
+          "line": 46,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "gpt.py",
+          "line": 66,
+          "symbol": "openai.Completion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "gpt.py",
+          "line": 96,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 117,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 149,
+          "symbol": "openai.Completion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 19,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.05
+    },
+    {
+      "full_name": "microsoft/az-oai-chatgpt-streamlit-harness",
+      "sha": "31d4397e5117f4f4ac63eb85a2263a55a8ffdcc6",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 19,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 20,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 21,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 93,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 98,
+          "symbol": "openai.error.APIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.81
+    },
+    {
+      "full_name": "Yiiipu/SimplePDF",
+      "sha": "f38823952d327271eef29c11590c9ff9fbe585d6",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "api.py",
+          "line": 154,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.48
+    },
+    {
+      "full_name": "gustavz/whatsbot",
+      "sha": "96ac4a7af2a0affd646f2e96dff810f2598632f0",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 128,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "transitive_dependency_in_use",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.42
+    },
+    {
+      "full_name": "moimart/geppetto",
+      "sha": "27a69ad7724f37314c791070f717bde0154a4ce3",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gpt.py",
+          "line": 105,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 132,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "transitive_dependency_in_use",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.1
+    },
+    {
+      "full_name": "karlospn/building-qa-app-with-openai-pinecone-and-streamlit",
+      "sha": "34cd2afce5361b37a4221d93b85eedabf8b5e3c3",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 36,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 37,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 38,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 48,
+          "symbol": "openai.Embedding.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 87,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.98
+    },
+    {
+      "full_name": "JayZeeDesign/openai-experiments",
+      "sha": "22f69493824cc6fc275deb65d4ae471cef03f886",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 63,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.84
+    },
+    {
+      "full_name": "gabrielcdb/RealJarvis",
+      "sha": "15ec4513b0539ab487112a67e3654e84a9297688",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "ASR.py",
+          "line": 133,
+          "symbol": "openai.Audio.transcribe",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "GPT.py",
+          "line": 44,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "GPT.py",
+          "line": 51,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "Jarvis.py",
+          "line": 31,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.68
+    },
+    {
+      "full_name": "danielgross/python-llm",
+      "sha": "1edea6475780c763581427dfbf432747fad19807",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "llm.py",
+          "line": 48,
+          "symbol": "openai.ChatCompletion.acreate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.75
+    },
+    {
+      "full_name": "ArrogantL/ChatGPT4CausalReasoning",
+      "sha": "daf9d75f7309abdbf25bbb64270a21ad98a13afe",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 14,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "CD_binary_classification.py",
+          "line": 23,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "CD_binary_classification.py",
+          "line": 33,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "CD_multi_choice.py",
+          "line": 21,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "CD_multi_choice.py",
+          "line": 31,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "CEG.py",
+          "line": 22,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "CEG.py",
+          "line": 33,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI.py",
+          "line": 23,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI.py",
+          "line": 33,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI_differ_causal_prompts.py",
+          "line": 22,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI_differ_causal_prompts.py",
+          "line": 33,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI_open_ended_generaton_prompts/chatgpt_ECI_openA123.py",
+          "line": 22,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI_open_ended_generaton_prompts/chatgpt_ECI_openA123.py",
+          "line": 33,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI_open_ended_generaton_prompts/chatgpt_ECI_openB.py",
+          "line": 22,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ECI_open_ended_generaton_prompts/chatgpt_ECI_openB.py",
+          "line": 33,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.75
+    },
+    {
+      "full_name": "ZJU-DCDLab/Triad",
+      "sha": "fd97ffbbaa8a99005546aeed1e6483f6c79c1f96",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 7,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "lm.py",
+          "line": 28,
+          "symbol": "openai.api_key_path",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "lm.py",
+          "line": 29,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "lm.py",
+          "line": 30,
+          "symbol": "openai.proxy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "lm.py",
+          "line": 49,
+          "symbol": "openai.Completion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "lm.py",
+          "line": 59,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "lm.py",
+          "line": 71,
+          "symbol": "openai.error.InvalidRequestError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "lm.py",
+          "line": 75,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.45
+    },
+    {
+      "full_name": "defnecirci/InsightGraph",
+      "sha": "7bb8c3667a610373b618f0195c407e9fbf6710fb",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 21,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.17
+    },
+    {
+      "full_name": "whichbuffer/CTTC",
+      "sha": "f76fe9a840cf89933d0d022f20793fb5924284a3",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 149,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.01
+    },
+    {
+      "full_name": "CCCBora/faiss_chat",
+      "sha": "1b7782e7331f712d16e86e19163998b7474bfe27",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 22,
+          "symbol": "openai.api_base",
+          "bail": "attribute_removed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 102,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed"
+          ]
+        },
+        {
+          "path": "llms/chatbot.py",
+          "line": 32,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "llms/tools.py",
+          "line": 13,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.28
+    },
+    {
+      "full_name": "eniekeine/dg1",
+      "sha": "040008ddb69caced08f0ebda83f3a8defba0b9ab",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 9,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 32,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 50,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 59,
+          "symbol": "openai.error.APIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 61,
+          "symbol": "openai.error.APIConnectionError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 63,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 118,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 137,
+          "symbol": "openai.error.APIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 140,
+          "symbol": "openai.error.APIConnectionError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 143,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.51
+    },
+    {
+      "full_name": "yiqingxyq/DocLens",
+      "sha": "e77cfc9f200c03cde23c6a8d1ca7b5f2c499e0c7",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 32,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 11,
+          "symbol": "openai.error",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 27,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 29,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 37,
+          "symbol": "openai.error.InvalidRequestError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 78,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 80,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 81,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "citation_evaluation/eval_citation.py",
+          "line": 85,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 11,
+          "symbol": "openai.error",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 24,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 26,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 34,
+          "symbol": "openai.error.InvalidRequestError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 73,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 75,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 76,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/generate_subclaims.py",
+          "line": 80,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 11,
+          "symbol": "openai.error",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 25,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 27,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 35,
+          "symbol": "openai.error.InvalidRequestError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 75,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 77,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 78,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "claim_evaluation/run_entailment.py",
+          "line": 82,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 13,
+          "symbol": "openai.error",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 21,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 23,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 31,
+          "symbol": "openai.error.InvalidRequestError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 108,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 110,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 111,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 113,
+          "symbol": "openai.api_base",
+          "bail": "conditional_binding",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.12
+    },
+    {
+      "full_name": "ainbr/chatgpt-weak-labeler-webui",
+      "sha": "d4c81383cebda464de7c9da6890d52a3f7981a4c",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.09
+    },
+    {
+      "full_name": "shamspias/twilio-studio-gpt3-assistant",
+      "sha": "bc3c728ebcd2185f238491e53588bdfe252ef27e",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 93,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 113,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "transitive_dependency_in_use",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.91
+    },
+    {
+      "full_name": "boukeversteegh/ai-terminal-assistant",
+      "sha": "56baf93eaaefed0791ff0360d647ecafa4292d31",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "ai.py",
+          "line": 152,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.81
+    },
+    {
+      "full_name": "parallelo3301/zulip-chatgpt-bot",
+      "sha": "51a5ff3d21130c5d879ea982bd0a11d878ef6671",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.16
+    },
+    {
+      "full_name": "kangmintong/R-2-Guard",
+      "sha": "8cc3ce3f103892886e5e8261bf41b8929f7021e0",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 5,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "TAP.py",
+          "line": 5,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "jailbreak.py",
+          "line": 66,
+          "symbol": "openai.Moderation.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "jailbreak.py",
+          "line": 121,
+          "symbol": "openai.Moderation.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "jailbreak.py",
+          "line": 204,
+          "symbol": "openai.Moderation.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "run_knowledge_models.py",
+          "line": 25,
+          "symbol": "openai.Moderation.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.89
+    },
+    {
+      "full_name": "jbenadiva/travelease.ai",
+      "sha": "3686b9906061d9fb9cf04c840192a69ff84f19f5",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 4.66
+    },
+    {
+      "full_name": "agniiva/YoutubeGPTClaude",
+      "sha": "f475e9a414def564a3f8393af3931567c60c684d",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 77,
+          "symbol": "openai.Audio.transcribe",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 89,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.13
+    },
+    {
+      "full_name": "normandmickey/chatgptomatic",
+      "sha": "9940c45e80b6441c0a8d4886a72d5f8ba86fa1c8",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 3,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.92
+    },
+    {
+      "full_name": "JeremiahPetersen/Auto-Story-GPT",
+      "sha": "c86f3a130b34b16adacb2787762cddf9158e746e",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 29,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.93
+    },
+    {
+      "full_name": "KseniyaZaitseva1/blog-gpt123",
+      "sha": "f1f656f891153ff33cd31328bc4d2b4e7035e4bc",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 3,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.79
+    },
+    {
+      "full_name": "JordiCorbilla/OpenAI-Whatsapp-Bot",
+      "sha": "c838ff9649002f1c2f0461c7fed48d11c642ab8c",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "bot.py",
+          "line": 75,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 21,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.93
+    },
+    {
+      "full_name": "scooter7/carnegieseo",
+      "sha": "88471971b18185c9cf2c1f73edf7a0e6a780b696",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 59,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "OLD_chemassess.py",
+          "line": 124,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "OLD_chemgen.py",
+          "line": 59,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "OLD_chemgen.py",
+          "line": 150,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "advancement.py",
+          "line": 83,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "advancement.py",
+          "line": 121,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c12.py",
+          "line": 110,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "c12.py",
+          "line": 126,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "c12.py",
+          "line": 140,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "c13.py",
+          "line": 110,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "c13.py",
+          "line": 126,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "c13.py",
+          "line": 140,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "c13.py",
+          "line": 191,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "c14.py",
+          "line": 34,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c14.py",
+          "line": 65,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c15.py",
+          "line": 46,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c15.py",
+          "line": 76,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c3.py",
+          "line": 24,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c4.py",
+          "line": 55,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c5.py",
+          "line": 58,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c5.py",
+          "line": 74,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c6.py",
+          "line": 68,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c6.py",
+          "line": 84,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c7.py",
+          "line": 102,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c7.py",
+          "line": 118,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c8.py",
+          "line": 111,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c8.py",
+          "line": 125,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "c9.py",
+          "line": 108,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "c9.py",
+          "line": 124,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "c9.py",
+          "line": 138,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "carcon.py",
+          "line": 40,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "carnegiecontentauditor.py",
+          "line": 40,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "cca.py",
+          "line": 44,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ccauditor.py",
+          "line": 40,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "ccc.py",
+          "line": 24,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "ccc2.py",
+          "line": 24,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "chemanalyzerevise.py",
+          "line": 122,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "chemanalyzerevise.py",
+          "line": 165,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "chemanalyzerevise.py",
+          "line": 256,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "chemassess.py",
+          "line": 14,
+          "symbol": "openai",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "chemassess.py",
+          "line": 71,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "chemgen.py",
+          "line": 63,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "chemgen.py",
+          "line": 165,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "contentassessment.py",
+          "line": 48,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "ecugen.py",
+          "line": 101,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "ecugen.py",
+          "line": 142,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "htmlchemanalyzerevise.py",
+          "line": 90,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "htmlchemanalyzerevise.py",
+          "line": 135,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "htmlchemanalyzerevise.py",
+          "line": 242,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "integrated_app.py",
+          "line": 43,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "integrated_app_updated.py",
+          "line": 46,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "integration.py",
+          "line": 43,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 24,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "newchemgen.py",
+          "line": 232,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "newchemgen.py",
+          "line": 286,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "nuance.py",
+          "line": 53,
+          "symbol": "openai.Completion.create",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "updated_archgen.py",
+          "line": 56,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "updated_archgen.py",
+          "line": 92,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "updatedcontentpasteassess.py",
+          "line": 35,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "updatedurlassment.py",
+          "line": 67,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 8.71
+    },
+    {
+      "full_name": "DudeFr0mMars/CustomGPT",
+      "sha": "8bb6a3c744c7157f14953e8b0be8fd3b31c85587",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 6,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "GPT.py",
+          "line": 53,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "GPT.py",
+          "line": 72,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "st_main.py",
+          "line": 57,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "st_main.py",
+          "line": 65,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "st_main.py",
+          "line": 79,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "st_main.py",
+          "line": 87,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.94
+    },
+    {
+      "full_name": "IanCele/Crisis-Alpha-Ai---Portfolio-Allocator",
+      "sha": "6dae183aded7a3bb63027bf912f877a09dd0e337",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 75,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "transitive_dependency_in_use",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.92
+    },
+    {
+      "full_name": "he141142/ecomerce-chatbot",
+      "sha": "6b7f5eb616e01f005cc031b40a4d650b50396002",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 2,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.33
+    },
+    {
+      "full_name": "B1lli/BillyGPT",
+      "sha": "352f2bc7327133d639d9e3c6ad17d0bd3a097e22",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 9,
+      "manifests": 2,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main.py",
+          "line": 151,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 170,
+          "symbol": "openai.Completion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 181,
+          "symbol": "openai.Completion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 758,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 766,
+          "symbol": "openai.error.AuthenticationError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 771,
+          "symbol": "openai.error.InvalidRequestError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 810,
+          "symbol": "openai.error.AuthenticationError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "prompt_engineering.py",
+          "line": 37,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "prompt_engineering.py",
+          "line": 57,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements-lock.txt",
+          "line": 21,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.29
+    },
+    {
+      "full_name": "hananshafi/llmblueprint",
+      "sha": "c8a9cb0e99b39fcc467ff9b7dcf933e83d159cfe",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 6,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main.py",
+          "line": 306,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 316,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 338,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 349,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 378,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 386,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 12,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 9.73
+    },
+    {
+      "full_name": "GENEXIS-AI/arXiv-PDF-Translator",
+      "sha": "d40ff31f522b391bde517770e7704d1f8b046da3",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "script.py",
+          "line": 44,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 5.91
+    },
+    {
+      "full_name": "Relento/hypothesis_search",
+      "sha": "d42f029efbb33fb3486cf67d62740c4970764987",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 14,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gpt.py",
+          "line": 105,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 106,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 107,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 108,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gpt.py",
+          "line": 321,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gpt.py",
+          "line": 333,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gpt.py",
+          "line": 347,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gpt.py",
+          "line": 351,
+          "symbol": "openai.error.APIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "language_summarization.py",
+          "line": 10,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "language_summarization.py",
+          "line": 11,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "language_summarization.py",
+          "line": 12,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "language_summarization.py",
+          "line": 13,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "language_summarization.py",
+          "line": 41,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "language_summarization.py",
+          "line": 48,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.56
+    },
+    {
+      "full_name": "ProtectoAi/GPT-Guard-LLM-Security-Tool-for-ChatGPT",
+      "sha": "e92adfe72ce875fdf32b90d6e3d2a86e56e078c7",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 11,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 287,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 631,
+          "symbol": "openai.FineTuningJob.retrieve",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 634,
+          "symbol": "openai.FineTuningJob.retrieve",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/fine_tuning/fine_tuning_model.py",
+          "line": 19,
+          "symbol": "openai.File.create",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/fine_tuning/fine_tuning_model.py",
+          "line": 29,
+          "symbol": "openai.File.retrieve",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/fine_tuning/fine_tuning_model.py",
+          "line": 51,
+          "symbol": "openai.FineTuningJob.create",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/fine_tuning/fine_tuning_model.py",
+          "line": 53,
+          "symbol": "openai.FineTuningJob.retrieve",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "scripts/data_utils.py",
+          "line": 445,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "scripts/data_utils.py",
+          "line": 446,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "scripts/data_utils.py",
+          "line": 448,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "scripts/data_utils.py",
+          "line": 450,
+          "symbol": "openai.Embedding.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        }
+      ],
+      "seconds": 3.88
+    },
+    {
+      "full_name": "asu-cactus/ChatGPTwithSQLscript",
+      "sha": "13fa5da5337655b8a13f0b07fa331f37e3d09977",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 1,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.91
+    },
+    {
+      "full_name": "mkualquiera/LangPlay",
+      "sha": "883910fd3e75d9412492823f436883a457f49aa9",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main.py",
+          "line": 48,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 91,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 155,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 245,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 341,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "openai",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.17
+    },
+    {
+      "full_name": "UKPLab/acl2024-DARA",
+      "sha": "98740533fea8ed1e6cee1b1ec768d60ba8e90586",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 9,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "baseline/agentbench.py",
+          "line": 195,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "baseline/agentbench.py",
+          "line": 404,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "baseline/agentbench.py",
+          "line": 405,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "baseline/agentbench.py",
+          "line": 406,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "generate.py",
+          "line": 109,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "generate.py",
+          "line": 110,
+          "symbol": "openai.error.InvalidRequestError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "generate.py",
+          "line": 362,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "generate.py",
+          "line": 363,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "generate.py",
+          "line": 364,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 10,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 13.94
+    },
+    {
+      "full_name": "amaze18/speeKAR",
+      "sha": "0d12f1e408a3483df092656d615203b1128b8848",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 3,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "qa.py",
+          "line": 519,
+          "symbol": "openai.Completion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "qa.py",
+          "line": 569,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "symbol": "openai",
+          "bail": "transitive_dependency_in_use",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 28,
+          "symbol": "openai",
+          "bail": "manifest_pin_shape_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 33,
+          "symbol": "openai",
+          "bail": "transitive_dependency_in_use",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.64
+    },
+    {
+      "full_name": "declare-lab/MM-InstructEval",
+      "sha": "ac238a5c329b7132229ad5068e7a3f7a1de01ac9",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 9,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "multimodal_eval_main/models/LLaVA/llava/eval/eval_gpt_review.py",
+          "line": 14,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "multimodal_eval_main/models/LLaVA/llava/eval/eval_gpt_review.py",
+          "line": 27,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "multimodal_eval_main/models/LLaVA/llava/eval/eval_gpt_review_visual.py",
+          "line": 16,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "multimodal_eval_main/models/LLaVA/llava/eval/eval_gpt_review_visual.py",
+          "line": 29,
+          "symbol": "openai.error.RateLimitError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "multimodal_eval_main/models/LLaVA/llava/eval/qa_baseline_gpt35.py",
+          "line": 24,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "predict.py",
+          "line": 208,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "predict.py",
+          "line": 209,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "predict.py",
+          "line": 210,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "predict.py",
+          "line": 213,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 113,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 16.68
+    },
+    {
+      "full_name": "TharsanKanthaswamy/edupulse",
+      "sha": "e3d95c786b2d5cb59b151b16560c61648d5f8238",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 16,
+          "symbol": "openai.api_type",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 17,
+          "symbol": "openai.api_base",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 18,
+          "symbol": "openai.api_version",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 165,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 11,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.65
+    },
+    {
+      "full_name": "malcolmchetwyn/rhino",
+      "sha": "5a67b3ee97ab8367f4b3e8a14d8efa561d4609d6",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 8,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 12,
+          "symbol": "openai.error",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 161,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 169,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 202,
+          "symbol": "openai.ChatCompletion.acreate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 213,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 468,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 72,
+          "symbol": "openai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "vector_all_sf_user_guides_data.py",
+          "line": 13,
+          "symbol": "openai.error",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "vector_news.py",
+          "line": 13,
+          "symbol": "openai.error",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.31
+    },
+    {
+      "full_name": "hero-rq/Food_Is_Therapy_keeping_origin",
+      "sha": "264f490fd936ae6d1ce8ad23674acef8afcf15b6",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 32,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 233,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 241,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 295,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 303,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 314,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 322,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 353,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 361,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 391,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 399,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing.py",
+          "line": 236,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing.py",
+          "line": 244,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing.py",
+          "line": 301,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing.py",
+          "line": 309,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing.py",
+          "line": 320,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing.py",
+          "line": 328,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing.py",
+          "line": 359,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing.py",
+          "line": 367,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing.py",
+          "line": 398,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing.py",
+          "line": 406,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing2.py",
+          "line": 155,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing2.py",
+          "line": 163,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing2.py",
+          "line": 175,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing2.py",
+          "line": 183,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app_testing2.py",
+          "line": 194,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app_testing2.py",
+          "line": 202,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "healthy_creative_meal.py",
+          "line": 73,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "healthy_creative_meal.py",
+          "line": 95,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "healthy_meal.py",
+          "line": 210,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "healthy_meal.py",
+          "line": 219,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "healthy_meal.py",
+          "line": 231,
+          "symbol": "openai.ChatCompletion.create",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "healthy_meal.py",
+          "line": 240,
+          "symbol": "openai.error.OpenAIError",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 5.62
+    }
+  ]
+}

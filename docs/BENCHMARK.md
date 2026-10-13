@@ -5,8 +5,10 @@ How obelize's migrations and scan are measured. The numbers are in
 harness is argued in
 [ADR-042](adr/ADR-042-benchmark-harness-tiers.md)
 and
-[ADR-043](adr/ADR-043-round-one-results.md). It was run for the Gemini pack only; the PyPDF2 and openai packs have no Gate 1 measurement
-([ADR-051](adr/ADR-051-second-migration-family.md), [ADR-053](adr/ADR-053-shared-module-migrations.md)).
+[ADR-043](adr/ADR-043-round-one-results.md). Gate 1 and the rounds were run for the Gemini pack only; the PyPDF2 and
+openai packs have no Gate 1 measurement or round
+([ADR-051](adr/ADR-051-second-migration-family.md), [ADR-053](adr/ADR-053-shared-module-migrations.md)),
+and all three have a [dry-run measurement](#fix-dry-run).
 
 The target is **at least 20 real migration cases with at least 70% autonomous
 `verified_success`** ([Gate 4](PRODUCT.md#what-would-make-this-a-product)): a
@@ -329,6 +331,33 @@ populations and every rejection. Its biases:
 - **Five keys chosen for labelling cost** (`bench/gate1_collect.py choose`): the
   first repository per band with two to eight Python files containing the
   token, plus one from the most populous band, so none of the largest.
+
+## Fix dry run
+
+What the rules alone would write, for each bundled pack, over a frame of repositories that use
+its library ([ADR-024](adr/ADR-024-gate-1-measurement.md) D10). `bench/gate1_collect.py dryrun --pack <id>`
+fetches each repository at its pinned commit and runs `obelize fix --pack <id> --model none` once,
+and keeps the number of files the plan would write, the pack's `blocked` reason, and every withheld
+row with its symbol and bail. It always runs the whole frame, so a retry cannot replace the other
+records. `bench/dryrun_score.py` tables the outcomes:
+
+| Outcome | Meaning |
+|---|---|
+| `blocked` | the pack stops before it plans, for the `blocked` reason (the legacy distribution declared nowhere, or with no lower bound or one under the pack's floor, for one) |
+| `none` | the pack runs and finds no usage; a mention in a comment and a manifest row are none |
+| `held` | usages found, no file written |
+| `partial` | a file written and a row withheld |
+| `complete` | a file written, nothing withheld |
+
+The frame is drawn like Gate 1's, in the same four size bands, with a term per pack: `generativeai`
+for Gemini, `PyPDF2` for PyPDF2, and `"openai.ChatCompletion"` for openai. The openai term is not the
+pack's prefilter token: `openai` matches every modern file too, and the frame would be mostly
+repositories the pack has nothing to say about. A repository whose only legacy call is
+`openai.Embedding` is therefore not in its frame. The biases are the sample's
+([above](#the-sample-and-what-is-wrong-with-it)), and there is no answer key, so a `complete` repository
+means the plan wrote something, not that what it wrote is right; the rounds measure that, for Gemini.
+The Gemini frame holds some of the round-1 cases its rules were written against, so its row is a
+comparator and not a holdout.
 
 ## Error analysis
 

@@ -279,8 +279,9 @@ code it runs.
 
 Each number comes from [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), which lists every
 case behind it. The method is in [docs/BENCHMARK.md](docs/BENCHMARK.md). Every number is for the
-Gemini pack, measured with obelize 0.1.0; `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf` have
-not been measured.
+Gemini pack, measured with obelize 0.1.0. `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf` have
+no accuracy figure and no benchmark run; a [dry run](docs/BENCHMARK_RESULTS.md#fix-dry-run) over
+80 repositories each shows how many get a written plan.
 
 | Measure | obelize | n |
 |---|---|---|

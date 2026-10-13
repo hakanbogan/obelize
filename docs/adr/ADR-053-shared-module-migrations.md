@@ -480,7 +480,8 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
 - One withheld row anywhere keeps every file as it was: a `.get` read of a result, an `openai.File`
   call, an undeclared `requests` import or a pin it cannot write leaves the repository unchanged,
   with exit `4`. Gate 1 is
-  not measured for this pack, so no rate says how often. [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-openai-pack)
+  not measured for this pack; the [dry run](../BENCHMARK_RESULTS.md#fix-dry-run) says how often.
+  [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-openai-pack)
   names this cost and the gaps that stay open.
 - The fail-open of D2 is bounded by the snapshot: it covers every name 0.28.1 defines, and says
   nothing about what the pack does with a name it lists, which the fixtures grade. D14's rows cover

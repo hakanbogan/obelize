@@ -157,8 +157,9 @@ withholds anywhere in the repository (an `openai.File` call, an async or a strea
 `.get` read of a result, a file that does not parse, an import of `requests`, `aiohttp` or another
 module `openai` 0.28.1 installed that no manifest declares, or a dependency line it cannot rewrite
 in place) leaves every file and the pin as they were, and an apply exits `4`. `obelize scan` grades files one at a time, so it can show rows
-`eligible` that `fix` then withholds. I have not measured how many repositories that is: the pack
-has no Gate 1 result.
+`eligible` that `fix` then withholds. The pack has no Gate 1 result. The
+[dry run](BENCHMARK_RESULTS.md#fix-dry-run) counts those withheld rows and the repositories they
+leave unchanged.
 
 A 0.28.1 result could be read as a dictionary, and a read by key raises on a 1.x result. A read by
 string keys along a path the pack lists (`response["choices"][0]["message"]["content"]`) is rewritten

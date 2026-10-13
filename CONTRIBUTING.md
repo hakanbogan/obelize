@@ -98,6 +98,7 @@ tests share, one with a client (`acme.sdk`) and one that keeps its module name a
 |---|---|---|
 | `crossover.py` | none | the pool sweep behind `POOL_THRESHOLD` |
 | `gate1_collect.py`, `gate1_score.py` | `bench/gate1/`, `bench/results/gate1/` | scan precision and recall |
+| `gate1_collect.py dryrun`, `dryrun_score.py` | `bench/gate1/<provider>__<change>/`, `bench/results/dryrun/` | what each pack's rules alone would write |
 | `candidates_collect.py`, `candidates.py` | `bench/candidates.yaml`, `bench/results/candidates/`, `bench/CANDIDATES.md` | the candidate corpus |
 | `cases_collect.py`, `cases.py` | `bench/cases.yaml`, `bench/cases_draws.yaml`, `bench/results/cases/`, `bench/CASES.md` | the benchmark cases and their hand-written answer keys |
 | `run.py`, `summarize.py` | `bench/fixtures/`, `bench/results/round-<n>/` | a round (CI runs its offline fixtures pass), and the block `docs/BENCHMARK_RESULTS.md` publishes |

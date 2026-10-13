@@ -1,0 +1,4064 @@
+{
+  "obelize_version": "0.4.0",
+  "pack": "gemini/google-generativeai-to-google-genai",
+  "pack_sha256": "4fb58bd146f75519bdfa5c4e67e8899ce36be0e24146c2e8ac9ef18178de17f2",
+  "spec_sha256": "2195fa003c3070aa1ad58d9adec097883984f1cdafab2556b53bfc563428fb2d",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "frame": "bench/gate1/sample.yaml",
+  "dry_run": [
+    {
+      "full_name": "LucasHJin/vit",
+      "sha": "472b94039b5c314bda67136432ea70be5f516215",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 13,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "setup.py",
+          "line": 10,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 302,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 314,
+          "symbol": "google.generativeai.configure",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 316,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 352,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 395,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 426,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 436,
+          "symbol": "google.generativeai.configure",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 443,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 447,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 718,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 821,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 874,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "vit/ai_merge.py",
+          "line": 919,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.06
+    },
+    {
+      "full_name": "aryanbrite/project-ai",
+      "sha": "c4b434ad016e5675282a620726378d9749221760",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 46,
+      "manifests": 0,
+      "files": 3,
+      "withheld": [
+        {
+          "path": "backup/dhriti.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "backup/dhriti.py",
+          "line": 98,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/dhriti.py",
+          "line": 99,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/dhriti.py",
+          "line": 100,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/dhriti.py",
+          "line": 101,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/dhriti.py",
+          "line": 206,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/kvs.py",
+          "line": 4,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "backup/kvs.py",
+          "line": 31,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/kvs.py",
+          "line": 32,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/kvs.py",
+          "line": 33,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/kvs.py",
+          "line": 34,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/kvs.py",
+          "line": 136,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/main.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "backup/main.py",
+          "line": 30,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/main.py",
+          "line": 31,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/main.py",
+          "line": 32,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/main.py",
+          "line": 33,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/main.py",
+          "line": 148,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/maintext.py",
+          "line": 4,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "backup/maintext.py",
+          "line": 31,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/maintext.py",
+          "line": 32,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/maintext.py",
+          "line": 33,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/maintext.py",
+          "line": 34,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/maintext.py",
+          "line": 136,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/mm.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "backup/mm.py",
+          "line": 30,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/mm.py",
+          "line": 31,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/mm.py",
+          "line": 32,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/mm.py",
+          "line": 33,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "backup/mm.py",
+          "line": 138,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.82
+    },
+    {
+      "full_name": "SONA1114/CHATBOT",
+      "sha": "3efb7802db926dfaeac079f034ed1b3b32562468",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 6,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 11,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 20,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.65
+    },
+    {
+      "full_name": "Prateek07-Kumar/End-To-End-Projects-Generative-AI-Google-Gemini-",
+      "sha": "fd93ed9f32ba24f4ddd5d1da2caa8b9c5c25ad78",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 32,
+      "manifests": 6,
+      "files": 13,
+      "withheld": [
+        {
+          "path": "Chat-with-Multiple-PDF-using-Gemini/requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "End-To-End-Text-To-SQL-LLM-App/requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "Gemini-Images/requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "healthapp/requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "invoice extractor/requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "qachat.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "qachat.py",
+          "line": 8,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "qachat.py",
+          "line": 11,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "qachat.py",
+          "line": 12,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "qachat.py",
+          "line": 15,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 6.72
+    },
+    {
+      "full_name": "Momen2410/Question-Answering-ChatBot-Using-Gemini1.5",
+      "sha": "626a979c9504ed3a293216e1e64307f7cfe3c3b4",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.15
+    },
+    {
+      "full_name": "ShreyasGandhi0607/Gemini-Project",
+      "sha": "6061e7f0a16b92ba83fe4652d1729c87825a6d89",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 9,
+      "manifests": 1,
+      "files": 3,
+      "withheld": [],
+      "seconds": 2.39
+    },
+    {
+      "full_name": "atharvv8/Gemini-Powered-AI-App",
+      "sha": "e69f0284068dc5bec64b435a1529fcdf5fa22623",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 9,
+      "manifests": 1,
+      "files": 3,
+      "withheld": [],
+      "seconds": 1.97
+    },
+    {
+      "full_name": "chirag6521/Multilingual-AI-Assistant",
+      "sha": "fabdeabe85cd381109eb192b6fda03a1f9cf185e",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 2,
+      "files": 2,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 9,
+          "symbol": "google-genai",
+          "bail": "manifest_pin_shape_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 9,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.9
+    },
+    {
+      "full_name": "sito-sikino/avatar-ui-core",
+      "sha": "332765ab57b9942b80c8f1f0395b648047963514",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.35
+    },
+    {
+      "full_name": "whitehatboy005/AI-Chatbot",
+      "sha": "4f4ad7bb62b3e4b5acb5ae081e6855fdb8890a1c",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "Ai.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed"
+          ]
+        },
+        {
+          "path": "Ai.py",
+          "line": 11,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed"
+          ]
+        },
+        {
+          "path": "Ai.py",
+          "line": 14,
+          "symbol": "google.generativeai.list_models",
+          "bail": "attribute_removed",
+          "caused_by": null
+        },
+        {
+          "path": "Ai.py",
+          "line": 17,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed"
+          ]
+        },
+        {
+          "path": "Ai.py",
+          "line": 18,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.29
+    },
+    {
+      "full_name": "sumitx99/Calories-Estimator",
+      "sha": "4f902a7d216ed99e16c1891bfffbc7c92ad13095",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [],
+      "seconds": 1.84
+    },
+    {
+      "full_name": "AyaanKhaan5/Story_Create_AI_Agent",
+      "sha": "81fa6dc173010ed22a0aa3d53f5d9ab3b7684a63",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 8,
+      "manifests": 1,
+      "files": 3,
+      "withheld": [],
+      "seconds": 2.03
+    },
+    {
+      "full_name": "gecitemre/issue-filler",
+      "sha": "d41f23295d00103e57771615a865eed5c1ac6b90",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "llm.py",
+          "line": 37,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "llm.py",
+          "line": 40,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "llm.py",
+          "line": 41,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "llm.py",
+          "line": 44,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "llm.py",
+          "line": 68,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.76
+    },
+    {
+      "full_name": "YuvBindal/FinBloom",
+      "sha": "1bb6bcd86eeb6fcfe670fc50802f5989f5f6bd3c",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 8,
+      "manifests": 0,
+      "files": 2,
+      "withheld": [],
+      "seconds": 8.98
+    },
+    {
+      "full_name": "LJX2017/A-Song-of-Ice-and-Fire",
+      "sha": "b7596d5686000e9df1a219f3b3d922905832f9c5",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 19,
+      "manifests": 0,
+      "files": 4,
+      "withheld": [
+        {
+          "path": "basic_game.py",
+          "line": 11,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "basic_game.py",
+          "line": 22,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "basic_game.py",
+          "line": 25,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "basic_game.py",
+          "line": 27,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "basic_game.py",
+          "line": 62,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "basic_game.py",
+          "line": 77,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "basic_game.py",
+          "line": 97,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "reconstruct_timeline.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "reconstruct_timeline.py",
+          "line": 8,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "reconstruct_timeline.py",
+          "line": 9,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "reconstruct_timeline.py",
+          "line": 10,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "reconstruct_timeline.py",
+          "line": 54,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.86
+    },
+    {
+      "full_name": "Hiba550/Google-DeepMind-for-Discord",
+      "sha": "555ea392bdbb1b9a3ff1b6f40f7fb06ff9e84475",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.75
+    },
+    {
+      "full_name": "niteshsharmacodes/GenAI-powered-Invoice-Scanner",
+      "sha": "3dc39dfec5ce0d7be6dc3d0eab171ebd643193b8",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 14,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 19,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 42,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.09
+    },
+    {
+      "full_name": "aniketsingh1023/HTM-5.0-Tier3Hackers",
+      "sha": "455dd44738af8719ee5cfe57ff7de5d52ce192dc",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 15,
+      "manifests": 2,
+      "files": 4,
+      "withheld": [
+        {
+          "path": "chatbot/flask_backend.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "chatbot/flask_backend.py",
+          "line": 25,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "chatbot/flask_backend.py",
+          "line": 26,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "chatbot/flask_backend.py",
+          "line": 27,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "chatbot/flask_backend.py",
+          "line": 34,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "chatbot/requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.96
+    },
+    {
+      "full_name": "silky-modi22/Video-Transcribe-Summarizer",
+      "sha": "27eb0241e8b346c7ade77f6abaec955bc6572ecf",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.76
+    },
+    {
+      "full_name": "mukul-mschauhan/imagetotext",
+      "sha": "ea0f9f828f8ea6ae02dada62ad7f75fa21c347df",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.86
+    },
+    {
+      "full_name": "Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents",
+      "sha": "b615a993d9b8fb74dbdaa6adeb4f5dd3a05553f5",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 5,
+          "symbol": "google.generativeai",
+          "bail": "alias_collision",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "alias_collision",
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 20,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 70,
+          "symbol": "google.generativeai.upload_file",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 73,
+          "symbol": "google.generativeai.get_file",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.86
+    },
+    {
+      "full_name": "Satheesh2908/AI-Assistant-for-Satheesh",
+      "sha": "b4c50edc3a7da97278256ef8bc2a83c7642cc32d",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 7,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [
+        {
+          "path": "Test.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "from_import_unmigrated_symbol",
+          "caused_by": null
+        },
+        {
+          "path": "Test.py",
+          "line": 7,
+          "symbol": "google.generativeai.ChatCompletion",
+          "bail": "usage_unmapped",
+          "caused_by": null
+        },
+        {
+          "path": "src/Helper.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "configure_consumed_elsewhere"
+          ]
+        },
+        {
+          "path": "src/Helper.py",
+          "line": 40,
+          "symbol": "google.generativeai.configure",
+          "bail": "configure_consumed_elsewhere",
+          "caused_by": null
+        },
+        {
+          "path": "src/Helper.py",
+          "line": 42,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "configure_consumed_elsewhere"
+          ]
+        },
+        {
+          "path": "src/Helper.py",
+          "line": 44,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "configure_consumed_elsewhere"
+          ]
+        }
+      ],
+      "seconds": 2.39
+    },
+    {
+      "full_name": "samar45/yt_summarizer_and_QA",
+      "sha": "8d0714efd5b9fa9aab075c2c534e1f5ade69066b",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 10,
+      "manifests": 0,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.49
+    },
+    {
+      "full_name": "PriyanshuDey23/DiseaseDetectAI",
+      "sha": "9f687bf5dcfe31ea8554b120a2a07ce1a4a8e65a",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.84
+    },
+    {
+      "full_name": "ansarifaisal12/PharmaSQL",
+      "sha": "3642dd17515e0af87a0b61fdd067f44000f77366",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.88
+    },
+    {
+      "full_name": "000wan/ara-ai-bot",
+      "sha": "ca492efadfbc0ccbb104f72b9d591f7389e7e520",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 8,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "Pipfile",
+          "line": 7,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "ai.py",
+          "line": 8,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "ai.py",
+          "line": 9,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "ai.py",
+          "line": 30,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "ai.py",
+          "line": 38,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "ai.py",
+          "line": 44,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "ai.py",
+          "line": 46,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "ai.py",
+          "line": 47,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "ai.py",
+          "line": 53,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.18
+    },
+    {
+      "full_name": "ananyajoshi0707/twachic",
+      "sha": "e29588f2cdbe9f331bbd40787b6737678e9c3214",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 7,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "SkinAnalyzer/skin_app/views.py",
+          "line": 9,
+          "symbol": "google.generativeai",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "SkinAnalyzer/skin_app/views.py",
+          "line": 14,
+          "symbol": "google.generativeai",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "SkinAnalyzer/skin_app/views.py",
+          "line": 18,
+          "symbol": "google.generativeai.configure",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "SkinAnalyzer/skin_app/views.py",
+          "line": 21,
+          "symbol": "google.generativeai",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "SkinAnalyzer/skin_app/views.py",
+          "line": 50,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "SkinAnalyzer/skin_app/views.py",
+          "line": 60,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "SkinAnalyzer/skin_app/views.py",
+          "line": 81,
+          "symbol": "google.generativeai.ApiException",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 51,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 9.16
+    },
+    {
+      "full_name": "Shriii04/GramSwastya",
+      "sha": "5cdba57041eaa634ad00c14c76ab3f8618c21bad",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 17,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [
+        {
+          "path": "doctor/tests.py",
+          "line": 10,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "doctor/tests.py",
+          "line": 12,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "doctor/tests.py",
+          "line": 41,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "doctor/tests.py",
+          "line": 45,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "doctor/tests.py",
+          "line": 49,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "doctor/tests.py",
+          "line": 50,
+          "symbol": "google.generativeai.ChatSession.last",
+          "bail": "attribute_removed",
+          "caused_by": null
+        },
+        {
+          "path": "doctor/views.py",
+          "line": 5,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "doctor/views.py",
+          "line": 33,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "doctor/views.py",
+          "line": 114,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "doctor/views.py",
+          "line": 120,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "doctor/views.py",
+          "line": 219,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "doctor/views.py",
+          "line": 225,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "doctor/views.py",
+          "line": 234,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        }
+      ],
+      "seconds": 15.38
+    },
+    {
+      "full_name": "SureboyPR/Goodness_Medical_Center_Chatbot",
+      "sha": "bb25fd57d614696359f77ebb16e35c23400ab673",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [],
+      "seconds": 11.42
+    },
+    {
+      "full_name": "pareekshitreddy/QuerySense-Natural-Language-to-SQL-Converter-Database-Query-Tool",
+      "sha": "94f4106f2ac3fc0360a5828bc72515f06c188926",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 13.91
+    },
+    {
+      "full_name": "miguel-webplace/questiFy",
+      "sha": "5e8c58e88eb8d3ba95f9c05db59a867335ee4b7f",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 7,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "config.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "config.py",
+          "line": 44,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "config.py",
+          "line": 48,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "config.py",
+          "line": 60,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "config.py",
+          "line": 62,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "config.py",
+          "line": 68,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "config.py",
+          "line": 72,
+          "symbol": "google.generativeai.upload_file",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        }
+      ],
+      "seconds": 1.7
+    },
+    {
+      "full_name": "Sharukesh3/LLM-for-hydrogen-storage",
+      "sha": "a9480de70efdd2e158da556aa072f2003282ff7e",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 14,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "dataset_prep/gemini.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/gemini.py",
+          "line": 9,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/gemini.py",
+          "line": 38,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/gemini.py",
+          "line": 42,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/gemini.py",
+          "line": 67,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "dataset_prep/gemini.py",
+          "line": 70,
+          "symbol": "google.generativeai.ChatSession.last",
+          "bail": "attribute_removed",
+          "caused_by": null
+        },
+        {
+          "path": "dataset_prep/gemini.py",
+          "line": 71,
+          "symbol": "google.generativeai.ChatSession.last",
+          "bail": "attribute_removed",
+          "caused_by": null
+        },
+        {
+          "path": "dataset_prep/test.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/test.py",
+          "line": 7,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/test.py",
+          "line": 36,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/test.py",
+          "line": 40,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "attribute_removed",
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "dataset_prep/test.py",
+          "line": 65,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "dataset_prep/test.py",
+          "line": 68,
+          "symbol": "google.generativeai.ChatSession.last",
+          "bail": "attribute_removed",
+          "caused_by": null
+        },
+        {
+          "path": "dataset_prep/test.py",
+          "line": 69,
+          "symbol": "google.generativeai.ChatSession.last",
+          "bail": "attribute_removed",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.7
+    },
+    {
+      "full_name": "yihong0618/tg_bing_dalle",
+      "sha": "9d0866cdb1f7de468b9e3009cbd8a8740f81b22f",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 8,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tg.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "configure_kwargs_unsupported"
+          ]
+        },
+        {
+          "path": "tg.py",
+          "line": 67,
+          "symbol": "google.generativeai.configure",
+          "bail": "configure_kwargs_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 7,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_source_unresolved"
+          ]
+        },
+        {
+          "path": "utils.py",
+          "line": 37,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 42,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 123,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 166,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "utils.py",
+          "line": 177,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.27
+    },
+    {
+      "full_name": "KalyanM45/OpenHealth",
+      "sha": "2589817b390e1a5022ed721d7dddd3d7f693dcd0",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 7,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 6.83
+    },
+    {
+      "full_name": "Hrishikesh332/Nutrisnap-app-real",
+      "sha": "d9ee7ee4abe98bedbffcef7c517aab5685a98198",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 6,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 99,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 118,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 119,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 229,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 230,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.16
+    },
+    {
+      "full_name": "rainepera/sabIA-ImersaoIA-2025",
+      "sha": "e5caff69b8d210fe4ea995b5634a33daf899fb78",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 7,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.63
+    },
+    {
+      "full_name": "venkataRahulBabu/Chat-PDF-python",
+      "sha": "46352040ca1164fe12ee5a3b8a7de81f7e3fdd8d",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.3
+    },
+    {
+      "full_name": "ashishkumar5de/PDF-QL",
+      "sha": "581d11c03f4d1efe6e2f21532ed1ced0e2a17ca5",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.39
+    },
+    {
+      "full_name": "samkamau81/Literature_RAG",
+      "sha": "7978920df71f623f9519fd06c2d44b4c9023aa4d",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.82
+    },
+    {
+      "full_name": "Samitha-Edirisinghe/AI-Powered-Resume-Matching-System-CV-Embed",
+      "sha": "b14638d12ebab1c0aef793f4fa440e5b3a31c4d2",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 7.96
+    },
+    {
+      "full_name": "Triveni-35/AI-powered-MCQ-Generator",
+      "sha": "d7901c5a2b76ce7832eeaabc2066605eba850941",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [],
+      "seconds": 2.33
+    },
+    {
+      "full_name": "Vaibhav8299/Conversational_AI_App",
+      "sha": "228c62b15ad562cac33f01434481715827b08886",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 20,
+      "manifests": 2,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "3.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "3.py",
+          "line": 67,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "3.py",
+          "line": 110,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "3.py",
+          "line": 111,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "4.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "4.py",
+          "line": 66,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "4.py",
+          "line": 107,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "4.py",
+          "line": 108,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "5.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "5.py",
+          "line": 66,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "5.py",
+          "line": 109,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "5.py",
+          "line": 110,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 67,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 110,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 111,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 41,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "s3.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "s3.py",
+          "line": 67,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "s3.py",
+          "line": 110,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "s3.py",
+          "line": 111,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 11,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.88
+    },
+    {
+      "full_name": "Jyotish2002/PdfQuestions",
+      "sha": "c30a1abb46e9e7e47ee3b1dd81ec49f593ee022b",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 12,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 16,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 83,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 84,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 85,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 7,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.02
+    },
+    {
+      "full_name": "RedLordezh7Venom/VPeakFit",
+      "sha": "a51e64efcfdabed45a31392cdafb47b77d92461f",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 10,
+      "manifests": 1,
+      "files": 4,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 24,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tips.py",
+          "line": 1,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "tips.py",
+          "line": 6,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "tips.py",
+          "line": 7,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "tips.py",
+          "line": 15,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "tips.py",
+          "line": 19,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        }
+      ],
+      "seconds": 5.2
+    },
+    {
+      "full_name": "nishankhareln/LangchainBot",
+      "sha": "c76f78d26bfdf8473831056fd7ddaf54465947f6",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [],
+      "seconds": 3.3
+    },
+    {
+      "full_name": "Faiza-makhdoom/RAG-chatbot1",
+      "sha": "49d212a7b7e31e643cf582df3d9e959904e7ec26",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.15
+    },
+    {
+      "full_name": "Vinay-Krishna-Sarangapni/AI-powered-document-query-assistant",
+      "sha": "643fa73a0fe4b1660d050dae44ccb7726982d2fe",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 3.49
+    },
+    {
+      "full_name": "PreeBh/E2EQuerymultiplePDFsGoogleGemini",
+      "sha": "b5f3e2a56c8d94430d86b5cd47928b8337da3348",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [],
+      "seconds": 2.93
+    },
+    {
+      "full_name": "madanrajsagar/ResearchIQ",
+      "sha": "ea20c82db2c0d00bf116880d3793e966fc6a8221",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "modules/similarity.py",
+          "line": 152,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "modules/similarity.py",
+          "line": 153,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "modules/similarity.py",
+          "line": 154,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "modules/similarity.py",
+          "line": 155,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 26,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.33
+    },
+    {
+      "full_name": "Adiwanwade/pdf-chat-gemini",
+      "sha": "12a2e656580f1364c681dec13835e157de2dbe24",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.78
+    },
+    {
+      "full_name": "Imran-ml/Chat_with_PDF_using_Gemini",
+      "sha": "a936d34ee328cd071b7198f2039c49592ab6964f",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 97,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.32
+    },
+    {
+      "full_name": "Abhisach687/bot-to-generate-MCQ-based-on-uploaded-pdf-webpage",
+      "sha": "fe989b06c87649fdf95c774d66d75d86c96c8024",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.8
+    },
+    {
+      "full_name": "sobit-nep/samvaad-ai",
+      "sha": "1dda7b3f65996c11b3ca31826976a28cd8110025",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.1
+    },
+    {
+      "full_name": "rajveerkhanduja/QueryMate",
+      "sha": "0924dcd3b6aab1020a2ebb8a8e76caff755638f0",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 3,
+      "withheld": [],
+      "seconds": 2.65
+    },
+    {
+      "full_name": "SANTANUNAYAK19/AI-Vision-Assistant",
+      "sha": "4ebeba536e16f0b6b40f8c09d2239a4c9e7d8e1c",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "Ai.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_source_unresolved"
+          ]
+        },
+        {
+          "path": "Ai.py",
+          "line": 141,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "Ai.py",
+          "line": 142,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.01
+    },
+    {
+      "full_name": "Anish-Ramesh/Doctor_Booker",
+      "sha": "fde82cef06a86536202fcb5f4f82aeb67189cdf4",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "sp.py",
+          "line": 7,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "history_parts_shape_incompatible"
+          ]
+        },
+        {
+          "path": "sp.py",
+          "line": 23,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "history_parts_shape_incompatible"
+          ]
+        },
+        {
+          "path": "sp.py",
+          "line": 34,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "history_parts_shape_incompatible",
+          "caused_by": null
+        },
+        {
+          "path": "sp.py",
+          "line": 130,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "history_parts_shape_incompatible",
+          "caused_by": null
+        },
+        {
+          "path": "sp.py",
+          "line": 133,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "history_parts_shape_incompatible",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.99
+    },
+    {
+      "full_name": "AdithyaPathakoti/Mediease",
+      "sha": "e50e2a3c1644d26faf96d70c36e977f44bd8d6c9",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [],
+      "seconds": 1.94
+    },
+    {
+      "full_name": "Sai-Ashritha/Building-AI-Powered-Solution-for-Assisting-Visually-Impaired-Individuals",
+      "sha": "81bc70a914e70966341b468053b393d4734ed367",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "ai.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_source_unresolved"
+          ]
+        },
+        {
+          "path": "ai.py",
+          "line": 68,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "ai.py",
+          "line": 69,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_source_unresolved",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.75
+    },
+    {
+      "full_name": "aprameyak/GitaGPT",
+      "sha": "a1987626a0bb96855cab945ac83283944a475d1f",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "api.py",
+          "line": 12,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "api.py",
+          "line": 39,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "api.py",
+          "line": 40,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "api.py",
+          "line": 95,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.45
+    },
+    {
+      "full_name": "Zierax/HackerHelper",
+      "sha": "5f3b88bcad03262f32fbab6bc8f586dad9f45d7f",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 3,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "api/core/ai_assistant.py",
+          "line": 5,
+          "symbol": "google.generativeai",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "api/core/ai_assistant.py",
+          "line": 139,
+          "symbol": "google.generativeai.configure",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "api/core/ai_assistant.py",
+          "line": 140,
+          "symbol": "google.generativeai",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "api/requirements.txt",
+          "line": 67,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.82
+    },
+    {
+      "full_name": "YOGANAND2003/chatbot-rag-streamlit-main",
+      "sha": "65562bdce226f8fd3815315c55210cde8c4af7a5",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 28,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pages/\ud83d\udcac_Narrative_Chatbot.py",
+          "line": 7,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\udcac_Narrative_Chatbot.py",
+          "line": 20,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\udcac_Narrative_Chatbot.py",
+          "line": 112,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\udcac_Narrative_Chatbot.py",
+          "line": 113,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
+          "line": 7,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
+          "line": 27,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
+          "line": 193,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
+          "line": 194,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "pages/\ud83d\uddbc\ufe0f_Image_Chatbot.py",
+          "line": 7,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\uddbc\ufe0f_Image_Chatbot.py",
+          "line": 24,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\uddbc\ufe0f_Image_Chatbot.py",
+          "line": 135,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "pages/\ud83d\uddbc\ufe0f_Image_Chatbot.py",
+          "line": 136,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
+          "line": 7,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
+          "line": 29,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
+          "line": 202,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
+          "line": 203,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
+          "line": 7,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
+          "line": 27,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
+          "line": 177,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
+          "line": 178,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
+          "line": 180,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
+          "line": 181,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 24,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 170,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 171,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 173,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 174,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.67
+    },
+    {
+      "full_name": "ntiglao-umd/k-12mlsupport",
+      "sha": "0aedeae304a5a531df999824117192dce110d856",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 8,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 4.01
+    },
+    {
+      "full_name": "NJP6969/star-hack",
+      "sha": "fa328175c8db9fe6d793b63be80182731e907fa4",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 16,
+      "manifests": 2,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "backend/src/game_engine/gemini_client.py",
+          "line": 23,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "backend/src/game_engine/gemini_client.py",
+          "line": 24,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "backend/src/game_engine/gemini_client.py",
+          "line": 25,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "backend/src/game_engine/gemini_client.py",
+          "line": 60,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "game_engine/gemini_client.py",
+          "line": 25,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "game_engine/gemini_client.py",
+          "line": 26,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "game_engine/gemini_client.py",
+          "line": 27,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "game_engine/gemini_client.py",
+          "line": 62,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "game_engine/requirements.txt",
+          "line": 4,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "notification_manager/motivation_analyzer.py",
+          "line": 32,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "notification_manager/motivation_analyzer.py",
+          "line": 33,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "notification_manager/motivation_analyzer.py",
+          "line": 34,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "notification_manager/motivation_analyzer.py",
+          "line": 71,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "notification_manager/requirements.txt",
+          "line": 4,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "notification_manager/task_generator.py",
+          "line": 32,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "notification_manager/task_generator.py",
+          "line": 33,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "notification_manager/task_generator.py",
+          "line": 34,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "notification_manager/task_generator.py",
+          "line": 68,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.55
+    },
+    {
+      "full_name": "RuntimeAI/silly-merchants-for-safe-hackathon",
+      "sha": "c10281c51f8b43fccebccde94ffe5a34cc24446e",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pyproject.toml",
+          "line": 24,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/utils/llm_providers/gemini.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "src/utils/llm_providers/gemini.py",
+          "line": 24,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "src/utils/llm_providers/gemini.py",
+          "line": 27,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "src/utils/llm_providers/gemini.py",
+          "line": 28,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "src/utils/llm_providers/gemini.py",
+          "line": 62,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.12
+    },
+    {
+      "full_name": "01-191-MaxavierGirvanusManurung/Tugas3-PAW",
+      "sha": "4df61c4e734de8573ec5ce49b9e2764def8b47eb",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.21
+    },
+    {
+      "full_name": "AKMessi/AI-IPO-Analyst",
+      "sha": "1973413e928cbf43d02c9d2ffc55af17893ce158",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 3,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.15
+    },
+    {
+      "full_name": "xNabil/discord-ai-bot",
+      "sha": "397897fb2623abd0fff7f1b97fd03852005020d3",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 14,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "bot.py",
+          "line": 10,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "bot.py",
+          "line": 407,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "bot.py",
+          "line": 409,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "bot.py",
+          "line": 676,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "bot.py",
+          "line": 678,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "bot.py",
+          "line": 1037,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "bot.py",
+          "line": 1038,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "oldbot.py",
+          "line": 10,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "oldbot.py",
+          "line": 319,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "oldbot.py",
+          "line": 321,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "oldbot.py",
+          "line": 588,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "oldbot.py",
+          "line": 590,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "oldbot.py",
+          "line": 938,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "oldbot.py",
+          "line": 939,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 8,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.83
+    },
+    {
+      "full_name": "quangkhai5122/ASL_Pytorch",
+      "sha": "3bd335c0d04ace7baff4d4a6fc133bccb047f9f4",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 9,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 8,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 160,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 161,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 368,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app_optimized.py",
+          "line": 38,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app_optimized.py",
+          "line": 614,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app_optimized.py",
+          "line": 615,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app_optimized.py",
+          "line": 890,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        }
+      ],
+      "seconds": 5.38
+    },
+    {
+      "full_name": "kvcops/Virtual-Herbal-Garden",
+      "sha": "4df82e3211620b8f4761f7d2cf6d46e72a96480b",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 20,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [],
+      "seconds": 12.96
+    },
+    {
+      "full_name": "Wang-Haining/CMD-AInotator",
+      "sha": "5b7bbc5076a17dbd14ffb85ee660fca7e5507cbd",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 43,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 593,
+          "symbol": "google.generativeai",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "run.py",
+          "line": 604,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "run.py",
+          "line": 605,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "run.py",
+          "line": 701,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.22
+    },
+    {
+      "full_name": "hari7261/Negotiation-MultiAgent",
+      "sha": "5b3b1664c8b54d6328974b580d0858eab06d3601",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 6,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 32,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 33,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 224,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 252,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.41
+    },
+    {
+      "full_name": "malikEhsan09/RAG_Gemini",
+      "sha": "677e34f665cf80358d97af329efd865a18826941",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 469,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 484,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.1
+    },
+    {
+      "full_name": "AIApproach/AI-Approach-Chat",
+      "sha": "c397993a7563c41986cedf0dca96fccf9693d558",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 12,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 8,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 9,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 29,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 34,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 41,
+          "symbol": "google.generativeai.list_models",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 50,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 57,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 61,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 65,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 445,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 464,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "utils/chat_manager.py",
+          "line": 563,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.58
+    },
+    {
+      "full_name": "kumareshbasu/Swasthya_AI",
+      "sha": "b891a5d5a5b2fdbe634c34fc09fbe5ce53ac47fc",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 17,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [
+        {
+          "path": "actions/actions.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 22,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 26,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 113,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 115,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 178,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 193,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 298,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 299,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 375,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "actions/actions.py",
+          "line": 376,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 54,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 6.18
+    },
+    {
+      "full_name": "niyati34/CaseyAi",
+      "sha": "a52de238f44e2f9dc360149b2b476f44985a3bd2",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 11,
+      "manifests": 0,
+      "files": 1,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 26,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_configure_calls"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 649,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 872,
+          "symbol": "google.generativeai.configure",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 875,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 898,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 929,
+          "symbol": "google.generativeai.configure",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 930,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_configure_calls",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.38
+    },
+    {
+      "full_name": "Sarthak061/ATMECS-Hackathon",
+      "sha": "3d57c3550a50f9ece45aec5aa0162315afad1648",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 7,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 9,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "ts.py",
+          "line": 8,
+          "symbol": "google.generativeai",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "ts.py",
+          "line": 81,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "ts.py",
+          "line": 107,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "ts.py",
+          "line": 642,
+          "symbol": "google.generativeai",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "ts.py",
+          "line": 652,
+          "symbol": "google.generativeai.configure",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "ts.py",
+          "line": 663,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "ts.py",
+          "line": 669,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "conditional_binding",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.82
+    },
+    {
+      "full_name": "taitran501/dashboard_app",
+      "sha": "b222f63dc7469ae66cd10b919acf7e2d0b5170f5",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 6,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "google.generativeai.types",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 162,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 164,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "model_object_escapes",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 283,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "model_object_escapes",
+            "receiver_unresolved"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 288,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "receiver_unresolved",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.67
+    },
+    {
+      "full_name": "Abhijeet212004/AIvestor",
+      "sha": "6df2e36587507ad6164f1cb72c10739b4d88874c",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 2,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "finai-assistant/requirements.txt",
+          "line": 6,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "finai-assistant/server/app.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "finai-assistant/server/app.py",
+          "line": 4,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "client_placement_ambiguous"
+          ]
+        },
+        {
+          "path": "finai-assistant/server/app.py",
+          "line": 380,
+          "symbol": "google.generativeai.configure",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "finai-assistant/server/app.py",
+          "line": 391,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "finai-assistant/server/app.py",
+          "line": 405,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "client_placement_ambiguous",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 7.07
+    },
+    {
+      "full_name": "BeraEkmekci/leonis-task-app",
+      "sha": "6a42623dd0fa449de01da760b4bb660e3dc8d2ad",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main.py",
+          "line": 12,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 77,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "main.py",
+          "line": 79,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 214,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.49
+    },
+    {
+      "full_name": "AyaCherqi/Football",
+      "sha": "10d4352a8fa4490cdb09e2b3bf9202c2222781a2",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 8,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 36,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 87,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 101,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 102,
+          "symbol": "google.generativeai.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 104,
+          "symbol": "google.generativeai.GenerativeModel.count_tokens",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1471,
+          "symbol": "google.generativeai.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 1487,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "multiple_assignments",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1488,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "multiple_assignments"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 5.57
+    }
+  ]
+}

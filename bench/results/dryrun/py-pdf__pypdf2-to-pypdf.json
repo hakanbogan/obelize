@@ -1,0 +1,3163 @@
+{
+  "obelize_version": "0.4.0",
+  "pack": "py-pdf/pypdf2-to-pypdf",
+  "pack_sha256": "a1af2999d3a7ae11c75f6c350d0735c98989a0dbf3d15e3d80ffa4d01a5e36a4",
+  "spec_sha256": "ed18b9d89dc89b63433ee3a42945b04fdf61c8a73072f0afe338b3d6cd0a533c",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "frame": "bench/gate1/py-pdf__pypdf2-to-pypdf/sample.yaml",
+  "dry_run": [
+    {
+      "full_name": "gabrielchua/RAGxplorer",
+      "sha": "840d16ab0c8c345c00bef5a797af12a37cc9ae89",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 2,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "ragxplorer/rag.py",
+          "line": 13,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "ragxplorer/rag.py",
+          "line": 140,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 93,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 20,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.62
+    },
+    {
+      "full_name": "aneagoie/watermarker",
+      "sha": "e90ddb2ba09b144415a58c762a8d327d529511f8",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 0,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [],
+      "seconds": 1.77
+    },
+    {
+      "full_name": "naiveHobo/PostOCR",
+      "sha": "cadc82f66115a47e21157c029f30e7e816d3028b",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 0,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "setup.py",
+          "line": 21,
+          "symbol": "PyPDF2",
+          "bail": "manifest_code_mismatch",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.88
+    },
+    {
+      "full_name": "GrupElGas/mailcertificado",
+      "sha": "26bde303c1b98e77e6b2bc669c80f16c00802017",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "mailcertificado/api.py",
+          "line": 10,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "mailcertificado/api.py",
+          "line": 147,
+          "symbol": "PyPDF2.PdfFileMerger",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 12,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.05
+    },
+    {
+      "full_name": "RajatSingh95/GangaGSoC2020",
+      "sha": "a36d135f8c7105f73a62ae32075f9073f7c717be",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 18,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "gangagsoc/Initial_Task/countWord.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gangagsoc/Initial_Task/countWord.py",
+          "line": 22,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Initial_Task/countWord.py",
+          "line": 25,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Initial_Task/subtask_2.py",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gangagsoc/Initial_Task/subtask_2.py",
+          "line": 26,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Initial_Task/subtask_2.py",
+          "line": 29,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/connect_db.py",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/connect_db.py",
+          "line": 29,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/connect_db.py",
+          "line": 32,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/recreate_job.py",
+          "line": 10,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/recreate_job.py",
+          "line": 30,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/recreate_job.py",
+          "line": 33,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/subtask_1.py",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/subtask_1.py",
+          "line": 29,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/subtask_1.py",
+          "line": 32,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/subtask_2.py",
+          "line": 10,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/subtask_2.py",
+          "line": 30,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "gangagsoc/Persistent_Storage_Task/subtask_2.py",
+          "line": 33,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 15,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.64
+    },
+    {
+      "full_name": "SanketNatekar/cold-email-generator",
+      "sha": "f59b7adac3e261368735752f40be43728a61f765",
+      "band": "size:<1000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 7.31
+    },
+    {
+      "full_name": "tinkertanker/tinkertanker-pdfgen",
+      "sha": "8ca2db7dd69b7cf02d831010e35c8d428d79c0c9",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 9,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pdfgen/engine.py",
+          "line": 10,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 57,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 86,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 220,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 253,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 285,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 320,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 343,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdfgen/engine.py",
+          "line": 375,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 23,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.53
+    },
+    {
+      "full_name": "Mangala-Manmatharaja/PDF-Sign",
+      "sha": "25ba5c6c24cecedcec41bc72208b594d5b84d9b1",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 2,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 18,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "signpdf.py",
+          "line": 7,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "signpdf.py",
+          "line": 36,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "signpdf.py",
+          "line": 37,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "signpdf.py",
+          "line": 55,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.94
+    },
+    {
+      "full_name": "alejandro-ao/langchain-ask-pdf",
+      "sha": "4f33490d7220496c0ef7b6db36d3bbcbeb957d53",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.89
+    },
+    {
+      "full_name": "strongSoda/chat-with-pdf-tutorial",
+      "sha": "4cb098762f414a738f7d8cc138348a4d6d050ff4",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 45,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.78
+    },
+    {
+      "full_name": "fuchenru/ATS-Checker",
+      "sha": "5bce58299a2e12660859e0ec15558914d91f992d",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "ats.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "ats.py",
+          "line": 15,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.64
+    },
+    {
+      "full_name": "pradhyumn/Conversational-agent-langchain",
+      "sha": "98ad5d4a8aa6fc6ce05299880163eca33d1b6f40",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 6,
+      "manifests": 1,
+      "files": 4,
+      "withheld": [],
+      "seconds": 2.03
+    },
+    {
+      "full_name": "hyeok-jong/pdf_add_padding",
+      "sha": "66256e0ab35c15a94464ed822aec1e6cd67a127d",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 20,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pdf.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdf.py",
+          "line": 20,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 21,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf2.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdf2.py",
+          "line": 23,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf2.py",
+          "line": 24,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf2.py",
+          "line": 29,
+          "symbol": "PyPDF2.pdf.PageObject.createBlankPage",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdf2.py",
+          "line": 36,
+          "symbol": "PyPDF2.pdf.PageObject.createBlankPage",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdf3.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "pdf3.py",
+          "line": 26,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "pdf3.py",
+          "line": 27,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "pdf3.py",
+          "line": 33,
+          "symbol": "PyPDF2._page.PageObject.create_blank_page",
+          "bail": "usage_unmapped",
+          "caused_by": null
+        },
+        {
+          "path": "pdf3.py",
+          "line": 39,
+          "symbol": "PyPDF2._page.PageObject.create_blank_page",
+          "bail": "usage_unmapped",
+          "caused_by": null
+        },
+        {
+          "path": "pdf3.py",
+          "line": 54,
+          "symbol": "PyPDF2.Transformation.translate",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "pdf4.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "pdf4.py",
+          "line": 26,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "pdf4.py",
+          "line": 27,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "pdf4.py",
+          "line": 33,
+          "symbol": "PyPDF2._page.PageObject.create_blank_page",
+          "bail": "usage_unmapped",
+          "caused_by": null
+        },
+        {
+          "path": "pdf4.py",
+          "line": 39,
+          "symbol": "PyPDF2._page.PageObject.create_blank_page",
+          "bail": "usage_unmapped",
+          "caused_by": null
+        },
+        {
+          "path": "pdf4.py",
+          "line": 54,
+          "symbol": "PyPDF2.Transformation.translate",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "usage_unmapped"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.23
+    },
+    {
+      "full_name": "mr-teslaa/langchain-chat-pdfs",
+      "sha": "3b98b9981ad3608e6a2ee7d5adbab1e7e1ac61e8",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.74
+    },
+    {
+      "full_name": "tknishh/ayurvedic-doctor-bot",
+      "sha": "7d8f35a440a41b6b986a84d29774b08241676056",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 3,
+      "withheld": [],
+      "seconds": 2.3
+    },
+    {
+      "full_name": "craig-osterhout/docker-genai-sample",
+      "sha": "e888fa58ab07c47397b96dc4a7c24e9fbce1f939",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 72,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.87
+    },
+    {
+      "full_name": "A9K5/Resume-Scraper",
+      "sha": "89f0938f3afc1f3aaf6ecf0dafd060dcadc9d10a",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "7.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "7.py",
+          "line": 37,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 40,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.81
+    },
+    {
+      "full_name": "IshuSinghSE/scripts",
+      "sha": "c4081700435a436237d79db5cca2fbf75ff95628",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 9,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pdf.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 3,
+          "symbol": "PyPDF2.generic",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 18,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 29,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "serial.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "serial.py",
+          "line": 2,
+          "symbol": "PyPDF2.generic",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "serial.py",
+          "line": 29,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "serial.py",
+          "line": 36,
+          "symbol": "PyPDF2.Transformation.scale",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "serial.py",
+          "line": 44,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.98
+    },
+    {
+      "full_name": "michaelearncoding/AIagent-KnowledgeBase-Info-Retrieval-System-with-RAG-Pipeline-",
+      "sha": "adaf7d8afdf85e7c6817e3d71ee6993de52dc1e3",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 1,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 8,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.92
+    },
+    {
+      "full_name": "prabhakarvenkat/Resume_ATS-Tracker",
+      "sha": "d10d8738d4295dbe100fcdf2b5a0568848532c03",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 22,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.96
+    },
+    {
+      "full_name": "andriymalyshchak1/HookedDeploy",
+      "sha": "b608811a1ad910b137c259331fc909cd437063d5",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 7,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 16,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "script.py",
+          "line": 9,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "script.py",
+          "line": 13,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.28
+    },
+    {
+      "full_name": "Aamanshaikh786/Resume_Analyzer",
+      "sha": "56249132fd802cd9a43785cfda292e0132e50110",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 31,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.84
+    },
+    {
+      "full_name": "synoptekpawan/LLM-Based-Document-Query-Tool",
+      "sha": "dc57806e2bda8b90204af70bb44dba26ee74b439",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 7,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 19,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 20,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "src/pdfReader.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "src/pdfReader.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "utils/utils.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "utils/utils.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "utils/utils.py",
+          "line": 11,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.04
+    },
+    {
+      "full_name": "ayush542316/ai-study-assistant",
+      "sha": "815d6157b1e14b74437b1afec1c95f08dd120aeb",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 13,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.73
+    },
+    {
+      "full_name": "sunilkahalekar/Application_tracking_system",
+      "sha": "f61e57938e40898f6b11602d8d2ee4f1ad97d804",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 18,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.75
+    },
+    {
+      "full_name": "colindoyle0000/pdftextadd",
+      "sha": "95b0df060c558937348185c7fe29f626ce17b47d",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.68
+    },
+    {
+      "full_name": "Srinadhch07/StudyBot",
+      "sha": "9edc3a97251ff9c40000b5bc50acc0cdbeda012e",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 19,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.9
+    },
+    {
+      "full_name": "imakshit/Multilingual-Document-Q-A-Summarizer",
+      "sha": "3a6a0aecbd1247a62c0d9e2d811c0833a4808852",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.6
+    },
+    {
+      "full_name": "CharlleyJJ/Python_NLP_JJ",
+      "sha": "6e70c881569e2a82a7c981ac42d30b1555701c50",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 8,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "Assessments Python Text Basics/03-Python-Text-Basics-Assessment.py",
+          "line": 83,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "Assessments Python Text Basics/03-Python-Text-Basics-Assessment.py",
+          "line": 89,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "Working with PDFs/Working with PDFs - PyPDF2.py",
+          "line": 7,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "Working with PDFs/Working with PDFs - PyPDF2.py",
+          "line": 19,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "Working with PDFs/Working with PDFs - PyPDF2.py",
+          "line": 67,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "Working with PDFs/Working with PDFs - PyPDF2.py",
+          "line": 79,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "Working with PDFs/Working with PDFs - PyPDF2.py",
+          "line": 129,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "Working with PDFs/Working with PDFs - PyPDF2.py",
+          "line": 145,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.08
+    },
+    {
+      "full_name": "rati45643/Resume-Ranker-Application-Tracking-Systems-ATS-",
+      "sha": "d1fea0766a2d4932698e267b20e26b188d741343",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 21,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "resume_ranker.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "resume_ranker.py",
+          "line": 23,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.23
+    },
+    {
+      "full_name": "balaji1233/Text_Summary_Pro",
+      "sha": "453e76979684a3854b4409345dceec334679b00a",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 18,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.85
+    },
+    {
+      "full_name": "rishiraparthy/BloomsTaxonomyAnalysis",
+      "sha": "9c6ca1a663881c0d3285e73ec57e960bced71841",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pdf.py",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdf.py",
+          "line": 47,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.4
+    },
+    {
+      "full_name": "InsightEdge01/RAGGemmaModel",
+      "sha": "c3c687184e570e08a02a84f8162d542b5be5c938",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 37,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.92
+    },
+    {
+      "full_name": "moluqitu/Python-crawler1",
+      "sha": "686176e587c4956318806fccb085114a5d3eb7b3",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "3.py",
+          "line": 7,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "3.py",
+          "line": 8,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "3.py",
+          "line": 33,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "3.py",
+          "line": 56,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.27
+    },
+    {
+      "full_name": "whoamif/CM-Consulting-generating-auto-responses-",
+      "sha": "12bd55330a19c92940c98d5935e3cabbd2edf9f8",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 13,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app1.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app1.py",
+          "line": 11,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.94
+    },
+    {
+      "full_name": "jiandandaoxingfu/pdfdo",
+      "sha": "dc17e2f77993386690c18526fc5de1827b2869e4",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 15,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "PDF.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "PDF.py",
+          "line": 14,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 21,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 25,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 40,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 43,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 57,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 62,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 77,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 78,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 101,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 102,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 116,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 121,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "PDF.py",
+          "line": 123,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.08
+    },
+    {
+      "full_name": "SR-Sujon/llamachirp",
+      "sha": "e44d7852ada2178c7cc78d693a8f851a067210e2",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 11,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 61,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.99
+    },
+    {
+      "full_name": "fjxmlzn/paper_downloader",
+      "sha": "5f6e646f876dcefeae59225c4647262e7ef304a4",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 5,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "paper_downloader/downloader.py",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "paper_downloader/downloader.py",
+          "line": 78,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pd.py",
+          "line": 11,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pd.py",
+          "line": 218,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pd.py",
+          "line": 225,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.39
+    },
+    {
+      "full_name": "hyuunnn/Autopsy-DocumentMetadataIngestModule",
+      "sha": "6063f2ef6305058c62344cbfc4a22742f6ce6c26",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "PyPDF2/pdf.py",
+          "line": 100,
+          "symbol": "PyPDF2",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 9,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdf.py",
+          "line": 110,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 7.67
+    },
+    {
+      "full_name": "alexanderoviedofadul/ContadorPaginasPDF",
+      "sha": "d35523c3640ef84d16a2732dc158a0c7b525ef86",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 15,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 16,
+          "symbol": "PyPDF2",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 56,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "main.py",
+          "line": 63,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.65
+    },
+    {
+      "full_name": "NyasaVishwas/AI-Powered-Directory-Management-System",
+      "sha": "d96d80d46efbe8505be0edc3463c89b72d82862d",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.99
+    },
+    {
+      "full_name": "mohamedabdulkadar788/CV-shortlisting-SYstem",
+      "sha": "d7d561603758d0a89d4136b3d6c9fc12c98e014f",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 21,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.07
+    },
+    {
+      "full_name": "ardyadipta/gemini_chatbot_qna",
+      "sha": "2f2ddb9557b7d8506d61b0d6a64da66c1f770bc8",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 1.81
+    },
+    {
+      "full_name": "Fahed1401/Fact-Check-Agent",
+      "sha": "deb9ac0b34a08b353f688a8c8749a7e943d5a182",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 22,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.98
+    },
+    {
+      "full_name": "harinivasudatla/AISearchDemo",
+      "sha": "e3c7323a5b28fe5c8e6a3695588ba52061f6df17",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 8,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 41,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 47,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.83
+    },
+    {
+      "full_name": "mhmmeddanish/Hackcelerate",
+      "sha": "74ce2d90a46c091810f90f56fe38f4f26b660fa8",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 6,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main3.py",
+          "line": 372,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "main3.py",
+          "line": 376,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "main3.py",
+          "line": 440,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "rag.py",
+          "line": 9,
+          "symbol": "PyPDF2",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "rag.py",
+          "line": 13,
+          "symbol": "PyPDF2",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "rag.py",
+          "line": 89,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "conditional_binding",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.54
+    },
+    {
+      "full_name": "chamadi2002/ai-study-assistant",
+      "sha": "267fa6781180fffc6352b6a0fc236181d7f12471",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 110,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 130,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 148,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 176,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.93
+    },
+    {
+      "full_name": "sreeharivponline/ppt-builder",
+      "sha": "33686c94eb3688215c9a61ef79855bc40f778c96",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 40,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 44,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 7,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.97
+    },
+    {
+      "full_name": "alistairhendersoninfo/document-indexing",
+      "sha": "4b4ff91a7400c76b6866ca8ab39a675ab49c9434",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.58
+    },
+    {
+      "full_name": "rasik-nep/Nepali-PDF-text-extractor",
+      "sha": "aca4b43a05126c86ead4ce283f3446f6e85f0f46",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.29
+    },
+    {
+      "full_name": "Techcoderpython/ai-resume-analyzer",
+      "sha": "7cda293179d2768000e75e605bee10a7b068893d",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 7,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 39,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.35
+    },
+    {
+      "full_name": "abithach/MyQuizGenerator",
+      "sha": "0ff8c1315719b8104cdb9d0e9a124d6a1ab16a66",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 6,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 7,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 123,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.0
+    },
+    {
+      "full_name": "Muhammad-Hammad-Khan7/Resume_Category_Prediction_systems",
+      "sha": "732b397ab2061fc512f80e7d88ab6618752c17bd",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 11,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 34,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.28
+    },
+    {
+      "full_name": "harikeshlapsetwar/resume-screning-project",
+      "sha": "e6e1bc92538278332645cc73d9bc2f8c67ea5c70",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 11,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 34,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.27
+    },
+    {
+      "full_name": "BalasaitejaG/Pdf_AI",
+      "sha": "6dfd77fed7d3eaecc164f625dd6ce8d6a58385f0",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.7
+    },
+    {
+      "full_name": "coco44440/cvanalyse",
+      "sha": "c35582a1030a61f1c6180cdff861cfa3848ccc03",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "Pipfile",
+          "line": 8,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 11,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.17
+    },
+    {
+      "full_name": "LinXueyuanStdio/academic-mcp",
+      "sha": "18f90b953225e56e82e68e4613fe797f4f413835",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 34,
+      "manifests": 1,
+      "files": 20,
+      "withheld": [],
+      "seconds": 7.44
+    },
+    {
+      "full_name": "cbcpd/Resume-Screening-App-main",
+      "sha": "5556bd5198dc6ae61a963056c685104ce8da1f08",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 11,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 34,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.4
+    },
+    {
+      "full_name": "Amankumar6274/MCQ-Generation-Model",
+      "sha": "7c08c82ac34d47a1913361d6881b504abf6b41b4",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 12,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 13,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 129,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.11
+    },
+    {
+      "full_name": "aiea-lab/driving-rules",
+      "sha": "1bd73687852d78d1dd4ffe370d343271ecbc1d58",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "driving_rules.py",
+          "line": 9,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "driving_rules.py",
+          "line": 53,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "driving_rules_CN.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "driving_rules_CN.py",
+          "line": 16,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "pypdf",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.6
+    },
+    {
+      "full_name": "ntiglao-umd/k-12mlsupport",
+      "sha": "0aedeae304a5a531df999824117192dce110d856",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "used": 10,
+      "manifests": 1,
+      "files": 5,
+      "withheld": [],
+      "seconds": 4.5
+    },
+    {
+      "full_name": "ZeroTang05/cyber-doctor",
+      "sha": "6ee536b7725fead659ee6470010c50d1c4cd0331",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 3.24
+    },
+    {
+      "full_name": "codingis4noobs2/QuickDigest",
+      "sha": "c3a75bff8429e0ab256df2e3e5bbfcb5f9cf8f9a",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 97,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 215,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.64
+    },
+    {
+      "full_name": "QGB/QPSU",
+      "sha": "cfdf3967f56a2f712b566536b33d18531947c75f",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "T.py",
+          "line": 411,
+          "symbol": "PyPDF2",
+          "bail": "local_import",
+          "caused_by": null
+        },
+        {
+          "path": "T.py",
+          "line": 412,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 57,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 6.66
+    },
+    {
+      "full_name": "AnshPradhan14/chatur_ai_prototype",
+      "sha": "c87513432403d4e12e52eca4258dc703424c4683",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 17,
+          "symbol": "PyPDF2",
+          "bail": "alias_collision",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 66,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "alias_collision",
+          "caused_by": null
+        },
+        {
+          "path": "chatur_core/chatur_core.py",
+          "line": 14,
+          "symbol": "PyPDF2",
+          "bail": "alias_collision",
+          "caused_by": null
+        },
+        {
+          "path": "chatur_core/chatur_core.py",
+          "line": 32,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "alias_collision",
+          "caused_by": null
+        },
+        {
+          "path": "chatur_core/requirements.txt",
+          "line": 10,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 96,
+          "symbol": "pypdf",
+          "bail": "manifest_code_mismatch",
+          "caused_by": null
+        }
+      ],
+      "seconds": 6.26
+    },
+    {
+      "full_name": "deepanshu414/benefittool",
+      "sha": "989a7e32418e914d7a254ad6a51cca633a623d3d",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 3.64
+    },
+    {
+      "full_name": "reichaves/chatgeminipdfs",
+      "sha": "7b9f95fc0536376d9ba6fb81adceb27d302803c7",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 9,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 26,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "symbol": "pypdf",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.11
+    },
+    {
+      "full_name": "Imran786-hub/RAG-Chatbot",
+      "sha": "b3e1bc09ca553796e78b90072136cac3003cde3c",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 2,
+      "manifests": 1,
+      "files": 1,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 12,
+          "symbol": "PyPDF2",
+          "bail": "manifest_pin_shape_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.91
+    },
+    {
+      "full_name": "manumanoj0010/PDF-BOT",
+      "sha": "bcb4919dfb57d6c94e8020c5b4735596d8452d71",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 7,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pdf.py",
+          "line": 11,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pdf.py",
+          "line": 961,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 962,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 1754,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 1755,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 1774,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pdf.py",
+          "line": 1775,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.5
+    },
+    {
+      "full_name": "pokemon918/Streamlit-Chatbot",
+      "sha": "1621e301491365bbffc0a677916728065d662c01",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 53,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 198,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 4.24
+    },
+    {
+      "full_name": "elibroftw/website",
+      "sha": "cc3c146692076c2a5cf07fe6e2745f21d0e4ed8e",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 5,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 30,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 306,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 312,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 339,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 341,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 16,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.5
+    },
+    {
+      "full_name": "jyoti9909/AI-Driven-Automated-Interviewer-for-Project-Presentations",
+      "sha": "e88f69dafbb11b391f2ad090ff29ff6f1395bfba",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 5,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 24,
+          "symbol": "PyPDF2",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 138,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 18,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "test_pdf_extraction.py",
+          "line": 14,
+          "symbol": "PyPDF2",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "test_pdf_extraction.py",
+          "line": 34,
+          "symbol": "PyPDF2",
+          "bail": "conditional_binding",
+          "caused_by": null
+        }
+      ],
+      "seconds": 7.23
+    },
+    {
+      "full_name": "YoussefAlkent/PDF-Poisoning",
+      "sha": "d0e983b410a9abc4300af28398fc3762d5775f6f",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 9,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "from_import_unmigrated_symbol",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 117,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "from_import_unmigrated_symbol",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 118,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "from_import_unmigrated_symbol",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "pypdf",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "test.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "test.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "test.py",
+          "line": 7,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "test.py",
+          "line": 8,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "test.py",
+          "line": 24,
+          "symbol": "PyPDF2.PageObject.create_blank_page",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "test.py",
+          "line": 28,
+          "symbol": "PyPDF2.generic.StreamObject",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.1
+    },
+    {
+      "full_name": "Idk507/FAQ-Assistant",
+      "sha": "17d2964ee885077a27778b62875b8ea163c9910f",
+      "band": "size:>16000",
+      "blocked": null,
+      "used": 3,
+      "manifests": 1,
+      "files": 2,
+      "withheld": [],
+      "seconds": 2.71
+    },
+    {
+      "full_name": "Slumbersaga/pu_code_hackathon-3.0",
+      "sha": "00529a8ee2f4a36920bc098acbf0663ae54075d8",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 14,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 20,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1463,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1464,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1581,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1582,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1637,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1638,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "engine.py",
+          "line": 20,
+          "symbol": "PyPDF2",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "engine.py",
+          "line": 191,
+          "symbol": "PyPDF2",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "engine.py",
+          "line": 194,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "morpher.py",
+          "line": 25,
+          "symbol": "PyPDF2",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "morpher.py",
+          "line": 206,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "morpher.py",
+          "line": 209,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "morpher.py",
+          "line": 210,
+          "symbol": "PyPDF2.PdfWriter",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "pypdf",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 10.0
+    },
+    {
+      "full_name": "Subho4156/Innofusion-project-ai",
+      "sha": "8556d69aa76975bda2fee1e35f5ac19e39a06f4d",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 4,
+      "manifests": 1,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 24,
+          "symbol": "PyPDF2",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 238,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 247,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "helpers/update.py",
+          "line": 20,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 14,
+          "symbol": "PyPDF2",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 14,
+          "symbol": "pypdf",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.39
+    },
+    {
+      "full_name": "haribhaski/DDMM_project",
+      "sha": "b2e1d50425da28866f979f33f2a9acd2dee97803",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "new.py",
+          "line": 16,
+          "symbol": "PyPDF2",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "new.py",
+          "line": 24,
+          "symbol": "PyPDF2",
+          "bail": "conditional_binding",
+          "caused_by": null
+        },
+        {
+          "path": "new.py",
+          "line": 90,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "conditional_binding",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.6
+    },
+    {
+      "full_name": "Harshal1810/PDF_TO_HTML_Converter",
+      "sha": "2c40193c59f44cb30fcefa37a2c590f13b45fbdb",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "sample.py",
+          "line": 1,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "sample.py",
+          "line": 33,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.28
+    },
+    {
+      "full_name": "kirtanpathak4/ProGuard",
+      "sha": "6a18b5e18269b6eeda671a66ce7b4b87c86e39e4",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 3,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "source/stand-alone-application/main.py",
+          "line": 10,
+          "symbol": "PyPDF2",
+          "bail": "roundtrip_mismatch",
+          "caused_by": null
+        },
+        {
+          "path": "source/stand-alone-application/main.py",
+          "line": 241,
+          "symbol": "PyPDF2.PdfFileWriter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "source/stand-alone-application/main.py",
+          "line": 244,
+          "symbol": "PyPDF2.PdfFileReader",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "seconds": 3.09
+    },
+    {
+      "full_name": "G-Navarro/contabilfacil",
+      "sha": "1b4046bd9624359094ef3ffb8fd69c6f2ec74403",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "used": 2,
+      "manifests": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "envioemails/processapdf.py",
+          "line": 2,
+          "symbol": "PyPDF2",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        },
+        {
+          "path": "envioemails/processapdf.py",
+          "line": 32,
+          "symbol": "PyPDF2.PdfReader",
+          "bail": "legacy_version_unsupported",
+          "caused_by": null
+        }
+      ],
+      "seconds": 10.93
+    }
+  ]
+}

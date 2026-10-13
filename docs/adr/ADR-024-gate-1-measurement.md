@@ -75,11 +75,27 @@ pack file's sha256, which a rewrite-only parameter moves. The scorer is under
 the 100% branch gate; the collector clones repositories and is omitted from
 coverage in `pyproject.toml`.
 
+### D10. A dry run asks any pack's frame what the rules alone would write
+
+`bench/gate1_collect.py dryrun --pack <id>` runs `fix --model none` over a pack's frame, which
+`sample --pack <id> --term <t>` draws as D8 does; the Gemini frame keeps its place and every other
+pack's sits in `bench/gate1/<provider>__<change>/`. A record keeps the plan's file count, the run
+record's `blocked` and its withheld rows with their symbols, and from `findings.json` the number of
+rows the scanner calls a usage (`used`: not a manifest row, not a `not_a_usage`) and of manifest rows.
+The plan alone is not enough: with no manifest declaring openai it is empty, and so it is for a
+repository the pack never ran on. The scorer `bench/dryrun_score.py` renders the `dryrun` block of
+[BENCHMARK_RESULTS.md](../BENCHMARK_RESULTS.md), and `tests/unit/test_dryrun.py` recomputes it and
+binds each record to the shipped pack's `sha256`, since a pack edit moves a dry run. The command
+runs a whole frame and never a subset, so a retry cannot replace the other records. It has no
+answer key, so it counts what is written and not whether it is right.
+
 ## Consequences
 
 - Gate 1 is met, neither its `scan` fallback nor Phase 2's pre-registered
   narrowing fires, and the numbers are only in the generated block.
 - `bench/` is under `mypy --strict`, and its pure half under the branch gate.
 - A scanner change leaves the records describing an older scanner and no test
-  notices; re-running `bench/gate1_collect.py scan` is manual.
+  notices; re-running `bench/gate1_collect.py scan` is manual. A rule change that leaves a pack
+  file as it was does the same to the dry-run records, whose `obelize_version` says which tool
+  wrote them.
 - The one miss is open as `tests/fixtures/scan/COVERAGE.md` gap 20.
