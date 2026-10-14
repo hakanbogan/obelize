@@ -12,6 +12,14 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Changed
+
+- The message for a pack that plans nothing because of what a repository declares (the legacy
+  version gate, or a Python the new distribution does not install on) now says what the edit
+  leads to: in a git repository, commit it before `fix --apply`, which refuses uncommitted changes
+  unless you pass `--allow-dirty`. For a repository that declares the library nowhere, it names the
+  requirement to declare (`PyPDF2>=3`) and a manifest that will do (`requirements.txt`).
+
 ## [0.4.0] - 2026-10-12
 
 ### Benchmark

@@ -857,6 +857,15 @@ def _limitations_section(record: RunRecord, packs: Sequence[PackDocument]) -> li
 
 
 def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
+    """Why a pack plans nothing, what to change, and that in git the change is committed first."""
+    return (
+        f"{_stop(blocked, code)} To apply it in a git repository, commit that change first: "
+        f"{code('fix --apply')} refuses uncommitted changes unless you pass "
+        f"{code('--allow-dirty')}."
+    )
+
+
+def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
     needed, package = code(blocked.needed), code(blocked.package)
     if blocked.reason == "runtime_unsupported":
         path = code(blocked.path)
@@ -869,7 +878,8 @@ def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
         return (
             f"No manifest declares {package}, so the version in use is not known and this "
             f"migration reports its findings and plans no change. To migrate, declare "
-            f"{package} {needed} in a manifest obelize reads and run again."
+            f"{code(f'{blocked.package}{blocked.needed}')} in a manifest obelize reads, such as "
+            f"{code('requirements.txt')}, and run again."
         )
     path = code(blocked.path)
     if blocked.declared is None:

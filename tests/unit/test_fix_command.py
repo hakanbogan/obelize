@@ -894,7 +894,9 @@ def test_a_blocked_run_says_why_nothing_is_planned_and_how_to_unblock_it(
     lines = fix(tree, *extra).output.splitlines()
     assert lines[4].startswith("pyproject.toml declares Python >=3.9, which allows")
     assert lines[4].endswith(
-        "To migrate, raise the minimum in pyproject.toml to >=3.10 and run again."
+        "To migrate, raise the minimum in pyproject.toml to >=3.10 and run again. To apply it in "
+        "a git repository, commit that change first: fix --apply refuses uncommitted changes "
+        "unless you pass --allow-dirty."
     )
     assert lines[5:7] == ["", "No change planned."]
     assert lines[8] == "5 finding(s) left for you. Most common reasons: runtime_unsupported (5)."

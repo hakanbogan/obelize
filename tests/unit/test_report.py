@@ -171,6 +171,12 @@ def test_the_blocked_repository_says_so_before_anything_else(tmp_path: Path) -> 
     assert "## Blocked\n\n`pyproject.toml` declares Python `>=3.9`, which allows" in document
 
 
+APPLY = (
+    " To apply it in a git repository, commit that change first: fix --apply refuses uncommitted "
+    "changes unless you pass --allow-dirty."
+)
+
+
 @pytest.mark.parametrize(
     ("blocked", "says"),
     [
@@ -178,7 +184,7 @@ def test_the_blocked_repository_says_so_before_anything_else(tmp_path: Path) -> 
             runtime.Blocked("runtime_unsupported", "new-sdk", "pyproject.toml", ">=3.8", ">=3.10"),
             "pyproject.toml declares Python >=3.8, which allows versions new-sdk does not install "
             "on, so this migration reports its findings and plans no change. To migrate, raise the "
-            "minimum in pyproject.toml to >=3.10 and run again.",
+            "minimum in pyproject.toml to >=3.10 and run again." + APPLY,
         ),
         (
             runtime.Blocked(
@@ -186,25 +192,25 @@ def test_the_blocked_repository_says_so_before_anything_else(tmp_path: Path) -> 
             ),
             "requirements.txt declares old-sdk >=1, which allows versions this migration does "
             "not cover, so this migration reports its findings and plans no change. To migrate, "
-            "pin old-sdk to >=3 in requirements.txt and run again.",
+            "pin old-sdk to >=3 in requirements.txt and run again." + APPLY,
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "requirements.txt", "", ">=3"),
             "requirements.txt declares old-sdk with no version, which allows versions this "
             "migration does not cover, so this migration reports its findings and plans no "
-            "change. To migrate, pin old-sdk to >=3 in requirements.txt and run again.",
+            "change. To migrate, pin old-sdk to >=3 in requirements.txt and run again." + APPLY,
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "pyproject.toml", None, ">=3"),
             "pyproject.toml declares old-sdk in a form obelize cannot read, so this migration "
             "reports its findings and plans no change. To migrate, write it as a plain "
-            "requirement such as old-sdk>=3 in pyproject.toml and run again.",
+            "requirement such as old-sdk>=3 in pyproject.toml and run again." + APPLY,
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "", None, ">=3"),
             "No manifest declares old-sdk, so the version in use is not known and this "
-            "migration reports its findings and plans no change. To migrate, declare old-sdk "
-            ">=3 in a manifest obelize reads and run again.",
+            "migration reports its findings and plans no change. To migrate, declare old-sdk>=3 "
+            "in a manifest obelize reads, such as requirements.txt, and run again." + APPLY,
         ),
     ],
     ids=["python", "pinned-below", "unpinned", "unreadable", "undeclared"],
@@ -213,6 +219,15 @@ def test_a_blocked_run_names_the_declaration_and_what_would_unblock_it(
     blocked: runtime.Blocked, says: str
 ) -> None:
     assert report._blocked(blocked, report._bare) == says
+
+
+def test_the_report_puts_the_command_and_the_flag_of_a_blocked_run_in_code_spans() -> None:
+    blocked = runtime.Blocked("legacy_version_unsupported", "old-sdk", "", None, ">=3")
+    assert report._blocked(blocked, report._code).endswith(
+        "declare `old-sdk>=3` in a manifest obelize reads, such as `requirements.txt`, and run "
+        "again. To apply it in a git repository, commit that change first: `fix --apply` refuses "
+        "uncommitted changes unless you pass `--allow-dirty`."
+    )
 
 
 def test_the_report_carries_the_run_id_the_pack_and_the_selection(loud: Path) -> None:
