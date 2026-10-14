@@ -417,16 +417,20 @@ def _term(term: str) -> str | None:
 
 
 def _caret_or_tilde(text: str) -> str | None:
-    """Poetry's `^3.9` as `>=3.9,<4` (a Python major is never 0), `~3.9` as `>=3.9,<3.10`."""
+    """Poetry's `^1.2` as `>=1.2,<2`, `^0.27` as `>=0.27,<0.28`, `~3.9` as `>=3.9,<3.10`.
+
+    A caret ends at the first non-zero part (the last one when all are zero), a tilde at the minor.
+    """
     body = text[1:].strip()
     parts = body.split(".")
     if not body or not all(part.isdigit() for part in parts):
         return None
     numbers = [int(part) for part in parts]
-    if text[0] == "^" or len(numbers) == 1:
-        upper = f"{numbers[0] + 1}"
+    if text[0] == "^":
+        end = next((at for at, number in enumerate(numbers) if number), len(numbers) - 1)
     else:
-        upper = f"{numbers[0]}.{numbers[1] + 1}"
+        end = min(1, len(numbers) - 1)
+    upper = ".".join(str(number) for number in (*numbers[:end], numbers[end] + 1))
     return f">={body},<{upper}"
 
 

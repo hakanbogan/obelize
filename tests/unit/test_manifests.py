@@ -795,3 +795,30 @@ def test_a_declaration_carries_the_version_as_declared_in_every_layout(
     path: str, text: str, expected: list[str | None]
 ) -> None:
     assert specs(text, path) == expected
+
+
+@pytest.mark.parametrize(
+    ("declared", "upper"),
+    [
+        ("^1.2.3", "<2"),
+        ("^2.10", "<3"),
+        ("^3", "<4"),
+        ("^0.27", "<0.28"),
+        ("^0.27.3", "<0.28"),
+        ("^0.0.3", "<0.0.4"),
+        ("^0.0", "<0.1"),
+        ("^0.0.0", "<0.0.1"),
+        ("^0", "<1"),
+        ("~3.9.1", "<3.10"),
+        ("~3.9", "<3.10"),
+        ("~3", "<4"),
+        ("~0.27", "<0.28"),
+    ],
+)
+def test_poetry_ends_a_caret_at_the_first_non_zero_part_and_a_tilde_at_the_minor(
+    declared: str, upper: str
+) -> None:
+    found = manifests.alternatives(declared)
+    assert found is not None
+    (only,) = found
+    assert {str(part) for part in only} == {f">={declared[1:]}", upper}

@@ -20,6 +20,12 @@ in the release that makes it.
   unless you pass `--allow-dirty`. For a repository that declares the library nowhere, it names the
   requirement to declare (`PyPDF2>=3`) and a manifest that will do (`requirements.txt`).
 
+### Fixed
+
+- A Poetry caret on a `0.x` version is read as Poetry reads it: `^0.27` stops below `0.28` and
+  `^0.0.3` below `0.0.4`, not below `1` and `0.1`. Nothing in a run changes yet, since only the
+  floor of a declaration is read today.
+
 ## [0.4.0] - 2026-10-12
 
 ### Benchmark
