@@ -822,3 +822,30 @@ def test_poetry_ends_a_caret_at_the_first_non_zero_part_and_a_tilde_at_the_minor
     assert found is not None
     (only,) = found
     assert {str(part) for part in only} == {f">={declared[1:]}", upper}
+
+
+@pytest.mark.parametrize(
+    ("requirement", "pinned"),
+    [
+        ('["acme-sdk"]', True),
+        ('("acme-sdk")', True),
+        ('["acme-sdk"] + EXTRA', True),
+        ('{"x": ["acme-sdk"]}', True),
+        ('{"x": "acme-sdk"}', True),
+        ('"acme-sdk" if PY3 else "acme-sdk<2"', True),
+        ('["acme-sdk" + VERSION]', False),
+        ('["acme-sdk" ">=1"]', False),
+        ('["acme-sdk>=1".format()]', False),
+        ('[str("acme-sdk")]', False),
+        ('["acme-sdk>=1"[:8]]', False),
+        ('["acme-sdk"][0:1]', True),
+        ('read("acme-sdk")', False),
+    ],
+)
+def test_a_setup_py_requirement_built_around_the_literal_names_the_row_without_a_pin(
+    requirement: str, pinned: bool
+) -> None:
+    data = f"setup(install_requires={requirement})\n".encode()
+    found = [row for row in manifests.declarations("setup.py", data) if row.name == "acme-sdk"]
+    assert found
+    assert all((row.pin is not None) == pinned for row in found), requirement

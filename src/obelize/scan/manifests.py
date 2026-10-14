@@ -14,7 +14,7 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Final, Literal
 
 import libcst as cst
-from libcst.metadata import MetadataWrapper, PositionProvider
+from libcst.metadata import MetadataWrapper, ParentNodeProvider, PositionProvider
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
@@ -34,7 +34,7 @@ from obelize.models import (
 from obelize.scan import parse
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from collections.abc import Iterable, Iterator, Sequence
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
 
 # Every bail raised here, unranked: no two can fire on the same row.
@@ -668,11 +668,11 @@ class _Requirements(cst.CSTVisitor):
         self._keys = 0
 
     def visit_Arg(self, node: cst.Arg) -> None:
-        if self._wanted(node):
+        if self.wanted(node):
             self._depth += 1
 
     def leave_Arg(self, node: cst.Arg) -> None:
-        if self._wanted(node):
+        if self.wanted(node):
             self._depth -= 1
 
     def visit_DictElement_key(self, node: cst.DictElement) -> None:
@@ -686,8 +686,29 @@ class _Requirements(cst.CSTVisitor):
             self.strings.append(node)
 
     @staticmethod
-    def _wanted(node: cst.Arg) -> bool:
+    def wanted(node: cst.Arg) -> bool:
         return node.keyword is not None and node.keyword.value in SETUP_KEYWORDS
+
+
+_BUILT: Final = (
+    cst.BinaryOperation,
+    cst.ConcatenatedString,
+    cst.Call,
+    cst.Subscript,
+    cst.FormattedString,
+)
+_CONTAINERS: Final = (cst.List, cst.Tuple, cst.Set, cst.DictElement)
+
+
+def _whole(node: cst.CSTNode, parents: Mapping[cst.CSTNode, cst.CSTNode]) -> bool:
+    """Whether the literal is a requirement by itself, not built around by an operator, a call, a
+    subscript or a string concatenation (`"PyPDF2" + V`, `"PyPDF2" ">=3"`)."""
+    while not isinstance(node := parents[node], _CONTAINERS):
+        if isinstance(node, _BUILT):
+            return False
+        if isinstance(node, cst.Arg) and _Requirements.wanted(node):
+            break
+    return True
 
 
 def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
@@ -701,6 +722,7 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
     try:
         positions = wrapper.resolve(PositionProvider)
         module.visit(collector)
+        parents = wrapper.resolve(ParentNodeProvider) if collector.strings else {}
     except (RecursionError, MemoryError):  # parsed, but too deep to walk: declares nothing
         return
     lines = data.decode("utf-8", "surrogateescape").split("\n")
@@ -714,11 +736,12 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
             continue
         # Spans are source columns only when the literal's bytes are its value (an escape, and a
         # multi-line literal is an escaped newline, breaks that) and libcst's line is the edit's:
-        # it breaks a line at a lone CR and drops a BOM. The row stays; the pin goes.
+        # it breaks a line at a lone CR and drops a BOM. The row stays; the pin goes, and also when
+        # other code builds the requirement around the literal.
         line = "".join(lines[at.line - 1 : at.line])
         opening = node.prefix + node.quote + node.raw_value.split("\n")[0]
         faithful = node.raw_value == text and line.startswith(opening, at.column)
-        yield declaration if faithful else replace(declaration, pin=None)
+        yield declaration if faithful and _whole(node, parents) else replace(declaration, pin=None)
 
 
 __all__ = [

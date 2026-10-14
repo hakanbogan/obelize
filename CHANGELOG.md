@@ -25,6 +25,9 @@ in the release that makes it.
 - A Poetry caret on a `0.x` version is read as Poetry reads it: `^0.27` stops below `0.28` and
   `^0.0.3` below `0.0.4`, not below `1` and `0.1`. Nothing in a run changes yet, since only the
   floor of a declaration is read today.
+- A `setup.py` requirement that code builds around its string (`"PyPDF2" + VERSION`,
+  `"PyPDF2" ">=3"`, `"PyPDF2=={}".format(v)`, a subscript) is named without a pin, so `fix` no
+  longer rewrites the literal into `"pypdf>=6.19" + VERSION`; the row needs review.
 
 ## [0.4.0] - 2026-10-12
 
