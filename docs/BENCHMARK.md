@@ -70,13 +70,15 @@ path in it.
 | `llm_cost_usd` | Cost, if a model was used. |
 
 Provenance: `obelize_version`, `obelize_commit` and `obelize_tree_dirty` (read once when the round
-starts; round 1's records have no `obelize_tree_dirty`), `pack`, `pack_sha256`,
+starts), `pack`, `pack_sha256`,
 `spec_sha256` (the `ScanSpec` a scan reads),
 `python`, `python_executable` (harness paths shown as `<case>`, `<logs>`,
 `<work>`, `<repo>` or `<harness-python>`), `python_build` (its `sys.version`,
 which tells two machines' resolutions of one key apart),
-`machine`, `os`, `sdk_from` and `sdk_to` (versions observed in the venv), and
-`run_at`.
+`machine`, `os`, `sdk_from` and `sdk_to` (versions observed in the venv), `uv_version`,
+`exclude_newer` (the cutoff every install resolved as of), `packages_sha256` (the installed set
+after step 7, with the checkout's own path elided) and `run_at`. Round 1's records lack
+`obelize_tree_dirty`, `uv_version`, `exclude_newer` and `packages_sha256`.
 
 ## Version pinning is mandatory
 
@@ -169,7 +171,9 @@ module; and a manifest that disagrees with the code (the code is the evidence).
 environments and is not run on Windows. It runs each repository's own install commands and test suite
 with no sandbox and the network available, so run it only on a machine or VM that holds no
 credentials. A round starts only on a committed tree (`bench/results/` aside) whose checkout is where
-`obelize` is imported from, so each record names the code that ran. Per case:
+`obelize` is imported from, so each record names the code that ran. Every install resolves as of the
+round's start (`UV_EXCLUDE_NEWER`, recorded as `exclude_newer`), and `--exclude-newer <UTC time>`
+runs a round as of an earlier one. Per case:
 
 1. Shallow-fetch the repository at the pinned SHA into `<work>/<round>/<id>/`,
    under the system temporary directory. A `pyproject.toml`, `pytest.ini`,
@@ -186,7 +190,8 @@ credentials. A round starts only on a committed tree (`bench/results/` aside) wh
    then compile every `.py` file it wrote with the case's interpreter.
 7. Install `google-genai==<to_version>` and assert the installed version equals
    it. The legacy distribution from step 4 stays installed beside it, so a file the migration
-   missed still imports and the after-run can pass over it.
+   missed still imports and the after-run can pass over it. `uv pip freeze` then lists what is
+   installed: the list is that step's log, and its sha256 is `packages_sha256`.
 8. Run the tests again.
 9. Compare the findings in `findings.json` against the ground truth, and the
    applied edits in `plan.json` and `run.json` against the rows it names.

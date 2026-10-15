@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import platform
@@ -55,6 +56,9 @@ INSTALL_TIMEOUT_S = 900
 FIX_TIMEOUT_S = 900
 COMPILE_TIMEOUT_S = 120
 TEST_TIMEOUT_S = 600
+
+# The UTC form of `--exclude-newer` and of `run_at`.
+TIMESTAMP = "%Y-%m-%dT%H:%M:%SZ"
 
 # Characters kept per output stream; logs stay under `WORK` and are never committed.
 OUTPUT_CAP = 200_000
@@ -136,14 +140,16 @@ Execute = Callable[[Sequence[str], Path, Mapping[str, str], int], Completed]
 
 
 class Instrument(NamedTuple):
-    """The code a round runs, read once at its start: `HEAD` and the tree move during a long round.
+    """What a round runs on, read once at its start: `HEAD` and the tree move during a long round.
 
     `dirty` is whether anything but `bench/results/` differs from `commit`; both are `None` outside
-    a git checkout.
+    a git checkout. Every install resolves as of `exclude_newer`, a UTC timestamp.
     """
 
     commit: str | None
     dirty: bool | None
+    uv_version: str | None = None
+    exclude_newer: str | None = None
 
 
 UNREAD = Instrument(None, None)
@@ -235,13 +241,17 @@ def offline(inner: Execute) -> Execute:
     return execute
 
 
-def case_environ(environ: Mapping[str, str]) -> dict[str, str]:
-    """`PASSED_ENVIRONMENT` from `environ`, and a `HOME` under `WORK` that holds nothing of ours."""
+def case_environ(environ: Mapping[str, str], exclude_newer: str | None) -> dict[str, str]:
+    """`PASSED_ENVIRONMENT` from `environ`, and a `HOME` under `WORK` that holds nothing of ours.
+
+    `uv` reads `exclude_newer` from `UV_EXCLUDE_NEWER`, which reaches every install a case runs.
+    """
     home = WORK / "home"
     home.mkdir(parents=True, exist_ok=True)
-    return {name: environ[name] for name in PASSED_ENVIRONMENT if name in environ} | {
-        "HOME": str(home)
-    }
+    own = {"HOME": str(home)}
+    if exclude_newer is not None:
+        own["UV_EXCLUDE_NEWER"] = exclude_newer
+    return {name: environ[name] for name in PASSED_ENVIRONMENT if name in environ} | own
 
 
 def corpus() -> list[Case]:
@@ -319,6 +329,11 @@ def venv_argv(venv: Path, python: str) -> tuple[str, ...]:
 
 def pin_argv(venv_python: Path, distribution: str, version: str) -> tuple[str, ...]:
     return ("uv", "pip", "install", "--python", str(venv_python), f"{distribution}=={version}")
+
+
+def freeze_argv(venv_python: Path) -> tuple[str, ...]:
+    """Every installed distribution, sorted; quiet, since uv names the venv's path on stderr."""
+    return ("uv", "pip", "freeze", "--quiet", "--exclude-editable", "--python", str(venv_python))
 
 
 def probe_argv(venv_python: Path, distribution: str) -> tuple[str, ...]:
@@ -681,7 +696,8 @@ def run_case(
     shutil.rmtree(checkout, ignore_errors=True)
     logs = checkout.parent / f"{case.id}.logs"
     shutil.rmtree(logs, ignore_errors=True)
-    session = Session(case, execute, checkout, logs, case_environ(os.environ))
+    environ = case_environ(os.environ, instrument.exclude_newer)
+    session = Session(case, execute, checkout, logs, environ)
 
     interpreter = Path(sys.executable)
     build: str | None = HARNESS_BUILD
@@ -691,7 +707,7 @@ def run_case(
     plan: dict[str, Any] = {}
     run: dict[str, Any] = {}
     compiles: bool | None = None
-    observed: dict[str, str | None] = {"sdk_from": None, "sdk_to": None}
+    observed: dict[str, str | None] = {"sdk_from": None, "sdk_to": None, "packages_sha256": None}
     junit = logs / "junit"
     runtime = 0.0
 
@@ -711,6 +727,7 @@ def run_case(
             observed["sdk_to"] = _install_pin(
                 session, 7, "install-to", interpreter, TO_DISTRIBUTION, case.to_version
             )
+            observed["packages_sha256"] = _freeze(session, interpreter)
         after = _phase(session, 8, "after", case, junit, interpreter)
     except StepError:
         pass
@@ -844,6 +861,20 @@ def _install_pin(
     return seen
 
 
+def _freeze(session: Session, interpreter: Path) -> str | None:
+    """The sha256 of what is installed once step 7 is done; the list is the step's log.
+
+    A package installed from the checkout names it by path, which `elide` takes out.
+    """
+    completed = session.do(
+        7, "freeze", freeze_argv(interpreter), timeout_s=VENV_TIMEOUT_S, reason=None
+    )
+    if completed.exit_code != 0:
+        return None
+    listed = elide((completed.output,), session.checkout, session.logs)[0]
+    return hashlib.sha256(listed.encode()).hexdigest()
+
+
 def _phase(
     session: Session, number: int, name: str, case: Case, junit: Path, interpreter: Path
 ) -> Completed | None:
@@ -940,14 +971,24 @@ def provenance(
         "os": platform.system(),
         "sdk_from": observed.get("sdk_from"),
         "sdk_to": observed.get("sdk_to"),
-        "run_at": dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "packages_sha256": observed.get("packages_sha256"),
+        "uv_version": instrument.uv_version,
+        "exclude_newer": instrument.exclude_newer,
+        "run_at": _now(),
     }
 
 
-def read_instrument() -> Instrument:
-    """`HEAD` and whether the tree differs from it, results aside, of this checkout."""
+def _now() -> str:
+    return dt.datetime.now(dt.UTC).strftime(TIMESTAMP)
+
+
+def read_instrument(exclude_newer: str | None = None) -> Instrument:
+    """The instrument of this checkout, `HEAD` and the tree (results aside) and `uv` included."""
     status = _git("status", "--porcelain", "--", ".", ":!bench/results")
-    return Instrument(_git("rev-parse", "HEAD"), None if status is None else bool(status))
+    uv = observed_version(shell(("uv", "--version"), ROOT, os.environ, VENV_TIMEOUT_S))
+    return Instrument(
+        _git("rev-parse", "HEAD"), None if status is None else bool(status), uv, exclude_newer
+    )
 
 
 def _git(*arguments: str) -> str | None:
@@ -1021,8 +1062,8 @@ def fixtures_pass(execute: Execute) -> int:
     return 1 if failures else 0
 
 
-def round_pass(only: str | None) -> int:
-    instrument = read_instrument()
+def round_pass(only: str | None, exclude_newer: str | None = None) -> int:
+    instrument = read_instrument(exclude_newer or _now())
     reason = refusal(instrument)
     if reason is not None:
         print(f"no round: {reason}", flush=True)
@@ -1043,6 +1084,16 @@ def round_pass(only: str | None) -> int:
     return 0
 
 
+def _timestamp(text: str) -> str:
+    try:
+        dt.datetime.strptime(text, TIMESTAMP)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not a UTC time like 2026-10-15T09:00:00Z"
+        ) from None
+    return text
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the benchmark protocol.")
     parser.add_argument(
@@ -1051,13 +1102,18 @@ def main(argv: list[str] | None = None) -> int:
         help="run the offline fixtures and compare them against their expected results",
     )
     parser.add_argument("--case", help="run one case of the round by id")
+    parser.add_argument(
+        "--exclude-newer",
+        type=_timestamp,
+        help="resolve every install as of this UTC time (default: now), as an earlier round did",
+    )
     arguments = parser.parse_args(argv)
     if arguments.fixtures_only:
         if arguments.case is not None:
             print("--case and --fixtures-only are different runs", flush=True)
             return 2
         return fixtures_pass(offline(shell))
-    return round_pass(arguments.case)
+    return round_pass(arguments.case, arguments.exclude_newer)
 
 
 if __name__ == "__main__":  # pragma: no cover - the module is imported by its test

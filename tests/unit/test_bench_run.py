@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -300,11 +301,15 @@ def test_a_case_inherits_what_is_listed_and_a_home_that_is_not_ours(
     monkeypatch.setattr(run, "WORK", tmp_path / "work")
     given = {name: name.lower() for name in run.PASSED_ENVIRONMENT}
     given |= {"GH_TOKEN": "planted", "AWS_SECRET_ACCESS_KEY": "planted", "HOME": "/real"}
-    got = run.case_environ(given)
+    got = run.case_environ(given, None)
     assert got == {**{name: name.lower() for name in run.PASSED_ENVIRONMENT}, "HOME": got["HOME"]}
     assert Path(got["HOME"]) == tmp_path / "work" / "home"
     assert Path(got["HOME"]).is_dir()
-    assert run.case_environ({}) == {"HOME": got["HOME"]}
+    assert run.case_environ({}, None) == {"HOME": got["HOME"]}
+    assert run.case_environ({}, "2026-10-15T09:00:00Z") == {
+        "HOME": got["HOME"],
+        "UV_EXCLUDE_NEWER": "2026-10-15T09:00:00Z",
+    }
 
 
 def test_a_secret_in_the_harness_environment_reaches_no_step_of_a_case(
@@ -329,7 +334,9 @@ def test_a_real_command_of_a_case_sees_no_secret_and_not_the_real_home(
     monkeypatch.setattr(run, "WORK", tmp_path / "work")
     monkeypatch.setenv("GH_TOKEN", "planted")
     program = "import os;print(os.environ.get('GH_TOKEN'), os.environ['HOME'])"
-    said = run.shell([sys.executable, "-c", program], tmp_path, run.case_environ(os.environ), 60)
+    said = run.shell(
+        [sys.executable, "-c", program], tmp_path, run.case_environ(os.environ, None), 60
+    )
     assert said.output.split() == ["None", str(tmp_path / "work" / "home")]
 
 
@@ -1069,6 +1076,7 @@ STEPS = [
     "compile",
     "install-to",
     "install-to-check",
+    "freeze",
     "after",
 ]
 
@@ -1093,6 +1101,7 @@ def test_the_protocol_runs_its_steps_in_the_order_the_document_gives_them(
         5,
         6,
         6,
+        7,
         7,
         7,
         8,
@@ -1467,7 +1476,7 @@ COMMITTED = run.Instrument("c" * 40, False)
 def test_a_round_writes_one_result_file_per_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="only")])
     monkeypatch.setattr(
@@ -1480,7 +1489,7 @@ def test_a_round_writes_one_result_file_per_case(
 
 
 def test_a_round_can_be_asked_for_one_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a"), corpus_case(id="b")])
     monkeypatch.setattr(run, "run_case", lambda subject, **_: {"case": subject.id, "tier": "error"})
@@ -1492,7 +1501,7 @@ def test_a_round_can_be_asked_for_one_case(tmp_path: Path, monkeypatch: pytest.M
 def test_a_case_nobody_defined_is_a_failure_and_not_an_empty_round(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a")])
     assert run.round_pass("nope") == 1
@@ -1526,14 +1535,22 @@ def test_the_two_modes_are_two_runs_and_not_one(capsys: pytest.CaptureFixture[st
 def test_with_no_flags_the_round_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     asked: list[Any] = []
 
-    def remember(only: Any) -> int:
-        asked.append(only)
+    def remember(only: Any, cutoff: Any) -> int:
+        asked.append((only, cutoff))
         return 0
 
     monkeypatch.setattr(run, "round_pass", remember)
     assert run.main([]) == 0
-    assert run.main(["--case", "x"]) == 0
-    assert asked == [None, "x"]
+    assert run.main(["--case", "x", "--exclude-newer", "2026-10-15T09:00:00Z"]) == 0
+    assert asked == [(None, None), ("x", "2026-10-15T09:00:00Z")]
+
+
+def test_a_cutoff_that_is_not_a_utc_time_is_refused_before_a_round_starts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit):
+        run.main(["--exclude-newer", "yesterday"])
+    assert "not a UTC time" in capsys.readouterr().err
 
 
 def git(where: Path, *arguments: str) -> None:
@@ -1555,6 +1572,7 @@ def test_outside_a_checkout_the_commit_and_the_tree_are_unknown_and_not_fatal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(run, "ROOT", tmp_path)
+    monkeypatch.setattr(run, "shell", lambda *_: completed(code=127, out="no uv"))
     assert run.read_instrument() == run.UNREAD
 
 
@@ -1603,7 +1621,7 @@ def test_a_round_that_would_run_another_checkouts_obelize_is_refused(
 def test_a_refused_round_runs_and_writes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(run, "read_instrument", lambda: run.Instrument("c" * 40, True))
+    monkeypatch.setattr(run, "read_instrument", lambda _: run.Instrument("c" * 40, True))
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "run_case", lambda *_, **__: pytest.fail("a case ran"))
     assert run.round_pass(None) == 1
@@ -1615,7 +1633,7 @@ def test_every_case_of_a_round_gets_the_instrument_read_at_its_start(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     given: list[run.Instrument] = []
-    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a"), corpus_case(id="b")])
 
@@ -1626,6 +1644,99 @@ def test_every_case_of_a_round_gets_the_instrument_read_at_its_start(
     monkeypatch.setattr(run, "run_case", remember)
     assert run.round_pass(None) == 0
     assert given == [COMMITTED, COMMITTED]
+
+
+def test_the_instrument_names_the_uv_that_will_install_and_the_cutoff_it_was_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(run, "shell", lambda *_: completed(out="uv 1.2.3 (abc 2026-10-01)\n"))
+    instrument = run.read_instrument("2026-10-15T09:00:00Z")
+    assert instrument.uv_version == "uv 1.2.3 (abc 2026-10-01)"
+    assert instrument.exclude_newer == "2026-10-15T09:00:00Z"
+
+
+def test_a_round_resolves_as_of_the_cutoff_it_was_given_or_else_as_of_now(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[str | None] = []
+
+    def read(cutoff: str | None) -> run.Instrument:
+        asked.append(cutoff)
+        return COMMITTED
+
+    monkeypatch.setattr(run, "read_instrument", read)
+    monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
+    monkeypatch.setattr(run, "corpus", lambda: [])
+    run.round_pass(None, "2026-10-15T09:00:00Z")
+    run.round_pass(None)
+    assert asked[0] == "2026-10-15T09:00:00Z"
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", str(asked[1]))
+
+
+def test_every_step_of_a_case_resolves_as_of_the_cutoff_and_a_case_run_alone_has_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    instrument = run.Instrument("c" * 40, False, "uv 1.2.3", "2026-10-15T09:00:00Z")
+    fake = Fake(a_whole_run())
+    record = run.run_case(corpus_case(), execute=fake, fixtures_only=False, instrument=instrument)
+    assert {env["UV_EXCLUDE_NEWER"] for env in fake.envs} == {"2026-10-15T09:00:00Z"}
+    assert record["provenance"]["uv_version"] == "uv 1.2.3"
+    assert record["provenance"]["exclude_newer"] == "2026-10-15T09:00:00Z"
+    alone = Fake(a_whole_run())
+    record = run.run_case(corpus_case(), execute=alone, fixtures_only=False)
+    assert all("UV_EXCLUDE_NEWER" not in env for env in alone.envs)
+    assert record["provenance"]["uv_version"] is None
+    assert record["provenance"]["exclude_newer"] is None
+
+
+def test_the_listing_of_what_is_installed_is_quiet_sorted_and_leaves_the_checkout_out(
+    tmp_path: Path,
+) -> None:
+    built = run.freeze_argv(tmp_path / "python")
+    assert built[:4] == ("uv", "pip", "freeze", "--quiet")
+    assert "--exclude-editable" in built
+    assert built[-2:] == ("--python", str(tmp_path / "python"))
+
+
+LISTING = "google-genai==2.24.0\ngoogle-generativeai==0.8.6\n"
+
+
+def test_what_is_installed_once_the_new_sdk_is_in_is_hashed_and_listed_in_the_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    rules = a_whole_run(extra=[("pip freeze", says(0, LISTING))])
+    record = run.run_case(corpus_case(), execute=Fake(rules), fixtures_only=False)
+    assert record["provenance"]["packages_sha256"] == hashlib.sha256(LISTING.encode()).hexdigest()
+    names = [step["name"] for step in record["steps"]]
+    assert names.index("install-to-check") < names.index("freeze") < names.index("after")
+    logs = tmp_path / "work" / f"round-{cases.load().cases['round']}" / "owner__repo.logs"
+    assert LISTING in next(logs.glob("*-freeze.log")).read_text()
+
+
+def test_a_package_installed_from_the_checkout_hashes_the_same_wherever_the_work_root_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = set()
+    for name in ("one", "two"):
+        work = tmp_path / name
+        monkeypatch.setattr(run, "WORK", work)
+        listing = f"app @ file://{work}/round-1/owner__repo\nsix==1.17.0\n"
+        rules = a_whole_run(extra=[("pip freeze", says(0, listing))])
+        record = run.run_case(corpus_case(), execute=Fake(rules), fixtures_only=False)
+        seen.add(record["provenance"]["packages_sha256"])
+    assert len(seen) == 1
+
+
+def test_a_listing_that_failed_is_no_hash_and_not_an_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    rules = a_whole_run(extra=[("pip freeze", says(1, "boom"))])
+    record = run.run_case(corpus_case(), execute=Fake(rules), fixtures_only=False)
+    assert record["error"] is None
+    assert record["provenance"]["packages_sha256"] is None
 
 
 def test_a_record_names_the_commit_and_tree_its_round_started_on(
