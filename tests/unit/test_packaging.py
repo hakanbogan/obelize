@@ -58,6 +58,13 @@ def test_ruff_runs_from_the_lock_and_no_hook_repository_pins_it() -> None:
     assert entries["ruff-format"].startswith("uv run --frozen ruff format ")
 
 
+def test_every_hook_repository_is_held_to_a_commit_and_names_its_tag() -> None:
+    """A tag can be moved, and the green run of ci.yml, hooks included, is what a release needs."""
+    revs = re.findall(r"^\s+rev: (.*)$", HOOKS.read_text(encoding="utf-8"), re.MULTILINE)
+    assert revs
+    assert all(re.fullmatch(r"[0-9a-f]{40}  # frozen: v\d+(\.\d+)*", rev) for rev in revs)
+
+
 def test_dependabot_moves_the_hook_repositories_that_remain() -> None:
     assert [repo["repo"] for repo in _hook_repositories() if repo["repo"] != "local"]
     updates = yaml.safe_load((REPO_ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
