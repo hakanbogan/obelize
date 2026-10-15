@@ -1,4 +1,4 @@
-"""The YAML reader behind `.obelize.yml` and `pack.yaml`: duplicate keys and safe loading."""
+"""The YAML reader behind `.obelize.yml` and `pack.yaml`: keys, merges, sets, safe loading."""
 
 from __future__ import annotations
 
@@ -61,3 +61,41 @@ def test_a_parse_failure_with_no_position_is_reported_as_having_none() -> None:
     with pytest.raises(yaml.YAMLError) as excinfo:
         _yaml.parse("a: \x01\n")
     assert _yaml.where(excinfo.value) is None
+
+
+def test_a_merge_key_is_flattened_as_plain_yaml_does() -> None:
+    assert _yaml.parse("base: &b {a: 1}\nx:\n  <<: *b\n  c: 2\n") == {
+        "base": {"a": 1},
+        "x": {"a": 1, "c": 2},
+    }
+
+
+def test_an_explicit_key_overriding_a_merged_one_is_no_duplicate() -> None:
+    """The merge is legal YAML for exactly this."""
+    assert _yaml.parse("base: &b {a: 1}\nx:\n  <<: *b\n  a: 9\n")["x"] == {"a": 9}
+
+
+def test_a_duplicate_beside_a_merge_key_is_still_caught() -> None:
+    with pytest.raises(_yaml.DuplicateKeyError) as excinfo:
+        _yaml.parse("base: &b {a: 1}\nx:\n  <<: *b\n  c: 1\n  c: 2\n")
+    assert (excinfo.value.key, excinfo.value.line) == ("c", 5)
+
+
+def test_two_spellings_of_one_string_key_are_a_duplicate() -> None:
+    """Compared as the strings they construct to, so quotes and an explicit tag change nothing."""
+    with pytest.raises(_yaml.DuplicateKeyError, match="duplicate key 'a'"):
+        _yaml.parse("a: 1\n'a': 2\n")
+    with pytest.raises(_yaml.DuplicateKeyError, match="duplicate key '1'"):
+        _yaml.parse("'1': 1\n!!str 1: 2\n")
+
+
+def test_a_key_that_is_a_collection_is_left_to_the_constructor() -> None:
+    with pytest.raises(yaml.YAMLError, match="unhashable"):
+        _yaml.parse("? [a, b]\n: 1\n")
+
+
+def test_a_set_is_refused_because_it_has_no_order() -> None:
+    """Read as a Python set it would reach the model in hash order, which changes per process."""
+    with pytest.raises(yaml.YAMLError, match="a set has no order; write a list") as excinfo:
+        _yaml.parse("exclude: !!set {b, a}\n")
+    assert _yaml.where(excinfo.value) == (1, 10, "a set has no order; write a list")

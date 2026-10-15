@@ -401,12 +401,13 @@ def test_an_anchor_on_a_value_is_ordinary_yaml_and_works(tmp_path: Path) -> None
     assert loaded.config.exclude == ("pytest -q",)
 
 
-def test_a_merge_key_is_refused_and_was_never_usable_anyway(tmp_path: Path) -> None:
-    """The key that would hold the anchor is itself unknown under `extra="forbid"`."""
+def test_a_merge_key_is_read_and_its_anchor_needs_a_known_key_to_sit_under(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "verify:\n  <<: {timeout_s: 30, junit: true}\n  junit: false\n")
+    verify = load(tmp_path).config.verify
+    assert (verify.timeout_s, verify.junit) == (30, False)
     _write(tmp_path, "_base: &b {timeout_s: 30}\nverify:\n  <<: *b\n")
-    with pytest.raises(ConfigError, match="constructor for the tag"):
-        load(tmp_path)
-    _write(tmp_path, "_base: {timeout_s: 30}\n")
     with pytest.raises(ConfigError, match="unknown key '_base'"):
         load(tmp_path)
 

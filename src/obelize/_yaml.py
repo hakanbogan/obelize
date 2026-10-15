@@ -1,14 +1,17 @@
 """YAML reading for `.obelize.yml` and `pack.yaml`, neither of which obelize writes.
 
 `SafeLoader` only, so a file cannot construct Python objects, and a duplicate key is an error
-instead of the last one silently winning. Errors carry a line but no file name; the caller adds it.
+instead of the last one silently winning. A set is refused: it has no order. Errors carry a line but
+no file name; the caller adds it.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 import yaml
+
+_STR = "tag:yaml.org,2002:str"
 
 
 class DuplicateKeyError(ValueError):
@@ -22,18 +25,30 @@ class DuplicateKeyError(ValueError):
 
 
 class _Loader(yaml.SafeLoader):
-    """`yaml.SafeLoader`, minus the rule that the last duplicate key wins."""
+    """`yaml.SafeLoader`, minus the rule that the last duplicate key wins, and without sets."""
 
-    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
-        seen: list[str] = []
+    def compose_mapping_node(self, anchor: Any) -> yaml.MappingNode:
+        # Composed, not constructed, so a `<<` merge is still flattened and an explicit key that
+        # overrides a merged one is no duplicate. Non-string keys are left to the model, which
+        # reports them as unknown.
+        node = super().compose_mapping_node(anchor)
+        seen: set[str] = set()
         for key_node, _ in node.value:
-            key = self.construct_object(key_node, deep=deep)
-            # Non-string keys are left to the model, which reports them as unknown.
-            if isinstance(key, str):
-                if key in seen:
-                    raise DuplicateKeyError(key, key_node.start_mark.line + 1)
-                seen.append(key)
-        return super().construct_mapping(node, deep)
+            if isinstance(key_node, yaml.ScalarNode) and key_node.tag == _STR:
+                if key_node.value in seen:
+                    raise DuplicateKeyError(key_node.value, key_node.start_mark.line + 1)
+                seen.add(key_node.value)
+        return node
+
+
+def _set(loader: yaml.SafeLoader, node: yaml.Node) -> NoReturn:
+    # Pydantic would read it in hash order, which changes between runs.
+    raise yaml.constructor.ConstructorError(
+        None, None, "a set has no order; write a list", node.start_mark
+    )
+
+
+_Loader.add_constructor("tag:yaml.org,2002:set", _set)
 
 
 def parse(text: str) -> Any:
