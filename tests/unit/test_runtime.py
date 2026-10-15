@@ -477,8 +477,10 @@ def test_a_legacy_pin_at_or_above_the_floor_blocks_nothing(pinned: str) -> None:
     assert runtime.legacy(_pins(("requirements.txt", pinned)), OLD, used=True) is None
 
 
-@pytest.mark.parametrize("pinned", ["", "*", "<3", ">=1", "==1.9", "!=2.0", "^1.0", None])
-def test_a_legacy_pin_that_admits_a_version_below_the_floor_blocks_the_run(
+@pytest.mark.parametrize(
+    "pinned", ["", "*", "<3", ">=1", "==1.9", "!=2.0", "^1.0", "==2.4.1+corp", None]
+)
+def test_a_legacy_pin_that_admits_a_version_below_the_floor_or_is_a_local_build_blocks_the_run(
     pinned: str | None,
 ) -> None:
     found = runtime.legacy(_pins(("requirements.txt", pinned)), OLD, used=True)

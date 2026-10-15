@@ -496,12 +496,15 @@ def _caret_or_tilde(text: str) -> str | None:
 
 
 def lowest(declared: str | None) -> Version | None:
-    """The lowest version `declared` admits, or `None` when it names no floor or cannot be read."""
+    """The lowest version `declared` admits, or `None` when it names no floor, cannot be read, or
+    names a local build (`==3.0.1+corp`): that is not the release the floor was measured on."""
     found = None if declared is None else alternatives(declared)
     if found is None:
         return None
     floors = [bounds(part)[0] for part in found]
-    return None if None in floors else min(floor for floor in floors if floor is not None)
+    if None in floors or any(floor is not None and floor.local for floor in floors):
+        return None
+    return min(floor for floor in floors if floor is not None)
 
 
 def _declare(path: str, line: int, column: int, text: str) -> Declaration | None:

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from acme import SPEC
 from libcst.metadata import MetadataWrapper, ScopeProvider
+from packaging.version import Version
 
 from obelize.impact import planner
 from obelize.models import Config, ImpactPlan, ManifestPlan, ProvidedModule
@@ -1301,6 +1302,26 @@ def test_poetry_ends_a_caret_at_the_first_non_zero_part_and_a_tilde_at_the_minor
     assert found is not None
     (only,) = found
     assert {str(part) for part in only} == {f">={declared[1:]}", upper}
+
+
+@pytest.mark.parametrize(
+    ("declared", "floor"),
+    [
+        (">=1.2", "1.2"),
+        ("==1.2.3", "1.2.3"),
+        ("^1.2 || ^2.0", "1.2"),
+        ("<3", None),
+        ("^1 || <3", None),
+        ("not a version", None),
+        ("==1.2.3+corp", None),
+        ("===1.2.3+corp", None),
+        (">=1 || ==2.0+corp", None),
+    ],
+)
+def test_a_local_build_names_no_floor_since_it_is_not_the_release_a_floor_is_measured_on(
+    declared: str, floor: str | None
+) -> None:
+    assert manifests.lowest(declared) == (None if floor is None else Version(floor))
 
 
 @pytest.mark.parametrize(

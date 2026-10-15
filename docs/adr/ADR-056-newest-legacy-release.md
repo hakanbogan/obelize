@@ -121,6 +121,7 @@ checks, so a second pack cannot name one without a check.
   repository, a `pip.conf` in the home directory, a release another package requires, a submodule's
   files, a gitignored file the last check does not look for, a Python declared only in a `Pipfile`
   or `setup.py`, or an index the machine rewrites. [KNOWN_ISSUES.md](../KNOWN_ISSUES.md) lists them.
-- Three holes the gate already had are unchanged: a pin line the scan cannot read is ignored while
-  another declaration passes the floor, `==3.0.1+local` reads as the release, and a low `pypdf` pin
-  elsewhere is not looked at.
+- Two holes the gate already had are unchanged: a pin line the scan cannot read is ignored while
+  another declaration passes the floor, and a low `pypdf` pin elsewhere is not looked at. A local
+  build (`==3.0.1+corp`) names no floor, since it is not the release the rules were measured on, so
+  it blocks like a pin nobody can read.

@@ -102,7 +102,8 @@ from:
 ```
 
 When `from.version` has a floor, a repository that declares the legacy distribution with no version,
-or one below the floor, is blocked (`legacy_version_unsupported`): the rules were measured above it.
+one below the floor, or a local build of a release (`==3.0.1+corp`), is blocked
+(`legacy_version_unsupported`): the rules were measured above it, on the public releases.
 A pack whose distribution has a last release inside its range can name it, and a declaration that
 installs that release is then taken as it, unless the repository shows another one
 ([ADR-056](adr/ADR-056-newest-legacy-release.md)).
