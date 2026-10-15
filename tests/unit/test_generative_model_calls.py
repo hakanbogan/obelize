@@ -1205,3 +1205,16 @@ def test_a_call_in_an_f_string_field_stays_on_one_line_however_long_it_is() -> N
         layout=narrow,
     )
     assert "    return '{}'.format(handle.models.run(\n" in produced
+
+
+def test_a_call_in_an_f_string_field_written_with_equals_refuses_its_model() -> None:
+    """The field prints its own source text, which the rewrite changes; the group goes whole."""
+    produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return f"{MODEL.run(p).answer=}"\n'
+    )
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+    assert 'return f"{MODEL.run(p).answer=}"' in produced
+    produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return f"{MODEL.run(p).answer}"\n'
+    )
+    assert refusals(edits) == [None, None]

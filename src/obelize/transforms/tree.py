@@ -159,6 +159,14 @@ class Tree:
                 return True
         return False
 
+    def echoed(self, node: cst.CSTNode) -> bool:
+        """Whether `node` is in an f-string field written with `=`, which prints its own source."""
+        while not isinstance(node, cst.BaseSmallStatement | cst.BaseCompoundStatement):
+            node = self._parent[node]
+            if isinstance(node, cst.FormattedStringExpression) and node.equal is not None:
+                return True
+        return False
+
     def width(self, node: cst.CSTNode, line_length: int) -> int:
         """The width `node` is laid out to; before Python 3.12 an f-string field is one line."""
         return sys.maxsize if self.in_f_string(node) else line_length

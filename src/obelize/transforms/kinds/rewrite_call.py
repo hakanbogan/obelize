@@ -286,7 +286,8 @@ class RewriteCall:
         """Refuse a call whose result is not what the new call returns; else the reads to rewrite.
 
         `response_shape_changed`: a `dispatch_prefixes` argument that is not a literal with a listed
-        prefix, under `result_access_flags` any use of the result (it may be read unseen), or under
+        prefix, under `result_access_flags` any use of the result (it may be read unseen), a call in
+        an f-string field written with `=` (it prints the source text the rewrite changes), or under
         `result_paths` any read that stops short of one of them and is not followed on into a name
         (`confined`). A read of a field the new result lacks is `attribute_removed`, as the scan
         grades it. A string-keyed read along a path is returned, to become the attribute read the
@@ -301,6 +302,8 @@ class RewriteCall:
             raise BailError("response_shape_changed")
         if tree.reads(call, frozenset(self._params.result_attribute_flags)):
             raise BailError("attribute_removed")
+        if tree.echoed(call):
+            raise BailError("response_shape_changed")
         if not self._paths:
             return ()
         keyed = tree.confined(call, self._paths, self._stems)
@@ -520,20 +523,12 @@ class _Tree(Tree):
         if not keyed:
             return True
         first, last = keyed[0][0], keyed[-1][0]
-        return not (self._echoed(first) or self._swallowed(first) or self._glued(last))
+        return not (self.echoed(first) or self._swallowed(first) or self._glued(last))
 
     def _glued(self, node: cst.CSTNode) -> bool:
         """Whether a word follows `node` with no space: `]or` was a token end, `.id or` is not."""
         line, column = self.end(node)
         return self.lines[line - 1][column : column + 1].isidentifier()
-
-    def _echoed(self, node: cst.CSTNode) -> bool:
-        """Whether `node` is in an f-string field written with `=`, which prints its own source."""
-        while not isinstance(node, cst.BaseSmallStatement | cst.BaseCompoundStatement):
-            node = self.parent(node)
-            if isinstance(node, cst.FormattedStringExpression) and node.equal is not None:
-                return True
-        return False
 
     def _swallowed(self, node: cst.CSTNode) -> bool:
         """Whether a handler or `suppress` around `node` may have taken the missing key's error.

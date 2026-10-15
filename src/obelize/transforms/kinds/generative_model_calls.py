@@ -888,6 +888,8 @@ class GenerativeModelCalls:
             config = _EMPTY
         if use.rewrite.coroutine and streaming:
             warnings = (*warnings, *self._await(tree, use))
+        if tree.echoed(use.call):
+            raise BailError("response_shape_changed")
         return _Plan(
             use=use,
             args=read.args,

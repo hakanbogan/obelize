@@ -299,6 +299,9 @@ on 3.12 or later, where the wrapped call is valid, so only the rule can prevent 
 rules write no call there: `configure_to_client` replaces a whole expression statement and
 `rename_setting` a statement.
 
+A field written with `=` prints its own source text, which the rewrite changes. A call in one is
+`response_shape_changed` under both rules, as D18 says of a key read there.
+
 ### D18. A string key along a path is rewritten to the attribute
 
 A 0.28.1 result is a `dict` subclass on which `r["choices"]` and `r.choices` read one field (D1), so

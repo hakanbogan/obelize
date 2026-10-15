@@ -476,6 +476,7 @@ def test_a_string_key_along_a_listed_path_is_read_as_the_attribute_of_that_name(
         f"r = {CALL}\nr['reply'].get('text')\n",
         f"p = {FETCH_CALL}['rows']['[]']['price']\n",
         f"r = {CALL}\nprint(f\"{{r['reply']['text']=}}\")\n",
+        f'print(f"{{{CALL}.reply.text=}}")\n',
         f"r = {CALL}\nr[*'reply']['text']\n",
         f"r = {CALL}\nx = r['reply']['text']or 1\n",
         f"r = {CALL}\nx = 1 if r['reply']['text']else 2\n",

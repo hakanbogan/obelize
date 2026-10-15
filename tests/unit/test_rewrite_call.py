@@ -326,3 +326,17 @@ def test_a_call_in_an_f_string_field_stays_on_one_line_however_long_it_is() -> N
     assert code.splitlines()[-1] == "print(f'{handle.registry.fetch(tag=\"kinds/a\")}')"
     code, _edits = run('print(sdk.lookup("kinds/a"))\n', layout=Layout(line_length=40))
     assert code.splitlines()[-3:] == ["print(handle.registry.fetch(", '    tag="kinds/a",', "))"]
+
+
+def test_a_call_in_an_f_string_field_written_with_equals_is_refused() -> None:
+    """The field prints its own source text, which the rewrite changes."""
+    body = "print(f\"{sdk.lookup('kinds/a')=}\")\n"
+    code, edits = run(body)
+    assert statuses(edits)[-1] == (5, "needs_review", "response_shape_changed")
+    assert code.splitlines()[-1] == body.strip()
+
+
+def test_a_call_in_an_f_string_field_without_equals_is_written() -> None:
+    code, edits = run("print(f\"{sdk.lookup('kinds/a')}\")\n")
+    assert statuses(edits)[-1] == (5, "auto", None)
+    assert code.splitlines()[-1] == "print(f\"{handle.registry.fetch(tag='kinds/a')}\")"

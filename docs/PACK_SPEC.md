@@ -214,7 +214,9 @@ call reproduces; any other argument is `response_shape_changed`. With
 `result_access_flags` (the result's type changed: `embed_content` returned a
 mapping, now an object), any use of the result is `response_shape_changed`, so
 the call is rewritten only where its result is discarded; the flags record the
-reads the legacy result allowed.
+reads the legacy result allowed. Whatever a pack states, a call inside an f-string field written
+with `=` is `response_shape_changed`: the field prints its own source text, which the rewrite
+changes.
 
 **`rename_setting`** is for a module the new release keeps (`match.shared`), whose setting is
 assigned under another name there: `openai.api_base = x` becomes `openai.base_url = x`. It rewrites
