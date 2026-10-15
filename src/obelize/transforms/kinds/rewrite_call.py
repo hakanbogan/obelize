@@ -10,7 +10,6 @@ the author wrote and no client is needed. A read of the result by a string key a
 from __future__ import annotations
 
 import re
-import sys
 from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, ClassVar, Final
@@ -180,7 +179,7 @@ class RewriteCall:
                 args,
                 indent=tree.indent(call),
                 unit=context.module.default_indent,
-                width=self._width(context, tree, call),
+                width=tree.width(call, context.layout.line_length),
                 around=tree.around(call),
             ),
         )
@@ -219,11 +218,6 @@ class RewriteCall:
         for part in self._params.new_call.split("."):
             root = cst.Attribute(value=root, attr=cst.Name(part))
         return root
-
-    @staticmethod
-    def _width(context: RuleContext, tree: Tree, call: cst.Call) -> int:
-        """The pack's width, except in an f-string field: before Python 3.12 that is one line."""
-        return sys.maxsize if tree.in_f_string(call) else context.layout.line_length
 
     def _arguments(self, call: cst.Call) -> _Read:
         """Every argument of the legacy call, sorted or refused one at a time.
@@ -281,7 +275,7 @@ class RewriteCall:
             [layout.keyword(name, value) for name, value in fields],
             indent=tree.indent(call) + unit,
             unit=unit,
-            width=self._width(context, tree, call),
+            width=tree.width(call, context.layout.line_length),
             # `<kwarg>=` in front and a comma behind.
             around=len(self._config_kwarg) + 2,
         )

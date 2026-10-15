@@ -1006,7 +1006,7 @@ class GenerativeModelCalls:
     ) -> cst.Call:
         """The call that replaces one use, laid out at the line it sits on."""
         unit = context.module.default_indent
-        width = context.layout.line_length
+        width = tree.width(plan.use.call, context.layout.line_length)
         indent = tree.indent(plan.use.call)
         args = list(plan.args)
         if plan.use.rewrite.root == "client":

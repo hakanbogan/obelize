@@ -7,6 +7,7 @@ disagree about which of two calls at one position the scanner found.
 from __future__ import annotations
 
 import re
+import sys
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -157,6 +158,10 @@ class Tree:
             if isinstance(node, cst.FormattedString):
                 return True
         return False
+
+    def width(self, node: cst.CSTNode, line_length: int) -> int:
+        """The width `node` is laid out to; before Python 3.12 an f-string field is one line."""
+        return sys.maxsize if self.in_f_string(node) else line_length
 
     def statement_of(self, node: cst.CSTNode) -> cst.CSTNode:
         """The innermost simple or compound statement holding `node` (a `for` header: the `for`)."""

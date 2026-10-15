@@ -317,3 +317,12 @@ def test_a_call_inside_a_multi_line_bracket_wraps_at_the_indent_of_the_line_it_s
 ) -> None:
     code, _edits = run(body, layout=Layout(line_length=40))
     assert code.splitlines()[-len(lines) :] == lines
+
+
+def test_a_call_in_an_f_string_field_stays_on_one_line_however_long_it_is() -> None:
+    """Before Python 3.12 a field takes no newline; the output check runs on a newer one."""
+    body = "print(f'{sdk.lookup(\"kinds/a\")}')\n"
+    code, _edits = run(body, layout=Layout(line_length=40))
+    assert code.splitlines()[-1] == "print(f'{handle.registry.fetch(tag=\"kinds/a\")}')"
+    code, _edits = run('print(sdk.lookup("kinds/a"))\n', layout=Layout(line_length=40))
+    assert code.splitlines()[-3:] == ["print(handle.registry.fetch(", '    tag="kinds/a",', "))"]

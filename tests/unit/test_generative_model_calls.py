@@ -10,7 +10,7 @@ import acme
 import pytest
 
 from obelize.models import Edit
-from obelize.packs.schema import GenerativeModelCallsChange
+from obelize.packs.schema import GenerativeModelCallsChange, Layout
 from obelize.transforms import registry
 
 SETUP = 'import acme.sdk as sdk\n\nsdk.configure(key="k")\n\n'
@@ -1180,3 +1180,28 @@ def test_what_runs_when_it_is_read_refuses_the_group(body: str) -> None:
 def test_what_means_the_same_at_the_call_travels(body: str) -> None:
     _produced, edits = run(body)
     assert set(refusals(edits)) == {None}
+
+
+def test_a_call_in_an_f_string_field_stays_on_one_line_however_long_it_is() -> None:
+    """Before Python 3.12 a field takes no newline; the output check runs on a newer one."""
+    source = SETUP + 'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return {}\n'
+    narrow = Layout(line_length=40)
+    produced, _edits = acme.transform(
+        source.format("f'{MODEL.run(p).answer}'"),
+        acme.CHANGE,
+        acme.CLIENT,
+        acme.MODEL,
+        layout=narrow,
+    )
+    assert (
+        produced.splitlines()[-1]
+        == "    return f'{handle.models.run(target=\"m\", body=p).answer}'"
+    )
+    produced, _edits = acme.transform(
+        source.format("'{}'.format(MODEL.run(p).answer)"),
+        acme.CHANGE,
+        acme.CLIENT,
+        acme.MODEL,
+        layout=narrow,
+    )
+    assert "    return '{}'.format(handle.models.run(\n" in produced
