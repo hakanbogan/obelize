@@ -1018,8 +1018,8 @@ def _git(*arguments: str) -> str | None:
 def refusal(instrument: Instrument) -> str | None:
     """Why a round must not start: its records would name code other than what ran."""
     imported = Path(obelize.__file__).resolve()
-    if not imported.is_relative_to(ROOT):
-        return f"obelize is imported from {imported.parent}, not from this checkout"
+    if not imported.is_relative_to(ROOT / "src"):
+        return f"obelize is imported from {imported.parent}, not from this checkout's src"
     if instrument.commit is None or instrument.dirty is None:
         return "this is not a git checkout, so no commit can be recorded"
     if instrument.dirty:

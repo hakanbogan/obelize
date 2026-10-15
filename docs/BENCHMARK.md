@@ -171,8 +171,9 @@ module; and a manifest that disagrees with the code (the code is the evidence).
 `python -m bench.run` runs locally, from the repository root; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
 environments and is not run on Windows. It runs each repository's own install commands and test suite
 with no sandbox and the network available, so run it only on a machine or VM that holds no
-credentials. A round starts only on a committed tree (`bench/results/` aside) whose checkout is where
-`obelize` is imported from, so each record names the code that ran. Every install resolves as of the
+credentials. A round starts only on a committed tree (`bench/results/` aside) whose `src/` is where
+`obelize` is imported from, not an installed copy, even one in the checkout's own `.venv`, so each
+record names the code that ran. Every install resolves as of the
 round's start (`UV_EXCLUDE_NEWER`, recorded as `exclude_newer`), and `--exclude-newer <UTC time>`
 runs a round as of an earlier one. Per case:
 

@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+import obelize
 from bench import cases, run
 from obelize.verify import runner
 from platforms import BENCH
@@ -1675,6 +1676,19 @@ def test_a_round_that_would_run_another_checkouts_obelize_is_refused(
     said = run.refusal(COMMITTED)
     assert said is not None
     assert "not from this checkout" in said
+
+
+@pytest.mark.parametrize(
+    ("package", "refused"),
+    [("src", False), (".venv/lib/python3.12/site-packages", True), ("build/lib", True)],
+)
+def test_only_the_checkouts_source_counts_as_its_obelize(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, package: str, refused: bool
+) -> None:
+    """A wheel in the checkout's own `.venv` is under it and can be older than `HEAD`."""
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    monkeypatch.setattr(obelize, "__file__", str(tmp_path / package / "obelize" / "__init__.py"))
+    assert (run.refusal(COMMITTED) is not None) is refused
 
 
 def test_a_refused_round_runs_and_writes_nothing(
