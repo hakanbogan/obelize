@@ -218,6 +218,17 @@ def test_a_file_is_parsed_once_however_many_of_its_rows_are_asked(
     assert parsed == [SOURCE]
 
 
+def test_a_file_the_window_reaches_both_ends_of_is_sent_whole() -> None:
+    """`docs/PRIVACY.md` says so: 20 lines either side of a call in a 3-line file is all of it."""
+    source = b"import google.generativeai as genai\n\nmodel = genai.GenerativeModel('m')\n"
+    [asked], _ = base.questions(
+        findings=[finding(line=3)], plans=[], sources={"app.py": source}, pack=PACK, environ={}
+    )
+
+    assert (asked.context.start_line, asked.context.end_line) == (1, 3)
+    assert asked.context.text == source.decode()
+
+
 def test_a_unicode_line_separator_is_not_a_line_break() -> None:
     """`str.splitlines` also breaks on U+2028, U+2029 and form feed, renumbering later lines."""
     data = 'NOTE = "a\u2028b"\nx = 1\n'.encode()

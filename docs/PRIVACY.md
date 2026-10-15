@@ -6,7 +6,9 @@
   download, no crash report.
 - No telemetry code at all: no usage counters, no identifiers, no ping.
 - No account.
-- Everything Obelize writes goes into the repository you pointed it at.
+- Everything Obelize writes goes into the repository you pointed it at, bar one file: when you
+  approve a verification command from a repository's `.obelize.yml`, the repository's path, the
+  command and its sha256 are kept in your own `~/.config/obelize/approved.json`.
 
 Anything a future version adds that talks to a network will be opt-in and documented here,
 with exactly what it sends.
@@ -55,8 +57,10 @@ When you configure it:
   in that file, since the key and your source would cross the network in the clear.
 - Only the relevant slice of code is sent: the smallest function or class holding the whole
   binding group of the ambiguous call site, else that group with 20 lines either side, and
-  nothing when neither fits in 80 lines. With it go the file's path, the reason the rules
-  refused and the pack's limitations. Never the repository, the whole file or your git history.
+  nothing when neither fits in 80 lines. With it go the pack's id and target package, the file's
+  path, the line and symbol of the call, the reason the rules refused and the pack's limitations.
+  Never the rest of the repository or your git history, but a file short enough for the slice to
+  reach both of its ends is sent whole.
 - The slice comes only from the Python file the finding is in, and is redacted before the
   payload is built. Each of its lines is sent behind its line number in the file, so the model
   need not count them.
@@ -73,7 +77,8 @@ When you configure it:
   logs, evidence or prompts.
 - Raw prompts are not stored: `model/proposals-<n>.json` records the context range, a prompt
   sha256, the provider, the model, token counts, the proposal and whether it passed validation. The
-  request body is written only if you set `model.log_prompts: true`, because a prompt is your
+  proposal quotes the lines it replaces, so those lines of your source, as redacted when they were
+  sent, are in it. The request body is written only if you set `model.log_prompts: true`, because a prompt is your
   source code.
 - A proposal is written only under `--apply` and `--accept-model`, and is still listed as a
   review item.
