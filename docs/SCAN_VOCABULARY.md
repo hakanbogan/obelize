@@ -200,8 +200,7 @@ Outside `LADDER`, since nothing on their row competes:
 - `scan/manifests.py`'s codes: a manifest row names one declaration, so two
   never fire together. Rung 6 places `repo_not_fully_migrated` against the file codes. `manifest_pin_shape_unsupported` is the manifest rule's, and `scan/manifests.py` raises it too for a pack whose one distribution holds both APIs.
 - `transforms/codemod.py`'s four (`usage_unmapped`, the two output gates,
-  `configure_consumed_elsewhere`): fix-time, only on an `eligible` row. Its
-  `internal_error` is a file gate and lands on every `eligible` row of the file. A pack
+  `configure_consumed_elsewhere`): fix-time, only on an `eligible` row. A pack
   that is its own target gets `repo_not_fully_migrated` on its source rows the
   same way (ADR-031 D12).
 - Call-rewrite bails: fix-time, one per group.

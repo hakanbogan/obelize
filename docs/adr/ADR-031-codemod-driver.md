@@ -110,8 +110,8 @@ writing alone ([ADR-053](ADR-053-shared-module-migrations.md) D6).
 withheld as `internal_error`, a file gate like D4's, so F-1 names it in `caused_by` on the rest and
 D12's pack holds the repository. `Run.limitations` carries one `internal_error` row per file naming
 the exception's class and never its message ([ADR-017](ADR-017-input-gates.md) D9), and `run.json`
-merges them with the scan's. Like `output_does_not_parse` it has no rung on `LADDER` and no row
-elsewhere to displace.
+merges them with the scan's. Unlike D4's code it is on `LADDER`, at rung 2 beside
+`input_does_not_parse`, because a scan raises it too.
 
 ## Consequences
 

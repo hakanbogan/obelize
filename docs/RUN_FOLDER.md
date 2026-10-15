@@ -275,8 +275,8 @@ repository.
 For a refused parse, `detail` names the gate and quotes the parser's message,
 never a line of the file (`cst.ParserSyntaxError.context` and `SyntaxError.text`
 stay out of the run folder). For an `internal_error`, `detail` names the exception's
-class and never its message, which can quote the file or a path. An unreadable manifest gets a fixed sentence,
-because `configparser` quotes the line.
+class and never its message, which can quote the file or a path. An unreadable
+manifest gets a fixed sentence, because `configparser` quotes the line.
 
 ### `timings`
 
