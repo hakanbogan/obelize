@@ -462,6 +462,25 @@ def test_a_body_nested_past_the_parser_is_not_json_and_not_a_crash(
     assert _refusal(monkeypatch, deep).failure == "response_not_json"
 
 
+def test_a_body_loads_takes_and_dumps_refuses_is_not_a_completion_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On Python 3.15 `loads` reads 65,000 levels and `dumps` raises at fewer, so the detail
+    cannot be a dump; the refusal is stubbed because no version before it has such a window.
+    """
+
+    def refuse(value: object) -> str:
+        raise RecursionError
+
+    made, _ = _adapter(monkeypatch, b"[[[]]]")
+    monkeypatch.setattr(made, "request", lambda consultation: b"{}")
+    monkeypatch.setattr(adapter, "json", types.SimpleNamespace(loads=json.loads, dumps=refuse))
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.failure == "response_not_a_completion"
+    assert raised.value.detail == "(nested more deeply than obelize shows)"
+
+
 @pytest.mark.parametrize(
     "content",
     ["[" * 100_000, '{"proposal": ' + "[" * 100_000 + "]" * 100_000 + "}"],

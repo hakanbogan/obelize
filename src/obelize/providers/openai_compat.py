@@ -229,7 +229,7 @@ class OpenAICompat:
         data = self._post(self.request(consultation))
         content = _content(data)
         if content is None:
-            raise self._failure("response_not_a_completion", json.dumps(data)[:DETAIL_LIMIT])
+            raise self._failure("response_not_a_completion", _shown(data))
         tokens_in = _count(data.get("usage"), "prompt_tokens")
         tokens_out = _count(data.get("usage"), "completion_tokens")
         answer = _object(content)
@@ -335,6 +335,14 @@ def _short(text: str) -> str:
     if len(text) <= DETAIL_LIMIT:
         return text
     return f"{text[:DETAIL_LIMIT]}... ({len(text)} characters)"
+
+
+def _shown(data: Any) -> str:
+    """What the endpoint sent as JSON; on 3.15 `dumps` refuses nesting that `loads` took."""
+    try:
+        return json.dumps(data)[:DETAIL_LIMIT]
+    except RecursionError:
+        return "(nested more deeply than obelize shows)"
 
 
 def _content(data: Any) -> str | None:
