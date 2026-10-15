@@ -8,7 +8,8 @@
 3. Recursive: a nested call is built at the indent the outer call would wrap to.
 
 Wrapping only adds breaks; a call the author split is never joined. A moved argument keeps its
-value, keyword and inner comments; the separators belong to the call it lands in.
+value, keyword and inner comments; the separators belong to the call it lands in, except the
+comments written in them: those above an argument and the one after it go with it (`nest`).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final
 
 import libcst as cst
+import libcst.matchers as m
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from collections.abc import Sequence
@@ -46,6 +48,11 @@ def multiline(node: cst.CSTNode) -> bool:
     return "\n" in render(node)
 
 
+def comments(node: cst.CSTNode) -> list[cst.Comment]:
+    """Every comment written under `node`, in source order."""
+    return [found for found in m.findall(node, m.Comment()) if isinstance(found, cst.Comment)]
+
+
 def call(
     source: cst.CSTNode | None,
     func: cst.BaseExpression,
@@ -55,17 +62,22 @@ def call(
     unit: str,
     width: int,
     around: int,
+    comments: bool = False,
 ) -> cst.Call:
     """`func(*args)`, laid out by the three rules above.
 
     `source` is what the arguments were written in (`None` for an invented call), for clause 1;
     `around` is the width of the rest of the emitted line (`client = `, a trailing comment).
+    `comments` carries the ones written between the arguments of `source`, which only a call that
+    replaces `source` should: a copy of an object that stays holds them already.
     """
-    base = source if isinstance(source, cst.Call) else cst.Call(func=func)
-    flat = base.with_changes(func=func, args=args, whitespace_before_args=cst.SimpleWhitespace(""))
+    written = source if isinstance(source, cst.Call) else None
+    flat = (written or cst.Call(func=func)).with_changes(
+        func=func, args=args, whitespace_before_args=cst.SimpleWhitespace("")
+    )
     if not _wraps(source, args, flat, indent=indent, width=width, around=around):
         return flat
-    return nest(flat, indent=indent, unit=unit)
+    return nest(flat, written if comments else None, indent=indent, unit=unit)
 
 
 def sequence(
@@ -92,18 +104,21 @@ def sequence(
     )
 
 
-def nest(target: cst.Call, *, indent: str, unit: str) -> cst.Call:
-    """`target` with one argument per line, one unit past `indent`."""
-    inner = _break(indent + unit)
-    closing = _break(indent)
+def nest(target: cst.Call, written: cst.Call | None, *, indent: str, unit: str) -> cst.Call:
+    """`target` with one argument per line, one unit past `indent`.
+
+    `written` is the call its arguments were written in. A comment on a line of its own above one
+    of them goes above it here, and one ending its line goes after it; any other is not placed.
+    """
+    breaks = _breaks(written, target.args, indent, indent + unit)
     return target.with_changes(
-        whitespace_before_args=inner,
+        whitespace_before_args=breaks[0],
         args=[
             argument.with_changes(
-                comma=cst.Comma(whitespace_after=closing if last else inner),
+                comma=cst.Comma(whitespace_after=after),
                 whitespace_after_arg=cst.SimpleWhitespace(""),
             )
-            for argument, last in _tagged(target.args)
+            for argument, after in zip(target.args, breaks[1:], strict=True)
         ],
     )
 
@@ -125,14 +140,72 @@ def _wraps(
     return len(indent) + len(render(flat)) + around > width
 
 
-def _break(indent: str) -> cst.ParenthesizedWhitespace:
-    """A newline followed by exactly `indent`, with no blank line between."""
+def _break(
+    indent: str,
+    *,
+    trailing: cst.Comment | None = None,
+    lines: Sequence[cst.Comment] = (),
+    at: str = "",
+) -> cst.ParenthesizedWhitespace:
+    """A newline followed by exactly `indent`, with no blank line between.
+
+    `trailing` ends the line before it; `lines` are comment lines at `at` in between.
+    """
     return cst.ParenthesizedWhitespace(
-        first_line=cst.TrailingWhitespace(newline=cst.Newline()),
-        empty_lines=(),
+        first_line=cst.TrailingWhitespace(
+            whitespace=cst.SimpleWhitespace("  " if trailing else ""),
+            comment=trailing,
+            newline=cst.Newline(),
+        ),
+        empty_lines=[
+            cst.EmptyLine(indent=False, whitespace=cst.SimpleWhitespace(at), comment=line)
+            for line in lines
+        ],
         indent=False,
         last_line=cst.SimpleWhitespace(indent),
     )
+
+
+def _breaks(
+    written: cst.Call | None, args: Sequence[cst.Arg], indent: str, inside: str
+) -> list[cst.ParenthesizedWhitespace]:
+    """The separator before the first of `args`, then the one after each: a break, with comments.
+
+    An argument is found in `written` by its value, which a moved argument keeps. It takes the
+    comments on lines of their own above it (the one after the opening parenthesis too) and the
+    one ending its line. The lines of their own after the last argument written close the call.
+    """
+    notes: dict[int, tuple[list[cst.Comment], cst.Comment | None]] = {}
+    tail: list[cst.Comment] = []
+    if written is not None:
+        spaces = [written.whitespace_before_args, *map(_after, written.args)]
+        for index, argument in enumerate(written.args):
+            ends, lines = _lines(spaces[index])
+            above = [ends, *lines] if ends and not index else lines
+            notes[id(argument.value)] = (above, _lines(spaces[index + 1])[0])
+        tail = _lines(spaces[-1])[1]
+    held = [notes.get(id(argument.value), ([], None)) for argument in args]
+    above_each = [*(above for above, _ in held), tail]
+    ends_each = [None, *(ends for _, ends in held)]
+    return [
+        _break(inside if index < len(args) else indent, trailing=ends, lines=above, at=inside)
+        for index, (above, ends) in enumerate(zip(above_each, ends_each, strict=True))
+    ]
+
+
+def _after(argument: cst.Arg) -> cst.BaseParenthesizableWhitespace:
+    """What the author wrote between `argument` and whatever follows it."""
+    comma = argument.comma
+    return comma.whitespace_after if isinstance(comma, cst.Comma) else argument.whitespace_after_arg
+
+
+def _lines(
+    space: cst.BaseParenthesizableWhitespace,
+) -> tuple[cst.Comment | None, list[cst.Comment]]:
+    """The comment ending the line `space` starts on, and the comments on lines of their own."""
+    if not isinstance(space, cst.ParenthesizedWhitespace):
+        return None, []
+    return space.first_line.comment, [line.comment for line in space.empty_lines if line.comment]
 
 
 def _tagged[Part: (cst.Arg, cst.BaseElement)](parts: Sequence[Part]) -> list[tuple[Part, bool]]:

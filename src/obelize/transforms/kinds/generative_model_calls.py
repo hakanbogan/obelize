@@ -430,12 +430,16 @@ class GenerativeModelCalls:
             alias = context.imports.require(self._config_module)
             if alias is None:
                 raise BailError(context.imports.refusal(self._config_module))
-        for plan in plans:
-            emitted = self._emit(context, tree, client, ctor, plan, alias)
-            context.rewrites.set(plan.use.call, emitted)
+        # A configuration call that stays is copied into each call, without its comments.
+        stays = frozenset(id(held.value) for held in named if not held.local)
+        emitted = [self._emit(context, tree, client, ctor, plan, alias, stays) for plan in plans]
+        for plan, call in zip(plans, emitted, strict=True):
+            context.rewrites.set(plan.use.call, call)
         self._drop(context, tree, ctor.statement)
         for found in {id(held.statement): held for held in named if held.local}.values():
             self._drop(context, tree, found.statement)
+        for plan, call in zip(plans, emitted, strict=True):
+            context.rewrites.keep_comments(tree.statement_of(plan.use.call), plan.use.call, call)
         if alias is not None:
             for func in kept.values():
                 context.rewrites.set(func, self._config_class(alias))
@@ -1005,8 +1009,12 @@ class GenerativeModelCalls:
         ctor: _Ctor,
         plan: _Plan,
         alias: str | None,
+        stays: frozenset[int],
     ) -> cst.Call:
-        """The call that replaces one use, laid out at the line it sits on."""
+        """The call that replaces one use, laid out at the line it sits on.
+
+        `stays` holds the configuration calls that are not deleted.
+        """
         unit = context.module.default_indent
         width = tree.width(plan.use.call, context.layout.line_length)
         indent = tree.indent(plan.use.call)
@@ -1018,7 +1026,9 @@ class GenerativeModelCalls:
             args.append(
                 layout.keyword(
                     keyword,
-                    self._configuration(plan, alias, indent + unit, unit, width, len(keyword) + 2),
+                    self._configuration(
+                        plan, alias, indent + unit, unit, width, len(keyword) + 2, stays
+                    ),
                 )
             )
         return layout.call(
@@ -1029,6 +1039,7 @@ class GenerativeModelCalls:
             unit=unit,
             width=width,
             around=tree.around(plan.use.call),
+            comments=True,
         )
 
     def _rooted(self, client: str, plan: _Plan) -> cst.BaseExpression:
@@ -1042,7 +1053,14 @@ class GenerativeModelCalls:
         return cst.Attribute(value=receiver, attr=cst.Name(plan.target))
 
     def _configuration(
-        self, plan: _Plan, alias: str, indent: str, unit: str, width: int, around: int
+        self,
+        plan: _Plan,
+        alias: str,
+        indent: str,
+        unit: str,
+        width: int,
+        around: int,
+        stays: frozenset[int],
     ) -> cst.Call:
         """One call's config object, rebuilt per call: hoisting needs a name no scope anchors."""
         args = [layout.keyword(name, value) for name, value in plan.config.fields]
@@ -1069,6 +1087,7 @@ class GenerativeModelCalls:
             unit=unit,
             width=width,
             around=around,
+            comments=id(plan.config.source) not in stays,
         )
 
     def _config_class(self, alias: str) -> cst.Attribute:

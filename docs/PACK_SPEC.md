@@ -86,7 +86,8 @@ them on the changed files after `fix --apply`. One number per pack, never per ch
 the layout: a rewritten call goes multi-line when the source call was, when an
 argument is, or when the whole line (indent and trailing comment included)
 would exceed the width; then one argument per line, one indent unit (the
-file's own) past the line the call starts on, with a trailing comma.
+file's own) past the line the call starts on, with a trailing comma. A comment written inside
+a replaced call stays beside its argument, or goes on a line above the statement.
 
 ### The newest legacy release
 

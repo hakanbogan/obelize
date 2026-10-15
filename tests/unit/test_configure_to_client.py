@@ -268,6 +268,16 @@ def test_a_call_split_before_its_argument_wraps_on_the_source_clause_alone() -> 
     assert code.endswith("handle = sdk.Client(\n    key=KEY,\n)\n")
 
 
+def test_a_comment_between_the_arguments_goes_with_the_argument_it_was_written_beside() -> None:
+    code, _edits = run(
+        "sdk.configure(  # opening\n    # the key\n    key=KEY,  # secret\n    credentials=C,\n)\n"
+    )
+    assert code.endswith(
+        "handle = sdk.Client(\n    # opening\n    # the key\n    key=KEY,  # secret\n"
+        "    credentials=C,\n)\n"
+    )
+
+
 def test_a_split_call_is_re_emitted_in_the_canonical_form() -> None:
     code, _edits = run("sdk.configure(key=KEY,\n               credentials=C)\n")
     assert code.endswith("handle = sdk.Client(\n    key=KEY,\n    credentials=C,\n)\n")

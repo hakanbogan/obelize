@@ -340,3 +340,48 @@ def test_a_call_in_an_f_string_field_without_equals_is_written() -> None:
     code, edits = run("print(f\"{sdk.lookup('kinds/a')}\")\n")
     assert statuses(edits)[-1] == (5, "auto", None)
     assert code.splitlines()[-1] == "print(f\"{handle.registry.fetch(tag='kinds/a')}\")"
+
+
+def test_a_comment_beside_an_argument_that_stays_an_argument_goes_with_it() -> None:
+    """Above the statement go the ones beside an argument that moved into the configuration."""
+    code, edits = run(
+        "sdk.measure(  # opening\n"
+        "    # the kind\n"
+        "    kind='a',  # about kind\n"
+        "    depth=2,  # about depth\n"
+        "    # tone next\n"
+        "    tone='dry',\n"
+        "    # the end\n"
+        ")\n"
+    )
+    assert statuses(edits)[-1] == (5, "auto", None)
+    assert code.splitlines()[5:] == [
+        "# about depth",
+        "# tone next",
+        "handle.probe.measure(",
+        "    # opening",
+        "    # the kind",
+        "    kind='a',  # about kind",
+        "    opts=types.MeasureConfig(depth=2, tone='dry'),",
+        "    # the end",
+        ")",
+    ]
+
+
+def test_a_comment_in_the_callee_is_kept_above_the_statement() -> None:
+    code, _edits = run("(sdk  # callee\n .measure)(kind='a')\n")
+    assert code.splitlines()[-4:] == ["# callee", "handle.probe.measure(", "    kind='a',", ")"]
+
+
+def test_a_comment_above_the_statement_is_written_at_the_indent_of_the_block_it_is_in() -> None:
+    code, _edits = run(
+        "def f():\n    if x:\n        sdk.measure(kind='a',\n"
+        "                    # inside\n                    depth=2)\n"
+    )
+    assert code.splitlines()[-5:] == [
+        "        # inside",
+        "        handle.probe.measure(",
+        "            kind='a',",
+        "            opts=types.MeasureConfig(depth=2),",
+        "        )",
+    ]

@@ -1218,3 +1218,56 @@ def test_a_call_in_an_f_string_field_written_with_equals_refuses_its_model() -> 
         'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return f"{MODEL.run(p).answer}"\n'
     )
     assert refusals(edits) == [None, None]
+
+
+def tail(produced: str, lines: list[str]) -> bool:
+    """Whether `produced` ends with exactly `lines`."""
+    return produced.splitlines()[-len(lines) :] == lines
+
+
+def test_a_comment_beside_an_argument_of_a_rewritten_call_goes_with_it() -> None:
+    produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return MODEL.run(\n'
+        "        # the prompt\n        p,  # about it\n    ).answer\n"
+    )
+    assert refusals(edits) == [None, None]
+    assert tail(
+        produced,
+        [
+            "    return handle.models.run(",
+            '        target="m",',
+            "        # the prompt",
+            "        body=p,  # about it",
+            "    ).answer",
+        ],
+    )
+
+
+def test_the_comment_of_a_constructor_sharing_its_line_stays_on_that_line() -> None:
+    """The line survives, with what else it holds, so its own comment is not moved."""
+    produced, _edits = run(
+        'x = 1; MODEL = sdk.Model("m")  # trailing\nprint(MODEL.run("p").answer)\n'
+    )
+    assert "x = 1  # trailing\n" in produced
+
+
+def test_a_configuration_written_in_the_constructor_gives_each_call_its_comments() -> None:
+    produced, _edits = run(
+        "def a(p):\n"
+        '    MODEL = sdk.Model("m", settings=sdk.Config(heat=1,  # warm\n'
+        "                                               limit=2))\n"
+        '    return MODEL.run(p).answer, MODEL.run("x").answer\n'
+    )
+    assert produced.count("heat=1,  # warm") == 2
+    assert "sdk.Model" not in produced
+
+
+def test_a_configuration_that_stays_is_copied_into_each_call_without_its_comments() -> None:
+    """It keeps them where it stays."""
+    produced, _edits = run(
+        "BASE = sdk.Config(\n    heat=1,  # warm\n    limit=2,\n)\n"
+        'MODEL = sdk.Model("m", settings=BASE)\n\n\n'
+        'def a(p):\n    return MODEL.run(p).answer, MODEL.run("x").answer\n'
+    )
+    assert produced.count("# warm") == 1
+    assert "BASE = types.RunConfig(\n    heat=1,  # warm\n" in produced

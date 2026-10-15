@@ -86,8 +86,12 @@ Width is the whole emitted line, indent and trailing comment included, as a
 formatter counts; for a call rewritten in place the rest of the line is read
 off its source line (ADR-027 D10). Wrapping only adds breaks. A moved argument
 keeps its value, keyword and inner comments, not its separators; a generated
-one is written `k=v` (`layout.keyword()`). `tests/unit/test_layout.py` asserts
-every answer key fits the width.
+one is written `k=v` (`layout.keyword()`). The comments written in the separators
+of a call that a rewrite replaces are kept: the ones on lines of their own above
+an argument and the one ending its line go with it (`layout.nest`), and any other
+goes on a line above the statement, in the order written (`Rewrites.keep_comments`).
+A configuration object copied from one that stays holds none, since the original
+keeps them. `tests/unit/test_layout.py` asserts every answer key fits the width.
 
 ### D8. The gate-1 staleness guard moves from the pack's bytes to the projection
 

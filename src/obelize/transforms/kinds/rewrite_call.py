@@ -171,18 +171,18 @@ class RewriteCall:
                     self._configuration(context, tree, call, alias, read.config),
                 )
             )
-        context.rewrites.set(
+        rewritten = layout.call(
             call,
-            layout.call(
-                call,
-                callee,
-                args,
-                indent=tree.indent(call),
-                unit=context.module.default_indent,
-                width=tree.width(call, context.layout.line_length),
-                around=tree.around(call),
-            ),
+            callee,
+            args,
+            indent=tree.indent(call),
+            unit=context.module.default_indent,
+            width=tree.width(call, context.layout.line_length),
+            around=tree.around(call),
+            comments=True,
         )
+        context.rewrites.set(call, rewritten)
+        context.rewrites.keep_comments(tree.statement_of(call), call, rewritten)
         for subscript, name in keyed:
             context.rewrites.set(
                 subscript,
