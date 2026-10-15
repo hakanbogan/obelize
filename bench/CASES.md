@@ -202,12 +202,12 @@ Precision **98.7%**, recall **90.5%**, over the four kinds that are a call site 
 
 ## Reproducing this
 
-`bench/cases_collect.py draw` re-runs the dated draws and rewrites
+`python -m bench.cases_collect draw` re-runs the dated draws and rewrites
 `bench/cases_draws.yaml` and `bench/results/cases/scan.json`; it needs the `gh`
 CLI authenticated, `git`, and an installed `obelize`.
-`bench/cases_collect.py checkout owner/name` leaves one repository at its
+`python -m bench.cases_collect checkout owner/name` leaves one repository at its
 pinned SHA in the gitignored `bench/work/cases/` for a reviewer.
-`bench/cases.py` re-renders the block from `bench/cases.yaml` and the three
+`python -m bench.cases` re-renders the block from `bench/cases.yaml` and the three
 scan records; `--check` fails when it is stale. `tests/unit/test_cases.py`
 recomputes the selection, the split, the pattern keys and the agreement table
 from the corpus, the draws, the scan records and `pack.yaml`.

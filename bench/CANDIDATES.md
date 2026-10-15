@@ -193,9 +193,9 @@ The 37 candidates carry **13 distinct pattern keys**, which is the denominator t
 
 ## Reproducing this
 
-`bench/candidates_collect.py draw` re-applies the rules and re-runs the
+`python -m bench.candidates_collect draw` re-applies the rules and re-runs the
 queries; it needs the `gh` CLI authenticated, `git`, and an installed
-`obelize`. `bench/candidates.py` re-renders the block from
+`obelize`. `python -m bench.candidates` re-renders the block from
 `bench/candidates.yaml` and the two scan records; `--check` fails when it is
 stale. `tests/unit/test_candidates.py` recomputes the selection from the frame,
 the scan records and `pack.yaml`.
