@@ -806,6 +806,7 @@ def test_a_library_declared_nowhere_is_still_blocked_with_nothing_assumed(tmp_pa
 FLOORS: dict[str, dict[str, str | bytes]] = {
     "pyproject": {"pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.7"\n'},
     "pipfile": {"Pipfile": '[requires]\npython_version = "3.7"\n'},
+    "setup-py": {"setup.py": 'from setuptools import setup\nsetup(python_requires=">=3.6")\n'},
 }
 
 

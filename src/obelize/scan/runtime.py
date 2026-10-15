@@ -9,6 +9,7 @@ where pip installs an older, different API.
 
 from __future__ import annotations
 
+import ast
 import configparser
 import tomllib
 from collections.abc import Callable, Sequence
@@ -269,13 +270,32 @@ def _from_pipfile(data: bytes) -> str | None:
     return f"=={version}.*" if isinstance(version, str) else None
 
 
-# `setup.py` is absent on purpose: a `python_requires=` built from a variable would be a guess.
+def _from_setup_py(data: bytes) -> str | None:
+    """The first `python_requires=` given as a string literal; one built from a variable would be
+    a guess. A file that does not parse declares nothing: the code pass reports it."""
+    try:
+        tree = ast.parse(data)
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
+        return None
+    found = [
+        (keyword.lineno, keyword.col_offset, keyword.value.value)
+        for call in ast.walk(tree)
+        if isinstance(call, ast.Call)
+        for keyword in call.keywords
+        if keyword.arg == "python_requires"
+        and isinstance(keyword.value, ast.Constant)
+        and isinstance(keyword.value.value, str)
+    ]
+    return min(found)[2] if found else None
+
+
 # Keyed by name, not `manifests.layout`: `pyproject.toml` and a `Pipfile` are both TOML, and each
 # keeps its Python elsewhere.
 _READERS: Final[dict[str, Callable[[bytes], str | None]]] = {
     "pyproject.toml": _from_toml,
     "setup.cfg": _from_cfg,
     "Pipfile": _from_pipfile,
+    "setup.py": _from_setup_py,
 }
 
 __all__ = [

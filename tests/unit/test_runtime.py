@@ -189,9 +189,133 @@ def test_a_pipfile_in_a_package_does_not_hide_the_root_pyproject(tmp_path: Path)
     assert found.blocked.path == "pyproject.toml"
 
 
+@pytest.mark.parametrize(
+    ("source", "declared"),
+    [
+        ('setup(name="x", python_requires=">=3.6")', ">=3.6"),
+        ('setuptools.setup(python_requires=">=3.6, !=3.7.*")', ">=3.6, !=3.7.*"),
+        ("setup(python_requires='>=3.6')", ">=3.6"),
+        ('setup(python_requires=">=3.6" ",<4")', ">=3.6,<4"),
+        ('setup(**dict(python_requires=">=3.6"))', ">=3.6"),
+        (
+            'if PY3:\n    setup(python_requires=">=3.6")\nelse:\n    setup(python_requires="3.9")',
+            ">=3.6",
+        ),
+        (
+            'def build():\n    setup(python_requires=">=3.6")\nsetup(python_requires=">=3.9")',
+            ">=3.6",
+        ),
+        ('setup(python_requires=">=3.9")\nsetup(python_requires=">=3.6")', ">=3.9"),
+        ('# coding: latin-1\nsetup(name="caf\xe9", python_requires=">=3.6")', ">=3.6"),
+    ],
+    ids=[
+        "keyword",
+        "attribute-call",
+        "single-quoted",
+        "adjacent-literals",
+        "dict-call",
+        "first-of-two-branches",
+        "first-in-the-file-not-the-first-found",
+        "two-calls",
+        "encoding-line",
+    ],
+)
+def test_a_setup_py_python_requires_literal_is_read(
+    tmp_path: Path, source: str, declared: str
+) -> None:
+    (tmp_path / "setup.py").write_bytes(f"{source}\n".encode("latin-1"))
+    found = runtime.declaration("setup.py", parse.disk(tmp_path, _config()))
+    assert found == runtime.Declared(path="setup.py", declared=declared)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "setup(python_requires=PYTHON_REQUIRES)",
+        'setup(python_requires=">=" + MINIMUM)',
+        'setup(python_requires=f">={MINIMUM}")',
+        'setup(python_requires=">=%s" % MINIMUM)',
+        'setup(python_requires=">=3.6".format())',
+        "setup(python_requires=read_minimum())",
+        "setup(python_requires=None)",
+        "setup(python_requires=3.6)",
+        'setup(**{"python_requires": ">=3.6"})',
+        'setup(**kwargs, name=">=3.6")',
+        'setup(python_version=">=3.6", name="python_requires")',
+        'PYTHON_REQUIRES = ">=3.6"\nsetup(install_requires=[PYTHON_REQUIRES])',
+        'print "python_requires=>=3.6"',
+        "setup(python_requires='>=3.6'",
+        "",
+    ],
+    ids=[
+        "name",
+        "concatenation",
+        "f-string",
+        "percent-format",
+        "call-on-the-literal",
+        "call",
+        "none",
+        "number",
+        "dict-key",
+        "unpacked",
+        "other-keyword",
+        "another-keyword",
+        "python-2",
+        "unclosed",
+        "empty",
+    ],
+)
+def test_a_setup_py_python_requires_that_is_not_a_literal_is_a_guess_and_declares_nothing(
+    tmp_path: Path, source: str
+) -> None:
+    _write(tmp_path, "setup.py", f"from setuptools import setup\n{source}\n")
+    assert runtime.declaration("setup.py", parse.disk(tmp_path, _config())) is None
+
+
+def test_a_setup_py_that_is_not_python_declares_nothing_and_is_not_reported(tmp_path: Path) -> None:
+    """The code pass reports a file `compile()` refuses, and a Python 2 `setup.py` is common."""
+    (tmp_path / "setup.py").write_bytes(b'setup(python_requires=">=3.6")\0\xff')
+    floor = runtime.detect(("setup.py",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor == runtime.Floor(None, None, ())
+
+
+def test_a_setup_py_below_the_floor_blocks_the_run(tmp_path: Path) -> None:
+    _write(tmp_path, "setup.py", 'setup(python_requires=">=3.6")\n')
+    floor = runtime.detect(("setup.py",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor.blocked == runtime.Blocked(
+        reason="runtime_unsupported",
+        package=SPEC.new_distribution,
+        path="setup.py",
+        declared=">=3.6",
+        needed=">=3.10",
+    )
+
+
+def test_a_setup_py_literal_that_is_no_specifier_is_reported_and_blocks_nothing(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "setup.py", 'setup(python_requires="3.x or later")\n')
+    floor = runtime.detect(("setup.py",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor.blocked is None
+    assert floor.limitations == (
+        parse.Limitation(path="setup.py", code="input_does_not_parse", detail=runtime.UNREAD),
+    )
+
+
+def test_the_first_file_that_blocks_is_named_whichever_layout_declares_the_floor(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "setup.py", 'setup(python_requires=">=3.6")\n')
+    _write(tmp_path, "setup.cfg", "[options]\npython_requires = >=3.7\n")
+    _write(tmp_path, "Pipfile", '[requires]\npython_version = "3.8"\n')
+    names = ("setup.py", "setup.cfg", "Pipfile")
+    found = runtime.detect(names, parse.disk(tmp_path, _config()), SPEC)
+    assert found.blocked is not None
+    assert found.blocked.path == "Pipfile"
+
+
 NOTHING_TO_READ = [
     ("requirements.txt", "acme-sdk==1.0.0\n", "a layout with no such key"),
-    ("setup.py", "from setuptools import setup\nsetup(python_requires='>=3.9')\n", "code"),
     ("pyproject.toml", '[project]\nname = "x"\n', "a document that declares none"),
     ("pyproject.toml", "[project]\nrequires-python = 310\n", "a value of the wrong type"),
     ("setup.cfg", "[options]\nname = x\n", "a section with no such key"),
@@ -205,7 +329,6 @@ NOTHING_TO_READ = [
 def test_a_manifest_that_declares_no_floor_declares_nothing(
     tmp_path: Path, name: str, text: str, why: str
 ) -> None:
-    """`setup.py` is not read: a computed `python_requires=` is the guess this module refuses."""
     _write(tmp_path, name, text)
     assert runtime.declaration(name, parse.disk(tmp_path, _config())) is None, why
 

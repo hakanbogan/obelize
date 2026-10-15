@@ -75,7 +75,7 @@ A bail withholds its whole binding group; the group is atomic.
 | Code | Raised when |
 |---|---|
 | `roundtrip_mismatch` | `cst.parse_module(data).bytes != data` on the input. |
-| `input_does_not_parse` | libcst or `compile()` refused the input; `limitations[].detail` names which. Also a `pyproject.toml`, `setup.cfg` or `Pipfile` whose Python requirement is unreadable; that run is not blocked. |
+| `input_does_not_parse` | libcst or `compile()` refused the input; `limitations[].detail` names which. Also a `pyproject.toml`, `setup.cfg`, `Pipfile` or `setup.py` whose Python requirement is unreadable; that run is not blocked. |
 | `output_does_not_parse` | The rewritten bytes fail `cst.parse_module` or `compile()`. The file is left alone. |
 | `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. |
 | `file_too_large` | Over `max_file_bytes`. |
