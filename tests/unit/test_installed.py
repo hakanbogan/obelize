@@ -668,6 +668,38 @@ def test_an_environment_that_cannot_be_listed_is_nothing(tmp_path: Path) -> None
     assert contrary(root) == ""
 
 
+@pytest.mark.parametrize(
+    ("beside", "environment"),
+    [
+        ("other/app.py", "other/.venv"),
+        ("services/api/src/app.py", "services/api/src/venv"),
+        ("docs/conf.py", "docs/env"),
+    ],
+)
+def test_an_ignored_environment_beside_any_listed_file_is_evidence(
+    tmp_path: Path, beside: str, environment: str
+) -> None:
+    where = f"{environment}/lib/python3.9/site-packages/PyPDF2-1.26.0.dist-info"
+    files = {**REQUIRED, beside: "x = 1\n", f"{where}/METADATA": "x\n"}
+    root = git_repo(tmp_path, files, ".venv/\nvenv/\nenv/\n")
+    assert contrary(root) == where
+
+
+def test_an_ignored_environment_is_not_looked_for_where_nothing_is_listed(tmp_path: Path) -> None:
+    """A directory that holds no listed file is not probed: the cost is a stat per directory."""
+    where = "other/.venv/lib/python3.9/site-packages/PyPDF2-1.26.0.dist-info"
+    root = git_repo(tmp_path, {**REQUIRED, f"{where}/METADATA": "x\n"}, ".venv/\n")
+    assert contrary(root) == ""
+
+
+def test_an_ignored_environment_elsewhere_is_judged_like_one_at_the_root(tmp_path: Path) -> None:
+    quiet = "other/.venv/lib/python3.9/site-packages/PyPDF2-3.0.1.dist-info"
+    root = git_repo(
+        tmp_path, {**REQUIRED, "other/app.py": "x\n", f"{quiet}/METADATA": "x\n"}, ".venv/\n"
+    )
+    assert contrary(root) == ""
+
+
 # Which evidence comes first.
 
 

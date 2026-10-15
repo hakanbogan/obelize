@@ -81,8 +81,8 @@ searched for a version, since no read of a scan goes past that limit.
    `dist-info`). A UTF-16 file is read after its byte-order mark.
 6. What git ignores, found with `scandir` and never read: a lock, a constraints file or a
    `*requirements*.in` beside the repository root or a manifest that declares the distribution, and
-   a `.venv`, `venv` or `env` there whose `site-packages` holds a `dist-info` or `egg-info` of
-   another release.
+   a `.venv`, `venv` or `env` in the root or beside any listed file, found with one `lstat` per
+   name, whose `site-packages` holds a `dist-info` or `egg-info` of another release.
 
 Nothing is taken from a directory that is not the top of a git repository: the fallback walk skips
 dot-directories, so a pin in `.github/workflows` would never be seen.

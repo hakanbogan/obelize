@@ -244,7 +244,7 @@ def _on_disk(
 ) -> str:
     """What the listing may not show, because git ignores it: a lock, a constraints file or a
     pip-tools input beside the repository root or a declaring manifest, and an environment kept
-    there with another release."""
+    in the root or beside any listed file, with another release."""
     installed = re.compile(
         rf"{spelled}-(?P<release>\d+(?:\.\d+)*)(?:-py[\d.]+)?\.(?:dist|egg)-info", re.IGNORECASE
     )
@@ -256,8 +256,12 @@ def _on_disk(
                 manifests.is_lock(path) or manifests.layout(path) == "unwritten"
             ):
                 return path
+    # `lexists` first: nearly every directory holds none of the three, and a listing costs more.
+    for directory in sorted({"", *map(posixpath.dirname, listed)}):
         for environment in _ENVIRONMENTS:
             here = posixpath.join(directory, environment)
+            if not os.path.lexists(root / here):
+                continue
             for packages in _site_packages(root / here):
                 for name in _names(root / here / packages):
                     found = installed.fullmatch(name)
