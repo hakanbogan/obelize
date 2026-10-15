@@ -8,6 +8,10 @@ read is evidence, and so is a name no report can spell, which hides what is unde
 listed file over `max_file_bytes` or unreadable is not searched for a version, since no read of a
 scan goes past that limit. Files are opened through `parse.contents` only, after the walk's own
 refusal check.
+
+Nothing outside the repository is read, on purpose: no `PIP_*` variable, no `pip.conf` in the home
+directory, no index. The machine that scans is not the one that installs, and a finding is the same
+on every machine that scans the same files.
 """
 
 from __future__ import annotations

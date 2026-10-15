@@ -125,9 +125,15 @@ checks, so a second pack cannot name one without a check.
 - `run.json` gains `packs[].assumed`; the formats stay unstable through 0.x ([ADR-048](ADR-048-accepted-gaps-in-0-1-0.md)).
   The pypdf pack is 0.3.0: a pack field it now fills is a minor bump.
 - The inference is a claim about an install nobody ran. It cannot see the environment outside the
-  repository, a `pip.conf` in the home directory, a release another package requires, a submodule's
-  files, a gitignored file the last check does not look for, a Python declared only in a `Pipfile`
-  or `setup.py`, or an index the machine rewrites. [KNOWN_ISSUES.md](../KNOWN_ISSUES.md) lists them.
+  repository, a release another package requires, a submodule's files, a gitignored file the last
+  check does not look for, a Python declared only in a `Pipfile` or `setup.py`, or an index the
+  machine rewrites. [KNOWN_ISSUES.md](../KNOWN_ISSUES.md) lists them.
+- The installer's settings outside the repository are not read, on purpose: not a `PIP_*` variable
+  (`PIP_INDEX_URL`, `PIP_CONSTRAINT`, `PIP_FIND_LINKS`, `PIP_NO_INDEX`), not a `pip.conf` in the home
+  directory. The machine that scans is not the one that installs (in CI it is another), and reading
+  its state would make a finding depend on it, where the scan is deterministic
+  (`tests/oracle/test_scan_determinism.py`). A repository that depends on such a setting pins the
+  release in a manifest the scan reads.
 - One hole the gate already had is unchanged: a low `pypdf` pin elsewhere is not looked at. A
   requirement line PEP 508 refuses (`PyPDF2~=1`) is a row for its name with no version, and a local
   build (`==3.0.1+corp`) names no floor, since it is not the release the rules were measured on:

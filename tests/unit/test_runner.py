@@ -756,6 +756,33 @@ def test_a_pin_that_already_reaches_the_floor_takes_no_assumption(tmp_path: Path
         assert (scan.blocked, scan.assumed) == ((), ()), pin
 
 
+def test_the_machine_that_scans_decides_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No `PIP_*` variable and no user `pip.conf` is read, so a finding is the same on every
+    machine that scans the same files (ADR-056)."""
+    root = repository(tmp_path / "repo", {"requirements.txt": "PyPDF2\n"})
+    plain = gated(root)
+    home = tmp_path / "home"
+    (home / ".config" / "pip").mkdir(parents=True)
+    conf = home / ".config" / "pip" / "pip.conf"
+    conf.write_text("[global]\nindex-url = https://host/simple\nconstraint = c.txt\n", "utf-8")
+    for key, value in {
+        "PIP_INDEX_URL": "https://host/simple",
+        "PIP_CONSTRAINT": str(tmp_path / "c.txt"),
+        "PIP_FIND_LINKS": str(tmp_path),
+        "PIP_NO_INDEX": "1",
+        "PIP_CONFIG_FILE": str(conf),
+        "HOME": str(home),
+        "USERPROFILE": str(home),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+    }.items():
+        monkeypatch.setenv(key, value)
+    scan = gated(root)
+    assert (scan.blocked, scan.assumed) == ((), NEWEST)
+    assert scan == plain
+
+
 def test_a_second_declaration_below_the_floor_still_blocks_and_names_no_evidence(
     tmp_path: Path,
 ) -> None:
