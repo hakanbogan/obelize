@@ -136,6 +136,26 @@ def test_an_argument_with_a_table_is_refused_unless_it_is_a_string_in_it(value: 
     assert statuses(edits)[-1] == (5, "needs_review", "unsupported_kwarg")
 
 
+def test_a_call_written_carries_the_warnings_the_pack_names_and_a_refused_one_none() -> None:
+    noted = acme.MEASURE.model_copy(
+        update={
+            "params": acme.MEASURE.params.model_copy(
+                update={"warnings": ("response_text_may_be_none", "upload_display_name_unset")}
+            )
+        }
+    )
+    _code, edits = acme.transform(
+        f"{HEADER}\nsdk.measure(kind='a')\nsdk.measure(retries=3)\n",
+        acme.CHANGE,
+        acme.CLIENT,
+        noted,
+    )
+    assert [row.warnings for row in edits if row.rule_id == "measure"] == [
+        ("response_text_may_be_none", "upload_display_name_unset"),
+        (),
+    ]
+
+
 def test_a_refused_call_leaves_its_own_line_and_nothing_else_alone() -> None:
     """A free call holds no group; ADR-010 F-1 keeps the half-rewritten file off disk a layer up."""
     code, edits = run("sdk.measure(kind='a', retries=3)\n")

@@ -129,6 +129,8 @@ WarningCode = Literal[
     "positional_args_mapped_by_index",
     "history_parts_rewritten",
     "async_stream_await_preserved",
+    "response_text_may_be_none",
+    "upload_display_name_unset",
 ]
 WARNING_CODES: frozenset[WarningCode] = frozenset(get_args(WarningCode))
 
@@ -158,6 +160,14 @@ WARNING_MEANINGS: dict[WarningCode, str] = {
     "async_stream_await_preserved": (
         "An await before an async streaming call was kept after the rename; dropping it raises "
         "TypeError."
+    ),
+    "response_text_may_be_none": (
+        "The reply's text is read where the old SDK raised ValueError for a reply with none; the "
+        "new one returns None, so the value can be None and a handler for that error never runs."
+    ),
+    "upload_display_name_unset": (
+        "The old upload_file set display_name to the file's name when none was given; the new "
+        "files.upload sets none, so a read of the uploaded file's display_name is now None."
     ),
 }
 

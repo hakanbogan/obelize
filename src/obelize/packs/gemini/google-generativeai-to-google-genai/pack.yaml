@@ -439,6 +439,9 @@ changes:
         - name
       legacy_error_modules:
         - google.api_core.exceptions
+      # The legacy call gave a path its own name as `display_name`; the new one gives none.
+      warnings:
+        - upload_display_name_unset
     fixtures:
       - fixtures/negative/files_surface_new_sdk.py
       - fixtures/positive/files_surface.before.py
@@ -654,6 +657,7 @@ limitations:
   - "The rules for function calling, embed_content, the files surface and the models surface ship in v0, but the development corpus exercised them zero times: their mappings are verified against the installed SDKs and not against real migrated repositories."
   - "get_model is rewritten only when its argument is a string literal beginning with models/. The legacy call dispatched on that prefix and returned one of two different dataclasses where the new call always returns a Model, so a tunedModels/ name and a name that is not a literal are both reported rather than rewritten."
   - "A file handle passed to get_file or delete_file carries across unchanged: the new calls accept a google.genai File object as well as a name string. A handle built by code this run did not migrate is a legacy File, which the new call rejects with a ValueError."
+  - "The old upload_file named an uploaded file after its path when no display_name was given, and the new files.upload sets none, so every rewritten upload carries a warning: a read of display_name changes from the file's name to None. The old call also prefixed a name with files/ only when it held no slash, where the new one prefixes any name that does not start with files/, so name=\"a/b\" becomes files/a/b."
   - "A model reached only through a patch target, with the token generativeai nowhere in the file, is not found. Widening the prefilter to catch it would report the Vertex SDK as a legacy usage, so recall here cannot be bought."
   - "response.text returns None in google-genai where it raised ValueError in google-generativeai, so code that catches that error is reported rather than rewritten. google-genai also types text, total_tokens and embeddings as optional where google-generativeai returned Any, so mypy and pyright flag a read used as a str or an int that passed before."
   - "A call inside a handler that names an exception of google.api_core is refused, because google-genai raises google.genai.errors.APIError, with a status code and no class per status, and never the legacy classes. Handlers are seen where they are written: one in a caller of the function that makes the call is not."

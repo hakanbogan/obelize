@@ -27,6 +27,7 @@ from obelize.models import (
     QualifiedName,
     RelativePath,
     Sha256,
+    WarningCode,
     bounds,
     terminal_unsafe,
 )
@@ -840,6 +841,8 @@ class RewriteCallParams(_Closed):
     # A carried argument's legacy spellings (lower case, as the legacy lookup lowered its input)
     # and the one the new call takes; a value outside the table is `unsupported_kwarg`.
     value_maps: dict[PlainName, dict[LowerKey, EnumMemberName]] = Field(default_factory=dict)
+    # What every call this rule writes warns about: a difference the new call leaves unsaid.
+    warnings: tuple[WarningCode, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> RewriteCallParams:
@@ -851,6 +854,7 @@ class RewriteCallParams(_Closed):
         _sorted_set(self.result_attribute_flags, "result_attribute_flags")
         _sorted_set(self.result_paths, "result_paths")
         _sorted_set(self.legacy_error_modules, "legacy_error_modules")
+        _sorted_set(self.warnings, "warnings")
         declared = {bool(self.config_class), bool(self.config_kwargs), bool(self.config_kwarg)}
         if len(declared) != 1:
             raise ValueError(

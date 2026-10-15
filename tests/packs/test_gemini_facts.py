@@ -10,11 +10,12 @@ import importlib
 import inspect
 import typing
 from importlib.metadata import version
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
 import pytest
-from google.genai import chats, files, models, types
+from google.genai import Client, chats, files, models, types
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from pydantic import ValidationError
@@ -195,6 +196,43 @@ def test_the_embedding_task_types_are_the_legacy_table_spelled_as_the_service_re
     tables = [call.value_maps for call in CALL_PARAMS if "task_type" in call.config_kwargs]
     assert len(tables) == 2
     assert all(table == {"task_type": LEGACY_TASK_TYPES} for table in tables)
+
+
+class _StopError(Exception):
+    """Raised by the stand-in for the request, so no upload goes anywhere."""
+
+
+def _created(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str | None = None
+) -> types.File:
+    """The `File` that `files.upload` would ask the service to create."""
+    path = tmp_path / "a.txt"
+    path.write_text("hi", encoding="utf-8")
+    client = Client(api_key="not-a-key")
+    seen: list[types.File] = []
+
+    def create(*, file: types.File, config: object) -> object:
+        seen.append(file)
+        raise _StopError
+
+    monkeypatch.setattr(client.files, "_create", create)
+    with pytest.raises(_StopError):
+        client.files.upload(file=str(path), config=types.UploadFileConfig(name=name))
+    return seen[0]
+
+
+# google-generativeai 0.8.6 `upload_file`: a path with no display_name gets the path's name, and a
+# name with no "/" in it gets "files/" (one with a "/" is sent as written). Measured, not imported.
+def test_an_upload_names_nothing_for_a_path_and_prefixes_every_name_not_starting_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Why the upload carries a warning and a limitation, and what the limitation says."""
+    assert _created(tmp_path, monkeypatch).display_name is None
+    assert _created(tmp_path, monkeypatch, "sample").name == "files/sample"
+    assert _created(tmp_path, monkeypatch, "files/sample").name == "files/sample"
+    assert _created(tmp_path, monkeypatch, "a/b").name == "files/a/b"
+    unset = [call for call in CALL_PARAMS if "upload_display_name_unset" in call.warnings]
+    assert [call.legacy_symbol for call in unset] == ["google.generativeai.upload_file"]
 
 
 def test_every_class_the_pack_names_on_the_new_side_exists() -> None:

@@ -145,7 +145,13 @@ class RewriteCall:
                 rule_id=self._id,
                 reason=bail.reason,
             )
-        return Edit(path=context.path, line=position[0], status="auto", rule_id=self._id)
+        return Edit(
+            path=context.path,
+            line=position[0],
+            status="auto",
+            rule_id=self._id,
+            warnings=self._params.warnings,
+        )
 
     def _rewrite(self, context: RuleContext, tree: _Tree, position: Position) -> None:
         """Record what replaces one call, or raise the one code that refuses it.

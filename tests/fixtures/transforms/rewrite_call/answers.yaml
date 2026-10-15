@@ -124,9 +124,10 @@ cases:
     edits:
       - {line: 7, rule: rename-import, status: auto}
       - {line: 9, rule: configure-to-client, status: auto}
-      - {line: 13, rule: upload-file, status: auto}
+      - {line: 13, rule: upload-file, status: auto, warnings: [upload_display_name_unset]}
     notes: >-
-      The configuration fits on its own line and the call around it does not,
+      The legacy call named the file after its path and the new one names it
+      nothing, which the edit says. The configuration fits on its own line and the call around it does not,
       which is the layout rule's third clause in its smallest form: the inner
       call is built at the indent the outer one would wrap to, and only the
       outer one uses it.

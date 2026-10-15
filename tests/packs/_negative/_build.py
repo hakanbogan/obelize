@@ -1096,6 +1096,26 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: _with(d["changes"][1]["params"], "value_maps", {"kind": {}}),
     ),
     Case(
+        name="a_warning_list_that_is_not_sorted",
+        defect="a warning list with two spellings of one set",
+        path=f"{EXTRA}.params",
+        says="warnings must be sorted and de-duplicated",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(
+            d["changes"][1]["params"],
+            "warnings",
+            ["upload_display_name_unset", "response_text_may_be_none"],
+        ),
+    ),
+    Case(
+        name="a_warning_nothing_defines",
+        defect="a warning code no report could explain",
+        path=f"{EXTRA}.params.warnings[0]",
+        says="Input should be",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "warnings", ["be_careful"]),
+    ),
+    Case(
         name="a_dispatch_prefix_list_that_is_not_sorted",
         defect="a prefix list with two spellings of one set",
         path=f"{EXTRA}.params",

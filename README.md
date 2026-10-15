@@ -200,7 +200,7 @@ part it can prove, give the agent the rest, and keep the check:
 `scan` and `fix` run every pack your repository uses, or the ones `--pack` names, and your own packs
 can sit in a directory your own `~/.config/obelize/config.yml` lists as `pack_dirs`; a
 repository's `.obelize.yml` may not. The Gemini pack,
-`gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 22
+`gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 23
 limitations. The limitations say what it reports instead of rewriting, such as every tool
 declaration, because automatic function calling is on by default in `google-genai`; what it cannot
 find; and what it rewrites without having checked it against a live API call. `scan` and `fix` print
