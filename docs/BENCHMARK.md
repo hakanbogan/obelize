@@ -192,7 +192,11 @@ own after-phase would fail every case; steps 5 and 8 replace it.
 The harness grades from the run folder, never from the
 [exit code](CLI.md#exit-codes). Each step runs without a shell, in a session of its own that
 is killed when the step ends, so a process a suite leaves running neither holds a finished step to its
-ceiling nor outlives its case. Step output goes to `<work>/<round>/<id>.logs/`
+ceiling nor outlives its case. A step inherits `PATH`, `LANG`, `LC_ALL`, `TMPDIR`, `UV_CACHE_DIR`,
+`UV_PYTHON_INSTALL_DIR` and `PIP_CACHE_DIR` where the harness has them, and a `HOME` of its own
+under `<work>/home`, so no credential, key or tool configuration of the machine reaches an install
+or a suite. Without the three directory variables, uv and pip keep their caches and interpreters
+under that `HOME`, and the first round on a machine downloads them again. Step output goes to `<work>/<round>/<id>.logs/`
 and is never committed. The gitignored `bench/work/` holds only
 checkouts of `bench/gate1_collect.py`, `bench/candidates_collect.py` and
 `bench/cases_collect.py`, which run no test suite.

@@ -91,6 +91,18 @@ PYTEST_EXITS: Mapping[int, str] = {
     5: "inconclusive",
 }
 
+# All a case's commands inherit, besides a `HOME` of their own: the repositories are unreviewed, so
+# no credential or tool configuration of this machine may reach an install or a suite.
+PASSED_ENVIRONMENT: tuple[str, ...] = (
+    "PATH",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+    "UV_CACHE_DIR",
+    "UV_PYTHON_INSTALL_DIR",
+    "PIP_CACHE_DIR",
+)
+
 # Configs pytest, ruff, mypy, tox and setuptools find by searching upward.
 ANCESTOR_CONFIGS: frozenset[str] = frozenset(
     {
@@ -206,6 +218,15 @@ def offline(inner: Execute) -> Execute:
         return inner(argv, cwd, env, timeout_s)
 
     return execute
+
+
+def case_environ(environ: Mapping[str, str]) -> dict[str, str]:
+    """`PASSED_ENVIRONMENT` from `environ`, and a `HOME` under `WORK` that holds nothing of ours."""
+    home = WORK / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    return {name: environ[name] for name in PASSED_ENVIRONMENT if name in environ} | {
+        "HOME": str(home)
+    }
 
 
 def corpus() -> list[Case]:
@@ -643,7 +664,7 @@ def run_case(case: Case, *, execute: Execute, fixtures_only: bool) -> dict[str, 
     shutil.rmtree(checkout, ignore_errors=True)
     logs = checkout.parent / f"{case.id}.logs"
     shutil.rmtree(logs, ignore_errors=True)
-    session = Session(case, execute, checkout, logs, dict(os.environ))
+    session = Session(case, execute, checkout, logs, case_environ(os.environ))
 
     interpreter = Path(sys.executable)
     build: str | None = HARNESS_BUILD

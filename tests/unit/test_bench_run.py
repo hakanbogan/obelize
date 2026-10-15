@@ -127,10 +127,12 @@ class Fake:
 
     def __init__(self, rules: list[tuple[str, Answer]] | None = None) -> None:
         self.calls: list[tuple[str, ...]] = []
+        self.envs: list[dict[str, str]] = []
         self.rules = list(rules or [])
 
     def __call__(self, argv: Any, cwd: Any, env: Any, timeout_s: int) -> run.Completed:
         self.calls.append(tuple(argv))
+        self.envs.append(dict(env))
         for needle, answer in self.rules:
             if needle in " ".join(argv):
                 return answer(tuple(argv), Path(cwd))
@@ -289,6 +291,51 @@ def test_the_offline_executor_refuses_an_empty_command(tmp_path: Path) -> None:
 def test_the_offline_executor_still_runs_this_interpreter(tmp_path: Path) -> None:
     said = run.offline(run.shell)([sys.executable, "-c", "print(1)"], tmp_path, {}, 60)
     assert said.exit_code == 0
+
+
+def test_a_case_inherits_what_is_listed_and_a_home_that_is_not_ours(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    given = {name: name.lower() for name in run.PASSED_ENVIRONMENT}
+    given |= {"GH_TOKEN": "planted", "AWS_SECRET_ACCESS_KEY": "planted", "HOME": "/real"}
+    got = run.case_environ(given)
+    assert got == {**{name: name.lower() for name in run.PASSED_ENVIRONMENT}, "HOME": got["HOME"]}
+    assert Path(got["HOME"]) == tmp_path / "work" / "home"
+    assert Path(got["HOME"]).is_dir()
+    assert run.case_environ({}) == {"HOME": got["HOME"]}
+
+
+def test_a_secret_in_the_harness_environment_reaches_no_step_of_a_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    monkeypatch.setenv("GH_TOKEN", "planted")
+    monkeypatch.setenv("VIRTUAL_ENV", "/the/harness/venv")
+    fake = Fake(a_whole_run())
+    run.run_case(corpus_case(), execute=fake, fixtures_only=False)
+    assert len(fake.envs) == len(fake.calls) > 10
+    for env in fake.envs:
+        assert "GH_TOKEN" not in env
+        assert env["HOME"] == str(tmp_path / "work" / "home")
+    assert "VIRTUAL_ENV" not in fake.envs[0]
+    assert fake.envs[-1]["VIRTUAL_ENV"].endswith("owner__repo/.venv")
+
+
+def test_a_real_command_of_a_case_sees_no_secret_and_not_the_real_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    monkeypatch.setenv("GH_TOKEN", "planted")
+    program = "import os;print(os.environ.get('GH_TOKEN'), os.environ['HOME'])"
+    said = run.shell([sys.executable, "-c", program], tmp_path, run.case_environ(os.environ), 60)
+    assert said.output.split() == ["None", str(tmp_path / "work" / "home")]
+
+
+def test_every_variable_a_case_inherits_is_named_in_the_protocol() -> None:
+    protocol = (ROOT / "docs" / "BENCHMARK.md").read_text(encoding="utf-8")
+    for name in run.PASSED_ENVIRONMENT:
+        assert f"`{name}`" in protocol
 
 
 def test_a_checkout_is_one_commit_deep_and_names_the_sha(tmp_path: Path) -> None:
