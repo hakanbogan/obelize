@@ -14,4 +14,4 @@ patches the SDK boundary.
 import os
 
 os.environ.setdefault("GEMINI_API_KEY", "test-key-not-a-real-credential")
-os.environ.setdefault("SUMMARIZER_MODEL", "gemini-1.5-flash")
+os.environ.setdefault("SUMMARIZER_MODEL", "gemini-2.5-flash")

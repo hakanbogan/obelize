@@ -12,7 +12,7 @@ import google.generativeai as genai
 
 genai.configure(api_key=sys.argv[1])
 
-model = genai.GenerativeModel("gemini-1.0-pro")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 for path in sorted(glob.glob("sample_docs/*.txt")):
     with open(path) as fh:

@@ -55,6 +55,18 @@ def test_a_package_named_on_the_eleventh_line_is_too_late() -> None:
     assert not names_every_package(lead(9), names)
 
 
+def test_the_examples_name_only_the_model_the_readme_shows() -> None:
+    """Google retires a model name on its own schedule: there is one to move, not four."""
+    model = re.compile(r"gemini-[0-9][\w.-]*")
+    named = {
+        name
+        for path in (ROOT / "examples").rglob("*.py")
+        for name in model.findall(path.read_text(encoding="utf-8"))
+    }
+    assert named
+    assert named == set(model.findall(_readme()))
+
+
 def shown_commands(markdown: str) -> list[list[str]]:
     """The arguments of every `uvx obelize` line in the shell blocks."""
     blocks = re.findall(r"^```bash\n(.*?)^```", markdown, re.MULTILINE | re.DOTALL)
