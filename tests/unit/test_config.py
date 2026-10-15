@@ -501,6 +501,41 @@ def test_a_value_the_documentation_does_not_admit_is_refused(tmp_path: Path, bod
         load(tmp_path)
 
 
+# What lax validation read as a number, a flag or a string: `'60'`, `1`, and bytes from `!!binary`.
+WRONG_TYPES = [
+    ("max_file_bytes: '1000'", "max_file_bytes"),
+    ("max_file_bytes: 1000.0", "max_file_bytes"),
+    ("max_file_bytes: true", "max_file_bytes"),
+    ("allow_dirty: 1", "allow_dirty"),
+    ("allow_dirty: 'yes'", "allow_dirty"),
+    ("verify: {timeout_s: '60'}", "verify.timeout_s"),
+    ("verify: {junit: 0}", "verify.junit"),
+    ("include: !!binary Zm9v", "include"),
+    ("exclude: [!!binary Zm9v]", "exclude.0"),
+    ("verify: {commands: [!!binary cHl0ZXN0]}", "verify.commands.0"),
+]
+
+
+@pytest.mark.parametrize(("body", "key"), WRONG_TYPES)
+def test_a_value_of_the_wrong_type_is_refused_where_it_would_have_been_coerced(
+    tmp_path: Path, body: str, key: str
+) -> None:
+    _write(tmp_path, f"{body}\n")
+    with pytest.raises(
+        ConfigError, match=rf"- {key}: Input should be a valid (integer|boolean|string)"
+    ):
+        load(tmp_path)
+
+
+def test_a_value_of_the_right_type_is_read_as_written(tmp_path: Path) -> None:
+    _write(
+        tmp_path, "max_file_bytes: 1000\nallow_dirty: true\nverify: {timeout_s: 60, junit: false}\n"
+    )
+    loaded = load(tmp_path).config
+    assert (loaded.max_file_bytes, loaded.allow_dirty) == (1000, True)
+    assert (loaded.verify.timeout_s, loaded.verify.junit) == (60, False)
+
+
 # `model:` values the user's file refuses, with the message; a repository file refuses any `model:`.
 USER_MODEL_REFUSALS = [
     ("api_key_env: 'sk-not-a-variable-name'", "is not a variable name"),

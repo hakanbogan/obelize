@@ -363,7 +363,8 @@ your allowlist is `user_allowlist`.
 
 At the repository root; flags take precedence. A file that does not parse, is larger than
 1 MiB, or has an unknown, duplicate or wrongly typed key, exits `2` before anything is
-read; it is never partially applied.
+read; it is never partially applied. A number or a flag is not read from text: `allow_dirty: "yes"`
+and `verify.timeout_s: "60"` are errors, and so is a YAML set, which has no order.
 
 | Key | Type | Default | Description |
 |---|---|---|---|

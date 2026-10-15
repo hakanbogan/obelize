@@ -9,7 +9,10 @@ Accepted; amended by [ADR-016](ADR-016-file-selection-path-guard.md) (D3).
 **D1. An unusable configuration file exits `2`.** Invalid YAML, an unknown or
 repeated key, or a wrongly typed value stops the run before any repository file
 is opened, and nothing is partially applied: the file is part of the invocation,
-so a broken one is a usage error like a misspelled flag.
+so a broken one is a usage error like a misspelled flag. A number or a flag is never read from
+text or from another type (`allow_dirty: "yes"`, `timeout_s: "60"` and `max_file_bytes: 1000.0`
+are wrongly typed), a YAML set is refused because it has no order, and a file over 1 MiB is
+refused unread. Each is a refusal that names its key or line, never a traceback.
 
 **D2. `--verify` replaces the file's list; it does not append to it.** The
 override list is then non-empty exactly when every command in the run is level

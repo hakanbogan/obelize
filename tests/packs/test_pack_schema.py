@@ -724,6 +724,41 @@ def test_a_module_is_not_shared_unless_the_pack_says_so() -> None:
     assert (built.match.shared, built.match.symbols) == (True, ("demo_legacy.configure",))
 
 
+def _with_coroutine(value: Any) -> dict[str, Any]:
+    document = with_change(builder.MODEL_CHANGE)
+    document["changes"][-1]["params"]["rewrites"]["demo_legacy.Model.generate"]["coroutine"] = value
+    return document
+
+
+WRONG_TYPES = [
+    minimal(layout={"line_length": "100"}),
+    minimal(layout={"line_length": 100.0}),
+    minimal(layout={"line_length": True}),
+    {**minimal(), "match": {**minimal()["match"], "shared": 1}},
+    _with_coroutine("yes"),
+]
+
+
+@pytest.mark.parametrize(
+    "document", WRONG_TYPES, ids=["str", "float", "bool", "shared", "coroutine"]
+)
+def test_a_number_or_a_flag_of_the_wrong_type_is_refused_not_coerced(
+    document: dict[str, Any],
+) -> None:
+    with pytest.raises(ValidationError, match=r"Input should be a valid (integer|boolean)"):
+        build(document)
+
+
+def test_a_flag_and_a_number_of_the_right_type_are_read_as_written() -> None:
+    document = _with_coroutine(True)
+    document["layout"] = {"line_length": 88}
+    built = build(document)
+    assert built.layout.line_length == 88
+    change = built.changes[-1]
+    assert isinstance(change, schema.GenerativeModelCallsChange)
+    assert change.params.rewrites["demo_legacy.Model.generate"].coroutine is True
+
+
 def test_a_shared_module_must_list_what_is_legacy_in_it() -> None:
     document = minimal()
     document["match"]["shared"] = True

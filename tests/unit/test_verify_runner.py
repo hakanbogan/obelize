@@ -77,6 +77,8 @@ BROKEN = [
     ('verify:\n  allow: ["pytest |"]\n', "is not valid"),
     ("verify:\n  allow: []\n  allow: []\n", "duplicate key"),
     ("verify: [\n", "not valid YAML"),
+    ("verify: {allow: [!!binary cHl0ZXN0]}\n", "is not valid"),
+    ("pack_dirs: [!!binary L3RtcA==]\n", "is not valid"),
     ("verify: 2020-13-45\n", "month must be in 1..12"),
     ("verify: " + "[" * 5000 + "\n", "nested too deeply to read"),
 ]

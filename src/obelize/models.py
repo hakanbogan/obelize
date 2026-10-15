@@ -20,7 +20,16 @@ from urllib.parse import urlsplit
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    StrictStr,
+    model_validator,
+)
 
 from obelize.native import processes
 
@@ -444,7 +453,7 @@ def _configured_command(value: str) -> str:
 RelativePath = Annotated[str, AfterValidator(_relative_posix_path)]
 Sha256 = Annotated[str, AfterValidator(_sha256)]
 PrefilterToken = Annotated[str, AfterValidator(_ascii_token)]
-RunnableCommand = Annotated[str, AfterValidator(_runnable_command)]
+RunnableCommand = Annotated[StrictStr, AfterValidator(_runnable_command)]
 ConfiguredCommand = Annotated[RunnableCommand, AfterValidator(_configured_command)]
 
 
@@ -1065,8 +1074,8 @@ class VerifyConfig(_Frozen):
     """
 
     commands: tuple[ConfiguredCommand, ...] = ()
-    timeout_s: int = Field(default=TIMEOUT_S, gt=0)
-    junit: bool = True
+    timeout_s: StrictInt = Field(default=TIMEOUT_S, gt=0)
+    junit: StrictBool = True
 
 
 class ModelConfig(_Frozen):
@@ -1126,11 +1135,11 @@ class Config(_Frozen):
     merges flags. docs/CLI.md lists every field and default (tests/unit/test_config.py checks).
     """
 
-    include: str = DEFAULT_INCLUDE
-    exclude: tuple[str, ...] = ()
+    include: StrictStr = DEFAULT_INCLUDE
+    exclude: tuple[StrictStr, ...] = ()
     verify: VerifyConfig = Field(default_factory=VerifyConfig)
-    allow_dirty: bool = False
-    max_file_bytes: int = Field(default=2_000_000, gt=0)
+    allow_dirty: StrictBool = False
+    max_file_bytes: StrictInt = Field(default=2_000_000, gt=0)
 
     @model_validator(mode="after")
     def _check(self) -> Config:

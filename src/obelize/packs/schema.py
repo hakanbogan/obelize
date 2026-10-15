@@ -15,7 +15,15 @@ from urllib.parse import urlsplit
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
 
 from obelize.models import (
     QUALIFIED_NAME,
@@ -326,7 +334,7 @@ class Match(_Closed):
     # file imports one that no manifest declares, the legacy pin stays.
     transitive: dict[QualifiedName, DistributionName] = Field(default_factory=dict)
     # The module is the new SDK's too, so `import M` is no finding and only `symbols` are legacy.
-    shared: bool = False
+    shared: StrictBool = False
 
     @model_validator(mode="after")
     def _check(self) -> Match:
@@ -564,7 +572,7 @@ class MethodRewrite(_Closed):
     contents_kwarg: PlainName | None = None
     # The legacy method and its replacement are both coroutine functions, so `await` carries over.
     # A streaming call under `async for` with no `await` already raised before migration.
-    coroutine: bool = False
+    coroutine: StrictBool = False
     # Absent: the new call takes no config, so the constructor's is dropped and the edit says so.
     config_kwarg: PlainName | None = None
     # Constructor keywords that change this call's answer, so they may not be dropped.
@@ -1068,7 +1076,7 @@ Change = Annotated[
 class Layout(_Closed):
     """The maximum line width the pack's rules emit; match it to the user's formatter."""
 
-    line_length: int = Field(default=100, ge=40, le=320)
+    line_length: StrictInt = Field(default=100, ge=40, le=320)
 
 
 class Verification(_Closed):

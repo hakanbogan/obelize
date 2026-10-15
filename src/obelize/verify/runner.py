@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 
 from obelize import _yaml
 from obelize.config import ConfigError, refusal
@@ -64,7 +64,7 @@ class UserConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     # Where more migration packs live. A pack decides what is written and which imports a model may
     # add, so only the user names them: a repository never does.
-    pack_dirs: tuple[str, ...] = ()
+    pack_dirs: tuple[StrictStr, ...] = ()
 
     @field_validator("pack_dirs")
     @classmethod

@@ -545,6 +545,7 @@ Per field:
 
 - A file larger than 1 MiB.
 - An unknown field anywhere.
+- A number or a flag written as text, such as `line_length: "100"` or `shared: 1`: neither is coerced.
 - A `from`/`to` version, or a `to` with no `requires_python` or one that is not PEP 440, or
   ranges that overlap or contradict. Only ranges over one distribution are compared: a
   rename may keep the version.
