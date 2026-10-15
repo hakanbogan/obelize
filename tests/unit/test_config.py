@@ -33,7 +33,7 @@ from obelize.config import (
     with_pack_dirs,
 )
 from obelize.models import DEFAULT_INCLUDE, PROVIDER_NAMES, Config, ModelConfig, VerifyConfig
-from obelize.native import processes
+from obelize.native import processes, shell
 from obelize.verify.runner import user_config
 from platforms import AS_ROOT, deny, link, windows_only
 
@@ -565,8 +565,16 @@ def test_a_pattern_that_does_not_compile_is_refused_when_the_file_is_read(tmp_pa
         load(tmp_path)
 
 
-def test_a_command_that_needs_a_shell_says_so_and_offers_the_alternative() -> None:
-    with pytest.raises(ValidationError, match=r"sh -c '<command>'"):
+@pytest.mark.parametrize(
+    "ask", ["sh -c '<command>'", 'cmd /c "<command>"'], ids=["posix", "windows"]
+)
+def test_a_command_that_needs_a_shell_says_so_and_offers_the_alternative(
+    monkeypatch: pytest.MonkeyPatch, ask: str
+) -> None:
+    monkeypatch.setattr(shell, "SHELL", ask)
+    with pytest.raises(
+        ValidationError, match=re.escape(f"Ask for a shell explicitly instead: {ask}.")
+    ):
         VerifyConfig(commands=("pytest -q && ruff check .",))
 
 

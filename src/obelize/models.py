@@ -32,7 +32,7 @@ from pydantic import (
     model_validator,
 )
 
-from obelize.native import processes
+from obelize.native import processes, shell
 
 FindingKind = Literal[
     "import",
@@ -436,8 +436,7 @@ def _runnable_command(value: str) -> str:
     if operators:
         raise ValueError(
             f"{value!r} runs without a shell, so {operators[0]!r} would be passed to "
-            f"{tokens[0]!r} as an argument. Ask for a shell explicitly instead: "
-            f"sh -c '<command>'."
+            f"{tokens[0]!r} as an argument. Ask for a shell explicitly instead: {shell.SHELL}."
         )
     _terminal_safe(value, "a verification command", allowed="\t\n")
     return value

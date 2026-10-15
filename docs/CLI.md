@@ -370,7 +370,7 @@ and `verify.timeout_s: "60"` are errors, and so is a YAML set, which has no orde
 |---|---|---|---|
 | `include` | string | `**/*.py` | Files the scan considers, after all exclusions. Same semantics as `exclude`. |
 | `exclude` | list of strings | empty | Patterns to skip, with git's `.gitignore` semantics (`pathspec.GitIgnoreSpec`): `legacy/*` excludes everything under `legacy/`, at any depth. Added to [the always-excluded set](#the-always-excluded-set); a `!` pattern re-includes only what this list excluded. |
-| `verify.commands` | list of strings | empty | Verification commands, under the [trust rules](#trust-rules-for-verification-commands). Split with `shlex` and run without a shell, so a bare `\|`, `&&` or `>` is refused on load; use `sh -c "<command>"`. |
+| `verify.commands` | list of strings | empty | Verification commands, under the [trust rules](#trust-rules-for-verification-commands). Split with `shlex` and run without a shell, so a bare `\|`, `&&` or `>` is refused on load; use `sh -c "<command>"`, or `cmd /c "<command>"` on Windows. |
 | `verify.timeout_s` | integer | `600` | Per-command timeout in seconds; on expiry the process group (the job object on Windows) is killed and the status is `inconclusive` / `timeout`. |
 | `verify.junit` | boolean | `true` | Add `--junitxml` into the run folder to a `pytest` or `python -m pytest` command that has none, to compare per-test results with the baseline. |
 | `allow_dirty` | boolean | `false` | Same as `--allow-dirty`. |

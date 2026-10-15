@@ -370,6 +370,7 @@ HINT = "came from the environment obelize runs in"
 
 
 @SHEBANG
+@pytest.mark.parametrize("interpreter", [".venv/bin/python", ".venv/Scripts/python.exe"])
 @pytest.mark.parametrize(
     ("inside", "code", "hinted"),
     [(True, 1, True), (False, 1, False), (True, 0, False)],
@@ -382,8 +383,11 @@ def test_a_baseline_run_from_obelizes_own_environment_says_so(
     inside: bool,
     code: int,
     hinted: bool,
+    interpreter: str,
 ) -> None:
-    """Under `uv run` a bare `pytest` is obelize's; only a failing baseline from it is hinted."""
+    """Under `uv run` a bare `pytest` is obelize's; only a failing baseline from it is hinted, with
+    the interpreter this system spells (stubbed here)."""
+    monkeypatch.setattr(shell, "VENV_PYTHON", interpreter)
     own = tmp_path / "obelize-env"
     bin_dir = (own if inside else tmp_path / "project-env") / "bin"
     bin_dir.mkdir(parents=True)
@@ -399,7 +403,7 @@ def test_a_baseline_run_from_obelizes_own_environment_says_so(
         "{0} failed, and its program " + HINT + ", which may not be your project's. "
         "To run your project's tests, name its interpreter: {1}."
     )
-    tests = '--verify "/path/to/your/project/.venv/bin/python -m pytest -q"'
+    tests = f'--verify "/path/to/your/project/{interpreter} -m pytest -q"'
     # Every hint, so a command that started and failed is not also said to have never started.
     shown = [line for line in result.stdout.splitlines() if line.startswith("Hint:")]
     assert shown == ([f"Hint: {hint.format('pytest -q', tests)}"] if hinted else [])

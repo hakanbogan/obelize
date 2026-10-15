@@ -88,9 +88,6 @@ CODES = (
 # Rows `_left` names with their file and line; the rest are in REPORT.md.
 ROOT_ROWS = 5
 
-# The interpreter the hint about obelize's own environment gives as an example.
-_VENV_TESTS = '--verify "/path/to/your/project/.venv/bin/python -m pytest -q"'
-
 
 def _code(text: str) -> str:
     """A code span in `REPORT.md`; a terminal would print the backticks.
@@ -108,6 +105,11 @@ def _bare(text: str) -> str:
 
 def _tests() -> str:
     return f"--verify {shell.quote(TESTS)}"
+
+
+def _venv_tests() -> str:
+    """The interpreter the hint about obelize's own environment gives as an example."""
+    return f'--verify "/path/to/your/project/{shell.VENV_PYTHON} -m pytest -q"'
 
 
 def _inside(folder: str, name: str) -> str:
@@ -518,7 +520,7 @@ def _hints(verify: VerifyRecord, code: Callable[[str], str]) -> list[str]:
             f"{code(row.command)} {'timed out' if row.reason == 'timeout' else 'failed'}, and "
             "its program came from the environment obelize runs in, which may not be your "
             "project's. To run your project's tests, name its interpreter: "
-            f"{code(_VENV_TESTS)}."
+            f"{code(_venv_tests())}."
             for row in rows
             if row.status != "pass" and row.in_obelize_environment
         ),
