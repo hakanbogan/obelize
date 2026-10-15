@@ -116,10 +116,10 @@ def _enum_member(value: str) -> str:
 def _lower_key(value: str) -> str:
     """Lower-case only: lookups lower the input, as the legacy SDK did."""
     if not value:
-        raise ValueError("a safety-table key must not be empty")
+        raise ValueError("a table key must not be empty")
     if value != value.lower():
         raise ValueError(
-            f"safety-table keys are matched case-insensitively, so the table holds the "
+            f"table keys are matched case-insensitively, so the table holds the "
             f"lower-case spelling: {value!r} should be {value.lower()!r}"
         )
     return value
@@ -203,7 +203,7 @@ SemVer = Annotated[str, AfterValidator(_semver)]
 EnumMemberName = Annotated[str, AfterValidator(_enum_member)]
 SymbolKey = Annotated[str, AfterValidator(_symbol_key)]
 TrailingCharacter = Annotated[str, AfterValidator(_trailing_character)]
-SafetyKey = Annotated[str, AfterValidator(_lower_key)]
+LowerKey = Annotated[str, AfterValidator(_lower_key)]
 SourceUrl = Annotated[str, AfterValidator(_source_url)]
 Pep440Specifier = Annotated[str, AfterValidator(_pep440_specifier)]
 Release = Annotated[str, AfterValidator(_release)]
@@ -460,8 +460,8 @@ class SafetySettings(_Closed):
     # The PaLM-era `protos` spelling is deliberately absent: it is flagged, and the file withheld.
     legacy_category_class: QualifiedName
     legacy_threshold_class: QualifiedName
-    category_map: dict[SafetyKey, EnumMemberName]
-    threshold_map: dict[SafetyKey, EnumMemberName]
+    category_map: dict[LowerKey, EnumMemberName]
+    threshold_map: dict[LowerKey, EnumMemberName]
     # Recognised and emitted under their own names, so every map value must be one.
     category_members: tuple[EnumMemberName, ...]
     threshold_members: tuple[EnumMemberName, ...]
@@ -837,6 +837,9 @@ class RewriteCallParams(_Closed):
     # The only reads of the result that carry: anything else, or the result passed on, is refused.
     result_paths: tuple[ResultPath, ...] = ()
     dispatch_prefixes: dict[PlainName, tuple[LiteralPrefix, ...]] = Field(default_factory=dict)
+    # A carried argument's legacy spellings (lower case, as the legacy lookup lowered its input)
+    # and the one the new call takes; a value outside the table is `unsupported_kwarg`.
+    value_maps: dict[PlainName, dict[LowerKey, EnumMemberName]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check(self) -> RewriteCallParams:
@@ -860,6 +863,7 @@ class RewriteCallParams(_Closed):
         self._check_every_renamed_parameter_is_one_the_rule_reads()
         self._check_no_two_parameters_land_on_one_keyword()
         self._check_every_dispatching_parameter_is_one_the_rule_reads()
+        self._check_every_mapped_parameter_is_one_the_rule_reads()
         return self
 
     def _check_the_result_is_read_one_way(self) -> None:
@@ -919,6 +923,22 @@ class RewriteCallParams(_Closed):
                     f"than saying which values carry; drop the entry instead"
                 )
             _sorted_set(prefixes, f"dispatch_prefixes[{parameter!r}]")
+
+    def _check_every_mapped_parameter_is_one_the_rule_reads(self) -> None:
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.value_maps) - known)
+        if unknown:
+            raise ValueError(
+                f"value_maps names {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
+                f"table is never consulted"
+            )
+        for parameter, table in sorted(self.value_maps.items()):
+            if not table:
+                raise ValueError(
+                    f"value_maps[{parameter!r}] is empty, which refuses every call rather than "
+                    f"saying which values carry; drop the entry instead"
+                )
 
     def _check_no_two_parameters_land_on_one_keyword(self) -> None:
         """After `arg_map`, no two parameters share a keyword: libcst emits that; Python refuses."""

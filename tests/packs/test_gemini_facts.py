@@ -167,6 +167,36 @@ def test_a_mapping_system_instruction_is_taken_only_with_text_parts(role: str | 
         types.GenerateContentConfig(system_instruction={**turn, "parts": ["hi"]})
 
 
+# google-generativeai 0.8.6, `embedding._EMBEDDING_TASK_TYPE`: its string keys, which `to_task_type`
+# looks up lower-cased, and the `protos.TaskType` member each one is. It took integers and members
+# as well; the new `EmbedContentConfig.task_type` is a plain string sent as given.
+LEGACY_TASK_TYPES = {
+    "classification": "CLASSIFICATION",
+    "clustering": "CLUSTERING",
+    "document": "RETRIEVAL_DOCUMENT",
+    "fact_verification": "FACT_VERIFICATION",
+    "qa": "QUESTION_ANSWERING",
+    "question_answering": "QUESTION_ANSWERING",
+    "query": "RETRIEVAL_QUERY",
+    "retrieval_document": "RETRIEVAL_DOCUMENT",
+    "retrieval_query": "RETRIEVAL_QUERY",
+    "semantic_similarity": "SEMANTIC_SIMILARITY",
+    "similarity": "SEMANTIC_SIMILARITY",
+    "task_type_unspecified": "TASK_TYPE_UNSPECIFIED",
+    "unspecified": "TASK_TYPE_UNSPECIFIED",
+    "verification": "FACT_VERIFICATION",
+}
+
+
+def test_the_embedding_task_types_are_the_legacy_table_spelled_as_the_service_reads_them() -> None:
+    """The new field is a string with nothing to look it up, so the pack spells it out."""
+    annotation = types.EmbedContentConfig.model_fields["task_type"].annotation
+    assert set(typing.get_args(annotation)) == {str, type(None)}
+    tables = [call.value_maps for call in CALL_PARAMS if "task_type" in call.config_kwargs]
+    assert len(tables) == 2
+    assert all(table == {"task_type": LEGACY_TASK_TYPES} for table in tables)
+
+
 def test_every_class_the_pack_names_on_the_new_side_exists() -> None:
     """Attribute lookup, not construction, for the same reason as the safety tables."""
     named = {params.config_class for params in MODEL_PARAMS}

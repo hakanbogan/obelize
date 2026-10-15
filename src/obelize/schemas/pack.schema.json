@@ -1013,6 +1013,16 @@
           ],
           "title": "Root",
           "type": "string"
+        },
+        "value_maps": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Value Maps",
+          "type": "object"
         }
       },
       "required": [

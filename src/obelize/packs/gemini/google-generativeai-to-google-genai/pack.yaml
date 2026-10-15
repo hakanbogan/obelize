@@ -351,6 +351,24 @@ changes:
         - output_dimensionality
         - task_type
         - title
+      # The legacy SDK lowered a string and looked it up here (integers and enum members too); the
+      # new config sends `task_type` as written, and the service reads the UPPER_SNAKE name.
+      value_maps:
+        task_type:
+          classification: CLASSIFICATION
+          clustering: CLUSTERING
+          document: RETRIEVAL_DOCUMENT
+          fact_verification: FACT_VERIFICATION
+          qa: QUESTION_ANSWERING
+          question_answering: QUESTION_ANSWERING
+          query: RETRIEVAL_QUERY
+          retrieval_document: RETRIEVAL_DOCUMENT
+          retrieval_query: RETRIEVAL_QUERY
+          semantic_similarity: SEMANTIC_SIMILARITY
+          similarity: SEMANTIC_SIMILARITY
+          task_type_unspecified: TASK_TYPE_UNSPECIFIED
+          unspecified: TASK_TYPE_UNSPECIFIED
+          verification: FACT_VERIFICATION
       # The legacy result was a mapping and the new one an object, so any use of it is refused.
       result_access_flags:
         - embedding
@@ -377,6 +395,24 @@ changes:
         - output_dimensionality
         - task_type
         - title
+      # The legacy SDK lowered a string and looked it up here (integers and enum members too); the
+      # new config sends `task_type` as written, and the service reads the UPPER_SNAKE name.
+      value_maps:
+        task_type:
+          classification: CLASSIFICATION
+          clustering: CLUSTERING
+          document: RETRIEVAL_DOCUMENT
+          fact_verification: FACT_VERIFICATION
+          qa: QUESTION_ANSWERING
+          question_answering: QUESTION_ANSWERING
+          query: RETRIEVAL_QUERY
+          retrieval_document: RETRIEVAL_DOCUMENT
+          retrieval_query: RETRIEVAL_QUERY
+          semantic_similarity: SEMANTIC_SIMILARITY
+          similarity: SEMANTIC_SIMILARITY
+          task_type_unspecified: TASK_TYPE_UNSPECIFIED
+          unspecified: TASK_TYPE_UNSPECIFIED
+          verification: FACT_VERIFICATION
       result_access_flags:
         - embedding
       legacy_error_modules:

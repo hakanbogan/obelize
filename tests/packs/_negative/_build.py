@@ -1080,6 +1080,22 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: _with(d["changes"][1]["params"], "dispatch_prefixes", {"kind": []}),
     ),
     Case(
+        name="a_value_map_on_a_parameter_no_list_names",
+        defect="a table of spellings the rule would never consult",
+        path=f"{EXTRA}.params",
+        says="value_maps names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"value_maps": {"flavour": {"a": "A"}}}),
+    ),
+    Case(
+        name="a_value_map_with_nothing_in_it",
+        defect="a table that refuses every call rather than saying which values carry",
+        path=f"{EXTRA}.params",
+        says="value_maps['kind'] is empty",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "value_maps", {"kind": {}}),
+    ),
+    Case(
         name="a_dispatch_prefix_list_that_is_not_sorted",
         defect="a prefix list with two spellings of one set",
         path=f"{EXTRA}.params",

@@ -91,6 +91,51 @@ def test_an_argument_the_pack_cannot_place_refuses_the_call(body: str, reason: s
     assert statuses(edits)[-1] == (5, "needs_review", reason)
 
 
+# `tone` and `kind` are spelled the way the new call reads them, whatever case the author used.
+SPELLED = acme.MEASURE.model_copy(
+    update={
+        "params": acme.MEASURE.params.model_copy(
+            update={"value_maps": {"tone": {"dry": "DRY", "wet": "WET"}, "kind": {"a": "A"}}}
+        )
+    }
+)
+
+
+def spelled(body: str) -> tuple[str, list[Edit]]:
+    code, edits = acme.transform(f"{HEADER}\n{body}", acme.CHANGE, acme.CLIENT, SPELLED)
+    return code.splitlines()[-1], edits
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("sdk.measure(kind='a', tone='dry')\n", "kind='A', opts=types.MeasureConfig(tone='DRY')"),
+        ("sdk.measure(kind='A', tone='DRY')\n", "kind='A', opts=types.MeasureConfig(tone='DRY')"),
+        ('sdk.measure(kind="a", tone="Wet")\n', 'kind="A", opts=types.MeasureConfig(tone="WET")'),
+        ("sdk.measure('a', tone=('wet'))\n", "kind='A', opts=types.MeasureConfig(tone=('WET'))"),
+        ("sdk.measure(kind='a', tone='''dry''')\n", "tone='''DRY'''"),
+    ],
+    ids=["alias", "already-mapped", "double-quoted", "parenthesised", "triple-quoted"],
+)
+def test_a_mapped_argument_is_written_as_the_name_the_new_call_takes(
+    body: str, expected: str
+) -> None:
+    line, edits = spelled(body)
+    assert expected in line
+    assert [row.status for row in edits] == ["auto", "auto", "auto"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["task", "3", "b'dry'", "f'dry'", "'dry' 'x'", "'damp'", "None"],
+    ids=["name", "number", "bytes", "f-string", "concatenation", "unknown", "none"],
+)
+def test_an_argument_with_a_table_is_refused_unless_it_is_a_string_in_it(value: str) -> None:
+    code, edits = spelled(f"sdk.measure(kind='a', tone={value})\n")
+    assert code == f"sdk.measure(kind='a', tone={value})"
+    assert statuses(edits)[-1] == (5, "needs_review", "unsupported_kwarg")
+
+
 def test_a_refused_call_leaves_its_own_line_and_nothing_else_alone() -> None:
     """A free call holds no group; ADR-010 F-1 keeps the half-rewritten file off disk a layer up."""
     code, edits = run("sdk.measure(kind='a', retries=3)\n")

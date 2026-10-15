@@ -245,14 +245,34 @@ class RewriteCall:
             if name in given:
                 raise BailError("positional_arg_ambiguous")
             landed = self._params.arg_map.get(name, name)
+            value = self._spelled(name, argument.value)
             if name in self._params.config_kwargs:
-                config.append((landed, argument.value))
+                config.append((landed, value))
             elif name in carried:
-                args.append(layout.keyword(landed, argument.value))
+                args.append(layout.keyword(landed, value))
             else:
                 raise BailError("unsupported_kwarg")
             given[name] = argument.value
         return _Read(args=tuple(args), config=tuple(config), given=given)
+
+    def _spelled(self, name: str, value: cst.BaseExpression) -> cst.BaseExpression:
+        """What the new call takes for an argument with a `value_maps` table; others as written.
+
+        The table holds what the legacy lookup took, so any other value (a name, an enum member, a
+        number, an unknown string) is refused rather than sent on as it is.
+        """
+        table = self._params.value_maps.get(name)
+        if table is None:
+            return value
+        written = literal_string(value)
+        new = table.get(written.lower()) if written is not None else None
+        if new is None or not isinstance(value, cst.SimpleString):
+            raise BailError("unsupported_kwarg")
+        return (
+            value
+            if new == written
+            else value.with_changes(value=f"{value.prefix}{value.quote}{new}{value.quote}")
+        )
 
     def _configuration(
         self,

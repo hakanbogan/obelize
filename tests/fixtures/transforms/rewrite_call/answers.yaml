@@ -62,6 +62,24 @@ cases:
       The client edit carries no warning: the key is a non-empty string
       literal, which is ADR-013 D5's one exemption.
 
+  - file: embed_task_type_aliases
+    what_it_is: >-
+      Task types the legacy SDK took in other spellings: an alias and a mixed-case
+      name.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 14, rule: embed-content, status: auto}
+      - {line: 18, rule: embed-content, status: auto}
+    notes: >-
+      The legacy lookup lowered the string, so `"document"` and `"Retrieval_Query"`
+      both reached the service as the enum. The new configuration sends the string
+      as written, so the pack's table gives the name the service reads, in the
+      author's own quotes.
+
   - file: already_split
     what_it_is: >-
       A call the author split across lines whose rewrite fits on one, which is
@@ -321,6 +339,21 @@ cases:
       The same code as the upload beside it and a different surface, which is
       what makes it worth a file: `request_options` is the keyword
       `docs/SCAN_VOCABULARY.md` names in the row itself.
+
+  - file: embed_task_type_unmapped
+    what_it_is: >-
+      A task type that is a name, so the rule cannot see what the call sends.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 12, rule: rename-import, status: auto}
+      - {line: 14, rule: configure-to-client, status: auto}
+      - {line: 18, rule: embed-content, status: needs_review, reason: unsupported_kwarg}
+    notes: >-
+      Only a string literal in the pack's table carries. An integer or an enum
+      member worked on the legacy side and the new configuration takes neither as
+      a task type, and a name may hold either.
 
   - file: spread_arguments
     what_it_is: >-
