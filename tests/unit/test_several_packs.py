@@ -433,6 +433,31 @@ def test_a_lock_file_closes_only_the_pack_that_took_the_newest_release(tmp_path:
     assert "## Assumed" not in report
 
 
+def test_a_low_pin_of_the_new_library_closes_only_the_pack_that_writes_it(tmp_path: Path) -> None:
+    tree = repository(
+        tmp_path / "repo",
+        {
+            "chat.py": CHAT,
+            "pdfs.py": PDFS,
+            "requirements.txt": "google-generativeai==0.8.6\nPyPDF2>=3\n",
+            "requirements-dev.txt": "pypdf==3.0.0\n",
+        },
+    )
+    result = run(tree, "fix", "--apply", "--allow-dirty", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 4, result.output
+    assert "requirements-dev.txt declares pypdf ==3.0.0, which admits no release" in result.output
+    record = document(tree, "run.json")
+    assert {pack["id"]: pack["blocked"] for pack in record["packs"]} == {
+        GEMINI: None,
+        PYPDF: "new_version_unsupported",
+    }
+    assert "from google import genai" in sources(tree)["chat.py"]
+    assert sources(tree)["pdfs.py"] == PDFS
+    assert sources(tree)["requirements-dev.txt"] == "pypdf==3.0.0\n"
+    report = (latest(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert "`requirements-dev.txt` declares `pypdf` `==3.0.0`, which admits no release" in report
+
+
 def test_a_scan_says_what_it_took_where_the_plan_would_have_said_it(tmp_path: Path) -> None:
     tree = repository(tmp_path / "repo", {"pdfs.py": PDFS, "requirements.txt": "PyPDF2\n"})
     result = run(tree, "scan", "--pack", PYPDF)
@@ -460,9 +485,10 @@ def test_a_repository_that_is_not_the_top_of_a_git_repository_takes_nothing(
     (tree / "requirements.txt").write_text("PyPDF2\n", encoding="utf-8")
     result = run(tree, "scan", "--pack", PYPDF)
     assert TAKEN not in result.output
-    assert "declares PyPDF2 with no version, which allows versions this migration does not" in (
+    assert "declares PyPDF2 with no version, which this migration would take as the newest" in (
         result.output
     )
+    assert "lists every file only at the top of a git repository" in result.output
     record = document(tree, "run.json")["packs"][0]
     assert (record["blocked"], record["assumed"]) == ("legacy_version_unsupported", None)
 
