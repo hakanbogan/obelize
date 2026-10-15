@@ -94,9 +94,11 @@ cases:
         why: >-
           The one layout that is Python. The declaration is the string literal
           inside `install_requires` and not the docstring above it, which names
-          the distribution in prose on line 1.
+          the distribution in prose on line 1. `tests_require` is given a name,
+          and the declaration is in the list that name is assigned on line 6.
         edits:
-          - {line: 9, status: auto}
+          - {line: 6, status: auto}
+          - {line: 11, status: auto}
 
   # =====================================================================
   # blocked -- `legacy.py` configures its credentials somewhere this

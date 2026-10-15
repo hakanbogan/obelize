@@ -9,12 +9,18 @@ from __future__ import annotations
 import ast
 import fnmatch
 import re
-from dataclasses import dataclass, replace
+from dataclasses import astuple, dataclass, replace
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Final, Literal
 
 import libcst as cst
-from libcst.metadata import MetadataWrapper, ParentNodeProvider, PositionProvider
+from libcst.metadata import (
+    Assignment,
+    MetadataWrapper,
+    ParentNodeProvider,
+    PositionProvider,
+    ScopeProvider,
+)
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
@@ -831,20 +837,29 @@ def _from_cfg(path: str, lines: list[str]) -> Iterator[Declaration]:
 
 
 class _Requirements(cst.CSTVisitor):
-    """Literals under a `setup()` requirement keyword, except dict keys (an extra's name)."""
+    """Literals under a `setup()` requirement keyword, except dict keys (an extra's name), and the
+    names standing there for a whole list."""
 
-    def __init__(self) -> None:
+    def __init__(self, depth: int = 0) -> None:
         self.strings: list[cst.SimpleString] = []
-        self._depth = 0
+        self.names: list[cst.Name] = []
+        self._depth = depth
         self._keys = 0
 
     def visit_Arg(self, node: cst.Arg) -> None:
         if self.wanted(node):
             self._depth += 1
+            self._name(node.value)
 
     def leave_Arg(self, node: cst.Arg) -> None:
         if self.wanted(node):
             self._depth -= 1
+
+    def visit_Element(self, node: cst.Element) -> None:
+        self._name(node.value)
+
+    def visit_DictElement(self, node: cst.DictElement) -> None:
+        self._name(node.value)
 
     def visit_DictElement_key(self, node: cst.DictElement) -> None:
         self._keys += 1
@@ -855,6 +870,10 @@ class _Requirements(cst.CSTVisitor):
     def visit_SimpleString(self, node: cst.SimpleString) -> None:
         if self._depth and not self._keys:
             self.strings.append(node)
+
+    def _name(self, value: cst.BaseExpression) -> None:
+        if self._depth and not self._keys and isinstance(value, cst.Name):
+            self.names.append(value)
 
     @staticmethod
     def wanted(node: cst.Arg) -> bool:
@@ -882,8 +901,43 @@ def _whole(node: cst.CSTNode, parents: Mapping[cst.CSTNode, cst.CSTNode]) -> boo
     return True
 
 
+def _stood_for(
+    names: Sequence[cst.Name], wrapper: MetadataWrapper, parents: Mapping[cst.CSTNode, cst.CSTNode]
+) -> list[cst.SimpleString]:
+    """The strings of the list or tuple literal each name stands for: the one assignment that
+    binds it. A name bound twice, by an import, a parameter or anything but `NAME = [...]` is not
+    followed."""
+    if not names:
+        return []
+    scopes = wrapper.resolve(ScopeProvider)
+    listed: dict[cst.CSTNode, None] = {}
+    for name in names:
+        scope = scopes[name]
+        if scope is None:  # pragma: no cover - every node is in some scope
+            continue
+        bound = scope[name.value]
+        if len(bound) != 1:
+            continue
+        (only,) = bound
+        target = parents[only.node] if isinstance(only, Assignment) else None
+        assign = parents[target] if isinstance(target, cst.AssignTarget) else None
+        if (
+            isinstance(assign, cst.Assign)
+            and len(assign.targets) == 1
+            and isinstance(assign.value, (cst.List, cst.Tuple))
+        ):
+            listed[assign.value] = None
+    strings: list[cst.SimpleString] = []
+    for value in listed:
+        inside = _Requirements(depth=1)
+        value.visit(inside)
+        strings.extend(inside.strings)
+    return strings
+
+
 def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
-    """`setup.py`: only literals under requirement keywords declare; unparsable yields nothing."""
+    """`setup.py`: only literals under requirement keywords declare, or in the one list literal a
+    name there stands for; unparsable yields nothing."""
     module = parse.gates(path, data).module
     if module is None:
         return
@@ -893,11 +947,14 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
     try:
         positions = wrapper.resolve(PositionProvider)
         module.visit(collector)
-        parents = wrapper.resolve(ParentNodeProvider) if collector.strings else {}
+        parents = (
+            wrapper.resolve(ParentNodeProvider) if collector.strings or collector.names else {}
+        )
+        strings = [*collector.strings, *_stood_for(collector.names, wrapper, parents)]
     except (RecursionError, MemoryError):  # parsed, but too deep to walk: declares nothing
         return
     lines = data.decode("utf-8", "surrogateescape").split("\n")
-    for node in collector.strings:
+    for node in sorted(strings, key=lambda node: astuple(positions[node].start)):
         text = node.evaluated_value
         if not isinstance(text, str):
             continue

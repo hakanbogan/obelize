@@ -3,10 +3,13 @@ a declaration; the string inside install_requires is."""
 
 from setuptools import setup
 
+TESTS = ["google-generativeai==0.8.6"]
+
 setup(
     name="clear-fixture",
     install_requires=[
         "google-generativeai==0.8.6",
         "requests>=2.31",
     ],
+    tests_require=TESTS,
 )

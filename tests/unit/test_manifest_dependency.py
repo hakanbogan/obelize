@@ -215,6 +215,39 @@ def test_a_dependency_given_as_its_own_table_is_refused_and_left_as_it_was(
     assert reported(found) == edits
 
 
+def test_an_assigned_list_a_setup_py_passes_on_is_rewritten_where_it_is_assigned() -> None:
+    source = (
+        "REQS = [\n    'acme-sdk==1.2.3',\n    'httpx>=0.27',\n]\n\nsetup(install_requires=REQS)\n"
+    )
+    produced, edits = acme.declared("setup.py", source, CLEAR)
+    assert produced == source.replace("'acme-sdk==1.2.3'", "'acme-client>=2'")
+    assert reported(edits) == [(2, "auto", None)]
+    produced, edits = acme.declared("setup.py", source, BLOCKED)
+    assert produced == source.replace(
+        "    'acme-sdk==1.2.3',\n", "    'acme-sdk==1.2.3',\n    'acme-client>=2',\n"
+    )
+
+
+def test_an_assigned_list_with_its_requirement_on_the_line_of_its_name_is_not_copied() -> None:
+    source = "REQS = ['acme-sdk==1.2.3']\nsetup(install_requires=REQS)\n"
+    produced, edits = acme.declared("setup.py", source, CLEAR)
+    assert produced == "REQS = ['acme-client>=2']\nsetup(install_requires=REQS)\n"
+    produced, edits = acme.declared("setup.py", source, BLOCKED)
+    assert produced == source
+    assert reported(edits) == [
+        (1, "needs_review", "manifest_pin_shape_unsupported"),
+        (1, "needs_review", "repo_not_fully_migrated"),
+    ]
+
+
+def test_an_assigned_list_with_a_requirement_built_from_two_strings_is_refused() -> None:
+    """The refusal of a requirement built around its literal holds where the list is assigned."""
+    source = 'REQS = ["acme-sdk" ">=1"]\nsetup(install_requires=REQS)\n'
+    produced, edits = acme.declared("setup.py", source, CLEAR)
+    assert produced == source
+    assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")]
+
+
 def test_a_setup_py_literal_whose_bytes_are_not_its_value_is_refused() -> None:
     """An escape makes span and value lengths differ: the declaration stands but has no address."""
     source = 'from setuptools import setup\n\nsetup(install_requires=["acme\\u002dsdk==1.2.3"])\n'

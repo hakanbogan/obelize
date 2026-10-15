@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from acme import SPEC
+from libcst.metadata import MetadataWrapper, ScopeProvider
 
 from obelize.impact import planner
 from obelize.models import Config, ImpactPlan, ManifestPlan, ProvidedModule
@@ -688,6 +689,186 @@ def test_a_setup_py_libcst_cannot_walk_declares_nothing(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(manifests, "MetadataWrapper", TooDeep)
     assert manifests.declarations("setup.py", b'setup(install_requires=["acme-sdk==1"])\n') == ()
+
+
+def setup_py(text: str) -> list[tuple[int, int, str, bool]]:
+    """Line, column, name and whether the declaration has a pin, of each one a `setup.py` makes."""
+    found = manifests.declarations("setup.py", text.lstrip("\n").encode())
+    return [(row.line, row.column, row.name, row.pin is not None) for row in found]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        "install_requires=REQS",
+        "setup_requires=REQS",
+        "tests_require=REQS",
+        'extras_require={"dev": REQS}',
+        "install_requires=(REQS, [])",
+        "install_requires=[REQS]",
+    ],
+)
+def test_a_name_standing_for_a_requirements_list_is_read_where_the_list_is_assigned(
+    arguments: str,
+) -> None:
+    text = f"""
+from setuptools import setup
+
+REQS = [
+    "acme-sdk==1.0",  # not this one: "acme-sdk==2.0"
+    "requests>=2.31",
+]
+
+setup({arguments})
+"""
+    assert setup_py(text) == [(4, 5, "acme-sdk", True), (5, 5, "requests", True)]
+
+
+def test_a_tuple_a_name_stands_for_is_read_and_a_list_used_twice_is_declared_once() -> None:
+    text = """
+REQS = ("acme-sdk==1.0",)
+setup(install_requires=REQS, tests_require=REQS, extras_require={"a": REQS, "b": REQS})
+"""
+    assert setup_py(text) == [(1, 9, "acme-sdk", True)]
+
+
+def test_the_declarations_of_a_setup_py_come_in_the_order_of_the_file() -> None:
+    text = """
+setup(
+    install_requires=["acme-sdk==1.0", TESTS],
+    extras_require={"dev": DEV},
+)
+DEV = ["httpx>=0.27"]
+TESTS = ["requests>=2.31"]
+"""
+    assert [(line, name) for line, _, name, _ in setup_py(text)] == [
+        (2, "acme-sdk"),
+        (5, "httpx"),
+        (6, "requests"),
+    ]
+
+
+def test_a_name_in_a_function_is_followed_to_the_assignment_beside_it() -> None:
+    text = """
+def main():
+    reqs = ["acme-sdk==1.0"]
+    setup(install_requires=reqs)
+"""
+    assert setup_py(text) == [(2, 13, "acme-sdk", True)]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        'REQS = ["acme-sdk==1.0"]\nREQS += ["httpx"]',
+        'REQS = ["acme-sdk==1.0"]\nREQS = ["acme-sdk==2.0"]',
+        'if PY2:\n    REQS = ["acme-sdk==1.0"]\nelse:\n    REQS = ["acme-sdk==2.0"]',
+        'REQS = ["acme-sdk==1.0"]\ndef widen():\n    global REQS\n    REQS = []',
+        'REQS: list[str] = ["acme-sdk==1.0"]',
+        'REQS = OTHER = ["acme-sdk==1.0"]',
+        '(REQS, OTHER) = (["acme-sdk==1.0"], 1)',
+        'REQS = ["acme-sdk==1.0"] + OTHER',
+        'REQS = list(["acme-sdk==1.0"])',
+        'REQS = {"acme-sdk==1.0"}',
+        'REQS = [name for name in ["acme-sdk==1.0"]]',
+        "from reqs import REQS",
+        "import REQS",
+        "def REQS():\n    return ['acme-sdk==1.0']",
+        "for REQS in [['acme-sdk==1.0']]:\n    pass",
+        'with open("reqs.txt") as REQS:\n    pass',
+    ],
+    ids=[
+        "augmented",
+        "assigned-twice",
+        "assigned-in-two-branches",
+        "assigned-by-a-function",
+        "annotated",
+        "chained",
+        "unpacked",
+        "added-to-another",
+        "built-by-a-call",
+        "a-set",
+        "a-comprehension",
+        "imported-from",
+        "imported",
+        "a-function",
+        "a-loop-target",
+        "a-with-target",
+    ],
+)
+def test_a_name_that_is_not_bound_once_to_a_list_or_tuple_literal_is_not_followed(
+    binding: str,
+) -> None:
+    assert setup_py(f"{binding}\nsetup(install_requires=REQS)\n") == []
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "install_requires=sorted(REQS)",
+        "install_requires=[*REQS]",
+        "install_requires=REQS.copy()",
+        "install_requires=[r for r in REQS]",
+        "python_requires=REQS",
+        "name=REQS",
+        "install_requires=OTHER",
+        "extras_require={REQS: []}",
+    ],
+)
+def test_a_name_is_followed_only_where_it_is_a_whole_requirements_value(use: str) -> None:
+    text = f'REQS = ["acme-sdk==1.0"]\nOTHER = 1\nsetup({use})\n'
+    assert setup_py(text) == []
+
+
+def test_a_name_in_a_parameter_or_the_module_with_no_binding_is_not_followed() -> None:
+    text = """
+def build(reqs):
+    setup(install_requires=reqs)
+
+setup(install_requires=MISSING, tests_require=None)
+"""
+    assert setup_py(text) == []
+
+
+@pytest.mark.parametrize(
+    ("assigned", "pinned"),
+    [
+        ('["acme-sdk==1.0"]', True),
+        ('["acme-sdk" ">=1.0"]', False),
+        ('["acme-sdk" + VERSION]', False),
+        ('["acme-sdk>=1".format()]', False),
+        ('[read("acme-sdk")]', False),
+    ],
+)
+def test_a_requirement_built_around_its_string_in_the_assigned_list_has_no_pin(
+    assigned: str, pinned: bool
+) -> None:
+    found = setup_py(f"REQS = {assigned}\nsetup(install_requires=REQS)\n")
+    assert [(name, pin) for _, _, name, pin in found] == [("acme-sdk", pinned)]
+
+
+def test_a_requirement_in_an_assigned_list_whose_line_libcst_counts_differently_has_no_pin() -> (
+    None
+):
+    data = b'\xef\xbb\xbfREQS = ["acme-sdk==1"]\nsetup(install_requires=REQS)\n'
+    (found,) = manifests.declarations("setup.py", data)
+    assert (found.name, found.pin) == ("acme-sdk", None)
+
+
+def test_a_setup_py_libcst_cannot_resolve_scopes_for_declares_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The scope pass walks the tree again after the metadata pass and can overrun the stack."""
+
+    class TooDeep(MetadataWrapper):
+        def resolve(self, provider: Any) -> Any:
+            if provider is ScopeProvider:
+                raise RecursionError
+            return super().resolve(provider)
+
+    monkeypatch.setattr(manifests, "MetadataWrapper", TooDeep)
+    data = b'REQS = ["acme-sdk==1"]\nsetup(install_requires=REQS)\n'
+    assert manifests.declarations("setup.py", data) == ()
 
 
 def test_a_setup_py_that_does_not_parse_declares_nothing() -> None:
