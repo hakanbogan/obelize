@@ -253,16 +253,17 @@ cases:
 
   - case: nested_deeper_than_obelize_reads
     what_it_is: >-
-      Nine hundred operands in one expression. `compile()` and libcst's parser
-      take it and the visitors that walk the tree recurse past the stack, which
-      once ended the run in a traceback. It is the one word here that is not
-      `compile()`'s: libcst's own, for a result it cannot read.
+      Four hundred negations in one expression, under the statement limit.
+      `compile()` and libcst's parser take it and the visitors that walk the
+      tree recurse past the stack, which once ended the run in a traceback. It
+      is the one word here that is not `compile()`'s: libcst's own, for a result
+      it cannot read.
     path: nested.py
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
     replaces: *quote
-    generated: {kind: operands, count: 900}
+    generated: {kind: negations, count: 400}
     refusal: output_does_not_parse
 
   - case: imports_something_the_pack_does_not_target

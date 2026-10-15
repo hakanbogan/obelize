@@ -478,7 +478,7 @@ Is what it produces Python, and does it bring anything in:
 
 | Value | Meaning |
 |---|---|
-| `replacement_too_large` | Over ADR-003's diff size limit, in lines or bytes. |
+| `replacement_too_large` | Over ADR-037's size limits: too many lines, too many bytes, or one statement of more than 500 tokens, which libcst's parser may not survive. |
 | `replacement_not_displayable` | A control, format or surrogate character other than tab or line break: the line a reviewer reads is not the line that runs. |
 | `replacement_carries_redaction` | It holds `[REDACTED`, the placeholder for a secret the model was shown instead of the value, and the lines it replaces hold none: written as it stands it would put the word in the file. |
 | `replacement_not_encodable` | Not writable in the file's own encoding. |

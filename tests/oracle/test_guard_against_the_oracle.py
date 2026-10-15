@@ -64,8 +64,8 @@ def _replacement(case: dict[str, Any]) -> str:
     generated = case["generated"]
     if generated["kind"] == "lines":
         return "\n".join(["        pass"] * int(generated["count"]))
-    if generated["kind"] == "operands":
-        return "        model = 1" + " + 1" * int(generated["count"])
+    if generated["kind"] == "negations":
+        return "        model = " + "-" * int(generated["count"]) + "1"
     lead = "        # "
     return lead + "x" * (int(generated["count"]) - len(lead))
 

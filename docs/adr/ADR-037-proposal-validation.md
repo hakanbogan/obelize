@@ -21,7 +21,7 @@ only the **first** refusal is recorded:
 | 6 | `site_not_replaced` | the replaced range does not contain the line asked about |
 | 7 | `symbol_mismatch` | the proposal names a symbol other than the question's |
 | 8 | `replaced_text_differs` | the lines it says it replaces are not the lines it names, as sent (D12) |
-| 9 | `replacement_too_large` | over the line or byte limit (D5) |
+| 9 | `replacement_too_large` | over the line or byte limit (D5), or a statement over the token limit (D11) |
 | 10 | `replacement_not_displayable` | it holds a character a terminal acts on |
 | 11 | `replacement_carries_redaction` | it holds `[REDACTED`, which the lines it replaces do not (D10) |
 | 12 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
@@ -65,7 +65,8 @@ is about it.
 `REPLACEMENT_LINE_LIMIT = CONTEXT_LINE_LIMIT` (80) and
 `REPLACEMENT_BYTE_LIMIT = 1024 * REPLACEMENT_LINE_LIMIT` (81 920 UTF-8 bytes),
 not relative to the replaced range. Because the removed side is already bounded
-by the context, and the byte limit bounds one huge line.
+by the context, and the byte limit bounds one huge line. A third limit, on the
+tokens of one statement, is D11's.
 
 ### D6. Three output gates, because encoding is not parsing
 
@@ -113,14 +114,26 @@ destroy a credential, and the later checks cannot see it.
 
 ### D11. A reply nested deeper than the stack is refused, not raised
 
-A replacement of about nine hundred operands passes `compile()` and libcst's
-parser, and the visitors that walk its tree recurse once per level and raise
-`RecursionError`. `check` catches that and `MemoryError` and records
+A replacement of a few hundred operands in one chain passes `compile()` and
+libcst's parser, and the visitors that walk its tree recurse once per level and
+raise `RecursionError`. `check` catches that and `MemoryError` and records
 `output_does_not_parse`, with the detail "nested more deeply than obelize
 reads". Because a refusal is a row for a reviewer, and an exception ends the run
-with a traceback and no run folder. An operand chain of about 13,000 `and` or
-`or` terms on Python 3.14 and later still reaches libcst's parser; that is the
-scanner's open item too.
+with a traceback and no run folder.
+
+libcst's parser itself does not raise: it overruns the C stack and kills the
+process. `compile()` answers most deep expressions with an exception, so it is
+asked first, but it takes a chain of about 13,000 `and` or `or` terms on every
+version (the AST holds them flat) and a long chain of any operator from Python
+3.14, where its own limit is the stack's. Between `compile()` and libcst the
+guard therefore counts the tokens of the longest statement that the replacement
+holds and refuses more than `REPLACEMENT_STATEMENT_TOKENS` (500) as
+`replacement_too_large`. A statement is never deeper than its tokens. The
+number is a fraction of what was measured to kill the process on Python 3.15,
+about a thousand tokens of any chain per MiB of stack, and far above a rewritten
+call; a chain past a few hundred levels is refused after the parse anyway. The
+limit holds for the replacement alone: a file that already holds such an
+expression is read by the scanner, which has the same open item.
 
 ### D12. A proposal quotes the lines it replaces, and the quote must be what was sent
 

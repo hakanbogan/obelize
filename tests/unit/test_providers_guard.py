@@ -441,12 +441,18 @@ def test_a_replacement_the_files_encoding_cannot_hold(tmp_path: Path) -> None:
     assert "→" in checked.detail
 
 
-# Each overruns libcst's parser (SIGSEGV) after `compile()` has refused it; one line under the byte
-# limit, as a model could send them.
+# Each shape, one line under the byte limit, as a model could send it, overruns libcst's parser
+# (SIGSEGV) where it reaches it: `compile()` refuses some, and from Python 3.14 takes the `+` chain;
+# it takes a chain of `and` or `or` terms on every version.
 DEEP = {
-    "nested parentheses": "x = " + "(" * 3000 + "1" + ")" * 3000,
-    "a very long chain": "x = " + " + ".join(["1"] * 20_000),
-    "a stack of nots": "x = " + "not " * 10_000 + "y",
+    "nested parentheses": ("x = " + "(" * 3000 + "1" + ")" * 3000, {"output_does_not_compile"}),
+    "a stack of nots": ("x = " + "not " * 10_000 + "y", {"output_does_not_compile"}),
+    "a long chain of plus": (
+        "x = " + " + ".join(["1"] * 20_000),
+        {"output_does_not_compile", "replacement_too_large"},
+    ),
+    "a long chain of or": ("x = " + " or ".join(["a"] * 13_300), {"replacement_too_large"}),
+    "a long chain of and": ("x = " + " and ".join(["a"] * 13_500), {"replacement_too_large"}),
 }
 
 
@@ -455,6 +461,8 @@ def test_a_reply_too_deep_for_the_parser_is_refused_and_the_process_lives(
     shape: str, tmp_path: Path
 ) -> None:
     """In a subprocess: a regression kills the interpreter, which a test must survive to report."""
+    replacement, words = DEEP[shape]
+    assert len(replacement) < guard.REPLACEMENT_BYTE_LIMIT
     (tmp_path / "app.py").write_bytes(SOURCE)
     code = (
         "import pickle, sys; from pathlib import Path; from obelize.providers import guard; "
@@ -463,20 +471,65 @@ def test_a_reply_too_deep_for_the_parser_is_refused_and_the_process_lives(
     )
     done = subprocess.run(
         [sys.executable, "-I", "-c", code],
-        input=pickle.dumps((question(), proposal(DEEP[shape]), SOURCE, str(tmp_path))),
+        input=pickle.dumps((question(), proposal(replacement), SOURCE, str(tmp_path))),
         capture_output=True,
         check=False,
     )
-    assert (done.returncode, done.stdout.strip()) == (0, b"output_does_not_compile")
+    assert done.returncode == 0, done.returncode
+    assert done.stdout.strip().decode() in words
 
 
 def test_a_reply_that_compiles_but_overruns_the_stack_is_a_refusal_and_not_an_exception(
     tmp_path: Path,
 ) -> None:
-    """900 operands pass `compile()` and libcst's parser; its visitors recurse past the stack."""
-    checked = check(tmp_path, "x = 1" + " + 1" * 900)
+    """400 negations pass `compile()` and libcst's parser; its visitors recurse past the stack."""
+    checked = check(tmp_path, "x = " + "-" * 400 + "1")
     assert checked.refusal == "output_does_not_parse"
     assert checked.detail == "app.py: nested more deeply than obelize reads"
+
+
+def statement(tokens: int) -> str:
+    """One statement of exactly `tokens` tokens, for an even count: `x`, `=`, then pairs."""
+    return "x = " + "1, " * ((tokens - 2) // 2)
+
+
+@pytest.mark.parametrize(
+    ("tokens", "refused"),
+    [(guard.REPLACEMENT_STATEMENT_TOKENS, False), (guard.REPLACEMENT_STATEMENT_TOKENS + 2, True)],
+    ids=["at-the-limit", "past-it"],
+)
+def test_a_statement_is_limited_in_tokens(tokens: int, refused: bool, tmp_path: Path) -> None:
+    checked = check(tmp_path, statement(tokens))
+
+    assert checked.refusal == ("replacement_too_large" if refused else None), checked.detail
+    if refused:
+        assert checked.detail == (
+            f"a statement of the replacement is {tokens} tokens and the limit is "
+            f"{guard.REPLACEMENT_STATEMENT_TOKENS}"
+        )
+
+
+def test_the_token_limit_is_on_one_statement_and_not_on_the_replacement(tmp_path: Path) -> None:
+    """Three statements of 400 tokens: how long a replacement may be is a matter of lines."""
+    one = statement(400)
+    checked = check(tmp_path, "\n".join([one, one, one]))
+
+    assert checked.refusal is None, checked.detail
+
+
+def test_a_comment_is_no_token_of_a_statement(tmp_path: Path) -> None:
+    lines = [f"# {n}" for n in range(guard.REPLACEMENT_STATEMENT_TOKENS)]
+    checked = check(tmp_path, "\n".join([*lines[:70], "x = 1"]))
+
+    assert checked.refusal is None, checked.detail
+
+
+def test_a_statement_before_the_replaced_lines_does_not_count(tmp_path: Path) -> None:
+    """Only what the replacement adds is bounded: the file's own text was read before this ran."""
+    big = b"BIG = (" + b"1, " * guard.REPLACEMENT_STATEMENT_TOKENS + b")"
+    source = SOURCE.replace(b"\n\n\ndef", b"\n" + big + b"\n\ndef")
+
+    assert check(tmp_path, "pass", source=source).refusal is None
 
 
 def test_a_syntax_error_is_the_compilers_word_since_it_is_asked_first(tmp_path: Path) -> None:

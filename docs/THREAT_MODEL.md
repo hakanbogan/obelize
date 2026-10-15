@@ -138,10 +138,15 @@ context leaves no line number to trust, so nothing is accepted for it. The
 replacement must encode in the file's encoding, because otherwise writing it
 rewrites every line.
 
-**A reply nested deeper than the stack is refused, not raised.** `compile()` is asked before
-libcst, because libcst's parser dies on a deeply nested expression that `compile()` refuses with an
-exception; a reply that compiles and still overruns the stack in the tree walks is
-`output_does_not_parse` ([ADR-037](adr/ADR-037-proposal-validation.md) D6 and D11).
+**A reply nested deeper than the stack is refused, not raised, up to a limit.** libcst's parser
+overruns the C stack and kills the process on a very deep or long expression. `compile()` is asked
+first and refuses most of them with an exception, but it takes a chain of about 13,000 `and` or
+`or` terms on every version, and a long chain of any operator from Python 3.14. So the guard also
+counts the tokens of the longest statement in the replacement and refuses more than 500 as
+`replacement_too_large` before libcst sees it. A reply that passes both and still overruns the
+stack in the tree walks is `output_does_not_parse` ([ADR-037](adr/ADR-037-proposal-validation.md)
+D6, D11). The limit covers the replacement only: a file that already holds such an expression is
+read by the scanner, which has the same open item ([KNOWN_ISSUES](KNOWN_ISSUES.md)).
 
 **What it does not cover.** The guard proves an edit safe to apply, not
 correct; `--accept-model` and a reviewer cover the rest. Nothing detects an
