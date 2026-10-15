@@ -28,6 +28,7 @@ import cases
 import yaml
 from gate1_score import ACTIONABLE_KINDS, Row, compare, rows
 
+import obelize
 from obelize import __version__
 from obelize.native import processes
 
@@ -132,6 +133,20 @@ class Completed(NamedTuple):
 
 
 Execute = Callable[[Sequence[str], Path, Mapping[str, str], int], Completed]
+
+
+class Instrument(NamedTuple):
+    """The code a round runs, read once at its start: `HEAD` and the tree move during a long round.
+
+    `dirty` is whether anything but `bench/results/` differs from `commit`; both are `None` outside
+    a git checkout.
+    """
+
+    commit: str | None
+    dirty: bool | None
+
+
+UNREAD = Instrument(None, None)
 
 
 class Step(NamedTuple):
@@ -658,7 +673,9 @@ class Session:
         )
 
 
-def run_case(case: Case, *, execute: Execute, fixtures_only: bool) -> dict[str, Any]:
+def run_case(
+    case: Case, *, execute: Execute, fixtures_only: bool, instrument: Instrument = UNREAD
+) -> dict[str, Any]:
     """The ten steps, in order, over one case."""
     checkout = WORK / ("fixtures" if fixtures_only else _round_name()) / case.id
     shutil.rmtree(checkout, ignore_errors=True)
@@ -724,7 +741,7 @@ def run_case(case: Case, *, execute: Execute, fixtures_only: bool) -> dict[str, 
         "error": session.error,
         "measurements": measured,
         "steps": [step._asdict() for step in session.steps],
-        "provenance": provenance(case, interpreter, build, observed),
+        "provenance": provenance(case, interpreter, build, observed, instrument),
     }
     record["tier"] = tier(record)
     return record
@@ -900,14 +917,19 @@ def _compile(session: Session, interpreter: Path, run: dict[str, Any]) -> bool |
 
 
 def provenance(
-    case: Case, interpreter: Path, build: str | None, observed: Mapping[str, str | None]
+    case: Case,
+    interpreter: Path,
+    build: str | None,
+    observed: Mapping[str, str | None],
+    instrument: Instrument,
 ) -> dict[str, Any]:
     from obelize.packs import loader
 
     loaded = loader.load(DEFAULT_PACK)
     return {
         "obelize_version": __version__,
-        "obelize_commit": _commit(),
+        "obelize_commit": instrument.commit,
+        "obelize_tree_dirty": instrument.dirty,
         "pack": DEFAULT_PACK,
         "pack_sha256": loaded.sha256,
         "spec_sha256": loader.spec_digest(loader.to_scan_spec(loaded)),
@@ -922,14 +944,30 @@ def provenance(
     }
 
 
-def _commit() -> str | None:
-    """`HEAD` of this repository, or `None` outside a checkout (recorded, not fatal)."""
+def read_instrument() -> Instrument:
+    """`HEAD` and whether the tree differs from it, results aside, of this checkout."""
+    status = _git("status", "--porcelain", "--", ".", ":!bench/results")
+    return Instrument(_git("rev-parse", "HEAD"), None if status is None else bool(status))
+
+
+def _git(*arguments: str) -> str | None:
+    """What `git` printed in this checkout, or `None` outside one (recorded, not fatal)."""
     finished = subprocess.run(
-        ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, check=False
+        ["git", "-C", str(ROOT), *arguments], capture_output=True, check=False
     )
-    if finished.returncode != 0:
-        return None
-    return finished.stdout.decode().strip()
+    return finished.stdout.decode().strip() if finished.returncode == 0 else None
+
+
+def refusal(instrument: Instrument) -> str | None:
+    """Why a round must not start: its records would name code other than what ran."""
+    imported = Path(obelize.__file__).resolve()
+    if not imported.is_relative_to(ROOT):
+        return f"obelize is imported from {imported.parent}, not from this checkout"
+    if instrument.commit is None or instrument.dirty is None:
+        return "this is not a git checkout, so no commit can be recorded"
+    if instrument.dirty:
+        return "the working tree differs from HEAD; commit the changes first"
+    return None
 
 
 def comparable(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -984,6 +1022,11 @@ def fixtures_pass(execute: Execute) -> int:
 
 
 def round_pass(only: str | None) -> int:
+    instrument = read_instrument()
+    reason = refusal(instrument)
+    if reason is not None:
+        print(f"no round: {reason}", flush=True)
+        return 1
     into = RESULTS / _round_name()
     into.mkdir(parents=True, exist_ok=True)
     selected = [case for case in corpus() if only is None or case.id == only]
@@ -991,7 +1034,7 @@ def round_pass(only: str | None) -> int:
         print(f"no case named {only}", flush=True)
         return 1
     for case in selected:
-        record = run_case(case, execute=shell, fixtures_only=False)
+        record = run_case(case, execute=shell, fixtures_only=False, instrument=instrument)
         destination = into / f"{case.id}.json"
         destination.write_text(
             json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"

@@ -69,7 +69,8 @@ path in it.
 | `llm_tokens_in` / `llm_tokens_out` | Token counts, if a model was used. |
 | `llm_cost_usd` | Cost, if a model was used. |
 
-Provenance: `obelize_version`, `obelize_commit`, `pack`, `pack_sha256`,
+Provenance: `obelize_version`, `obelize_commit` and `obelize_tree_dirty` (read once when the round
+starts; round 1's records have no `obelize_tree_dirty`), `pack`, `pack_sha256`,
 `spec_sha256` (the `ScanSpec` a scan reads),
 `python`, `python_executable` (harness paths shown as `<case>`, `<logs>`,
 `<work>`, `<repo>` or `<harness-python>`), `python_build` (its `sys.version`,
@@ -167,7 +168,8 @@ module; and a manifest that disagrees with the code (the code is the evidence).
 `bench/run.py` runs locally; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
 environments and is not run on Windows. It runs each repository's own install commands and test suite
 with no sandbox and the network available, so run it only on a machine or VM that holds no
-credentials. Per case:
+credentials. A round starts only on a committed tree (`bench/results/` aside) whose checkout is where
+`obelize` is imported from, so each record names the code that ran. Per case:
 
 1. Shallow-fetch the repository at the pinned SHA into `<work>/<round>/<id>/`,
    under the system temporary directory. A `pyproject.toml`, `pytest.ini`,

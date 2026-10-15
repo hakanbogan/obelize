@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from collections.abc import Callable
@@ -1460,9 +1461,13 @@ def test_two_identical_records_differ_in_nothing() -> None:
     assert run.differences(same, same) == []
 
 
+COMMITTED = run.Instrument("c" * 40, False)
+
+
 def test_a_round_writes_one_result_file_per_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="only")])
     monkeypatch.setattr(
@@ -1475,6 +1480,7 @@ def test_a_round_writes_one_result_file_per_case(
 
 
 def test_a_round_can_be_asked_for_one_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a"), corpus_case(id="b")])
     monkeypatch.setattr(run, "run_case", lambda subject, **_: {"case": subject.id, "tier": "error"})
@@ -1486,6 +1492,7 @@ def test_a_round_can_be_asked_for_one_case(tmp_path: Path, monkeypatch: pytest.M
 def test_a_case_nobody_defined_is_a_failure_and_not_an_empty_round(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a")])
     assert run.round_pass("nope") == 1
@@ -1529,9 +1536,113 @@ def test_with_no_flags_the_round_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     assert asked == [None, "x"]
 
 
-def test_the_commit_is_recorded_and_its_absence_is_not_fatal(
+def git(where: Path, *arguments: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(where), *arguments],
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_the_commit_and_the_tree_are_read_from_this_checkout() -> None:
+    instrument = run.read_instrument()
+    assert instrument.commit is not None
+    assert re.fullmatch(r"[0-9a-f]{40}", instrument.commit)
+    assert isinstance(instrument.dirty, bool)
+
+
+def test_outside_a_checkout_the_commit_and_the_tree_are_unknown_and_not_fatal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert run._commit() is not None
     monkeypatch.setattr(run, "ROOT", tmp_path)
-    assert run._commit() is None
+    assert run.read_instrument() == run.UNREAD
+
+
+def test_a_change_outside_the_results_makes_the_tree_dirty_and_one_inside_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    (tmp_path / "bench" / "results").mkdir(parents=True)
+    (tmp_path / "bench" / "run.py").write_text("one\n")
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-q", "-m", "one")
+    (tmp_path / "bench" / "results" / "round-9.json").write_text("{}\n")
+    assert run.read_instrument().dirty is False
+    (tmp_path / "bench" / "run.py").write_text("two\n")
+    assert run.read_instrument().dirty is True
+
+
+def test_a_round_starts_only_on_a_committed_tree_of_this_checkout() -> None:
+    assert run.refusal(COMMITTED) is None
+
+
+def test_a_round_on_changes_nobody_committed_is_refused() -> None:
+    said = run.refusal(run.Instrument("c" * 40, True))
+    assert said is not None
+    assert "commit the changes" in said
+
+
+def test_a_round_with_no_commit_to_name_is_refused() -> None:
+    for unread in (run.UNREAD, run.Instrument("c" * 40, None)):
+        said = run.refusal(unread)
+        assert said is not None
+        assert "not a git checkout" in said
+
+
+def test_a_round_that_would_run_another_checkouts_obelize_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The commit of this checkout says nothing about the package the cases ran."""
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    said = run.refusal(COMMITTED)
+    assert said is not None
+    assert "not from this checkout" in said
+
+
+def test_a_refused_round_runs_and_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda: run.Instrument("c" * 40, True))
+    monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
+    monkeypatch.setattr(run, "run_case", lambda *_, **__: pytest.fail("a case ran"))
+    assert run.round_pass(None) == 1
+    assert "no round: " in capsys.readouterr().out
+    assert not (tmp_path / "results").exists()
+
+
+def test_every_case_of_a_round_gets_the_instrument_read_at_its_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    given: list[run.Instrument] = []
+    monkeypatch.setattr(run, "read_instrument", lambda: COMMITTED)
+    monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
+    monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a"), corpus_case(id="b")])
+
+    def remember(subject: run.Case, **over: Any) -> dict[str, Any]:
+        given.append(over["instrument"])
+        return {"case": subject.id, "tier": "partial"}
+
+    monkeypatch.setattr(run, "run_case", remember)
+    assert run.round_pass(None) == 0
+    assert given == [COMMITTED, COMMITTED]
+
+
+def test_a_record_names_the_commit_and_tree_its_round_started_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    record = run.run_case(
+        corpus_case(), execute=Fake(a_whole_run()), fixtures_only=False, instrument=COMMITTED
+    )
+    assert record["provenance"]["obelize_commit"] == "c" * 40
+    assert record["provenance"]["obelize_tree_dirty"] is False
+
+
+def test_a_case_run_alone_records_no_commit_and_no_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    record = run.run_case(corpus_case(), execute=Fake(a_whole_run()), fixtures_only=False)
+    assert record["provenance"]["obelize_commit"] is None
+    assert record["provenance"]["obelize_tree_dirty"] is None
