@@ -435,9 +435,9 @@ class GenerativeModelCalls:
         emitted = [self._emit(context, tree, client, ctor, plan, alias, stays) for plan in plans]
         for plan, call in zip(plans, emitted, strict=True):
             context.rewrites.set(plan.use.call, call)
-        self._drop(context, tree, ctor.statement)
+        self._drop(context, tree, ctor.statement, emitted)
         for found in {id(held.statement): held for held in named if held.local}.values():
-            self._drop(context, tree, found.statement)
+            self._drop(context, tree, found.statement, emitted)
         for plan, call in zip(plans, emitted, strict=True):
             context.rewrites.keep_comments(tree.statement_of(plan.use.call), plan.use.call, call)
         if alias is not None:
@@ -1093,25 +1093,39 @@ class GenerativeModelCalls:
     def _config_class(self, alias: str) -> cst.Attribute:
         return cst.Attribute(value=cst.Name(alias), attr=cst.Name(self._config_leaf))
 
-    def _drop(self, context: RuleContext, tree: _Tree, statement: cst.BaseSmallStatement) -> None:
-        """Delete the constructor, handing its leading comment to what follows.
+    def _drop(
+        self,
+        context: RuleContext,
+        tree: _Tree,
+        statement: cst.BaseSmallStatement,
+        emitted: Sequence[cst.CSTNode],
+    ) -> None:
+        """Delete a statement, handing its comments to what follows.
 
-        The next statement keeps its own blank lines and gains only the comment; at a block's end
-        the constructor's blank lines come too.
+        Those above it, then the ones on it or inside it that no call in `emitted` took over. The
+        next statement keeps its own blank lines and gains only the comments; at a block's end the
+        deleted statement's blank lines come too. A line that keeps another statement keeps its own.
         """
         context.rewrites.drop(statement)
         line = tree.line_of(statement)
         if line is None or len(line.body) > 1:
             return
+        kept = {id(found) for node in emitted for found in layout.comments(node)}
+        written = [*layout.comments(statement), line.trailing_whitespace.comment]
+        moved = [found for found in written if found is not None and id(found) not in kept]
         first = next(
             (index for index, empty in enumerate(line.leading_lines) if empty.comment is not None),
             None,
         )
-        if first is None:
+        if first is None and not moved:
             return
         target = tree.after(line)
         keeps_the_blanks = isinstance(target, (cst.Module, cst.IndentedBlock))
-        context.rewrites.lead(target, tuple(line.leading_lines[0 if keeps_the_blanks else first :]))
+        start = 0 if keeps_the_blanks else len(line.leading_lines) if first is None else first
+        context.rewrites.lead(
+            target,
+            (*line.leading_lines[start:], *(cst.EmptyLine(comment=found) for found in moved)),
+        )
 
     def _check_the_response_is_still_read_the_old_way(self, tree: _Tree, group: _Group) -> None:
         """Refuse a read, now `None` where it raised, guarded by a handler naming the old error.

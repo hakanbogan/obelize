@@ -1243,6 +1243,37 @@ def test_a_comment_beside_an_argument_of_a_rewritten_call_goes_with_it() -> None
     )
 
 
+def test_what_is_written_on_or_inside_a_deleted_constructor_moves_to_the_next_statement() -> None:
+    """The comment on its line and the ones between its arguments, after those above it."""
+    produced, edits = run(
+        "def a(p):\n    x = 1\n\n    # the model\n    MODEL = sdk.Model(  # opening\n"
+        '        "m",  # the name\n        guard=[],\n    )  # trailing\n'
+        "    return MODEL.run(p).answer\n"
+    )
+    assert refusals(edits) == [None, None]
+    assert tail(
+        produced,
+        [
+            "    x = 1",
+            "    # the model",
+            "    # opening",
+            "    # the name",
+            "    # trailing",
+            '    return handle.models.run(target="m", body=p).answer',
+        ],
+    )
+
+
+def test_a_trailing_comment_on_the_last_statement_of_a_block_keeps_the_blank_lines_above_it() -> (
+    None
+):
+    """Nothing follows it, so it goes to the block's end and nothing else supplies the blanks."""
+    produced, _edits = run(
+        'def a(p):\n    return MODEL.run(p).answer\n\n\nMODEL = sdk.Model("m")  # trailing\n'
+    )
+    assert produced.endswith(".answer\n\n\n# trailing\n")
+
+
 def test_the_comment_of_a_constructor_sharing_its_line_stays_on_that_line() -> None:
     """The line survives, with what else it holds, so its own comment is not moved."""
     produced, _edits = run(

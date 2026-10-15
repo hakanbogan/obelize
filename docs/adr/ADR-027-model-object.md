@@ -118,12 +118,16 @@ the author's statement (`for chunk in model.generate_content(...)`,
 that is neither the call nor the indent is counted as it stands; for a call the
 author already split across lines that rest counts zero, since it wraps anyway.
 
-### D11. A comment above a deleted statement moves to the statement that now comes first
+### D11. A comment on a deleted statement moves to the statement that now comes first
 
 A comment above the constructor is the author's prose and has nowhere else to
-go. The next statement keeps its own blank lines and gains the comment alone; at
-the end of a block the comment keeps the blank lines above it too and goes
-before the block's own footer. A commented constructor is not refused, because a
+go, nor has one on its line or between its arguments that no rewritten call
+takes over (a name, a model, a configuration key moved into a call carries the
+comments written beside it, as ADR-026 D7 says). The next statement keeps its own
+blank lines and gains the comments alone, those above first and then the rest in
+the order written; at the end of a block they keep the blank lines above them too
+and go before the block's own footer. A line that shares its statement with
+another keeps its own comments. A commented constructor is not refused, because a
 comment above a model constant is ordinary.
 
 ### D12. C-56 is a refusal about the answer, not about the call
