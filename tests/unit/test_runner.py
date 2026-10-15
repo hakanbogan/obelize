@@ -570,14 +570,6 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
         "",
         "requirements.txt",
     ),
-    "poetry-table": (
-        {
-            "requirements.txt": "PyPDF2\n",
-            "pyproject.toml": '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n',
-        },
-        "",
-        "pyproject.toml",
-    ),
     "exclude-newer": (
         {
             "requirements.txt": "PyPDF2\n",
@@ -663,6 +655,14 @@ UNHONOURED: dict[str, tuple[dict[str, str | bytes], str, str | None]] = {
         {"requirements.txt": "-c constraints.txt\nPyPDF2\n", "constraints.txt": "PyPDF2<3\n"},
         "constraints.txt",
         "<3",
+    ),
+    "own-table": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "pyproject.toml": '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n',
+        },
+        "pyproject.toml",
+        "^1.26",
     ),
 }
 

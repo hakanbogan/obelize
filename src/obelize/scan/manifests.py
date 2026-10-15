@@ -663,10 +663,19 @@ def _is_dependency_table(table: tuple[str, ...]) -> bool:
 
 
 def _is_dependency_array(table: tuple[str, ...], key: str) -> bool:
-    """PEP 621/735 requirement arrays; not `[build-system] requires`, which installs never read."""
+    """Requirement arrays: PEP 621/735, uv's dev group, every PDM group and a Hatch environment's;
+    not `[build-system] requires`, which installs never read."""
     if table == ("project",):
         return key == "dependencies"
-    return table in {("dependency-groups",), ("project", "optional-dependencies")}
+    if table == ("tool", "uv"):
+        return key == "dev-dependencies"
+    if len(table) == 4 and table[:3] == ("tool", "hatch", "envs"):
+        return key in {"dependencies", "extra-dependencies"}
+    return table in {
+        ("dependency-groups",),
+        ("project", "optional-dependencies"),
+        ("tool", "pdm", "dev-dependencies"),
+    }
 
 
 def _value_pin(body: str, after: int) -> tuple[int, int] | None:
@@ -695,6 +704,33 @@ def _inline_version(body: str, after: int) -> str | None:
     return None if found is None else found.group(2)
 
 
+def _version_below(lines: list[str], start: int) -> str | None:
+    """The `version` string in the table whose body starts at `lines[start]`, else `None`."""
+    for line in lines[start:]:
+        body = uncommented(line)
+        text, column = _span(body)
+        if text.startswith("["):
+            break
+        key, equals, _ = text.partition("=")
+        if equals and key.strip() == "version":
+            pin = _value_pin(body, column + len(key) + 1)
+            return None if pin is None else body[pin[0] : pin[1]]
+    return None
+
+
+def _headed(
+    path: str, number: int, column: int, name: str, lines: list[str]
+) -> Iterator[Declaration]:
+    """A dependency given as its own table, `[tool.poetry.dependencies.name]`.
+
+    No pin: the name is on the header and the version on another line, and an edit has one line to
+    a declaration, so the rule refuses the row and the repository is held.
+    """
+    declaration = _declare(path, number, column, name)
+    if declaration is not None:
+        yield replace(declaration, pin=None, spec=_version_below(lines, number))
+
+
 def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
     """`pyproject.toml` and `Pipfile`, read as lines.
 
@@ -712,6 +748,8 @@ def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
         text, column = _span(body)
         if text.startswith("["):
             table = _table(text)
+            if _is_dependency_table(table[:-1]):
+                yield from _headed(path, number, column + text.rfind(table[-1]), table[-1], lines)
             continue
         cut = text.find("=")
         if cut < 0:

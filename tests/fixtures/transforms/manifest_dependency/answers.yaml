@@ -65,9 +65,15 @@ cases:
           spaces around `==` go with the version they belonged to. Line 10 is a
           Poetry table *key*, so the distribution is the key and the version is
           the value inside its quotes, and the `=` between them is untouched.
+          Lines 15, 19 and 22 are the arrays uv, PDM and Hatch keep their own
+          requirements in, written like the PEP 621 one; the Hatch script on
+          line 25 spells the distribution in a command, which is no declaration.
         edits:
           - {line: 5, status: auto}
           - {line: 10, status: auto}
+          - {line: 15, status: auto}
+          - {line: 19, status: auto}
+          - {line: 22, status: auto}
       - file: Pipfile
         after: present
         why: The table-key form again, under Pipenv's own table name.
@@ -180,12 +186,15 @@ cases:
       - file: pyproject.toml
         after: absent
         why: >-
-          Three lines, three reasons, one code. Line 4 carries the array's key,
+          Four lines, four reasons, one code. Line 4 carries the array's key,
           so a copy of it would declare `dependencies` twice. Line 8 carries a
           second declaration, so a copy of it would declare `httpx` twice. Line
           12's value is an inline table rather than a version string, so there
           is no span inside a quote to replace and the `extras` beside it would
-          be carried to a distribution that has none.
+          be carried to a distribution that has none. Line 15 is a table of its
+          own, `[tool.poetry.dev-dependencies.google-generativeai]`: the name is
+          on the header and the version on the line below, and an edit has one
+          line to a declaration.
         edits:
           - {line: 4, status: needs_review, reason: manifest_pin_shape_unsupported}
           - {line: 4, status: needs_review, reason: repo_not_fully_migrated}
@@ -193,6 +202,8 @@ cases:
           - {line: 8, status: needs_review, reason: repo_not_fully_migrated}
           - {line: 12, status: needs_review, reason: manifest_pin_shape_unsupported}
           - {line: 12, status: needs_review, reason: repo_not_fully_migrated}
+          - {line: 15, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 15, status: needs_review, reason: repo_not_fully_migrated}
       - file: setup.cfg
         after: absent
         why: >-

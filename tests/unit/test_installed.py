@@ -108,7 +108,7 @@ HASHED = "pypdf2==1.26.0 \\\n    --hash=sha256:aaaa\n"
         ("requirements-lock.txt", "PYPDF2==1.26.0 \\\n"),
         ("requirements.txt", "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"),
         ("requirements.txt", "PyPDF2\nsix\npypdf2==1.26.0 \\\n"),
-        ("pyproject.toml", '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n'),
+        ("pyproject.toml", '[tool.uv]\nconstraint-dependencies = ["PyPDF2<3"]\n'),
         ("pyproject.toml", '[tool.isort]\nknown_third_party = ["PyPDF2"]\n'),
         ("setup.cfg", "[options.extras_require]\npdf = \n  PyPDF2 @ ./PyPDF2-1.26.0.tar.gz\n"),
     ],
@@ -118,7 +118,7 @@ HASHED = "pypdf2==1.26.0 \\\n    --hash=sha256:aaaa\n"
         "uppercase-continued",
         "editable-egg",
         "continued-after-a-row",
-        "poetry-table",
+        "uv-constraints",
         "tool-section",
         "setup-cfg-path",
     ],
@@ -128,6 +128,12 @@ def test_a_manifest_that_names_the_distribution_where_no_row_was_read_decides_no
 ) -> None:
     root = git_repo(tmp_path, {**REQUIRED, name: body})
     assert contrary(root) == name
+
+
+def test_a_dependency_given_as_its_own_table_has_its_row_at_the_header(tmp_path: Path) -> None:
+    """Its version line names nothing, and the row has no pin, so it never installs the newest."""
+    table = '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n'
+    assert contrary(git_repo(tmp_path, {**REQUIRED, "pyproject.toml": table})) == ""
 
 
 def test_a_second_mention_with_no_row_is_found_beside_a_line_that_has_one(tmp_path: Path) -> None:

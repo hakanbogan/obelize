@@ -113,6 +113,13 @@ compiled file beside an input is what installs, and a declaration there has no p
 refuses it with `manifest_pin_shape_unsupported`. A lockfile is generated, and a line edit would
 break its hashes.
 
+In `pyproject.toml` the arrays read are PEP 621's and PEP 735's, `[tool.uv] dev-dependencies`, every
+group of `[tool.pdm.dev-dependencies]` and a Hatch environment's `dependencies` and
+`extra-dependencies`; the tables are Poetry's and Pipenv's. A dependency given as a table of its own
+(`[tool.poetry.dependencies.<name>]`) is named by its header and read for its `version`, and never
+written: the name is on one line and the version on another, and an edit has one line to a
+declaration, so the rule refuses it with `manifest_pin_shape_unsupported`.
+
 ### D11. An unread file is a limitation and not a blocker
 
 A manifest is opened through `parse.contents`, with the source files' size limit

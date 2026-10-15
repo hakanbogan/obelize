@@ -317,6 +317,139 @@ acme-sdk = "^1.0"
     assert declared(text, "pyproject.toml") == [(2, 0, "acme-sdk")]
 
 
+@pytest.mark.parametrize(
+    ("table", "key"),
+    [
+        ("tool.uv", "dev-dependencies"),
+        ("tool.pdm.dev-dependencies", "lint"),
+        ("tool.hatch.envs.default", "dependencies"),
+        ("tool.hatch.envs.default", "extra-dependencies"),
+    ],
+)
+def test_the_arrays_uv_pdm_and_hatch_keep_requirements_in_are_read(table: str, key: str) -> None:
+    """The decoys: a commented pin, and the same key in a table of the same tool that is no list."""
+    text = f"""
+[{table}]
+{key} = [
+  # "acme-sdk==1.0"
+  "acme-sdk==1.0",
+]
+
+[{table}.sources]
+{key} = ["acme-sdk==1.0"]
+"""
+    assert declared(text, "pyproject.toml") == [(4, 3, "acme-sdk")]
+
+
+def test_only_the_keys_uv_and_hatch_install_from_are_read() -> None:
+    text = """
+[tool.uv]
+dev-dependencies = ["acme-sdk==1.0"]
+constraint-dependencies = ["acme-sdk==1.0"]
+
+[tool.hatch.envs.default]
+extra-dependencies = ["acme-sdk==1.0"]
+scripts = ["acme-sdk==1.0"]
+
+[tool.hatch.envs.default.scripts]
+lock = "pip install acme-sdk==1.0"
+"""
+    assert declared(text, "pyproject.toml") == [(2, 21, "acme-sdk"), (6, 23, "acme-sdk")]
+
+
+def test_every_group_of_a_pdm_table_is_read() -> None:
+    text = """
+[tool.pdm.dev-dependencies]
+test = ["acme-sdk==1.0"]
+lint = ["acme-sdk==1.0"]
+"""
+    assert declared(text, "pyproject.toml") == [(2, 9, "acme-sdk"), (3, 9, "acme-sdk")]
+
+
+@pytest.mark.parametrize(
+    ("header", "name"),
+    [
+        ("[tool.poetry.dependencies.acme-sdk]", 26),
+        ("[tool.poetry.dev-dependencies.acme-sdk]", 30),
+        ("[tool.poetry.group.test.dependencies.acme-sdk]", 37),
+        ('[tool.poetry.dependencies."acme-sdk"]', 27),
+        ("[ tool.poetry.dependencies.acme-sdk ] # why", 27),
+        ("[packages.acme-sdk]", 10),
+        ("[dev-packages.acme-sdk]", 14),
+    ],
+)
+def test_a_dependency_given_as_its_own_table_is_named_by_its_header_and_read_only(
+    header: str, name: int
+) -> None:
+    """The version is a key below the header, and the name and the version are on two lines, so
+    the declaration has no pin to write."""
+    text = f"""
+{header}
+python = "^3.9"
+version = "^1.0"
+extras = ["grpc"]
+
+[tool.poetry]
+version = "2.0"
+"""
+    (found,) = manifests.declarations("pyproject.toml", text.lstrip("\n").encode())
+    assert (found.line, found.column, found.name, found.pin, found.spec) == (
+        1,
+        name,
+        "acme-sdk",
+        None,
+        "^1.0",
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "spec"),
+    [
+        ('version = "^1.0"\n', "^1.0"),
+        ("version='>=1,<2'\n", ">=1,<2"),
+        ("  version  =  '1.0'  # the old one\n", "1.0"),
+        ('git = "https://example.invalid/acme.git"\n', None),
+        ("extras = [\n  'grpc',\n]\n", None),
+        ("version = 1\n", None),
+        ('version = "1.0\n', None),
+        ("version\n", None),
+        ("\n[tool.poetry]\nversion = '1.0'\n", None),
+        ('version = "1.0"\nversion = "2.0"\n', "1.0"),
+        ("", None),
+    ],
+    ids=[
+        "plain",
+        "single-quoted",
+        "spaced-and-commented",
+        "git",
+        "no-version-key",
+        "not-a-string",
+        "unclosed-quote",
+        "no-equals",
+        "version-of-the-next-table",
+        "first-version-wins",
+        "empty-table",
+    ],
+)
+def test_the_version_of_a_dependency_table_is_the_string_under_its_own_header(
+    body: str, spec: str | None
+) -> None:
+    text = f"[tool.poetry.dependencies.acme-sdk]\n{body}"
+    (found,) = manifests.declarations("pyproject.toml", text.encode())
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, spec)
+
+
+def test_a_dependency_table_with_a_name_pep_508_refuses_declares_nothing() -> None:
+    text = """
+[tool.poetry.dependencies."not a name"]
+version = "1.0"
+
+[tool.poetry.dependencies.""]
+version = "1.0"
+"""
+    assert declared(text, "pyproject.toml") == []
+
+
 def test_a_table_that_is_not_a_dependency_location_declares_nothing() -> None:
     text = """
 [[source]]

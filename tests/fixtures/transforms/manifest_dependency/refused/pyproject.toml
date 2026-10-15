@@ -11,3 +11,7 @@ extra = [
 [tool.poetry.group.test.dependencies]
 google-generativeai = {version = "^0.8.6", extras = ["grpc"]}
 pytest = "^8.3"
+
+[tool.poetry.dev-dependencies.google-generativeai]
+version = "^0.8.6"
+python = ">=3.9"

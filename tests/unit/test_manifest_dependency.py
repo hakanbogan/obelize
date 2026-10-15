@@ -154,6 +154,49 @@ def test_a_table_value_that_is_a_version_string_is_not() -> None:
     assert produced == '[packages]\nacme-client = ">=2"\n'
 
 
+@pytest.mark.parametrize(
+    ("table", "key"),
+    [
+        ("tool.uv", "dev-dependencies"),
+        ("tool.pdm.dev-dependencies", "lint"),
+        ("tool.hatch.envs.default", "extra-dependencies"),
+    ],
+)
+def test_the_arrays_uv_pdm_and_hatch_are_written_like_any_other_array(table: str, key: str) -> None:
+    source = f'[{table}]\n{key} = [\n  "acme-sdk==1.2.3",\n  "httpx>=0.27",\n]\n'
+    produced, edits = acme.declared("pyproject.toml", source, CLEAR)
+    assert produced == f'[{table}]\n{key} = [\n  "acme-client>=2",\n  "httpx>=0.27",\n]\n'
+    assert reported(edits) == [(3, "auto", None)]
+    produced, _edits = acme.declared("pyproject.toml", source, BLOCKED)
+    assert produced == source.replace(
+        '  "acme-sdk==1.2.3",\n', '  "acme-sdk==1.2.3",\n  "acme-client>=2",\n'
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "edits"),
+    [
+        (CLEAR, [(1, "needs_review", "manifest_pin_shape_unsupported")]),
+        (
+            BLOCKED,
+            [
+                (1, "needs_review", "manifest_pin_shape_unsupported"),
+                (1, "needs_review", "repo_not_fully_migrated"),
+            ],
+        ),
+    ],
+    ids=["clear", "blocked"],
+)
+def test_a_dependency_given_as_its_own_table_is_refused_and_left_as_it_was(
+    state: Migration, edits: list[tuple[int, str, str]]
+) -> None:
+    """The name is on the header and the version two lines below: no one edit has both."""
+    source = '[tool.poetry.dependencies.acme-sdk]\npython = "^3.9"\nversion = "1.2.3"\n'
+    produced, found = acme.declared("pyproject.toml", source, state)
+    assert produced == source
+    assert reported(found) == edits
+
+
 def test_a_setup_py_literal_whose_bytes_are_not_its_value_is_refused() -> None:
     """An escape makes span and value lengths differ: the declaration stands but has no address."""
     source = 'from setuptools import setup\n\nsetup(install_requires=["acme\\u002dsdk==1.2.3"])\n'

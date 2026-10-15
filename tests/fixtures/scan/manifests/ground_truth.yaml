@@ -5,7 +5,9 @@ what_it_exercises: >-
   repository that is half migrated: `requirements*.txt` and the
   `requirements/` directory form, PEP 621 `[project] dependencies`, a Poetry
   group, a `Pipfile`, a `setup.cfg` extras table and a `setup.py`
-  `install_requires`. `app.py` migrates cleanly and `legacy.py` cannot, which
+  `install_requires`; and in the `pyproject.toml`, the arrays uv, PDM and Hatch
+  keep their requirements in and a Poetry dependency given as a table of its
+  own. `app.py` migrates cleanly and `legacy.py` cannot, which
   is what makes both halves of ADR-010 F-2 fire at once: the new pin is added
   everywhere the legacy one is declared, and the legacy one is never removed.
   Every manifest also carries the decoy the example application carries -- a
@@ -191,6 +193,77 @@ findings:
       explicitly because a scanner that only reads
       `[tool.poetry.dependencies]` silently misses every development pin.
 
+  - file: pyproject.toml
+    line: 21
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half, in uv's development group.
+  - file: pyproject.toml
+    line: 21
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `[tool.uv] dev-dependencies`, an array like PEP 621's under another name. A
+      reader that knows only `[project]` and `[dependency-groups]` leaves this pin
+      behind with no row.
+  - file: pyproject.toml
+    line: 25
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half, in a PDM group.
+  - file: pyproject.toml
+    line: 25
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `[tool.pdm.dev-dependencies]`, where every key is a group name and every
+      value an array, so the key says nothing about what the line is.
+  - file: pyproject.toml
+    line: 28
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half, in a Hatch environment.
+  - file: pyproject.toml
+    line: 28
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `[tool.hatch.envs.<name>] dependencies`, which only the environment's
+      own table spells that way.
+  - file: pyproject.toml
+    line: 33
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half.
+  - file: pyproject.toml
+    line: 33
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      A dependency given as a table of its own, `[tool.poetry.dev-dependencies.<name>]`:
+      the distribution is the last part of the header and the version a key
+      below it. Read and graded like the others; the rule refuses to write it.
+
   # =====================================================================
   # Pipfile - TOML, and the declaration is a key in `[dev-packages]`.
   # =====================================================================
@@ -337,6 +410,16 @@ must_not_report:
   - file: pyproject.toml
     line: 16
     why: An unrelated key in the Poetry group.
+  - file: pyproject.toml
+    line: 20
+    why: >-
+      A comment inside uv's array carrying a quoted string character-identical to
+      the declaration on the next line.
+  - file: pyproject.toml
+    line: 31
+    why: >-
+      A Hatch script that installs the distribution. `scripts` is not a
+      dependency key, and the value is a command, not a requirement.
   - file: Pipfile
     line: 3
     why: >-
