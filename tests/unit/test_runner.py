@@ -803,14 +803,17 @@ def test_a_library_declared_nowhere_is_still_blocked_with_nothing_assumed(tmp_pa
     assert scan.assumed == ()
 
 
+FLOORS: dict[str, dict[str, str | bytes]] = {
+    "pyproject": {"pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.7"\n'},
+    "pipfile": {"Pipfile": '[requires]\npython_version = "3.7"\n'},
+}
+
+
+@pytest.mark.parametrize("name", FLOORS)
 def test_a_python_the_new_distribution_does_not_install_on_is_the_block_not_the_newest_release(
-    tmp_path: Path,
+    tmp_path: Path, name: str
 ) -> None:
-    files = {
-        "requirements.txt": "PyPDF2\n",
-        "pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.7"\n',
-    }
-    scan = gated(repository(tmp_path, files))
+    scan = gated(repository(tmp_path, {"requirements.txt": "PyPDF2\n", **FLOORS[name]}))
     assert [(row.reason, row.evidence) for row in scan.blocked] == [("runtime_unsupported", "")]
     assert scan.assumed == ()
 

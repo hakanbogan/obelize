@@ -58,6 +58,11 @@ DECLARATIONS = [
     ("3.12", False),
     (">=3.10 <4", False),
     (">= 3.10", False),
+    # A release the declaration names is asked about too, though the grid has no such patch.
+    ("==3.9.18", True),
+    ("==3.10.2", False),
+    ("==3.9.18 || ==3.11.4", True),
+    ("3.9.18", True),
 ]
 
 
@@ -124,6 +129,66 @@ def test_setup_cfg_is_read_with_the_parser_setuptools_reads_it_with(tmp_path: Pa
     assert found == runtime.Declared(path="setup.cfg", declared=">=3.8")
 
 
+@pytest.mark.parametrize(
+    ("requires", "declared", "blocked"),
+    [
+        ('python_version = "3.9"', "==3.9.*", True),
+        ('python_version = "3.10"', "==3.10.*", False),
+        ('python_version = "3"', "==3.*", True),
+        ('python_full_version = "3.9.18"', "==3.9.18", True),
+        ('python_full_version = "3.12.1"', "==3.12.1", False),
+        ('python_version = "3.9"\npython_full_version = "3.12.1"', "==3.12.1", False),
+        ('python_version = " 3.9"', "== 3.9.*", True),
+    ],
+    ids=["minor", "newer-minor", "major", "full", "newer-full", "both", "padded"],
+)
+def test_a_pipfile_requires_is_the_python_the_environment_is_built_from(
+    tmp_path: Path, requires: str, declared: str, blocked: bool
+) -> None:
+    _write(tmp_path, "Pipfile", f'[packages]\nacme-sdk = "*"\n\n[requires]\n{requires}\n')
+    found = runtime.declaration("Pipfile", parse.disk(tmp_path, _config()))
+    assert found == runtime.Declared(path="Pipfile", declared=declared)
+    assert runtime._admits_unsupported(declared, SPEC) is blocked
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        '[packages]\nacme-sdk = "*"\n',
+        "requires = 3\n",
+        "[requires]\n",
+        "[requires]\npython_version = 3.9\n",
+        '[requires]\npython_full_version = 3\npython_version = ["3.9"]\n',
+    ],
+    ids=["no-table", "not-a-table", "no-key", "number", "wrong-types"],
+)
+def test_a_pipfile_that_says_no_python_declares_none(tmp_path: Path, document: str) -> None:
+    _write(tmp_path, "Pipfile", document)
+    assert runtime.declaration("Pipfile", parse.disk(tmp_path, _config())) is None
+
+
+def test_a_pipfile_below_the_floor_blocks_the_run(tmp_path: Path) -> None:
+    _write(tmp_path, "Pipfile", '[requires]\npython_version = "3.7"\n')
+    floor = runtime.detect(("Pipfile",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor.blocked == runtime.Blocked(
+        reason="runtime_unsupported",
+        package=SPEC.new_distribution,
+        path="Pipfile",
+        declared="==3.7.*",
+        needed=">=3.10",
+    )
+    assert floor.declared == runtime.Declared(path="Pipfile", declared="==3.7.*")
+
+
+def test_a_pipfile_in_a_package_does_not_hide_the_root_pyproject(tmp_path: Path) -> None:
+    """Depth, then path, across every file that declares a floor."""
+    _write(tmp_path, "pyproject.toml", '[project]\nrequires-python = ">=3.9"\n')
+    _write(tmp_path, "app/Pipfile", '[requires]\npython_version = "3.8"\n')
+    found = runtime.detect(("app/Pipfile", "pyproject.toml"), parse.disk(tmp_path, _config()), SPEC)
+    assert found.blocked is not None
+    assert found.blocked.path == "pyproject.toml"
+
+
 NOTHING_TO_READ = [
     ("requirements.txt", "acme-sdk==1.0.0\n", "a layout with no such key"),
     ("setup.py", "from setuptools import setup\nsetup(python_requires='>=3.9')\n", "code"),
@@ -164,6 +229,14 @@ UNPARSED = [
     ("pyproject.toml", b'\xef\xbb\xbf[project]\nrequires-python = ">=3.9"\n', NOT_TOML),
     ("setup.cfg", b"= not ini\n", NOT_CFG),
     ("setup.cfg", b"[options]\npython_requires = >=\xff3.9\n", NOT_CFG),
+    ("Pipfile", b"[requires\n", NOT_TOML),
+    pytest.param(
+        "Pipfile",
+        b'[requires]\npython_version = "3.9"\nx = { a = "x", }\n',
+        NOT_TOML,
+        marks=BEFORE_3_15,
+    ),
+    ("Pipfile", b'[requires]\npython_version = "3.\xff"\n', NOT_TOML),
 ]
 
 
@@ -178,7 +251,17 @@ def test_a_manifest_in_toml_1_1_is_read_where_tomllib_reads_it(tmp_path: Path) -
 @pytest.mark.parametrize(
     ("name", "data", "detail"),
     UNPARSED,
-    ids=["toml-unclosed", "toml-1.1", "toml-not-utf8", "toml-bom", "cfg-not-ini", "cfg-not-utf8"],
+    ids=[
+        "toml-unclosed",
+        "toml-1.1",
+        "toml-not-utf8",
+        "toml-bom",
+        "cfg-not-ini",
+        "cfg-not-utf8",
+        "pipfile-unclosed",
+        "pipfile-toml-1.1",
+        "pipfile-not-utf8",
+    ],
 )
 def test_a_manifest_that_does_not_parse_is_reported_rather_than_ignored(
     tmp_path: Path, name: str, data: bytes, detail: str
@@ -188,16 +271,6 @@ def test_a_manifest_that_does_not_parse_is_reported_rather_than_ignored(
     assert floor.declared is None
     assert floor.limitations == (
         parse.Limitation(path=name, code="input_does_not_parse", detail=detail),
-    )
-
-
-def test_a_manifest_this_module_reads_no_floor_from_is_not_reported_when_it_does_not_parse(
-    tmp_path: Path,
-) -> None:
-    """No Python requirement is read from a Pipfile, so its parse failure answers no question."""
-    (tmp_path / "Pipfile").write_bytes(b'[packages]\nx = { version = "*", }\n')
-    assert runtime.detect(("Pipfile",), parse.disk(tmp_path, _config()), SPEC) == runtime.Floor(
-        None, None, ()
     )
 
 

@@ -72,6 +72,7 @@ class Floor:
 UNPARSED: Final[dict[str, str]] = {
     "pyproject.toml": "not TOML 1.0, so the Python it requires was not read",
     "setup.cfg": "not a setup.cfg setuptools can read, so the Python it requires was not read",
+    "Pipfile": "not TOML 1.0, so the Python it requires was not read",
 }
 UNREAD: Final = "a Python requirement of a form obelize does not read, so it was not checked"
 
@@ -202,15 +203,24 @@ def declaration(path: str, contents: parse.Contents) -> Declared | parse.Limitat
 
 
 def _admits_unsupported(declared: str, spec: ScanSpec) -> bool:
-    """Whether the declaration admits an interpreter the new distribution does not install on."""
+    """Whether the declaration admits an interpreter the new distribution does not install on.
+
+    Besides the grid, a release the declaration names itself (`==3.9.18`): no grid has every patch.
+    """
     found = alternatives(declared)
     if found is None:
         return False
     supported = SpecifierSet(spec.requires_python)
+    named = tuple(
+        item.version
+        for part in found
+        for item in part
+        if item.operator == "==" and not item.version.endswith("*")
+    )
     return any(
         part.contains(version) and not supported.contains(version)
         for part in found
-        for version in PYTHONS
+        for version in (*PYTHONS, *named)
     )
 
 
@@ -246,11 +256,26 @@ def _from_cfg(data: bytes) -> str | None:
     return value.strip() if value else None
 
 
+def _from_pipfile(data: bytes) -> str | None:
+    """`[requires]`: `python_full_version` as that release, `python_version` as every patch of that
+    minor, which is the interpreter pipenv builds the environment from; `ValueError` unless UTF-8
+    TOML."""
+    requires = tomllib.loads(data.decode("utf-8")).get("requires")
+    if not isinstance(requires, dict):
+        return None
+    if isinstance(full := requires.get("python_full_version"), str):
+        return f"=={full}"
+    version = requires.get("python_version")
+    return f"=={version}.*" if isinstance(version, str) else None
+
+
 # `setup.py` is absent on purpose: a `python_requires=` built from a variable would be a guess.
-# Keyed by name, not `manifests.layout`: a `Pipfile` is TOML too, but its `[requires]` is unread.
+# Keyed by name, not `manifests.layout`: `pyproject.toml` and a `Pipfile` are both TOML, and each
+# keeps its Python elsewhere.
 _READERS: Final[dict[str, Callable[[bytes], str | None]]] = {
     "pyproject.toml": _from_toml,
     "setup.cfg": _from_cfg,
+    "Pipfile": _from_pipfile,
 }
 
 __all__ = [

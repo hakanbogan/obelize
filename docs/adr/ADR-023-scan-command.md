@@ -50,11 +50,12 @@ completed, and prints nothing. So in `scan` mode every record carries
 
 The floor comes from a manifest, never the parser, since libcst's native parser
 ignores `PartialParserConfig(python_version=...)` (C-37): `scan/runtime.py`
-reads PEP 621's `requires-python`, `setup.cfg`'s `python_requires` and
-`tool.poetry.dependencies.python` (translating `^` and `~`), and not
+reads PEP 621's `requires-python`, `setup.cfg`'s `python_requires`,
+`tool.poetry.dependencies.python` (translating `^` and `~`) and a `Pipfile`'s `[requires]`
+(`python_version = "3.9"` as `==3.9.*`, `python_full_version = "3.9.18"` as `==3.9.18`), and not
 `setup.py`, which is code. A run is blocked (`runtime_unsupported`) when the declaration
 admits any Python the pack's `to.requires_python` excludes, asked of 2.7 and 3.0 to 3.29 one by
-one: `>=3.9` against `>=3.10` blocks, because pip then installs an older, different API surface
+one and of any release the declaration names itself (`==3.9.18`): `>=3.9` against `>=3.10` blocks, because pip then installs an older, different API surface
 (C-15). A declaration that cannot be parsed blocks nothing. A pack whose `from.version` has a
 floor adds `legacy_version_unsupported`: any manifest declaring the legacy distribution with no
 version, or one admitting a version below that floor, and any repository that uses the library
