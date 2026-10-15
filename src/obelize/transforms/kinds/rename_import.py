@@ -19,7 +19,7 @@ from obelize.transforms.base import BailError, RuleContext
 from obelize.transforms.imports import dotted, dotted_name, statement_for
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from obelize.models import BailCode, Finding
     from obelize.packs.schema import ChangeKind, RenameImportParams
@@ -43,7 +43,7 @@ class _Group:
 
     statement: cst.SimpleStatementLine
     position: Position
-    # Module-level names the statement binds, released for the rewrite to reuse.
+    # Names its legacy entries bind, released for the rewrite to reuse; a kept entry holds its own.
     released: tuple[str, ...]
     references: dict[Position, _Reference]
 
@@ -136,7 +136,7 @@ class RenameImport:
             position = next((key for key in eligible if key[0] == line), None)
             if position is None:
                 continue
-            released = _bound_by(statement)
+            released = _replaced(statement, self.from_module)
             groups.append(
                 _Group(
                     statement=statement,
@@ -433,27 +433,31 @@ class _Statements(cst.CSTVisitor):
     def __init__(self, from_module: str) -> None:
         super().__init__()
         self._from = from_module
-        self._package, _, self._leaf = from_module.rpartition(".")
         self.found: list[cst.SimpleStatementLine] = []
 
     def visit_SimpleStatementLine(  # noqa: N802 - libcst dispatches on the node name
         self, node: cst.SimpleStatementLine
     ) -> bool:
-        if any(self._touches(small) for small in node.body):
+        if any(_legacy_entries(small, self._from) for small in node.body):
             self.found.append(node)
         return False
 
-    def _touches(self, small: cst.BaseSmallStatement) -> bool:
-        if isinstance(small, cst.Import):
-            return any(_under(dotted_name(entry.name), self._from) for entry in small.names)
-        if not isinstance(small, cst.ImportFrom) or small.module is None:
-            return False
-        source = dotted_name(small.module)
-        if _under(source, self._from):
-            return True
-        if source != self._package or isinstance(small.names, cst.ImportStar):
-            return False
-        return any(_named(entry, self._leaf) for entry in small.names)
+
+def _legacy_entries(small: cst.BaseSmallStatement, from_module: str) -> list[cst.ImportAlias]:
+    """The entries of an import that name the legacy module or something under it."""
+    if isinstance(small, cst.Import):
+        return [entry for entry in small.names if _under(dotted_name(entry.name), from_module)]
+    if (
+        not isinstance(small, cst.ImportFrom)
+        or small.module is None
+        or isinstance(small.names, cst.ImportStar)
+    ):
+        return []
+    source = dotted_name(small.module)
+    if _under(source, from_module):
+        return list(small.names)
+    package, _, leaf = from_module.rpartition(".")
+    return [entry for entry in small.names if _named(entry, leaf)] if source == package else []
 
 
 def _survivors(legacy: list[cst.CSTNode], dissolved: list[cst.CSTNode]) -> bool:
@@ -471,13 +475,19 @@ def _subtree(node: cst.CSTNode) -> set[int]:
     return {id(node), *(key for child in node.children for key in _subtree(child))}
 
 
-def _bound_by(statement: cst.SimpleStatementLine) -> tuple[str, ...]:
-    return tuple(name for small in statement.body for name in _bound_by_node(small))
+def _replaced(statement: cst.SimpleStatementLine, from_module: str) -> tuple[str, ...]:
+    """The names the statement's legacy entries bind; an entry the rule keeps is not among them."""
+    return tuple(
+        name
+        for small in statement.body
+        if isinstance(small, (cst.Import, cst.ImportFrom))
+        for name in _binds(small, _legacy_entries(small, from_module))
+    )
 
 
 def _bound_by_node(small: cst.BaseSmallStatement) -> Iterator[str]:
     if isinstance(small, (cst.Import, cst.ImportFrom)):
-        yield from _binds(small)
+        yield from _binds(small, small.names)
 
 
 class _ByHand(cst.CSTVisitor):
@@ -524,10 +534,12 @@ def _strings_in(node: cst.BaseExpression) -> Iterator[str]:
                 yield value
 
 
-def _binds(small: cst.Import | cst.ImportFrom) -> Iterator[str]:
-    if isinstance(small.names, cst.ImportStar):  # pragma: no cover - the scan bails first
+def _binds(
+    small: cst.Import | cst.ImportFrom, entries: Sequence[cst.ImportAlias] | cst.ImportStar
+) -> Iterator[str]:
+    if isinstance(entries, cst.ImportStar):  # pragma: no cover - the scan bails first
         return
-    for entry in small.names:
+    for entry in entries:
         alias = _alias_of(entry)
         if alias is not None:
             yield alias

@@ -29,7 +29,7 @@ def complete_keys() -> list[Path]:
 
 def test_every_complete_key_binds_every_name_it_reads() -> None:
     keys = complete_keys()
-    assert len(keys) == 63, "the four corpora's complete keys, counted when this was written"
+    assert len(keys) == 64, "the four corpora's complete keys, counted when this was written"
     assert names_unresolved(*keys) == ""
 
 

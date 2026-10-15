@@ -73,6 +73,22 @@ cases:
       row for this shape and comes back untouched, which the byte comparison is
       what proves.
 
+  - file: types_kept_beside_module
+    what_it_is: >-
+      The standard library's `types` imported on the legacy module's own line.
+      The line is replaced and `types` stays bound, so the submodule takes the
+      pack's fallback.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, status: auto}
+      - {line: 9, status: auto}
+    notes: >-
+      Only the entry that names the legacy module releases its name. `types` is a
+      kept entry, so `from google.genai import types` would have shadowed it.
+      No read of the module itself survives, so no module import is written.
+
   # --- the rule's output, in a file a run would still leave alone ------------
   - file: module_and_types
     what_it_is: >-

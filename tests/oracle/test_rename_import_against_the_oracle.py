@@ -1,4 +1,4 @@
-"""`rename_import` on the bundled pack against its answer key, eleven cases, via the real path.
+"""`rename_import` on the bundled pack against its answer key, twelve cases, via the real path.
 
 Not under `tests/fixtures/scan/`: `alias_collision` and `type_symbol_unmapped` are the rewrite's,
 which `ScanSpec` cannot see (`COVERAGE.md` gap 8). `complete` means this rule claims every eligible
