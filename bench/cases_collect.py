@@ -156,7 +156,7 @@ def _witness(checkout: Path, pattern: str, where: str) -> str | None:
 
 
 def _head(full_name: str, repository: dict[str, Any]) -> str | None:
-    commit = candidates_collect._api(f"repos/{full_name}/commits/{repository['default_branch']}")
+    commit = candidates_collect.api(f"repos/{full_name}/commits/{repository['default_branch']}")
     if commit is None:
         return None
     return str(commit["sha"])
@@ -169,11 +169,11 @@ def _eligible(
     if name in taken:
         entry["skipped"].append({"full_name": name, "reason": "already_a_candidate"})
         return None
-    repository = candidates_collect._api(f"repos/{name}")
+    repository = candidates_collect.api(f"repos/{name}")
     if repository is None:
         entry["skipped"].append({"full_name": name, "reason": "gone"})
         return None
-    reason = candidates_collect._disqualified(repository, owners)
+    reason = candidates_collect.disqualified(repository, owners)
     if reason is not None:
         entry["skipped"].append({"full_name": name, "reason": reason})
         return None
@@ -181,7 +181,7 @@ def _eligible(
 
 
 def draw_test_suites(taken: set[str], owners: dict[str, int]) -> tuple[dict[str, Any], list[Any]]:
-    hits, names = candidates_collect._search(TESTS_QUERY)
+    hits, names = candidates_collect.search(TESTS_QUERY)
     entry: dict[str, Any] = {
         "query": TESTS_QUERY,
         "hits": hits,
@@ -220,7 +220,7 @@ def draw_test_suites(taken: set[str], owners: dict[str, int]) -> tuple[dict[str,
         if not any(row["kind"] in ACTIONABLE_KINDS for row in record["findings"]):
             entry["skipped"].append({"full_name": name, "reason": "no_finding"})
             continue
-        row = candidates_collect._row(repository, sha, "tests")
+        row = candidates_collect.candidate_row(repository, sha, "tests")
         if "test_files" not in row["tests"]:
             entry["skipped"].append({"full_name": name, "reason": "no_test_file"})
             continue
@@ -238,7 +238,7 @@ def draw_test_suites(taken: set[str], owners: dict[str, int]) -> tuple[dict[str,
 def draw_control(
     control: Control, taken: set[str], owners: dict[str, int]
 ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
-    hits, names = candidates_collect._search(control.query)
+    hits, names = candidates_collect.search(control.query)
     entry: dict[str, Any] = {
         "control": control.id,
         "shape": control.shape,
@@ -283,7 +283,11 @@ def draw_control(
         owners[repository["owner"]["login"]] = owners.get(repository["owner"]["login"], 0) + 1
         taken.add(name)
         print(f"  {control.id}: drew {name} ({witness})", flush=True)
-        return entry, candidates_collect._row(repository, sha, f"control:{control.id}"), record
+        return (
+            entry,
+            candidates_collect.candidate_row(repository, sha, f"control:{control.id}"),
+            record,
+        )
     print(f"  {control.id}: {entry['outcome']} after {entry['examined']} result(s)", flush=True)
     return entry, None, None
 
@@ -310,7 +314,7 @@ def draw() -> None:
         encoding="utf-8",
     )
     document = {
-        "drawn_at": candidates_collect._now(),
+        "drawn_at": candidates_collect.now(),
         "corpus": "bench/candidates.yaml",
         "scan": "bench/results/cases/scan.json",
         "examine_cap": candidates_collect.EXAMINE_CAP,
