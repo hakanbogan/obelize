@@ -420,12 +420,21 @@ Other flags have no file equivalent.
 
 1. Size: over `max_file_bytes`, not read; a limitation names both numbers.
 2. Byte prefilter: without any of the pack's tokens, reported as nothing.
-3. `compile()`, then libcst: a refusal by either is one `parse_error` and
-   no edit. `compile()` also catches what libcst accepts, such as `return`
-   outside a function or a late `__future__` import, and an expression nested
-   so deeply that libcst's parser would crash the process.
+3. `compile()`, a depth check, then libcst: a refusal by any is one
+   `parse_error` and no edit. `compile()` also catches what libcst accepts,
+   such as `return` outside a function or a late `__future__` import, and an
+   expression nested so deeply that libcst's parser would crash the process.
+   Some versions of `compile()` accept a longer one, so the depth check
+   refuses a file nested more than 300 levels deep (a chain of that many
+   operands, attributes or calls, an `elif` ladder).
 4. Byte round-trip: if libcst does not reproduce the file exactly (bare-CR
    line endings, for example), every finding in it is withheld.
+
+An unexpected error while obelize reads or rewrites one file does not end the
+run: a scan reports the file as one `parse_error`, and `fix` leaves it as it was
+and withholds its rows as `internal_error`. `run.json`'s `limitations` names
+the exception's class, never its message. That is a defect in obelize, so
+please report it.
 
 `compile()` is the running interpreter's: under 3.12, syntax from a later
 Python (3.14's unparenthesised `except A, B:`) is refused as unparsable, while
