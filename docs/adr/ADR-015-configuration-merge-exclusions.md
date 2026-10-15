@@ -12,7 +12,8 @@ is opened, and nothing is partially applied: the file is part of the invocation,
 so a broken one is a usage error like a misspelled flag. A number or a flag is never read from
 text or from another type (`allow_dirty: "yes"`, `timeout_s: "60"` and `max_file_bytes: 1000.0`
 are wrongly typed), a YAML set is refused because it has no order, and a file over 1 MiB is
-refused unread. Each is a refusal that names its key or line, never a traceback.
+refused before it is parsed. Each is a refusal, never a traceback, and one about a value names its
+key or line.
 
 **D2. `--verify` replaces the file's list; it does not append to it.** The
 override list is then non-empty exactly when every command in the run is level
@@ -32,8 +33,8 @@ wrote. A `!` pattern re-includes only what the user's own `exclude` excluded.
 **D5. A verification command that needs a shell is refused when it is read.**
 Commands run with `shell=False` (ADR-007), so one whose `shlex` split yields a
 bare operator such as `|`, `&&`, `;`, `>` or `<`, or does not split at all, is
-refused and pointed at `sh -c '<command>'`. Tokens are checked, not the raw
-string, so `python -c "print(1>2)"` passes.
+refused and told to ask for a shell: `sh -c '<command>'`, or `cmd /c "<command>"` on Windows
+(ADR-049). Tokens are checked, not the raw string, so `python -c "print(1>2)"` passes.
 
 **D6. The `fixtures/` directory of a loaded pack that sits inside the repository is left out of
 every scan.** Its fixtures are legacy code by design, so a scan that entered them would plan edits
