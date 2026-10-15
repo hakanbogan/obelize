@@ -3,7 +3,8 @@
 1. Multi-line when the source was, when an argument is, or when the whole emitted line (indent and
    trailing comment included, as a formatter counts) is wider than the pack's `layout.line_length`.
 2. Multi-line is one argument per line, one indent unit (the file's own, as libcst infers it) past
-   the statement's indent, with a trailing comma and the closer back on the statement's indent.
+   the indent of the line the call starts on, with a trailing comma and the closer back on that
+   indent. That line is the statement's, unless the call sits on a continuation line.
 3. Recursive: a nested call is built at the indent the outer call would wrap to.
 
 Wrapping only adds breaks; a call the author split is never joined. A moved argument keeps its

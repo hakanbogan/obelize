@@ -58,6 +58,21 @@ def test_the_statement_a_call_belongs_to_may_be_a_compound_header() -> None:
     assert tree.around(call) == len("for x in ") + len(":")
 
 
+def test_a_call_on_a_continuation_line_is_indented_as_that_line_is() -> None:
+    """Inside a bracket the author chose the line's indent; the statement's is not it."""
+    for indent in ("    ", "\t"):
+        source = f"import acme.sdk as sdk\n\nxs = [\n    1,\n{indent}sdk.configure(key='k'),\n]\n"
+        tree, module = tree_over(source)
+        assert tree.indent(only_call(module)) == indent
+
+
+def test_a_call_that_starts_its_statements_line_keeps_the_statements_indent() -> None:
+    tree, module = tree_over(
+        "import acme.sdk as sdk\n\n\ndef a():\n    x = sdk.configure(\n        key='k',\n    )\n"
+    )
+    assert tree.indent(only_call(module)) == "    "
+
+
 def test_the_innermost_call_that_starts_at_a_position_is_the_one_kept() -> None:
     """Two calls start at one line and column; the scanner found the inner one."""
     tree, module = tree_over("import acme.sdk as sdk\n\nsdk.configure(key='k')(1)\n")

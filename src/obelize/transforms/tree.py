@@ -171,9 +171,15 @@ class Tree:
         return statement if isinstance(statement, cst.SimpleStatementLine) else None
 
     def indent(self, node: cst.CSTNode) -> str:
-        """The characters indenting the statement `node` belongs to."""
-        start = self._pos[self.statement_of(node)].start
-        return layout.indent_of(self.lines, start.line, start.column)
+        """The characters indenting the line `node` starts on: its statement's, or a continuation's.
+
+        A call inside a multi-line bracket starts on a line the author indented as they chose.
+        """
+        start, first = self._pos[node].start, self._pos[self.statement_of(node)].start
+        if start.line == first.line:
+            return layout.indent_of(self.lines, first.line, first.column)
+        text = self.lines[start.line - 1]
+        return text[: len(text) - len(text.lstrip(" \t"))]
 
     def around(self, call: cst.Call) -> int:
         """How many characters of `call`'s source line are not the call or its indent.

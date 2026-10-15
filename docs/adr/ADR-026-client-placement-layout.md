@@ -74,9 +74,11 @@ than writing a wrong one.
 1. A rewritten call is emitted multi-line when the source call was multi-line,
    when one of its arguments is, **or when the line it would make is wider than
    the pack's `layout.line_length`**.
-2. Multi-line is one argument per line, one indent unit past the statement's
-   own indent, with a trailing comma and the closing parenthesis back on the
-   statement's indent. The unit is the file's own, which libcst infers.
+2. Multi-line is one argument per line, one indent unit past the indent of the
+   line the call starts on, with a trailing comma and the closing parenthesis
+   back on that indent. That line is the statement's, except for a call on a
+   continuation line inside a multi-line bracket: it is that line's own. The
+   unit is the file's own, which libcst infers.
 3. The indent is recursive: a nested call that goes multi-line indents one unit
    past the line its own opening parenthesis is on.
 
