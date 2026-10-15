@@ -205,7 +205,7 @@ def _with(document: Document, key: str, value: Any) -> None:
     document[key] = value
 
 
-def _flagged_twice(first: Document, second: Document) -> Callable[[Document], None]:
+def flagged_twice(first: Document, second: Document) -> Callable[[Document], None]:
     """`first` added to `FLAG_CHANGE`'s params, and a second change that flags only `second`."""
 
     def mutate(document: Document) -> None:
@@ -734,7 +734,7 @@ CASES: tuple[Case, ...] = (
         path="",
         says="both flag ['demo_legacy.protos.Message']",
         extra=FLAG_CHANGE,
-        mutate=_flagged_twice({}, {"symbols": ["demo_legacy.protos.Message"]}),
+        mutate=flagged_twice({}, {"symbols": ["demo_legacy.protos.Message"]}),
     ),
     Case(
         name="two_flag_only_changes_on_one_attribute",
@@ -742,7 +742,7 @@ CASES: tuple[Case, ...] = (
         path="",
         says="both flag ['demo_legacy.Reply.text']",
         extra=FLAG_CHANGE,
-        mutate=_flagged_twice(
+        mutate=flagged_twice(
             {"attributes": ["demo_legacy.Reply.text"]},
             {"attributes": ["demo_legacy.Reply.text"]},
         ),
@@ -753,7 +753,7 @@ CASES: tuple[Case, ...] = (
         path="",
         says="both flag ['dynamic_access']",
         extra=FLAG_CHANGE,
-        mutate=_flagged_twice({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}),
+        mutate=flagged_twice({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}),
     ),
     Case(
         name="manifest_names_a_third_distribution",

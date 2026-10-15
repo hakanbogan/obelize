@@ -657,11 +657,8 @@ def test_the_three_channels_of_a_flag_rule_produce_two_different_bails() -> None
 
 def _two_flags(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
     """`FLAG_CHANGE` with `first` added to its params, and a second change that flags `second`."""
-    document = with_change(builder.FLAG_CHANGE, **first)
-    words = {key: builder.FLAG_CHANGE["params"][key] for key in ("message", "suggestion")}
-    document["changes"].append(
-        {**copy.deepcopy(builder.FLAG_CHANGE), "id": "flag-again", "params": {**words, **second}}
-    )
+    document = with_change(builder.FLAG_CHANGE)
+    builder.flagged_twice(first, second)(document)
     return document
 
 

@@ -12,8 +12,8 @@ from obelize.native import shell
 
 
 @pytest.fixture
-def platform(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    yield sys.platform
+def reloaded_afterwards(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    yield
     monkeypatch.undo()
     importlib.reload(shell)
 
@@ -25,8 +25,9 @@ def platform(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
         ("linux", ".venv/bin/python", "sh -c '<command>'"),
     ],
 )
+@pytest.mark.usefixtures("reloaded_afterwards")
 def test_a_system_gets_the_examples_its_shells_read(
-    monkeypatch: pytest.MonkeyPatch, platform: str, system: str, interpreter: str, ask: str
+    monkeypatch: pytest.MonkeyPatch, system: str, interpreter: str, ask: str
 ) -> None:
     monkeypatch.setattr(sys, "platform", system)
     reloaded = importlib.reload(shell)
