@@ -247,8 +247,9 @@ rather than removed.
   one: `git diff` cannot show that change. Outside a git repository there is
   no dirty-tree check.
 - A refused apply still writes its run folder, with the plan, the patch and a
-  `refused[]` row, so it cannot read as one with nothing to do. Refusals
-  come before any verification command starts.
+  `refused[]` row, so it cannot read as one with nothing to do. A refusal
+  the gate sees comes before any verification command starts; one a baseline
+  command causes (a tracked file it changed) or a race comes after it.
 - Writes are atomic: a temporary file plus a rename. Only files on the plan are
   written.
 - Obelize never creates a branch, never commits, never pushes and never merges.

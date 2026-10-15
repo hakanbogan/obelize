@@ -105,7 +105,9 @@ compile check of the written bytes is the one the rules already made in memory
 (`output_does_not_parse`). Consequences, each a case in
 `tests/fixtures/commands/` or `tests/fixtures/providers/runs.yaml`:
 
-- A refused apply runs no command and sends nothing to a model.
+- The gate refuses an apply before any command runs, and before anything is sent to a model
+  unless the file is one a model proposed. A refusal no gate can see in advance comes later, with
+  the baseline already run: a tracked file a baseline command changed, or a race.
 - A verification refused by [the trust rule](THREAT_MODEL.md#verification-command-trust-rule)
   does not stop the write: the run exits `5` with `not_run` / `policy_refused`
   rather than looking like a repository that needed no work.

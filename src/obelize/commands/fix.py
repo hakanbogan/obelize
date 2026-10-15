@@ -1,8 +1,9 @@
 """`obelize fix`: the plan, the write, the verification and the evidence, in a fixed order.
 
 The tree gate runs before the model and the baseline, so a refused apply sends no source and
-spends no test suite. A refused verify command still writes (exit 5), since writing nothing would
-look like a repository needing no work; a failed baseline still writes and skips the after-phase.
+spends no test suite; the files a model proposed are gated again before the baseline. A refused
+verify command still writes (exit 5), since writing nothing would look like a repository needing
+no work; a failed baseline still writes and skips the after-phase.
 """
 
 from __future__ import annotations
@@ -138,9 +139,7 @@ def run(request: Request) -> Outcome:
     ruled = _changes(driven)
     # A run that writes nothing leaves a dirty tree alone; a model's proposal could write.
     asked = request.apply and bool(ruled or request.model.provider != "none")
-    stopped = (
-        fsutil.gate(request.root, ruled, allow_dirty=request.config.allow_dirty) if asked else None
-    )
+    stopped = _gate(request, ruled) if asked else None
     gate_ms = _ms(gating)
 
     notes: tuple[str, ...] = ()
@@ -184,6 +183,11 @@ def run(request: Request) -> Outcome:
     # Before the write, or `git_dirty` would report obelize's own migration.
     state = gitutil.state(request.root)
     writable = _writable(request, plan, model.session)
+    if stopped is None and len(writable) > len(ruled):
+        # A file only a model proposed was not in the first gate; refuse it before a command starts.
+        gating = time.monotonic()
+        stopped = _gate(request, writable)
+        gate_ms += _ms(gating)
     run_id = run_dir.new_id(started)
     journaled = _journaled(request, run_id, plan)
     phases = _phases(request, writable, stopped, gate_ms)
@@ -388,6 +392,10 @@ def _changes(driven: codemod.Run) -> tuple[Change, ...]:
         fsutil.Change(path=outcome.path, before=outcome.before, after=outcome.after)
         for outcome in driven.written
     )
+
+
+def _gate(request: Request, changes: Sequence[Change]) -> Apply | None:
+    return fsutil.gate(request.root, changes, allow_dirty=request.config.allow_dirty)
 
 
 def _whole(loaded: LoadedPack) -> bool:

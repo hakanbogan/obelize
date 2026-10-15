@@ -21,9 +21,10 @@ from obelize import __version__, cli, commands, gitutil
 from obelize.cli import app
 from obelize.commands import CommandError
 from obelize.evidence import report, run_dir
-from obelize.models import WARNING_MEANINGS
+from obelize.models import WARNING_MEANINGS, EditProposal
 from obelize.native import shell, windows_programs
 from obelize.packs import loader
+from obelize.providers import base, openai_compat
 from obelize.verify import runner as verifier
 from platforms import (
     AS_ROOT,
@@ -710,6 +711,69 @@ def test_an_apply_refused_only_over_an_untracked_file_says_to_commit_it(tree: Pa
         "Next: commit the file(s) git does not track (git add, then git commit), "
         "or run again with --allow-dirty."
     )
+
+
+class _ProposesNested:
+    """A model that answers only the question about `nested.py`, with the oracle's accepted edit."""
+
+    def request(self, consultation: base.Consultation) -> bytes:
+        return b"{}"
+
+    def propose(self, consultation: base.Consultation) -> base.Reply:
+        if (consultation.context.path, consultation.line) != ("nested.py", 31):
+            return base.Reply(None)
+        return base.Reply(
+            EditProposal(
+                path="nested.py",
+                start_line=31,
+                end_line=34,
+                symbol="google.generativeai.GenerativeModel",
+                replacement=(
+                    "        from google import genai as new_genai\n\n"
+                    "        model = new_genai.Client().models"
+                ),
+                rationale="The client is constructed where the model was.",
+            )
+        )
+
+
+def test_a_file_only_a_model_proposed_is_refused_before_the_baseline_starts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rules write nothing here, so the first gate saw no file; the proposal's is untracked."""
+    root = tmp_path / "repo"
+    shutil.copytree(Path(__file__).parents[1] / "fixtures" / "providers" / "deep", root)
+    git = ["git", "-C", str(root)]
+    subprocess.run([*git, "init", "-q", "-b", "work"], check=True)
+    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
+        subprocess.run([*git, "config", key, value], check=True)
+    subprocess.run([*git, "add", "--", ".", ":!nested.py"], check=True)
+    subprocess.run([*git, "-c", "commit.gpgsign=false", "commit", "-qm", "before"], check=True)
+    home = tmp_path / "home"
+    (home / "obelize").mkdir(parents=True)
+    (home / "obelize" / "config.yml").write_text(
+        "model:\n  provider: openai_compat\n  base_url: http://127.0.0.1:9/v1\n  model: m\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
+    monkeypatch.setattr(openai_compat, "build", lambda _settings, _environ: _ProposesNested())
+    before = (root / "nested.py").read_bytes()
+
+    result = fix(
+        root, "--apply", "--accept-model", "--verify", f"{PYTHON} -c \"open('started', 'w')\""
+    )
+
+    assert result.exit_code == 5, result.output
+    assert not (root / "started").exists(), "a baseline command started"
+    assert (root / "nested.py").read_bytes() == before
+    record = json.loads((folder(root) / "run.json").read_text(encoding="utf-8"))
+    assert record["verify"]["reason"] == "no_changes_to_verify"
+    assert record["verify"]["baseline"] is None
+    assert record["model"]["proposals"] == 1
+    held = sorted((folder(root) / "model").glob("proposals-*.json"))
+    outcomes = [json.loads(one.read_text(encoding="utf-8"))["outcome"] for one in held]
+    assert outcomes.count("write_refused") == 1
+    assert _refusal(result.output).startswith("Not written: git does not track 1 file(s)")
 
 
 def test_a_tracked_file_the_baseline_changes_is_not_called_untracked(tree: Path) -> None:

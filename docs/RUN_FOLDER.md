@@ -500,7 +500,7 @@ the run did with it.
 | `not_applied` | Accepted; the run had no `--apply`. |
 | `not_accepted` | Accepted; `--accept-model` was not given. |
 | `file_already_proposed` | Accepted, and an earlier proposal holds this file. The guard checks a whole file, so a file takes one model edit per run; the next run asks about the rest. |
-| `write_refused` | Accepted, and the apply was refused: a file can change between the tree gate and the write. |
+| `write_refused` | Accepted, and the apply was refused: the tree or path gate, asked again over the files a model proposed, or a file that changed between that gate and the write. |
 | `written` | On disk; its `Edit` row reads `model_proposed`. |
 
 ## `undo.json`
