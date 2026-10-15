@@ -23,6 +23,8 @@ in the release that makes it.
 - A run that took such a release says so: `packs[].assumed` in `run.json` holds it, and the
   terminal and `REPORT.md` say that the distribution is declared with no version that rules the
   release out and is taken as it.
+- The weekly end-to-end run fails when PyPI lists a final PyPDF2 release newer than the pack's
+  `from.newest`, so the claim cannot lapse unseen.
 
 ### Changed
 

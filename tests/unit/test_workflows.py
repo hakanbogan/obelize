@@ -1157,3 +1157,94 @@ def test_a_windows_run_reports_every_failure_and_where_a_test_hangs() -> None:
         dumps = [int(o.partition("=")[2]) for o in options if o.startswith("faulthandler_timeout=")]
         assert dumps, "a hang would print no stack before the job's timeout ends it"
         assert dumps[0] < job["timeout-minutes"] * 60
+
+
+PYPDF2_NEWEST = (
+    "PyPI lists no PyPDF2 release newer than the one an unpinned requirement is taken as"
+)
+
+# A curl that writes what `PYPI_JSON` holds to its `-o` target, or fails as `-f` does.
+CURL_PYPI = """[ -z "$PYPI_FAILS" ] || exit 22
+while [ "$#" -gt 0 ]; do
+  [ "$1" != "-o" ] || { shift; out="$1"; }
+  shift
+done
+printf '%s' "$PYPI_JSON" > "$out"
+"""
+
+
+def _pypdf2_releases(**releases: list[dict[str, bool]] | None) -> str:
+    return json.dumps(
+        {"releases": {name.replace("_", "."): files for name, files in releases.items()}}
+    )
+
+
+def _check_pypdf2(tmp_path: Path, document: str, *, unreachable: bool = False) -> str:
+    workspace = tmp_path / "work"
+    workspace.mkdir()
+    result = _run_step(
+        _step("e2e.yml", "e2e", PYPDF2_NEWEST),
+        workspace,
+        {"PYPI_JSON": document, "PYPI_FAILS": "1" if unreachable else ""},
+        {"curl": CURL_PYPI, "uv": _uv_runs_python()},
+    )
+    return str(result.returncode) + result.stdout + result.stderr
+
+
+LIVE = [{"yanked": False}]
+
+
+@needs_bash
+def test_pypdf2_stays_clean_while_3_0_1_is_the_newest_final_release(tmp_path: Path) -> None:
+    document = _pypdf2_releases(
+        **{
+            "1_26_0": LIVE,
+            "3_0_0": LIVE,
+            "3_0_1": LIVE,
+            "4_0_0rc1": LIVE,
+            "3_0_2": [{"yanked": True}],
+            "9_9_9": [],
+        }
+    )
+    assert _check_pypdf2(tmp_path, document).startswith("0")
+
+
+@needs_bash
+@pytest.mark.parametrize("newer", ["3_0_2", "4_0_0"])
+def test_a_final_pypdf2_release_above_the_packs_newest_stops_the_weekly_run(
+    tmp_path: Path, newer: str
+) -> None:
+    out = _check_pypdf2(tmp_path, _pypdf2_releases(**{"3_0_1": LIVE, newer: LIVE}))
+    assert not out.startswith("0")
+    assert f"::error::PyPI lists PyPDF2 {newer.replace('_', '.')}, newer than 3.0.1" in out
+
+
+@needs_bash
+def test_a_pypdf2_newest_that_pypi_does_not_list_stops_the_weekly_run(tmp_path: Path) -> None:
+    out = _check_pypdf2(tmp_path, _pypdf2_releases(**{"3_0_0": LIVE, "3_0_1": [{"yanked": True}]}))
+    assert not out.startswith("0")
+    assert "::error::PyPI lists no PyPDF2 3.0.1" in out
+
+
+@needs_bash
+def test_an_unreachable_pypi_stops_the_pypdf2_check(tmp_path: Path) -> None:
+    assert not _check_pypdf2(tmp_path, "{}", unreachable=True).startswith("0")
+
+
+@needs_bash
+def test_a_pypdf2_release_with_no_version_is_skipped_by_the_check(tmp_path: Path) -> None:
+    odd = _pypdf2_releases(**{"3_0_1": LIVE, "not a version": LIVE})
+    assert _check_pypdf2(tmp_path, odd).startswith("0")
+
+
+def test_the_weekly_pypdf2_check_reads_the_newest_the_pack_states() -> None:
+    """The step names no release of its own: the pack is the one place the number is written."""
+    run = _step("e2e.yml", "e2e", PYPDF2_NEWEST)["run"]
+    assert "3.0.1" not in run
+    assert 'loader.load("py-pdf/pypdf2-to-pypdf")' in run
+    packs = {
+        pack.parent.parent.name + "/" + pack.parent.name
+        for pack in (ROOT / "src" / "obelize" / "packs").glob("*/*/pack.yaml")
+        if "newest:" in pack.read_text(encoding="utf-8")
+    }
+    assert packs == {"py-pdf/pypdf2-to-pypdf"}

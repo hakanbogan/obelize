@@ -266,6 +266,38 @@ jobs:
           uv run --with "pypdf>6.19.0"
           pytest tests/packs/test_pypdf_facts.py -q --no-cov -p no:cacheprovider
 
+      - name: PyPI lists no PyPDF2 release newer than the one an unpinned requirement is taken as
+        # `from.newest` is what a requirement naming no version installs (ADR-056). A newer final
+        # release makes that a guess, so the run stops and the pack is measured on it.
+        run: |
+          set -euo pipefail
+          curl -sSf --retry 3 https://pypi.org/pypi/PyPDF2/json -o "$RUNNER_TEMP/pypdf2.json"
+          uv run -- python - "$RUNNER_TEMP/pypdf2.json" <<'PY'
+          import json
+          import sys
+
+          from packaging.version import InvalidVersion, Version
+
+          from obelize.packs import loader
+
+          newest = Version(loader.load("py-pdf/pypdf2-to-pypdf").pack.from_.newest)
+          live = set()
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              for name, files in json.load(handle)["releases"].items():
+                  try:
+                      version = Version(name)
+                  except InvalidVersion:
+                      continue
+                  if not version.is_prerelease and not all(row.get("yanked") for row in files):
+                      live.add(version)
+          above = sorted(version for version in live if version > newest)
+          if newest not in live or above:
+              why = f"lists PyPDF2 {above[-1]}, newer than" if above else "lists no PyPDF2"
+              print(f"::error::PyPI {why} {newest}, the pack's from.newest")
+              sys.exit(1)
+          print(f"PyPDF2 {newest} is still the newest of {len(live)} final releases")
+          PY
+
       - name: The migrated openai fixtures do what the legacy ones did
         # The legacy fixtures run on 0.28.1 and 0.27.0, and their answer keys on the floor and the
         # newest release, each against a local server; the printed results must be the same.

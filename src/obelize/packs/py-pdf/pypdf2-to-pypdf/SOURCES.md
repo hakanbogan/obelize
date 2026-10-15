@@ -32,7 +32,9 @@ Measured (see `flag-removed-names`): `PdfFileMerger`, `PdfFileReader` and `PdfFi
 `DeprecationError` when constructed on PyPDF2 3.0.1, which is what makes code that names one
 evidence of an older release.
 `tests/packs/test_pypdf_facts.py` holds `from.newest` equal to the installed PyPDF2 and `from.lacks`
-equal to the names `flag-removed-names` lists. obelize never requests the URL.
+equal to the names `flag-removed-names` lists. The weekly end-to-end run reads the release list and
+fails when a final release that is not yanked is newer than `from.newest`. obelize never requests the
+URL.
 
 ---
 

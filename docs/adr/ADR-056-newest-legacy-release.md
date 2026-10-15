@@ -94,9 +94,11 @@ name an index's last release gets no inference, which is the right default.
 ### D4. Checked weekly
 
 `newest` is a claim about an index that keeps changing. The weekly end-to-end run reads PyPI's
-release list for PyPDF2 and fails when a release is newer than the pack's `from.newest` (this step is
-not in the workflow yet; it arrives with the next change). A pack whose claim has lapsed would take
-a declaration that installs something else for the release the rules were measured on.
+release list for PyPDF2 and fails when a final release that is not yanked is newer than the pack's
+`from.newest`, or when the list no longer holds `newest`. A pack whose claim has lapsed would take a
+declaration that installs something else for the release the rules were measured on. The step reads
+the number from the pack, and a test holds the set of packs that name a `newest` to the one the step
+checks, so a second pack cannot name one without a check.
 
 ## Consequences
 

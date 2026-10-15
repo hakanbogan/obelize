@@ -109,7 +109,8 @@ installs that release is then taken as it, unless the repository shows another o
 
 - `newest` is a final release in PEP 440's normal spelling (`3.0.1`, not `3.00.1` or `v3.0.1`), which
   `from.version` admits. It is the pack's claim about what an unversioned install resolves to, so a
-  pack names one only where the distribution's index has no later release.
+  pack names one only where the distribution's index has no later release, and the weekly
+  end-to-end run checks that for each pack that names one.
 - `lacks` lists the qualified names that release does not define. Code that uses one cannot have run
   on it, so it is evidence of an older release. Each name is in `symbols` of a `flag_only` change,
   so the scan reports it. Without `newest` it is refused.
