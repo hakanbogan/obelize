@@ -27,6 +27,7 @@ from pydantic import (
 
 from obelize.models import (
     QUALIFIED_NAME,
+    ConfidenceReason,
     DisplayText,
     DistributionName,
     FlagOnlyPattern,
@@ -981,6 +982,15 @@ class RenameSettingParams(_Closed):
         return self
 
 
+# The reason a shape row carries, which is what a change's `patterns` claim it by: two ids with one
+# reason claim the same rows (`transforms.kinds.flag_only.REASONS` is the same table, tested).
+PATTERN_REASONS: dict[FlagOnlyPattern, ConfidenceReason] = {
+    "dynamic_access": "dynamic_access",
+    "mock_patch_target": "mock_patch_target",
+    "sys_modules_stub": "dynamic_access",
+}
+
+
 class FlagOnlyParams(_Closed):
     """Symbols, string patterns and removed attributes a pack refuses, and what it says instead."""
 
@@ -1008,6 +1018,18 @@ class FlagOnlyParams(_Closed):
         if both:
             raise ValueError(f"{both} is named as both a symbol and an attribute")
         return self
+
+    def shared_with(self, other: FlagOnlyParams) -> list[str]:
+        """What both claim a row by: an attribute, a shape's reason, or a symbol and its prefix."""
+        return sorted(
+            {
+                *set(self.attributes) & set(other.attributes),
+                *{PATTERN_REASONS[pattern] for pattern in self.patterns}
+                & {PATTERN_REASONS[pattern] for pattern in other.patterns},
+                *(symbol for symbol in self.symbols if under_any(symbol, other.symbols)),
+                *(symbol for symbol in other.symbols if under_any(symbol, self.symbols)),
+            }
+        )
 
 
 class ManifestDependencyParams(_Closed):
@@ -1137,6 +1159,7 @@ class PackDocument(_Closed):
         self._check_change_ids()
         self._check_client_source()
         self._check_receivers_and_symbols_are_claimed_once()
+        self._check_a_surface_is_flagged_once()
         self._check_every_legacy_symbol_is_looked_for()
         self._check_mapped_symbols_are_not_also_refused()
         self._check_a_setting_is_not_renamed_onto_a_legacy_name()
@@ -1222,6 +1245,18 @@ class PackDocument(_Closed):
                 f"{contested} is both rewritten and refused; the order of the rules would decide "
                 f"which wins"
             )
+
+    def _check_a_surface_is_flagged_once(self) -> None:
+        """Each change that claims a row reports it, so a surface in two would be counted twice."""
+        flagged = [change for change in self.changes if isinstance(change, FlagOnlyChange)]
+        for index, first in enumerate(flagged):
+            for second in flagged[index + 1 :]:
+                shared = first.params.shared_with(second.params)
+                if shared:
+                    raise ValueError(
+                        f"changes {first.id!r} and {second.id!r} both flag {shared}; each row "
+                        f"would be reported under both and counted twice"
+                    )
 
     def _check_mapped_symbols_are_not_also_refused(self) -> None:
         """A symbol is mapped or refused, not both; the rename would silently win.

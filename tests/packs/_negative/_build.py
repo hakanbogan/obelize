@@ -205,6 +205,19 @@ def _with(document: Document, key: str, value: Any) -> None:
     document[key] = value
 
 
+def _flagged_twice(first: Document, second: Document) -> Callable[[Document], None]:
+    """`first` added to `FLAG_CHANGE`'s params, and a second change that flags only `second`."""
+
+    def mutate(document: Document) -> None:
+        document["changes"][1]["params"].update(first)
+        words = {key: FLAG_CHANGE["params"][key] for key in ("message", "suggestion")}
+        document["changes"].append(
+            {**copy.deepcopy(FLAG_CHANGE), "id": "flag-again", "params": {**words, **second}}
+        )
+
+    return mutate
+
+
 def _newest(**fields: Any) -> Callable[[Document], None]:
     """A source range with a floor and a newest release; `fields` replace keys, `None` drops one."""
 
@@ -714,6 +727,33 @@ CASES: tuple[Case, ...] = (
         says="both rewritten and refused",
         extra=FLAG_CHANGE,
         mutate=lambda d: _with(d["changes"][1]["params"], "symbols", ["demo_legacy.configure"]),
+    ),
+    Case(
+        name="two_flag_only_changes_on_one_symbol_and_its_prefix",
+        defect="a symbol one rule flags and another flags under it, so each row has two messages",
+        path="",
+        says="both flag ['demo_legacy.protos.Message']",
+        extra=FLAG_CHANGE,
+        mutate=_flagged_twice({}, {"symbols": ["demo_legacy.protos.Message"]}),
+    ),
+    Case(
+        name="two_flag_only_changes_on_one_attribute",
+        defect="an attribute two rules report, so each row has two messages",
+        path="",
+        says="both flag ['demo_legacy.Reply.text']",
+        extra=FLAG_CHANGE,
+        mutate=_flagged_twice(
+            {"attributes": ["demo_legacy.Reply.text"]},
+            {"attributes": ["demo_legacy.Reply.text"]},
+        ),
+    ),
+    Case(
+        name="two_flag_only_changes_on_shapes_with_one_reason",
+        defect="two shape ids that report one reason, so each row has two messages",
+        path="",
+        says="both flag ['dynamic_access']",
+        extra=FLAG_CHANGE,
+        mutate=_flagged_twice({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}),
     ),
     Case(
         name="manifest_names_a_third_distribution",

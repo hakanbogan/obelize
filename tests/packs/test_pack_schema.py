@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from obelize import _yaml
 from obelize.models import ScanSpec
 from obelize.packs import loader, schema
+from obelize.transforms.kinds import flag_only
 
 ROOT = Path(__file__).resolve().parents[2]
 NEGATIVE = Path(__file__).resolve().parent / "_negative"
@@ -652,6 +653,73 @@ def test_the_three_channels_of_a_flag_rule_produce_two_different_bails() -> None
     assert params.symbols == ("demo_legacy.protos",)
     assert params.patterns == ("mock_patch_target",)
     assert params.attributes == ("demo_legacy.Chat.history",)
+
+
+def _two_flags(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
+    """`FLAG_CHANGE` with `first` added to its params, and a second change that flags `second`."""
+    document = with_change(builder.FLAG_CHANGE, **first)
+    words = {key: builder.FLAG_CHANGE["params"][key] for key in ("message", "suggestion")}
+    document["changes"].append(
+        {**copy.deepcopy(builder.FLAG_CHANGE), "id": "flag-again", "params": {**words, **second}}
+    )
+    return document
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "shared"),
+    [
+        ({}, {"symbols": ["demo_legacy.protos"]}, "demo_legacy.protos"),
+        ({}, {"symbols": ["demo_legacy.protos.Message"]}, "demo_legacy.protos.Message"),
+        (
+            {"symbols": ["demo_legacy.protos.Message"]},
+            {"symbols": ["demo_legacy.protos"]},
+            "demo_legacy.protos.Message",
+        ),
+        (
+            {"attributes": ["demo_legacy.Reply.text"]},
+            {"attributes": ["demo_legacy.Reply.text"]},
+            "demo_legacy.Reply.text",
+        ),
+        ({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}, "dynamic_access"),
+        ({"patterns": ["dynamic_access"]}, {"patterns": ["dynamic_access"]}, "dynamic_access"),
+        (
+            {"patterns": ["mock_patch_target"]},
+            {"patterns": ["mock_patch_target"]},
+            "mock_patch_target",
+        ),
+    ],
+)
+def test_two_flag_rules_that_claim_one_surface_are_refused_naming_both(
+    first: dict[str, Any], second: dict[str, Any], shared: str
+) -> None:
+    """A row is reported once for each change that claims it, and the guidance counts it twice."""
+    with pytest.raises(
+        ValidationError,
+        match=re.escape(f"changes 'flag-out-of-scope' and 'flag-again' both flag ['{shared}']"),
+    ):
+        build(_two_flags(first, second))
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ({}, {"symbols": ["demo_legacy.proto"]}),
+        ({}, {"symbols": ["demo_legacy.protosx"]}),
+        ({"attributes": ["demo_legacy.Reply.text"]}, {"attributes": ["demo_legacy.Reply.parts"]}),
+        ({"patterns": ["dynamic_access"]}, {"patterns": ["mock_patch_target"]}),
+        ({}, {"attributes": ["demo_legacy.protos"]}),
+    ],
+    ids=["segment", "suffix", "attribute", "shape", "symbol-and-attribute"],
+)
+def test_two_flag_rules_on_different_surfaces_are_accepted(
+    first: dict[str, Any], second: dict[str, Any]
+) -> None:
+    """A prefix is by dotted segment; a symbol and an attribute are rows with different bails."""
+    assert len(build(_two_flags(first, second)).changes) == 3
+
+
+def test_the_reason_each_shape_is_claimed_by_is_the_one_the_rule_uses() -> None:
+    assert schema.PATTERN_REASONS == flag_only.REASONS
 
 
 def test_one_distribution_may_stand_on_both_sides_of_the_migration() -> None:

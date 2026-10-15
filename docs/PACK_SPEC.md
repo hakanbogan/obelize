@@ -265,7 +265,7 @@ The scanner reads the union of all `flag_only` channels, so each refused row
 gets an edit whose `rule_id` names the refusing change: the link from a report
 line to its message and suggestion. A resolved name is
 claimed by `symbols` or `attributes`, a `dynamic` or `text_mention` finding by
-`patterns`, so a surface is reported once as long as no two changes name it. `scan` and `fix` print the message
+`patterns`, so a surface is reported once: a pack in which two `flag_only` changes name one is refused. `scan` and `fix` print the message
 and the suggestion once for each change that claimed a finding, and `REPORT.md`
 repeats them under Guidance ([ADR-054](adr/ADR-054-pack-guidance-in-the-report.md)).
 
@@ -558,6 +558,10 @@ Per field:
   not admit, or beside a `from.version` with no floor; a `from.lacks` with no `newest`, or one that
   is not sorted and de-duplicated; a `newest` or `lacks` on `to`.
 - A duplicate `changes[].id`.
+- Two `flag_only` changes that name one surface: the same attribute, the same symbol or one that is
+  the other's dotted prefix (`a.b` and `a.b.c`, not `a.b` and `a.bc`), or shape ids that report one
+  reason (`dynamic_access` and `sys_modules_stub` both report `dynamic_access`). A symbol and an
+  attribute of one spelling are different rows and may sit in two changes.
 - An unknown `changes[].kind`.
 - A missing `source.url` or `source.retrieved_at`.
 - `language` other than `python`.
