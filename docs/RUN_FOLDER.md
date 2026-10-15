@@ -356,8 +356,8 @@ A file the scan already refused has no row here, since no rule claimed it; so
 the table shows. It also holds what each pack says about the
 findings it flagged (Guidance) and what each pack does not handle (Limitations), read from the
 packs the run loaded: no field of `findings.json`, `plan.json` or `run.json` carries them. Under
-Dependency manifests it names the repository's lock files when a manifest pin was written or would
-be, since obelize does not edit them; that is not recorded in a field either.
+Dependency manifests it names the lock files beside a manifest pin that was written or would be, or
+above it, since obelize does not edit them; that is not recorded in a field either.
 
 ## `patch.diff`
 

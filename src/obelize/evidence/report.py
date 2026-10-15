@@ -204,8 +204,8 @@ def fixed(
 
     `repo` is `--repo` as typed and `packs` the `--pack` values, so the closing `Next:` command
     runs where the user is, on what the user chose. `held` is the pin check, which names the
-    files that hold a pin without a row; `locks` are the repository's lock files, where a manifest
-    pin was written.
+    files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
+    or above it.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -568,7 +568,7 @@ def document(
     `proposals` (from `model/`) are inlined because model hunks most need a human reader. `guides`
     and `packs` are the packs' own words: what a flagged change says, what a pack does not handle.
     `fixture_dirs` are the fixtures of the loaded packs inside the repository, which no scan enters;
-    `locks` are the repository's lock files, where a manifest pin was or would be written.
+    `locks` are the lock files beside a manifest pin that was or would be written, or above it.
     """
     _agree(record, run, plan)
     lines = _preamble(

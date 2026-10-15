@@ -655,11 +655,21 @@ def _commit_files(tree: Path, files: dict[str, str]) -> None:
     )
 
 
-# Settings and a constraints file can decide a release too, but no tool regenerates them.
-LOCKS = {"uv.lock": "x\n", "api/poetry.lock": "x\n", "pip.conf": "x\n", "constraints.txt": "x\n"}
+# Settings and constraints files can decide a release too, but no tool regenerates them, and a lock
+# below the manifest's directory or beside it, such as a vendored project's, is not its lock.
+LOCKS = {
+    "requirements.lock": "x\n",
+    "uv.lock": "x\n",
+    "api/poetry.lock": "x\n",
+    "vendor/lib/uv.lock": "x\n",
+    "pip.conf": "x\n",
+    "constraints.txt": "x\n",
+    "blocklist-constraints.txt": "x\n",
+    "docs/unlocked-requirements.in": "x\n",
+}
 LOCK_LINE = (
-    "Not edited by obelize, so they may still pin the old release: `api/poetry.lock`, `uv.lock`. "
-    "Regenerate each with the tool that made it."
+    "Not edited by obelize, so they may still pin the old release: `requirements.lock`, "
+    "`uv.lock`. Regenerate each with the tool that made it."
 )
 
 
@@ -670,7 +680,7 @@ def test_a_manifest_pin_written_next_to_a_lock_file_says_to_regenerate_it(tree: 
     evidence, locked, step = result.stdout.splitlines()[-3:]
     assert evidence.startswith("Evidence: ")
     assert locked == (
-        "Next: regenerate each lock file with the tool that made it: api/poetry.lock, uv.lock. "
+        "Next: regenerate each lock file with the tool that made it: requirements.lock, uv.lock. "
         "obelize does not edit them, so they may still pin the old release."
     )
     assert step.startswith("Next: git -C ")
@@ -679,6 +689,31 @@ def test_a_manifest_pin_written_next_to_a_lock_file_says_to_regenerate_it(tree: 
     assert f"\n{LOCK_LINE}\n" in report_text
     assert report_text.index("## Dependency manifests") < report_text.index(LOCK_LINE)
     assert report_text.index(LOCK_LINE) < report_text.index("## Verification")
+
+
+def test_a_lock_file_is_named_for_the_manifest_beside_it_or_below_it_and_for_no_other(
+    tree: Path,
+) -> None:
+    (tree / "svc").mkdir()
+    (tree / "svc" / "app.py").write_text(LEGACY, encoding="utf-8", newline="\n")
+    _commit_files(
+        tree,
+        {
+            "svc/requirements.txt": "google-generativeai==0.8.6\n",
+            "svc/poetry.lock": "x\n",
+            "svc/sub/uv.lock": "x\n",
+            "other/uv.lock": "x\n",
+            "uv.lock": "x\n",
+        },
+    )
+    result = fix(tree, "--apply", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 0, result.output
+    written = {
+        row["path"]
+        for row in json.loads((folder(tree) / "run.json").read_text("utf-8"))["file_edits"]
+    }
+    assert {"requirements.txt", "svc/requirements.txt"} <= written
+    assert "lock file with the tool that made it: svc/poetry.lock, uv.lock. " in result.stdout
 
 
 def test_a_dry_run_that_would_write_a_pin_names_the_lock_files_in_the_report_only(

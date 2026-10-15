@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
@@ -100,8 +100,7 @@ class Outcome:
     guides: tuple[flag_only.Guide, ...] = ()
     # The pin check, in memory only: it names files that hold a pin without a row in `withheld`.
     manifest_plan: ManifestPlan = field(default_factory=ManifestPlan)
-    # Lock files listed in the repository where a manifest pin was or would be written; none is
-    # edited.
+    # Lock files beside a manifest pin that was or would be written, or above it; none is edited.
     locks: tuple[str, ...] = ()
 
 
@@ -408,16 +407,24 @@ def _gate(request: Request, changes: Sequence[Change]) -> Apply | None:
 
 
 def _locks(tree: scanner.Tree, written: Sequence[str]) -> tuple[str, ...]:
-    """The lock files the walk listed, where a manifest pin is, or would be, written.
+    """The lock files the walk listed beside a manifest pin written, or to be, or above it.
+
+    A lock below or beside the manifest belongs to another project, such as a vendored one.
+    """
+    homes = [PurePosixPath(path).parent for path in written if manifests.is_manifest(path)]
+    return tuple(path for path in tree.walk.listed if _is_lock_of(path, homes))
+
+
+def _is_lock_of(path: str, homes: Sequence[PurePosixPath]) -> bool:
+    """Whether `path` is a lock file a tool regenerates, in a directory of `homes` or above one.
 
     `is_lock` also takes settings and constraints files, which no tool regenerates.
     """
-    if not any(map(manifests.is_manifest, written)):
-        return ()
-    return tuple(
-        path
-        for path in tree.walk.listed
-        if manifests.is_lock(path) and "lock" in path.rpartition("/")[2]
+    lock = PurePosixPath(path)
+    return (
+        manifests.is_lock(path)
+        and (lock.name.endswith(".lock") or lock.name.startswith(("pylock.", "conda-lock.")))
+        and any(home.is_relative_to(lock.parent) for home in homes)
     )
 
 
