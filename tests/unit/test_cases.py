@@ -589,6 +589,33 @@ def test_a_module_named_as_a_string_never_enters_the_comparison() -> None:
     assert "| `owner__repo` | 0 | 0 | 0 | 0 | 0 |" in text
 
 
+def finding(path: str, line: int, kind: str = "text_mention") -> dict[str, Any]:
+    return {"path": path, "line": line, "kind": kind, "symbol": None}
+
+
+def forbidding(*positions: tuple[str, int]) -> dict[str, Any]:
+    forbidden = [{"path": path, "line": line, "why": "a string"} for path, line in positions]
+    return case(ground_truth={**case()["ground_truth"], "must_not_report": forbidden})
+
+
+def test_a_forbidden_position_the_scan_reported_is_named_whatever_its_kind() -> None:
+    one = forbidding(("app.py", 7), ("b.py", 1))
+    found = [finding("app.py", 7), finding("b.py", 2), finding("app.py", 7, "call")]
+    assert cases.violations(corpus([one], findings_={"owner/repo": found})) == [
+        "owner__repo app.py:7",
+        "owner__repo app.py:7",
+    ]
+    text = "\n".join(cases._agreement_table(corpus([one], findings_={"owner/repo": found})))
+    assert "2 position(s) the keys forbid outright, 2 of them reported: " in text
+    assert "`owner__repo app.py:7`, `owner__repo app.py:7`." in text
+
+
+def test_a_forbidden_position_nothing_reported_says_so_without_a_list() -> None:
+    one = forbidding(("app.py", 7))
+    text = "\n".join(cases._agreement_table(corpus([one], findings_={"owner/repo": []})))
+    assert "1 position(s) the keys forbid outright, 0 of them reported." in text
+
+
 def test_the_change_table_names_every_change_in_the_pack_and_counts_it() -> None:
     """One case naming `configure` twice: one change met, two call sites, the rest zero."""
     one = case(
@@ -799,6 +826,15 @@ def test_every_ground_truth_row_uses_the_vocabulary_and_explains_itself() -> Non
         for row in truth["must_not_report"]:
             assert row["why"]
             assert row["line"] >= 1
+
+
+def test_no_position_a_key_forbids_is_one_it_names_as_a_call_site_or_a_pin() -> None:
+    """A row cannot be both wanted and forbidden; the forbidden count would hide it."""
+    for entry in CASES:
+        truth = entry["ground_truth"]
+        forbidden = {(row["path"], row["line"]) for row in truth["must_not_report"]}
+        named = {(row["path"], row["line"]) for row in [*truth["call_sites"], *truth["manifests"]]}
+        assert not forbidden & named, entry["id"]
 
 
 def test_every_case_names_a_reviewer_and_a_date() -> None:

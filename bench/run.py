@@ -541,14 +541,23 @@ def unmigrated(case: Case, plan: dict[str, Any], run: dict[str, Any]) -> int:
 def measure(
     case: Case, findings: list[dict[str, Any]], plan: dict[str, Any], run: dict[str, Any]
 ) -> dict[str, Any]:
-    """`docs/BENCHMARK.md`'s measurement table, from one run folder."""
+    """`docs/BENCHMARK.md`'s measurement table, from one run folder.
+
+    `forbidden_reported` counts findings of any kind at a `must_not_report` position: one of an
+    actionable kind is also a `false_positive`, but a `text_mention` there is nothing else.
+    """
     written = [edit["path"] for edit in run.get("file_edits") or ()]
     landed = applied_positions(plan, written)
     wanted = Counter((path, line) for path, line, _ in expected_rows(case))
     accuracy = compare(key_rows(case), rows(findings, ACTIONABLE_KINDS))
+    forbidden = {
+        (str(row["path"]), int(row["line"]))
+        for row in case.ground_truth.get("must_not_report") or ()
+    }
     return {
         "detected": accuracy.true_positive + accuracy.false_positive,
         "false_positive": accuracy.false_positive,
+        "forbidden_reported": sum(1 for row in findings if (row["path"], row["line"]) in forbidden),
         "missed_call_site": accuracy.missed,
         "unmigrated": unmigrated(case, plan, run),
         "patch_applied": bool(written),
@@ -775,6 +784,7 @@ def _unmeasured() -> dict[str, Any]:
     return {
         "detected": 0,
         "false_positive": 0,
+        "forbidden_reported": 0,
         "missed_call_site": 0,
         "unmigrated": 0,
         "patch_applied": False,

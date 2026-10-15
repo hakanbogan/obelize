@@ -790,7 +790,22 @@ def test_the_measurement_table_is_filled_from_one_run_folder() -> None:
     assert table["detected"] == 1
     assert table["missed_call_site"] == 1
     assert table["false_positive"] == 0
+    assert table["forbidden_reported"] == 0
     assert table["patch_applied"] is True
+
+
+def test_a_report_at_a_position_the_key_forbids_is_counted_whatever_its_kind() -> None:
+    """A `text_mention` there is no false positive, so only this count shows it."""
+    truth = {
+        "call_sites": [],
+        "manifests": [],
+        "must_not_report": [{"path": "app.py", "line": 1, "why": "a string"}],
+        "tests_cover_change": False,
+    }
+    reports = [site(kind="text_mention"), site(kind="call"), site(line=2)]
+    table = run.measure(case(ground_truth=truth), reports, {"edits": []}, {})
+    assert table["forbidden_reported"] == 2
+    assert table["false_positive"] == 2
 
 
 def test_an_edit_the_key_never_named_is_a_false_positive_edit() -> None:
@@ -1198,6 +1213,7 @@ def test_a_step_the_protocol_needs_fails_the_case_with_its_own_reason(
     assert record["error"]["reason"] == reason
     # A case that never ran measured nothing, not two unmigrated rows.
     assert record["measurements"]["detected"] == 0
+    assert record["measurements"]["forbidden_reported"] == 0
     assert record["measurements"]["unmigrated"] == 0
     assert record["measurements"]["patch_applied"] is False
 

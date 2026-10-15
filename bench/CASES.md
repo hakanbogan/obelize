@@ -129,7 +129,7 @@ The ground truth is **261 hand-written call sites** over 20 repositories, writte
 
 **Publication.** 19 of 20 cases are under a permissive licence, so a `patch.diff` may be kept for them; `Arnav3241__Jarvis-v13` is metrics-only under [BENCHMARK.md](../docs/BENCHMARK.md#licensing-and-publication-rules).
 
-**Where the key and the scanner disagree.** The key was written from the source before the scan record was opened, so this table is a measurement and not a tautology. `Missed` is a ground-truth call site the scan does not report; `Unexpected` is a reported call site the key does not have.
+**Where the key and the scanner disagree.** The key was written from the source before the scan record was opened, so this table is a measurement and not a tautology. `Missed` is a ground-truth call site the scan does not report; `Unexpected` is a reported call site the key does not have. The positions the keys forbid outright are counted under the table, whatever kind was reported there.
 
 | Case | Key | Scan | Matched | Missed | Unexpected |
 |---|---:|---:|---:|---:|---:|
@@ -156,6 +156,8 @@ The ground truth is **261 hand-written call sites** over 20 repositories, writte
 | **all 20** | **252** | **231** | **228** | **24** | **3** |
 
 Precision **98.7%**, recall **90.5%**, over the four kinds that are a call site and matched on path, line, kind and symbol together.
+
+38 position(s) the keys forbid outright, 1 of them reported: `ImprintLab__Medical-Graph-RAG camel/utils/token_counting.py:422`.
 
 **What the pack's changes meet in the ground truth.** A change is met when a hand-written call site names one of the legacy symbols its own parameters state.
 

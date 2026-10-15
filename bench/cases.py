@@ -288,6 +288,19 @@ def _case_table(corpus: Corpus) -> list[str]:
     return lines
 
 
+def violations(corpus: Corpus) -> list[str]:
+    """Every `must_not_report` position the scan reported anyway, of any kind."""
+    found = []
+    for case in cases(corpus):
+        positions = {(row["path"], row["line"]) for row in case["ground_truth"]["must_not_report"]}
+        found += [
+            f"{case['id']} {row['path']}:{row['line']}"
+            for row in corpus.findings.get(case["full_name"], [])
+            if (row["path"], row["line"]) in positions
+        ]
+    return sorted(found)
+
+
 def _agreement_table(corpus: Corpus) -> list[str]:
     from gate1_score import percent, rows
 
@@ -317,6 +330,13 @@ def _agreement_table(corpus: Corpus) -> list[str]:
     lines.append(
         f"Precision **{percent(precision)}**, recall **{percent(recall)}**, over the four "
         "kinds that are a call site and matched on path, line, kind and symbol together."
+    )
+    forbidden = sum(len(case["ground_truth"]["must_not_report"]) for case in cases(corpus))
+    broken = violations(corpus)
+    lines.append("")
+    lines.append(
+        f"{forbidden} position(s) the keys forbid outright, {len(broken)} of them reported"
+        + (f": {', '.join(f'`{row}`' for row in broken)}." if broken else ".")
     )
     return lines
 
@@ -442,7 +462,8 @@ def render(corpus: Corpus) -> str:
         "**Where the key and the scanner disagree.** The key was written from the source "
         "before the scan record was opened, so this table is a measurement and not a "
         "tautology. `Missed` is a ground-truth call site the scan does not report; "
-        "`Unexpected` is a reported call site the key does not have.",
+        "`Unexpected` is a reported call site the key does not have. The positions the keys forbid "
+        "outright are counted under the table, whatever kind was reported there.",
         "",
         *_agreement_table(corpus),
         "",

@@ -55,6 +55,7 @@ path in it.
 | `detected` | Call sites obelize found. |
 | `false_positive` | Findings that are not real usage. |
 | `missed_call_site` | Ground-truth call sites obelize did not find. |
+| `forbidden_reported` | Findings of any kind at a `ground_truth.must_not_report` position. An actionable one is also a `false_positive`, but a `text_mention` there is nothing else. Recorded, not a tier input; round 1's records lack it, and [`bench/CASES.md`](../bench/CASES.md) counts the same positions in the scan records. |
 | `patch_applied` | Whether a patch was written. |
 | `patch_compiles` | Whether every `.py` file the run wrote compiles under the case's interpreter, or `null` when nothing was written. The harness checks it because `obelize fix` with no verification command does not. |
 | `unmigrated` | Ground-truth rows, call sites and manifest pins, the run left as they were. A row is migrated when the run refused nothing at its `(path, line, symbol)` and an applied edit landed on its line; one `requirements.txt` line can hold an applied `google-genai` add beside a withheld legacy pin. |
