@@ -241,6 +241,7 @@ content it did not write. `undo.json` gets a row for **every** file the run
 wrote, so a partial undo cannot read as complete
 ([RUN_FOLDER.md](RUN_FOLDER.md#undojson)). A file that already holds its original counts as put
 back, so a second `undo` of the same run exits `0`, and it leaves the first `undo.json` as it was.
+`undo` reads no `.obelize.yml`, so a mistake in it never stands between you and putting files back.
 
 The record formats change between 0.x releases. A run another release wrote, whose `run.json` this
 one cannot read, exits `2` and names that release with the command that undoes the run:

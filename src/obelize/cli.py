@@ -453,15 +453,13 @@ def undo(
     """
     from obelize.commands import CommandError
     from obelize.commands import undo as reverter
-    from obelize.config import ConfigError
     from obelize.evidence import report
 
     root = Path(repo)
-    try:
-        _configuration(root)
-    except ConfigError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(2) from error
+    # No `.obelize.yml`: putting files back must not depend on a file the user may be mending.
+    if not root.is_dir():
+        typer.echo(f"--repo {root} is not a directory", err=True)
+        raise typer.Exit(2)
     try:
         outcome = reverter.run(reverter.Request(root=root, run_id=run_id, argv=_recorded_argv()))
     except CommandError as error:
