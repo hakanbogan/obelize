@@ -54,8 +54,12 @@ searched for a version, since no read of a scan goes past that limit.
    `*constraints*.txt`, which no rule writes (their declarations carry no pin, and a bare name in
    one is not read). One that cannot be read whole, or holds a NUL byte (a UTF-16
    `pip freeze`); one with a line that names the distribution where no declaration was read, once
-   comments are cut (a bare name in an input or constraints file, a Poetry table, a
-   `[tool.uv.sources]` key); in a requirements, input or constraints file, a pip option that can
+   comments are cut (a bare name in an input or constraints file); in `pyproject.toml` and a
+   `Pipfile` the names are counted instead, against the rows read: a key or a string where a
+   dependency can be declared (PEP 621's and 735's, the tables of uv, Poetry, PDM, Hatch, Pixi and
+   Rye, and a Pipfile's packages), so a `[tool.uv.sources]` key, a constraint or an override counts,
+   and `known_third_party` under `[tool.isort]`, a Ruff or mypy list, a project's `description` and
+   a URL do not; in a requirements, input or constraints file, a pip option that can
    move the release, which is every option but `-r` or `-c` to a manifest the scan reads, `-e` to
    a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued line is such
    an option. A line that is read and names a release (`PyPDF2<3` in a constraints file) is judged

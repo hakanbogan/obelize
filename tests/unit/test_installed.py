@@ -109,7 +109,7 @@ HASHED = "pypdf2==1.26.0 \\\n    --hash=sha256:aaaa\n"
         ("requirements.txt", "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"),
         ("requirements.txt", "PyPDF2\nsix\npypdf2==1.26.0 \\\n"),
         ("pyproject.toml", '[tool.uv]\nconstraint-dependencies = ["PyPDF2<3"]\n'),
-        ("pyproject.toml", '[tool.isort]\nknown_third_party = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.uv.sources]\nPyPDF2 = { git = "https://host/repo" }\n'),
         ("setup.cfg", "[options.extras_require]\npdf = \n  PyPDF2 @ ./PyPDF2-1.26.0.tar.gz\n"),
     ],
     ids=[
@@ -119,7 +119,7 @@ HASHED = "pypdf2==1.26.0 \\\n    --hash=sha256:aaaa\n"
         "editable-egg",
         "continued-after-a-row",
         "uv-constraints",
-        "tool-section",
+        "uv-sources",
         "setup-cfg-path",
     ],
 )
@@ -138,12 +138,141 @@ def test_a_dependency_given_as_its_own_table_has_its_row_at_the_header(tmp_path:
 
 def test_a_second_mention_with_no_row_is_found_beside_a_line_that_has_one(tmp_path: Path) -> None:
     one = 'dependencies = ["PyPDF2"]\n'
-    other = '\n[tool.isort]\nknown_third_party = ["PyPDF2"]\n'
+    other = '\n[tool.uv]\nconstraint-dependencies = ["PyPDF2"]\n'
     head = "[project]\nname = 'x'\n"
     both = git_repo(tmp_path / "a", {"pyproject.toml": head + one + other})
     assert contrary(both) == "pyproject.toml"
     alone = git_repo(tmp_path / "b", {"pyproject.toml": head + one})
     assert contrary(alone) == ""
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("pyproject.toml", '[tool.isort]\nknown_third_party = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.ruff.lint.isort]\nknown-third-party = ["PyPDF2"]\n'),
+        (
+            "pyproject.toml",
+            '[[tool.mypy.overrides]]\nmodule = ["PyPDF2.*"]\nignore_missing_imports = true\n',
+        ),
+        (
+            "pyproject.toml",
+            '[tool.pytest.ini_options]\nfilterwarnings = ["ignore::PyPDF2.DeprecationWarning"]\n',
+        ),
+        (
+            "pyproject.toml",
+            '[project]\nname = "x"\ndescription = "Splits PyPDF2 files"\nkeywords = ["PyPDF2"]\n',
+        ),
+        ("pyproject.toml", '[project.urls]\nUpstream = "https://github.com/py-pdf/PyPDF2"\n'),
+        ("pyproject.toml", '[tool.poetry]\nname = "x"\ndescription = "Wraps PyPDF2"\n'),
+        ("pyproject.toml", '[build-system]\nrequires = ["PyPDF2", "setuptools"]\n'),
+        ("pyproject.toml", 'tool = { isort = { known_third_party = ["PyPDF2"] } }\n'),
+        ("Pipfile", '[scripts]\nsplit = "python -m PyPDF2"\n'),
+        ("Pipfile", '[requires]\npython_version = "3.12"\n[pipenv]\nnote = "PyPDF2"\n'),
+    ],
+    ids=[
+        "isort",
+        "ruff-isort",
+        "mypy-override",
+        "pytest-filter",
+        "project-text",
+        "project-urls",
+        "poetry-text",
+        "build-requires",
+        "inline-table-of-a-tool",
+        "pipfile-scripts",
+        "pipfile-other-table",
+    ],
+)
+def test_a_name_in_what_a_tool_that_installs_nothing_holds_is_not_evidence(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    """These name the distribution in many repositories that declare it in a manifest."""
+    root = git_repo(tmp_path, {**REQUIRED, name: body})
+    assert contrary(root) == ""
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("pyproject.toml", '[project]\ndependencies = ["PyPDF2>=3", "pypdf2[crypto]"]\n'),
+        ("pyproject.toml", '[project.optional-dependencies]\npdf = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[dependency-groups]\ndev = ["PyPDF2", {include-group = "test"}]\n'),
+        ("pyproject.toml", '[tool.poetry.dependencies]\nPyPDF2 = "^3"\n'),
+        (
+            "pyproject.toml",
+            '[tool.poetry.dependencies]\nPyPDF2 = { version = "^3", extras = ["x"] }\n',
+        ),
+        ("pyproject.toml", '[tool.poetry.group.dev.dependencies]\nPyPDF2 = "^3"\n'),
+        ("pyproject.toml", '[tool.poetry.dependencies.PyPDF2]\nversion = "^3"\n'),
+        ("pyproject.toml", '[tool.uv]\ndev-dependencies = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.pdm.dev-dependencies]\ntest = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.hatch.envs.default]\ndependencies = ["PyPDF2"]\n'),
+        ("Pipfile", '[packages]\nPyPDF2 = "*"\n[dev-packages]\npypdf2 = ">=3"\n'),
+    ],
+    ids=[
+        "project",
+        "optional",
+        "group",
+        "poetry",
+        "poetry-inline",
+        "poetry-group",
+        "poetry-table",
+        "uv-dev",
+        "pdm-dev",
+        "hatch-env",
+        "pipfile",
+    ],
+)
+def test_a_declaration_the_reader_reads_names_nothing_it_missed(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    """Each name is a row, so there is no more of them than rows and nothing is left unread."""
+    root = git_repo(tmp_path, {"requirements.txt": "six\n", name: body})
+    assert contrary(root) == ""
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("pyproject.toml", '[tool.uv]\noverride-dependencies = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.uv]\nupgrade-package = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.pdm.resolution.overrides]\nPyPDF2 = "<3"\n'),
+        ("pyproject.toml", '[tool.hatch.envs.x]\nscripts = { run = "pip install -U PyPDF2" }\n'),
+        (
+            "pyproject.toml",
+            '[tool.pixi.pypi-dependencies]\nPyPDF2 = { git = "https://host/repo" }\n',
+        ),
+        ("pyproject.toml", '[tool.rye]\ndev-dependencies = ["PyPDF2 @ git+https://host/repo"]\n'),
+        (
+            "pyproject.toml",
+            '[tool.poetry.dependencies]\nPyPDF2 = { git = "https://host/PyPDF2.git" }\n',
+        ),
+        (
+            "pyproject.toml",
+            '[tool.poetry.dependencies]\nPyPDF2 = { path = "../PyPDF2-1.26.0.tar.gz" }\n',
+        ),
+        ("pyproject.toml", '[tool.poetry.extras]\npdf = ["PyPDF2"]\n'),
+        ("Pipfile", '[packages]\nPyPDF2 = { git = "https://host/PyPDF2.git" }\n'),
+    ],
+    ids=[
+        "uv-override",
+        "uv-upgrade-package",
+        "pdm-override",
+        "hatch-script",
+        "pixi-git",
+        "rye-git",
+        "poetry-git",
+        "poetry-path",
+        "poetry-extras",
+        "pipfile-git",
+    ],
+)
+def test_a_name_where_a_dependency_can_be_declared_and_no_row_was_read_is_evidence(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    root = git_repo(tmp_path, {"requirements.txt": "PyPDF2\n", name: body})
+    assert contrary(root) == name
 
 
 def test_a_comment_names_nothing_and_a_longer_name_is_another_distribution(tmp_path: Path) -> None:
