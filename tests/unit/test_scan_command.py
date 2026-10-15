@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -338,6 +339,38 @@ def test_list_files_reads_the_exclusions_and_not_the_files(tree: Path) -> None:
     result = _scan(tree, "--list-files")
     assert result.exit_code == 0
     assert result.stdout.split() == ["app.py", "broken.py"]
+
+
+def _own_pack(tree: Path, where: str) -> Path:
+    """The Gemini pack copied into the repository with its fixtures, which import the legacy SDK."""
+    shutil.copytree(loader.BUNDLED / GEMINI, tree / where)
+    return tree / where / loader.PACK_FILENAME
+
+
+def test_the_directory_of_a_pack_inside_the_repository_is_not_scanned(tree: Path) -> None:
+    pack = _own_pack(tree, "packs/gem")
+    document = json.loads(_scan(tree, "--json", "--pack", str(pack)).stdout)
+    assert {row["path"] for row in document["findings"]} == {"app.py", "requirements.txt"}
+    report = (_folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert "- **Not scanned** `packs/gem/`, which holds a pack this run loaded\n" in report
+    assert "packs/gem/fixtures" not in report
+    assert "Excluded from the scan" not in report
+    record = json.loads((_folder(tree) / "run.json").read_text(encoding="utf-8"))
+    assert record["config"]["exclude"] == []
+
+
+def test_list_files_leaves_out_the_directory_of_a_pack_inside_the_repository(tree: Path) -> None:
+    pack = _own_pack(tree, "packs/gem")
+    assert _scan(tree, "--list-files", "--pack", str(pack)).stdout.split() == ["app.py", "plain.py"]
+
+
+def test_a_pack_at_the_repository_root_leaves_out_nothing(tree: Path) -> None:
+    pack = _own_pack(tree, "packs/gem")
+    shutil.copy(pack, tree / loader.PACK_FILENAME)
+    result = _scan(tree, "--list-files", "--pack", str(tree / loader.PACK_FILENAME))
+    assert "packs/gem/fixtures/positive/chat_history.before.py" in result.stdout.split()
+    _scan(tree, "--pack", str(tree / loader.PACK_FILENAME))
+    assert "Not scanned" not in (_folder(tree) / "REPORT.md").read_text(encoding="utf-8")
 
 
 def test_the_run_folder_records_the_run(tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:

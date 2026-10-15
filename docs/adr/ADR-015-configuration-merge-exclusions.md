@@ -35,12 +35,19 @@ bare operator such as `|`, `&&`, `;`, `>` or `<`, or does not split at all, is
 refused and pointed at `sh -c '<command>'`. Tokens are checked, not the raw
 string, so `python -c "print(1>2)"` passes.
 
+**D6. The directory of a loaded pack that sits inside the repository is left out of every scan.**
+Its fixtures are legacy code by design, so a scan that entered them would plan edits to them. It
+is skipped as the always-excluded set is, not as an `exclude` is (an excluded file that imports the
+legacy distribution would hold the pin, and a fixture is not the repository's code), is the
+directory the pack file sits in, and is never the repository root. `REPORT.md` names it. It is
+not a configuration key: a repository's `.obelize.yml` cannot add to it.
+
 ## Consequences
 
 - The configuration models live in `obelize.models` and loading in
   `obelize.config`, so the evidence writer never imports a YAML parser.
-- Only the always-excluded set prunes a directory; a user's `exclude` filters
-  files and prunes nothing (ADR-016 D3).
+- Only the always-excluded set and a loaded pack's directory (D6) prune a directory; a user's
+  `exclude` filters files and prunes nothing (ADR-016 D3).
 - `model.base_url` may not carry a credential, so `docs/RUN_FOLDER.md`'s
   recorded host and `docs/PRIVACY.md`'s never-written key stay true together.
 - `.obelize.yaml` is refused by name rather than ignored in silence.

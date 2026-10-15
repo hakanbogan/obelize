@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from obelize import __version__, fsutil, gitutil
 from obelize.commands import CommandError, reports
+from obelize.config import with_pack_dirs
 from obelize.evidence import report, run_dir
 from obelize.models import FindingsDocument, ManifestPlan, ModelConfig, VerifyPhase, VerifyResult
 from obelize.native import processes
@@ -235,6 +236,7 @@ def run(request: Request) -> Outcome:
                 () if recorded is None else recorded[2],
                 guides=guides,
                 packs=documents,
+                pack_dirs=chosen.pack_dirs,
             ),
             artefacts,
             journaled=journaled,
@@ -288,6 +290,8 @@ class Chosen:
     packs: tuple[Scanned, ...]
     # Every pack tried, so a run that finds none can say which it asked.
     tried: tuple[str, ...]
+    # Directories of those packs inside the repository, which the scan did not enter.
+    pack_dirs: tuple[str, ...]
 
 
 def select(
@@ -305,6 +309,7 @@ def select(
     """
     ordered = sorted(packs, key=lambda loaded: loaded.pack.id)
     specs = [loader.to_scan_spec(loaded) for loaded in ordered]
+    config = with_pack_dirs(config, root, [loaded.path for loaded in ordered])
     tree = scanner.read(root, config, specs)
     scans = [
         Scanned(loaded, scanner.scan(root, config, spec, jobs=jobs, tree=tree))
@@ -316,7 +321,7 @@ def select(
             reason = loader.conflict(first.loaded.pack, second.loaded.pack)
             if reason is not None:
                 raise CommandError(f"{reason}; run them one at a time with --pack.", 2)
-    return Chosen(tree, kept, tuple(one.loaded.pack.id for one in scans))
+    return Chosen(tree, kept, tuple(one.loaded.pack.id for one in scans), config.pack_dirs)
 
 
 @dataclass(frozen=True, slots=True)

@@ -546,6 +546,7 @@ def document(
     proposals: Sequence[ProposalRecord] = (),
     guides: Sequence[Guide] = (),
     packs: Sequence[PackDocument] = (),
+    pack_dirs: Sequence[str] = (),
 ) -> str:
     """`REPORT.md`: everything the run learned, in the order it learned it.
 
@@ -553,9 +554,16 @@ def document(
     table beside the edits: a file the scan refused has no edit, and that is not a hole.
     `proposals` (from `model/`) are inlined because model hunks most need a human reader. `guides`
     and `packs` are the packs' own words: what a flagged change says, what a pack does not handle.
+    `pack_dirs` are the directories of the loaded packs inside the repository, which no scan enters.
     """
     _agree(record, run, plan)
-    lines = _preamble(record, scan, run is not None, planned=plan is not None and bool(plan.files))
+    lines = _preamble(
+        record,
+        scan,
+        run is not None,
+        planned=plan is not None and bool(plan.files),
+        pack_dirs=pack_dirs,
+    )
     if scan.blocked:
         lines.extend(["## Blocked", ""])
         for blocked in scan.blocked:
@@ -590,7 +598,9 @@ def _agree(record: RunRecord, run: Run | None, plan: PlanDocument | None) -> Non
     )
 
 
-def _preamble(record: RunRecord, scan: Scan, fixing: bool, *, planned: bool) -> list[str]:
+def _preamble(
+    record: RunRecord, scan: Scan, fixing: bool, *, planned: bool, pack_dirs: Sequence[str]
+) -> list[str]:
     counts = record.counts
     return [
         f"# obelize {'fix' if fixing else 'scan'}",
@@ -608,6 +618,7 @@ def _preamble(record: RunRecord, scan: Scan, fixing: bool, *, planned: bool) -> 
         f"- **Configuration** {record.config.source}, "
         f"include `{record.config.include}`, "
         f"{len(record.config.exclude)} extra exclusion(s)",
+        *(f"- **Not scanned** `{path}/`, which holds a pack this run loaded" for path in pack_dirs),
         "",
         _headline(counts, FIX_SPLIT if fixing else SPLIT),
         "",

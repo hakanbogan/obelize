@@ -23,12 +23,14 @@ from obelize.config import (
     ConfigError,
     LoadedConfig,
     Overrides,
+    ScanConfig,
     Selection,
     documented_keys,
     flags,
     load,
     merge,
     model,
+    with_pack_dirs,
 )
 from obelize.models import DEFAULT_INCLUDE, PROVIDER_NAMES, Config, ModelConfig, VerifyConfig
 from obelize.native import processes
@@ -793,6 +795,75 @@ def test_a_negating_list_still_re_includes_the_file_it_names() -> None:
 
 def test_an_ordinary_directory_is_not_skipped() -> None:
     assert not Selection(Config()).prunes_directory("src")
+
+
+def test_the_directory_of_a_loaded_pack_is_skipped_like_the_always_excluded_set(
+    tmp_path: Path,
+) -> None:
+    """Its fixtures are legacy code by design, and no `!` pattern brings them back."""
+    (tmp_path / "packs" / "gem").mkdir(parents=True)
+    packed = with_pack_dirs(
+        Config(include="**/*", exclude=("!packs/**",)), tmp_path, [tmp_path / "packs/gem/pack.yaml"]
+    )
+    selection = Selection(packed)
+    assert packed.pack_dirs == ("packs/gem",)
+    assert selection.decide("packs/gem/fixtures/one.before.py") == "always_excluded"
+    assert selection.decide("packs/gem/requirements.txt") == "always_excluded"
+    assert not selection.selects_manifest("packs/gem/requirements.txt")
+    assert selection.prunes_directory("packs/gem")
+    assert selection.decide("packs/other/one.py") == "selected"
+
+
+def test_the_directory_of_a_pack_is_the_one_at_that_path_and_no_other_of_the_name() -> None:
+    selection = Selection(ScanConfig(pack_dirs=("gem",)))
+    assert selection.decide("gem/a.py") == "always_excluded"
+    assert selection.decide("src/gem/a.py") == "selected"
+    assert selection.decide("gemini/a.py") == "selected"
+
+
+@pytest.mark.parametrize("name", ["[v2]", "*", "a?b"])
+def test_a_pack_directory_is_matched_literally(name: str) -> None:
+    selection = Selection(ScanConfig(pack_dirs=(f"top/{name}",)))
+    assert selection.decide(f"top/{name}/a.py") == "always_excluded"
+    assert selection.decide("top/v/a.py") == "selected"
+    assert selection.decide("top/ab/a.py") == "selected"
+
+
+def test_a_pack_at_the_root_or_outside_the_repository_gives_up_no_directory(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    packed = with_pack_dirs(
+        Config(),
+        repo,
+        [repo / "pack.yaml", tmp_path / "pack.yaml", tmp_path / "elsewhere/pack.yaml"],
+    )
+    assert packed.pack_dirs == ()
+    assert Selection(packed).decide("a.py") == "selected"
+
+
+def test_two_packs_in_one_directory_and_one_below_it_are_listed_in_order(tmp_path: Path) -> None:
+    files = [tmp_path / "b/one.yaml", tmp_path / "b/two.yaml", tmp_path / "a/deep/pack.yaml"]
+    assert with_pack_dirs(Config(), tmp_path, files).pack_dirs == ("a/deep", "b")
+
+
+def test_a_directory_reached_through_a_link_is_the_one_it_resolves_to(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "real").mkdir(parents=True)
+    link(repo / "alias", "real")
+    assert with_pack_dirs(Config(), repo, [repo / "alias/pack.yaml"]).pack_dirs == ("real",)
+
+
+def test_the_scan_configuration_keeps_every_setting_of_the_one_it_extends() -> None:
+    base = Config(include="src/**", exclude=("x/",), allow_dirty=True, max_file_bytes=9)
+    assert dict(with_pack_dirs(base, Path.cwd(), [])) == {**dict(base), "pack_dirs": ()}
+
+
+def test_a_repository_cannot_name_the_directories_a_run_leaves_out(tmp_path: Path) -> None:
+    (tmp_path / CONFIG_FILENAME).write_text("pack_dirs: [src]\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="pack directories are not read from a repository"):
+        load(tmp_path)
 
 
 @pytest.mark.parametrize(

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path, PureWindowsPath
@@ -112,6 +113,30 @@ def repo_command(root: Path, command: str) -> list[str]:
         check=True,
     )
     return ["--trust-repo-config", "--non-interactive"]
+
+
+def test_the_directory_of_a_pack_inside_the_repository_is_neither_planned_nor_written(
+    tree: Path,
+) -> None:
+    shutil.copytree(loader.BUNDLED / PACK, tree / "packs" / "gem")
+    fixtures = sorted((tree / "packs").rglob("*.py"))
+    before = [path.read_bytes() for path in fixtures]
+    assert fixtures
+    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "own pack"],
+        check=True,
+    )
+    pack = str(tree / "packs" / "gem" / loader.PACK_FILENAME)
+    result = runner.invoke(app, ["fix", "--repo", str(tree), "--pack", pack, "--apply", "--json"])
+    assert result.exit_code == 6, "written, with no test command to verify it"
+    assert [row["path"] for row in json.loads(result.stdout)["files"]] == [
+        "app.py",
+        "requirements.txt",
+    ]
+    assert [path.read_bytes() for path in fixtures] == before
+    report = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert "- **Not scanned** `packs/gem/`, which holds a pack this run loaded\n" in report
 
 
 def test_without_a_pack_the_bundled_one_is_used_as_scan_uses_it(tree: Path) -> None:

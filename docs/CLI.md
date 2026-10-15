@@ -395,10 +395,17 @@ Applied first on every run; no `!` pattern brings these back.
 | `vendor/`, `_vendor/` | Vendored source. |
 | `build/`, `dist/`, `*.egg-info/` | Build output, a second copy of your source. |
 
-Only these skip a directory whole. **Your own `exclude` never does**: an
+Only these, and the directory of a pack (below), skip a directory whole. **Your own `exclude` never does**: an
 excluded file that still imports the legacy distribution is still named,
 because the dependency pin it breaks is not excluded. Excluding means *do not
 migrate*, not *do not look*.
+
+**The directory of a pack inside the repository is skipped the same way**, for every pack file the
+run loaded (`--pack <path>`, or a directory of your own packs): its fixtures are legacy code by
+design, and scanned they would be rewritten. It is the whole directory the file sits in, so a pack
+beside other files takes them with it; a `pack.yaml` at the repository root takes nothing. `REPORT.md`
+says `Not scanned` and names the directory, and `--list-files` leaves it out. `run.json` records no
+change: this is not an `exclude`.
 
 In a git repository, files come from
 `git ls-files --cached --others --exclude-standard`, so `.gitignore` applies.
