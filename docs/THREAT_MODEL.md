@@ -90,7 +90,9 @@ read-only attribute, the only part of a mode Windows has.
 
 **What is sent** is decided by `src/obelize/providers/base.py` and graded by
 `tests/fixtures/providers/answers.yaml`; `tests/fixtures/providers/requests.yaml`
-holds the message byte for byte.
+holds the message byte for byte. Each line of the context goes behind its number in the file and a
+colon (`12: code`), added after redaction so a number cannot split a secret; a colon, because a
+number a model copies into its replacement then cannot compile.
 
 **Where it is sent:** `src/obelize/providers/openai_compat.py` departs four ways
 from `urllib`'s defaults, which honour `http_proxy`/`https_proxy` and follow

@@ -241,7 +241,11 @@ def test_the_context_sits_once_between_the_two_markers(driven: Driven) -> None:
     assert message.count(begin) == 1
     assert message.count(end) == 1
     assert message.endswith(end)
-    assert message.split(begin)[1].split(end)[0] == "\n" + driven.consultation.context.text
+    inside = message.split(begin)[1].split(end)[0].strip("\n").split("\n")
+    context = driven.consultation.context
+    numbers = range(context.start_line, context.end_line + 1)
+    assert [line.split(": ", 1)[0].strip() for line in inside] == [str(one) for one in numbers]
+    assert "\n".join(line.split(": ", 1)[1] for line in inside) + "\n" == context.text
 
 
 def test_the_other_consultations_state_their_own_facts(driven: Driven) -> None:

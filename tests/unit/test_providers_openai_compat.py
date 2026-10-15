@@ -159,7 +159,33 @@ def test_a_context_that_does_not_end_in_a_newline_still_ends_its_line() -> None:
     """Without it the end marker glues to the code and the payload depends on how the file ends."""
     context = base.Context(path="app.py", start_line=1, end_line=1, text="x = 1")
     message = adapter.question(_consultation(context=context))
-    assert message.endswith(f"x = 1\n{adapter.CONTEXT_END}")
+    assert message.endswith(f"1: x = 1\n{adapter.CONTEXT_END}")
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [
+        pytest.param("a\n\nb\nc\n", [" 99: a", "100: ", "101: b", "102: c"], id="a-blank-line"),
+        pytest.param("a\r\nb\rc", [" 99: a", "100: b", "101: c"], id="mixed-endings"),
+    ],
+)
+def test_each_line_of_the_context_is_behind_its_number_in_the_file(
+    text: str, shown: list[str]
+) -> None:
+    """Right-aligned to the last number, so the code starts in one column; no `\\r` survives."""
+    context = base.Context(path="app.py", start_line=99, end_line=102, text=text)
+    message = adapter.question(_consultation(context=context))
+    inside = message.split(adapter.CONTEXT_BEGIN + "\n")[1].split("\n" + adapter.CONTEXT_END)[0]
+
+    assert inside.split("\n") == shown
+    assert "\r" not in message
+
+
+def test_the_system_prompt_says_the_line_numbers_are_not_code() -> None:
+    """The format `question` writes, named once in the prompt, and a replacement told to drop it."""
+    assert "`12: code`" in adapter.SYSTEM_PROMPT
+    assert "not part of the code" in adapter.SYSTEM_PROMPT
+    assert "without the line numbers" in adapter.SYSTEM_PROMPT
 
 
 def test_the_body_is_the_same_bytes_twice() -> None:

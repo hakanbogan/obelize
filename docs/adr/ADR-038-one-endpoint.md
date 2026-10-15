@@ -22,8 +22,14 @@ A `Reply` with `None` is an answer, not a failure.
 The system message is a constant naming no pack or file; it asks for what the
 guard enforces, including that `__import__` and `importlib.import_module` are
 imports. The user message is eight labelled facts from `Consultation`, the pack
-note, and the redacted context between two marker lines. The markers only aid
-reading; `providers/guard.py` is the boundary.
+note, and the redacted context between two marker lines, each line behind its
+number in the file and a colon (`12: code`), which the system message says are
+not code. The markers only aid reading; `providers/guard.py` is the boundary.
+The numbers are added after redaction, so one cannot split a secret, and use a
+colon, because `12: f(x)` is an illegal annotation and cannot compile where
+`12 | f(x)` can: a model that copies them into its replacement is refused
+`output_does_not_compile`, not written. Because a model that has to count lines
+to answer with `start_line` and `end_line` can be off by one.
 
 ### D3. The pack note is sent whole
 

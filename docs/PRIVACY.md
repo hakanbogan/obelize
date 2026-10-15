@@ -58,7 +58,8 @@ When you configure it:
   nothing when neither fits in 80 lines. With it go the file's path, the reason the rules
   refused and the pack's limitations. Never the repository, the whole file or your git history.
 - The slice comes only from the Python file the finding is in, and is redacted before the
-  payload is built.
+  payload is built. Each of its lines is sent behind its line number in the file, so the model
+  need not count them.
 - One host, and nothing helping you reach it: a proxy named in your environment is not
   honoured and a redirect is refused, since either would carry the payload and the API key to
   a host you did not configure.

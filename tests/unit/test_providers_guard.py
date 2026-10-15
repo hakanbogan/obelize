@@ -13,7 +13,7 @@ import pytest
 
 from obelize.models import GUARD_REFUSALS, EditProposal
 from obelize.native import files
-from obelize.providers import base, guard
+from obelize.providers import base, guard, openai_compat
 from platforms import windows_only
 
 SYMBOL = "google.generativeai.GenerativeModel"
@@ -226,6 +226,34 @@ def test_the_byte_limit_bounds_the_line_the_line_limit_cannot(
     assert (checked.refusal == "replacement_too_large") is refused
     if refused:
         assert f"is {size} bytes" in checked.detail
+
+
+def test_a_replacement_that_keeps_the_line_numbers_it_was_shown_does_not_compile(
+    tmp_path: Path,
+) -> None:
+    """The prompt's numbers end in a colon: behind a bar, `35| f(x)` would be a valid expression."""
+    text = SOURCE.decode().splitlines(keepends=True)[3:6]
+    shown = openai_compat.question(
+        base.Consultation(
+            context=base.Context("app.py", 4, 6, "".join(text)),
+            line=5,
+            column=12,
+            symbol=SYMBOL,
+            bail="generation_config_not_static",
+            pack_id="gemini/google-generativeai-to-google-genai",
+            to_package="google-genai",
+            to_modules=("google.genai",),
+            limitations=(),
+        )
+    )
+    copied = shown.split(openai_compat.CONTEXT_BEGIN + "\n")[1].split(
+        "\n" + openai_compat.CONTEXT_END
+    )[0]
+
+    checked = check(tmp_path, copied)
+
+    assert copied.splitlines()[0].startswith("4: ")
+    assert checked.refusal == "output_does_not_compile"
 
 
 def test_a_replacement_the_files_encoding_cannot_hold(tmp_path: Path) -> None:
