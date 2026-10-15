@@ -42,10 +42,10 @@ CRASH_BAIL: Final = "internal_error"
 # Characters kept of a parser message: room for libcst's "expected one of ..." list, no more.
 MESSAGE_LIMIT = 200
 
-# Levels of nesting a file may have: libcst renders a level in two Python frames and the scan's
-# visitors walk it in three, so both give out near 320 on the default stack. `compile()` accepts a
-# chain of thirteen thousand terms on some versions and libcst's parser then dies with SIGSEGV, so
-# a deeper file is refused before libcst sees it.
+# Levels of nesting a file may have. On the default stack libcst renders a level in two Python
+# frames and gives out near 490; the scan's visitors use three and give out near 320. `compile()`
+# accepts a chain of thirteen thousand terms on some versions and libcst's parser then dies with
+# SIGSEGV, so a deeper file is refused before libcst sees it.
 MAX_DEPTH: Final = 300
 
 # The detail of a file nested past `MAX_DEPTH`, after `_DETAIL`'s sentence.
