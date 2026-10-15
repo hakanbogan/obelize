@@ -250,6 +250,50 @@ def test_a_quote_may_differ_in_trailing_whitespace_and_line_ending(
     assert checked.refusal is None, checked.detail
 
 
+@pytest.mark.parametrize(
+    "quote",
+    [
+        pytest.param(lambda lines: "".join(lines), id="exact"),
+        pytest.param(lambda lines: "\n".join(line.rstrip("\n") for line in lines), id="joined"),
+        pytest.param(lambda lines: "".join(lines).rstrip("\n"), id="tail-left-off"),
+        pytest.param(lambda lines: "".join(lines) + "\n\n", id="longer-tail"),
+    ],
+)
+def test_a_range_ending_in_blank_lines_may_be_quoted_without_them(
+    quote: Callable[[list[str]], str], tmp_path: Path
+) -> None:
+    """A model joins lines with newlines, which leaves no last line where that one is blank."""
+    source = SOURCE + b"\n\n"
+    lines = base.split_lines(lines_of(source, (4, 8)))
+    checked = check(
+        tmp_path,
+        "pass",
+        source=source,
+        consultation=question(span=(4, 8)),
+        end_line=8,
+        replaces=quote(lines),
+    )
+
+    assert checked.refusal is None, checked.detail
+
+
+def test_blank_lines_at_the_end_are_the_only_lines_a_quote_may_leave_off(tmp_path: Path) -> None:
+    source = SOURCE + b"\n"
+    lines = base.split_lines(lines_of(source, (4, 7)))
+    wrong = "".join(lines[1:])
+
+    checked = check(
+        tmp_path,
+        "pass",
+        source=source,
+        consultation=question(span=(4, 7)),
+        end_line=7,
+        replaces=wrong,
+    )
+
+    assert checked.refusal == "replaced_text_differs"
+
+
 def test_a_file_with_crlf_endings_is_quoted_with_either(tmp_path: Path) -> None:
     source = SOURCE.replace(b"\n", b"\r\n")
     for quote in ("\r\n", "\n"):

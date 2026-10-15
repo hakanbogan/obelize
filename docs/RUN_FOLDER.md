@@ -472,7 +472,7 @@ Is this an answer to the question:
 | `outside_the_context` | The replaced range is not inside the range sent. |
 | `site_not_replaced` | The range does not contain the line asked about. |
 | `symbol_mismatch` | It names another symbol, or the consultation named none to check. |
-| `replaced_text_differs` | The lines it says it replaces (`replaces`) are not the lines it names as they were sent, trailing whitespace and line endings aside: a range that slipped is not the range that was meant. Also refused when redaction joined lines of what was sent, so that no line number can be trusted. |
+| `replaced_text_differs` | The lines it says it replaces (`replaces`) are not the lines it names as they were sent, trailing whitespace, line endings and blank lines at the end aside: a range that slipped is not the range that was meant. Also refused when redaction joined lines of what was sent, so that no line number can be trusted. |
 
 Is what it produces Python, and does it bring anything in:
 

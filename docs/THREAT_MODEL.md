@@ -131,11 +131,12 @@ recorded, so the checks run outward from "may we touch this file at all":
 **Three checks come after the file and range checks.** The replaced range must
 contain the asked line, because the sent range is a whole scope. The proposal
 must quote the lines it replaces (`replaces`) and the quote must be what was
-sent for those lines, ignoring trailing whitespace and line endings, because a
-range that slipped one line still covers the asked line and would delete its
-neighbour; a redaction that joined lines of the context leaves no line number
-to trust, so nothing is accepted for it. The replacement must encode in the
-file's encoding, because otherwise writing it rewrites every line.
+sent for those lines, ignoring trailing whitespace, line endings and blank
+lines at the end, because a range that slipped one line still covers the asked
+line and would delete its neighbour; a redaction that joined lines of the
+context leaves no line number to trust, so nothing is accepted for it. The
+replacement must encode in the file's encoding, because otherwise writing it
+rewrites every line.
 
 **A reply nested deeper than the stack is refused, not raised.** `compile()` is asked before
 libcst, because libcst's parser dies on a deeply nested expression that `compile()` refuses with an

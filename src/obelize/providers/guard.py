@@ -298,11 +298,12 @@ def _placed(
 def _misquoted(proposal: EditProposal, context: base.Context) -> str | None:
     """Why the text the proposal says it replaces is not what its lines were sent as, or `None`.
 
-    Against the context as sent, redacted, so the model is held to what it read; lines compare
-    without trailing whitespace or line break. A redaction that joined lines leaves fewer lines
-    than the range, so no number can be trusted, and nothing is accepted.
+    Against the context as sent, redacted, so the model is held to what it read. Compared without
+    trailing whitespace or line break, and without blank lines at the end of either: a quote joined
+    with newlines has no tail where the range ends in a blank line. A redaction that joined lines
+    leaves fewer lines than the range, so no number can be trusted, and nothing is accepted.
     """
-    shown = [line.rstrip() for line in base.split_lines(context.text)]
+    shown = base.split_lines(context.text)
     if len(shown) != context.end_line - context.start_line + 1:
         return (
             f"redaction joined lines of the {context.start_line}..{context.end_line} sent, so "
@@ -310,12 +311,16 @@ def _misquoted(proposal: EditProposal, context: base.Context) -> str | None:
         )
     first = proposal.start_line - context.start_line
     held = shown[first : first + proposal.end_line - proposal.start_line + 1]
-    if held != [line.rstrip() for line in base.split_lines(proposal.replaces)]:
+    if _text(held) != _text(base.split_lines(proposal.replaces)):
         return (
             "the text the proposal says it replaces is not the text of lines "
             f"{proposal.start_line}..{proposal.end_line} as they were sent"
         )
     return None
+
+
+def _text(lines: Sequence[str]) -> str:
+    return "\n".join(line.rstrip() for line in lines).rstrip()
 
 
 def _spliced(parts: Sequence[str], replaced: Sequence[str]) -> list[str]:

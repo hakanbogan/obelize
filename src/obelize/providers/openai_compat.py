@@ -97,7 +97,8 @@ proposal that breaks one is discarded:
   was sent, and cover the line you were asked to change.
 - symbol is the symbol you were told is at that line, copied exactly.
 - replaces is the text of those lines as you were shown it, copied exactly,
-  without the line numbers; it is compared with what was sent.
+  without the line numbers; it is compared with what was sent, and blank
+  lines at its end do not count.
 - replacement is the new text for those lines: all of them, at the indentation
   they already have, without the line numbers, and with no trailing newline.
 - The file with your replacement spliced into it must parse and compile as

@@ -127,8 +127,10 @@ scanner's open item too.
 `EditProposal.replaces` is required: the text of the lines the range names, as
 the model was shown them. After `symbol_mismatch` the guard compares it with
 `Consultation.context.text` for `start_line` to `end_line`, line by line without
-trailing whitespace or line break (a final line break in the quote is allowed;
-indentation is not ignored), and refuses a difference as `replaced_text_differs`.
+trailing whitespace or line break, and ignoring blank lines at the end of either
+(a quote joined with newlines has no tail where the range ends blank; a final
+line break is allowed; indentation is not ignored), and refuses a difference as
+`replaced_text_differs`.
 The context is the redacted text the model read, so a secret is quoted as its
 marker and the quote of the raw value is refused. A redaction can join lines (a
 private key over three lines becomes one marker), which leaves the context with
