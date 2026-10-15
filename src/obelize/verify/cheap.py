@@ -26,7 +26,8 @@ def refusal(root: Path, path: str) -> str | None:
     A NUL-byte refusal has no line number.
     """
     try:
-        compile(fsutil.read(root / path), path, "exec")
+        # `dont_inherit`: this module's `from __future__ import annotations` is not the file's.
+        compile(fsutil.read(root / path), path, "exec", dont_inherit=True)
     except COMPILE_REFUSALS as error:
         line = getattr(error, "lineno", None)
         return f"{path}:{line}: {_said(error)}" if line else f"{path}: {_said(error)}"

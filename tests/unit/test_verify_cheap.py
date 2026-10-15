@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from obelize.verify import cheap
@@ -33,6 +34,13 @@ def test_an_expression_too_deep_to_compile_is_refused_rather_than_raised(tmp_pat
     message = cheap.refusal(tmp_path, "app.py")
     assert message is not None
     assert message.startswith("app.py: ")
+
+
+def test_the_check_does_not_inherit_this_modules_future_import(tmp_path: Path) -> None:
+    """3.12 and 3.13 refuse a walrus in an annotation only under an inherited `annotations`;
+    3.14 defers annotations (PEP 649) and refuses it either way."""
+    (tmp_path / "app.py").write_bytes(b"x: (y := 1) = 2\n")
+    assert (cheap.refusal(tmp_path, "app.py") is None) is (sys.version_info < (3, 14))
 
 
 def test_a_file_that_is_not_python_is_not_compiled(tmp_path: Path) -> None:

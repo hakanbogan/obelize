@@ -175,6 +175,21 @@ def test_an_expression_too_deep_for_the_parsers_is_one_unparsable_file(shape: st
     assert (done.returncode, done.stdout.strip()) == (0, b"does_not_parse")
 
 
+def test_the_compile_gate_does_not_inherit_this_modules_future_import() -> None:
+    """With `annotations` inherited, 3.12 and 3.13 refuse a walrus in an annotation that libcst
+    and `ast` accept; 3.14 defers annotations (PEP 649) and refuses it either way."""
+    source = b"x: (y := 1) = 2\n"
+    assert cst.parse_module(source).bytes == source
+    expected = "does_not_parse" if sys.version_info >= (3, 14) else "parsed"
+    assert gates("late.py", source).status == expected
+
+
+def test_a_file_with_its_own_future_import_is_still_judged_with_it() -> None:
+    """The flag is the file's, so `dont_inherit` must not hide a `__future__` the file declares."""
+    source = b"from __future__ import annotations\nx: (y := 1) = 2\n"
+    assert gates("own.py", source).status == "does_not_parse"
+
+
 def test_a_refusal_with_no_message_is_named_by_its_type() -> None:
     """`MemoryError()` has no text, and a report reading "Refused by compile: " says nothing."""
     assert parse._message(MemoryError()) == "MemoryError"

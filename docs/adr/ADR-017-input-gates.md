@@ -72,7 +72,11 @@ is not a program (a module-level `return`, a late `__future__` import), but it
 is the running interpreter's answer: newer syntax is `input_does_not_parse`,
 never edited, and the detail sentence says to try a newer interpreter. 3.14
 compiles Python 2's `except E, e:` (PEP 758), so there a Python 2 file using
-nothing else Python 3 lacks is accepted.
+nothing else Python 3 lacks is accepted. Both `compile()` calls (the gate and
+`verify.cheap`) pass `dont_inherit=True`: obelize's own `from __future__ import
+annotations` would otherwise apply to the file and refuse, on 3.12 and 3.13, a
+walrus in an annotation that is valid there. A file's own `__future__` imports
+still count.
 
 ## Consequences
 

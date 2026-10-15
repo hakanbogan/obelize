@@ -126,7 +126,8 @@ def gates(path: str, data: bytes) -> Read:
     in the exception's `.filename`.
     """
     try:
-        compile(data, path, "exec")
+        # `dont_inherit`: this module's `from __future__ import annotations` is not the file's.
+        compile(data, path, "exec", dont_inherit=True)
     except cheap.COMPILE_REFUSALS as error:
         return does_not_parse(path, data, "compile", error)
     try:
