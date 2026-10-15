@@ -5,21 +5,25 @@
       "description": "A chat history, whose bare-string parts are wrapped under `text_key` for the new SDK.",
       "properties": {
         "parts_key": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Parts Key",
           "type": "string"
         },
         "role_key": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Role Key",
           "type": "string"
         },
         "roles": {
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Roles",
           "type": "array"
         },
         "text_key": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Text Key",
           "type": "string"
         }
@@ -37,17 +41,22 @@
       "additionalProperties": false,
       "properties": {
         "citation": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Citation",
           "type": "string"
         },
         "fixtures": {
           "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
             "type": "string"
           },
           "title": "Fixtures",
           "type": "array"
         },
         "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
           "title": "Id",
           "type": "string"
         },
@@ -75,32 +84,39 @@
       "properties": {
         "allowed_kwargs": {
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Allowed Kwargs",
           "type": "array"
         },
         "client_name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Client Name",
           "type": "string"
         },
         "client_name_fallback": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Client Name Fallback",
           "type": "string"
         },
         "client_symbol": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Client Symbol",
           "type": "string"
         },
         "credential_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Credential Kwarg",
           "type": "string"
         },
         "credentials_object_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Credentials Object Kwarg",
           "type": "string"
         },
         "legacy_symbol": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Legacy Symbol",
           "type": "string"
         }
@@ -121,17 +137,22 @@
       "additionalProperties": false,
       "properties": {
         "citation": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Citation",
           "type": "string"
         },
         "fixtures": {
           "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
             "type": "string"
           },
           "title": "Fixtures",
           "type": "array"
         },
         "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
           "title": "Id",
           "type": "string"
         },
@@ -161,12 +182,15 @@
         "attributes": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Attributes",
           "type": "array"
         },
         "message": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Message",
           "type": "string"
         },
@@ -184,12 +208,15 @@
           "type": "array"
         },
         "suggestion": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Suggestion",
           "type": "string"
         },
         "symbols": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Symbols",
@@ -207,17 +234,22 @@
       "additionalProperties": false,
       "properties": {
         "citation": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Citation",
           "type": "string"
         },
         "fixtures": {
           "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
             "type": "string"
           },
           "title": "Fixtures",
           "type": "array"
         },
         "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
           "title": "Id",
           "type": "string"
         },
@@ -244,12 +276,14 @@
       "additionalProperties": false,
       "properties": {
         "config_class": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Config Class",
           "type": "string"
         },
         "ctor_afc_kwargs": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Ctor Afc Kwargs",
@@ -258,28 +292,33 @@
         "ctor_config_fields": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Ctor Config Fields",
           "type": "array"
         },
         "ctor_model_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Ctor Model Kwarg",
           "type": "string"
         },
         "ctor_order": {
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Ctor Order",
           "type": "array"
         },
         "ctor_symbol": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Ctor Symbol",
           "type": "string"
         },
         "generation_config_keys": {
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Generation Config Keys",
@@ -299,45 +338,58 @@
         "legacy_config_aliases": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Legacy Config Aliases",
           "type": "array"
         },
         "legacy_config_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Legacy Config Kwarg",
           "type": "string"
         },
         "legacy_config_symbol": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Legacy Config Symbol",
           "type": "string"
         },
         "legacy_error_modules": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Legacy Error Modules",
           "type": "array"
         },
         "method_returns": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+              "type": "string"
+            }
           },
           "title": "Method Returns",
           "type": "object"
         },
         "methods": {
-          "additionalProperties": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "items": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "type": "string"
+              },
+              "type": "array"
+            }
           },
           "title": "Methods",
           "type": "object"
         },
         "model_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Model Kwarg",
           "type": "string"
         },
@@ -348,6 +400,7 @@
         "response_attrs_now_none": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Response Attrs Now None",
@@ -356,6 +409,7 @@
         "response_legacy_error": {
           "anyOf": [
             {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
               "type": "string"
             },
             {
@@ -366,8 +420,11 @@
           "title": "Response Legacy Error"
         },
         "rewrites": {
-          "additionalProperties": {
-            "$ref": "#/$defs/MethodRewrite"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "$ref": "#/$defs/MethodRewrite"
+            }
           },
           "title": "Rewrites",
           "type": "object"
@@ -376,6 +433,7 @@
           "$ref": "#/$defs/SafetySettings"
         },
         "stream_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Stream Kwarg",
           "type": "string"
         }
@@ -419,6 +477,7 @@
         "lacks": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Lacks",
@@ -437,6 +496,7 @@
           "title": "Newest"
         },
         "package": {
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "Package",
           "type": "string"
         },
@@ -456,17 +516,22 @@
       "additionalProperties": false,
       "properties": {
         "citation": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Citation",
           "type": "string"
         },
         "fixtures": {
           "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
             "type": "string"
           },
           "title": "Fixtures",
           "type": "array"
         },
         "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
           "title": "Id",
           "type": "string"
         },
@@ -494,10 +559,12 @@
       "description": "The pin edit; both names may be one distribution, whose major version is the migration.",
       "properties": {
         "from_name": {
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "From Name",
           "type": "string"
         },
         "to_name": {
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "To Name",
           "type": "string"
         },
@@ -520,6 +587,7 @@
       "properties": {
         "imports": {
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Imports",
@@ -527,6 +595,7 @@
         },
         "prefilter_tokens": {
           "items": {
+            "minLength": 1,
             "type": "string"
           },
           "title": "Prefilter Tokens",
@@ -540,14 +609,19 @@
         "symbols": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Symbols",
           "type": "array"
         },
         "transitive": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
+              "type": "string"
+            }
           },
           "title": "Transitive",
           "type": "object"
@@ -567,14 +641,19 @@
         "afc_kwargs": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Afc Kwargs",
           "type": "array"
         },
         "arg_map": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
           },
           "title": "Arg Map",
           "type": "object"
@@ -582,6 +661,7 @@
         "config_kwarg": {
           "anyOf": [
             {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
               "type": "string"
             },
             {
@@ -594,6 +674,7 @@
         "contents_kwarg": {
           "anyOf": [
             {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
               "type": "string"
             },
             {
@@ -611,6 +692,7 @@
         "history_kwarg": {
           "anyOf": [
             {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
               "type": "string"
             },
             {
@@ -627,6 +709,7 @@
         "positional_to_kw": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Positional To Kw",
@@ -644,6 +727,7 @@
         "semantic_kwargs": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Semantic Kwargs",
@@ -680,6 +764,7 @@
         "sha256": {
           "anyOf": [
             {
+              "pattern": "^[0-9a-f]{64}$",
               "type": "string"
             },
             {
@@ -714,17 +799,22 @@
       "additionalProperties": false,
       "properties": {
         "citation": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Citation",
           "type": "string"
         },
         "fixtures": {
           "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
             "type": "string"
           },
           "title": "Fixtures",
           "type": "array"
         },
         "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
           "title": "Id",
           "type": "string"
         },
@@ -751,35 +841,50 @@
       "additionalProperties": false,
       "properties": {
         "alias_fallbacks": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
           },
           "title": "Alias Fallbacks",
           "type": "object"
         },
         "default_alias": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Default Alias",
           "type": "string"
         },
         "from_module": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "From Module",
           "type": "string"
         },
         "submodule_map": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+              "type": "string"
+            }
           },
           "title": "Submodule Map",
           "type": "object"
         },
         "symbol_map": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)?$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
           },
           "title": "Symbol Map",
           "type": "object"
         },
         "to_module": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "To Module",
           "type": "string"
         }
@@ -796,17 +901,22 @@
       "additionalProperties": false,
       "properties": {
         "citation": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Citation",
           "type": "string"
         },
         "fixtures": {
           "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
             "type": "string"
           },
           "title": "Fixtures",
           "type": "array"
         },
         "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
           "title": "Id",
           "type": "string"
         },
@@ -834,8 +944,12 @@
       "description": "Module settings the new release spells another way, assigned as the old ones were.",
       "properties": {
         "settings": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
           },
           "title": "Settings",
           "type": "object"
@@ -843,6 +957,7 @@
         "value_ends_with": {
           "anyOf": [
             {
+              "pattern": "^[!#-&(-/:-\\[\\]-~]$",
               "type": "string"
             },
             {
@@ -863,17 +978,22 @@
       "additionalProperties": false,
       "properties": {
         "citation": {
+          "maxLength": 500,
+          "minLength": 1,
           "title": "Citation",
           "type": "string"
         },
         "fixtures": {
           "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
             "type": "string"
           },
           "title": "Fixtures",
           "type": "array"
         },
         "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
           "title": "Id",
           "type": "string"
         },
@@ -901,8 +1021,12 @@
       "description": "One legacy free function and the client call it becomes; unlisted parameters are refused.",
       "properties": {
         "arg_map": {
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
           },
           "title": "Arg Map",
           "type": "object"
@@ -910,6 +1034,7 @@
         "config_class": {
           "anyOf": [
             {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
               "type": "string"
             },
             {
@@ -922,6 +1047,7 @@
         "config_kwarg": {
           "anyOf": [
             {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
               "type": "string"
             },
             {
@@ -934,17 +1060,21 @@
         "config_kwargs": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Config Kwargs",
           "type": "array"
         },
         "dispatch_prefixes": {
-          "additionalProperties": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
           },
           "title": "Dispatch Prefixes",
           "type": "object"
@@ -952,6 +1082,7 @@
         "keywords": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Keywords",
@@ -960,12 +1091,14 @@
         "legacy_error_modules": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
             "type": "string"
           },
           "title": "Legacy Error Modules",
           "type": "array"
         },
         "legacy_symbol": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Legacy Symbol",
           "type": "string"
         },
@@ -976,6 +1109,7 @@
         "positional_to_kw": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Positional To Kw",
@@ -984,6 +1118,7 @@
         "result_access_flags": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Result Access Flags",
@@ -992,6 +1127,7 @@
         "result_attribute_flags": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "title": "Result Attribute Flags",
@@ -1027,15 +1163,18 @@
       "description": "The safety table: legacy safety strings and enum members, and the new members they become.",
       "properties": {
         "category_class": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Category Class",
           "type": "string"
         },
         "category_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Category Kwarg",
           "type": "string"
         },
         "category_map": {
           "additionalProperties": {
+            "pattern": "^[A-Z][A-Z0-9_]*$",
             "type": "string"
           },
           "title": "Category Map",
@@ -1043,49 +1182,60 @@
         },
         "category_members": {
           "items": {
+            "pattern": "^[A-Z][A-Z0-9_]*$",
             "type": "string"
           },
           "title": "Category Members",
           "type": "array"
         },
         "config_field": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Config Field",
           "type": "string"
         },
         "legacy_category_class": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Legacy Category Class",
           "type": "string"
         },
         "legacy_category_key": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Legacy Category Key",
           "type": "string"
         },
         "legacy_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Legacy Kwarg",
           "type": "string"
         },
         "legacy_threshold_class": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Legacy Threshold Class",
           "type": "string"
         },
         "legacy_threshold_key": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Legacy Threshold Key",
           "type": "string"
         },
         "setting_class": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Setting Class",
           "type": "string"
         },
         "threshold_class": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
           "title": "Threshold Class",
           "type": "string"
         },
         "threshold_kwarg": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Threshold Kwarg",
           "type": "string"
         },
         "threshold_map": {
           "additionalProperties": {
+            "pattern": "^[A-Z][A-Z0-9_]*$",
             "type": "string"
           },
           "title": "Threshold Map",
@@ -1093,6 +1243,7 @@
         },
         "threshold_members": {
           "items": {
+            "pattern": "^[A-Z][A-Z0-9_]*$",
             "type": "string"
           },
           "title": "Threshold Members",
@@ -1124,6 +1275,7 @@
       "description": "The new side, which also says which Pythons it installs on.",
       "properties": {
         "package": {
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "Package",
           "type": "string"
         },
@@ -1150,6 +1302,8 @@
       "properties": {
         "suggestions": {
           "items": {
+            "maxLength": 500,
+            "minLength": 1,
             "type": "string"
           },
           "title": "Suggestions",
@@ -1165,7 +1319,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "One migration between two versions of one SDK, as declarative data.",
+  "description": "One migration between two versions of one SDK, as declarative data.\n\nThis schema states the shape of each value. PEP 440 specifiers, sorted order and every rule that\ncompares two fields are checked by `obelize pack validate`, which is authoritative.",
   "properties": {
     "changes": {
       "items": {
@@ -1212,6 +1366,7 @@
       "$ref": "#/$defs/Legacy"
     },
     "id": {
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z0-9]+(?:-[a-z0-9]+)*$",
       "title": "Id",
       "type": "string"
     },
@@ -1225,6 +1380,8 @@
     },
     "limitations": {
       "items": {
+        "maxLength": 500,
+        "minLength": 1,
         "type": "string"
       },
       "title": "Limitations",
@@ -1234,10 +1391,12 @@
       "$ref": "#/$defs/Match"
     },
     "pack_version": {
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$",
       "title": "Pack Version",
       "type": "string"
     },
     "provider": {
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
       "title": "Provider",
       "type": "string"
     },

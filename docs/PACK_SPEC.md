@@ -6,6 +6,11 @@ ADR-006, [ADR-018](adr/ADR-018-pack-schema.md),
 [ADR-053](adr/ADR-053-shared-module-migrations.md),
 [ADR-056](adr/ADR-056-newest-legacy-release.md)._
 
+`pack.schema.json` states the shape of each value (the patterns of ids, symbols, versions and
+digests, and the length of display text). It cannot state PEP 440 specifiers, sorted order or a rule
+that compares two fields, so a pack that passes it can still be refused: `obelize pack validate` is
+authoritative.
+
 A MigrationPack declares one migration between two versions of one SDK: which
 symbols to find and which rule kind handles each. How a rewrite is done lives in
 Python, in a fixed registry of rule kinds. A pack is **untrusted data**

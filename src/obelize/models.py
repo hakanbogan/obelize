@@ -25,6 +25,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    JsonValue,
     StrictBool,
     StrictInt,
     StrictStr,
@@ -450,9 +451,15 @@ def _configured_command(value: str) -> str:
     return value
 
 
-RelativePath = Annotated[str, AfterValidator(_relative_posix_path)]
-Sha256 = Annotated[str, AfterValidator(_sha256)]
-PrefilterToken = Annotated[str, AfterValidator(_ascii_token)]
+def schema_hint(**keywords: JsonValue) -> Any:
+    """The part of a validator's rule that JSON Schema can state, which pydantic cannot derive from
+    an `AfterValidator`; built from the validator's own constants so the two cannot diverge."""
+    return Field(json_schema_extra=keywords)
+
+
+RelativePath = Annotated[str, AfterValidator(_relative_posix_path), schema_hint(minLength=1)]
+Sha256 = Annotated[str, AfterValidator(_sha256), schema_hint(pattern=_SHA256.pattern)]
+PrefilterToken = Annotated[str, AfterValidator(_ascii_token), schema_hint(minLength=1)]
 RunnableCommand = Annotated[StrictStr, AfterValidator(_runnable_command)]
 ConfiguredCommand = Annotated[RunnableCommand, AfterValidator(_configured_command)]
 
@@ -522,10 +529,16 @@ def _terminal_safe(value: str, what: str, allowed: str = "") -> None:
         )
 
 
-QualifiedName = Annotated[str, AfterValidator(_qualified_name)]
-DistributionName = Annotated[str, AfterValidator(_distribution_name)]
-PlainName = Annotated[str, AfterValidator(_plain_name)]
-DisplayText = Annotated[str, AfterValidator(_display_text)]
+QualifiedName = Annotated[
+    str, AfterValidator(_qualified_name), schema_hint(pattern=QUALIFIED_NAME.pattern)
+]
+DistributionName = Annotated[
+    str, AfterValidator(_distribution_name), schema_hint(pattern=_DISTRIBUTION_NAME.pattern)
+]
+PlainName = Annotated[str, AfterValidator(_plain_name), schema_hint(pattern=_PLAIN_NAME.pattern)]
+DisplayText = Annotated[
+    str, AfterValidator(_display_text), schema_hint(minLength=1, maxLength=DISPLAY_TEXT_LIMIT)
+]
 
 
 def _sorted_unique(values: Sequence[Any], field: str) -> None:
@@ -1567,8 +1580,8 @@ def _instant(value: str) -> str:
     return value
 
 
-RunId = Annotated[str, AfterValidator(_run_id)]
-Instant = Annotated[str, AfterValidator(_instant)]
+RunId = Annotated[str, AfterValidator(_run_id), schema_hint(pattern=RUN_ID_PATTERN.pattern)]
+Instant = Annotated[str, AfterValidator(_instant), schema_hint(pattern=_INSTANT.pattern)]
 
 
 class RunPython(_Frozen):
@@ -2160,5 +2173,6 @@ __all__ = [
     "Withheld",
     "bounds",
     "printable",
+    "schema_hint",
     "terminal_unsafe",
 ]

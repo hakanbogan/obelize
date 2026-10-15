@@ -36,6 +36,7 @@ from obelize.models import (
     RelativePath,
     Sha256,
     bounds,
+    schema_hint,
     terminal_unsafe,
 )
 
@@ -71,12 +72,14 @@ FORBIDDEN_SAFETY_VALUES: frozenset[str] = frozenset({"HARM_CATEGORY_HATE"})
 _PACK_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z0-9]+(?:-[a-z0-9]+)*$")
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 # No `+build`: comparisons ignore it, so two different packs could compare as one version.
-_SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$")
+_SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 _ENUM_MEMBER = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _SYMBOL_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
 # One visible ASCII character, no quote, backslash or digit, so it ends a string literal as written
 # (a digit after an octal escape would join it).
 _TRAILING = re.compile(r"^[!#-&(-/:-\[\]-~]$")
+# `_fixture_path` as one pattern, for the schema; `[\s\S]` because `.` stops at a newline there.
+_FIXTURE = re.compile(r"^fixtures/[\s\S]*[^/]$")
 
 
 def _pack_id(value: str) -> str:
@@ -205,17 +208,23 @@ def _call_path(value: str) -> str:
     return value
 
 
-PackId = Annotated[str, AfterValidator(_pack_id)]
-Slug = Annotated[str, AfterValidator(_slug)]
-SemVer = Annotated[str, AfterValidator(_semver)]
-EnumMemberName = Annotated[str, AfterValidator(_enum_member)]
-SymbolKey = Annotated[str, AfterValidator(_symbol_key)]
-TrailingCharacter = Annotated[str, AfterValidator(_trailing_character)]
+PackId = Annotated[str, AfterValidator(_pack_id), schema_hint(pattern=_PACK_ID.pattern)]
+Slug = Annotated[str, AfterValidator(_slug), schema_hint(pattern=_SLUG.pattern)]
+SemVer = Annotated[str, AfterValidator(_semver), schema_hint(pattern=_SEMVER.pattern)]
+EnumMemberName = Annotated[
+    str, AfterValidator(_enum_member), schema_hint(pattern=_ENUM_MEMBER.pattern)
+]
+SymbolKey = Annotated[str, AfterValidator(_symbol_key), schema_hint(pattern=_SYMBOL_KEY.pattern)]
+TrailingCharacter = Annotated[
+    str, AfterValidator(_trailing_character), schema_hint(pattern=_TRAILING.pattern)
+]
 SafetyKey = Annotated[str, AfterValidator(_lower_key)]
 SourceUrl = Annotated[str, AfterValidator(_source_url)]
 Pep440Specifier = Annotated[str, AfterValidator(_pep440_specifier)]
 Release = Annotated[str, AfterValidator(_release)]
-FixturePath = Annotated[RelativePath, AfterValidator(_fixture_path)]
+FixturePath = Annotated[
+    RelativePath, AfterValidator(_fixture_path), schema_hint(pattern=_FIXTURE.pattern)
+]
 DottedCall = Annotated[str, AfterValidator(_dotted_call)]
 CallPath = Annotated[str, AfterValidator(_call_path)]
 
@@ -1093,7 +1102,11 @@ class Verification(_Closed):
 
 
 class PackDocument(_Closed):
-    """One migration between two versions of one SDK, as declarative data."""
+    """One migration between two versions of one SDK, as declarative data.
+
+    This schema states the shape of each value. PEP 440 specifiers, sorted order and every rule that
+    compares two fields are checked by `obelize pack validate`, which is authoritative.
+    """
 
     # The format is unversioned through 0.x: a version field is refused like any unknown key.
     id: PackId

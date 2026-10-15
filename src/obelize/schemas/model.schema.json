@@ -10,6 +10,7 @@
           "type": "integer"
         },
         "path": {
+          "minLength": 1,
           "title": "Path",
           "type": "string"
         },

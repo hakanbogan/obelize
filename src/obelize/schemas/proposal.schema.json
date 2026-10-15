@@ -178,6 +178,7 @@
       "type": "string"
     },
     "path": {
+      "minLength": 1,
       "title": "Path",
       "type": "string"
     },
@@ -194,6 +195,7 @@
       "title": "Prompt"
     },
     "prompt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
       "title": "Prompt Sha256",
       "type": "string"
     },
