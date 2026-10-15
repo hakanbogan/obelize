@@ -253,7 +253,11 @@ argues each part.
   repository.
 - **Same restrictions.** One pass over the source: neither arm installs
   anything or runs the tests. No network beyond the guide, since live search
-  would make the arm unreproducible. Every free choice favours the agent.
+  would make the arm unreproducible. Every free choice favours the agent. Afterwards
+  `python -m bench.comparison_collect record` installs each case's requirements and runs its
+  suite over the agent's tree, as step 8 does over obelize's: with a step's environment
+  ([above](#reproducible-run)) and as of the round's `exclude_newer`, which the comparison
+  record repeats (round 1 named none).
 - **One instrument.** A key row is *cleared* when a scan of the tree afterwards
   no longer reports it, matched on `(path, kind, symbol)` because edits move
   lines. A row the scan misses on the untouched tree is credited to neither

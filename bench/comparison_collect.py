@@ -515,15 +515,34 @@ def _case_record(
     }
 
 
-def record(work: Path, number: int, *, execute: Execute, env: Mapping[str, str]) -> dict[str, Any]:
-    """Read the arm back off disk into the one file the scorer reads."""
+def round_cutoff(number: int) -> str | None:
+    """What the round's installs resolved as of; its records name one, and round 1's name none."""
+    found = {
+        json.loads(path.read_text(encoding="utf-8"))["provenance"].get("exclude_newer")
+        for path in (run.RESULTS / f"round-{number}").glob("*.json")
+    }
+    if len(found) > 1:
+        raise SystemExit(f"round {number}'s records name {len(found)} different cutoffs")
+    return found.pop() if found else None
+
+
+def record(
+    work: Path, number: int, *, execute: Execute, environ: Mapping[str, str]
+) -> dict[str, Any]:
+    """Read the arm back off disk into the one file the scorer reads.
+
+    The arm's tree is unreviewed code, so its installs and suite get a round step's environment.
+    """
     document = _order(work)
+    cutoff = round_cutoff(number)
+    env = run.case_environ(environ, cutoff)
     collected = {
         case.id: _case_record(case, work, number, execute=execute, env=env) for case in dev_cases()
     }
     return {
         "arms": ["general_agent", "obelize"],
         "cases": collected,
+        "exclude_newer": cutoff,
         "guide": document["guide"],
         "prepared_at": document["prepared_at"],
         "round": number,
@@ -542,9 +561,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--case", action="append", default=[], help="a case `repeat` stages")
     arguments = parser.parse_args(list(argv) if argv is not None else None)
     number = arguments.round if arguments.round is not None else int(cases.load().cases["round"])
-    env = dict(os.environ)
     if arguments.action == "prepare":
         at = arguments.at or _now()
+        env = run.case_environ(os.environ, None)
         document = prepare(arguments.work, execute=run.shell, fetch=download, env=env, at=at)
         print(f"{arguments.work}: {len(document['order'])} cases prepared, guide {at}")
         return 0
@@ -552,7 +571,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         staged = repeat(arguments.work, arguments.case)
         print(f"{arguments.work}: {len(staged)} cases staged for a second run")
         return 0
-    document = record(arguments.work, number, execute=run.shell, env=env)
+    document = record(arguments.work, number, execute=run.shell, environ=os.environ)
     RESULTS.mkdir(parents=True, exist_ok=True)
     destination = RESULTS / f"round-{number}.json"
     destination.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
