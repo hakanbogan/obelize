@@ -101,9 +101,14 @@ given to a call (`sorted(REQS)`), is not followed. A literal Python cannot evalu
   next (a comment line never does), and the options after a requirement (`--hash`) are cut
   before it is read. TOML: a `#` outside a quoted string.
 - `setup.cfg`: a comment only when `#` begins the line, as `configparser` and
-  setuptools read it; a requirement with a trailing comment is invalid and is
-  not read.
+  setuptools read it; a requirement with a trailing comment is invalid, so it is known by its
+  name alone (below).
 - `setup.py`: no comment rule; D8 excludes every other string.
+
+A requirement string PEP 508 refuses (`PyPDF2~=1`, `PyPDF2==1.*.*`, `PyPDF2 1.26`) is still a row,
+for the name it starts with, with no pin and no version: the legacy version gate asks every row, and
+a line it skipped could hide a pin below the floor. A line that starts with no name (`-e .`, a URL)
+is no row, and neither is a Poetry or Pipenv table key that is no name.
 
 A name is compared after `packaging.utils.canonicalize_name`, never as a
 substring.

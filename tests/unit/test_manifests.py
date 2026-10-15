@@ -108,13 +108,13 @@ def test_a_manifest_name_keeps_its_case_where_the_system_folds_it(
 
 
 def test_a_requirements_file_declares_one_dependency_a_line() -> None:
-    """And the three shapes that are not one: a comment, an option, and noise."""
+    """And the three shapes that are not one: a comment, an option, and a line with no name."""
     text = """
 # acme-sdk==1.0
 acme-sdk==1.0  # the real one
 -e .
 --index-url https://example.invalid/simple/acme-sdk/
-this is not a requirement
+*** not a requirement
 
 requests>=2.31
 """
@@ -197,13 +197,61 @@ def test_a_requirement_pip_takes_and_pep_508_refuses_is_known_by_its_name_alone(
         "./notes.whl.txt\n",
         "dist/acme-sdk.zip\n",
         "https://example.invalid/acme\n",
-        "acme-sdk==1.0#not-a-comment\n",
-        "acme-sdk==\n",
+        "acme-sdk.==1.0\n",
+        "acme-sdk+extra\n",
         "-r base.txt\n",
     ],
 )
 def test_a_line_that_names_no_distribution_declares_nothing(text: str) -> None:
     assert read(text) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "raw"),
+    [
+        ("acme-sdk==1.0#not-a-comment", "acme-sdk"),
+        ("acme-sdk==", "acme-sdk"),
+        ("acme-sdk~=1", "acme-sdk"),
+        ("acme-sdk==1.*.*", "acme-sdk"),
+        ("acme-sdk>=1.*", "acme-sdk"),
+        ("acme-sdk=1.0", "acme-sdk"),
+        ("acme-sdk 1.0", "acme-sdk"),
+        ("Acme_SDK[x] ~= 1", "Acme_SDK"),
+        ("  acme-sdk ~=1", "acme-sdk"),
+        ("acme-sdk;python_version<'3'~=1", "acme-sdk"),
+    ],
+)
+def test_a_requirement_whose_version_nobody_can_read_is_still_a_row_with_no_pin_or_version(
+    text: str, raw: str
+) -> None:
+    """The gate asks every row, so a line it skipped could hide a pin the floor would refuse."""
+    (found,) = read(text + "\n")
+    assert (found.name, found.raw, found.pin, found.spec) == ("acme-sdk", raw, None, None)
+    assert text[found.column : found.end] == raw
+
+
+@pytest.mark.parametrize(
+    ("path", "text"),
+    [
+        ("pyproject.toml", '[project]\ndependencies = [\n  "acme-sdk~=1",\n]\n'),
+        ("pyproject.toml", '[dependency-groups]\ndev = ["acme-sdk==1.*.*"]\n'),
+        ("setup.cfg", "[options]\ninstall_requires =\n    acme-sdk~=1\n"),
+        ("setup.cfg", "[options]\nsetup_requires = acme-sdk~=1\n"),
+        ("setup.py", 'setup(install_requires=["acme-sdk~=1"])\n'),
+    ],
+)
+def test_a_requirement_nobody_can_read_is_a_row_in_every_layout(path: str, text: str) -> None:
+    (found,) = manifests.declarations(path, text.encode())
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, None)
+    assert found.raw == "acme-sdk"
+
+
+def test_a_line_of_prose_holds_a_row_named_for_its_first_word() -> None:
+    """Harmless unless that word is a distribution the pack asks about, which is the point."""
+    assert declared("acme-sdk is great\nthis is not a requirement\n") == [
+        (1, 0, "acme-sdk"),
+        (2, 0, "this"),
+    ]
 
 
 def test_an_editable_requirement_names_the_distribution_and_nothing_else() -> None:
@@ -557,7 +605,8 @@ dependencies = ["acme-sdk==1.0
 
 
 def test_a_setup_cfg_value_continues_on_indented_lines() -> None:
-    """Only a leading `#` comments in setup.cfg; setuptools keeps an inline one in the value."""
+    """Only a leading `#` comments in setup.cfg; setuptools keeps an inline one in the value, so
+    the line is no requirement it reads, and is known by its name alone."""
     text = """
 [metadata]
 name = app
@@ -576,7 +625,11 @@ install_requires =
 dev =
     pytest>=8.3
 """
-    assert declared(text, "setup.cfg") == [(10, 4, "acme-sdk"), (16, 4, "pytest")]
+    assert declared(text, "setup.cfg") == [
+        (10, 4, "acme-sdk"),
+        (11, 4, "requests"),
+        (16, 4, "pytest"),
+    ]
 
 
 def test_a_setup_cfg_value_may_sit_on_the_key_s_own_line() -> None:

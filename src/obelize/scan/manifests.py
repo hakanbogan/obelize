@@ -130,6 +130,10 @@ _EGG: Final = re.compile(r"[#&]egg=(?P<name>[A-Za-z0-9][\w.-]*)")
 _ARCHIVE: Final = re.compile(
     r"(?P<name>[A-Za-z0-9](?:[\w.]|-(?!\d))*)-\d.*\.(?:whl|tar\.gz|tgz|zip)$"
 )
+# The name a line starts with when PEP 508 refuses the rest (`PyPDF2~=1`, `PyPDF2==1.*.*`).
+_LEADING: Final = re.compile(
+    r"\s*(?P<name>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)(?=[\s\[(;<>=!~@,]|$)"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -507,6 +511,12 @@ def lowest(declared: str | None) -> Version | None:
     return min(floor for floor in floors if floor is not None)
 
 
+def _requirement(path: str, line: int, column: int, text: str) -> Declaration | None:
+    """A requirement string, or the name it starts with where PEP 508 refuses the rest: a version
+    nobody can read is a row the gate cannot judge, not one it may skip."""
+    return _declare(path, line, column, text) or _unreadable(path, line, column, text)
+
+
 def _declare(path: str, line: int, column: int, text: str) -> Declaration | None:
     """One PEP 508 requirement, or None; the pin span comes from the same parse.
 
@@ -598,8 +608,16 @@ def _archive(path: str, line: int, column: int, text: str) -> Declaration | None
     URL, or the file name of an archive; no version is read from either."""
     head = re.split("[#?]", text, maxsplit=1)[0]
     found = _EGG.search(text) or _ARCHIVE.match(head, head.rfind("/") + 1)
-    if found is None:
-        return None
+    return None if found is None else _named(path, line, column, found)
+
+
+def _unreadable(path: str, line: int, column: int, text: str) -> Declaration | None:
+    """A requirement PEP 508 refuses, known by the name it starts with; no version is read."""
+    found = _LEADING.match(text)
+    return None if found is None else _named(path, line, column, found)
+
+
+def _named(path: str, line: int, column: int, found: re.Match[str]) -> Declaration:
     start, end = found.span("name")
     return Declaration(
         path=path,
@@ -631,8 +649,10 @@ def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
             continue
         cut = _PIP_OPTION.search(body)
         written = body[: cut.start()] if cut else body
-        declaration = _declare(path, number, column, written) or _archive(
-            path, number, column, written
+        declaration = (
+            _declare(path, number, column, written)
+            or _archive(path, number, column, written)
+            or _unreadable(path, number, column, written)
         )
         if declaration is None:
             continue
@@ -793,7 +813,7 @@ def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
 
 def _array(path: str, number: int, body: str, start: int) -> Iterator[Declaration]:
     for column, text in _quoted(body, start):
-        declaration = _declare(path, number, column, text)
+        declaration = _requirement(path, number, column, text)
         if declaration is not None:
             yield declaration
 
@@ -820,7 +840,7 @@ def _from_cfg(path: str, lines: list[str]) -> Iterator[Declaration]:
             continue
         if line[:1] in " \t":
             if _is_dependency_key(section, key):
-                declaration = _declare(path, number, column, text)
+                declaration = _requirement(path, number, column, text)
                 if declaration is not None:
                     yield declaration
             continue
@@ -834,7 +854,7 @@ def _from_cfg(path: str, lines: list[str]) -> Iterator[Declaration]:
         key = text[:cut].strip()
         value, offset = _span(text[cut + 1 :])
         if value and _is_dependency_key(section, key):
-            declaration = _declare(path, number, column + cut + 1 + offset, value)
+            declaration = _requirement(path, number, column + cut + 1 + offset, value)
             if declaration is not None:
                 yield declaration
 
@@ -962,7 +982,9 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
         if not isinstance(text, str):
             continue
         at = positions[node].start
-        declaration = _declare(path, at.line, at.column + len(node.prefix) + len(node.quote), text)
+        declaration = _requirement(
+            path, at.line, at.column + len(node.prefix) + len(node.quote), text
+        )
         if declaration is None:
             continue
         # Spans are source columns only when the literal's bytes are its value (an escape, and a

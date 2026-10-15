@@ -493,6 +493,17 @@ def test_a_legacy_pin_that_admits_a_version_below_the_floor_or_is_a_local_build_
     )
 
 
+def test_a_requirement_line_nobody_can_read_blocks_though_another_declaration_passes() -> None:
+    """The old line sat in a file of its own, and the gate asked only the line it could read."""
+    rows = [
+        *manifests.declarations("requirements.txt", b"acme-old>=2\n"),
+        *manifests.declarations("dev/requirements.txt", b"acme-old~=1\n"),
+    ]
+    assert runtime.legacy(rows, OLD, used=True) == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "dev/requirements.txt", None, ">=2"
+    )
+
+
 def test_the_first_offending_declaration_is_named_by_depth_then_path() -> None:
     found = runtime.legacy(
         _pins(("pkg/requirements.txt", "<3"), ("z.txt", ">=1"), ("a.txt", ">=2")), OLD, used=True
