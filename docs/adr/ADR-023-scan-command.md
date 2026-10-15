@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-050 and ADR-052.
+Accepted; amended by ADR-050, ADR-052 and ADR-056.
 
 ## Decision
 
@@ -58,8 +58,9 @@ one: `>=3.9` against `>=3.10` blocks, because pip then installs an older, differ
 (C-15). A declaration that cannot be parsed blocks nothing. A pack whose `from.version` has a
 floor adds `legacy_version_unsupported`: any manifest declaring the legacy distribution with no
 version, or one admitting a version below that floor, and any repository that uses the library
-and declares it nowhere, is blocked too, since the pack's rules were measured above it. A blocked
-run still grades and reports every finding, but plans no
+and declares it nowhere, is blocked too, since the pack's rules were measured above it. A pack that
+names its newest release takes a declaration that installs it as that release, unless the repository
+shows another (ADR-056). A blocked run still grades and reports every finding, but plans no
 change and asks a configured model nothing, so `fix --apply` over it writes
 nothing and exits `4`.
 

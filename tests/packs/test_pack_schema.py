@@ -959,6 +959,8 @@ PROJECTED = {
     "flag_only_patterns",
     "requires_python",
     "legacy_floor",
+    "legacy_newest",
+    "legacy_lacks",
     "shared",
     "new_range",
 }
@@ -989,6 +991,74 @@ def test_the_legacy_floor_is_the_lower_bound_of_the_range_the_pack_migrates_from
     assert floor(">=3,<4") == "3"
     assert floor("==2.1.*") == "2.1"
     assert floor("<4") is None
+
+
+def newest(**fields: Any) -> dict[str, Any]:
+    """A pack whose source range has a floor, names its newest release, and says what it lacks."""
+    document = with_change(builder.FLAG_CHANGE)
+    document["from"].update(version=">=1,<4", newest="3.0.1", lacks=["demo_legacy.protos"])
+    document["from"].update(fields)
+    return document
+
+
+def test_a_source_range_may_name_its_newest_release_and_what_that_release_lacks() -> None:
+    built = build(newest())
+    assert (built.from_.newest, built.from_.lacks) == ("3.0.1", ("demo_legacy.protos",))
+    spec = loader.to_scan_spec(_loaded(built))
+    assert (spec.legacy_floor, spec.legacy_newest, spec.legacy_lacks) == (
+        "1",
+        "3.0.1",
+        ("demo_legacy.protos",),
+    )
+    plain = loader.to_scan_spec(_loaded(build(minimal())))
+    assert (plain.legacy_newest, plain.legacy_lacks) == (None, ())
+
+
+@pytest.mark.parametrize("release", ["3.0.1", "3.0.1.post1", "4.0.0.post2"])
+def test_a_newest_release_may_be_a_post_release_inside_the_range(release: str) -> None:
+    assert build(newest(newest=release, version=">=1,<5")).from_.newest == release
+
+
+@pytest.mark.parametrize(
+    ("release", "says"),
+    [
+        ("3.0.0rc1", "expected a final release"),
+        ("3.0.1.dev1", "expected a final release"),
+        ("3.0.1+local", "expected a final release"),
+        ("3.00.1", "expected a final release"),
+        ("v3.0.1", "expected a final release"),
+        ("three", "expected a PEP 440 release"),
+        ("5.0.0", "is outside from.version"),
+    ],
+)
+def test_a_newest_release_must_be_a_final_one_in_the_range_spelled_as_pep_440_does(
+    release: str, says: str
+) -> None:
+    with pytest.raises(ValidationError, match=says):
+        build(newest(newest=release))
+
+
+def test_a_newest_release_needs_a_range_with_a_floor() -> None:
+    with pytest.raises(ValidationError, match="must have a floor"):
+        build(newest(version="<4"))
+
+
+def test_what_the_newest_release_lacks_needs_it_and_is_sorted_and_flagged() -> None:
+    document = newest()
+    document["from"].pop("newest")
+    with pytest.raises(ValidationError, match="set newest"):
+        build(document)
+    with pytest.raises(ValidationError, match="must be sorted"):
+        build(newest(lacks=["demo_legacy.protos", "demo_legacy.a"]))
+    with pytest.raises(ValidationError, match="which no flag_only change lists"):
+        build(newest(lacks=["demo_legacy.configure"]))
+
+
+def test_only_the_source_side_names_a_newest_release() -> None:
+    document = minimal()
+    document["to"]["newest"] = "1.0.0"
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        build(document)
 
 
 def _loaded(pack: schema.PackDocument) -> loader.LoadedPack:
@@ -1027,7 +1097,12 @@ def test_the_projection_digest_ignores_the_pack_identity_and_the_gates_and_nothi
     measurement recorded, before the field existed.
     """
     identity = {"pack_id": "other/pack", "pack_version": "9.9.9", "pack_sha256": "f" * 64}
-    gates = {"requires_python": ">=3.7", "legacy_floor": "0.1"}
+    gates = {
+        "requires_python": ">=3.7",
+        "legacy_floor": "0.1",
+        "legacy_newest": "9.9",
+        "legacy_lacks": ("demo.other",),
+    }
     exercised: set[str] = set()
     for identifier in loader.bundled_ids():
         spec = loader.to_scan_spec(loader.load(identifier))

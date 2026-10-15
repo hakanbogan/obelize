@@ -76,6 +76,20 @@ def test_the_installed_projects_are_inside_the_ranges_the_pack_was_measured_on()
     assert bounds(SpecifierSet(PACK.to.version))[0] == Version("6.19")
 
 
+def test_the_newest_release_named_is_the_one_installed_and_it_lacks_the_removed_names() -> None:
+    """What an unversioned requirement installs is a claim about PyPI; the weekly job checks it."""
+    assert PACK.from_.newest == version("PyPDF2")
+    removed = {
+        symbol
+        for change in PACK.changes
+        if change.id == "flag-removed-names" and isinstance(change, schema.FlagOnlyChange)
+        for symbol in change.params.symbols
+    }
+    assert removed
+    assert set(PACK.from_.lacks) == removed
+    assert set(PACK.from_.lacks) <= FLAGGED
+
+
 def test_the_python_the_pack_requires_is_what_the_new_project_declares() -> None:
     assert metadata("pypdf")["Requires-Python"] == PACK.to.requires_python
 

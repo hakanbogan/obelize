@@ -9,12 +9,16 @@ from __future__ import annotations
 import sys
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import acme
 import pytest
 
 from obelize.models import Config
 from obelize.scan import manifests, parse, runtime
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from obelize.models import ScanSpec
 
 SPEC = acme.SPEC.model_copy(update={"requires_python": ">=3.10"})
 
@@ -346,3 +350,141 @@ def test_a_python_requirement_of_a_form_nobody_reads_is_reported_not_ignored(
     assert found == parse.Limitation(
         path="pyproject.toml", code="input_does_not_parse", detail=runtime.UNREAD
     )
+
+
+NEWEST = OLD.model_copy(update={"legacy_newest": "2.4.1"})
+
+
+def _plain(
+    spec: str | None = "", path: str = "requirements.txt", **fields: Any
+) -> manifests.Declaration:
+    """A requirement a rewrite can carry: the pin span is set, which `_pins` leaves out."""
+    row = manifests.Declaration(
+        path=path, line=1, column=0, name="acme-old", raw="acme-old", end=8, pin=(8, 8), spec=spec
+    )
+    return replace(row, **fields)
+
+
+@pytest.mark.parametrize(
+    "pinned", ["", "*", ">=1", "<4", "===2.4.1", "!=2.0", "^1.0 || ^2.0", ">=1,<3"], ids=repr
+)
+def test_a_plain_requirement_that_admits_the_newest_release_installs_it(pinned: str) -> None:
+    assert runtime.installs(_plain(pinned), "2.4.1") is True
+
+
+@pytest.mark.parametrize(
+    "pinned", ["<2.4", "~=1.2", "^1.0", "!=2.4.1", ">=2.0rc1", "==1.*", "<2", "not a specifier"]
+)
+def test_a_requirement_that_rules_out_the_newest_release_or_may_pick_a_pre_release_does_not(
+    pinned: str,
+) -> None:
+    assert runtime.installs(_plain(pinned), "2.4.1") is False
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [{"pin": None}, {"marked": True}, {"spec": None}],
+    ids=["pin-span-is-not-the-requirement", "a-marker-may-switch-it-off", "no-readable-spec"],
+)
+def test_a_requirement_a_rewrite_cannot_carry_or_a_marker_may_skip_installs_nothing(
+    fields: dict[str, Any],
+) -> None:
+    assert runtime.installs(_plain(**{"spec": "", **fields}), "2.4.1") is False
+
+
+@pytest.mark.parametrize("pinned", ["", "*", ">=1", "<4", "===2.4.1", "^1.0 || ^2.0"], ids=repr)
+def test_a_declaration_that_installs_the_newest_release_passes_the_floor(pinned: str) -> None:
+    assert runtime.legacy([_plain(pinned)], NEWEST, used=True, newest="2.4.1") is None
+    assert runtime.legacy([_plain(pinned)], NEWEST, used=True) is not None
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        _plain("<2.4"),
+        _plain("~=1.2"),
+        _plain("^1.0"),
+        _plain("!=2.4.1"),
+        _plain(">=2.0rc1"),
+        _plain("not a specifier"),
+        _plain("", pin=None),
+        _plain("", marked=True),
+        _plain(None),
+    ],
+    ids=lambda row: f"{row.spec!r}-{row.pin}-{row.marked}",
+)
+def test_a_declaration_that_does_not_install_the_newest_release_blocks_as_before(
+    row: manifests.Declaration,
+) -> None:
+    found = runtime.legacy([row], NEWEST, used=True, newest="2.4.1")
+    assert found is not None
+    assert found == runtime.legacy([row], NEWEST, used=True)
+    assert found.evidence == ""
+
+
+def test_with_no_newest_release_the_gate_is_what_it_was() -> None:
+    """The newest release is the caller's to pass, and a call that passes none blocks."""
+    assert runtime.legacy([_plain("")], NEWEST, used=True) == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "requirements.txt", "", ">=2"
+    )
+
+
+def test_every_declaration_is_judged_and_not_only_the_first_that_passes() -> None:
+    both = [_plain(">=2", "a.txt"), _plain("", "b.txt")]
+    assert runtime.legacy(both, NEWEST, used=True, newest="2.4.1") is None
+    held = [_plain("", "a.txt"), _plain("<2.4", "b.txt"), _plain(">=2", "c.txt")]
+    found = runtime.legacy(held, NEWEST, used=True, newest="2.4.1")
+    assert found is not None
+    assert (found.path, found.declared) == ("b.txt", "<2.4")
+
+
+def test_a_legacy_distribution_declared_nowhere_blocks_whatever_the_newest_release_is() -> None:
+    assert runtime.legacy([], NEWEST, used=True, newest="2.4.1") == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "", None, ">=2"
+    )
+
+
+def test_contrary_evidence_takes_the_newest_release_back_and_is_the_blocks_evidence() -> None:
+    rows = [_plain("", "z.txt"), _plain(">=1", "a.txt"), _plain(">=2", "b.txt")]
+    found = runtime.legacy(rows, NEWEST, used=True, newest="2.4.1", contrary="poetry.lock")
+    assert found == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "a.txt", ">=1", ">=2", "poetry.lock"
+    )
+
+
+def test_where_no_code_uses_the_pin_there_is_nothing_to_infer() -> None:
+    assert runtime.legacy([_plain("")], NEWEST, used=False, newest="2.4.1") is None
+    open_range = NEWEST.model_copy(update={"legacy_floor": None})
+    assert runtime.legacy([_plain("")], open_range, used=True, newest="2.4.1") is None
+
+
+def test_a_run_infers_the_newest_release_only_where_a_declaration_needs_it() -> None:
+    assert runtime.inferred([_plain("")], NEWEST) is True
+    assert runtime.inferred([_plain(">=2"), _plain(">=1", "b.txt")], NEWEST) is True
+    assert runtime.inferred([_plain(">=2"), _plain("^2.0", "b.txt")], NEWEST) is False
+    assert runtime.inferred([], NEWEST) is False
+
+
+@pytest.mark.parametrize(
+    ("spec", "rows"),
+    [
+        (OLD, [_plain("")]),
+        (NEWEST.model_copy(update={"legacy_floor": None}), [_plain("")]),
+        (NEWEST, [_plain("", name="acme-new")]),
+        (NEWEST, [_plain("<2.4")]),
+        (NEWEST, [_plain("", pin=None)]),
+        (NEWEST, [_plain("", marked=True)]),
+    ],
+    ids=[
+        "pack-names-no-newest",
+        "no-floor",
+        "other-distribution",
+        "rules-it-out",
+        "no-pin",
+        "marker",
+    ],
+)
+def test_a_run_infers_nothing_where_the_pack_or_the_declaration_gives_nothing_to_infer_from(
+    spec: ScanSpec, rows: list[manifests.Declaration]
+) -> None:
+    assert runtime.inferred(rows, spec) is False

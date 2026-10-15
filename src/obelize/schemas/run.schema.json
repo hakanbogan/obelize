@@ -372,6 +372,18 @@
       "additionalProperties": false,
       "description": "The pack a run used: which one, its own version, and its exact bytes.",
       "properties": {
+        "assumed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assumed"
+        },
         "blocked": {
           "anyOf": [
             {
@@ -414,7 +426,8 @@
         "pack_version",
         "sha256",
         "source",
-        "blocked"
+        "blocked",
+        "assumed"
       ],
       "title": "RunPack",
       "type": "object"

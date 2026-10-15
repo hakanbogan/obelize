@@ -12,6 +12,7 @@ from obelize.packs import loader
 from obelize.packs.schema import (
     FlagOnlyChange,
     FlagOnlyParams,
+    Legacy,
     ManifestDependencyChange,
     ManifestDependencyParams,
     Match,
@@ -22,7 +23,6 @@ from obelize.packs.schema import (
     RewriteCallChange,
     RewriteCallParams,
     Target,
-    VersionRange,
 )
 
 SAY = RewriteCallChange(
@@ -104,7 +104,7 @@ PACK = PackDocument(
     source=PackSource(
         type="official_guide", url="https://example.invalid/acme-kit", retrieved_at="2026-10-07"
     ),
-    **{"from": VersionRange(package="acme-kit", version=">=1.2,<2")},
+    **{"from": Legacy(package="acme-kit", version=">=1.2,<2")},
     to=Target(package="acme-kit", version=">=2,<3", requires_python=">=3.9"),
     match=Match(
         imports=("acme.kit",),

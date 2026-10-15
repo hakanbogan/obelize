@@ -91,6 +91,8 @@ class Outcome:
     evidence: str
     # Each declaration that blocked a pack, which names the file to change.
     blocked: tuple[Blocked, ...]
+    # (distribution, release) taken where no declaration rules the pack's newest release out.
+    assumed: tuple[tuple[str, str], ...] = ()
     # What the run did without being asked to say so, for a caller that prints it.
     notes: tuple[str, ...] = ()
     guides: tuple[flag_only.Guide, ...] = ()
@@ -186,10 +188,7 @@ def run(request: Request) -> Outcome:
     phases = _phases(request, writable, stopped, gate_ms)
     code = _exit(phases, outstanding=bool(report.withheld_rows(driven.findings)), idle=not passes)
     recorded = _recorded(request, model, phases.applied)
-    used = [
-        run_dir.Used(one.loaded, one.scan.blocked[0] if one.scan.blocked else None)
-        for one in passes
-    ]
+    used = [run_dir.Used.of(one.loaded, one.scan) for one in passes]
     record = run_dir.compose_fix(
         run_id=run_id,
         scan=scan,
@@ -251,6 +250,7 @@ def run(request: Request) -> Outcome:
         patch=artefacts.patch,
         evidence=written.relative,
         blocked=scan.blocked,
+        assumed=scan.assumed,
         notes=notes,
         guides=guides,
         manifest_plan=driven.manifest_plan,

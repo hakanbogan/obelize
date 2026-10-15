@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -25,7 +26,7 @@ from obelize.models import (
     VerifyResult,
 )
 from obelize.packs import loader
-from obelize.scan import runner
+from obelize.scan import runner, runtime
 from obelize.verify import runner as verify_runner
 from platforms import AS_ROOT, PYTHON, deny, junction, link, windows_only
 
@@ -209,6 +210,27 @@ def test_a_repository_at_or_above_the_floor_is_not(tree: Path) -> None:
     pack = loader.load(BUNDLED)
     scan = runner.scan(tree, load_config(tree).config, loader.to_scan_spec(pack), jobs=1)
     assert [pack.blocked for pack in _record(scan, tree).packs] == [None]
+
+
+def test_a_pack_is_used_with_the_block_and_the_release_its_own_scan_found(
+    scanned: runner.Scan,
+) -> None:
+    plain = run_dir.Used.of(LOADED, replace(scanned, blocked=(), assumed=()))
+    assert (plain.blocked, plain.assumed) == (None, None)
+    took = run_dir.Used.of(LOADED, replace(scanned, blocked=(), assumed=(("PyPDF2", "3.0.1"),)))
+    assert (took.blocked, took.assumed) == (None, "3.0.1")
+    stop = runtime.Blocked("legacy_version_unsupported", "x", "", None, ">=3")
+    stopped = run_dir.Used.of(LOADED, replace(scanned, blocked=(stop,), assumed=()))
+    assert (stopped.blocked, stopped.assumed) == (stop, None)
+
+
+def test_a_run_records_the_release_a_pack_took_and_null_when_it_took_none(
+    scanned: runner.Scan, tree: Path
+) -> None:
+    assert [pack.assumed for pack in _record(scanned, tree).packs] == [None]
+    taken = _record(scanned, tree, packs=[run_dir.Used(LOADED, None, "3.0.1")])
+    assert [pack.assumed for pack in taken.packs] == ["3.0.1"]
+    assert json.loads(taken.model_dump_json())["packs"][0]["assumed"] == "3.0.1"
 
 
 def test_the_record_validates_against_its_committed_schema(

@@ -212,26 +212,26 @@ obelize 0.4.0, pack sha256 `816a428e0430`, frame drawn 2026-10-13T13:11:56Z for 
 
 ### `py-pdf/pypdf2-to-pypdf`
 
-obelize 0.4.0, pack sha256 `a1af2999d3a7`, frame drawn 2026-10-13T13:17:31Z for `PyPDF2` (157,888 files in the index): 80 repositories planned, 0 errored.
+obelize 0.4.0, pack sha256 `c32a03f640ee`, frame drawn 2026-10-13T13:17:31Z for `PyPDF2` (157,888 files in the index): 80 repositories planned, 0 errored.
 
 | Outcome | Repositories | Share of planned | Share of those the pack ran on |
 |---|---:|---:|---:|
-| `blocked`: the pack stops before it plans, for the reason below | 54 | 67.5% | -- |
-| `none`: no usage found | 2 | 2.5% | 7.7% |
-| `held`: usages found, no file written | 5 | 6.2% | 19.2% |
-| `partial`: a file written, a row withheld | 3 | 3.8% | 11.5% |
-| `complete`: a file written, nothing withheld | 16 | 20.0% | 61.5% |
+| `blocked`: the pack stops before it plans, for the reason below | 35 | 43.8% | -- |
+| `none`: no usage found | 2 | 2.5% | 4.4% |
+| `held`: usages found, no file written | 6 | 7.5% | 13.3% |
+| `partial`: a file written, a row withheld | 6 | 7.5% | 13.3% |
+| `complete`: a file written, nothing withheld | 31 | 38.8% | 68.9% |
 
 | Why the pack stopped | A manifest declares it | Repositories |
 |---|---|---:|
-| `legacy_version_unsupported` | yes | 31 |
 | `legacy_version_unsupported` | no | 22 |
+| `legacy_version_unsupported` | yes | 12 |
 | `runtime_unsupported` | yes | 1 |
 
 | Why a row was withheld | Rows | Repositories | |
 |---|---:|---:|---|
-| `legacy_version_unsupported` | 127 | 36 |  |
 | `flag_only_surface` | 71 | 17 |  |
+| `legacy_version_unsupported` | 52 | 18 |  |
 | `file_not_fully_migrated` | 40 | 21 | a consequence of another hold |
 | `repo_not_fully_migrated` | 24 | 23 | a consequence of another hold |
 | `conditional_binding` | 11 | 3 |  |
@@ -246,27 +246,31 @@ obelize 0.4.0, pack sha256 `a1af2999d3a7`, frame drawn 2026-10-13T13:17:31Z for 
 
 | The 10 symbols that hold back most rows | Bail | Rows | Repositories |
 |---|---|---:|---:|
-| `PyPDF2` | `legacy_version_unsupported` | 66 | 36 |
 | `PyPDF2.PdfFileReader` | `flag_only_surface` | 44 | 16 |
-| `PyPDF2.PdfReader` | `legacy_version_unsupported` | 44 | 34 |
 | `PyPDF2.PdfFileWriter` | `flag_only_surface` | 25 | 10 |
+| `PyPDF2` | `legacy_version_unsupported` | 24 | 18 |
+| `PyPDF2.PdfReader` | `legacy_version_unsupported` | 20 | 16 |
 | `PyPDF2` | `local_import` | 8 | 6 |
 | `PyPDF2` | `conditional_binding` | 7 | 3 |
-| `PyPDF2.PdfWriter` | `legacy_version_unsupported` | 7 | 4 |
-| `pypdf` | `legacy_version_unsupported` | 5 | 5 |
 | `PyPDF2` | `module_alias_rebound` | 4 | 2 |
 | `PyPDF2.PdfReader` | `conditional_binding` | 4 | 3 |
+| `PyPDF2._page.PageObject.create_blank_page` | `usage_unmapped` | 4 | 1 |
+| `PyPDF2.PdfReader` | `module_alias_rebound` | 3 | 1 |
 
 <!-- dryrun:end -->
 
-The version gate comes before any rule. The openai and PyPDF2 packs plan nothing for a repository
-that uses the library and declares it nowhere, or declares it with no lower bound or one under the
-pack's floor (`>=0.27.0` for openai, `>=3` for PyPDF2); one PyPDF2 repository stops on the Python it
-declares instead. The run says what to declare, so the stop is a message and not a silent
-miss, but it is the first thing that stops about half of the openai frame and about two thirds of
-the PyPDF2 frame. Many of those repositories carry a rule's own bail as well, so the stop is an upper
-bound on what lifting the gate would write. The Gemini pack has no legacy-version gate and stops on
-a Python floor only.
+The version gate comes before any rule. The openai pack plans nothing for a repository that uses the
+library and declares it nowhere, or declares it with no lower bound or one under the pack's floor
+(`>=0.27.0`), which stops about half of the openai frame. The PyPDF2 pack's floor is `>=3`, but a
+declaration that names no version, or a range below 3 that admits 3.0.1, its newest release, is taken
+as that release unless the repository shows another one
+([ADR-056](adr/ADR-056-newest-legacy-release.md)). Of the 53 PyPDF2 repositories the gate stopped
+under obelize 0.4.0, 19 now plan: 15 complete, 3 partial and 1 held. The 34 that still stop declare
+the library nowhere obelize reads (22), or declare it with a version under 3 or beside evidence of
+another release (12), and one more stops on the Python it declares. The run says what to declare, so
+the stop is a message and not a silent miss. Many of the stopped repositories carry a rule's own bail
+as well, so the stop is an upper bound on what lifting it would write. The Gemini pack has no
+legacy-version gate and stops on a Python floor only.
 
 Beyond it, the symbols hold back differently by pack. For openai they are the exception classes and
 settings the pack flags (`openai.error.*`, `openai.api_type`, `openai.api_version`), keyword

@@ -205,6 +205,20 @@ def _with(document: Document, key: str, value: Any) -> None:
     document[key] = value
 
 
+def _newest(**fields: Any) -> Callable[[Document], None]:
+    """A source range with a floor and a newest release; `fields` replace keys, `None` drops one."""
+
+    def mutate(document: Document) -> None:
+        document["from"].update(version=">=1,<4", newest="3.0.1")
+        for key, value in fields.items():
+            if value is None:
+                document["from"].pop(key)
+            else:
+                document["from"][key] = value
+
+    return mutate
+
+
 def _symbols_without_a_submodule_map(document: Document) -> None:
     for key in ("submodule_map", "alias_fallbacks"):
         document["changes"][1]["params"].pop(key)
@@ -344,6 +358,49 @@ CASES: tuple[Case, ...] = (
         path="from.version",
         says="PEP 440 version specifier",
         mutate=lambda d: _with(d["from"], "version", "~~1"),
+    ),
+    Case(
+        name="newest_is_a_pre_release",
+        defect="a newest release that is a pre-release, which no unpinned install resolves to",
+        path="from.newest",
+        says="expected a final release",
+        mutate=_newest(newest="3.0.0rc1"),
+    ),
+    Case(
+        name="newest_outside_the_range",
+        defect="a newest release the range does not admit, so an install of it is out of range",
+        path="from",
+        says="is outside from.version",
+        mutate=_newest(newest="5.0.0"),
+    ),
+    Case(
+        name="newest_with_a_range_that_has_no_floor",
+        defect="a newest release for a range that names no floor, so nothing is out of range",
+        path="from",
+        says="must have a floor",
+        mutate=_newest(version="<4"),
+    ),
+    Case(
+        name="lacks_without_a_newest_release",
+        defect="names a release lacks, which says what the newest release does not define",
+        path="from",
+        says="set newest",
+        mutate=_newest(newest=None, lacks=["demo_legacy.protos"]),
+    ),
+    Case(
+        name="lacks_a_name_no_rule_flags",
+        defect="a name the newest release lacks that no flag_only change reports",
+        path="",
+        says="which no flag_only change lists in symbols",
+        extra=FLAG_CHANGE,
+        mutate=_newest(lacks=["demo_legacy.elsewhere"]),
+    ),
+    Case(
+        name="newest_on_the_target",
+        defect="a newest release on the side that is migrated to",
+        path="to.newest",
+        says="Extra inputs are not permitted",
+        mutate=lambda d: _with(d["to"], "newest", "1.0.0"),
     ),
     Case(
         name="version_ranges_overlap",

@@ -412,6 +412,46 @@
       "title": "Layout",
       "type": "object"
     },
+    "Legacy": {
+      "additionalProperties": false,
+      "description": "The old side, which may also name the newest release of its distribution.\n\n`newest` is what an unversioned declaration installs, so it stands for a version nothing in the\nrepository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names\nwhat that release no longer defines, which the code may still use.",
+      "properties": {
+        "lacks": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Lacks",
+          "type": "array"
+        },
+        "newest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Newest"
+        },
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package",
+        "version"
+      ],
+      "title": "Legacy",
+      "type": "object"
+    },
     "ManifestDependencyChange": {
       "additionalProperties": false,
       "properties": {
@@ -1121,26 +1161,6 @@
       ],
       "title": "Verification",
       "type": "object"
-    },
-    "VersionRange": {
-      "additionalProperties": false,
-      "description": "One side of the migration: a distribution and a PEP 440 range of it.",
-      "properties": {
-        "package": {
-          "title": "Package",
-          "type": "string"
-        },
-        "version": {
-          "title": "Version",
-          "type": "string"
-        }
-      },
-      "required": [
-        "package",
-        "version"
-      ],
-      "title": "VersionRange",
-      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1189,7 +1209,7 @@
       "type": "array"
     },
     "from": {
-      "$ref": "#/$defs/VersionRange"
+      "$ref": "#/$defs/Legacy"
     },
     "id": {
       "title": "Id",

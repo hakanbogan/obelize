@@ -80,7 +80,7 @@ A bail withholds its whole binding group; the group is atomic.
 | `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. |
 | `file_too_large` | Over `max_file_bytes`. |
 | `runtime_unsupported` | The project declares a Python the new distribution does not install on (the pack's `to.requires_python`). |
-| `legacy_version_unsupported` | The legacy distribution is declared with no version, or one below the floor of the pack's `from.version`, or not at all while the code uses it. |
+| `legacy_version_unsupported` | The legacy distribution is declared with no version, or one below the floor of the pack's `from.version`, or not at all while the code uses it. A pack that names its newest release (`from.newest`) takes a declaration that installs it as that release, and is blocked only where the repository shows another one: the path is the run's evidence, not a code of its own. |
 
 ### Resolution and bindings
 

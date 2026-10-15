@@ -3,7 +3,8 @@
 _The schema is `src/obelize/packs/schema.py`, and `src/obelize/schemas/pack.schema.json` is generated
 from it; `tests/packs/` holds this document's vocabularies and refusals equal to it. Decisions:
 ADR-006, [ADR-018](adr/ADR-018-pack-schema.md),
-[ADR-053](adr/ADR-053-shared-module-migrations.md)._
+[ADR-053](adr/ADR-053-shared-module-migrations.md),
+[ADR-056](adr/ADR-056-newest-legacy-release.md)._
 
 A MigrationPack declares one migration between two versions of one SDK: which
 symbols to find and which rule kind handles each. How a rewrite is done lives in
@@ -37,7 +38,7 @@ Breaking one rejects the pack.
 | `provider` | string | yes | The vendor or maintaining project, e.g. `gemini` or `py-pdf`. |
 | `language` | string | yes | `python`. |
 | `source` | mapping | yes | See [Source provenance](#source-provenance). |
-| `from` | mapping | yes | `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. |
+| `from` | mapping | yes | `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. |
 | `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required): the PEP 440 set of Pythons the new distribution installs on. A repository declaring support for one outside it is blocked (`runtime_unsupported`). |
 | `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest declares its distribution, the legacy pin stays), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
 | `changes` | list | yes | See [Change entries](#change-entries). |
@@ -86,6 +87,34 @@ the layout: a rewritten call goes multi-line when the source call was, when an
 argument is, or when the whole line (indent and trailing comment included)
 would exceed the width; then one argument per line, one indent unit (the
 file's own) past the statement, with a trailing comma.
+
+### The newest legacy release
+
+```yaml
+from:
+  package: PyPDF2
+  version: ">=3,<4"
+  newest: "3.0.1"
+  lacks:
+    - PyPDF2.PdfFileMerger
+    - PyPDF2.PdfFileReader
+    - PyPDF2.PdfFileWriter
+```
+
+When `from.version` has a floor, a repository that declares the legacy distribution with no version,
+or one below the floor, is blocked (`legacy_version_unsupported`): the rules were measured above it.
+A pack whose distribution has a last release inside its range can name it, and a declaration that
+installs that release is then taken as it, unless the repository shows another one
+([ADR-056](adr/ADR-056-newest-legacy-release.md)).
+
+- `newest` is a final release in PEP 440's normal spelling (`3.0.1`, not `3.00.1` or `v3.0.1`), which
+  `from.version` admits. It is the pack's claim about what an unversioned install resolves to, so a
+  pack names one only where the distribution's index has no later release.
+- `lacks` lists the qualified names that release does not define. Code that uses one cannot have run
+  on it, so it is evidence of an older release. Each name is in `symbols` of a `flag_only` change,
+  so the scan reports it. Without `newest` it is refused.
+- `to` has neither field. A pack that sets neither is gated as before, and `spec_digest` ignores both,
+  as it ignores `from.version`'s floor.
 
 ### Change entries
 
@@ -502,7 +531,9 @@ obelize's version. `+build` metadata is refused: comparisons ignore it.
 
 - MAJOR: changes what is rewritten automatically, or moves an edit between
   automatic and refused.
-- MINOR: new changes, symbols or limitations, or a change to `from.version` or `to.version`.
+- MINOR: new changes, symbols or limitations, a change to `from.version` or `to.version`, or a
+  `from` field the pack starts to fill (`newest`, `lacks`), since each moves what a run takes or
+  stops on.
 - PATCH: citations, messages, suggestions, fixtures, wording.
 
 Every run records the pack id, `pack_version` and sha256.
@@ -515,6 +546,9 @@ Per field:
 - A `from`/`to` version, or a `to` with no `requires_python` or one that is not PEP 440, or
   ranges that overlap or contradict. Only ranges over one distribution are compared: a
   rename may keep the version.
+- A `from.newest` that is not a final release in PEP 440's normal spelling, that `from.version` does
+  not admit, or beside a `from.version` with no floor; a `from.lacks` with no `newest`, or one that
+  is not sorted and de-duplicated; a `newest` or `lacks` on `to`.
 - A duplicate `changes[].id`.
 - An unknown `changes[].kind`.
 - A missing `source.url` or `source.retrieved_at`.
@@ -542,7 +576,7 @@ Per field:
   beside `result_access_flags`.
 - A `layout.line_length` outside 40-320.
 
-Per document, seven incoherences that would otherwise scan as a clean repository:
+Per document, eight incoherences that would otherwise scan as a clean repository:
 
 - A rule's legacy symbol under no module in `match.imports`, or, for a shared module, under no entry of `match.symbols` (bar a `generative_model_calls` safety enum class).
 - A module in `match.imports` containing no `prefilter_tokens`.
@@ -554,6 +588,7 @@ Per document, seven incoherences that would otherwise scan as a clean repository
 - A `manifest_dependency` naming a distribution the pack does not migrate.
 - A receiver in `methods` that is neither `ctor_symbol` nor a `method_returns`
   value.
+- A `from.lacks` name that no `flag_only` change lists in `symbols`, so the scan never reports it.
 
 And prose: `message`, `suggestion`, `citation` and `limitations` may not
 contain Unicode categories `Cc`, `Cf` or `Cs`, which can rewrite the display

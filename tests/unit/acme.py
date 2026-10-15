@@ -29,6 +29,7 @@ from obelize.packs.schema import (
     GenerativeModelCallsChange,
     GenerativeModelCallsParams,
     Layout,
+    Legacy,
     ManifestDependencyChange,
     ManifestDependencyParams,
     Match,
@@ -41,7 +42,6 @@ from obelize.packs.schema import (
     RewriteCallParams,
     SafetySettings,
     Target,
-    VersionRange,
 )
 from obelize.scan import analysis, manifests, parse, runner
 from obelize.transforms import base, codemod, registry
@@ -350,7 +350,7 @@ PACK = PackDocument(
         url="https://example.invalid/acme",
         retrieved_at="2026-09-20",
     ),
-    **{"from": VersionRange(package="acme-sdk", version="==0.1.0")},
+    **{"from": Legacy(package="acme-sdk", version="==0.1.0")},
     to=Target(package="acme-client", version=">=2", requires_python=">=3.9"),
     match=Match(imports=("acme.sdk",), prefilter_tokens=("acme",)),
     changes=(CHANGE, CLIENT, MODEL, MEASURE, LOOKUP, FLAGGED, GONE, PIN),
@@ -407,7 +407,7 @@ OLD_PACK = PackDocument(
     source=PackSource(
         type="official_guide", url="https://example.invalid/acme2", retrieved_at="2026-09-20"
     ),
-    **{"from": VersionRange(package="acme-old", version=">=2,<3")},
+    **{"from": Legacy(package="acme-old", version=">=2,<3")},
     to=Target(package="acme-new", version=">=3", requires_python=">=3.9"),
     match=Match(
         imports=("acme.old",),

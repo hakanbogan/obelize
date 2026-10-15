@@ -162,10 +162,7 @@ def scan(
     record = run_dir.compose(
         run_id=run_dir.new_id(started),
         scan=result,
-        packs=[
-            run_dir.Used(one.loaded, one.scan.blocked[0] if one.scan.blocked else None)
-            for one in chosen.packs
-        ],
+        packs=[run_dir.Used.of(one.loaded, one.scan) for one in chosen.packs],
         config=configuration.config,
         source=configuration.source,
         git=gitutil.state(root),
@@ -343,6 +340,7 @@ def fix(
             used or "no pack applies",
             evidence,
             outcome.blocked,
+            outcome.assumed,
             outcome.patch,
             os.environ,
             repo,

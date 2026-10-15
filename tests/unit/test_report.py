@@ -7,6 +7,7 @@ so the renderer never agrees with a value no pass produces.
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 from typing import cast
@@ -212,13 +213,89 @@ APPLY = (
             "migration reports its findings and plans no change. To migrate, declare old-sdk>=3 "
             "in a manifest obelize reads, such as requirements.txt, and run again." + APPLY,
         ),
+        (
+            runtime.Blocked(
+                "legacy_version_unsupported",
+                "old-sdk",
+                "requirements.txt",
+                "",
+                ">=3",
+                "poetry.lock",
+            ),
+            "requirements.txt declares old-sdk with no version, which this migration would take "
+            "as the newest release of old-sdk, but poetry.lock suggests another release is in use, "
+            "so it reports its findings and plans no change. To migrate, pin old-sdk to >=3 in "
+            "requirements.txt and run again." + APPLY,
+        ),
+        (
+            runtime.Blocked(
+                "legacy_version_unsupported", "old-sdk", "setup.py", ">=1", ">=3", "app/main.py"
+            ),
+            "setup.py declares old-sdk >=1, which this migration would take as the newest "
+            "release of old-sdk, but app/main.py suggests another release is in use, so it "
+            "reports its findings and plans no change. To migrate, pin old-sdk to >=3 in "
+            "setup.py and run again." + APPLY,
+        ),
     ],
-    ids=["python", "pinned-below", "unpinned", "unreadable", "undeclared"],
+    ids=[
+        "python",
+        "pinned-below",
+        "unpinned",
+        "unreadable",
+        "undeclared",
+        "newest-refuted-by-a-lock",
+        "newest-refuted-by-code",
+    ],
 )
 def test_a_blocked_run_names_the_declaration_and_what_would_unblock_it(
     blocked: runtime.Blocked, says: str
 ) -> None:
     assert report._blocked(blocked, report._bare) == says
+
+
+def test_the_path_that_refuted_the_newest_release_is_a_code_span_in_the_report() -> None:
+    blocked = runtime.Blocked(
+        "legacy_version_unsupported", "old-sdk", "requirements.txt", "", ">=3", "poetry.lock"
+    )
+    assert "but `poetry.lock` suggests another release is in use" in report._blocked(
+        blocked, report._code
+    )
+
+
+TOOK = (
+    "old-sdk is declared with no version that rules out 3.0.1, so this migration takes it as "
+    "3.0.1, its newest release. A repository that installs an older one needs that pinned in a "
+    "manifest obelize reads."
+)
+
+
+def test_a_release_taken_for_a_version_nobody_wrote_down_is_said_once_for_each_package() -> None:
+    assert report._assumed((("old-sdk", "3.0.1"),), report._bare) == [TOOK, ""]
+    assert report._assumed((), report._bare) == []
+    twice = report._assumed((("old-sdk", "3.0.1"), ("other", "1.2")), report._bare)
+    assert [line for line in twice if line] == [
+        TOOK,
+        TOOK.replace("old-sdk", "other").replace("3.0.1", "1.2"),
+    ]
+    assert report._assumed((("old-sdk", "3.0.1"),), report._code)[0].startswith(
+        "`old-sdk` is declared with no version that rules out `3.0.1`, so this migration takes it "
+        "as `3.0.1`, its newest release."
+    )
+
+
+def test_the_summary_and_the_report_say_what_was_taken_before_the_rows(quiet: Path) -> None:
+    scan = replace(_scan(quiet), assumed=(("old-sdk", "3.0.1"),))
+    lines = report.terminal(scan, "p", None)
+    assert lines[2:4] == [TOOK, ""]
+    document = report.document(_record(quiet, scan), scan)
+    assert "## Assumed\n\n`old-sdk` is declared with no version that rules out `3.0.1`" in document
+    assert document.index("## Assumed") < document.index("## Findings")
+
+
+def test_nothing_is_said_of_a_release_when_none_was_taken(quiet: Path) -> None:
+    scan = _scan(quiet)
+    assert not [line for line in report.terminal(scan, "p", None) if "its newest release" in line]
+    assert "## Assumed" not in report.document(_record(quiet, scan), scan)
 
 
 def test_the_report_puts_the_command_and_the_flag_of_a_blocked_run_in_code_spans() -> None:

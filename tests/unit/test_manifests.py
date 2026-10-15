@@ -849,3 +849,103 @@ def test_a_setup_py_requirement_built_around_the_literal_names_the_row_without_a
     found = [row for row in manifests.declarations("setup.py", data) if row.name == "acme-sdk"]
     assert found
     assert all((row.pin is not None) == pinned for row in found), requirement
+
+
+@pytest.mark.parametrize(
+    ("path", "text", "marked"),
+    [
+        ("requirements.txt", f"{LEGACY}>=1\n", False),
+        ("requirements.txt", f"{LEGACY}>=1 ; python_version < '3.12'\n", True),
+        ("requirements.txt", f"{LEGACY}; sys_platform == 'win32'\n", True),
+        ("pyproject.toml", f'[project]\ndependencies = ["{LEGACY}>=1"]\n', False),
+        (
+            "pyproject.toml",
+            f"[project]\ndependencies = [\"{LEGACY}>=1; python_version < '3.12'\"]\n",
+            True,
+        ),
+        ("Pipfile", f'[packages]\n{LEGACY} = "*"\n', False),
+        ("setup.cfg", f"[options]\ninstall_requires =\n    {LEGACY}; python_version < '3'\n", True),
+        (
+            "setup.py",
+            "from setuptools import setup\n"
+            f"setup(install_requires=['{LEGACY}; os_name == \"a\"'])\n",
+            True,
+        ),
+        (
+            "setup.py",
+            f"from setuptools import setup\nsetup(install_requires=['{LEGACY}>=1'])\n",
+            False,
+        ),
+    ],
+)
+def test_a_declaration_says_whether_an_environment_marker_follows_its_version(
+    path: str, text: str, marked: bool
+) -> None:
+    (found,) = manifests.declarations(path, text.encode())
+    assert found.marked is marked
+
+
+def test_a_declaration_is_unmarked_unless_one_is_said() -> None:
+    assert pin().marked is False
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "poetry.lock",
+        "Pipfile.lock",
+        "uv.lock",
+        "pdm.lock",
+        "pixi.lock",
+        "conda-lock.yml",
+        "pylock.toml",
+        "environment.yml",
+        "environment.yaml",
+        "pip.conf",
+        "uv.toml",
+        "services/api/poetry.lock",
+        "pylock.dev.toml",
+        "requirements.lock",
+        "requirements-dev.lock",
+        "constraints.txt",
+        "constraints/prod-constraints.txt",
+        "requirements.in",
+        "dev-requirements.in",
+        "dev-requirements.txt",
+        "test_requirements.txt",
+        "docs/pip-requirements.txt",
+    ],
+)
+def test_a_lock_or_constraints_file_nothing_reads_can_still_decide_the_release(path: str) -> None:
+    assert manifests.is_lock(path) is True
+    assert manifests.is_manifest(path) is False
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "requirements.txt",
+        "requirements-dev.txt",
+        "requirements/base.txt",
+        "pyproject.toml",
+        "Pipfile",
+        "setup.cfg",
+        "setup.py",
+        "yarn.lock",
+        "package-lock.json",
+        "Cargo.lock",
+        "pylock.toml.bak",
+        "README.md",
+        "docs/notes.txt",
+        "app.py",
+        "Poetry.lock",
+    ],
+)
+def test_a_manifest_this_reads_and_a_file_that_is_no_lock_of_python_is_not_one(path: str) -> None:
+    assert manifests.is_lock(path) is False
+
+
+def test_the_lock_set_is_what_the_module_lists() -> None:
+    assert {"poetry.lock", "uv.lock", "pip.conf"} <= manifests.LOCKS
+    assert all(manifests.is_lock(name) for name in manifests.LOCKS)
+    assert not any(manifests.is_manifest(name) for name in manifests.LOCKS)

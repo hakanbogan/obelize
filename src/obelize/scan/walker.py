@@ -87,6 +87,9 @@ class Walk:
     # Not taken by `include` but can hold Python (notebook, stub, .pyw): not analysed, but the
     # manifest pin check prefilters their bytes, since they need the pin as much as a module does.
     unincluded: tuple[str, ...] = ()
+    # Every listed name that can be named, selected or not, a dot-directory's and the user's
+    # `exclude` included: a pin anywhere in the repository installs. Names only, never opened here.
+    listed: tuple[str, ...] = ()
 
 
 def walk(root: Path, config: Config) -> Walk:
@@ -106,10 +109,12 @@ def walk(root: Path, config: Config) -> Walk:
     excluded: list[str] = []
     found: list[str] = []
     unincluded: list[str] = []
+    named: list[str] = []
     for name in listed:
         if not _usable(name):
             skipped.append(_skip(_printable(name), "unusable_name"))
             continue
+        named.append(name)
         decision = selection.decide(name)
         manifest = manifests.is_manifest(name) and selection.selects_manifest(name)
         python = not manifest and decision == "not_included" and name.endswith(PYTHON_BEARING)
@@ -136,6 +141,7 @@ def walk(root: Path, config: Config) -> Walk:
         manifests=tuple(sorted(found, key=os.fsencode)),
         skipped=tuple(sorted(skipped, key=lambda row: (os.fsencode(row.path), row.reason))),
         unincluded=tuple(sorted(unincluded, key=os.fsencode)),
+        listed=tuple(sorted(named, key=os.fsencode)),
     )
 
 

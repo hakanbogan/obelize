@@ -343,7 +343,7 @@ records. `bench/dryrun_score.py` tables the outcomes:
 
 | Outcome | Meaning |
 |---|---|
-| `blocked` | the pack stops before it plans, for the `blocked` reason (the legacy distribution declared nowhere, or with no lower bound or one under the pack's floor, for one) |
+| `blocked` | the pack stops before it plans, for the `blocked` reason (the legacy distribution declared nowhere, or with no lower bound or one under the pack's floor, for one; a pack that names its newest release takes an unpinned declaration as that release and stops only where the repository shows another) |
 | `none` | the pack runs and finds no usage; a mention in a comment and a manifest row are none |
 | `held` | usages found, no file written |
 | `partial` | a file written and a row withheld |

@@ -81,7 +81,9 @@ types` follows it, so an import sorter may move them. obelize does not format: r
 and sorter on the changed files after the run, then commit. Once you have formatted a file,
 `obelize undo` reverts only the files still as it wrote them and would put back the dependency line
 alone, and `obelize verify --run` reports `tree_changed`; use `git restore` instead. A lockfile
-(`uv.lock`, `poetry.lock`, `Pipfile.lock`) is not read or written; regenerate it after a run.
+(`uv.lock`, `poetry.lock`, `Pipfile.lock`) is not read or written; regenerate it after a run. The
+`PyPDF2` pack does notice one: a lockfile in the repository stops it from taking an unpinned
+requirement as 3.0.1, since the lock may pin another release ([the PyPDF2 pack](#the-pypdf2-pack)).
 
 ## Codemod editing quality
 
@@ -265,6 +267,9 @@ migrated nor reported, and the pin still moves when everything else does:
   reads but cannot honour blocks the repository instead: a hash-pinned line, `openai===0.28.1`,
   `openai==0.*`, an editable or VCS requirement and a local wheel are `legacy_version_unsupported`,
   and a Poetry or Pipfile inline table with only a version is `manifest_pin_shape_unsupported`.
+  The `PyPDF2` pack uses the same files differently: several of them stop an unpinned requirement
+  from being taken as 3.0.1, though a PyPDF2 pin that stays in one of them is still left alone
+  ([the PyPDF2 pack](#the-pypdf2-pack)).
 
 A notebook that still calls the old API while the pin is already `openai>=1.109.1` is not reported
 by an `openai` scan: the declaration has arrived, so it gets no row, and `REPORT.md` says no
@@ -292,6 +297,43 @@ rewriting; it takes generated code.
 The token `openai` is in every file that uses the new API too, so a repository already on the new
 release parses every such file: about a tenth of a second of CPU each, a few minutes for three
 thousand files, with the workers a fraction of that.
+
+## The PyPDF2 pack
+
+A `PyPDF2` requirement with no version, or with a range that reaches below 3 but admits 3.0.1
+(`PyPDF2>=2.10`), is taken as 3.0.1, the last release PyPI has, unless the repository shows another one
+([ADR-056](adr/ADR-056-newest-legacy-release.md)); the run says it did. That is a claim about an
+install nobody ran, and it is wrong where the evidence is not in the repository's files:
+
+- The environment the code runs in. A virtual environment outside the repository, a container image
+  built earlier or a CI cache can hold PyPDF2 1.26 or 2.x while the manifest says nothing.
+- Installer settings outside the repository: a `pip.conf` in the home directory, `PIP_*`
+  environment variables, an index mirror that lags.
+- A release another package requires. `pip` resolves the whole set, so a dependency that caps
+  PyPDF2 below 3 holds it back, and that cap is in no file obelize reads.
+- A directory that is not the top of a git repository. The fallback walk skips dot-directories, so
+  nothing is taken there and the run is blocked as it was.
+- A submodule's files, an ignored file other than a lock or constraints file beside the root or a
+  manifest that declares PyPDF2, and an ignored `.venv`, `venv` or `env` anywhere else.
+- A file over `max_file_bytes` (2,000,000 bytes by default) or one that cannot be read, which no
+  read of a scan goes past: a notebook with large embedded outputs can hold a `!pip install` the
+  search never sees.
+- A manifest the user's `exclude` removed. It is searched for a version like any listed file, but
+  its pip options and resolver settings are not judged.
+- Code that uses what 3.0.1 lacks, outside the files the scan parses (Python 2 files, notebooks,
+  stubs, excluded code), and modules that only PyPDF2 1 and 2 ship (`PyPDF2.pdf`, `PyPDF2.utils`):
+  they are not evidence, though their files still hold the legacy pin.
+- A Python declared only in a `Pipfile` or `setup.py`, which the Python gate does not read either.
+- Three holes the version gate already had: a requirement line it cannot read is ignored while
+  another declaration passes the floor, `==3.0.1+local` reads as the release, and a low `pypdf` pin
+  elsewhere in the repository is not looked at.
+
+The evidence is broad on purpose, so some repositories stop that would have migrated. A
+`known_third_party = ["PyPDF2"]` line in `pyproject.toml` names the distribution where no
+requirement was read. A `dev-requirements.txt`, a `requirements.in` and a constraints file are files
+no reader opens. A `PyPDF2==1.26.0` in a Dockerfile, a CI file or a comment of any file git lists
+counts. Pinning `PyPDF2>=3` in a manifest obelize reads ends the question, and the message says
+where.
 
 ## What actually gets migrated
 

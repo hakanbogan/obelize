@@ -242,6 +242,8 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         client_symbol=client_symbol,
         requires_python=pack.to.requires_python,
         legacy_floor=None if floor is None else str(floor),
+        legacy_newest=pack.from_.newest,
+        legacy_lacks=pack.from_.lacks,
         constructor_symbols=tuple(sorted(constructors)),
         supported_methods=tuple(
             ReceiverMethods(receiver=receiver, methods=methods[receiver])
@@ -292,7 +294,9 @@ def conflict(first: PackDocument, second: PackDocument) -> str | None:
 # Fields that name the pack or gate the run rather than describe the scan; `spec_digest` leaves
 # them out.
 _IDENTITY: Final[frozenset[str]] = frozenset({"pack_id", "pack_version", "pack_sha256"})
-_GATES: Final[frozenset[str]] = frozenset({"requires_python", "legacy_floor"})
+_GATES: Final[frozenset[str]] = frozenset(
+    {"requires_python", "legacy_floor", "legacy_newest", "legacy_lacks"}
+)
 
 # Read by the scanner but absent from the measured digest of the packs that predate it: left out
 # while unset, so adding the field moved no digest.

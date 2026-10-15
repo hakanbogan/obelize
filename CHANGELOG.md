@@ -12,8 +12,33 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Added
+
+- A pack may name the newest release of the distribution it migrates from (`from.newest`) and the
+  names that release no longer defines (`from.lacks`), and a declaration that names no version, or
+  a range that reaches below the floor but admits that release, is then taken as it
+  ([ADR-056](docs/adr/ADR-056-newest-legacy-release.md)). The `PyPDF2` pack names 3.0.1 and its
+  three removed classes. Nothing else in a pack changes: a pack that names no `newest` is gated
+  as before, and `to` takes neither field.
+- A run that took such a release says so: `packs[].assumed` in `run.json` holds it, and the
+  terminal and `REPORT.md` say that the distribution is declared with no version that rules the
+  release out and is taken as it.
+
 ### Changed
 
+- The legacy version gate no longer stops a `PyPDF2` repository for a requirement with no version,
+  or a range that reaches below 3 but admits 3.0.1 (`PyPDF2`, `PyPDF2>=2.10`), where the
+  repository shows no other release. On the 80-repository PyPDF2 frame that unblocks 19 of the 53
+  repositories the gate stopped: 15 plan completely, 3 partly and 1 only holds. It still stops, and names the file, where one does: code that uses `PdfFileReader`,
+  `PdfFileWriter` or `PdfFileMerger`; a lock, a constraints file, a `pip.conf` or another
+  installer setting; an index setting in `pyproject.toml` or `Pipfile`; a pip option that moves
+  the index; a manifest that names `PyPDF2` where no requirement was read or cannot be read; a
+  version of `PyPDF2` written anywhere git lists that rules 3.0.1 out (a Dockerfile, a CI file, a
+  `tox.ini`, a notebook); a virtual environment kept in the repository with another release. A
+  requirement with an environment marker or a pre-release is not taken, and nothing is taken in a
+  directory that is not the top of a git repository. The `openai` and Gemini packs are gated as
+  before. A repository the gate no longer stops can now have its rows asked of a model you
+  configured, so its source can reach that endpoint, which the stop had kept it from.
 - The message for a pack that plans nothing because of what a repository declares (the legacy
   version gate, or a Python the new distribution does not install on) now says what the edit
   leads to: in a git repository, commit it before `fix --apply`, which refuses uncommitted changes
@@ -28,6 +53,12 @@ in the release that makes it.
 - A `setup.py` requirement that code builds around its string (`"PyPDF2" + VERSION`,
   `"PyPDF2" ">=3"`, `"PyPDF2=={}".format(v)`, a subscript) is named without a pin, so `fix` no
   longer rewrites the literal into `"pypdf>=6.19" + VERSION`; the row needs review.
+
+### Packs
+
+- `py-pdf/pypdf2-to-pypdf` 0.3.0 names `from.newest` `3.0.1` and `from.lacks` `PdfFileMerger`,
+  `PdfFileReader` and `PdfFileWriter`, and its limitations say what is taken as 3.0.1, what stops
+  that, and what lives outside the repository and is not seen. The rules are unchanged.
 
 ## [0.4.0] - 2026-10-12
 

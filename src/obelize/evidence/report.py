@@ -141,6 +141,7 @@ def terminal(
                 "",
             ]
         )
+    lines.extend(_assumed(scan.assumed, _bare))
     for path, findings in _by_path(scan.findings):
         lines.append(f"  {path}")
         lines.extend(_rows(findings))
@@ -187,6 +188,7 @@ def fixed(
     pack: str,
     evidence: str,
     blocked: Sequence[Blocked],
+    assumed: Sequence[tuple[str, str]],
     patch: bytes,
     environ: Mapping[str, str],
     repo: str,
@@ -206,6 +208,7 @@ def fixed(
     lines = [f"obelize fix  {pack}", "", f"Mode {mode}", ""]
     for stopped in blocked:
         lines.extend([_blocked(stopped, _bare), ""])
+    lines.extend(_assumed(assumed, _bare))
     if not plan.files:
         lines.append("No change planned.")
     for row in plan.files:
@@ -557,6 +560,8 @@ def document(
         lines.extend(["## Blocked", ""])
         for blocked in scan.blocked:
             lines.extend([_blocked(blocked, _code), ""])
+    if scan.assumed:
+        lines.extend(["## Assumed", "", *_assumed(scan.assumed, _code)])
     if run is not None and plan is not None:
         lines.extend(_changes_section(record, plan))
         lines.extend(_edits_section(run))
@@ -890,11 +895,29 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
             f"run again."
         )
     declared = code(blocked.declared) if blocked.declared else "with no version"
+    if blocked.evidence:
+        return (
+            f"{path} declares {package} {declared}, which this migration would take as the newest "
+            f"release of {package}, but {code(blocked.evidence)} suggests another release is in "
+            f"use, so it reports its findings and plans no change. To migrate, pin {package} to "
+            f"{needed} in {path} and run again."
+        )
     return (
         f"{path} declares {package} {declared}, which allows versions this migration does not "
         f"cover, so this migration reports its findings and plans no change. To migrate, pin "
         f"{package} to {needed} in {path} and run again."
     )
+
+
+def _assumed(assumed: Sequence[tuple[str, str]], code: Callable[[str], str]) -> list[str]:
+    """What was taken for a version nobody wrote down, said where the plan is."""
+    lines = [
+        f"{code(package)} is declared with no version that rules out {code(release)}, so this "
+        f"migration takes it as {code(release)}, its newest release. A repository that installs "
+        f"an older one needs that pinned in a manifest obelize reads."
+        for package, release in assumed
+    ]
+    return [*lines, ""] if lines else []
 
 
 def _headline(counts: ScanCounts | RunCounts, names: tuple[tuple[str, str], ...]) -> str:

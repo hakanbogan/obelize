@@ -5,17 +5,21 @@ from __future__ import annotations
 import ast
 import json
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import acme
 import pytest
 from acme import SPEC
+from pdf_repo import MAIN, REMOVED, git_repo
+from pdf_repo import SPEC as PDF
 
 from obelize.config import ConfigError
 from obelize.impact import planner
 from obelize.models import Config, ImpactPlan
 from obelize.native import processes
+from obelize.packs import loader
 from obelize.scan import analysis, parse, reach, runner
 from platforms import AS_ROOT, deny, posix_only
 
@@ -522,3 +526,304 @@ def test_a_module_that_does_not_parse_is_not_a_reader(tmp_path: Path) -> None:
     """Python cannot import it either."""
     result = scanned(tree(tmp_path, {"llm.py": HOLDER, "app.py": "from llm import M\ndef (:\n"}))
     assert binding(result, "llm.py") == ("eligible", None)
+
+
+# The newest release stands in for a version nobody wrote down, and only where nothing says
+# otherwise (ADR-056): each tree below is a real git repository, since only a git listing names
+# every file, a dot-directory's and an ignored one's among them.
+
+NEWEST = (("PyPDF2", "3.0.1"),)
+HASHED = "pypdf2==1.26.0 \\\n    --hash=sha256:aaaa\n"
+STANDS_IN: dict[str, dict[str, str | bytes]] = {
+    "bare": {"requirements.txt": "PyPDF2\n"},
+    "open-range": {"requirements.txt": "PyPDF2>=2.10\n"},
+    "upper-bound-only": {"requirements.txt": "PyPDF2<4\n"},
+    "two-bounds": {"requirements.txt": "PyPDF2>=2,<4\n"},
+    "poetry": {"pyproject.toml": '[tool.poetry.dependencies]\nPyPDF2 = "*"\n'},
+    "pipfile": {"Pipfile": '[packages]\nPyPDF2 = "*"\n'},
+    "setup-py": {"setup.py": 'from setuptools import setup\nsetup(install_requires=["PyPDF2"])\n'},
+    "options-that-do-not-move-it": {
+        "requirements.txt": "-r requirements-b.txt\n--extra-index-url https://x/simple\nPyPDF2\n",
+        "requirements-b.txt": "six\n",
+    },
+}
+HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
+    "lock-file": ({"requirements.txt": "PyPDF2\n", "poetry.lock": "x\n"}, "", "poetry.lock"),
+    "ignored-lock-file": (
+        {"requirements.txt": "PyPDF2\n", "Pipfile.lock": "{}\n"},
+        "Pipfile.lock\n",
+        "Pipfile.lock",
+    ),
+    "constraints-file": (
+        {"requirements.txt": "-c constraints.txt\nPyPDF2\n", "constraints.txt": "PyPDF2<3\n"},
+        "",
+        "requirements.txt",
+    ),
+    "include-of-an-unread-file": (
+        {"requirements.txt": "-r base.txt\nPyPDF2\n", "base.txt": "PyPDF2<3\n"},
+        "",
+        "requirements.txt",
+    ),
+    "private-index": (
+        {"requirements.txt": "-i https://private.example/simple\nPyPDF2\n"},
+        "",
+        "requirements.txt",
+    ),
+    "hashed-lowercase-export": (
+        {"requirements.txt": "PyPDF2\n", "requirements-lock.txt": HASHED},
+        "",
+        "requirements-lock.txt",
+    ),
+    "editable-egg": (
+        {"requirements.txt": "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"},
+        "",
+        "requirements.txt",
+    ),
+    "wheel-url": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "requirements-extra.txt": "https://host/PyPDF2-1.26.0-py3-none-any.whl\n",
+        },
+        "",
+        "requirements-extra.txt",
+    ),
+    "poetry-table": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "pyproject.toml": '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n',
+        },
+        "",
+        "pyproject.toml",
+    ),
+    "exclude-newer": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "pyproject.toml": '[tool.uv]\nexclude-newer = "2022-01-01"\n',
+        },
+        "",
+        "pyproject.toml",
+    ),
+    "pipfile-private-source": (
+        {
+            "Pipfile": '[[source]]\nurl = "https://private.example/simple"\nname = "private"\n\n'
+            '[packages]\nPyPDF2 = "*"\n'
+        },
+        "",
+        "Pipfile",
+    ),
+    "utf-16-export": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "requirements-freeze.txt": "PyPDF2==1.26.0\n".encode("utf-16"),
+        },
+        "",
+        "requirements-freeze.txt",
+    ),
+    "dockerfile": (
+        {"requirements.txt": "PyPDF2\n", "Dockerfile": "RUN pip install PyPDF2==1.26.0\n"},
+        "",
+        "Dockerfile",
+    ),
+    "notebook": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "nb.ipynb": '{"cells": [{"source": ["!pip install PyPDF2==1.26.0"]}]}\n',
+        },
+        "",
+        "nb.ipynb",
+    ),
+    "ci-file": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            ".github/workflows/ci.yml": "- run: pip install 'PyPDF2<3'\n",
+        },
+        "",
+        ".github/workflows/ci.yml",
+    ),
+    "ignored-environment": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            ".venv/lib/python3.9/site-packages/PyPDF2-1.26.0.dist-info/METADATA": "x\n",
+        },
+        ".venv/\n",
+        ".venv/lib/python3.9/site-packages/PyPDF2-1.26.0.dist-info",
+    ),
+    "code-the-newest-release-cannot-run": (
+        {"requirements.txt": "PyPDF2\n", "main.py": REMOVED},
+        "",
+        "main.py",
+    ),
+}
+
+
+def gated(root: Path, spec: Any = PDF, config: Config | None = None) -> runner.Scan:
+    return runner.scan(root, config or Config(), spec, jobs=1)
+
+
+def repository(root: Path, files: Mapping[str, str | bytes], ignore: str = "") -> Path:
+    """The PyPDF2 code the gate is asked about, beside `files`, as a git repository."""
+    return git_repo(root, {"main.py": MAIN, **files}, ignore)
+
+
+@pytest.mark.parametrize("name", STANDS_IN)
+def test_a_declaration_that_names_no_version_that_rules_the_newest_out_is_taken_as_it(
+    tmp_path: Path, name: str
+) -> None:
+    scan = gated(repository(tmp_path, STANDS_IN[name]))
+    assert scan.blocked == ()
+    assert scan.assumed == NEWEST
+    assert scan.source == "git"
+
+
+@pytest.mark.parametrize("name", STANDS_IN)
+def test_the_same_repository_is_blocked_by_a_pack_that_names_no_newest_release(
+    tmp_path: Path, name: str
+) -> None:
+    """The field is the pack's claim: without it the gate is the one ADR-050 describes."""
+    scan = gated(
+        repository(tmp_path, STANDS_IN[name]), PDF.model_copy(update={"legacy_newest": None})
+    )
+    assert [(row.reason, row.evidence) for row in scan.blocked] == [
+        ("legacy_version_unsupported", "")
+    ]
+    assert scan.assumed == ()
+
+
+@pytest.mark.parametrize("name", HELD_BACK)
+def test_a_repository_that_shows_another_release_is_blocked_and_names_the_path(
+    tmp_path: Path, name: str
+) -> None:
+    files, ignore, evidence = HELD_BACK[name]
+    scan = gated(repository(tmp_path, files, ignore))
+    assert [(row.reason, row.package, row.evidence) for row in scan.blocked] == [
+        ("legacy_version_unsupported", "PyPDF2", evidence)
+    ]
+    assert scan.assumed == ()
+
+
+@pytest.mark.parametrize("name", HELD_BACK)
+def test_what_holds_the_newest_release_back_is_not_what_blocks_without_it(
+    tmp_path: Path, name: str
+) -> None:
+    """The same trees are stopped by the declaration alone, with no evidence named."""
+    files, ignore, _evidence = HELD_BACK[name]
+    spec = PDF.model_copy(update={"legacy_newest": None})
+    scan = gated(repository(tmp_path, files, ignore), spec)
+    assert [row.evidence for row in scan.blocked] == [""]
+
+
+def test_a_requirement_built_around_its_string_has_no_pin_so_it_is_not_taken(
+    tmp_path: Path,
+) -> None:
+    setup = 'from setuptools import setup\nV = ">=3"\nsetup(install_requires=["PyPDF2" + V])\n'
+    scan = gated(repository(tmp_path, {"requirements.txt": "PyPDF2\n", "setup.py": setup}))
+    assert [(row.path, row.evidence) for row in scan.blocked] == [("setup.py", "")]
+    assert scan.assumed == ()
+
+
+def test_a_manifest_the_scan_cannot_read_whole_is_evidence(tmp_path: Path) -> None:
+    files = {"requirements.txt": "PyPDF2\n", "requirements-big.txt": "six\n" * 100}
+    scan = gated(repository(tmp_path, files), config=Config(max_file_bytes=200))
+    assert [row.evidence for row in scan.blocked] == ["requirements-big.txt"]
+    assert scan.assumed == ()
+
+
+def test_a_pin_that_already_reaches_the_floor_takes_no_assumption(tmp_path: Path) -> None:
+    for index, pin in enumerate(["PyPDF2==3.0.1", "PyPDF2>=3", "PyPDF2~=3.0"]):
+        scan = gated(repository(tmp_path / str(index), {"requirements.txt": f"{pin}\n"}))
+        assert (scan.blocked, scan.assumed) == ((), ()), pin
+
+
+def test_a_second_declaration_below_the_floor_still_blocks_and_names_no_evidence(
+    tmp_path: Path,
+) -> None:
+    files = {"requirements.txt": "PyPDF2\n", "requirements-old.txt": "PyPDF2<3\n"}
+    scan = gated(repository(tmp_path, files))
+    assert [(row.path, row.declared, row.evidence) for row in scan.blocked] == [
+        ("requirements-old.txt", "<3", "")
+    ]
+    assert scan.assumed == ()
+
+
+def test_a_marker_or_a_pre_release_is_never_taken_as_the_newest_release(tmp_path: Path) -> None:
+    for index, line in enumerate(['PyPDF2; python_version < "3.12"', "PyPDF2>=3.0.0rc1"]):
+        scan = gated(repository(tmp_path / str(index), {"requirements.txt": f"{line}\n"}))
+        assert [row.reason for row in scan.blocked] == ["legacy_version_unsupported"], line
+        assert (scan.blocked[0].evidence, scan.assumed) == ("", ()), line
+
+
+def test_a_pin_that_pip_may_not_use_is_never_taken(tmp_path: Path) -> None:
+    for index, line in enumerate(["PyPDF2[crypto]", "PyPDF2 @ https://host/PyPDF2.whl"]):
+        scan = gated(repository(tmp_path / str(index), {"requirements.txt": f"{line}\n"}))
+        assert [row.reason for row in scan.blocked] == ["legacy_version_unsupported"], line
+        assert (scan.blocked[0].evidence, scan.assumed) == ("", ()), line
+
+
+def test_a_directory_that_is_not_a_repository_is_never_assumed(tmp_path: Path) -> None:
+    """Without a git listing a pin in a dot-directory could not be seen."""
+    root = git_repo(tmp_path, {"main.py": MAIN, "requirements.txt": "PyPDF2\n"}, init=False)
+    scan = gated(root)
+    assert scan.source == "walk"
+    assert [(row.reason, row.path, row.evidence) for row in scan.blocked] == [
+        ("legacy_version_unsupported", "requirements.txt", "")
+    ]
+    assert scan.assumed == ()
+
+
+def test_a_library_nothing_uses_is_not_blocked_and_nothing_is_assumed(tmp_path: Path) -> None:
+    scan = gated(repository(tmp_path, {"main.py": "import os\n", "requirements.txt": "PyPDF2\n"}))
+    assert (scan.blocked, scan.assumed) == ((), ())
+
+
+def test_a_library_declared_nowhere_is_still_blocked_with_nothing_assumed(tmp_path: Path) -> None:
+    scan = gated(repository(tmp_path, {}))
+    assert [(row.path, row.declared, row.evidence) for row in scan.blocked] == [("", None, "")]
+    assert scan.assumed == ()
+
+
+def test_a_python_the_new_distribution_does_not_install_on_is_the_block_not_the_newest_release(
+    tmp_path: Path,
+) -> None:
+    files = {
+        "requirements.txt": "PyPDF2\n",
+        "pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.7"\n',
+    }
+    scan = gated(repository(tmp_path, files))
+    assert [(row.reason, row.evidence) for row in scan.blocked] == [("runtime_unsupported", "")]
+    assert scan.assumed == ()
+
+
+def test_only_the_pack_that_names_a_newest_release_takes_one() -> None:
+    named = {
+        identifier: (spec.legacy_newest, spec.legacy_lacks)
+        for identifier in loader.bundled_ids()
+        for spec in [loader.to_scan_spec(loader.load(identifier))]
+    }
+    assert named == {
+        "gemini/google-generativeai-to-google-genai": (None, ()),
+        "openai/openai-0-to-1": (None, ()),
+        "py-pdf/pypdf2-to-pypdf": (
+            "3.0.1",
+            ("PyPDF2.PdfFileMerger", "PyPDF2.PdfFileReader", "PyPDF2.PdfFileWriter"),
+        ),
+    }
+
+
+def test_a_library_with_no_newest_release_is_blocked_as_before(tmp_path: Path) -> None:
+    """openai's newest release (3.x) is outside the range its pack migrates from."""
+    spec = loader.to_scan_spec(loader.load("openai/openai-0-to-1"))
+    code = "import openai\n\nopenai.api_key = 'k'\nopenai.ChatCompletion.create(model='m')\n"
+    root = git_repo(tmp_path, {"app.py": code, "requirements.txt": "openai\n"})
+    scan = gated(root, spec)
+    assert [(row.reason, row.package, row.evidence) for row in scan.blocked] == [
+        ("legacy_version_unsupported", "openai", "")
+    ]
+    assert scan.assumed == ()
+
+
+def test_scans_of_several_packs_keep_what_each_assumed(tmp_path: Path) -> None:
+    """`merged` unions the pairs, and a pack that assumed nothing adds none."""
+    root = repository(tmp_path, {"requirements.txt": "PyPDF2\n"})
+    first, second = gated(root), gated(root, acme.OLD_SPEC)
+    assert runner.merged([first, second], runner.read(root, Config(), (PDF,))).assumed == NEWEST
+    assert runner.merged([first, first], runner.read(root, Config(), (PDF,))).assumed == NEWEST

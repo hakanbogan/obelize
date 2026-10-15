@@ -155,6 +155,20 @@ def _pep440_specifier(value: str) -> str:
     return value
 
 
+def _release(value: str) -> str:
+    """A final release spelled as PEP 440 normalises it, so it compares as text and as a version."""
+    try:
+        parsed = Version(value)
+    except InvalidVersion as error:
+        raise ValueError(f"expected a PEP 440 release such as '3.0.1', got {value!r}") from error
+    if parsed.is_prerelease or parsed.local is not None or str(parsed) != value:
+        raise ValueError(
+            f"expected a final release in the form PEP 440 normalises to, such as '3.0.1', "
+            f"got {value!r}"
+        )
+    return value
+
+
 def _fixture_path(value: str) -> str:
     """Shape only: only bundled packs' tests check existence, so a local pack still loads."""
     if not value.startswith("fixtures/"):
@@ -192,6 +206,7 @@ TrailingCharacter = Annotated[str, AfterValidator(_trailing_character)]
 SafetyKey = Annotated[str, AfterValidator(_lower_key)]
 SourceUrl = Annotated[str, AfterValidator(_source_url)]
 Pep440Specifier = Annotated[str, AfterValidator(_pep440_specifier)]
+Release = Annotated[str, AfterValidator(_release)]
 FixturePath = Annotated[RelativePath, AfterValidator(_fixture_path)]
 DottedCall = Annotated[str, AfterValidator(_dotted_call)]
 CallPath = Annotated[str, AfterValidator(_call_path)]
@@ -261,6 +276,38 @@ class VersionRange(_Closed):
 
     package: DistributionName
     version: Pep440Specifier
+
+
+class Legacy(VersionRange):
+    """The old side, which may also name the newest release of its distribution.
+
+    `newest` is what an unversioned declaration installs, so it stands for a version nothing in the
+    repository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names
+    what that release no longer defines, which the code may still use.
+    """
+
+    newest: Release | None = None
+    lacks: tuple[QualifiedName, ...] = ()
+
+    @model_validator(mode="after")
+    def _check(self) -> Legacy:
+        _sorted_set(self.lacks, "lacks")
+        if self.newest is None:
+            if self.lacks:
+                raise ValueError("lacks is what the newest release does not define: set newest")
+            return self
+        admitted = SpecifierSet(self.version)
+        if bounds(admitted)[0] is None:
+            raise ValueError(
+                f"newest stands for a declaration that names no version, so from.version "
+                f"{self.version!r} must have a floor: without one nothing is out of range"
+            )
+        if not admitted.contains(self.newest):
+            raise ValueError(
+                f"newest {self.newest!r} is outside from.version {self.version!r}, so a "
+                f"declaration that installs it would still be out of range"
+            )
+        return self
 
 
 class Target(VersionRange):
@@ -1046,7 +1093,7 @@ class PackDocument(_Closed):
     provider: Slug
     language: Literal["python"]
     source: PackSource
-    from_: VersionRange = Field(alias="from")
+    from_: Legacy = Field(alias="from")
     to: Target
     match: Match
     changes: tuple[Change, ...]
@@ -1074,6 +1121,7 @@ class PackDocument(_Closed):
         self._check_a_setting_is_not_renamed_onto_a_legacy_name()
         self._check_manifest_matches_the_migration()
         self._check_version_ranges()
+        self._check_what_the_newest_release_lacks_is_flagged()
         return self
 
     def to_modules(self) -> tuple[str, ...]:
@@ -1233,6 +1281,21 @@ class PackDocument(_Closed):
                         f"migrates {self.from_.package!r} to {self.to.package!r}. A manifest "
                         f"rule that pins a third distribution is not this migration"
                     )
+
+    def _check_what_the_newest_release_lacks_is_flagged(self) -> None:
+        """The check reads `lacks` off the scan's findings, so each name must be one it reports."""
+        flagged = {
+            symbol
+            for change in self.changes
+            if isinstance(change, FlagOnlyChange)
+            for symbol in change.params.symbols
+        }
+        for name in self.from_.lacks:
+            if name not in flagged:
+                raise ValueError(
+                    f"from.lacks names {name!r}, which no flag_only change lists in symbols, so "
+                    f"the scan never reports it and the check could not see it"
+                )
 
     def _check_version_ranges(self) -> None:
         """Overlap and direction, only within one distribution (a rename may keep the version).

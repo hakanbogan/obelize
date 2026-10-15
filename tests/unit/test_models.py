@@ -644,6 +644,10 @@ def test_the_scan_spec_answers_what_a_receiver_supports() -> None:
         ({"client_symbol": "genai.configure()"}, "qualified name"),
         ({"pack_sha256": "abc"}, "sha256"),
         ({"flag_only_patterns": ("regex",)}, "flag_only_patterns"),
+        ({"legacy_newest": "latest"}, "Invalid version"),
+        ({"legacy_lacks": ("b.Old", "a.Old")}, "sorted and de-duplicated"),
+        ({"legacy_lacks": ("a.Old", "a.Old")}, "sorted and de-duplicated"),
+        ({"legacy_lacks": ("not a name",)}, "qualified names"),
     ],
 )
 def test_the_scan_spec_refuses_a_projection_that_cannot_be_scanned(
@@ -652,6 +656,13 @@ def test_the_scan_spec_refuses_a_projection_that_cannot_be_scanned(
     """Prefilter tokens match raw bytes, hence non-empty ASCII."""
     with pytest.raises(ValidationError, match=message):
         spec(**overrides)
+
+
+def test_the_scan_spec_carries_the_newest_legacy_release_and_what_it_lacks_or_neither() -> None:
+    plain = spec()
+    assert (plain.legacy_newest, plain.legacy_lacks) == (None, ())
+    named = spec(legacy_floor="0.9", legacy_newest="0.9.4", legacy_lacks=("a.Old", "b.Old"))
+    assert (named.legacy_newest, named.legacy_lacks) == ("0.9.4", ("a.Old", "b.Old"))
 
 
 def test_two_entries_for_one_receiver_is_a_projection_bug() -> None:

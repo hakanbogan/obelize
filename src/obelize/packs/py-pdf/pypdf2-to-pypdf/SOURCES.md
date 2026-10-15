@@ -20,6 +20,20 @@ The hash is of the page body as served. obelize never requests the URL.
 two projects are one; it does not say which names moved, so the pack follows the
 measurement.
 
+## The newest release
+
+`from.newest` is `3.0.1`, and `from.lacks` is the three names `flag-removed-names` reports.
+
+| Source | URL | Checked | What it shows |
+|---|---|---|---|
+| The release list of PyPDF2 on PyPI | <https://pypi.org/pypi/PyPDF2/json> | 2026-10-15 | 3.0.1, uploaded 2022-12-31, is the last release; 3.0.0 and 3.0.1 are the only two in `>=3,<4`. |
+
+Measured (see `flag-removed-names`): `PdfFileMerger`, `PdfFileReader` and `PdfFileWriter` each raise
+`DeprecationError` when constructed on PyPDF2 3.0.1, which is what makes code that names one
+evidence of an older release.
+`tests/packs/test_pypdf_facts.py` holds `from.newest` equal to the installed PyPDF2 and `from.lacks`
+equal to the names `flag-removed-names` lists. obelize never requests the URL.
+
 ---
 
 ## rename-import

@@ -780,10 +780,17 @@ def _platform() -> RunPlatform:
 
 @dataclass(frozen=True, slots=True)
 class Used:
-    """A pack a run used, and the declaration that stopped it, if the repository did."""
+    """A pack a run used, the declaration that stopped it if the repository did, and the release
+    it took for a declaration that names none."""
 
     loaded: LoadedPack
     blocked: Blocked | None = None
+    assumed: str | None = None
+
+    @classmethod
+    def of(cls, loaded: LoadedPack, scan: Scan) -> Used:
+        released = scan.assumed[0][1] if scan.assumed else None
+        return cls(loaded, scan.blocked[0] if scan.blocked else None, released)
 
 
 def refs(packs: Sequence[LoadedPack]) -> tuple[PackRef, ...]:
@@ -802,6 +809,7 @@ def _packs(packs: Sequence[Used]) -> tuple[RunPack, ...]:
             sha256=used.loaded.sha256,
             source="bundled" if used.loaded.bundled else "file",
             blocked=None if used.blocked is None else used.blocked.reason,
+            assumed=used.assumed,
         )
         for used in sorted(packs, key=lambda used: used.loaded.pack.id)
     )

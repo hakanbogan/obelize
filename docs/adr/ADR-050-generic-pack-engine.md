@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted; amended by [ADR-053](ADR-053-shared-module-migrations.md).
+Accepted; amended by [ADR-053](ADR-053-shared-module-migrations.md) and
+[ADR-056](ADR-056-newest-legacy-release.md).
 
 ## Decision
 
@@ -54,6 +55,10 @@ that floor or above, and a repository that uses the library must declare it at a
 is blocked (`legacy_version_unsupported`): the pack's rules were measured above the floor. Neither
 `requires_python` nor the floor changes a finding, so `spec_digest` leaves both out and a Gate 1
 measurement stays bound to the spec it was taken on.
+
+A pack that names the newest release of the legacy distribution (`from.newest`, ADR-056) lets a
+declaration through that fails the floor but installs that release, a requirement with no version
+for one, unless the repository shows another release. A pack that names none is gated as above.
 
 ## Consequences
 

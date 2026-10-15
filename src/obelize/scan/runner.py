@@ -30,7 +30,7 @@ from obelize.models import (
     ScanSpec,
 )
 from obelize.native import processes
-from obelize.scan import analysis, manifests, parse, reach, runtime, walker
+from obelize.scan import analysis, installed, manifests, parse, reach, runtime, walker
 
 # Candidates (prefilter survivors, not selected files) before the default starts processes: the
 # first size where the pool won with a core to spare. A typed `--jobs` ignores it.
@@ -96,6 +96,9 @@ class Scan:
     # No plan carries either, so the manifest pin check is asked again after a run.
     unanalysed: tuple[str, ...] = ()
     transitive: tuple[tuple[str, str], ...] = ()
+    # (distribution, release) taken where nothing in the repository says which release is in use:
+    # the pack's newest, for a declaration that names no version that rules it out.
+    assumed: tuple[tuple[str, str], ...] = ()
 
     @property
     def receivers(self) -> tuple[tuple[str, analysis.Receiver], ...]:
@@ -152,6 +155,7 @@ def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
         workers=max(scan.workers for scan in scans),
         unanalysed=tuple(sorted({row for scan in scans for row in scan.unanalysed})),
         transitive=tuple(sorted({row for scan in scans for row in scan.transitive})),
+        assumed=tuple(sorted({row for scan in scans for row in scan.assumed})),
     )
 
 
@@ -334,19 +338,33 @@ def scan(
     limitations.extend(unreadable)
     limitations.extend(floor.limitations)
     used = any(row.kind != "manifest" and row.scan_status != "not_a_usage" for row in findings)
+    # The newest release is taken only where git names every file: elsewhere a pin could be in a
+    # file the walk never lists (it skips a dot-directory).
+    newest = (
+        spec.legacy_newest
+        if used and selection.source == "git" and runtime.inferred(declared, spec)
+        else None
+    )
+    blocked = floor.blocked or runtime.legacy(declared, spec, used, newest)
+    assumed: tuple[tuple[str, str], ...] = ()
+    if newest and blocked is None:
+        because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
+        blocked = runtime.legacy(declared, spec, used, newest, because) if because else None
+        assumed = () if because else ((spec.legacy_distribution, newest),)
     return Scan(
         source=selection.source,
         results=files,
         findings=findings,
         bindings=tuple(row for result in files for row in result.plan.bindings),
         manifests=declarations,
-        blocked=tuple(filter(None, (floor.blocked or runtime.legacy(declared, spec, used),))),
+        blocked=() if blocked is None else (blocked,),
         skipped=selection.skipped,
         limitations=_limitations(limitations),
         counts=_counts(len(selection.files), files, findings),
         workers=workers,
         unanalysed=unanalysed,
         transitive=migration.transitive,
+        assumed=assumed,
     )
 
 

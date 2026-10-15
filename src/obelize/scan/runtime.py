@@ -53,6 +53,8 @@ class Blocked:
     declared: str | None
     # The set a declaration has to stay inside, as a PEP 440 specifier.
     needed: str
+    # The path that stops the newest release being taken for an unpinned legacy declaration.
+    evidence: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,11 +104,19 @@ def detect(paths: tuple[str, ...], contents: parse.Contents, spec: ScanSpec) -> 
     return Floor(declared=settled, blocked=blocked, limitations=tuple(unparsed))
 
 
-def legacy(found: Sequence[Declaration], spec: ScanSpec, used: bool) -> Blocked | None:
+def legacy(
+    found: Sequence[Declaration],
+    spec: ScanSpec,
+    used: bool,
+    newest: str | None = None,
+    contrary: str = "",
+) -> Blocked | None:
     """The first legacy declaration that pins no version at or above the pack's floor.
 
     `used` is whether any source row is an edit candidate: a repository that never imports the
-    legacy module is not blocked, by a pin below the floor or by one it does not declare.
+    legacy module is not blocked, by a pin below the floor or by one it does not declare. With
+    `newest`, a declaration that installs it passes too (`installs`), unless `contrary` names the
+    path that says another release is in use, which is then the block's evidence.
     """
     if spec.legacy_floor is None or not used:
         return None
@@ -119,17 +129,47 @@ def legacy(found: Sequence[Declaration], spec: ScanSpec, used: bool) -> Blocked 
     )
     for row in rows:
         admitted = lowest(row.spec)
-        if admitted is None or admitted < floor:
+        if (admitted is None or admitted < floor) and not (
+            newest and not contrary and installs(row, newest)
+        ):
             return Blocked(
                 "legacy_version_unsupported",
                 spec.legacy_distribution,
                 row.path,
                 _shown(row.spec),
                 needed,
+                contrary,
             )
     if not rows:
         return Blocked("legacy_version_unsupported", spec.legacy_distribution, "", None, needed)
     return None
+
+
+def installs(row: Declaration, newest: str) -> bool:
+    """Whether a plain requirement installs `newest`: its pin span is the whole requirement, no
+    marker may switch it off, and no pre-release is allowed to be picked instead."""
+    if row.pin is None or row.marked or row.spec is None:
+        return False
+    found = alternatives(row.spec)
+    return (
+        found is not None
+        and not any(part.prereleases for part in found)
+        and any(part.contains(newest) for part in found)
+    )
+
+
+def inferred(found: Sequence[Declaration], spec: ScanSpec) -> bool:
+    """Whether a legacy declaration passes `legacy` only because it installs the newest release."""
+    if spec.legacy_floor is None or spec.legacy_newest is None:
+        return False
+    floor = Version(spec.legacy_floor)
+    name = canonicalize_name(spec.legacy_distribution)
+    return any(
+        row.name == name
+        and ((admitted := lowest(row.spec)) is None or admitted < floor)
+        and installs(row, spec.legacy_newest)
+        for row in found
+    )
 
 
 def _shown(declared: str | None) -> str | None:
@@ -223,5 +263,7 @@ __all__ = [
     "alternatives",
     "declaration",
     "detect",
+    "inferred",
+    "installs",
     "legacy",
 ]

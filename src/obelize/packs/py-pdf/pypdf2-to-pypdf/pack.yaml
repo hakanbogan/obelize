@@ -1,7 +1,7 @@
 # Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
 # Measured on PyPDF2 3.0.1 and pypdf 6.19.0 (SOURCES.md).
 id: py-pdf/pypdf2-to-pypdf
-pack_version: 0.2.0
+pack_version: 0.3.0
 provider: py-pdf
 language: python
 
@@ -16,6 +16,14 @@ source:
 from:
   package: PyPDF2
   version: ">=3,<4"
+  # PyPI's last PyPDF2 release (2022-12-31), the one the rules were measured on: what a requirement
+  # that names no version installs. The weekly e2e run fails if the index lists a newer one.
+  newest: "3.0.1"
+  # What 3.0.1 no longer defines (flag-removed-names): code that uses one ran on an older release.
+  lacks:
+    - PyPDF2.PdfFileMerger
+    - PyPDF2.PdfFileReader
+    - PyPDF2.PdfFileWriter
 to:
   package: pypdf
   version: ">=6.19"
@@ -199,7 +207,10 @@ limitations:
   - "The names compared are those of the two projects, not their behaviour: pypdf 3 to 6 fixed parsing bugs and tightened limits, so a damaged file that PyPDF2 3.0.1 read one way may be read differently, or refused."
   - "PdfFileReader, PdfFileWriter and PdfFileMerger have raised DeprecationError since PyPDF2 3.0.0, and PdfMerger, generic.AnnotationBuilder and generic.Bookmark no longer exist in pypdf 6, so all of them are reported and never rewritten."
   - "A repository whose pyproject.toml or setup.cfg declares a Python below 3.9 is blocked, since pypdf 6 does not install there and pip would resolve an older release with the advisories this pack avoids. A Python declared only in setup.py or a Pipfile is not read."
-  - "A repository that does not declare PyPDF2 at 3 or above is blocked, and so is one that uses it and declares it nowhere obelize reads: PyPDF2 1 and 2 have a camelCase API, and the rules were measured on 3.0.1."
+  - "A repository that declares PyPDF2 below 3 is blocked, and so is one that uses it and declares it nowhere obelize reads: PyPDF2 1 and 2 have a camelCase API, and the rules were measured on 3.0.1."
+  - "A declaration that names no version, or a range below 3 that admits 3.0.1 (PyPDF2, PyPDF2>=2.10), is taken as 3.0.1, the newest release on PyPI, which is what a fresh install resolves to; the run says so. A requirement with an environment marker or a pre-release is not taken, and nothing is taken in a directory that is not the top of a git repository."
+  - "That is not taken where the repository shows another release, and the run is blocked: code that uses PdfFileReader, PdfFileWriter or PdfFileMerger, a lock or constraints file, an installer or index setting, a version written elsewhere (a Dockerfile, a CI file, a tox.ini), a virtual environment kept in the repository."
+  - "What lives outside the repository is not seen: the environment the code runs in, a pip.conf in the home directory, a release another package requires. A repository that installs an older PyPDF2 than its manifest says needs the version pinned in a manifest obelize reads."
   - "A requirement with extras, PyPDF2[crypto] for one, is not rewritten, so the code moves to pypdf while the manifest keeps PyPDF2: edit that line by hand."
   - "A name no rule maps withholds its file: that is every submodule name other than the classes of errors and generic, whatever it is, and all of constants, filters, xmp, pagerange and papersizes."
   - "Dynamic access, star imports and mock patch targets are reported, never rewritten."

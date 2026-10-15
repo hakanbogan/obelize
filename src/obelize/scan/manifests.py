@@ -65,6 +65,31 @@ NAMES: Final[dict[str, Layout]] = {
 
 REQUIREMENTS_GLOB: Final = "requirements*.txt"
 
+# Files nothing here reads that can still decide which release a requirement installs: a lock, a
+# constraints file, the installer's own settings. Python-free `*.lock` files are not among them.
+LOCKS: Final[frozenset[str]] = frozenset(
+    {
+        "Pipfile.lock",
+        "conda-lock.yml",
+        "environment.yaml",
+        "environment.yml",
+        "pdm.lock",
+        "pip.conf",
+        "pixi.lock",
+        "poetry.lock",
+        "pylock.toml",
+        "uv.lock",
+        "uv.toml",
+    }
+)
+LOCK_GLOBS: Final = (
+    "pylock.*.toml",
+    "requirements*.lock",
+    "*constraints*.txt",
+    "*requirements*.in",
+    "*requirements*.txt",
+)
+
 # `requirements/*.txt`, which the glob misses; a pin missed there reads as nothing to do.
 REQUIREMENTS_DIRECTORY: Final = "requirements"
 
@@ -106,6 +131,8 @@ class Declaration:
     end: int
     pin: tuple[int, int] | None
     spec: str | None
+    # An environment marker follows the version: the pin may not apply on every system.
+    marked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +174,14 @@ def layout(path: str) -> Layout | None:
 
 def is_manifest(path: str) -> bool:
     return layout(path) is not None
+
+
+def is_lock(path: str) -> bool:
+    """Whether `path` can pin or constrain a release without being a manifest this reads."""
+    name = PurePosixPath(path).name
+    return name in LOCKS or (
+        layout(path) is None and any(fnmatch.fnmatchcase(name, glob) for glob in LOCK_GLOBS)
+    )
 
 
 def read(path: str, contents: parse.Contents) -> Reading:
@@ -469,6 +504,7 @@ def _declare(path: str, line: int, column: int, text: str) -> Declaration | None
         end=end,
         pin=(end, end + len(version)) if plain else None,
         spec=str(parsed.specifier) if parsed.url is None else None,
+        marked=marker >= 0,
     )
 
 
@@ -479,7 +515,7 @@ def _span(text: str) -> tuple[str, int]:
     return body[column:], column
 
 
-def _uncommented(text: str) -> str:
+def uncommented(text: str) -> str:
     """Everything before a `#` outside quotes; ignored escapes misread only a TOML quoted quote."""
     quote = ""
     for index, character in enumerate(text):
@@ -511,7 +547,7 @@ def _quoted(body: str, start: int) -> Iterator[tuple[int, str]]:
 def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
     """One PEP 508 requirement per line; `pip` options start with `-`, so PEP 508 rejects them."""
     for number, line in enumerate(lines, 1):
-        body, column = _span(_uncommented(line))
+        body, column = _span(uncommented(line))
         if not body:
             continue
         declaration = _declare(path, number, column, body)
@@ -578,7 +614,7 @@ def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
     table: tuple[str, ...] = ()
     depth = 0
     for number, line in enumerate(lines, 1):
-        body = _uncommented(line)
+        body = uncommented(line)
         if depth > 0:
             yield from _array(path, number, body, 0)
             depth += body.count("[") - body.count("]")
@@ -748,6 +784,8 @@ __all__ = [
     "BAILS",
     "IMPORTING",
     "KIND",
+    "LOCKS",
+    "LOCK_GLOBS",
     "NAMES",
     "REASON",
     "REQUIREMENTS_DIRECTORY",
@@ -759,6 +797,7 @@ __all__ = [
     "Migration",
     "Reading",
     "declarations",
+    "is_lock",
     "is_manifest",
     "layout",
     "plan",
@@ -766,4 +805,5 @@ __all__ = [
     "provided",
     "read",
     "survey",
+    "uncommented",
 ]

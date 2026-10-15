@@ -380,3 +380,108 @@ def test_a_pack_directory_that_is_not_an_absolute_existing_one_is_a_usage_error(
     result = run(tree, "scan")
     assert result.exit_code == 2
     assert "absolute path" in result.output
+
+
+UNVERSIONED = "google-generativeai==0.8.6\nPyPDF2\nrequests>=2.31\n"
+TAKEN = "PyPDF2 is declared with no version that rules out 3.0.1, so this migration takes it as"
+
+
+def test_an_unversioned_pypdf2_is_taken_as_its_newest_release_beside_a_pack_that_needs_none(
+    tmp_path: Path,
+) -> None:
+    tree = repository(
+        tmp_path / "repo", {"chat.py": CHAT, "pdfs.py": PDFS, "requirements.txt": UNVERSIONED}
+    )
+    result = run(tree, "fix", "--apply", "--allow-dirty", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 0, result.output
+    assert f"{TAKEN} 3.0.1, its newest release." in result.output
+    assert result.output.count(TAKEN) == 1
+    record = document(tree, "run.json")
+    assert {pack["id"]: (pack["blocked"], pack["assumed"]) for pack in record["packs"]} == {
+        GEMINI: (None, None),
+        PYPDF: (None, "3.0.1"),
+    }
+    assert sources(tree)["requirements.txt"] == "google-genai>=1.55\npypdf>=6.19\nrequests>=2.31\n"
+    report = (latest(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert "## Assumed\n\n`PyPDF2` is declared with no version that rules out `3.0.1`" in report
+
+
+def test_a_lock_file_closes_only_the_pack_that_took_the_newest_release(tmp_path: Path) -> None:
+    tree = repository(
+        tmp_path / "repo",
+        {
+            "chat.py": CHAT,
+            "pdfs.py": PDFS,
+            "requirements.txt": UNVERSIONED,
+            "poetry.lock": "# generated\n",
+        },
+    )
+    result = run(tree, "fix", "--apply", "--allow-dirty", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 4, result.output
+    assert TAKEN not in result.output
+    assert "but poetry.lock suggests another release is in use" in result.output
+    record = document(tree, "run.json")
+    assert {pack["id"]: (pack["blocked"], pack["assumed"]) for pack in record["packs"]} == {
+        GEMINI: (None, None),
+        PYPDF: ("legacy_version_unsupported", None),
+    }
+    assert "from google import genai" in sources(tree)["chat.py"]
+    assert sources(tree)["pdfs.py"] == PDFS
+    report = (latest(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert "## Blocked" in report
+    assert "but `poetry.lock` suggests another release is in use" in report
+    assert "## Assumed" not in report
+
+
+def test_a_scan_says_what_it_took_where_the_plan_would_have_said_it(tmp_path: Path) -> None:
+    tree = repository(tmp_path / "repo", {"pdfs.py": PDFS, "requirements.txt": "PyPDF2\n"})
+    result = run(tree, "scan", "--pack", PYPDF)
+    assert result.exit_code == 0, result.output
+    assert f"{TAKEN} 3.0.1, its newest release." in result.output
+    assert document(tree, "run.json")["packs"][0]["assumed"] == "3.0.1"
+
+
+@pytest.mark.parametrize("pinned", ["PyPDF2>=3\n", "PyPDF2==3.0.1\n"], ids=["floor", "exact"])
+def test_a_pin_inside_the_range_is_not_an_assumption(tmp_path: Path, pinned: str) -> None:
+    tree = repository(tmp_path / "repo", {"pdfs.py": PDFS, "requirements.txt": pinned})
+    result = run(tree, "scan", "--pack", PYPDF)
+    assert result.exit_code == 0, result.output
+    assert TAKEN not in result.output
+    assert document(tree, "run.json")["packs"][0]["assumed"] is None
+
+
+def test_a_repository_that_is_not_the_top_of_a_git_repository_takes_nothing(
+    tmp_path: Path,
+) -> None:
+    """Outside a git listing the walk skips dot-directories, so a pin there could be unseen."""
+    tree = tmp_path / "plain"
+    tree.mkdir()
+    (tree / "pdfs.py").write_text(PDFS, encoding="utf-8")
+    (tree / "requirements.txt").write_text("PyPDF2\n", encoding="utf-8")
+    result = run(tree, "scan", "--pack", PYPDF)
+    assert TAKEN not in result.output
+    assert "declares PyPDF2 with no version, which allows versions this migration does not" in (
+        result.output
+    )
+    record = document(tree, "run.json")["packs"][0]
+    assert (record["blocked"], record["assumed"]) == ("legacy_version_unsupported", None)
+
+
+def test_only_the_packs_that_name_a_newest_release_ever_take_one(tmp_path: Path) -> None:
+    taken = {
+        pack: loader.to_scan_spec(loader.load(pack)).legacy_newest
+        for pack in (GEMINI, OPENAI, PYPDF)
+    }
+    assert taken == {GEMINI: None, OPENAI: None, PYPDF: "3.0.1"}
+    tree = repository(
+        tmp_path / "repo",
+        {
+            "app.py": "import openai\n\nopenai.ChatCompletion.create(model='m', messages=[])\n",
+            "requirements.txt": "openai\n",
+        },
+    )
+    result = run(tree, "scan", "--pack", OPENAI)
+    assert result.exit_code == 0, result.output
+    assert "declares openai with no version" in result.output
+    record = document(tree, "run.json")["packs"][0]
+    assert (record["blocked"], record["assumed"]) == ("legacy_version_unsupported", None)

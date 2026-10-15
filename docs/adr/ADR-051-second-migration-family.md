@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by [ADR-056](ADR-056-newest-legacy-release.md).
 
 ## Decision
 
@@ -43,7 +43,8 @@ reported. The four losses D1 names are in the pack's `limitations`, and the veri
 ## Consequences
 
 - A repository that declares Python below 3.9, or PyPDF2 below 3, or uses PyPDF2 and declares it
-  nowhere obelize reads, is blocked, not migrated.
+  nowhere obelize reads, is blocked, not migrated. A declaration that names no version, or a range
+  below the floor that admits 3.0.1, is taken as 3.0.1 unless the repository shows another release (ADR-056).
 - Gate 1 is not measured for this pack: the README and BENCHMARK say so.
 - `pypdf` and `PyPDF2` are development dependencies pinned to the measured releases, and Dependabot
   leaves them alone.

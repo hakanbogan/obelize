@@ -537,3 +537,64 @@ def test_a_real_junction_is_reported_and_not_descended(tmp_path: Path) -> None:
     result = walk(tmp_path, Config())
     assert _table(result)["joined"] == "symlink"
     assert result.files == ("real/app.py",)
+
+
+def test_every_listed_name_is_kept_whether_or_not_the_scan_selected_it(
+    git_tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pin anywhere installs: a dot-directory, a lock, a file `exclude` removed, a notes file."""
+    real = subprocess.run
+    names = b"pkg/app.py\0.github/workflows/ci.yml\0poetry.lock\0scripts/one_off.py\0notes.txt\0"
+
+    def listing(argv: Any, **keywords: Any) -> Any:
+        if "ls-files" in argv:
+            return subprocess.CompletedProcess(argv, 0, names + b"bad\xff.py\0Dockerfile\0", b"")
+        return real(argv, **keywords)
+
+    monkeypatch.setattr(subprocess, "run", listing)
+    result = walk(git_tree, Config(exclude=("scripts/**",)))
+    assert result.listed == (
+        ".github/workflows/ci.yml",
+        "Dockerfile",
+        "notes.txt",
+        "pkg/app.py",
+        "poetry.lock",
+        "scripts/one_off.py",
+    )
+    assert "scripts/one_off.py" not in result.files
+    assert "scripts/one_off.py" not in result.manifests
+
+
+def test_the_listed_names_hold_everything_the_scan_looks_at_and_in_byte_order(
+    git_tree: Path, plain_tree: Path
+) -> None:
+    for root in (git_tree, plain_tree):
+        result = walk(root, _configured(root))
+        looked_at = {*result.files, *result.excluded, *result.manifests, *result.unincluded}
+        assert looked_at <= set(result.listed)
+        assert list(result.listed) == sorted(result.listed, key=os.fsencode)
+        assert not set(fixture.UNUSABLE) & set(result.listed)
+
+
+def test_a_name_no_report_can_hold_is_not_listed_either(
+    git_tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = subprocess.run
+
+    def listing(argv: Any, **keywords: Any) -> Any:
+        if "ls-files" in argv:
+            return subprocess.CompletedProcess(argv, 0, b"pkg/app.py\0bad\xff.py\0", b"")
+        return real(argv, **keywords)
+
+    monkeypatch.setattr(subprocess, "run", listing)
+    assert walk(git_tree, Config()).listed == ("pkg/app.py",)
+
+
+def test_the_fallback_walk_lists_no_dot_directory_so_only_a_git_listing_is_complete(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows" / "ci.yml").write_text("run: pip\n", encoding="utf-8")
+    (tmp_path / "poetry.lock").write_text("x\n", encoding="utf-8")
+    result = walk(tmp_path, Config())
+    assert (result.source, result.listed) == ("walk", ("poetry.lock",))
