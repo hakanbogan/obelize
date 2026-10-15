@@ -363,7 +363,7 @@ def render(sample: dict[str, Any], scanned: dict[str, Any], labels: list[dict[st
         f"`{scanned['pack']}` sha256 `{scanned['pack_sha256'][:16]}...`. Nothing re-fetches "
         "eighty checkouts on CI, so these records are a dated artefact: a change to the "
         "scanner does not invalidate them visibly, and re-running "
-        "`bench/gate1_collect.py scan` is what makes the number current again. A change to "
+        "`python -m bench.gate1_collect scan` is what makes the number current again. A change to "
         "what the **pack** tells a scan to look for does fail a test -- the projection "
         f"`{scanned['spec_sha256'][:16]}...`, which is the whole of what `scan/` and "
         "`impact/` read, and not the pack's own bytes, which move whenever a rewrite rule "
