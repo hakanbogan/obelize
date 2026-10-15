@@ -202,9 +202,11 @@ runs a round as of an earlier one. Per case:
 Step 6 passes no `--verify`: the *to* SDK arrives only at step 7, so obelize's
 own after-phase would fail every case; steps 5 and 8 replace it.
 The harness grades from the run folder, never from the
-[exit code](CLI.md#exit-codes). Each step runs without a shell, in a session of its own that
-is killed when the step ends, so a process a suite leaves running neither holds a finished step to its
-ceiling nor outlives its case. A step inherits `PATH`, `LANG`, `LC_ALL`, `TMPDIR`, `UV_CACHE_DIR`,
+[exit code](CLI.md#exit-codes). Each step runs without a shell, in a session of its own whose
+process group is killed when the step ends, so a process a suite leaves in that group does not
+outlive its step, and its output goes to a file, so no child holds a finished step to its ceiling.
+A child that starts a session of its own is not reached ([TM-10](THREAT_MODEL.md) says the same of
+`obelize verify`). A step inherits `PATH`, `LANG`, `LC_ALL`, `TMPDIR`, `UV_CACHE_DIR`,
 `UV_PYTHON_INSTALL_DIR` and `PIP_CACHE_DIR` where the harness has them, and a `HOME` of its own
 under `<work>/home`, so no credential, key or tool configuration of the machine reaches an install
 or a suite. Without the three directory variables, uv and pip keep their caches and interpreters

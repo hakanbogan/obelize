@@ -47,7 +47,8 @@ DEFAULT_PACK = "gemini/google-generativeai-to-google-genai"
 FROM_DISTRIBUTION = "google-generativeai"
 TO_DISTRIBUTION = "google-genai"
 
-# `bench/summarize.py` refuses any other version: bump it on every shape change.
+# `bench/summarize.py` refuses any other version: bump it when a reader would break, not for a
+# field that is only added (round 1's records lack several).
 RESULT_SCHEMA_VERSION = 2
 
 # Per-step ceilings in seconds; an overrun errors the case as `timeout`.
@@ -61,7 +62,7 @@ TEST_TIMEOUT_S = 600
 # The UTC form of `--exclude-newer` and of `run_at`.
 TIMESTAMP = "%Y-%m-%dT%H:%M:%SZ"
 
-# Characters kept per output stream; logs stay under `WORK` and are never committed.
+# Bytes of a step's merged output kept; logs stay under `WORK` and are never committed.
 OUTPUT_CAP = 200_000
 
 # Written out, not derived, so adding one fails a test.
