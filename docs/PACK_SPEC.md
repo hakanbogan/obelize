@@ -108,6 +108,11 @@ A pack whose distribution has a last release inside its range can name it, and a
 installs that release is then taken as it, unless the repository shows another one
 ([ADR-056](adr/ADR-056-newest-legacy-release.md)).
 
+A pack whose two sides are two distributions also stops a repository that declares the new one so
+that it admits no release `to.version` allows (`pypdf==3.0.0`, `pypdf<6`): the rewrite would leave
+it on code whose names that release lacks. That block is `new_version_unsupported`. A declaration
+nobody can read is not judged, and `to.version` is a gate like the floor: `spec_digest` ignores it.
+
 - `newest` is a final release in PEP 440's normal spelling (`3.0.1`, not `3.00.1` or `v3.0.1`), which
   `from.version` admits. It is the pack's claim about what an unversioned install resolves to, so a
   pack names one only where the distribution's index has no later release, and the weekly

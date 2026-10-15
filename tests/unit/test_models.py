@@ -229,6 +229,7 @@ def test_the_import_bail_list_is_a_pinned_subset_of_the_bail_codes() -> None:
         "usage_unmapped",
         "runtime_unsupported",
         "legacy_version_unsupported",
+        "new_version_unsupported",
     } == IMPORT_BAILS
     assert {"import", "star_import"} == IMPORT_KINDS
     assert IMPORT_KINDS <= FINDING_KINDS
@@ -645,6 +646,8 @@ def test_the_scan_spec_answers_what_a_receiver_supports() -> None:
         ({"pack_sha256": "abc"}, "sha256"),
         ({"flag_only_patterns": ("regex",)}, "flag_only_patterns"),
         ({"legacy_newest": "latest"}, "Invalid version"),
+        ({"new_version": "latest"}, "Invalid specifier"),
+        ({"new_range": "latest"}, "Invalid specifier"),
         ({"legacy_lacks": ("b.Old", "a.Old")}, "sorted and de-duplicated"),
         ({"legacy_lacks": ("a.Old", "a.Old")}, "sorted and de-duplicated"),
         ({"legacy_lacks": ("not a name",)}, "qualified names"),
@@ -663,6 +666,7 @@ def test_the_scan_spec_carries_the_newest_legacy_release_and_what_it_lacks_or_ne
     assert (plain.legacy_newest, plain.legacy_lacks) == (None, ())
     named = spec(legacy_floor="0.9", legacy_newest="0.9.4", legacy_lacks=("a.Old", "b.Old"))
     assert (named.legacy_newest, named.legacy_lacks) == ("0.9.4", ("a.Old", "b.Old"))
+    assert (plain.new_version, spec(new_version=">=1.5").new_version) == (None, ">=1.5")
 
 
 def test_two_entries_for_one_receiver_is_a_projection_bug() -> None:

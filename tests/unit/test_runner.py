@@ -794,6 +794,28 @@ def test_a_second_declaration_below_the_floor_still_blocks_and_names_no_evidence
     assert scan.assumed == ()
 
 
+@pytest.mark.parametrize("pin", ["pypdf==3.0.0", "pypdf<6", "pypdf~=3.0", "pypdf>3,<6.19"])
+def test_a_pin_of_pypdf_that_admits_no_release_the_pack_writes_blocks_at_its_own_line(
+    tmp_path: Path, pin: str
+) -> None:
+    """Whatever PyPDF2 says: the other pin would resolve, to a release without the new names."""
+    for index, legacy in enumerate(["PyPDF2>=3", "PyPDF2"]):
+        files = {"requirements.txt": f"{legacy}\n", "requirements-dev.txt": f"{pin}\n"}
+        scan = gated(repository(tmp_path / str(index), files))
+        assert [(r.reason, r.package, r.path, r.needed) for r in scan.blocked] == [
+            ("new_version_unsupported", "pypdf", "requirements-dev.txt", ">=6.19")
+        ]
+        assert scan.assumed == ()
+
+
+@pytest.mark.parametrize("pin", ["pypdf>=6.19", "pypdf>=3", "pypdf", "pypdf==6.19.0", "pypdf<7"])
+def test_a_pin_of_pypdf_that_admits_a_release_the_pack_writes_blocks_nothing(
+    tmp_path: Path, pin: str
+) -> None:
+    files = {"requirements.txt": "PyPDF2>=3\n", "requirements-dev.txt": f"{pin}\n"}
+    assert gated(repository(tmp_path, files)).blocked == ()
+
+
 def test_a_marker_or_a_pre_release_is_never_taken_as_the_newest_release(tmp_path: Path) -> None:
     for index, line in enumerate(['PyPDF2; python_version < "3.12"', "PyPDF2>=3.0.0rc1"]):
         scan = gated(repository(tmp_path / str(index), {"requirements.txt": f"{line}\n"}))

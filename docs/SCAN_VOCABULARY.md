@@ -81,6 +81,7 @@ A bail withholds its whole binding group; the group is atomic.
 | `file_too_large` | Over `max_file_bytes`. |
 | `runtime_unsupported` | The project declares a Python the new distribution does not install on (the pack's `to.requires_python`). |
 | `legacy_version_unsupported` | The legacy distribution is declared with no version, or one below the floor of the pack's `from.version`, or not at all while the code uses it. A pack that names its newest release (`from.newest`) takes a declaration that installs it as that release, and is blocked only where the repository shows another one: the path is the run's evidence, not a code of its own. |
+| `new_version_unsupported` | A manifest declares the new distribution so that it admits no release the pack writes (`to.version`): `pypdf==3.0.0`, `pypdf<6`. The path is the declaration, a marker does not excuse it, and one nobody can read is not judged. Not asked of a pack whose one distribution is both sides, where those declarations are the legacy ones. |
 
 ### Resolution and bindings
 
@@ -240,10 +241,11 @@ other.
 | `usage_unmapped` | No rule of the pack rewrites this statement. |
 | `runtime_unsupported` | A `fix` run withheld every row of a pack the repository's declared Python rules out. |
 | `legacy_version_unsupported` | A `fix` run withheld every row of a pack the repository's legacy pin rules out. |
+| `new_version_unsupported` | A `fix` run withheld every row of a pack the repository's pin of the new distribution rules out. |
 
 Absent: `input_does_not_parse` and `file_too_large` (a gated file yields one
-`parse_error` finding and no analysis). `runtime_unsupported` and `legacy_version_unsupported`
-are a repository status (a pack's `blocked` in `run.json`), and only a `fix` run puts them on a
+`parse_error` finding and no analysis). `runtime_unsupported`, `legacy_version_unsupported` and
+`new_version_unsupported` are a repository status (a pack's `blocked` in `run.json`), and only a `fix` run puts them on a
 row, after the scan graded it `eligible`. The scan fixtures carry six on an import row
 (`roundtrip_mismatch`, `module_alias_rebound`, `conditional_binding`,
 `star_import`, `local_import`, `file_not_fully_migrated`); the rest are derived

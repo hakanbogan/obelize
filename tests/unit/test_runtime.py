@@ -562,6 +562,7 @@ def test_a_python_requirement_of_a_form_nobody_reads_is_reported_not_ignored(
 
 
 NEWEST = OLD.model_copy(update={"legacy_newest": "2.4.1"})
+TARGET = OLD.model_copy(update={"new_version": ">=5.1"})
 
 
 def _plain(
@@ -697,3 +698,108 @@ def test_a_run_infers_nothing_where_the_pack_or_the_declaration_gives_nothing_to
     spec: ScanSpec, rows: list[manifests.Declaration]
 ) -> None:
     assert runtime.inferred(rows, spec) is False
+
+
+def _new(spec: str | None, path: str = "requirements.txt") -> manifests.Declaration:
+    return replace(_pins((path, spec))[0], name="acme-new")
+
+
+@pytest.mark.parametrize(
+    "pinned",
+    [
+        "==3.0.0",
+        "<5",
+        "<5.1",
+        "<=5.0.9",
+        "~=3.0",
+        "==3.*",
+        ">1,<5",
+        "^3.0",
+        "<4 || ==4.*",
+        "!=5.2,<5.1",
+    ],
+)
+def test_a_pin_of_the_new_distribution_that_admits_no_release_the_pack_writes_blocks(
+    pinned: str,
+) -> None:
+    found = runtime.legacy([_plain(">=2"), _new(pinned, "dev/requirements.txt")], TARGET, used=True)
+    assert found == runtime.Blocked(
+        "new_version_unsupported", "acme-new", "dev/requirements.txt", pinned, ">=5.1"
+    )
+
+
+@pytest.mark.parametrize(
+    "pinned",
+    [
+        "",
+        "*",
+        ">=3",
+        "==5.1",
+        "==5.2.1",
+        "<=5.1",
+        "<6",
+        ">5.1",
+        "==5.*",
+        "~=5.1",
+        "^5.0",
+        ">=5.1,!=5.1",
+        ">5.1.3,<5.1.4",
+        "<4 || >=5",
+        "===5.2",
+        "not a specifier",
+        None,
+    ],
+)
+def test_a_pin_of_the_new_distribution_that_admits_one_or_cannot_be_read_blocks_nothing(
+    pinned: str | None,
+) -> None:
+    assert runtime.legacy([_plain(">=2"), _new(pinned)], TARGET, used=True) is None
+
+
+def test_a_pin_of_the_new_distribution_is_asked_after_the_legacy_ones_and_one_row_at_a_time() -> (
+    None
+):
+    both = [_new("<5", "a.txt"), _plain("<2", "b.txt")]
+    found = runtime.legacy(both, TARGET, used=True)
+    assert found is not None
+    assert (found.reason, found.path) == ("legacy_version_unsupported", "b.txt")
+    rows = [_plain(">=2"), _new(">=5.1", "a.txt"), _new("<5", "z.txt"), _new("==4.0", "b/c.txt")]
+    found = runtime.legacy(rows, TARGET, used=True)
+    assert found is not None
+    assert (found.reason, found.path) == ("new_version_unsupported", "z.txt")
+
+
+def test_a_pin_of_the_new_distribution_blocks_a_pack_with_no_floor_too() -> None:
+    open_range = TARGET.model_copy(update={"legacy_floor": None})
+    found = runtime.legacy([_new("<5")], open_range, used=True)
+    assert found is not None
+    assert found.reason == "new_version_unsupported"
+
+
+def test_a_pin_of_the_new_distribution_blocks_nothing_where_nothing_would_migrate() -> None:
+    assert runtime.legacy([_plain(">=2"), _new("<5")], TARGET, used=False) is None
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        OLD,
+        TARGET.model_copy(update={"new_distribution": "acme-old"}),
+    ],
+    ids=["a-pack-that-names-no-target", "one-distribution-for-both-sides"],
+)
+def test_a_pin_of_the_new_distribution_is_no_gate_without_a_target_or_a_second_distribution(
+    spec: ScanSpec,
+) -> None:
+    assert runtime.legacy([_plain(">=2"), _new("<5")], spec, used=True) is None
+
+
+def test_a_pin_of_a_version_python_cannot_name_is_not_judged() -> None:
+    """`===` takes any string, so there is no version to place against the pack's."""
+    assert runtime.legacy([_plain(">=2"), _new("===weird")], TARGET, used=True) is None
+
+
+def test_a_pack_with_no_upper_bound_to_reach_is_met_at_zero() -> None:
+    below = TARGET.model_copy(update={"new_version": "<2"})
+    assert runtime.legacy([_plain(">=2"), _new("<3")], below, used=True) is None
+    assert runtime.legacy([_plain(">=2"), _new(">=3")], below, used=True) is not None

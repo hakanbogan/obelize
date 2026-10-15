@@ -173,9 +173,9 @@ a module the other migrates, or they name one distribution. Otherwise the packs 
 each over what the ones before it wrote, in memory, and the run has one gate, one write, one
 verification and one `undo`. Each pack keeps the file and manifest rules of a single run, so one can
 leave a file untouched while another writes it, and a pack the repository rules out (a declared
-Python it cannot install on, a legacy pin it was not measured on) is withheld alone, for that
-reason. An edit's `rule_id` is `<pack id>:<rule id>`, and its `line` is in the file as its pack saw
-it.
+Python it cannot install on, a legacy pin it was not measured on, a pin of the new library below
+the releases it writes) is withheld alone, for that reason. An edit's `rule_id` is
+`<pack id>:<rule id>`, and its `line` is in the file as its pack saw it.
 
 A pack whose new library is the same distribution as the old one (`openai/openai-0-to-1`: `openai`
 0.x and 1.x are one install) is all or nothing inside its own turn, and its tests can run against

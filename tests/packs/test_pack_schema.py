@@ -961,6 +961,7 @@ PROJECTED = {
     "legacy_floor",
     "legacy_newest",
     "legacy_lacks",
+    "new_version",
     "shared",
     "new_range",
 }
@@ -1102,6 +1103,7 @@ def test_the_projection_digest_ignores_the_pack_identity_and_the_gates_and_nothi
         "legacy_floor": "0.1",
         "legacy_newest": "9.9",
         "legacy_lacks": ("demo.other",),
+        "new_version": ">=9.9",
     }
     exercised: set[str] = set()
     for identifier in loader.bundled_ids():

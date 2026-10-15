@@ -134,7 +134,10 @@ checks, so a second pack cannot name one without a check.
   its state would make a finding depend on it, where the scan is deterministic
   (`tests/oracle/test_scan_determinism.py`). A repository that depends on such a setting pins the
   release in a manifest the scan reads.
-- One hole the gate already had is unchanged: a low `pypdf` pin elsewhere is not looked at. A
-  requirement line PEP 508 refuses (`PyPDF2~=1`) is a row for its name with no version, and a local
-  build (`==3.0.1+corp`) names no floor, since it is not the release the rules were measured on:
-  both block like a pin nobody can read, whatever another declaration says.
+- The holes the gate had are closed. A requirement line PEP 508 refuses (`PyPDF2~=1`) is a row for
+  its name with no version, and a local build (`==3.0.1+corp`) names no floor, since it is not the
+  release the rules were measured on: both block like a pin nobody can read, whatever another
+  declaration says. A pin of `pypdf` that admits no release at or above `to.version` (`pypdf==3.0.0`,
+  `pypdf<6`), in any manifest the scan reads, blocks as `new_version_unsupported` and names its
+  path ([ADR-050](ADR-050-generic-pack-engine.md) D5): before, the same repository was rewritten to
+  `pypdf>=6.19` in one file and left a pin that cannot resolve in another.

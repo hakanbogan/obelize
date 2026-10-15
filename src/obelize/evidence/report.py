@@ -879,6 +879,13 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
             f"{package} does not install on, so this migration reports its findings and plans "
             f"no change. To migrate, raise the minimum in {path} to {needed} and run again."
         )
+    if blocked.reason == "new_version_unsupported":
+        path = code(blocked.path)
+        return (
+            f"{path} declares {package} {code(blocked.declared or '')}, which admits no release "
+            f"this migration writes ({needed}), so it reports its findings and plans no change. "
+            f"To migrate, raise it to {needed} in {path} and run again."
+        )
     if not blocked.path:
         return (
             f"No manifest declares {package}, so the version in use is not known and this "

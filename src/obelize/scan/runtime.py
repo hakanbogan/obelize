@@ -1,10 +1,10 @@
-"""What the project declares about Python and the legacy pin, and whether that blocks the run.
+"""What the project declares about Python and the pins, and whether that blocks the run.
 
-A repository declaring support for a Python the new distribution does not install on, or a legacy
-pin outside the pack's range, is blocked: it proposes nothing but is still reported. The Python
-comes from the manifest, never the parser: libcst's native parser ignores
-`PartialParserConfig(python_version=...)`. "Declares support for" is the test: `>=3.9` admits 3.9,
-where pip installs an older, different API.
+A repository declaring support for a Python the new distribution does not install on, a legacy
+pin outside the pack's range, or a pin of the new distribution below the releases the pack writes,
+is blocked: it proposes nothing but is still reported. The Python comes from the manifest, never
+the parser: libcst's native parser ignores `PartialParserConfig(python_version=...)`. "Declares
+support for" is the test: `>=3.9` admits 3.9, where pip installs an older, different API.
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ from typing import Any, Final
 
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from obelize.models import BlockedReason, ScanSpec, terminal_unsafe
 from obelize.scan import parse
-from obelize.scan.manifests import Declaration, alternatives, lowest
+from obelize.scan.manifests import Declaration, alternatives, coupled, lowest
 
 # Each one is asked, not one comparison: `>=3.7,!=3.9.*` admits 3.8 but not 3.9. Each minor is asked
 # at its last patch too, since `>=3.8.1` admits 3.8 only from its first patch on.
@@ -47,12 +47,14 @@ class Blocked:
     """Why a run proposes nothing: a repository status, not a per-file bail."""
 
     reason: BlockedReason
-    # The distribution the declaration is about: the new one for a Python, the legacy one for a pin.
+    # The distribution the declaration is about: the new one for a Python or a low pin of its own,
+    # the legacy one for a legacy pin.
     package: str
     path: str
     # `None` when the legacy pin names no version.
     declared: str | None
-    # The set a declaration has to stay inside, as a PEP 440 specifier.
+    # The set a declaration has to stay inside, or for a pin of the new distribution reach into, as
+    # a PEP 440 specifier.
     needed: str
     # The path that stops the newest release being taken for an unpinned legacy declaration.
     evidence: str = ""
@@ -113,22 +115,27 @@ def legacy(
     newest: str | None = None,
     contrary: str = "",
 ) -> Blocked | None:
-    """The first legacy declaration that pins no version at or above the pack's floor.
+    """The first legacy declaration that pins no version at or above the pack's floor, else the
+    first of the new distribution that admits no release the pack writes.
 
     `used` is whether any source row is an edit candidate: a repository that never imports the
     legacy module is not blocked, by a pin below the floor or by one it does not declare. With
     `newest`, a declaration that installs it passes too (`installs`), unless `contrary` names the
     path that says another release is in use, which is then the block's evidence.
     """
-    if spec.legacy_floor is None or not used:
+    if not used:
+        return None
+    return _legacy(found, spec, newest, contrary) or _new(found, spec)
+
+
+def _legacy(
+    found: Sequence[Declaration], spec: ScanSpec, newest: str | None, contrary: str
+) -> Blocked | None:
+    if spec.legacy_floor is None:
         return None
     floor = Version(spec.legacy_floor)
     needed = f">={floor}"
-    name = canonicalize_name(spec.legacy_distribution)
-    rows = sorted(
-        (row for row in found if row.name == name),
-        key=lambda row: (row.path.count("/"), row.path.encode("utf-8"), row.line),
-    )
+    rows = _declared(found, spec.legacy_distribution)
     for row in rows:
         admitted = lowest(row.spec)
         if (admitted is None or admitted < floor) and not (
@@ -145,6 +152,56 @@ def legacy(
     if not rows:
         return Blocked("legacy_version_unsupported", spec.legacy_distribution, "", None, needed)
     return None
+
+
+def _declared(found: Sequence[Declaration], distribution: str) -> list[Declaration]:
+    """Every declaration of `distribution`, the shallowest and then the first by path first."""
+    name = canonicalize_name(distribution)
+    return sorted(
+        (row for row in found if row.name == name),
+        key=lambda row: (row.path.count("/"), row.path.encode("utf-8"), row.line),
+    )
+
+
+def _new(found: Sequence[Declaration], spec: ScanSpec) -> Blocked | None:
+    """A pin of the new distribution that admits no release the pack writes (`pypdf==3.0.0`): the
+    install resolves, to code the rewritten names are not in. Where one distribution is both sides
+    its declarations are the legacy ones, and a pin the rule would rewrite."""
+    if spec.new_version is None or coupled(spec):
+        return None
+    for row in _declared(found, spec.new_distribution):
+        if not _reaches(row.spec, spec.new_version):
+            return Blocked(
+                "new_version_unsupported",
+                spec.new_distribution,
+                row.path,
+                _shown(row.spec),
+                spec.new_version,
+            )
+    return None
+
+
+def _reaches(declared: str | None, needed: str) -> bool:
+    """Whether `declared` admits a release `needed` does. One nobody can read admits what it may:
+    a block on a string nobody parsed would be a guess.
+
+    The two sets meet where some version is in both. One is found at a version either names, just
+    above one, or at 0, since a range of PEP 440 specifiers starts at one of them.
+    """
+    found = None if declared is None else alternatives(declared)
+    if found is None:
+        return True
+    target = SpecifierSet(needed)
+    for part in found:
+        both = part & target
+        try:
+            named = {Version(item.version.removesuffix(".*")) for item in both}
+        except InvalidVersion:  # `===` takes any string
+            return True
+        probes = {Version("0"), *named, *(Version(f"{v.base_version}.0.1") for v in named)}
+        if any(both.contains(version, prereleases=True) for version in probes):
+            return True
+    return False
 
 
 def installs(row: Declaration, newest: str) -> bool:

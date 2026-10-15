@@ -236,6 +236,14 @@ APPLY = (
             "reports its findings and plans no change. To migrate, pin old-sdk to >=3 in "
             "setup.py and run again." + APPLY,
         ),
+        (
+            runtime.Blocked(
+                "new_version_unsupported", "new-sdk", "requirements-dev.txt", "==3.0.0", ">=6"
+            ),
+            "requirements-dev.txt declares new-sdk ==3.0.0, which admits no release this "
+            "migration writes (>=6), so it reports its findings and plans no change. To migrate, "
+            "raise it to >=6 in requirements-dev.txt and run again." + APPLY,
+        ),
     ],
     ids=[
         "python",
@@ -245,6 +253,7 @@ APPLY = (
         "undeclared",
         "newest-refuted-by-a-lock",
         "newest-refuted-by-code",
+        "new-pin-too-low",
     ],
 )
 def test_a_blocked_run_names_the_declaration_and_what_would_unblock_it(

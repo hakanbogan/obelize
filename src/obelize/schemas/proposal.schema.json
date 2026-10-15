@@ -56,6 +56,7 @@
         "file_too_large",
         "runtime_unsupported",
         "legacy_version_unsupported",
+        "new_version_unsupported",
         "conditional_binding",
         "module_alias_rebound",
         "model_object_escapes",
