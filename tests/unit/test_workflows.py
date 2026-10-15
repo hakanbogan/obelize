@@ -1280,6 +1280,34 @@ def test_the_weekly_pypdf2_check_reads_the_newest_the_pack_states() -> None:
     assert packs == {"py-pdf/pypdf2-to-pypdf"}
 
 
+DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
+
+
+def _images_pinned_by_a_tag(document: dict[str, Any]) -> list[str]:
+    """What zizmor's default persona, the one ci runs, lets through; only `pedantic` reports it."""
+    uses = [
+        step.get("uses", "") for job in document["jobs"].values() for step in job.get("steps", [])
+    ]
+    return [name for name in uses if name.startswith("docker://") and not DIGEST.search(name)]
+
+
+def test_no_workflow_runs_a_docker_image_pinned_by_a_tag() -> None:
+    for path in WORKFLOWS:
+        assert _images_pinned_by_a_tag(_workflow(path.name)) == [], path.name
+
+
+def test_a_docker_image_is_pinned_only_by_a_digest() -> None:
+    digest = "@sha256:" + "ab" * 32
+    steps = [{"uses": f"docker://alpine{ref}"} for ref in (":3.20", "", "@sha256:abc", digest)]
+    steps.append({"uses": "actions/checkout@" + "0" * 40})
+    document = {"jobs": {"one": {"steps": steps[:2]}, "two": {"steps": steps[2:]}}}
+    assert _images_pinned_by_a_tag(document) == [
+        "docker://alpine:3.20",
+        "docker://alpine",
+        "docker://alpine@sha256:abc",
+    ]
+
+
 def test_the_legacy_openai_check_pins_numpy_beside_the_sdk() -> None:
     """0.28.1 reads an embedding with numpy, so a newer numpy could change what the legacy side
     prints; the diff against the new side would then fail on a release nobody chose."""
