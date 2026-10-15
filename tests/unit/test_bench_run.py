@@ -1605,11 +1605,23 @@ def test_with_no_flags_the_round_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     assert asked == [(None, None), ("x", "2026-10-15T09:00:00Z")]
 
 
-def test_a_cutoff_that_is_not_a_utc_time_is_refused_before_a_round_starts(
-    capsys: pytest.CaptureFixture[str],
+@pytest.mark.parametrize(
+    "cutoff",
+    [
+        "yesterday",
+        "2026-10-15T09:00:00",
+        "2026-13-01T09:00:00Z",
+        "2026-10-5T09:00:00Z",
+        "2026-10-15T9:00:00Z",
+        "2026-1-5T9:0:0Z",
+    ],
+)
+def test_a_cutoff_that_uv_would_not_read_is_refused_before_a_round_starts(
+    cutoff: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """`strptime` accepts the unpadded ones; uv refuses them, and every case would then error."""
     with pytest.raises(SystemExit):
-        run.main(["--exclude-newer", "yesterday"])
+        run.main(["--exclude-newer", cutoff])
     assert "not a UTC time" in capsys.readouterr().err
 
 

@@ -1101,12 +1101,13 @@ def round_pass(only: str | None, exclude_newer: str | None = None) -> int:
 
 
 def _timestamp(text: str) -> str:
+    """`text` if it is `TIMESTAMP` digit for digit: `strptime` takes `9:00:00`, uv does not."""
     try:
-        dt.datetime.strptime(text, TIMESTAMP)
+        exact = dt.datetime.strptime(text, TIMESTAMP).strftime(TIMESTAMP) == text
     except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"{text!r} is not a UTC time like 2026-10-15T09:00:00Z"
-        ) from None
+        exact = False
+    if not exact:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a UTC time like 2026-10-15T09:00:00Z")
     return text
 
 
