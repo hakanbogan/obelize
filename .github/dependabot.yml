@@ -24,6 +24,16 @@ updates:
     commit-message:
       prefix: "ci"
 
+  # The hook repositories of .pre-commit-config.yaml; ruff is not one, it comes from uv.lock.
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci"
+
   # pyproject.toml and uv.lock together, so ci.yml's `lock` job passes; monthly, the list is small.
   - package-ecosystem: "uv"
     directory: "/"

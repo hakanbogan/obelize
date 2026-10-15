@@ -27,19 +27,26 @@ repos:
         args: [--fix=lf]
         exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.8
-    hooks:
-      - id: ruff-check
-        args: [--fix]
-        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
-      - id: ruff-format
-        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
-
-  # Fixture builders are code inside `tests/fixtures/`, which everything above treats as data.
-  # One mypy hook per builder: two `_build.py` modules in one run are refused as duplicates.
+  # Ruff runs from the project environment, so uv.lock is the one place its version is written.
   - repo: local
     hooks:
+      - id: ruff-check
+        name: ruff
+        entry: uv run --frozen ruff check --fix --force-exclude
+        language: system
+        types: [python]
+        require_serial: true
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format --force-exclude
+        language: system
+        types: [python]
+        require_serial: true
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+
+      # Fixture builders are code inside `tests/fixtures/`, which the hooks above treat as data.
+      # One mypy hook per builder: two `_build.py` modules in one run are refused as duplicates.
       - id: fixture-builders-ruff
         name: ruff (fixture builders)
         entry: ruff check --no-force-exclude
