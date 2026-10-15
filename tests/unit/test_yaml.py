@@ -99,3 +99,25 @@ def test_a_set_is_refused_because_it_has_no_order() -> None:
     with pytest.raises(yaml.YAMLError, match="a set has no order; write a list") as excinfo:
         _yaml.parse("exclude: !!set {b, a}\n")
     assert _yaml.where(excinfo.value) == (1, 10, "a set has no order; write a list")
+
+
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [("a: 2020-13-45\n", "month must be in 1..12"), ("a: " + "9" * 5000 + "\n", "digits")],
+    ids=["impossible-date", "over-long-integer"],
+)
+def test_a_scalar_the_constructor_refuses_is_a_yaml_error_at_its_position(
+    text: str, said: str
+) -> None:
+    """A `ValueError` out of the date or integer constructor, which the callers do not catch."""
+    with pytest.raises(yaml.YAMLError, match=said) as excinfo:
+        _yaml.parse(text)
+    located = _yaml.where(excinfo.value)
+    assert located is not None
+    assert located[:2] == (1, 4)
+
+
+def test_a_document_nested_past_the_recursion_limit_is_a_yaml_error() -> None:
+    with pytest.raises(yaml.YAMLError, match="nested too deeply to read") as excinfo:
+        _yaml.parse("a: " + "[" * 5000)
+    assert _yaml.where(excinfo.value) is None

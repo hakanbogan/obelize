@@ -40,6 +40,15 @@ class _Loader(yaml.SafeLoader):
                 seen.add(key_node.value)
         return node
 
+    def construct_object(self, node: yaml.Node, deep: bool = False) -> Any:
+        try:
+            return super().construct_object(node, deep=deep)
+        except ValueError as error:
+            # A date the calendar refuses, or an integer over the interpreter's digit limit.
+            raise yaml.constructor.ConstructorError(
+                None, None, str(error), node.start_mark
+            ) from error
+
 
 def _set(loader: yaml.SafeLoader, node: yaml.Node) -> NoReturn:
     # Pydantic would read it in hash order, which changes between runs.
@@ -53,7 +62,10 @@ _Loader.add_constructor("tag:yaml.org,2002:set", _set)
 
 def parse(text: str) -> Any:
     """Parse one YAML document. Raises `DuplicateKeyError` or `yaml.YAMLError`."""
-    return yaml.load(text, Loader=_Loader)  # noqa: S506 -- _Loader derives from SafeLoader
+    try:
+        return yaml.load(text, Loader=_Loader)  # noqa: S506 -- _Loader derives from SafeLoader
+    except RecursionError as error:
+        raise yaml.YAMLError("nested too deeply to read") from error
 
 
 def where(error: yaml.YAMLError) -> tuple[int, int, str] | None:

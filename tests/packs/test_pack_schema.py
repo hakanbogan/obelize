@@ -883,13 +883,24 @@ DOCUMENT_DEFECTS = [
     (b"- one\n- two\n", "this one is a list"),
     (b"# nothing but a comment\n", "the file is empty"),
     (b"provider: demo\nprovider: demo\n", "duplicate key 'provider'"),
+    (b"source:\n  retrieved_at: 2020-13-45\n", "line 2, column 17: month must be in 1..12"),
+    (b"id: " + b"[" * 5000, "not valid YAML: nested too deeply to read"),
 ]
 
 
 @pytest.mark.parametrize(
     ("data", "says"),
     DOCUMENT_DEFECTS,
-    ids=["not-utf8", "not-yaml", "unreadable-character", "not-a-mapping", "empty", "duplicate-key"],
+    ids=[
+        "not-utf8",
+        "not-yaml",
+        "unreadable-character",
+        "not-a-mapping",
+        "empty",
+        "duplicate-key",
+        "impossible-date",
+        "nested-too-deeply",
+    ],
 )
 def test_bytes_that_are_not_a_pack_document_are_refused_with_a_reason(
     tmp_path: Path, data: bytes, says: str

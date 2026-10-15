@@ -160,6 +160,8 @@ def user_config(config_dir: Path) -> UserConfig:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return UserConfig()
+    except UnicodeDecodeError as error:
+        raise ConfigError(f"{path} is not UTF-8: {error.reason} at byte {error.start}") from error
     except OSError as error:
         raise ConfigError(f"{path} cannot be read: {error.strerror}") from error
     try:
@@ -196,7 +198,7 @@ def _stored(config_dir: Path) -> list[dict[str, Any]]:
     """The rows of the store as they are written, those that name a repository and a hash."""
     try:
         data: Any = json.loads((config_dir / APPROVALS_FILENAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return []
     if not isinstance(data, dict) or not isinstance(data.get("approvals"), list):
         return []

@@ -369,6 +369,22 @@ def test_a_yaml_failure_without_a_position_still_names_the_file(tmp_path: Path) 
         load(tmp_path)
 
 
+@pytest.mark.parametrize(
+    ("body", "said"),
+    [
+        ("include: 2020-13-45\n", r"\.obelize\.yml:1:10: month must be in 1\.\.12"),
+        ("include: " + "[" * 5000 + "\n", "is not valid YAML: nested too deeply to read"),
+    ],
+    ids=["impossible-date", "nested-too-deeply"],
+)
+def test_a_value_the_yaml_reader_cannot_construct_is_refused_not_a_traceback(
+    tmp_path: Path, body: str, said: str
+) -> None:
+    _write(tmp_path, body)
+    with pytest.raises(ConfigError, match=said):
+        load(tmp_path)
+
+
 def test_a_document_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
     _write(tmp_path, "- include\n- exclude\n")
     with pytest.raises(ConfigError, match=r"holds a mapping of settings.*holds a list"):
