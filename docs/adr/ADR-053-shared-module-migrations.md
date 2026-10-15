@@ -144,8 +144,8 @@ pins. Here atomicity is the repository's, in two places:
 - **The survey.** `manifests.survey(..., paired=True)` counts any withheld row that is not
   `not_a_usage` as blocking. No import marks the old API (`import openai` is in both), so a withheld
     `openai.Image.create` is what keeps the pin, which reads `repo_not_fully_migrated`, or
-  `transitive_dependency_in_use` when a file imports `requests` or `aiohttp` and no manifest declares
-  it, or `manifest_pin_shape_unsupported` when the line cannot be written (D12).
+  `transitive_dependency_in_use` when a file imports `requests` or `aiohttp` and no manifest of its
+  app declares it, or `manifest_pin_shape_unsupported` when the line cannot be written (D12).
 - **The driver.** `codemod.run` asks `_unfinished`: is any row of the pack, in a file or a manifest,
     withheld? If so, `_together` leaves every file as it was and stamps each applied row
   `repo_not_fully_migrated`, an import row included (`models.IMPORT_BAILS`). A scan prints the pin

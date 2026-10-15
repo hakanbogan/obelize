@@ -77,8 +77,9 @@ no `RUNG`, and `tests/oracle/` lists `manifest_code_mismatch` as unranked.
 6: like `file_not_fully_migrated` they name no concrete defect, so they never
 displace one that does. The latter withholds the pin while nothing imports the
 legacy distribution but an in-scope file imports a module only it installed
-(the pack's `match.transitive`) and no manifest declares that module's
-distribution.
+(the pack's `match.transitive`) and no manifest of that file's app declares that module's
+distribution: one in its directory or above it, a `requirements/` directory counting for the
+directory it is in. Another app's manifest does not cover it.
 
 ### D8. Lines, not a parse-and-serialise round trip — except for `setup.py`
 

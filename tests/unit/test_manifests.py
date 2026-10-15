@@ -1116,11 +1116,61 @@ def test_a_module_only_the_legacy_distribution_installed_keeps_the_pin() -> None
 
 
 def test_a_distribution_a_manifest_declares_keeps_nothing() -> None:
-    """Declared anywhere in the repository, it survives the legacy pin."""
+    """Declared in a manifest of the app, it survives the legacy pin."""
     migration = manifests.Migration(migrated=("app.py",), transitive=(("retry.py", "acme-wire"),))
     found = (pin(), pin(name="acme-wire", path="requirements/dev.txt"))
     assert graded(found, migration) == [("requirements.txt", 1, LEGACY, "eligible", None)]
     assert manifests.plan(found, migration, SPEC).transitive == ()
+
+
+@pytest.mark.parametrize(
+    ("declared_in", "importer", "needed"),
+    [
+        ("requirements.txt", "app2/b.py", False),
+        ("requirements.txt", "b.py", False),
+        ("app1/requirements.txt", "app1/b.py", False),
+        ("app1/requirements.txt", "app1/pkg/sub/b.py", False),
+        ("app1/requirements.txt", "app2/b.py", True),
+        ("app1/requirements.txt", "app10/b.py", True),
+        ("app1/requirements.txt", "b.py", True),
+        ("app1/sub/requirements.txt", "app1/b.py", True),
+        ("requirements/base.txt", "app2/b.py", False),
+        ("app1/requirements/base.txt", "app1/b.py", False),
+        ("app1/requirements/base.txt", "app2/b.py", True),
+    ],
+)
+def test_a_module_only_the_legacy_distribution_installed_is_declared_by_the_manifests_of_its_app(
+    declared_in: str, importer: str, needed: bool
+) -> None:
+    """The root's manifests serve every app, an app's serve its own directory and what is below,
+    and a `requirements/` directory serves the one it is in."""
+    migration = manifests.Migration(migrated=("app.py",), transitive=((importer, "acme-wire"),))
+    found = (pin(), pin(name="acme-wire", path=declared_in))
+    assert manifests.plan(found, migration, SPEC).transitive == ((importer,) if needed else ())
+
+
+def test_one_app_that_lacks_a_distribution_holds_the_pin_of_every_app(tmp_path: Path) -> None:
+    """What app1 declares no longer counts as declared for app2."""
+    files = {
+        "app1/main.py": MIGRATES,
+        "app1/requirements.txt": "acme-sdk==0.1.0\nacme-wire\n",
+        "app2/retry.py": "import acme.wire\n",
+        "app2/requirements.txt": "acme-sdk==0.1.0\n",
+    }
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(exist_ok=True)
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    scanned = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert scanned.manifests.transitive == ("app2/retry.py",)
+    held = {(row.path, row.bail) for row in scanned.manifests.findings if row.bail}
+    assert held == {
+        ("app1/requirements.txt", "transitive_dependency_in_use"),
+        ("app2/requirements.txt", "transitive_dependency_in_use"),
+    }
+    (tmp_path / "app2" / "requirements.txt").write_text("acme-sdk==0.1.0\nacme-wire\n", "utf-8")
+    declared = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert declared.manifests.transitive == ()
+    assert not any(row.bail for row in declared.manifests.findings)
 
 
 def test_an_import_of_the_legacy_distribution_is_the_reason_given_first() -> None:

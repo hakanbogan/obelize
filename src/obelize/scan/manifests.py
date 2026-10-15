@@ -348,19 +348,27 @@ def _by_position(row: Finding) -> tuple[str, int, int, str, str]:
 
 
 def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> ManifestPlan:
-    """Grade every declaration against the pin-edit rule and the state of the code."""
+    """Grade every declaration against the pin-edit rule and the state of the code.
+
+    A file imports a module only the legacy distribution installed with a declaration of its
+    distribution in the manifests of its own app: its directory, or one above it, up to the root.
+    """
     legacy = canonicalize_name(spec.legacy_distribution)
     new = canonicalize_name(spec.new_distribution)
     declares: dict[str, set[str]] = {}
+    owners: dict[str, set[PurePosixPath]] = {}
     for declaration in found:
         declares.setdefault(declaration.path, set()).add(declaration.name)
-    everywhere = {declaration.name for declaration in found}
+        owners.setdefault(declaration.name, set()).add(_owner(declaration.path))
     needed = tuple(
         sorted(
             {
                 path
                 for path, distribution in migration.transitive
-                if canonicalize_name(distribution) not in everywhere
+                if not any(
+                    parent in owners.get(canonicalize_name(distribution), ())
+                    for parent in PurePosixPath(path).parents
+                )
             }
         )
     )
@@ -378,6 +386,12 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
         excluded=migration.excluded,
         transitive=needed,
     )
+
+
+def _owner(path: str) -> PurePosixPath:
+    """The directory a manifest declares for: its own, or the parent of a `requirements/` one."""
+    parent = PurePosixPath(path).parent
+    return parent.parent if parent.name == REQUIREMENTS_DIRECTORY else parent
 
 
 def _legacy(

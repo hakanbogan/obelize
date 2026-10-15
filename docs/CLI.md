@@ -75,7 +75,9 @@ release can change the JSON ([CHANGELOG.md](../CHANGELOG.md#stability)).
 `.obelize/` and every `include` and `exclude` pattern are relative to it, and every dependency
 manifest below it is read. Run once at the top to migrate everything in one run, or once per package
 with `--repo` to keep one package's run folder and one `undo` apart. A pack that moves a whole
-repository (`openai`) moves the whole root or none of it.
+repository (`openai`) moves the whole root or none of it. A module only the legacy distribution
+installed counts as declared for a file where a manifest in its directory or above it declares it, so
+one app's declaration does not cover another app.
 
 ## `obelize fix`
 
