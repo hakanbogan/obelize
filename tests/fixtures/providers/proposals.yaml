@@ -1,7 +1,7 @@
 # The answer key for what a model's proposal must survive, written by hand
 # before `src/obelize/providers/guard.py` existed.
 #
-# One repository, one question, twenty-two answers to it. Every other corpus in
+# One repository, one question, twenty-three answers to it. Every other corpus in
 # this project grades what obelize decided about somebody's code; this one
 # grades what obelize decides about somebody *else's* proposal, which is the
 # only corpus here whose subject is hostile.
@@ -22,7 +22,7 @@
 # `tests/fixtures/scan/` for the finding, `tests/fixtures/commands/` for the
 # rest. What is hand-written here is only what the guard decides: which of the
 # sixteen words each proposal is refused with, in which order the checks are
-# asked, and that exactly one of the twenty-two is accepted.
+# asked, and that exactly one of the twenty-three is accepted.
 #
 # Both halves again. A guard graded only by what it refuses would pass while
 # refusing everything, so `accepted` is a case and it is the one that also
@@ -58,7 +58,7 @@ question:
   end_line: 35
 
 # The two numbers ADR-037 D5 derives from `CONTEXT_LINE_LIMIT`. Written here
-# because the two generated cases below are built against them and stop
+# because the two size cases below are built against them and stop
 # measuring anything if they move.
 limits:
   replacement_lines: 80
@@ -188,15 +188,16 @@ cases:
     generated: {kind: bytes, count: 81921}
     refusal: replacement_too_large
 
-  - case: the_result_does_not_parse
+  - case: a_truncated_answer
     what_it_is: >-
-      An unclosed call, which is what a truncated answer looks like.
+      An unclosed call, which is what a truncated answer looks like. `compile()`
+      is asked before libcst, so this is its word and not libcst's.
     path: nested.py
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
     replacement: "        model = genai.GenerativeModel("
-    refusal: output_does_not_parse
+    refusal: output_does_not_compile
 
   - case: the_result_parses_and_does_not_compile
     what_it_is: >-
@@ -210,6 +211,19 @@ cases:
     symbol: google.generativeai.GenerativeModel
     replacement: "        model = await genai.aio.models.get()"
     refusal: output_does_not_compile
+
+  - case: nested_deeper_than_obelize_reads
+    what_it_is: >-
+      Nine hundred operands in one expression. `compile()` and libcst's parser
+      take it and the visitors that walk the tree recurse past the stack, which
+      once ended the run in a traceback. It is the one word here that is not
+      `compile()`'s: libcst's own, for a result it cannot read.
+    path: nested.py
+    start_line: 31
+    end_line: 34
+    symbol: google.generativeai.GenerativeModel
+    generated: {kind: operands, count: 900}
+    refusal: output_does_not_parse
 
   - case: imports_something_the_pack_does_not_target
     what_it_is: >-

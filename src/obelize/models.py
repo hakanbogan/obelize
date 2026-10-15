@@ -246,7 +246,7 @@ CONSULT_SKIPS: frozenset[ConsultSkip] = frozenset(get_args(ConsultSkip))
 
 # Why `obelize.providers.guard` refused a proposal; the first refusal in its order is recorded.
 # `file_changed_since_read` is RefusalCode's word on purpose; parse and compile both stay because
-# `await` outside `async` passes libcst and fails `compile()`.
+# `await` outside `async` passes libcst and fails `compile()`, which is asked first.
 GuardRefusal = Literal[
     "file_changed_since_read",
     "import_outside_the_target",

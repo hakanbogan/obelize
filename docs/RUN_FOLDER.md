@@ -481,8 +481,8 @@ Is what it produces Python, and does it bring anything in:
 | `replacement_not_displayable` | A control, format or surrogate character other than tab or line break: the line a reviewer reads is not the line that runs. |
 | `replacement_carries_redaction` | It holds `[REDACTED`, the placeholder for a secret the model was shown instead of the value, and the lines it replaces hold none: written as it stands it would put the word in the file. |
 | `replacement_not_encodable` | Not writable in the file's own encoding. |
-| `output_does_not_parse` | libcst refuses the result. |
-| `output_does_not_compile` | `compile()` refuses it: `await` outside `async` passes libcst and fails here. |
+| `output_does_not_compile` | `compile()` refuses the result: a syntax error, a nesting too deep to read, or `await` outside `async`, which libcst accepts. Asked first, because libcst's parser dies on a deeply nested expression. |
+| `output_does_not_parse` | libcst refuses a result `compile()` accepted, or the result nests deeper than obelize can walk. |
 | `replacement_runs_past_its_range` | It changes how the following lines read (a trailing backslash or open bracket, or an opened block or string), though it parses and compiles. |
 | `import_outside_the_target` | It imports a module the pack does not target, `__import__` and `importlib.import_module` included. |
 | `name_outside_the_question` | It uses a name nothing licenses: not in the replaced lines, not bound by a target-module import or by itself, not an allowed builtin; never a double-underscore name. Catches `imp = __import__`, `exec("import os")`, `open(...)`, a module the file already imported. |

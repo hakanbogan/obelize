@@ -24,8 +24,8 @@ only the **first** refusal is recorded:
 | 9 | `replacement_not_displayable` | it holds a character a terminal acts on |
 | 10 | `replacement_carries_redaction` | it holds `[REDACTED`, which the lines it replaces do not (D10) |
 | 11 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
-| 12 | `output_does_not_parse` | libcst refuses the resulting module |
-| 13 | `output_does_not_compile` | `compile()` refuses it (D6) |
+| 12 | `output_does_not_compile` | `compile()` refuses it (D6) |
+| 13 | `output_does_not_parse` | libcst refuses a module `compile()` accepted, or it nests deeper than obelize reads (D6, D11) |
 | 14 | `replacement_runs_past_its_range` | it changes how the lines after it are read |
 | 15 | `import_outside_the_target` | the result imports a module the pack does not target (D7) |
 | 16 | `name_outside_the_question` | it names something the question did not license (D7) |
@@ -68,10 +68,14 @@ by the context, and the byte limit bounds one huge line.
 ### D6. Three output gates, because encoding is not parsing
 
 The result is encoded in the file's own encoding as libcst reports it, then
-parsed, then compiled. Because a latin-1 file cannot take a character latin-1
+compiled, then parsed. Because a latin-1 file cannot take a character latin-1
 lacks, and libcst parses what `compile()` refuses (`await` outside `async`).
-Before them a replacement may carry no character a terminal acts on except tab
-and line breaks; after them its last token must end a statement.
+`compile()` goes first because it answers a deeply nested expression with an
+exception, where libcst's parser overruns the C stack and kills the process; a
+syntax error is therefore `output_does_not_compile`, and `output_does_not_parse`
+is what `compile()` accepted and libcst cannot read. Before them a replacement
+may carry no character a terminal acts on except tab and line breaks; after
+them its last token must end a statement.
 
 ### D7. The import check reads `__import__` and `importlib.import_module` too
 
@@ -104,6 +108,17 @@ what ran with the value would run with the word. `replacement_carries_redaction`
 `[REDACTED` prefix in the replacement with the lines it replaces: a marker those lines already hold
 is the file's own text and passes. Because a proposal that compiles and imports nothing can still
 destroy a credential, and the later checks cannot see it.
+
+### D11. A reply nested deeper than the stack is refused, not raised
+
+A replacement of about nine hundred operands passes `compile()` and libcst's
+parser, and the visitors that walk its tree recurse once per level and raise
+`RecursionError`. `check` catches that and `MemoryError` and records
+`output_does_not_parse`, with the detail "nested more deeply than obelize
+reads". Because a refusal is a row for a reviewer, and an exception ends the run
+with a traceback and no run folder. An operand chain of about 13,000 `and` or
+`or` terms on Python 3.14 and later still reaches libcst's parser; that is the
+scanner's open item too.
 
 ## Consequences
 

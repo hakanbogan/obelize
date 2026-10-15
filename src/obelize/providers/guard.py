@@ -87,7 +87,16 @@ def check(
     refused = _admissible(proposal, consultation, root, before)
     if refused is not None:
         return Checked(proposal, refused[0], refused[1])
-    return _produced(proposal, consultation, before)
+    try:
+        return _produced(proposal, consultation, before)
+    except (RecursionError, MemoryError):
+        # libcst's tree walks take a few frames a level, so a reply that compiles can still
+        # overrun the stack a few hundred levels down.
+        return Checked(
+            proposal,
+            "output_does_not_parse",
+            f"{proposal.path}: nested more deeply than obelize reads",
+        )
 
 
 def _admissible(
@@ -211,14 +220,16 @@ def _produced(
             f"{error.object[error.start : error.end]!r}",
         )
 
-    try:
-        result = cst.parse_module(after)
-    except (cst.ParserSyntaxError, SyntaxError) as error:
-        return Checked(proposal, "output_does_not_parse", f"{proposal.path}: {_said(error)}")
+    # `compile()` first: it answers a deeply nested expression with an exception, where libcst's
+    # parser overruns the C stack and kills the process (`scan.parse.gates` orders them so too).
     try:
         compile(after, proposal.path, "exec")
     except cheap.COMPILE_REFUSALS as error:
         return Checked(proposal, "output_does_not_compile", f"{proposal.path}: {_said(error)}")
+    try:
+        result = cst.parse_module(after)
+    except (cst.ParserSyntaxError, SyntaxError) as error:
+        return Checked(proposal, "output_does_not_parse", f"{proposal.path}: {_said(error)}")
 
     last = proposal.start_line + len(parts) - 1
     if _runs_past(text, last):

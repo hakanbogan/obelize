@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import pickle
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
+import libcst as cst
 import pytest
 
 from obelize.models import GUARD_REFUSALS, EditProposal
@@ -222,6 +226,66 @@ def test_a_replacement_the_files_encoding_cannot_hold(tmp_path: Path) -> None:
     assert checked.refusal == "replacement_not_encodable"
     assert "iso-8859-1" in checked.detail
     assert "→" in checked.detail
+
+
+# Each overruns libcst's parser (SIGSEGV) after `compile()` has refused it; one line under the byte
+# limit, as a model could send them.
+DEEP = {
+    "nested parentheses": "x = " + "(" * 3000 + "1" + ")" * 3000,
+    "a very long chain": "x = " + " + ".join(["1"] * 20_000),
+    "a stack of nots": "x = " + "not " * 10_000 + "y",
+}
+
+
+@pytest.mark.parametrize("shape", sorted(DEEP), ids=sorted(DEEP))
+def test_a_reply_too_deep_for_the_parser_is_refused_and_the_process_lives(
+    shape: str, tmp_path: Path
+) -> None:
+    """In a subprocess: a regression kills the interpreter, which a test must survive to report."""
+    (tmp_path / "app.py").write_bytes(SOURCE)
+    code = (
+        "import pickle, sys; from pathlib import Path; from obelize.providers import guard; "
+        "one, found, source, root = pickle.load(sys.stdin.buffer); "
+        "print(guard.check(found, consultation=one, root=Path(root), before=source).refusal)"
+    )
+    done = subprocess.run(
+        [sys.executable, "-I", "-c", code],
+        input=pickle.dumps((question(), proposal(DEEP[shape]), SOURCE, str(tmp_path))),
+        capture_output=True,
+        check=False,
+    )
+    assert (done.returncode, done.stdout.strip()) == (0, b"output_does_not_compile")
+
+
+def test_a_reply_that_compiles_but_overruns_the_stack_is_a_refusal_and_not_an_exception(
+    tmp_path: Path,
+) -> None:
+    """900 operands pass `compile()` and libcst's parser; its visitors recurse past the stack."""
+    checked = check(tmp_path, "x = 1" + " + 1" * 900)
+    assert checked.refusal == "output_does_not_parse"
+    assert checked.detail == "app.py: nested more deeply than obelize reads"
+
+
+def test_a_syntax_error_is_the_compilers_word_since_it_is_asked_first(tmp_path: Path) -> None:
+    checked = check(tmp_path, 'model = genai.GenerativeModel("m"')
+    assert checked.refusal == "output_does_not_compile"
+
+
+def test_a_result_the_compiler_takes_and_libcst_refuses_is_still_a_parse_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stubbed: no source is known that `compile()` takes and libcst 1.8 or later cannot read."""
+    real = cst.parse_module
+
+    def refuse_the_result(source: bytes) -> cst.Module:
+        if b"unreadable" in source:
+            raise cst.ParserSyntaxError("not a tree", lines=("x",), raw_line=1, raw_column=0)
+        return real(source)
+
+    monkeypatch.setattr(cst, "parse_module", refuse_the_result)
+    checked = check(tmp_path, "x = 1  # unreadable")
+    assert checked.refusal == "output_does_not_parse"
+    assert "not a tree" in checked.detail
 
 
 @pytest.mark.parametrize(
