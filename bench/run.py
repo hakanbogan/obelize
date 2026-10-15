@@ -29,6 +29,7 @@ import yaml
 from gate1_score import ACTIONABLE_KINDS, Row, compare, rows
 
 from obelize import __version__
+from obelize.native import processes
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "bench" / "fixtures"
@@ -152,29 +153,44 @@ class StepError(Exception):
 
 
 def shell(argv: Sequence[str], cwd: Path, env: Mapping[str, str], timeout_s: int) -> Completed:
-    """Run one command, output merged; a missing program is exit 127 so the round goes on."""
+    """Run one command, output merged; a missing program is exit 127 so the round goes on.
+
+    The command gets a session of its own, killed once it ends or passes its ceiling, and its output
+    goes to a file: a child it leaves behind would hold a pipe open and make a finished command
+    wait out the ceiling.
+    """
     started = time.monotonic()
-    try:
-        finished = subprocess.run(
-            list(argv),
-            cwd=cwd,
-            env=dict(env),
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            timeout=timeout_s,
-        )
-    except subprocess.TimeoutExpired as expired:
-        return Completed(
-            tuple(argv), 124, round(time.monotonic() - started, 3), True, _text(expired.output)
-        )
-    except OSError as error:
-        return Completed(tuple(argv), 127, round(time.monotonic() - started, 3), False, str(error))
+    with tempfile.TemporaryFile() as sink:
+        try:
+            process = subprocess.Popen(
+                list(argv),
+                cwd=cwd,
+                env=dict(env),
+                stdin=subprocess.DEVNULL,
+                stdout=sink,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        except OSError as error:
+            return Completed(
+                tuple(argv), 127, round(time.monotonic() - started, 3), False, str(error)
+            )
+        timed_out = False
+        try:
+            process.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+        finally:
+            processes.close(process)
+            code = process.wait()
+        sink.seek(0)
+        output = sink.read(OUTPUT_CAP).decode("utf-8", "replace")
     return Completed(
         tuple(argv),
-        finished.returncode,
+        124 if timed_out else code,
         round(time.monotonic() - started, 3),
-        False,
-        _text(finished.stdout) + _text(finished.stderr),
+        timed_out,
+        output,
     )
 
 
@@ -190,10 +206,6 @@ def offline(inner: Execute) -> Execute:
         return inner(argv, cwd, env, timeout_s)
 
     return execute
-
-
-def _text(raw: bytes | None) -> str:
-    return (raw or b"").decode("utf-8", "replace")[:OUTPUT_CAP]
 
 
 def corpus() -> list[Case]:

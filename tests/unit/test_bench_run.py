@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -20,6 +22,8 @@ import cases  # noqa: E402
 import run  # noqa: E402
 
 pytestmark = BENCH
+
+TOOLS = ROOT / "tests" / "fixtures" / "verify" / "tools"
 
 Answer = Callable[[tuple[str, ...], Path], run.Completed]
 
@@ -226,6 +230,29 @@ def test_a_command_that_outlasts_its_ceiling_is_a_timeout(tmp_path: Path) -> Non
     said = run.shell([sys.executable, "-c", "import time;time.sleep(5)"], tmp_path, {}, 1)
     assert said.timed_out is True
     assert said.exit_code == 124
+
+
+def test_a_child_a_finished_command_leaves_behind_neither_delays_it_nor_outlives_it(
+    tmp_path: Path,
+) -> None:
+    """A pipe it held would make a command that exited `0` look like a timeout."""
+    marker = tmp_path / "survived"
+    argv = [sys.executable, str(TOOLS / "leaves_a_child.py"), "0", "3", str(marker)]
+    said = run.shell(argv, tmp_path, dict(os.environ), 2)
+    assert (said.exit_code, said.timed_out) == (0, False)
+    assert "child" in said.output
+    time.sleep(3.5)
+    assert not marker.exists(), "the child the command left behind was not ended"
+
+
+def test_a_command_past_its_ceiling_takes_what_it_started_with_it(tmp_path: Path) -> None:
+    marker = tmp_path / "survived"
+    argv = [sys.executable, str(TOOLS / "stubborn.py"), "3", str(marker)]
+    said = run.shell(argv, tmp_path, dict(os.environ), 1)
+    assert (said.exit_code, said.timed_out) == (124, True)
+    assert "armed" in said.output
+    time.sleep(3.5)
+    assert not marker.exists(), "the child outlived the ceiling"
 
 
 def test_a_program_that_does_not_exist_is_a_fact_about_the_case(tmp_path: Path) -> None:

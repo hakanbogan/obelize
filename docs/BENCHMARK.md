@@ -190,7 +190,9 @@ environments and is not run on Windows. Per case:
 Step 6 passes no `--verify`: the *to* SDK arrives only at step 7, so obelize's
 own after-phase would fail every case; steps 5 and 8 replace it.
 The harness grades from the run folder, never from the
-[exit code](CLI.md#exit-codes). Step output goes to `<work>/<round>/<id>.logs/`
+[exit code](CLI.md#exit-codes). Each step runs without a shell, in a session of its own that
+is killed when the step ends, so a process a suite leaves running neither holds a finished step to its
+ceiling nor outlives its case. Step output goes to `<work>/<round>/<id>.logs/`
 and is never committed. The gitignored `bench/work/` holds only
 checkouts of `bench/gate1_collect.py`, `bench/candidates_collect.py` and
 `bench/cases_collect.py`, which run no test suite.
