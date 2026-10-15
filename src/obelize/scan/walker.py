@@ -90,6 +90,9 @@ class Walk:
     # Every listed name that can be named, selected or not, a dot-directory's and the user's
     # `exclude` included: a pin anywhere in the repository installs. Names only, never opened here.
     listed: tuple[str, ...] = ()
+    # Manifests the user's `exclude` removed, under the same path guard: never edited, but still
+    # what installs, so the newest-release check judges their options and settings.
+    excluded_manifests: tuple[str, ...] = ()
 
 
 def walk(root: Path, config: Config) -> Walk:
@@ -109,6 +112,7 @@ def walk(root: Path, config: Config) -> Walk:
     excluded: list[str] = []
     found: list[str] = []
     unincluded: list[str] = []
+    dropped: list[str] = []
     named: list[str] = []
     for name in listed:
         if not _usable(name):
@@ -118,7 +122,9 @@ def walk(root: Path, config: Config) -> Walk:
         decision = selection.decide(name)
         manifest = manifests.is_manifest(name) and selection.selects_manifest(name)
         python = not manifest and decision == "not_included" and name.endswith(PYTHON_BEARING)
-        if not manifest and not python and decision in {"always_excluded", "not_included"}:
+        # A manifest not selected and not always excluded is one the user's `exclude` removed.
+        removed = not manifest and manifests.is_manifest(name) and decision != "always_excluded"
+        if not (manifest or python or removed) and decision in {"always_excluded", "not_included"}:
             continue
         # Stat only after matching, so a huge excluded tree costs no filesystem calls.
         reason = refusal(root, root / name)
@@ -127,6 +133,8 @@ def walk(root: Path, config: Config) -> Walk:
             continue
         if manifest:
             found.append(name)
+        elif removed:
+            dropped.append(name)
         if decision == "selected":
             files.append(name)
         elif decision == "excluded" or (python and selection.excludes(name)):
@@ -142,6 +150,7 @@ def walk(root: Path, config: Config) -> Walk:
         skipped=tuple(sorted(skipped, key=lambda row: (os.fsencode(row.path), row.reason))),
         unincluded=tuple(sorted(unincluded, key=os.fsencode)),
         listed=tuple(sorted(named, key=os.fsencode)),
+        excluded_manifests=tuple(sorted(dropped, key=os.fsencode)),
     )
 
 

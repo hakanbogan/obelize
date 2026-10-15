@@ -60,7 +60,10 @@ searched for a version, since no read of a scan goes past that limit.
    a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued line is such
    an option. A line that is read and names a release (`PyPDF2<3` in a constraints file) is judged
    like any declaration, by the floor and by item 5; a file that names nothing about the
-   distribution is no evidence for being there.
+   distribution is no evidence for being there. A manifest the user's `exclude` removed is judged
+   by its pip options and, in item 3, its resolver settings, and by nothing else: no row is read
+   from it, and a version it names is judged by item 5 like any listed file. A path no report can
+   spell, a link or a file the path guard refuses is skipped, and so is one that cannot be read.
 3. Resolver settings in `pyproject.toml` and `Pipfile`: `tool.uv.exclude-newer`, `resolution`,
    `index-url`, `find-links`, `no-index` or a `pip` table, a `tool.uv.index` that is not `explicit`,
    `tool.poetry.source`, `tool.pdm.source`, a Pipfile `[[source]]` that is not PyPI, or a TOML file

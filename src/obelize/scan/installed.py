@@ -117,18 +117,25 @@ def _unread(
     walk: Walk, contents: parse.Contents, rows: Sequence[manifests.Declaration], spelled: str
 ) -> str:
     """A manifest that cannot be read whole, names the distribution where no row was read, or has
-    a pip option that can change where a release comes from."""
+    a pip option that can change where a release comes from.
+
+    A manifest the user excluded is judged by its options alone: no row was read from it, and a
+    version it names is judged with every listed file.
+    """
     named = re.compile(rf"(?<![\w-]){spelled}(?!\w|-[a-z])", re.IGNORECASE)
-    for path in walk.manifests:
+    for path in (*walk.manifests, *walk.excluded_manifests):
         data, _refused = contents(path)
+        whole = path in walk.manifests
         # A NUL byte is UTF-16 (`pip freeze` on Windows): every line would read as nothing.
         if data is None or b"\0" in data:
-            return path
+            if whole:
+                return path
+            continue
         pip = manifests.layout(path) in manifests.PIP
         read = {row.line for row in rows if row.path == path}
         for number, line in enumerate(data.decode("utf-8", "surrogateescape").split("\n"), 1):
             body = manifests.PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)
-            if named.search(body) and number not in read:
+            if whole and named.search(body) and number not in read:
                 return path
             if pip and body.lstrip().startswith("-") and not _harmless(path, body.strip(), walk):
                 return path
@@ -152,7 +159,7 @@ def _harmless(path: str, option: str, walk: Walk) -> bool:
 def _settings(walk: Walk, contents: parse.Contents) -> str:
     """A resolver setting in `pyproject.toml` or `Pipfile` that can hold a release back or take it
     from another index; a file that is not TOML this Python reads cannot say."""
-    for path in walk.manifests:
+    for path in (*walk.manifests, *walk.excluded_manifests):
         base = posixpath.basename(path)
         data, _refused = contents(path)
         if base not in _RESOLVER_FILES or data is None:

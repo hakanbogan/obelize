@@ -324,6 +324,69 @@ def test_a_resolver_file_nobody_could_read_is_skipped_by_the_settings_check(
     assert installed._settings(tree.walk, tree.contents) == "pyproject.toml"
 
 
+# A manifest the user's `exclude` removed is read for no row, yet what it tells pip counts.
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("scripts/requirements-x.txt", "--index-url https://host/simple\n"),
+        ("scripts/requirements-x.txt", "PyPDF2\n-e git+https://host/repo#egg=thing\n"),
+        ("scripts/pyproject.toml", '[tool.uv]\nresolution = "lowest"\n'),
+        ("scripts/pyproject.toml", "[project\n"),
+        ("scripts/Pipfile", '[[source]]\nurl = "https://host/simple"\nname = "private"\n'),
+    ],
+    ids=["index-url", "editable-url", "uv-resolution", "pyproject-not-toml", "pipfile-private"],
+)
+def test_an_option_or_setting_in_an_excluded_manifest_is_evidence(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, name: body})
+    assert contrary(root, config=Config(exclude=("scripts/**",))) == name
+    assert contrary(root, config=Config(exclude=("elsewhere/**",))) == name
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        (
+            "scripts/requirements-x.txt",
+            "-r ../requirements.txt\n--extra-index-url https://host/s\n",
+        ),
+        ("scripts/requirements-x.txt", "PyPDF2>=3\nsix\n"),
+        ("scripts/requirements-x.txt", "PyPDF2\n"),
+        ("scripts/requirements-x.in", "PyPDF2\n"),
+        ("scripts/requirements-x.txt", "-i https://host/simple\n".encode("utf-16")),
+        ("scripts/pyproject.toml", '[project]\ndependencies = ["PyPDF2"]\n'),
+        ("vendor/requirements.txt", "--index-url https://host/simple\n"),
+        ("scripts/notes.txt", "--index-url https://host/simple\n"),
+    ],
+    ids=[
+        "harmless-options",
+        "newer-release",
+        "bare-name",
+        "bare-name-in-an-input",
+        "utf-16",
+        "declaration",
+        "always-excluded",
+        "not-a-manifest",
+    ],
+)
+def test_an_excluded_manifest_is_judged_by_its_options_and_settings_alone(
+    tmp_path: Path, name: str, body: str | bytes
+) -> None:
+    """What it names is for the search of every listed file, and no row was read from it."""
+    root = git_repo(tmp_path, {**REQUIRED, "requirements-b.txt": "six\n", name: body})
+    assert contrary(root, config=Config(exclude=("scripts/**",))) == ""
+
+
+def test_an_excluded_manifest_nobody_can_read_is_not_evidence(tmp_path: Path) -> None:
+    files = {**REQUIRED, "scripts/requirements-big.txt": "-i https://host/simple\n" + "x" * 400}
+    root = git_repo(tmp_path, files)
+    config = Config(exclude=("scripts/**",), max_file_bytes=300)
+    assert contrary(root, config=config) == ""
+
+
 # What is listed: a lock, an installer's settings; and the files read like manifests.
 
 
