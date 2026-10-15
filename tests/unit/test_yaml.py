@@ -103,13 +103,19 @@ def test_a_set_is_refused_because_it_has_no_order() -> None:
 
 @pytest.mark.parametrize(
     ("text", "said"),
-    [("a: 2020-13-45\n", "month must be in 1..12"), ("a: " + "9" * 5000 + "\n", "digits")],
-    ids=["impossible-date", "over-long-integer"],
+    [
+        ("a: 2020-13-45\n", "month must be in 1..12"),
+        ("a: !!int abc\n", "invalid literal for int"),
+        ("a: !!bool maybe\n", "not a valid bool"),
+        ("a: !!int ''\n", "not a valid int"),
+        ("a: !!timestamp foo\n", "not a valid timestamp"),
+    ],
+    ids=["impossible-date", "bad-int", "bad-bool", "empty-int", "bad-timestamp"],
 )
 def test_a_scalar_the_constructor_refuses_is_a_yaml_error_at_its_position(
     text: str, said: str
 ) -> None:
-    """A `ValueError` out of the date or integer constructor, which the callers do not catch."""
+    """The constructors answer with a ValueError, KeyError, IndexError or AttributeError."""
     with pytest.raises(yaml.YAMLError, match=said) as excinfo:
         _yaml.parse(text)
     located = _yaml.where(excinfo.value)

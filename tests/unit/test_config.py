@@ -388,9 +388,10 @@ def test_a_yaml_failure_without_a_position_still_names_the_file(tmp_path: Path) 
     ("body", "said"),
     [
         ("include: 2020-13-45\n", r"\.obelize\.yml:1:10: month must be in 1\.\.12"),
+        ("allow_dirty: !!bool maybe\n", r"\.obelize\.yml:1:14: not a valid bool"),
         ("include: " + "[" * 5000 + "\n", "is not valid YAML: nested too deeply to read"),
     ],
-    ids=["impossible-date", "nested-too-deeply"],
+    ids=["impossible-date", "bad-bool", "nested-too-deeply"],
 )
 def test_a_value_the_yaml_reader_cannot_construct_is_refused_not_a_traceback(
     tmp_path: Path, body: str, said: str

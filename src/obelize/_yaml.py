@@ -47,11 +47,16 @@ class _Loader(yaml.SafeLoader):
     def construct_object(self, node: yaml.Node, deep: bool = False) -> Any:
         try:
             return super().construct_object(node, deep=deep)
-        except ValueError as error:
-            # A date the calendar refuses, or an integer over the interpreter's digit limit.
-            raise yaml.constructor.ConstructorError(
-                None, None, str(error), node.start_mark
-            ) from error
+        except (ValueError, LookupError, AttributeError) as error:
+            # A date the calendar refuses, an integer over the interpreter's digit limit, or an
+            # explicit `!!bool`, `!!int`, `!!float` or `!!timestamp` on a scalar that is none of
+            # them, which the constructors answer with a KeyError, IndexError or AttributeError.
+            problem = (
+                str(error)
+                if isinstance(error, ValueError)
+                else f"not a valid {node.tag.rpartition(':')[2]}"
+            )
+            raise yaml.constructor.ConstructorError(None, None, problem, node.start_mark) from error
 
 
 def _set(loader: yaml.SafeLoader, node: yaml.Node) -> NoReturn:
