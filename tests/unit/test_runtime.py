@@ -632,10 +632,39 @@ def test_a_declaration_that_does_not_install_the_newest_release_blocks_as_before
     assert found.evidence == ""
 
 
-def test_with_no_newest_release_the_gate_is_what_it_was() -> None:
-    """The newest release is the caller's to pass, and a call that passes none blocks."""
+def test_with_no_newest_release_offered_the_gate_is_what_it_was_and_says_one_was_withheld() -> None:
+    """The newest release is the caller's to pass, and a call that passes none blocks: for a
+    declaration that would have installed it, the block says the release was not offered."""
     assert runtime.legacy([_plain("")], NEWEST, used=True) == runtime.Blocked(
-        "legacy_version_unsupported", "acme-old", "requirements.txt", "", ">=2"
+        "legacy_version_unsupported", "acme-old", "requirements.txt", "", ">=2", unlisted=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("spec", "row"),
+    [
+        (OLD, _plain("")),
+        (NEWEST, _plain("<2.4")),
+        (NEWEST, _plain("", pin=None)),
+        (NEWEST, _plain("", marked=True)),
+    ],
+    ids=["the-pack-names-none", "rules-it-out", "no-pin", "marker"],
+)
+def test_a_block_is_unlisted_only_where_the_newest_release_would_have_passed_it(
+    spec: ScanSpec, row: manifests.Declaration
+) -> None:
+    found = runtime.legacy([row], spec, used=True)
+    assert found is not None
+    assert found.unlisted is False
+    assert runtime.legacy([row], spec, used=True, newest=spec.legacy_newest) == found
+
+
+def test_a_block_with_evidence_or_with_nothing_declared_is_not_unlisted() -> None:
+    held = runtime.legacy([_plain("")], NEWEST, used=True, newest="2.4.1", contrary="poetry.lock")
+    assert held is not None
+    assert held.unlisted is False
+    assert runtime.legacy([], NEWEST, used=True) == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "", None, ">=2"
     )
 
 

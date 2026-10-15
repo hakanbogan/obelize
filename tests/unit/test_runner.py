@@ -839,6 +839,22 @@ def test_a_directory_that_is_not_a_repository_is_never_assumed(tmp_path: Path) -
         ("legacy_version_unsupported", "requirements.txt", "")
     ]
     assert scan.assumed == ()
+    assert scan.blocked[0].unlisted is True
+
+
+def test_a_directory_below_the_top_of_a_repository_is_unlisted_and_one_at_the_top_is_not(
+    tmp_path: Path,
+) -> None:
+    """The block says what to do only where the missing listing is what stopped the inference."""
+    top = repository(tmp_path / "top", {"requirements.txt": "PyPDF2<3\n"})
+    assert gated(top).blocked[0].unlisted is False
+    below = git_repo(
+        tmp_path / "top" / "sub", {"main.py": MAIN, "requirements.txt": "PyPDF2\n"}, init=False
+    )
+    scan = gated(below)
+    assert (scan.source, scan.blocked[0].unlisted) == ("walk", True)
+    spec = PDF.model_copy(update={"legacy_newest": None})
+    assert gated(below, spec).blocked[0].unlisted is False
 
 
 def test_a_library_nothing_uses_is_not_blocked_and_nothing_is_assumed(tmp_path: Path) -> None:

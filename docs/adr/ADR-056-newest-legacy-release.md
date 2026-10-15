@@ -93,7 +93,10 @@ searched for a version.
    name, whose `site-packages` holds a `dist-info` or `egg-info` of another release.
 
 Nothing is taken from a directory that is not the top of a git repository: the fallback walk skips
-dot-directories, so a pin in `.github/workflows` would never be seen.
+dot-directories, so a pin in `.github/workflows` would never be seen. A declaration that would have
+installed the newest release is then blocked as an unpinned one is, and its message says that
+obelize lists every file only at the top of a git repository, so that the way to lift the block is to
+run it there, with the pin the other (`runtime.Blocked.unlisted`).
 
 When nothing is found, the run says what it took: `Scan.assumed` is the (distribution, release)
 pair, `packs[].assumed` in `run.json` is the release, and the terminal and `REPORT.md` say that the

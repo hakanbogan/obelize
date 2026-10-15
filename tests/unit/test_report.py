@@ -238,6 +238,22 @@ APPLY = (
         ),
         (
             runtime.Blocked(
+                "legacy_version_unsupported",
+                "old-sdk",
+                "requirements.txt",
+                "",
+                ">=3",
+                unlisted=True,
+            ),
+            "requirements.txt declares old-sdk with no version, which this migration would take "
+            "as the newest release of old-sdk, but obelize lists every file only at the top of a "
+            "git repository and this run was not at one, so a file that names another release "
+            "may be unseen. It reports its findings and plans no change. To migrate, run it from "
+            "the top of the git repository, or pin old-sdk to >=3 in requirements.txt and run "
+            "again." + APPLY,
+        ),
+        (
+            runtime.Blocked(
                 "new_version_unsupported", "new-sdk", "requirements-dev.txt", "==3.0.0", ">=6"
             ),
             "requirements-dev.txt declares new-sdk ==3.0.0, which admits no release this "
@@ -253,6 +269,7 @@ APPLY = (
         "undeclared",
         "newest-refuted-by-a-lock",
         "newest-refuted-by-code",
+        "newest-not-offered-outside-the-top-of-a-repository",
         "new-pin-too-low",
     ],
 )

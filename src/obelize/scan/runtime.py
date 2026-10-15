@@ -58,6 +58,9 @@ class Blocked:
     needed: str
     # The path that stops the newest release being taken for an unpinned legacy declaration.
     evidence: str = ""
+    # The declaration would have installed the newest release, but the caller offered none, since
+    # git did not list the repository: a file that names another release may be out of sight.
+    unlisted: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +151,9 @@ def _legacy(
                 _shown(row.spec),
                 needed,
                 contrary,
+                unlisted=newest is None
+                and spec.legacy_newest is not None
+                and installs(row, spec.legacy_newest),
             )
     if not rows:
         return Blocked("legacy_version_unsupported", spec.legacy_distribution, "", None, needed)
