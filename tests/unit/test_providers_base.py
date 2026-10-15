@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import libcst as cst
 import pytest
 from pydantic import ValidationError
 
@@ -186,18 +187,44 @@ def test_a_context_says_whether_a_proposed_range_is_inside_it() -> None:
 )
 def test_a_file_is_split_into_the_lines_libcst_numbered(data: bytes, first: str, last: str) -> None:
     """Lines must match libcst's numbering, since the guard checks ranges against its positions."""
-    lines = base.split_lines(data)
+    _, lines = base._parse(data)
 
     assert lines[0] == first
     assert lines[-1] == last
+
+
+def test_a_file_is_parsed_once_however_many_of_its_rows_are_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The parse is most of a question's cost; each row of a file used to take another."""
+    parsed: list[bytes | str] = []
+    real = cst.parse_module
+
+    def counting(source: bytes | str) -> cst.Module:
+        parsed.append(source)
+        return real(source)
+
+    monkeypatch.setattr(cst, "parse_module", counting)
+    asked, _ = base.questions(
+        findings=[finding(), finding(line=6, kind="method_call")],
+        plans=[],
+        sources={"app.py": SOURCE},
+        pack=PACK,
+        environ={},
+    )
+
+    assert len(asked) == 2
+    assert parsed == [SOURCE]
 
 
 def test_a_unicode_line_separator_is_not_a_line_break() -> None:
     """`str.splitlines` also breaks on U+2028, U+2029 and form feed, renumbering later lines."""
     data = 'NOTE = "a\u2028b"\nx = 1\n'.encode()
 
-    assert base.split_lines(data) == ['NOTE = "a\u2028b"\n', "x = 1\n"]
-    assert len(data.decode().splitlines()) == 3
+    text = data.decode()
+
+    assert base.split_lines(text) == ['NOTE = "a\u2028b"\n', "x = 1\n"]
+    assert len(text.splitlines()) == 3
 
 
 def test_the_table_of_bails_a_model_is_never_asked_about_is_the_documented_one() -> None:

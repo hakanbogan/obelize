@@ -199,7 +199,7 @@ def questions(
 ) -> tuple[list[Consultation], list[Skipped]]:
     """The selection alone, with no provider, so an answer key can grade it by itself."""
     groups = _groups(plans)
-    scopes: dict[str, list[tuple[int, int]]] = {}
+    parsed: dict[str, tuple[list[tuple[int, int]], list[str]]] = {}
     asked: list[Consultation] = []
     skipped: list[Skipped] = []
     for finding in findings:
@@ -207,14 +207,13 @@ def questions(
             continue
         reason = _refuse(finding, sources)
         if reason is None:
-            data = sources[finding.path]
-            if finding.path not in scopes:
-                scopes[finding.path] = _scopes(data)
-            lines = split_lines(data)
+            if finding.path not in parsed:
+                parsed[finding.path] = _parse(sources[finding.path])
+            scopes, lines = parsed[finding.path]
             span = _range(
                 finding.line,
                 groups.get((finding.path, finding.line), frozenset()),
-                scopes[finding.path],
+                scopes,
                 len(lines),
             )
             if span is None:
@@ -247,9 +246,15 @@ def _groups(plans: Sequence[ImpactPlan]) -> dict[tuple[str, int], frozenset[int]
     return {key: frozenset(value) for key, value in collected.items()}
 
 
-def _scopes(data: bytes) -> list[tuple[int, int]]:
+def _parse(data: bytes) -> tuple[list[tuple[int, int]], list[str]]:
+    """One file's scopes and lines from one parse, which is most of what a question costs."""
+    module = cst.parse_module(data)
+    return _scopes(module), split_lines(data.decode(module.encoding))
+
+
+def _scopes(module: cst.Module) -> list[tuple[int, int]]:
     """Every `def` and `class` as inclusive 1-based line ranges."""
-    wrapper = MetadataWrapper(cst.parse_module(data), unsafe_skip_copy=True)
+    wrapper = MetadataWrapper(module, unsafe_skip_copy=True)
     collector = _Scopes()
     wrapper.visit(collector)
     return collector.found
@@ -296,9 +301,8 @@ def _range(
     return start, end
 
 
-def split_lines(data: bytes) -> list[str]:
-    """One file as its lines, terminators kept, numbered the way libcst does."""
-    text = data.decode(cst.parse_module(data).encoding)
+def split_lines(text: str) -> list[str]:
+    """One file's decoded text as its lines, terminators kept, numbered the way libcst does."""
     parts = LINE_BREAK.split(text)
     breaks = LINE_BREAK.findall(text)
     joined = [part + break_ for part, break_ in zip(parts[:-1], breaks, strict=True)]

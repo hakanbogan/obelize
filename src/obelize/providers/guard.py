@@ -165,7 +165,8 @@ def _produced(
     before: bytes,
 ) -> Checked:
     """Where the edit lands, and what it makes of the file."""
-    lines = base.split_lines(before)
+    source = cst.parse_module(before)
+    lines = base.split_lines(before.decode(source.encoding))
     misplaced = _placed(proposal, consultation, len(lines))
     if misplaced is not None:
         return Checked(proposal, misplaced[0], misplaced[1])
@@ -206,8 +207,6 @@ def _produced(
             f"instead of the value, and the lines it replaces hold none",
         )
 
-    # A second parse of `before`, for its encoding and imports; `split_lines` owns line splitting.
-    source = cst.parse_module(before)
     spliced = _spliced(parts, lines[proposal.start_line - 1 : proposal.end_line])
     text = "".join([*lines[: proposal.start_line - 1], *spliced, *lines[proposal.end_line :]])
     try:

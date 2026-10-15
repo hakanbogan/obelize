@@ -142,6 +142,23 @@ def test_a_name_windows_reads_as_another_file_is_an_escape(tmp_path: Path) -> No
     assert (tmp_path / "app.py.").read_bytes() == SOURCE
 
 
+def test_the_file_the_plan_read_is_parsed_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its lines, encoding and imports come from one parse; the result is the only other."""
+    parsed: list[bytes | str] = []
+    real = cst.parse_module
+
+    def counting(source: bytes | str) -> cst.Module:
+        parsed.append(source)
+        return real(source)
+
+    monkeypatch.setattr(cst, "parse_module", counting)
+
+    assert check(tmp_path, "pass").accepted
+    assert parsed.count(SOURCE) == 1
+
+
 def test_a_file_that_is_no_longer_there_is_a_file_that_changed(tmp_path: Path) -> None:
     """One word for four outcomes, and the detail line says which (ADR-037 D3)."""
     (tmp_path / "app.py").write_bytes(SOURCE)

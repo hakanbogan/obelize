@@ -150,7 +150,7 @@ def test_the_accepted_proposal_produces_the_file_the_key_describes(driven: Drive
     case = next(one for one in CASES if one["refusal"] is None)
     checked = _checked(case, driven)
     assert checked.after is not None
-    lines = base.split_lines(checked.after)
+    lines = base.split_lines(checked.after.decode("utf-8"))
     assert len(lines) == case["result_lines"]
     assert case["result_holds"] in checked.after.decode("utf-8")
     assert lines[0].rstrip("\n") == case["result_first"]
