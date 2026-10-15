@@ -141,7 +141,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 |---|---|
 | `rename_import` | `from_module`, `to_module`, `default_alias`, `submodule_map` (`types` -> `google.genai.types`), `symbol_map` (`Name`, or `<submodule>.Name` for one in `submodule_map`, to the new name), `alias_fallbacks` (a submodule to the alias used when the file already binds its own name) |
 | `configure_to_client` | `legacy_symbol`, `client_symbol` (fully qualified), `client_name` and `client_name_fallback` (tried in order), `allowed_kwargs`, `credential_kwarg` (validated by the new client at construction) and `credentials_object_kwarg` (an object where the legacy call also took a mapping) |
-| `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields`, `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
+| `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields` (a mapping literal among them must already be a turn of `history`'s shape, since it is carried as written), `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
 | `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `positional_to_kw`, `keywords`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes` |
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `message`, `suggestion` |
@@ -356,7 +356,10 @@ submodule's.
 legacy shape with a `ValidationError`). A list literal of dict literals with
 string-literal parts and literal `user` or `model` roles has each part
 rewritten to `{"text": <the string>}`; anything else is
-`history_parts_shape_incompatible`.
+`history_parts_shape_incompatible`. A mapping literal among the constructor
+fields carried into the configuration (Gemini's `system_instruction`) is not
+rewritten, so it is refused the same way unless its parts are already
+`{"text": ...}` and its role, if it has one, is one of `history.roles`.
 
 **One `configure(...)` per module, anywhere in it, is the client source.** Two
 or more is `multiple_configure_calls`; none is `client_source_unresolved`,
@@ -464,7 +467,7 @@ Defined in [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md); a pack's fixtures and
 | Code | Kind | Raised when |
 |---|---|---|
 | `roundtrip_mismatch` | bail | `cst.parse_module(data).bytes != data`; the file is reported, never edited. |
-| `history_parts_shape_incompatible` | bail | `start_chat(history=...)` outside the rewritable shape. |
+| `history_parts_shape_incompatible` | bail | `start_chat(history=...)` outside the rewritable shape, or a mapping constructor field that is not already the shape the new SDK reads. |
 | `multiple_configure_calls` | bail | Two or more `configure(...)` in one module. |
 | `credentials_shape_differs` | bail | `configure(credentials=<dict literal>)`; `Client.credentials` takes only `google.auth.credentials.Credentials`. |
 | `module_alias_rebound` | confidence_reason | The legacy import's name was reassigned or aliased (`g = genai`); the file is `needs_review`. |

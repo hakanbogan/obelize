@@ -546,6 +546,8 @@ class GenerativeModelCalls:
             for name in self._params.ctor_order
             if name in self._params.ctor_config_fields and name in given
         ]
+        for _name, value in fields:
+            self._as_written(tree, value)
         names = {name for name, _ in fields}
         source = given.get(self._params.legacy_config_kwarg)
         if source is not None:
@@ -567,6 +569,19 @@ class GenerativeModelCalls:
             safety_source=safety_source,
             names=frozenset(names),
         )
+
+    def _as_written(self, tree: _Tree, node: cst.BaseExpression) -> None:
+        """Refuse a mapping that reaches the config as written unless the new SDK reads it.
+
+        The legacy constructor coerced it (`{"parts": ["hi"]}`); the new config validates it and
+        fails on a bare string part. A name filled with a mapping elsewhere cannot be seen.
+        """
+        shape = self._params.history
+        if tree.filled(node) or (
+            isinstance(node, cst.Dict)
+            and (shape is None or self._turn(node, shape, roleless=True)[1])
+        ):
+            raise BailError("history_parts_shape_incompatible")
 
     def _literal(
         self,
@@ -802,7 +817,9 @@ class GenerativeModelCalls:
             return self._history(node)
         return node, False
 
-    def _turn(self, node: cst.Dict, shape: ChatHistory) -> tuple[cst.Dict, bool]:
+    def _turn(
+        self, node: cst.Dict, shape: ChatHistory, *, roleless: bool = False
+    ) -> tuple[cst.Dict, bool]:
         """One entry of the history: a role both SDKs take, and its parts."""
         # As in `_row`: a non-literal key becomes `None` and fails the key-set check below.
         written: dict[str | None, cst.DictElement] = {}
@@ -810,9 +827,13 @@ class GenerativeModelCalls:
             if not isinstance(entry, cst.DictElement):
                 raise BailError("history_parts_shape_incompatible")
             written[literal_string(entry.key)] = entry
-        if set(written) != {shape.role_key, shape.parts_key}:
+        keys = set(written)
+        if keys != {shape.role_key, shape.parts_key} and not (
+            roleless and keys == {shape.parts_key}
+        ):
             raise BailError("history_parts_shape_incompatible")
-        if literal_string(written[shape.role_key].value) not in shape.roles:
+        role = written.get(shape.role_key)
+        if role is not None and literal_string(role.value) not in shape.roles:
             raise BailError("history_parts_shape_incompatible")
         holder = written[shape.parts_key]
         parts, rewrote = self._parts(holder.value, holder.key, shape)

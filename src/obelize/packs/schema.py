@@ -650,7 +650,8 @@ class GenerativeModelCallsParams(_Closed):
     # positional-or-keyword, and `safety_settings` comes before `generation_config`.
     ctor_order: tuple[PlainName, ...]
     ctor_model_kwarg: PlainName
-    # Constructor parameters carried into the configuration object under the same name.
+    # Constructor parameters carried into the configuration object under the same name. A mapping
+    # literal among them is a turn, carried as written, so it must already be `history`'s shape.
     ctor_config_fields: tuple[PlainName, ...] = ()
     # Constructor keywords toggling automatic function calling: refused, since the default flipped.
     ctor_afc_kwargs: tuple[PlainName, ...] = ()

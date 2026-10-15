@@ -24,6 +24,10 @@ def refusals(edits: list[Edit]) -> list[str | None]:
     return [row.reason for row in edits if row.rule_id == "model-calls"]
 
 
+# A module-level model's one call, below whatever builds it.
+CALLED = "\n\n\ndef a(p):\n    return MODEL.run(p).answer\n"
+
+
 def test_the_model_name_is_folded_into_every_call_under_the_packs_keyword() -> None:
     produced, edits = run('MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return MODEL.run(p).answer\n')
     assert 'handle.models.run(target="m", body=p)' in produced
@@ -347,6 +351,48 @@ def test_a_constructor_field_comes_before_the_configurations_own_keys() -> None:
         "def a(p):\n    return MODEL.run(p).answer\n"
     )
     assert "options=types.RunConfig(preamble='hi', heat=1)" in produced
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["{'said': [{'words': 'hi'}]}", "{'who': 'us', 'said': [{'words': 'hi'}]}"],
+    ids=["roleless", "with-role"],
+)
+def test_a_mapping_constructor_field_that_is_already_a_turn_is_carried_as_written(
+    value: str,
+) -> None:
+    produced, edits = run(f"MODEL = sdk.Model('m', preamble={value}){CALLED}")
+    assert f"options=types.RunConfig(preamble={value})" in produced
+    assert refusals(edits) == [None, None]
+
+
+@pytest.mark.parametrize(
+    ("value", "why"),
+    [
+        ("{'who': 'us', 'said': ['hi']}", "a bare string part, which the new config rejects"),
+        ("{'said': ['hi']}", "the same, without a role"),
+        ("{'who': 'they', 'said': [{'words': 'hi'}]}", "a role neither SDK accepts"),
+        ("{'said': [{'words': 'hi'}], 'extra': 1}", "a key too many"),
+        ("{'who': 'us'}", "no parts"),
+        ("{}", "nothing in it"),
+        ("PREAMBLE", "a name filled with a mapping, which is not seen"),
+    ],
+)
+def test_a_mapping_constructor_field_the_new_config_would_reject_is_refused(
+    value: str, why: str
+) -> None:
+    given = f"PREAMBLE = {{'said': [{{'words': 'hi'}}]}}\nMODEL = sdk.Model('m', preamble={value})"
+    _produced, edits = run(given + CALLED)
+    assert refusals(edits) == ["history_parts_shape_incompatible"] * 2, why
+
+
+def test_a_mapping_constructor_field_is_refused_when_the_pack_says_no_shape_for_it() -> None:
+    """No history shape means no way to tell a turn the new SDK reads from one it rejects."""
+    shapeless = acme.MODEL.model_copy(
+        update={"params": acme.MODEL.params.model_copy(update={"history": None})}
+    )
+    _produced, edits = run(f"MODEL = sdk.Model('m', preamble={{'said': []}}){CALLED}", shapeless)
+    assert refusals(edits) == ["history_parts_shape_incompatible"] * 2
 
 
 def test_a_key_only_the_call_has_is_appended_and_one_it_shares_is_replaced() -> None:
@@ -1118,9 +1164,6 @@ def test_a_parameter_called_types_does_not_capture_the_configuration() -> None:
 
 
 # The constructor's arguments are pasted into every call, so each is re-read at every call site.
-
-# A module-level model's one call, below whatever builds it.
-CALLED = "\n\n\ndef a(p):\n    return MODEL.run(p).answer\n"
 
 
 @pytest.mark.parametrize(

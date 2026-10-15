@@ -90,6 +90,23 @@ cases:
       produces is not: what decides the emitted layout is the node the
       arguments came from, and here there is none.
 
+  - file: system_instruction_mapping
+    what_it_is: >-
+      A system instruction written as a mapping with a bare string part.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+      - {line: 23, rule: generative-model-calls, status: needs_review, reason: history_parts_shape_incompatible}
+    notes: >-
+      The constructor's value goes into the configuration as written, so a
+      mapping the legacy SDK coerced has to be the shape the new one reads
+      already: a role it takes and parts that are `{"text": ...}`. A string
+      part is not, and the call fails on first use rather than at import.
+
   - file: call_config
     what_it_is: >-
       A configuration on the constructor and another on the call.

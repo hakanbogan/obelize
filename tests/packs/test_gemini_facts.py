@@ -17,6 +17,7 @@ import pytest
 from google.genai import chats, files, models, types
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
+from pydantic import ValidationError
 
 from obelize.models import ReceiverMethods, bounds
 from obelize.packs import loader, schema
@@ -154,6 +155,16 @@ def test_the_fields_the_pack_moves_into_a_config_are_fields_of_it() -> None:
         if call.config_class:
             config = getattr(types, call.config_class.rpartition(".")[2])
             assert set(call.config_kwargs) <= set(config.model_fields), call.legacy_symbol
+
+
+@pytest.mark.parametrize("role", [None, "user"])
+def test_a_mapping_system_instruction_is_taken_only_with_text_parts(role: str | None) -> None:
+    """The legacy constructor (0.8.6) coerced `{"parts": ["hi"]}`; this config validates it."""
+    turn: dict[str, typing.Any] = {} if role is None else {"role": role}
+    kept = types.GenerateContentConfig(system_instruction={**turn, "parts": [{"text": "hi"}]})
+    assert kept.system_instruction is not None
+    with pytest.raises(ValidationError):
+        types.GenerateContentConfig(system_instruction={**turn, "parts": ["hi"]})
 
 
 def test_every_class_the_pack_names_on_the_new_side_exists() -> None:

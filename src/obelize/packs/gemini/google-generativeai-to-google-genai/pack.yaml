@@ -253,7 +253,8 @@ changes:
         - tool_config
         - system_instruction
       ctor_model_kwarg: model_name
-      # Moved into the config object under the same name.
+      # Moved into the config object under the same name. The legacy SDK coerced a mapping here,
+      # which the new config does not, so one is carried only when already the shape it reads.
       ctor_config_fields:
         - system_instruction
       # Refused, not moved: AFC is off by default in the legacy SDK and on in the new one.
