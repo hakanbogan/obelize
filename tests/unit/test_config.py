@@ -15,6 +15,7 @@ import pytest
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from obelize import _yaml
 from obelize.config import (
     ALWAYS_EXCLUDED,
     CONFIG_FILENAME,
@@ -247,6 +248,18 @@ def test_the_documented_spelling_wins_when_both_are_present(tmp_path: Path) -> N
 def test_a_configuration_file_that_is_not_utf8_is_refused(tmp_path: Path) -> None:
     (tmp_path / CONFIG_FILENAME).write_bytes(b"include: '\xff\xfe.py'\n")
     with pytest.raises(ConfigError, match="not UTF-8"):
+        load(tmp_path)
+
+
+def test_a_configuration_file_over_the_size_limit_is_refused_and_one_at_it_is_read(
+    tmp_path: Path,
+) -> None:
+    # Bytes, so that Windows does not turn the newline into two.
+    head = b"max_file_bytes: 11\n"
+    (tmp_path / CONFIG_FILENAME).write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head)))
+    assert load(tmp_path).config.max_file_bytes == 11
+    (tmp_path / CONFIG_FILENAME).write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head) + 1))
+    with pytest.raises(ConfigError, match=r"\.obelize\.yml is larger than 1 MiB$"):
         load(tmp_path)
 
 

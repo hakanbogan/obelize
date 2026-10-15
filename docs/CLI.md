@@ -360,8 +360,8 @@ your allowlist is `user_allowlist`.
 
 ## Configuration file (`.obelize.yml`)
 
-At the repository root; flags take precedence. A file that does not parse, or
-has an unknown, duplicate or wrongly typed key, exits `2` before anything is
+At the repository root; flags take precedence. A file that does not parse, is larger than
+1 MiB, or has an unknown, duplicate or wrongly typed key, exits `2` before anything is
 read; it is never partially applied.
 
 | Key | Type | Default | Description |
@@ -488,7 +488,8 @@ at once, and only an `.exe` or `.com` program runs: a batch file is refused.
 Outside every repository, so no checkout can write them (`$XDG_CONFIG_HOME` is
 honoured). On Windows the folder is `%USERPROFILE%\.config\obelize` unless `HOME`
 is set. `config.yml` holds the three settings a repository may not make: the
-allowlist, the model and the directories of your own packs. Unknown keys are an error.
+allowlist, the model and the directories of your own packs. Unknown keys are an error, and so is
+a file larger than 1 MiB.
 
 ```yaml
 # ~/.config/obelize/config.yml

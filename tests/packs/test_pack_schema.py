@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from obelize import _yaml
 from obelize.models import ScanSpec
 from obelize.packs import loader, schema
 
@@ -885,6 +886,8 @@ DOCUMENT_DEFECTS = [
     (b"provider: demo\nprovider: demo\n", "duplicate key 'provider'"),
     (b"source:\n  retrieved_at: 2020-13-45\n", "line 2, column 17: month must be in 1..12"),
     (b"id: " + b"[" * 5000, "not valid YAML: nested too deeply to read"),
+    (b"#" * (_yaml.MAX_BYTES + 1), "larger than 1 MiB"),
+    (b"#" * _yaml.MAX_BYTES, "the file is empty"),
 ]
 
 
@@ -900,6 +903,8 @@ DOCUMENT_DEFECTS = [
         "duplicate-key",
         "impossible-date",
         "nested-too-deeply",
+        "over-the-size-limit",
+        "at-the-size-limit",
     ],
 )
 def test_bytes_that_are_not_a_pack_document_are_refused_with_a_reason(

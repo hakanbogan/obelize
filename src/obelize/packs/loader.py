@@ -130,7 +130,8 @@ def load(reference: str, root: Path | None = None, dirs: Sequence[Path] = ()) ->
     """Read and validate the pack `reference` names; one named by id must carry that id."""
     path, bundled = resolve(reference, root, dirs)
     try:
-        data = path.read_bytes()
+        with path.open("rb") as handle:
+            data = handle.read(_yaml.MAX_BYTES + 1)
     except OSError as error:
         raise PackNotFoundError(
             f"no pack at {reference!r}: {error.strerror}. Pass a bundled pack id "
@@ -162,6 +163,8 @@ def _document(reference: str, data: bytes, *, bundled: bool) -> dict[str, Any]:
     def refuse(problem: str) -> PackInvalidError:
         return PackInvalidError(reference, [problem], bundled=bundled)
 
+    if len(data) > _yaml.MAX_BYTES:
+        raise refuse(f"larger than {_yaml.MAX_BYTES >> 20} MiB")
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError as error:

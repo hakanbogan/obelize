@@ -210,7 +210,10 @@ def load(repo: Path) -> LoadedConfig:
             )
         return LoadedConfig(config=Config(), source="defaults")
     try:
-        text = fsutil.read(path).decode("utf-8")
+        raw = fsutil.read(path, _yaml.MAX_BYTES + 1)
+        if len(raw) > _yaml.MAX_BYTES:
+            raise ConfigError(f"{CONFIG_FILENAME} is larger than {_yaml.MAX_BYTES >> 20} MiB")
+        text = raw.decode("utf-8")
     except UnicodeDecodeError as error:
         raise ConfigError(
             f"{CONFIG_FILENAME} is not UTF-8: {error.reason} at byte {error.start}"

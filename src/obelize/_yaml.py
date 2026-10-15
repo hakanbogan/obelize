@@ -13,6 +13,10 @@ import yaml
 
 _STR = "tag:yaml.org,2002:str"
 
+# Far above any real configuration or pack (the bundled packs are under 50 KiB). Readers take one
+# byte more, which is how they tell a longer file.
+MAX_BYTES = 1 << 20
+
 
 class DuplicateKeyError(ValueError):
     """A mapping that declares the same key twice, and where."""
@@ -77,4 +81,4 @@ def where(error: yaml.YAMLError) -> tuple[int, int, str] | None:
     return mark.line + 1, mark.column + 1, str(problem)
 
 
-__all__ = ["DuplicateKeyError", "parse", "where"]
+__all__ = ["MAX_BYTES", "DuplicateKeyError", "parse", "where"]

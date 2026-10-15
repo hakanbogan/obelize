@@ -543,6 +543,7 @@ Every run records the pack id, `pack_version` and sha256.
 
 Per field:
 
+- A file larger than 1 MiB.
 - An unknown field anywhere.
 - A `from`/`to` version, or a `to` with no `requires_python` or one that is not PEP 440, or
   ranges that overlap or contradict. Only ranges over one distribution are compared: a

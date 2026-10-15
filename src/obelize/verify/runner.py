@@ -157,7 +157,11 @@ def user_config(config_dir: Path) -> UserConfig:
     """
     path = config_dir / ALLOWLIST_FILENAME
     try:
-        text = path.read_text(encoding="utf-8")
+        with path.open("rb") as handle:
+            raw = handle.read(_yaml.MAX_BYTES + 1)
+        if len(raw) > _yaml.MAX_BYTES:
+            raise ConfigError(f"{path} is larger than {_yaml.MAX_BYTES >> 20} MiB")
+        text = raw.decode("utf-8")
     except FileNotFoundError:
         return UserConfig()
     except UnicodeDecodeError as error:

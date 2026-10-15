@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from obelize import _yaml
 from obelize.config import ConfigError
 from obelize.native import processes, windows_programs
 from obelize.verify import runner
@@ -94,6 +95,17 @@ def test_an_allowlist_that_cannot_be_used_is_an_error(
 def test_an_allowlist_that_is_not_utf8_is_an_error_not_a_traceback(tmp_path: Path) -> None:
     (tmp_path / runner.ALLOWLIST_FILENAME).write_bytes(b"verify:\n  allow: ['\xff']\n")
     with pytest.raises(ConfigError, match=r"is not UTF-8: invalid start byte at byte 19"):
+        runner.user_config(tmp_path)
+
+
+def test_an_allowlist_over_the_size_limit_is_an_error_and_one_at_it_is_read(tmp_path: Path) -> None:
+    # Bytes, so that Windows does not turn a newline into two.
+    path = tmp_path / runner.ALLOWLIST_FILENAME
+    head = b"verify:\n  allow: []\n"
+    path.write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head)))
+    assert runner.user_config(tmp_path) == runner.UserConfig()
+    path.write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head) + 1))
+    with pytest.raises(ConfigError, match=r"config\.yml is larger than 1 MiB$"):
         runner.user_config(tmp_path)
 
 
