@@ -256,7 +256,7 @@ class OpenAICompat:
             )
         try:
             return json.loads(raw)
-        except ValueError as error:
+        except (ValueError, RecursionError) as error:
             raise self._failure("response_not_json", str(error)) from error
 
     def _answered(self, error: urllib.error.HTTPError) -> base.ProviderError:
@@ -324,11 +324,14 @@ def _candidates(content: str) -> Iterator[str]:
 
 
 def _object(content: str) -> dict[str, Any] | None:
-    """The first reading of `content` that is a JSON object."""
+    """The first reading of `content` that is a JSON object.
+
+    Nesting past the parser's depth is a reading that is no object, not an error.
+    """
     for candidate in _candidates(content):
         try:
             value = json.loads(candidate)
-        except ValueError:
+        except (ValueError, RecursionError):
             continue
         if isinstance(value, dict):
             return value

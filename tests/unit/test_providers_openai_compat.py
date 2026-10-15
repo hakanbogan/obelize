@@ -329,6 +329,27 @@ def test_a_usage_that_is_not_an_object_is_no_counts(monkeypatch: pytest.MonkeyPa
     assert (reply.tokens_in, reply.tokens_out) == (0, 0)
 
 
+def test_a_body_nested_past_the_parser_is_not_json_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`RecursionError` is not a `ValueError`; a 1 MiB body holds a depth that raises it."""
+    deep = b"[" * 400_000 + b"]" * 400_000
+    assert len(deep) < adapter.RESPONSE_BYTE_LIMIT
+    assert _refusal(monkeypatch, deep).failure == "response_not_json"
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["[" * 100_000, '{"proposal": ' + "[" * 100_000 + "]" * 100_000 + "}"],
+    ids=["array", "inside_an_object"],
+)
+def test_an_answer_nested_past_the_parser_is_not_json_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, content: str
+) -> None:
+    """Every reading of the content fails the same way, so none is an object."""
+    assert _refusal(monkeypatch, _completion(content)).failure == "answer_not_json"
+
+
 def test_an_answer_that_is_json_and_not_an_object_is_prose(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
