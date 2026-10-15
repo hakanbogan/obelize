@@ -460,6 +460,26 @@ def test_a_string_key_along_a_listed_path_is_read_as_the_attribute_of_that_name(
     assert code.splitlines()[-1] == line
 
 
+def test_a_comment_written_inside_a_key_read_is_kept_above_its_statement() -> None:
+    """The attribute has no brackets to hold it; the comment goes above, in the order written."""
+    code, edits = rewrite(
+        f"r = {CALL}\n"
+        "print(r[  # inside\n    'reply'\n]  # after the first\n"
+        "      ['text']  # after the second\n)\n"
+        "x = r['spent'][\n    # own line\n    'words'\n]\n"
+    )
+    assert [row.status for row in edits] == ["auto"]
+    assert code.splitlines()[2:] == [
+        "r = acme.kit.talk.say(who='a')",
+        "# inside",
+        "# after the first",
+        "print(r.reply.text  # after the second",
+        ")",
+        "# own line",
+        "x = r.spent.words",
+    ]
+
+
 @pytest.mark.parametrize(
     "body",
     [

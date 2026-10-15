@@ -337,7 +337,7 @@ legacy result. `dict_reads` reads every listed path by its keys, a test
 job prints the fixture's results on 0.28.1 and on 1.109.1 and the newest release and diffs them.
 The other spellings stay refused: `.get` has a default where the attribute read raises, and a key
 held in a name or an expression is not known to be on the path. A comment between the brackets of a
-rewritten read is dropped, as for every rule.
+rewritten read moves to a line above its statement (ADR-026 D7).
 
 ### D19. Image, Moderation and Audio are rewritten
 

@@ -184,15 +184,14 @@ class RewriteCall:
         context.rewrites.set(call, rewritten)
         context.rewrites.keep_comments(tree.statement_of(call), call, rewritten)
         for subscript, name in keyed:
-            context.rewrites.set(
-                subscript,
-                cst.Attribute(
-                    value=subscript.value,
-                    attr=cst.Name(name),
-                    lpar=subscript.lpar,
-                    rpar=subscript.rpar,
-                ),
+            attribute = cst.Attribute(
+                value=subscript.value,
+                attr=cst.Name(name),
+                lpar=subscript.lpar,
+                rpar=subscript.rpar,
             )
+            context.rewrites.set(subscript, attribute)
+            context.rewrites.keep_comments(tree.statement_of(subscript), subscript, attribute)
 
     def _callee(self, context: RuleContext, call: cst.Call) -> cst.BaseExpression:
         """What the new call is made on: the file's client, or the root the author wrote.
