@@ -1,5 +1,5 @@
 {
-  "obelize_version": "0.4.0",
+  "obelize_version": "0.5.0",
   "pack": "openai/openai-0-to-1",
   "pack_sha256": "816a428e043052b97b2d371924fc6aec842f774c2e36b64d0f3b2cef54f80496",
   "spec_sha256": "0fe3444f27212b9b348aef25ab595b552ce4ac93a7bede05c3cfbdf0c0196456",
@@ -25,7 +25,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 8.28
+      "seconds": 6.08
     },
     {
       "full_name": "glaive-ai/function-calling-server",
@@ -53,7 +53,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.77
+      "seconds": 3.12
     },
     {
       "full_name": "YasmeenY/Hacktember-Backend",
@@ -93,7 +93,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.58
+      "seconds": 13.99
     },
     {
       "full_name": "apockill/clai",
@@ -119,7 +119,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.84
+      "seconds": 1.77
     },
     {
       "full_name": "ericsoderstrom/connectionsGPT",
@@ -154,7 +154,7 @@
           ]
         }
       ],
-      "seconds": 1.67
+      "seconds": 1.68
     },
     {
       "full_name": "vinod-soni-microsoft/text-to-speech-wishper",
@@ -187,7 +187,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.19
+      "seconds": 2.02
     },
     {
       "full_name": "gethsun1/flask_task_manager",
@@ -198,7 +198,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 4.0
+      "seconds": 3.33
     },
     {
       "full_name": "franalgaba/chatgpt-telegram-bot-serverless",
@@ -224,7 +224,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.2
+      "seconds": 2.17
     },
     {
       "full_name": "Zheng-Chong/FashionMatrix",
@@ -273,7 +273,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.59
+      "seconds": 4.04
     },
     {
       "full_name": "yixinL7/SumLLM",
@@ -306,7 +306,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 5.14
+      "seconds": 5.37
     },
     {
       "full_name": "cwzsquare/chatgpt-streamlit",
@@ -325,7 +325,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.64
+      "seconds": 1.58
     },
     {
       "full_name": "unconv/gpt-pdfreader",
@@ -358,7 +358,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.79
+      "seconds": 1.71
     },
     {
       "full_name": "batuhantoker/Flask-OpenAI-Chatbot",
@@ -377,7 +377,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.7
+      "seconds": 1.79
     },
     {
       "full_name": "fshnkarimi/Chat-Bot-using-Streamlit-and-OpenAI",
@@ -396,7 +396,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.86
+      "seconds": 1.96
     },
     {
       "full_name": "swapp1990/doctor-ai-appointment",
@@ -456,7 +456,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.93
+      "seconds": 1.84
     },
     {
       "full_name": "SanthoshSetty/terms-and-conditions-analyzer",
@@ -467,7 +467,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.78
+      "seconds": 1.67
     },
     {
       "full_name": "kdrkdrkdr/AronaSpeaker",
@@ -486,7 +486,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.19
+      "seconds": 2.04
     },
     {
       "full_name": "divinrkz/agentic-scene-graph",
@@ -519,7 +519,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.52
+      "seconds": 3.51
     },
     {
       "full_name": "imevro/chatgpt_repl",
@@ -538,7 +538,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.72
+      "seconds": 2.19
     },
     {
       "full_name": "wsy258-strar/DocGPT",
@@ -564,7 +564,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.35
+      "seconds": 2.48
     },
     {
       "full_name": "Kerem1989/allsvenskan-gpt",
@@ -601,7 +601,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.08
+      "seconds": 1.92
     },
     {
       "full_name": "ecielyang/Auto-ICL",
@@ -676,7 +676,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.73
+      "seconds": 2.74
     },
     {
       "full_name": "lulu-wang/Creative-Writing-AI-Webapp",
@@ -687,7 +687,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.92
+      "seconds": 1.88
     },
     {
       "full_name": "riseworksco/jobGPT",
@@ -720,7 +720,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.85
+      "seconds": 1.82
     },
     {
       "full_name": "MZneverABANDON/gogakuGPTaipitest1",
@@ -746,7 +746,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.04
+      "seconds": 1.71
     },
     {
       "full_name": "ZhichuCen/ChunJi",
@@ -772,7 +772,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.16
+      "seconds": 2.11
     },
     {
       "full_name": "pritam20ps05/Substation-ChatBot",
@@ -791,7 +791,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.95
+      "seconds": 2.01
     },
     {
       "full_name": "dfgdyt/ChatGPT4APIKEY-",
@@ -819,7 +819,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.7
+      "seconds": 1.67
     },
     {
       "full_name": "saasscaleup/openai-jarvis",
@@ -847,7 +847,7 @@
           ]
         }
       ],
-      "seconds": 1.73
+      "seconds": 1.71
     },
     {
       "full_name": "eduardo-meik/SemanticSearch",
@@ -908,7 +908,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.93
+      "seconds": 1.98
     },
     {
       "full_name": "AyoFemi10/ayomikun-md",
@@ -927,7 +927,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.7
+      "seconds": 3.35
     },
     {
       "full_name": "MatthewHilliard/SpotifyPlaylistProject",
@@ -953,7 +953,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.87
+      "seconds": 2.36
     },
     {
       "full_name": "David-Li0406/DALK",
@@ -1011,7 +1011,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 9.87
+      "seconds": 9.12
     },
     {
       "full_name": "rajpdus/MeetingSummarizer",
@@ -1022,7 +1022,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.39
+      "seconds": 2.18
     },
     {
       "full_name": "IgnoranceAI/hugh",
@@ -1033,7 +1033,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.27
+      "seconds": 2.23
     },
     {
       "full_name": "g0ldencybersec/sus_params",
@@ -1068,7 +1068,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.21
+      "seconds": 3.99
     },
     {
       "full_name": "aogara-ds/hoodwinked",
@@ -1135,7 +1135,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.05
+      "seconds": 2.12
     },
     {
       "full_name": "microsoft/az-oai-chatgpt-streamlit-harness",
@@ -1193,7 +1193,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.81
+      "seconds": 1.67
     },
     {
       "full_name": "Yiiipu/SimplePDF",
@@ -1212,7 +1212,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.48
+      "seconds": 2.33
     },
     {
       "full_name": "gustavz/whatsbot",
@@ -1238,7 +1238,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.42
+      "seconds": 2.18
     },
     {
       "full_name": "moimart/geppetto",
@@ -1271,7 +1271,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.1
+      "seconds": 2.16
     },
     {
       "full_name": "karlospn/building-qa-app-with-openai-pinecone-and-streamlit",
@@ -1331,7 +1331,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.98
+      "seconds": 8.2
     },
     {
       "full_name": "JayZeeDesign/openai-experiments",
@@ -1350,7 +1350,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.84
+      "seconds": 1.71
     },
     {
       "full_name": "gabrielcdb/RealJarvis",
@@ -1397,7 +1397,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.68
+      "seconds": 2.24
     },
     {
       "full_name": "danielgross/python-llm",
@@ -1416,7 +1416,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.75
+      "seconds": 1.69
     },
     {
       "full_name": "ArrogantL/ChatGPT4CausalReasoning",
@@ -1526,7 +1526,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.75
+      "seconds": 4.58
     },
     {
       "full_name": "ZJU-DCDLab/Triad",
@@ -1600,7 +1600,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.45
+      "seconds": 2.27
     },
     {
       "full_name": "defnecirci/InsightGraph",
@@ -1626,7 +1626,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.17
+      "seconds": 2.05
     },
     {
       "full_name": "whichbuffer/CTTC",
@@ -1645,7 +1645,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.01
+      "seconds": 1.87
     },
     {
       "full_name": "CCCBora/faiss_chat",
@@ -1775,7 +1775,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.51
+      "seconds": 2.3
     },
     {
       "full_name": "yiqingxyq/DocLens",
@@ -2011,7 +2011,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.12
+      "seconds": 2.91
     },
     {
       "full_name": "ainbr/chatgpt-weak-labeler-webui",
@@ -2022,7 +2022,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.09
+      "seconds": 1.96
     },
     {
       "full_name": "shamspias/twilio-studio-gpt3-assistant",
@@ -2055,7 +2055,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.91
+      "seconds": 3.35
     },
     {
       "full_name": "boukeversteegh/ai-terminal-assistant",
@@ -2081,7 +2081,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.81
+      "seconds": 1.84
     },
     {
       "full_name": "parallelo3301/zulip-chatgpt-bot",
@@ -2092,7 +2092,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.16
+      "seconds": 2.01
     },
     {
       "full_name": "kangmintong/R-2-Guard",
@@ -2139,7 +2139,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.89
+      "seconds": 4.84
     },
     {
       "full_name": "jbenadiva/travelease.ai",
@@ -2150,7 +2150,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 4.66
+      "seconds": 2.15
     },
     {
       "full_name": "agniiva/YoutubeGPTClaude",
@@ -2183,7 +2183,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.13
+      "seconds": 1.8
     },
     {
       "full_name": "normandmickey/chatgptomatic",
@@ -2194,7 +2194,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.92
+      "seconds": 1.79
     },
     {
       "full_name": "JeremiahPetersen/Auto-Story-GPT",
@@ -2220,7 +2220,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.93
+      "seconds": 1.76
     },
     {
       "full_name": "KseniyaZaitseva1/blog-gpt123",
@@ -2231,7 +2231,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.79
+      "seconds": 1.73
     },
     {
       "full_name": "JordiCorbilla/OpenAI-Whatsapp-Bot",
@@ -2257,7 +2257,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.93
+      "seconds": 2.26
     },
     {
       "full_name": "scooter7/carnegieseo",
@@ -2711,7 +2711,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 8.71
+      "seconds": 8.83
     },
     {
       "full_name": "DudeFr0mMars/CustomGPT",
@@ -2776,7 +2776,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.94
+      "seconds": 1.87
     },
     {
       "full_name": "IanCele/Crisis-Alpha-Ai---Portfolio-Allocator",
@@ -2802,7 +2802,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.92
+      "seconds": 1.91
     },
     {
       "full_name": "he141142/ecomerce-chatbot",
@@ -2813,7 +2813,7 @@
       "manifests": 2,
       "files": 2,
       "withheld": [],
-      "seconds": 2.33
+      "seconds": 2.16
     },
     {
       "full_name": "B1lli/BillyGPT",
@@ -2912,7 +2912,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.29
+      "seconds": 3.09
     },
     {
       "full_name": "hananshafi/llmblueprint",
@@ -2979,7 +2979,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 9.73
+      "seconds": 9.96
     },
     {
       "full_name": "GENEXIS-AI/arXiv-PDF-Translator",
@@ -3005,7 +3005,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 5.91
+      "seconds": 3.69
     },
     {
       "full_name": "Relento/hypothesis_search",
@@ -3132,7 +3132,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.56
+      "seconds": 4.39
     },
     {
       "full_name": "ProtectoAi/GPT-Guard-LLM-Security-Tool-for-ChatGPT",
@@ -3234,7 +3234,7 @@
           ]
         }
       ],
-      "seconds": 3.88
+      "seconds": 3.75
     },
     {
       "full_name": "asu-cactus/ChatGPTwithSQLscript",
@@ -3245,7 +3245,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.91
+      "seconds": 1.86
     },
     {
       "full_name": "mkualquiera/LangPlay",
@@ -3299,7 +3299,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.17
+      "seconds": 2.0
     },
     {
       "full_name": "UKPLab/acl2024-DARA",
@@ -3389,7 +3389,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 13.94
+      "seconds": 25.94
     },
     {
       "full_name": "amaze18/speeKAR",
@@ -3436,7 +3436,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.64
+      "seconds": 2.81
     },
     {
       "full_name": "declare-lab/MM-InstructEval",
@@ -3526,7 +3526,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 16.68
+      "seconds": 13.73
     },
     {
       "full_name": "TharsanKanthaswamy/edupulse",
@@ -3577,7 +3577,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.65
+      "seconds": 2.41
     },
     {
       "full_name": "malcolmchetwyn/rhino",
@@ -3658,7 +3658,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.31
+      "seconds": 3.56
     },
     {
       "full_name": "hero-rq/Food_Is_Therapy_keeping_origin",
@@ -3924,7 +3924,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 5.62
+      "seconds": 13.09
     }
   ]
 }

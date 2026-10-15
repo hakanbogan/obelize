@@ -12,6 +12,36 @@ in the release that makes it.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-15
+
+### Benchmark
+
+I did not run the benchmark again for this release. Its numbers are still 0.1.0's and are for the
+Gemini pack alone: scan precision 100.0% and recall 98.4% over 64 usages in five repositories, and
+25 of 277 usages (9.0%) migrated in 20 repositories with no wrong edit, on the
+[results page](https://github.com/hakanbogan/obelize/blob/v0.5.0/docs/BENCHMARK_RESULTS.md). The
+scanner and the rewriter have changed since, so read those numbers as dated. The new gate rule is
+measured without the tests: a `fix` dry run with no model over the 80-repository frame of each pack
+plans for openai and Gemini what 0.4.0 planned, and for `py-pdf/pypdf2-to-pypdf` plans for 19 of the
+53 repositories the version gate stopped: 15 complete, 3 partial and 1 held, so 31 of 80 repositories
+plan completely against 16 (the other 34 that the gate stops still stop, and one stops on a Python).
+That says what is written, not whether the result passes a repository's tests, and "complete" means
+a file written and nothing withheld, not a correct migration. `openai/openai-0-to-1` and
+`py-pdf/pypdf2-to-pypdf` still have no accuracy figure and no benchmark; they rest on fixtures, on
+each change measured against both library versions installed side by side, and on a weekly job that
+runs their facts on the oldest and newest releases and now also checks that PyPI has no PyPDF2
+release newer than the one the pack takes an unversioned requirement as.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](https://github.com/hakanbogan/obelize/blob/v0.5.0/docs/KNOWN_ISSUES.md) lists
+what I know about and have chosen not to fix yet. The gaps listed under 0.4.0 stand. A `PyPDF2`
+requirement with no version is now taken as 3.0.1 where git lists the files and nothing in them
+shows another release, which is a claim about an install nobody ran: the environment the code runs
+in, a `pip.conf` in your home directory and a release another package requires are not seen, and the
+section on the PyPDF2 pack lists the rest. The formats that changed are `pack.yaml` (the optional
+`from.newest` and `from.lacks`), `run.json` (`packs[].assumed`) and their JSON Schemas.
+
 ### Added
 
 - A pack may name the newest release of the distribution it migrates from (`from.newest`) and the

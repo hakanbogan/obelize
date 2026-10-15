@@ -244,7 +244,7 @@ network access unless you configure a model in your own `~/.config/obelize/confi
 `--model`.
 
 Run obelize in a repository that is committed or backed up, and pass only verification commands
-you trust. These gaps are known in 0.4.0:
+you trust. These gaps are known in 0.5.0:
 
 - obelize turns `core.fsmonitor` off for its own git calls and keeps `git status` from refreshing a
   stale index, which would run a `post-index-change` hook. A repository's `.git/config` can still

@@ -120,7 +120,7 @@ at the repository's pinned commit, kept in `bench/results/dryrun/`; the frames a
 
 ### `gemini/google-generativeai-to-google-genai`
 
-obelize 0.4.0, pack sha256 `4fb58bd146f7`, frame drawn 2026-09-18T14:05:55Z for `generativeai` (412,736 files in the index): 80 repositories planned, 0 errored.
+obelize 0.5.0, pack sha256 `4fb58bd146f7`, frame drawn 2026-09-18T14:05:55Z for `generativeai` (412,736 files in the index): 80 repositories planned, 0 errored.
 
 | Outcome | Repositories | Share of planned | Share of those the pack ran on |
 |---|---:|---:|---:|
@@ -168,7 +168,7 @@ obelize 0.4.0, pack sha256 `4fb58bd146f7`, frame drawn 2026-09-18T14:05:55Z for 
 
 ### `openai/openai-0-to-1`
 
-obelize 0.4.0, pack sha256 `816a428e0430`, frame drawn 2026-10-13T13:11:56Z for `"openai.ChatCompletion"` (89,152 files in the index): 80 repositories planned, 0 errored.
+obelize 0.5.0, pack sha256 `816a428e0430`, frame drawn 2026-10-13T13:11:56Z for `"openai.ChatCompletion"` (89,152 files in the index): 80 repositories planned, 0 errored.
 
 | Outcome | Repositories | Share of planned | Share of those the pack ran on |
 |---|---:|---:|---:|
@@ -212,7 +212,7 @@ obelize 0.4.0, pack sha256 `816a428e0430`, frame drawn 2026-10-13T13:11:56Z for 
 
 ### `py-pdf/pypdf2-to-pypdf`
 
-obelize 0.4.0, pack sha256 `c32a03f640ee`, frame drawn 2026-10-13T13:17:31Z for `PyPDF2` (157,888 files in the index): 80 repositories planned, 0 errored.
+obelize 0.5.0, pack sha256 `c32a03f640ee`, frame drawn 2026-10-13T13:17:31Z for `PyPDF2` (157,888 files in the index): 80 repositories planned, 0 errored.
 
 | Outcome | Repositories | Share of planned | Share of those the pack ran on |
 |---|---:|---:|---:|
