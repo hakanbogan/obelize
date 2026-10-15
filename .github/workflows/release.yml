@@ -51,6 +51,7 @@ jobs:
         with:
           # What is uploaded is built from nothing another run could have written.
           enable-cache: false
+          version: "0.12.15"
 
       - name: Number the rehearsal build
         if: github.event_name == 'workflow_dispatch'

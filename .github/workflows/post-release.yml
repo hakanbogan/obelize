@@ -50,6 +50,7 @@ jobs:
         with:
           # The release comes from the index, never from a cache.
           enable-cache: false
+          version: "0.12.15"
 
       - name: Choose what to install
         run: |

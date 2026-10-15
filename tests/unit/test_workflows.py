@@ -706,6 +706,19 @@ def test_a_run_on_a_release_tag_restores_no_cache() -> None:
     assert tagged == ["ci.yml", "release.yml"]
 
 
+def test_every_step_that_installs_uv_installs_the_same_exact_release() -> None:
+    """The newest uv is not taken on faith; Dependabot moves no `version:`, so a bump is one commit
+    over every step."""
+    versions = [
+        step.get("with", {}).get("version")
+        for _, _, job in _jobs()
+        for step in _setup_uv_steps(job)
+    ]
+    assert len(versions) > 1
+    assert len(set(versions)) == 1
+    assert re.fullmatch(r"\d+\.\d+\.\d+", str(versions[0]))
+
+
 @pytest.mark.parametrize("workflow", ["release.yml", "post-release.yml"])
 def test_what_uploads_or_checks_a_release_restores_no_cache_on_any_trigger(workflow: str) -> None:
     """A manual run uploads too, and `auto` restores a cache on one; an install check that
@@ -1257,3 +1270,20 @@ def test_the_weekly_pypdf2_check_reads_the_newest_the_pack_states() -> None:
         if "newest:" in pack.read_text(encoding="utf-8")
     }
     assert packs == {"py-pdf/pypdf2-to-pypdf"}
+
+
+def test_the_legacy_openai_check_pins_numpy_beside_the_sdk() -> None:
+    """0.28.1 reads an embedding with numpy, so a newer numpy could change what the legacy side
+    prints; the diff against the new side would then fail on a release nobody chose."""
+    run = _step("e2e.yml", "e2e", "The migrated openai fixtures do what the legacy ones did")["run"]
+    numpy = [name for name in re.findall(r"--with (\S+)", run) if name.startswith("numpy")]
+    assert len(numpy) == 2
+    assert all("==" in name for name in numpy)
+
+
+def test_no_workflow_skips_its_check_because_the_script_is_missing() -> None:
+    """A deleted script has to fail the run: a step that prints SKIPPED and passes hides it."""
+    for path in WORKFLOWS:
+        text = path.read_text(encoding="utf-8")
+        assert "SKIPPED" not in text, path.name
+        assert "steps.guard." not in text, path.name

@@ -163,3 +163,13 @@ uv run --with 'libcst==1.8.6' pytest --no-cov
 `obelize --version` must print the version being released, and `obelize --help` must return in
 well under 300 ms.
 
+
+## Pins that move by hand
+
+CI installs each of these at one version, and Dependabot proposes none of them. Look at them
+before a release.
+
+- uv: `version:` on every `astral-sh/setup-uv` step in `.github/workflows/`. Change all of them
+  in one commit; `tests/unit/test_workflows.py` fails on a step that differs.
+- numpy in the openai check of `e2e.yml`, next to `openai==0.28.1`. A bump has to leave the
+  legacy side's output the one the migrated side prints: run that step's commands locally.
