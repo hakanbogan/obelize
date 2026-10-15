@@ -100,6 +100,9 @@ class Outcome:
     guides: tuple[flag_only.Guide, ...] = ()
     # The pin check, in memory only: it names files that hold a pin without a row in `withheld`.
     manifest_plan: ManifestPlan = field(default_factory=ManifestPlan)
+    # Lock files listed in the repository where a manifest pin was or would be written; none is
+    # edited.
+    locks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +194,8 @@ def run(request: Request) -> Outcome:
     run_id = run_dir.new_id(started)
     journaled = _journaled(request, run_id, plan)
     phases = _phases(request, writable, stopped, gate_ms)
+    pinned = plan.document.files if phases.applied is None else phases.applied.written
+    locks = _locks(chosen.tree, [row.path for row in pinned])
     code = _exit(phases, outstanding=bool(report.withheld_rows(driven.findings)), idle=not passes)
     recorded = _recorded(request, model, phases.applied)
     used = [run_dir.Used.of(one.loaded, one.scan) for one in passes]
@@ -241,6 +246,7 @@ def run(request: Request) -> Outcome:
                 guides=guides,
                 packs=documents,
                 pack_dirs=chosen.pack_dirs,
+                locks=locks,
             ),
             artefacts,
             journaled=journaled,
@@ -260,6 +266,7 @@ def run(request: Request) -> Outcome:
         notes=notes,
         guides=guides,
         manifest_plan=driven.manifest_plan,
+        locks=locks,
     )
 
 
@@ -396,6 +403,20 @@ def _changes(driven: codemod.Run) -> tuple[Change, ...]:
 
 def _gate(request: Request, changes: Sequence[Change]) -> Apply | None:
     return fsutil.gate(request.root, changes, allow_dirty=request.config.allow_dirty)
+
+
+def _locks(tree: scanner.Tree, written: Sequence[str]) -> tuple[str, ...]:
+    """The lock files the walk listed, where a manifest pin is, or would be, written.
+
+    `is_lock` also takes settings and constraints files, which no tool regenerates.
+    """
+    if not any(map(manifests.is_manifest, written)):
+        return ()
+    return tuple(
+        path
+        for path in tree.walk.listed
+        if manifests.is_lock(path) and "lock" in path.rpartition("/")[2]
+    )
 
 
 def _whole(loaded: LoadedPack) -> bool:

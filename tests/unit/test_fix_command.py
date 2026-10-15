@@ -642,6 +642,69 @@ def _nothing_to_write(tree: Path) -> None:
     subprocess.run(["git", "-C", str(tree), "add", "notes.txt"], check=True)
 
 
+def _commit_files(tree: Path, files: dict[str, str]) -> None:
+    for name, text in files.items():
+        (tree / name).parent.mkdir(parents=True, exist_ok=True)
+        (tree / name).write_text(text, encoding="utf-8", newline="\n")
+    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "files"], check=True
+    )
+
+
+# Settings and a constraints file can decide a release too, but no tool regenerates them.
+LOCKS = {"uv.lock": "x\n", "api/poetry.lock": "x\n", "pip.conf": "x\n", "constraints.txt": "x\n"}
+LOCK_LINE = (
+    "Not edited by obelize, so they may still pin the old release: `api/poetry.lock`, `uv.lock`. "
+    "Regenerate each with the tool that made it."
+)
+
+
+def test_a_manifest_pin_written_next_to_a_lock_file_says_to_regenerate_it(tree: Path) -> None:
+    _commit_files(tree, LOCKS)
+    result = fix(tree, "--apply", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 0, result.output
+    evidence, locked, step = result.stdout.splitlines()[-3:]
+    assert evidence.startswith("Evidence: ")
+    assert locked == (
+        "Next: regenerate each lock file with the tool that made it: api/poetry.lock, uv.lock. "
+        "obelize does not edit them, so they may still pin the old release."
+    )
+    assert step.startswith("Next: git -C ")
+    assert f"obelize undo --run {folder(tree).name}" in step
+    report_text = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert f"\n{LOCK_LINE}\n" in report_text
+    assert report_text.index("## Dependency manifests") < report_text.index(LOCK_LINE)
+    assert report_text.index(LOCK_LINE) < report_text.index("## Verification")
+
+
+def test_a_dry_run_that_would_write_a_pin_names_the_lock_files_in_the_report_only(
+    tree: Path,
+) -> None:
+    _commit_files(tree, LOCKS)
+    result = fix(tree)
+    assert result.exit_code == 0, result.output
+    assert "lock file" not in result.stdout
+    assert f"\n{LOCK_LINE}\n" in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+def test_a_run_that_writes_no_manifest_pin_says_nothing_of_lock_files(tree: Path) -> None:
+    _nothing_to_write(tree)
+    _commit_files(tree, LOCKS)
+    result = fix(tree, "--apply", "--allow-dirty")
+    assert result.exit_code == 4, result.output
+    assert "lock file" not in result.stdout
+    assert "Not edited by obelize" not in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+def test_a_pin_written_in_a_repository_with_no_lock_file_says_nothing_of_one(tree: Path) -> None:
+    _commit_files(tree, {"pip.conf": "x\n", "constraints.txt": "x\n"})
+    result = fix(tree, "--apply", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 0, result.output
+    assert result.stdout.count("Next:") == 1
+    assert "Not edited by obelize" not in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
 def test_an_apply_that_would_write_nothing_leaves_a_dirty_tree_alone(tree: Path) -> None:
     """There is no `git diff` to protect, so the refusal would only hide the real reason."""
     _nothing_to_write(tree)

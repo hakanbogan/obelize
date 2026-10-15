@@ -350,6 +350,7 @@ def fix(
             pack or (),
             outcome.manifest_plan,
             outcome.guides,
+            outcome.locks,
         ),
     )
     raise typer.Exit(outcome.exit_code)

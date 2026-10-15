@@ -132,7 +132,11 @@ that held it, are in `run.json`'s `withheld[]`, so read that file to list them.
 **The summary ends with the next step**: a `Next:` line holding the command to run after a dry run
 that planned a file (`obelize fix --apply`), after an apply that exits `0`, `4` with review items,
 `5` or `6`, and after a `scan` with an `eligible` row and no blocked pack (`obelize fix`). A command
-repeats the `--pack` and `--repo` you gave.
+repeats the `--pack` and `--repo` you gave. After an apply that wrote a manifest pin in a repository
+that lists a lock file (`uv.lock`, `poetry.lock`, `Pipfile.lock` and the like), one more `Next:` line
+comes before it, naming those files, which obelize does not edit, and saying to regenerate each with
+the tool that made it; it holds no command, since a command would have to come from the repository.
+`REPORT.md` says the same under Dependency manifests, for a dry run too.
 
 **Findings left for you** are summarised whenever there are any, with a file written or not: how
 many, the most common reasons, up to five of the rows that cause them (`path:line symbol code`,

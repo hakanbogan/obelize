@@ -197,12 +197,14 @@ def fixed(
     packs: Sequence[str],
     held: ManifestPlan,
     guides: Sequence[Guide] = (),
+    locks: Sequence[str] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
     `repo` is `--repo` as typed and `packs` the `--pack` values, so the closing `Next:` command
     runs where the user is, on what the user chose. `held` is the pin check, which names the
-    files that hold a pin without a row.
+    files that hold a pin without a row; `locks` are the repository's lock files, where a manifest
+    pin was written.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -234,6 +236,11 @@ def fixed(
     if record.model is not None:
         lines.append(_consulted(record.model))
     lines.append(f"Evidence: {evidence}")
+    if applying and locks:
+        lines.append(
+            f"Next: regenerate each lock file with the tool that made it: {', '.join(locks)}. "
+            f"obelize does not edit them, so they may still pin the old release."
+        )
     lines.extend(_next(record, plan, evidence, repo, packs))
     return lines
 
@@ -549,6 +556,7 @@ def document(
     guides: Sequence[Guide] = (),
     packs: Sequence[PackDocument] = (),
     pack_dirs: Sequence[str] = (),
+    locks: Sequence[str] = (),
 ) -> str:
     """`REPORT.md`: everything the run learned, in the order it learned it.
 
@@ -556,7 +564,8 @@ def document(
     table beside the edits: a file the scan refused has no edit, and that is not a hole.
     `proposals` (from `model/`) are inlined because model hunks most need a human reader. `guides`
     and `packs` are the packs' own words: what a flagged change says, what a pack does not handle.
-    `pack_dirs` are the directories of the loaded packs inside the repository, which no scan enters.
+    `pack_dirs` are the directories of the loaded packs inside the repository, which no scan enters;
+    `locks` are the repository's lock files, where a manifest pin was or would be written.
     """
     _agree(record, run, plan)
     lines = _preamble(
@@ -582,6 +591,14 @@ def document(
     lines.extend(_withheld_section(record))
     lines.extend(_guidance_section(guides))
     lines.extend(_manifest_section(scan.manifests if run is None else run.manifest_plan))
+    if locks:
+        lines.extend(
+            [
+                f"Not edited by obelize, so they may still pin the old release: "
+                f"{', '.join(map(_code, locks))}. Regenerate each with the tool that made it.",
+                "",
+            ]
+        )
     if record.verify is not None:
         lines.extend(_verification_section(record.verify, packs))
     if record.model is not None:

@@ -354,7 +354,9 @@ No time-derived value and no `counts`: it lives only beside `run.json`.
 A file the scan already refused has no row here, since no rule claimed it; so
 `REPORT.md` prints the findings beside the edits. It also holds what each pack says about the
 findings it flagged (Guidance) and what each pack does not handle (Limitations), read from the
-packs the run loaded: no field of `findings.json`, `plan.json` or `run.json` carries them.
+packs the run loaded: no field of `findings.json`, `plan.json` or `run.json` carries them. Under
+Dependency manifests it names the repository's lock files when a manifest pin was written or would
+be, since obelize does not edit them; that is not recorded in a field either.
 
 ## `patch.diff`
 
