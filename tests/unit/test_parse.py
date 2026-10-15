@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import ast
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import acme
 import libcst as cst
 import pytest
 
 from obelize.models import BAIL_CODES, SKIP_REASONS, Config, ReceiverMethods, ScanSpec
 from obelize.native import files
-from obelize.scan import parse
+from obelize.scan import parse, runner
 from obelize.scan.parse import (
+    MAX_DEPTH,
     MESSAGE_LIMIT,
     PARSE_BAIL,
     READ_REFUSALS,
@@ -111,12 +115,20 @@ def test_a_file_that_does_not_round_trip_is_still_analysed() -> None:
     assert result.limitations == ()
 
 
-def test_a_chain_too_long_to_render_is_one_unparsable_file_and_not_a_crash() -> None:
-    """libcst renders a tree one frame per level, so a chain of hundreds of terms overruns it."""
-    source = ("x = " + " + ".join(["1"] * 900) + "\n").encode()
-    result = gates("long.py", source)
+def test_a_tree_libcst_cannot_render_is_one_unparsable_file_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The depth check counts `ast` levels and libcst has up to two for each nested call argument,
+    so a file within the limit can still overrun the renderer's stack."""
+
+    def overrun(_module: cst.Module) -> bytes:
+        raise RecursionError
+
+    monkeypatch.setattr(cst.Module, "bytes", property(overrun))
+    result = gates("long.py", b"x = 1\n")
     assert result.status == "does_not_parse"
     assert [finding.bail for finding in result.findings] == [PARSE_BAIL]
+    assert "Refused by libcst:" in result.limitations[0].detail
 
 
 def test_a_python_2_file_is_refused_by_the_compile_gate() -> None:
@@ -146,19 +158,27 @@ def test_a_file_compile_refuses_never_reaches_libcst() -> None:
 
 def test_a_file_only_libcst_refuses_is_refused_by_libcst(monkeypatch: pytest.MonkeyPatch) -> None:
     """The mirror of `python2.py`: 3.12 and 3.13 accept a lone latin-1 byte in a comment, and 3.14
-    refuses it, so `compile()` is made to accept it on every version."""
+    refuses it, so `compile()` and the depth check, which parses again, are made to accept it."""
     monkeypatch.setattr(parse, "compile", lambda *_args, **_kwargs: None, raising=False)
+    monkeypatch.setattr(parse, "_past_limit", lambda _data: None)
     result = gates("odd.py", AWKWARD["a non-UTF-8 byte and no cookie"])
     assert result.status == "does_not_parse"
     assert (result.findings[0].line, result.findings[0].column) == (1, 0)
     assert "Refused by libcst:" in result.limitations[0].detail
 
 
-# Each overruns libcst's parser (the process dies with SIGSEGV) after `compile()` has refused it.
+# Each overruns libcst's parser (the process dies with SIGSEGV), whether `compile()` refuses it or,
+# on a version that accepts a chain this long, the depth check does.
 DEEP: dict[str, bytes] = {
     "nested parentheses": b"x = " + b"(" * 3000 + b"1" + b")" * 3000 + b"\n",
     "a very long chain": b"x = " + b" + ".join([b"1"] * 100_000) + b"\n",
     "a stack of nots": b"x = " + b"not " * 10_000 + b"y\n",
+    "a long sum": b"x = " + b" + ".join([b"a"] * 20_000) + b"\n",
+    "a long and": b"x = " + b" and ".join([b"a"] * 20_000) + b"\n",
+    "a long or": b"x = " + b" or ".join([b"a"] * 20_000) + b"\n",
+    "a long attribute chain": b"x = a" + b".b" * 20_000 + b"\n",
+    "a long call chain": b"x = f" + b"()" * 20_000 + b"\n",
+    "a long subscript chain": b"x = a" + b"[0]" * 20_000 + b"\n",
 }
 
 
@@ -173,6 +193,69 @@ def test_an_expression_too_deep_for_the_parsers_is_one_unparsable_file(shape: st
         [sys.executable, "-I", "-c", code], input=DEEP[shape], capture_output=True, check=False
     )
     assert (done.returncode, done.stdout.strip()) == (0, b"does_not_parse")
+
+
+# Each is MAX_DEPTH terms deep or one fewer: built from `Name`s, whose `Load` context sits one level
+# below the term and is the one node of the walk that is not an expression or a statement.
+SHAPES: dict[str, Callable[[int], bytes]] = {
+    "a sum": lambda n: b"x = " + b" + ".join([b"a"] * n) + b"\n",
+    "an and": lambda n: b"x = " + b" and ".join([b"a"] * n) + b"\n",
+    "an or": lambda n: b"x = " + b" or ".join([b"a"] * n) + b"\n",
+    "an elif ladder": lambda n: b"if a:\n    pass\n" + b"elif a:\n    pass\n" * (n - 1),
+    "an attribute chain": lambda n: b"x = a" + b".b" * (n - 1) + b"\n",
+    "a call chain": lambda n: b"x = a" + b"()" * (n - 1) + b"\n",
+}
+
+
+@pytest.mark.parametrize("shape", sorted(SHAPES), ids=sorted(SHAPES))
+def test_the_nesting_limit_has_no_gap_between_what_passes_and_what_is_refused(shape: str) -> None:
+    """The limit is the nesting, not the term count, which differs by the statement around it."""
+    assert gates("deep.py", SHAPES[shape](MAX_DEPTH - 1)).status == "parsed"
+
+    refused = gates("deep.py", SHAPES[shape](MAX_DEPTH))
+    assert refused.status == "does_not_parse"
+    assert [finding.bail for finding in refused.findings] == [PARSE_BAIL]
+    assert refused.limitations[0].detail.startswith(parse._DETAIL[PARSE_BAIL])
+    assert f"nested more than {MAX_DEPTH} levels deep" in refused.limitations[0].detail
+
+
+def test_every_file_the_depth_check_lets_through_is_one_the_scan_can_walk() -> None:
+    """The limit sits under where the analysis visitors give out (three frames a level), so no
+    file passes the gate and then fails on the stack, which would vary with `--jobs`."""
+    source = b"import acme.sdk\n" + SHAPES["a sum"](MAX_DEPTH - 1)
+    result = runner.examine(runner.Candidate("deep.py", "0" * 64, source), acme.SPEC)
+    assert result.parsed
+
+
+def test_a_file_past_the_nesting_limit_names_the_line_it_passes_it_on() -> None:
+    """The line of a term below the limit, and none of the file's text."""
+    source = b"import google.generativeai as genai\n\n" + SHAPES["a sum"](MAX_DEPTH + 40)
+    refused = gates("deep.py", source)
+    finding = refused.findings[0]
+    assert finding.line == 3
+    assert finding.evidence is None
+    assert "generativeai" not in refused.limitations[0].detail
+
+
+def test_nesting_is_not_measured_in_the_statements_that_hold_it() -> None:
+    """Many shallow statements are not deep, however many of them there are."""
+    assert gates("flat.py", b"x = 1 + 2\n" * (MAX_DEPTH * 10)).status == "parsed"
+
+
+@pytest.mark.parametrize("error", [RecursionError, MemoryError])
+def test_a_tree_too_deep_for_ast_to_build_is_past_the_limit_too(
+    monkeypatch: pytest.MonkeyPatch, error: type[Exception]
+) -> None:
+    """3.14 compiles a chain of thirteen thousand terms that `ast` cannot turn into objects."""
+
+    def overrun(*_args: object, **_kwargs: object) -> None:
+        raise error
+
+    monkeypatch.setattr(ast, "parse", overrun)
+    refused = gates("deep.py", b"x = 1\n")
+    assert refused.status == "does_not_parse"
+    assert (refused.findings[0].line, refused.findings[0].column) == (1, 0)
+    assert f"nested more than {MAX_DEPTH} levels deep" in refused.limitations[0].detail
 
 
 def test_the_compile_gate_does_not_inherit_this_modules_future_import() -> None:
@@ -357,8 +440,6 @@ def test_the_compile_gate_is_the_interpreters_answer_and_not_libcsts(shape: str)
 
 def test_compile_is_stronger_than_parsing_which_is_why_it_is_the_gate() -> None:
     """Each is a valid tree but not a program; `ast.parse` would add nothing to libcst."""
-    import ast
-
     for source in (
         b"import google.generativeai as genai\nreturn 1\n",
         b"x = await f()\n",

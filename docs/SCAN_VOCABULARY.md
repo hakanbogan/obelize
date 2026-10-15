@@ -18,7 +18,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `star_import` | `from google.generativeai import *`. Of a shared module, only one from the module itself or from a legacy symbol (`from openai.types import *` is not). Names it may bind are separate findings with `confidence_reason: star_import_candidate`. |
 | `text_mention` | The prefilter token in a string, comment or docstring, on a line with no AST finding. |
 | `manifest` | A dependency declaration in `requirements*.txt` (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. Lockfiles are not read: a line edit would break their hashes. |
-| `parse_error` | libcst or `compile()` refused the file. Reported, never edited. |
+| `parse_error` | libcst or `compile()` refused the file, or it is nested past the depth limit ([ADR-017](adr/ADR-017-input-gates.md) D1). Reported, never edited. |
 
 ## 2. `Finding.confidence_reason`: why we believe it (16 values)
 
@@ -75,7 +75,7 @@ A bail withholds its whole binding group; the group is atomic.
 | Code | Raised when |
 |---|---|
 | `roundtrip_mismatch` | `cst.parse_module(data).bytes != data` on the input. |
-| `input_does_not_parse` | libcst or `compile()` refused the input; `limitations[].detail` names which. Also a `pyproject.toml` or `setup.cfg` whose Python requirement is unreadable; that run is not blocked. |
+| `input_does_not_parse` | libcst or `compile()` refused the input, or it is nested more than 300 levels deep (a chain of that many operands, an `elif` ladder); `limitations[].detail` names which. Also a `pyproject.toml` or `setup.cfg` whose Python requirement is unreadable; that run is not blocked. |
 | `output_does_not_parse` | The rewritten bytes fail `cst.parse_module` or `compile()`. The file is left alone. |
 | `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. |
 | `file_too_large` | Over `max_file_bytes`. |

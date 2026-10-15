@@ -6,6 +6,7 @@ refuses a leading BOM; `read_text(errors="replace")` destroys non-ASCII.
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,18 @@ PARSE_BAIL: Final = "input_does_not_parse"
 
 # Characters kept of a parser message: room for libcst's "expected one of ..." list, no more.
 MESSAGE_LIMIT = 200
+
+# Levels of nesting a file may have: libcst renders a level in two Python frames and the scan's
+# visitors walk it in three, so both give out near 320 on the default stack. `compile()` accepts a
+# chain of thirteen thousand terms on some versions and libcst's parser then dies with SIGSEGV, so
+# a deeper file is refused before libcst sees it.
+MAX_DEPTH: Final = 300
+
+# The detail of a file nested past `MAX_DEPTH`, after `_DETAIL`'s sentence.
+_DEEP: Final = (
+    f"Refused by obelize: nested more than {MAX_DEPTH} levels deep (a long chain of operands, an "
+    "`elif` ladder), more than its tree walkers can follow."
+)
 
 # One report sentence per ReadRefusal; a test pins the key set.
 _DETAIL: dict[ReadRefusal, str] = {
@@ -116,20 +129,23 @@ def candidate(data: bytes, tokens: tuple[str, ...]) -> bool:
 
 
 def gates(path: str, data: bytes) -> Read:
-    """Gate bytes, in order: `compile()` accepts, libcst parses, the bytes round-trip.
+    """Gate bytes, in order: `compile()` accepts, the nesting is within `MAX_DEPTH`, libcst parses,
+    the bytes round-trip.
 
     `compile()` goes first because it answers a pathologically deep expression with an exception
-    where libcst's parser overruns the C stack and kills the process. It refuses some libcst trees
-    (a late `__future__` import, module-level `return`) and a failure of either is one never-edited
-    `parse_error` finding. Round-trip is last: its failure (a lost bare-CR terminator, which
-    compiles) leaves the file analysed but never written. `path` must be repo-relative: it lands
-    in the exception's `.filename`.
+    where libcst's parser overruns the C stack and kills the process; the depth check covers what
+    it accepts. `compile()` refuses some libcst trees (a late `__future__` import, module-level
+    `return`) and a failure of any is one never-edited `parse_error` finding. Round-trip is last:
+    its failure (a lost bare-CR terminator, which compiles) leaves the file analysed but never
+    written. `path` must be repo-relative: it lands in the exception's `.filename`.
     """
     try:
         # `dont_inherit`: this module's `from __future__ import annotations` is not the file's.
         compile(data, path, "exec", dont_inherit=True)
     except cheap.COMPILE_REFUSALS as error:
         return does_not_parse(path, data, "compile", error)
+    if (deep := _past_limit(data)) is not None:
+        return _refused(path, data, *deep, _DEEP)
     try:
         module = cst.parse_module(data)
     except (cst.ParserSyntaxError, SyntaxError, ValueError) as error:
@@ -192,9 +208,32 @@ def disk(root: Path, config: Config) -> Contents:
     return lambda path: contents(root, path, config)
 
 
+def _past_limit(data: bytes) -> tuple[int, int] | None:
+    """The line and column where nesting passes `MAX_DEPTH`, or `None`.
+
+    Walked without recursion, since the input is what overruns it. libcst nests the operands of an
+    `and` or `or` one level each, where `ast` holds them flat.
+    """
+    try:
+        stack: list[tuple[ast.AST, int]] = [(ast.parse(data), 0)]
+        while stack:
+            node, depth = stack.pop()
+            if depth > MAX_DEPTH and isinstance(node, ast.expr | ast.stmt):
+                return node.lineno, node.col_offset
+            step = len(node.values) - 1 if isinstance(node, ast.BoolOp) else 1
+            stack.extend((child, depth + step) for child in ast.iter_child_nodes(node))
+    except (RecursionError, MemoryError):  # building the tree already overran the stack
+        return 1, 0
+    return None
+
+
 def does_not_parse(path: str, data: bytes, gate: Gate, error: Exception) -> Read:
     """The single finding and the row naming the gate; `evidence=None` so no line is quoted."""
     line, column = _coordinates(error)
+    return _refused(path, data, line, column, f"Refused by {gate}: {_message(error)}")
+
+
+def _refused(path: str, data: bytes, line: int, column: int, extra: str) -> Read:
     finding = Finding(
         path=path,
         line=line,
@@ -211,7 +250,7 @@ def does_not_parse(path: str, data: bytes, gate: Gate, error: Exception) -> Read
         status="does_not_parse",
         data=data,
         findings=(finding,),
-        limitations=(limitation(path, PARSE_BAIL, f"Refused by {gate}: {_message(error)}"),),
+        limitations=(limitation(path, PARSE_BAIL, extra),),
     )
 
 

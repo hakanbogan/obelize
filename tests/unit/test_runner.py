@@ -493,7 +493,7 @@ def test_a_module_that_names_neither_the_model_nor_its_module_is_not_parsed(
     real = ast.parse
 
     def spy(source: str | bytes, *args: Any, **kwargs: Any) -> Any:
-        # Bytes are this pass's; pytest and coverage parse text of their own.
+        # Bytes are the scan's: pytest and coverage parse text of their own.
         if isinstance(source, bytes):
             parsed.append(source)
         return real(source, *args, **kwargs)
@@ -503,7 +503,8 @@ def test_a_module_that_names_neither_the_model_nor_its_module_is_not_parsed(
     files = {"llm.py": HOLDER, "app.py": reader, "plain.py": "print('hello')\n"}
     # Its name without its module, and its module without its name.
     scanned(tree(tmp_path, {**files, "same.py": "M = 1\n", "twin.py": "import llm\n"}))
-    assert parsed == [reader.encode()]
+    # The depth check parses the one candidate; this pass, only the reader.
+    assert parsed == [HOLDER.encode(), reader.encode()]
 
 
 @pytest.mark.skipif(AS_ROOT, reason="root reads a file it may not")

@@ -13,10 +13,22 @@ and a late `__future__` import, in `tests/unit/test_parse.py`) is one
 `input_does_not_parse` finding, not analysis of source that is not Python.
 `compile()` goes first because a pathologically deep expression (3,000 nested
 parentheses, a chain of 100,000 operands, 10,000 `not`s) overruns libcst's
-parser and kills the process with SIGSEGV, where `compile()` raises. The
+parser and kills the process with SIGSEGV, where `compile()` raises. A chain of
+about thirteen thousand operands, or of attributes, calls or subscripts, is
+accepted by `compile()` on some versions (3.14) and kills libcst the same way,
+so a second check, `parse.MAX_DEPTH`, refuses a file whose syntax tree is nested
+more than 300 levels deep before libcst sees it. The walk is iterative, and an
+`and` or `or` counts one level an operand, as libcst nests them where `ast`
+holds them flat. 300 is under where libcst gives out, near 490 levels to render
+and 320 for the scan's visitors on the default stack: a file the check passes
+is never one that overruns the stack later, which would depend on the stack
+(`--jobs`, a test runner) and not on the file. The refusal is one
+`input_does_not_parse` finding and its detail names the limit. The
 analysis and the codemod catch `RecursionError` and `MemoryError` per file for
-the trees that do parse: the file is one `input_does_not_parse` finding, or, when
-only the rewrite overruns, kept as it was with `output_does_not_parse`.
+the trees that do parse (libcst nests a call argument two levels where `ast` has
+one, so a file within the limit can still overrun): the file is one
+`input_does_not_parse` finding, or, when only the rewrite overruns, kept as it
+was with `output_does_not_parse`.
 
 **D2. The handler is `except (cst.ParserSyntaxError, SyntaxError, ValueError)`.**
 That is libcst's handler: `cst.ParserSyntaxError` is not a `SyntaxError`, and
