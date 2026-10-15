@@ -101,7 +101,7 @@ def scan(
         metavar="N",
         help="Number of worker processes. The default is one fewer than the CPU "
         "count, at most 8, with a small repository scanned in-process; a number you "
-        "give is always used. The number does not change the output.",
+        "give is always used, at most 61 on Windows. The number does not change the output.",
     ),
     list_files: bool = typer.Option(
         False,
