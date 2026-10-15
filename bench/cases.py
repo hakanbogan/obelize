@@ -5,8 +5,8 @@ draws and scans; the hand-written ground truth is only scored against the scanne
 
 Usage::
 
-    python bench/cases.py            # print the block
-    python bench/cases.py --check    # exit 1 if the document is stale
+    python -m bench.cases            # print the block
+    python -m bench.cases --check    # exit 1 if the document is stale
 """
 
 from __future__ import annotations
@@ -22,11 +22,12 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import candidates
 import yaml
 
+from . import candidates
+
 # Shared with the gate-1 scorer, so both agree on what a usage is.
-from gate1_score import ACTIONABLE_KINDS
+from .gate1_score import ACTIONABLE_KINDS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "cases.yaml"
@@ -191,7 +192,7 @@ def sites(case: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def labelled(case: dict[str, Any]) -> Counter[Any]:
-    from gate1_score import rows
+    from .gate1_score import rows
 
     return rows(sites(case), ACTIONABLE_KINDS)
 
@@ -211,7 +212,7 @@ def verifiable(case: dict[str, Any]) -> bool:
 
 
 def accuracy(corpus: Corpus, case: dict[str, Any]) -> Any:
-    from gate1_score import compare, rows
+    from .gate1_score import compare, rows
 
     found = corpus.findings.get(case["full_name"], [])
     return compare(labelled(case), rows(found, ACTIONABLE_KINDS))
@@ -302,7 +303,7 @@ def violations(corpus: Corpus) -> list[str]:
 
 
 def _agreement_table(corpus: Corpus) -> list[str]:
-    from gate1_score import percent, rows
+    from .gate1_score import percent, rows
 
     lines = [
         "| Case | Key | Scan | Matched | Missed | Unexpected |",
@@ -389,7 +390,7 @@ def _draw_table(corpus: Corpus) -> list[str]:
 
 
 def render(corpus: Corpus) -> str:
-    from gate1_score import share
+    from .gate1_score import share
 
     rows_ = cases(corpus)
     data = corpus.cases
@@ -502,7 +503,7 @@ def main(argv: list[str] | None = None) -> int:
         print(fresh)
         return 0
     if block(DOCUMENT.read_text(encoding="utf-8")) != fresh:
-        print(f"{DOCUMENT.name} is stale; re-run `python bench/cases.py` and paste the block")
+        print(f"{DOCUMENT.name} is stale; re-run `python -m bench.cases` and paste the block")
         return 1
     print(f"{DOCUMENT.name} is up to date with {DATA.name}")
     return 0

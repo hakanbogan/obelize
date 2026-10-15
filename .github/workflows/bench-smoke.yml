@@ -60,12 +60,12 @@ jobs:
         if: steps.guard.outputs.runner == 'true' || steps.guard.outputs.summarizer == 'true'
         run: uv sync
 
-      - name: bench/run.py --fixtures-only
+      - name: python -m bench.run --fixtures-only
         if: steps.guard.outputs.runner == 'true'
         # Starts nothing but the interpreter, so it cannot reach the network (ADR-042 D6).
-        run: uv run python bench/run.py --fixtures-only
+        run: uv run python -m bench.run --fixtures-only
 
-      - name: bench/summarize.py --check
+      - name: python -m bench.summarize --check
         if: steps.guard.outputs.summarizer == 'true'
         # Fails when docs/BENCHMARK_RESULTS.md drifts from the committed bench/results/.
-        run: uv run python bench/summarize.py --check
+        run: uv run python -m bench.summarize --check

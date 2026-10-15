@@ -6,9 +6,9 @@ The arm is blind by digest-named trees and one fixed prompt, not by sandbox (ADR
 
 Usage::
 
-    python bench/comparison_collect.py prepare --work /tmp/obelize-comparison
+    python -m bench.comparison_collect prepare --work /tmp/obelize-comparison
     #   ... run the agent over each tree the work order names ...
-    python bench/comparison_collect.py record --work /tmp/obelize-comparison
+    python -m bench.comparison_collect record --work /tmp/obelize-comparison
 
 Not run in CI: `prepare` needs the network and `record` needs the trees on disk.
 """
@@ -30,9 +30,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import cases
-import run
-from run import Execute
+from . import cases, run
+from .run import Execute
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results" / "comparison"

@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import dryrun_score
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import dryrun_score  # noqa: E402 -- the path insert above is what makes this importable
 
 pytestmark = BENCH
 

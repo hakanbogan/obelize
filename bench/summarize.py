@@ -4,8 +4,8 @@ Owns only that fence. The ceiling table needs only the keys, so it renders befor
 
 Usage::
 
-    python bench/summarize.py            # print the block
-    python bench/summarize.py --check    # exit 1 if the document is stale
+    python -m bench.summarize            # print the block
+    python -m bench.summarize --check    # exit 1 if the document is stale
 """
 
 from __future__ import annotations
@@ -17,9 +17,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import cases
-import run
-from gate1_score import share
+from . import cases, run
+from .gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCUMENT = ROOT / "docs" / "BENCHMARK_RESULTS.md"
@@ -363,7 +362,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/results/")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/summarize.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.summarize` and paste the block")
     return 1
 
 

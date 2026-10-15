@@ -134,7 +134,7 @@ is a field of the record, and a `null` is never read as a zero or a true. Tiers 
   `LJX2017__A-Song-of-Ice-and-Fire` in `dev`: they were holdout cases in round 1, and the
   rule that closed COVERAGE gap 29 was written from their code. `bench/cases.yaml` still reads
   `round: 1` and `holdout` for them, because `bench/results/round-1/` and the results page are
-  round 1's and `bench/summarize.py --check` holds the two together. The file changes in the
+  round 1's and `python -m bench.summarize --check` holds the two together. The file changes in the
   commit that publishes round 2. A `fix` dry run over the 23 round-1 repositories at their pinned
   commits gives the rows 0.3.0 gave, except the 26 that the rule moved from `needs_review` to
   `auto`: 20 in kvcops and 6 in `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5`.
@@ -168,7 +168,7 @@ module; and a manifest that disagrees with the code (the code is the evidence).
 
 ## Reproducible run
 
-`bench/run.py` runs locally; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
+`python -m bench.run` runs locally, from the repository root; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
 environments and is not run on Windows. It runs each repository's own install commands and test suite
 with no sandbox and the network available, so run it only on a machine or VM that holds no
 credentials. A round starts only on a committed tree (`bench/results/` aside) whose checkout is where
@@ -218,7 +218,7 @@ checkouts of `bench/gate1_collect.py`, `bench/candidates_collect.py` and
 obelize skips, so `verified_success` is reachable offline. Its executor refuses
 every program but the running interpreter, so it cannot reach the network. `wrong` and `error` are covered by the tier function's own tests.
 
-`bench/summarize.py` writes the round block of
+`python -m bench.summarize` writes the round block of
 [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md), which lists every generated block
 and its test; `--check` runs in the `bench-smoke` workflow. The candidate
 corpus (URLs, SHAs, licences and metadata only) is
@@ -345,14 +345,14 @@ populations and every rejection. Its biases:
   committed, not the query.
 - **Small single-purpose applications**, not codebases that would look for a
   migration tool.
-- **Five keys chosen for labelling cost** (`bench/gate1_collect.py choose`): the
+- **Five keys chosen for labelling cost** (`python -m bench.gate1_collect choose`): the
   first repository per band with two to eight Python files containing the
   token, plus one from the most populous band, so none of the largest.
 
 ## Fix dry run
 
 What the rules alone would write, for each bundled pack, over a frame of repositories that use
-its library ([ADR-024](adr/ADR-024-gate-1-measurement.md) D10). `bench/gate1_collect.py dryrun --pack <id>`
+its library ([ADR-024](adr/ADR-024-gate-1-measurement.md) D10). `python -m bench.gate1_collect dryrun --pack <id>`
 fetches each repository at its pinned commit and runs `obelize fix --pack <id> --model none` once,
 and keeps the number of files the plan would write, the pack's `blocked` reason, and every withheld
 row with its symbol and bail. It always runs the whole frame, so a retry cannot replace the other

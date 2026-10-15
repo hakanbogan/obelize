@@ -14,9 +14,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from gate1_score import share
 
 from obelize.models import ATOMICITY_BAIL, REPO_ATOMICITY_BAIL
+
+from .gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
 RECORDS = ROOT / "bench" / "results" / "dryrun"
@@ -175,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/results/dryrun/")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/dryrun_score.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.dryrun_score` and paste the block")
     return 1
 
 

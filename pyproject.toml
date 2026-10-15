@@ -157,14 +157,13 @@ ignore = [
 extend-immutable-calls = ["typer.Argument", "typer.Option"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["obelize"]
+known-first-party = ["obelize", "bench"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-# `bench` is type-checked because it scores published numbers; its scripts are not a package.
+# `bench` is type-checked because it scores published numbers.
 files = ["src", "tests", "bench"]
-mypy_path = ["bench"]
 # Fixtures are data; `bench/work/` holds checkouts of other people's repositories.
 exclude = [
   "^(tests/fixtures/|src/obelize/packs/[^/]+/[^/]+/fixtures/|examples/|bench/work/|bench/fixtures/)"
@@ -177,6 +176,8 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+# `bench` is imported by its tests as the package it is, not through `sys.path` edits.
+pythonpath = ["."]
 addopts = "-q --strict-markers --strict-config --cov --cov-report=term-missing:skip-covered"
 # Declare a marker only once a test wears it (ADR-013). `e2e` is a label, not a filter:
 # `tests/e2e/` runs on every `pytest`; `-m "not e2e"` gives the fast half.

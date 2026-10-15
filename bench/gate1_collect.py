@@ -6,10 +6,10 @@ frame what a `fix` dry run would write, for any pack, scored by `bench/dryrun_sc
 
 Usage::
 
-    python bench/gate1_collect.py sample                 # writes bench/gate1/sample.yaml
-    python bench/gate1_collect.py scan                   # writes bench/results/gate1/scan.json
-    python bench/gate1_collect.py sample --pack P --term T   # the pack's frame (see `_frame`)
-    python bench/gate1_collect.py dryrun --pack P            # bench/results/dryrun/<slug>.json
+    python -m bench.gate1_collect sample                 # writes bench/gate1/sample.yaml
+    python -m bench.gate1_collect scan                   # writes bench/results/gate1/scan.json
+    python -m bench.gate1_collect sample --pack P --term T   # the pack's frame (see `_frame`)
+    python -m bench.gate1_collect dryrun --pack P            # bench/results/dryrun/<slug>.json
 
 `<slug>` is the pack id with its slash written `__`.
 
@@ -151,7 +151,7 @@ def _metadata(full_name: str) -> dict[str, Any]:
 
 def _frame(pack: str) -> Path:
     """The Gemini frame keeps its place; another pack's is `bench/gate1/<slug>/sample.yaml`."""
-    from run import DEFAULT_PACK
+    from .run import DEFAULT_PACK
 
     if pack == DEFAULT_PACK:
         return SAMPLE
@@ -249,10 +249,10 @@ def fetch(entry: dict[str, Any], into: Path) -> None:
 
 def declared_runtime(checkout: Path) -> dict[str, Any]:
     """The declared Python via the shipped `scan/runtime.py`; `run.json` keeps only the verdict."""
-    from run import DEFAULT_PACK
-
     from obelize.models import Config
     from obelize.scan import parse, runtime, walker
+
+    from .run import DEFAULT_PACK
 
     selection = walker.walk(checkout, Config())
     spec = loader.to_scan_spec(loader.load(DEFAULT_PACK))
@@ -300,9 +300,9 @@ def provenance(pack: str | None = None) -> dict[str, Any]:
     `spec_sha256` hashes what `scan/*` and `impact/*` read (ADR-026 D8): only its change needs a
     re-run. `pack_sha256` names the file. The pack is Gemini's unless one is named.
     """
-    from run import DEFAULT_PACK
-
     from obelize import __version__
+
+    from .run import DEFAULT_PACK
 
     pack = pack or DEFAULT_PACK
     loaded = loader.load(pack)
@@ -485,7 +485,7 @@ def choose(extra_band: str) -> None:
 
 
 def main() -> None:
-    from run import DEFAULT_PACK
+    from .run import DEFAULT_PACK
 
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter

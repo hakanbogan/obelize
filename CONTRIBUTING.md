@@ -92,7 +92,8 @@ tests share, one with a client (`acme.sdk`) and one that keeps its module name a
 `examples/gemini-legacy-app/`; its `e2e` marker is a label, not a filter, so
 `-m "not e2e"` skips it.
 
-`bench/` holds the measurements; everything in it is type-checked.
+`bench/` holds the measurements; everything in it is type-checked. It is a package, and a script
+runs from the repository root as a module: `uv run python -m bench.run --fixtures-only`.
 
 | Scripts | Data | Measures |
 |---|---|---|

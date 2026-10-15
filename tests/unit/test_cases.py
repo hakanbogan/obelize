@@ -4,20 +4,16 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import candidates, cases
+from bench.gate1_score import ACTIONABLE_KINDS, rows
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import candidates  # noqa: E402
-import cases  # noqa: E402
-from gate1_score import ACTIONABLE_KINDS, rows  # noqa: E402
 
 pytestmark = BENCH
 
@@ -743,7 +739,7 @@ def test_every_case_copies_the_corpus_faithfully() -> None:
 
 
 def _dev_owners() -> frozenset[str]:
-    import gate1_collect
+    from bench import gate1_collect
 
     return gate1_collect.DEV_CORPUS_OWNERS
 
@@ -768,7 +764,7 @@ def test_every_pattern_key_is_the_one_its_ground_truth_names() -> None:
 
 
 def test_every_case_names_the_provider_and_the_migration_the_pack_is() -> None:
-    from run import DEFAULT_PACK
+    from bench.run import DEFAULT_PACK
 
     provider, change = DEFAULT_PACK.split("/")
     for entry in CASES:
@@ -891,7 +887,7 @@ def test_no_control_is_also_a_case() -> None:
 
 
 def test_every_repository_t27_drew_obeys_the_corpus_rules() -> None:
-    import gate1_collect
+    from bench import gate1_collect
 
     owners: dict[str, int] = {}
     for row in CORPUS.draws["drawn"]:

@@ -25,13 +25,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, NamedTuple, NoReturn
 
-import cases
 import yaml
-from gate1_score import ACTIONABLE_KINDS, Row, compare, rows
 
 import obelize
 from obelize import __version__
 from obelize.native import processes
+
+from . import cases
+from .gate1_score import ACTIONABLE_KINDS, Row, compare, rows
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "bench" / "fixtures"

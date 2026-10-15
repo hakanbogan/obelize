@@ -427,7 +427,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/results/gate1/scan.json")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/gate1_score.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.gate1_score` and paste the block")
     return 1
 
 

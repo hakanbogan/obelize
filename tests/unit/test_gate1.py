@@ -5,20 +5,17 @@ The published number decides Phase 2's scope, so it must be recomputable.
 
 from __future__ import annotations
 
-import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import gate1_score
 from obelize.models import CONFIDENCE_REASONS, FINDING_KINDS, WITHHELD
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import gate1_score  # noqa: E402 -- the path insert above is what makes this importable
 
 pytestmark = BENCH
 
@@ -342,8 +339,7 @@ def test_the_measurement_was_run_against_the_pack_that_ships_today(
     A rewrite-only edit (parameters, wrap width) moves the file hash but no finding: `scan/*` and
     `impact/*` never see it (ADR-026 D8). `pack_sha256` still names the document measured.
     """
-    from run import DEFAULT_PACK
-
+    from bench.run import DEFAULT_PACK
     from obelize.packs import loader
 
     _, scanned, _ = inputs

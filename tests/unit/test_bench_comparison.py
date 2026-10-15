@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import sys
 import urllib.request
 from collections import Counter
 from pathlib import Path
@@ -15,14 +14,11 @@ from typing import Any
 
 import pytest
 
+from bench import comparison, run
+from bench import comparison_collect as collect
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import comparison  # noqa: E402
-import comparison_collect as collect  # noqa: E402
-import run  # noqa: E402
 
 pytestmark = BENCH
 

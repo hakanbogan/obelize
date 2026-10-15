@@ -7,20 +7,15 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import errors, errors_collect, run
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import errors  # noqa: E402
-import errors_collect  # noqa: E402
-import run  # noqa: E402
 
 pytestmark = BENCH
 

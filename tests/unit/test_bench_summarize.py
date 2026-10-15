@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import run, summarize
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import run  # noqa: E402
-import summarize  # noqa: E402
 
 pytestmark = BENCH
 

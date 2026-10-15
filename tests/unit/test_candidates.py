@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -12,12 +11,10 @@ from typing import Any
 import pytest
 import yaml
 
+from bench import candidates
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import candidates  # noqa: E402 -- the path insert above is what makes this importable
 
 pytestmark = BENCH
 

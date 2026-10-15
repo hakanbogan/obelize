@@ -1159,6 +1159,15 @@ def test_a_windows_run_reports_every_failure_and_where_a_test_hangs() -> None:
         assert dumps[0] < job["timeout-minutes"] * 60
 
 
+def test_a_benchmark_script_runs_as_a_module_of_the_bench_package() -> None:
+    """Run by path, a script cannot import its siblings."""
+    runs = [step.get("run", "") for _, _, job in _jobs() for step in job.get("steps", [])]
+    named = {name for run in runs for name in re.findall(r"python -m bench\.(\w+)", run)}
+    assert named == {"run", "summarize", "crossover"}
+    assert all((ROOT / "bench" / f"{name}.py").is_file() for name in named)
+    assert not [run for run in runs if "python bench/" in run]
+
+
 PYPDF2_NEWEST = (
     "PyPI lists no PyPDF2 release newer than the one an unpinned requirement is taken as"
 )

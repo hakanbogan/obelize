@@ -15,14 +15,11 @@ from typing import Any
 
 import pytest
 
+from bench import cases, run
 from obelize.verify import runner
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import cases  # noqa: E402
-import run  # noqa: E402
 
 pytestmark = BENCH
 

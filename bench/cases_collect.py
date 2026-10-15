@@ -5,8 +5,8 @@ into their own file.
 
 Usage::
 
-    python bench/cases_collect.py draw
-    python bench/cases_collect.py checkout owner/name
+    python -m bench.cases_collect draw
+    python -m bench.cases_collect checkout owner/name
 
 `draw` needs an authenticated `gh`, `git` and `obelize`, and is dated, not reproducible.
 `checkout` leaves one repository at its pinned SHA in the gitignored `bench/work/cases/`.
@@ -23,12 +23,10 @@ import time
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import candidates
-import candidates_collect
-import cases
-import gate1_collect
 import yaml
-from gate1_score import ACTIONABLE_KINDS
+
+from . import candidates, candidates_collect, cases, gate1_collect
+from .gate1_score import ACTIONABLE_KINDS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "cases_draws.yaml"

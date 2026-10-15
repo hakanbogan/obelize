@@ -16,9 +16,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import candidates
-import gate1_collect
 import yaml
+
+from . import candidates, gate1_collect
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "candidates.yaml"

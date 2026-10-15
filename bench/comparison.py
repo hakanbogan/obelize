@@ -6,8 +6,8 @@ scan of the tree each left; obelize's scan count must equal the round's own arit
 
 Usage::
 
-    python bench/comparison.py           # print the block
-    python bench/comparison.py --check   # fail when the document is stale
+    python -m bench.comparison           # print the block
+    python -m bench.comparison --check   # fail when the document is stale
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import run
-import summarize
 import yaml
-from gate1_score import share
+
+from . import run, summarize
+from .gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCUMENT = ROOT / "docs" / "BENCHMARK_RESULTS.md"
@@ -519,7 +519,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/comparison.yaml")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/comparison.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.comparison` and paste the block")
     return 1
 
 
