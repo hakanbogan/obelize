@@ -1101,6 +1101,13 @@ class ModelConfig(_Frozen):
                     "base_url must not carry credentials; put the key in the environment "
                     "variable named by api_key_env"
                 )
+            # On the text: a bare `?` leaves `parts.query` empty and still breaks the appended path.
+            if "?" in self.base_url or "#" in self.base_url:
+                raise ValueError(
+                    "base_url must not carry a query string or fragment, which the appended "
+                    "path would land inside; put the key in the environment variable named "
+                    "by api_key_env"
+                )
         if self.provider != "none":
             missing = [
                 name
@@ -1115,7 +1122,7 @@ class ModelConfig(_Frozen):
 
     @property
     def host(self) -> str | None:
-        """The host `run.json` records -- never the whole URL, which can carry a query."""
+        """The host `run.json` records, never the whole URL."""
         return urlsplit(self.base_url).hostname if self.base_url is not None else None
 
 

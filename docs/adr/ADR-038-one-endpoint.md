@@ -61,7 +61,9 @@ repository's `model:` block is refused with exit `2` before any adapter exists.
 The opener departs from `urlopen`'s defaults: no proxy (`ProxyHandler({})`), no
 redirect (a 3xx is `endpoint_redirected`), no cookies, no compression, so the
 byte cap counts wire bytes. The URL is
-`base_url.rstrip("/") + "/chat/completions"`, never `urljoin`, which drops a `/v1`.
+`base_url.rstrip("/") + "/chat/completions"`, never `urljoin`, which drops a `/v1`;
+so a `base_url` with a query string or fragment is refused, as the path would land
+inside it. A failure detail names the host and port, never the URL.
 `RESPONSE_BYTE_LIMIT` is 1 MiB, far above any replacement the guard accepts.
 Because the payload and the key must reach only the host the run prints.
 

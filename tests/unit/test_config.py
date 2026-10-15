@@ -479,6 +479,9 @@ USER_MODEL_REFUSALS = [
     ("base_url: 'file:///etc/passwd'\n  model: m\n  provider: openai_compat", "http(s) URL"),
     ("base_url: 'https://'", "names no host"),
     ("base_url: 'https://user:secret@host/v1'", "must not carry credentials"),
+    ("base_url: 'https://host/v1?api_key=abcd1234'", "query string or fragment"),
+    ("base_url: 'https://host/v1?'", "query string or fragment"),
+    ("base_url: 'https://host/v1#frag'", "query string or fragment"),
 ]
 
 
@@ -535,8 +538,8 @@ def test_a_backslash_windows_would_lose_is_refused_when_the_configuration_is_rea
 
 
 def test_the_model_endpoint_is_recorded_as_a_host_and_never_as_a_url() -> None:
-    """A query string can carry a credential; a host cannot."""
-    assert ModelConfig(base_url="https://example.test:8443/v1?key=x").host == "example.test"
+    """A path can carry a credential; a host cannot."""
+    assert ModelConfig(base_url="https://example.test:8443/v1").host == "example.test"
     assert ModelConfig().host is None
 
 

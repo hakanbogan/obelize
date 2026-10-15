@@ -255,6 +255,22 @@ def test_nothing_answered_is_one_word(monkeypatch: pytest.MonkeyPatch, raised: E
     assert _refusal(monkeypatch, raised).failure == "endpoint_unreachable"
 
 
+def test_an_unreachable_endpoint_is_named_by_host_and_port_and_never_by_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The detail is written to the run folder, and a path can hold a key no redactor knows."""
+    made = adapter.OpenAICompat(
+        url="http://localhost:8080/abcd1234/v1/chat/completions",
+        model="a-model",
+        environ={},
+        api_key_env="OBELIZE_MODEL_API_KEY",
+    )
+    monkeypatch.setattr(made, "opener", _Stub(urllib.error.URLError("no route to host")))
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.detail == "localhost:8080: <urlopen error no route to host>"
+
+
 def test_a_long_refusal_is_cut_and_says_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
     """The endpoint's words are bounded; redaction runs before the cut (ADR-038 D8)."""
     error = _refusal(monkeypatch, _http_error(500, b"x" * 3000))

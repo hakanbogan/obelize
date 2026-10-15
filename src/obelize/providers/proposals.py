@@ -359,7 +359,7 @@ def _json(model: ModelDocument | ProposalRecord) -> bytes:
 def heading(settings: ModelConfig) -> str:
     """The line printed before a run and first by `--show-context`.
 
-    The host, not the URL: a query string can carry a credential.
+    The host, not the URL: a path can carry a credential.
     """
     if settings.provider == "none":
         return "No model provider is configured, so nothing is sent (model.provider: none)."

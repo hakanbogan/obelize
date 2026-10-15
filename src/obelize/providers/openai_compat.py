@@ -13,6 +13,7 @@ import re
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
@@ -246,7 +247,9 @@ class OpenAICompat:
         except urllib.error.HTTPError as error:
             raise self._answered(error) from error
         except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
-            raise self._failure("endpoint_unreachable", f"{self.url}: {error}") from error
+            # Host and port only: this is written to the run folder and a path can hold a key.
+            host = urlsplit(self.url).netloc
+            raise self._failure("endpoint_unreachable", f"{host}: {error}") from error
         if len(raw) > RESPONSE_BYTE_LIMIT:
             raise self._failure(
                 "response_too_large", f"the body passed {RESPONSE_BYTE_LIMIT} bytes"

@@ -517,7 +517,7 @@ The `model` keys are acted on by `obelize fix`.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `model.provider` | `none` \| `openai_compat` | `none` | Model adapter for ambiguous cases; `none` makes no network call. |
-| `model.base_url` | string | unset | An OpenAI-compatible endpoint, such as a local Ollama. `http` or `https`, no credential: the host goes into the evidence. |
+| `model.base_url` | string | unset | An OpenAI-compatible endpoint, such as a local Ollama. `http` or `https`, with no credential, query string or fragment (the key goes in `api_key_env`): the host goes into the evidence. |
 | `model.model` | string | unset | Model name sent to the endpoint. |
 | `model.api_key_env` | string | `OBELIZE_MODEL_API_KEY` | Environment variable holding the key; the key never reaches configuration, logs or evidence. |
 | `model.log_prompts` | boolean | `false` | Keep raw prompts, which contain source, in the run folder. |

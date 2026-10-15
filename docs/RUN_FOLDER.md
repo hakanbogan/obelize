@@ -250,7 +250,7 @@ the `verify` object alone.
 | Field | Type | Description |
 |---|---|---|
 | `provider` | string | `openai_compat`, the only v0 value. |
-| `host` | string | The host of `base_url`, never the full URL, whose query can carry a credential. |
+| `host` | string | The host of `base_url`, never the full URL, whose path can carry a credential. |
 | `model` | string | The model name sent. |
 | `proposals` | integer | Edits proposed, not questions asked. |
 | `accepted` | integer | Proposals that passed every guard check **and** were written, which needs `--apply` with `--accept-model`. |
