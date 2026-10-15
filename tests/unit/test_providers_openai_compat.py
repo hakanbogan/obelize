@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from obelize.models import PROVIDER_FAILURES, ModelConfig
+from obelize.models import PROVIDER_FAILURES, EditProposal, ModelConfig
 from obelize.providers import base, guard
 from obelize.providers import openai_compat as adapter
 
@@ -29,6 +29,7 @@ GOOD = json.dumps(
             "start_line": 1,
             "end_line": 2,
             "symbol": "legacy.Thing",
+            "replaces": "x = 1\ny = 2",
             "replacement": "x = 1",
             "rationale": "because",
         }
@@ -132,6 +133,12 @@ def test_the_system_prompt_asks_for_what_the_guard_enforces() -> None:
         assert named in adapter.SYSTEM_PROMPT
     assert adapter.CONTEXT_BEGIN in adapter.SYSTEM_PROMPT
     assert adapter.CONTEXT_END in adapter.SYSTEM_PROMPT
+
+
+def test_the_system_prompt_shows_every_field_a_proposal_needs() -> None:
+    """A field `EditProposal` requires and the prompt never mentions is refused in every reply."""
+    for name in EditProposal.model_fields:
+        assert f'"{name}"' in adapter.SYSTEM_PROMPT
 
 
 def test_the_system_prompt_names_no_pack_and_no_migration() -> None:

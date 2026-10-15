@@ -44,6 +44,7 @@ def proposal(path: str = "a.py", line: int = 3) -> EditProposal:
         start_line=line,
         end_line=line,
         symbol="google.generativeai.GenerativeModel",
+        replaces="model = genai.GenerativeModel()",
         replacement="model = genai.Client().models",
         rationale="the client is constructed where the model was",
     )

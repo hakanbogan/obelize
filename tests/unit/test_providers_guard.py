@@ -5,6 +5,8 @@ from __future__ import annotations
 import pickle
 import subprocess
 import sys
+from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,7 @@ import pytest
 from obelize.models import GUARD_REFUSALS, EditProposal
 from obelize.native import files
 from obelize.providers import base, guard, openai_compat
+from obelize.verify import redact
 from platforms import windows_only
 
 SYMBOL = "google.generativeai.GenerativeModel"
@@ -28,6 +31,11 @@ def ask(prompt):
 """
 
 
+def lines_of(source: bytes, span: tuple[int, int]) -> str:
+    """Lines `span` of `source` as a context holds them: what the guard compares a quote with."""
+    return "".join(base.split_lines(source.decode("latin-1"))[span[0] - 1 : span[1]])
+
+
 def question(
     *,
     path: str = "app.py",
@@ -37,7 +45,7 @@ def question(
     to_modules: tuple[str, ...] = ("google.genai",),
 ) -> base.Consultation:
     return base.Consultation(
-        context=base.Context(path, span[0], span[1], "the payload is not read by the guard"),
+        context=base.Context(path, span[0], span[1], lines_of(SOURCE, span)),
         line=line,
         column=12,
         symbol=symbol,
@@ -49,7 +57,8 @@ def question(
     )
 
 
-def proposal(replacement: str, **overrides: Any) -> EditProposal:
+def proposal(replacement: str, *, source: bytes = SOURCE, **overrides: Any) -> EditProposal:
+    """Quotes the lines it names, as sent, unless `replaces` says otherwise."""
     fields: dict[str, Any] = {
         "path": "app.py",
         "start_line": 4,
@@ -59,6 +68,7 @@ def proposal(replacement: str, **overrides: Any) -> EditProposal:
         "rationale": "because the test says so",
     }
     fields.update(overrides)
+    fields.setdefault("replaces", lines_of(source, (fields["start_line"], fields["end_line"])))
     return EditProposal(**fields)
 
 
@@ -70,15 +80,21 @@ def check(
     consultation: base.Consultation | None = None,
     **overrides: Any,
 ) -> guard.Checked:
+    """The consultation's context is rebuilt from `source`, so a quote is faithful to it."""
     one = consultation or question()
+    span = (one.context.start_line, one.context.end_line)
+    one = replace(one, context=replace(one.context, text=lines_of(source, span)))
     (root / one.context.path).write_bytes(source)
     return guard.check(
-        proposal(replacement, **overrides), consultation=one, root=root, before=source
+        proposal(replacement, source=source, **overrides),
+        consultation=one,
+        root=root,
+        before=source,
     )
 
 
-def test_the_vocabulary_is_the_sixteen_words_the_adrs_name() -> None:
-    """Thirteen from ADR-037 D1, three more from D7, for what an import check cannot see."""
+def test_the_vocabulary_is_the_seventeen_words_the_adrs_name() -> None:
+    """Thirteen from ADR-037 D1, three from D7 for what an import check cannot see, and D12's."""
     assert {
         "file_changed_since_read",
         "import_outside_the_target",
@@ -89,6 +105,7 @@ def test_the_vocabulary_is_the_sixteen_words_the_adrs_name() -> None:
         "path_not_python",
         "path_not_the_consulted_file",
         "path_outside_root",
+        "replaced_text_differs",
         "replacement_carries_redaction",
         "replacement_not_displayable",
         "replacement_not_encodable",
@@ -191,6 +208,113 @@ def test_a_question_that_named_no_symbol_is_answered_by_nothing(tmp_path: Path) 
     checked = check(tmp_path, "pass", consultation=question(symbol=None))
 
     assert checked.refusal == "symbol_mismatch"
+
+
+def test_a_range_that_slipped_a_line_is_not_the_text_that_was_quoted(tmp_path: Path) -> None:
+    """The model meant lines 4..5, named 5..6 and still covers the asked line 5: only the quote
+    tells the two apart, and the other check that could is the later one that parses."""
+    checked = check(
+        tmp_path,
+        "def ask(prompt):\n    return None",
+        start_line=5,
+        end_line=6,
+        replaces=lines_of(SOURCE, (4, 5)),
+    )
+
+    assert checked.refusal == "replaced_text_differs"
+    assert "lines 5..6 as they were sent" in checked.detail
+    assert checked.after is None
+
+
+def test_a_quote_of_another_length_is_not_the_text_that_was_quoted(tmp_path: Path) -> None:
+    checked = check(tmp_path, "pass", replaces=lines_of(SOURCE, (4, 5)))
+
+    assert checked.refusal == "replaced_text_differs"
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        pytest.param(lambda text: text, id="exact"),
+        pytest.param(lambda text: text.rstrip("\n"), id="no-final-newline"),
+        pytest.param(lambda text: text.replace("\n", "  \n"), id="trailing-spaces"),
+        pytest.param(lambda text: text.replace("\n", "\r\n"), id="crlf"),
+    ],
+)
+def test_a_quote_may_differ_in_trailing_whitespace_and_line_ending(
+    quote: Callable[[str], str], tmp_path: Path
+) -> None:
+    """Only what a reader cannot see: a model that drops an indent has quoted other lines."""
+    checked = check(tmp_path, "pass", replaces=quote(lines_of(SOURCE, (4, 6))))
+
+    assert checked.refusal is None, checked.detail
+
+
+def test_a_file_with_crlf_endings_is_quoted_with_either(tmp_path: Path) -> None:
+    source = SOURCE.replace(b"\n", b"\r\n")
+    for quote in ("\r\n", "\n"):
+        replaces = lines_of(source, (4, 6)).replace("\r\n", quote)
+        assert check(tmp_path, "pass", source=source, replaces=replaces).refusal is None
+
+
+def test_a_quote_that_drops_the_indentation_is_other_text(tmp_path: Path) -> None:
+    quoted = [line.strip() for line in lines_of(SOURCE, (4, 6)).splitlines()]
+
+    assert check(tmp_path, "pass", replaces="\n".join(quoted)).refusal == "replaced_text_differs"
+
+
+def test_the_quote_is_held_to_what_the_model_was_shown_and_not_to_the_file(tmp_path: Path) -> None:
+    """A secret stands in the context as the marker, so the marker is what must be quoted."""
+    key = "AIza" + "x" * 35
+    source = SOURCE.replace(b'"m"', f'"{key}"'.encode())
+    shown = redact.redact(lines_of(source, (4, 6)), {})
+    one = question()
+    one = replace(one, context=replace(one.context, text=shown))
+    (tmp_path / "app.py").write_bytes(source)
+
+    def asked(replaces: str) -> guard.Checked:
+        return guard.check(
+            proposal("pass", replaces=replaces), consultation=one, root=tmp_path, before=source
+        )
+
+    assert key not in shown
+    assert asked(shown).refusal is None
+    assert asked(lines_of(source, (4, 6))).refusal == "replaced_text_differs"
+
+
+def test_a_redaction_that_joins_lines_leaves_no_number_to_trust(tmp_path: Path) -> None:
+    """A private key over three lines is one marker in the context, which leaves every line after
+    it two lower than in the file; the proposal is refused whatever it quotes."""
+    pem = b'KEY = """-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"""\n'
+    first, rest = SOURCE.split(b"\n", 1)
+    source = first + b"\n" + pem + rest
+    shown = redact.redact(lines_of(source, (1, 9)), {})
+    one = question(line=8, span=(1, 9))
+    one = replace(one, context=replace(one.context, text=shown))
+    (tmp_path / "app.py").write_bytes(source)
+
+    checked = guard.check(
+        proposal("pass", start_line=8, end_line=8, replaces=shown.splitlines()[5]),
+        consultation=one,
+        root=tmp_path,
+        before=source,
+    )
+
+    assert len(base.split_lines(shown)) == 7
+    assert checked.refusal == "replaced_text_differs"
+    assert "redaction joined lines of the 1..9 sent" in checked.detail
+
+
+def test_the_quote_is_asked_after_the_symbol_and_before_the_limits(tmp_path: Path) -> None:
+    """Placement is decided first; what a replacement is made of is not looked at until it holds."""
+    wrong = "not what was sent"
+    huge = "\n".join(["pass"] * (guard.REPLACEMENT_LINE_LIMIT + 1))
+
+    assert (
+        check(tmp_path, "pass", symbol="other.Thing", replaces=wrong).refusal == "symbol_mismatch"
+    )
+    assert check(tmp_path, huge, replaces=wrong).refusal == "replaced_text_differs"
+    assert check(tmp_path, huge).refusal == "replacement_too_large"
 
 
 @pytest.mark.parametrize(

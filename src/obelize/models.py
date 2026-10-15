@@ -257,6 +257,7 @@ GuardRefusal = Literal[
     "path_not_python",
     "path_not_the_consulted_file",
     "path_outside_root",
+    "replaced_text_differs",
     "replacement_carries_redaction",
     "replacement_not_displayable",
     "replacement_not_encodable",
@@ -756,6 +757,8 @@ class EditProposal(_Frozen):
     end_line: int = Field(ge=1)
     # The legacy symbol it claims to migrate; the guard checks it is at that line.
     symbol: str
+    # The range's old text as the model read it; the guard compares it with what was sent.
+    replaces: str
     # The range's new text: newline-separated, no trailing newline.
     replacement: str
     # For the report; it never reaches the tree.
@@ -775,7 +778,7 @@ class EditProposal(_Frozen):
         ):
             if not value.strip():
                 raise ValueError(f"{field} is empty, so the proposal names nothing")
-        for field in ("path", "symbol", "replacement", "rationale"):
+        for field in ("path", "symbol", "replaces", "replacement", "rationale"):
             if _SURROGATE.search(getattr(self, field)):
                 raise ValueError(
                     f"{field} holds a lone surrogate, which no file or report can hold"

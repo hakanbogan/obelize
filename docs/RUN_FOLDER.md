@@ -414,7 +414,7 @@ anything was proposed.
 | `failure` | string or null | A [`provider failure`](#an-adapter-could-not-answer-providerfailure), set exactly when `outcome` is `unanswered`. |
 | `refusal` | string or null | A [`guard refusal`](#the-guard-refused-a-proposal-guardrefusal), set exactly when `outcome` is `guard_refused`. |
 | `detail` | string or null | One line from whichever decided; the endpoint's words are redacted, then cut. |
-| `proposal` | object or null | What came back, unvalidated (`path`, `start_line`, `end_line`, `symbol`, `replacement`, `rationale`), so a proposal naming `~/.bashrc` is refused **by name**, not lost in a parse error. |
+| `proposal` | object or null | What came back, unvalidated (`path`, `start_line`, `end_line`, `symbol`, `replaces`, `replacement`, `rationale`), so a proposal naming `~/.bashrc` is refused **by name**, not lost in a parse error. |
 
 ### The four Phase 3 vocabularies
 
@@ -448,11 +448,11 @@ them.
 | `response_not_a_completion` | JSON with no `choices[0].message.content` string. |
 | `answer_not_json` | The content holds no JSON object under any of the three readings. |
 | `answer_not_a_proposal` | An object without the key it was asked for. A bare proposal at the top level is this too: the envelope separates "an edit" from "none". |
-| `proposal_does_not_hold` | `EditProposal` refuses it: a field it cannot hold, such as an empty path or a lone surrogate, which no file or report can carry. Unanswered, not refused. |
+| `proposal_does_not_hold` | `EditProposal` refuses it: a field it cannot hold, such as an empty path, a missing `replaces` or a lone surrogate, which no file or report can carry. Unanswered, not refused. |
 
 #### The guard refused a proposal (`GuardRefusal`)
 
-`refusal`. Sixteen words in three groups; the **first** refusal in this order is
+`refusal`. Seventeen words in three groups; the **first** refusal in this order is
 recorded, because a hostile proposal trips several and a reviewer needs the
 first.
 
@@ -472,6 +472,7 @@ Is this an answer to the question:
 | `outside_the_context` | The replaced range is not inside the range sent. |
 | `site_not_replaced` | The range does not contain the line asked about. |
 | `symbol_mismatch` | It names another symbol, or the consultation named none to check. |
+| `replaced_text_differs` | The lines it says it replaces (`replaces`) are not the lines it names as they were sent, trailing whitespace and line endings aside: a range that slipped is not the range that was meant. Also refused when redaction joined lines of what was sent, so that no line number can be trusted. |
 
 Is what it produces Python, and does it bring anything in:
 

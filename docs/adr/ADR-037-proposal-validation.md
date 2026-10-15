@@ -6,7 +6,7 @@ Accepted; amended by ADR-039 (D9) and ADR-052.
 
 ## Decision
 
-### D1. Twelve words for seven checks, in one fixed order, first refusal wins
+### D1. Seventeen words in one fixed order, first refusal wins
 
 `GuardRefusal` is a closed set in `models.py`. The checks run in this order and
 only the **first** refusal is recorded:
@@ -20,18 +20,19 @@ only the **first** refusal is recorded:
 | 5 | `outside_the_context` | the replaced range is not inside the range that was sent |
 | 6 | `site_not_replaced` | the replaced range does not contain the line asked about |
 | 7 | `symbol_mismatch` | the proposal names a symbol other than the question's |
-| 8 | `replacement_too_large` | over the line or byte limit (D5) |
-| 9 | `replacement_not_displayable` | it holds a character a terminal acts on |
-| 10 | `replacement_carries_redaction` | it holds `[REDACTED`, which the lines it replaces do not (D10) |
-| 11 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
-| 12 | `output_does_not_compile` | `compile()` refuses it (D6) |
-| 13 | `output_does_not_parse` | libcst refuses a module `compile()` accepted, or it nests deeper than obelize reads (D6, D11) |
-| 14 | `replacement_runs_past_its_range` | it changes how the lines after it are read |
-| 15 | `import_outside_the_target` | the result imports a module the pack does not target (D7) |
-| 16 | `name_outside_the_question` | it names something the question did not license (D7) |
+| 8 | `replaced_text_differs` | the lines it says it replaces are not the lines it names, as sent (D12) |
+| 9 | `replacement_too_large` | over the line or byte limit (D5) |
+| 10 | `replacement_not_displayable` | it holds a character a terminal acts on |
+| 11 | `replacement_carries_redaction` | it holds `[REDACTED`, which the lines it replaces do not (D10) |
+| 12 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
+| 13 | `output_does_not_compile` | `compile()` refuses it (D6) |
+| 14 | `output_does_not_parse` | libcst refuses a module `compile()` accepted, or it nests deeper than obelize reads (D6, D11) |
+| 15 | `replacement_runs_past_its_range` | it changes how the lines after it are read |
+| 16 | `import_outside_the_target` | the result imports a module the pack does not target (D7) |
+| 17 | `name_outside_the_question` | it names something the question did not license (D7) |
 
 Three groups: may this file be touched (1-4), is this an answer to the question
-(5-7), and is the result Python that brings nothing in (8-16), last because
+(5-8), and is the result Python that brings nothing in (9-17), last because
 those cost a parse. `../../.bashrc` is reported as an escape, not an unplanned
 file, because that is what a reviewer must learn first.
 
@@ -50,13 +51,14 @@ is one finding in one file.
 line numbers mean nothing against other bytes; `fsutil.apply` repeats the check
 for the write.
 
-### D4. Three questions about where the edit lands, not one
+### D4. Four questions about where the edit lands, not one
 
 `outside_the_context` is `Context.holds`, called rather than re-derived.
 `site_not_replaced`: the replaced range must contain `Consultation.line`.
 `symbol_mismatch`: the proposal's `symbol` must equal the consultation's, which
-also refuses a consultation with no symbol. Because whether the symbol exists
-is the scan's fact; the guard checks the answer is about it.
+also refuses a consultation with no symbol. `replaced_text_differs` is D12's.
+Because whether the symbol exists is the scan's fact; the guard checks the answer
+is about it.
 
 ### D5. The diff size limit is on the replacement, and it is absolute
 
@@ -119,6 +121,23 @@ reads". Because a refusal is a row for a reviewer, and an exception ends the run
 with a traceback and no run folder. An operand chain of about 13,000 `and` or
 `or` terms on Python 3.14 and later still reaches libcst's parser; that is the
 scanner's open item too.
+
+### D12. A proposal quotes the lines it replaces, and the quote must be what was sent
+
+`EditProposal.replaces` is required: the text of the lines the range names, as
+the model was shown them. After `symbol_mismatch` the guard compares it with
+`Consultation.context.text` for `start_line` to `end_line`, line by line without
+trailing whitespace or line break (a final line break in the quote is allowed;
+indentation is not ignored), and refuses a difference as `replaced_text_differs`.
+The context is the redacted text the model read, so a secret is quoted as its
+marker and the quote of the raw value is refused. A redaction can join lines (a
+private key over three lines becomes one marker), which leaves the context with
+fewer lines than its range and every later line number untrustworthy: the guard
+then refuses every proposal for that context, with that sentence in the detail.
+Because a range that slipped by one line still covers the asked line, is inside
+the context and names the right symbol, and the result can compile: only the
+text it claims to replace can tell it from the range that was meant. A model
+that cannot quote exactly is refused more often, which fails closed.
 
 ## Consequences
 

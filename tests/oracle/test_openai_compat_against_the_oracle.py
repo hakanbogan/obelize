@@ -74,6 +74,7 @@ def _sized(target: int) -> bytes:
                 "start_line": 31,
                 "end_line": 34,
                 "symbol": "google.generativeai.GenerativeModel",
+                "replaces": "        model = genai.GenerativeModel()",
                 "replacement": "        model = new_genai.Client().models",
                 "rationale": "x" * pad,
             }

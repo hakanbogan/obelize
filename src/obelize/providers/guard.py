@@ -291,6 +291,30 @@ def _placed(
             f"the question was about {consultation.symbol!r} and the proposal names "
             f"{proposal.symbol!r}",
         )
+    differs = _misquoted(proposal, context)
+    return None if differs is None else ("replaced_text_differs", differs)
+
+
+def _misquoted(proposal: EditProposal, context: base.Context) -> str | None:
+    """Why the text the proposal says it replaces is not what its lines were sent as, or `None`.
+
+    Against the context as sent, redacted, so the model is held to what it read; lines compare
+    without trailing whitespace or line break. A redaction that joined lines leaves fewer lines
+    than the range, so no number can be trusted, and nothing is accepted.
+    """
+    shown = [line.rstrip() for line in base.split_lines(context.text)]
+    if len(shown) != context.end_line - context.start_line + 1:
+        return (
+            f"redaction joined lines of the {context.start_line}..{context.end_line} sent, so "
+            f"what lines {proposal.start_line}..{proposal.end_line} held cannot be checked"
+        )
+    first = proposal.start_line - context.start_line
+    held = shown[first : first + proposal.end_line - proposal.start_line + 1]
+    if held != [line.rstrip() for line in base.split_lines(proposal.replaces)]:
+        return (
+            "the text the proposal says it replaces is not the text of lines "
+            f"{proposal.start_line}..{proposal.end_line} as they were sent"
+        )
     return None
 
 
