@@ -41,9 +41,12 @@ The message carries the line and the symbol only. Because `Finding.column` is
 No retry: a 429 is `endpoint_refused` with the endpoint's own sentence. The body
 is JSON with sorted keys, so the same question is the same bytes.
 `REQUEST_TIMEOUT_S = 120`, deliberately not a configuration key, and below
-verification's 600 s, which is for a whole test suite. Because a retry resends
-source code for a row that is already `needs_review`, and 120 s is enough for a
-local model on a CPU.
+verification's 600 s, which is for a whole test suite. It bounds the whole
+answer: the body is read in pieces of at most 64 KiB and the deadline checked
+after each, so a reply dripped a byte at a time is `endpoint_unreachable` too,
+though it may run one read past the limit; the wait for the headers is bounded
+by the socket timeout alone. Because a retry resends source code for a row that
+is already `needs_review`, and 120 s is enough for a local model on a CPU.
 
 ### D6. Three readings of the content, in a fixed order
 

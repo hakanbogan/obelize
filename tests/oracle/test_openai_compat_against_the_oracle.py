@@ -41,6 +41,11 @@ ENVIRON = {"OBELIZE_MODEL_API_KEY": str(REPLIES["api_key"])}
 # ends before the module does.
 SLOW_SECONDS = 1.0
 
+# The dripping endpoint: this many bytes, one per pause. The pause is far under any deadline here
+# and the whole is four times the shortest.
+DRIP_BYTES = 20
+DRIP_PAUSE_S = 0.05
+
 # The request half's route, deliberately not a reply case.
 REQUEST_ROUTE = "requests"
 
@@ -110,6 +115,9 @@ class Endpoint(http.server.BaseHTTPRequestHandler):
         if case.get("transport") == "slow":
             time.sleep(SLOW_SECONDS)
             return
+        if case.get("transport") == "drip":
+            self._drip()
+            return
         self._answer(int(case.get("status", 200)), _reply(case), case.get("location"))
 
     def do_GET(self) -> None:
@@ -134,6 +142,17 @@ class Endpoint(http.server.BaseHTTPRequestHandler):
                 body=self.rfile.read(length),
             )
         )
+
+    def _drip(self) -> None:
+        try:
+            self.send_response(200)
+            self.send_header("Content-Length", str(DRIP_BYTES))
+            self.end_headers()
+            for _ in range(DRIP_BYTES):
+                self.wfile.write(b"x")
+                time.sleep(DRIP_PAUSE_S)
+        except OSError:
+            pass  # The client gave up, which is what the deadline does.
 
     def _answer(self, status: int, payload: bytes, location: str | None = None) -> None:
         try:

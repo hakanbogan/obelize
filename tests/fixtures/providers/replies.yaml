@@ -5,7 +5,7 @@
 # shape and then names the thing that makes it awkward: "Structured output is
 # not uniformly available. The Anthropic compatibility layer ignores
 # `response_format` and `strict`, so the fenced-JSON fallback is not optional
-# and must be tested." That is one row below. The other twenty-two are there
+# and must be tested." That is one row below. The other twenty-three are there
 # because an adapter graded only on the endpoint behaving is an adapter whose
 # failure path is written from imagination.
 #
@@ -284,3 +284,14 @@ cases:
     transport: slow
     deadline_s: 0.25
     outcome: endpoint_unreachable
+
+  - case: dripped_past_the_deadline
+    what_it_is: >-
+      An endpoint that answers at once and then sends a byte every twentieth of
+      a second, so no single wait is long and the whole takes a second. The
+      deadline is a quarter of a second: it bounds the answer, not each wait
+      for a piece of it, which is all a socket timeout can say.
+    transport: drip
+    deadline_s: 0.25
+    outcome: endpoint_unreachable
+    detail_holds: no complete answer

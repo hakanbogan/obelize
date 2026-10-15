@@ -10,6 +10,7 @@ from __future__ import annotations
 import http.client
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING, Any
@@ -35,8 +36,12 @@ COMPLETIONS_PATH = "/chat/completions"
 USER_AGENT = f"obelize/{__version__}"
 
 # Enough for a local model on a CPU, short enough that a hung endpoint cannot stall a migration.
-# Deliberately not a config key.
+# Deliberately not a config key. It bounds the whole answer, checked between reads of the body, so
+# a reply can run one read past it; the wait for the headers is bounded by each read's timeout only.
 REQUEST_TIMEOUT_S = 120.0
+
+# A read of the body takes what has arrived up to this much, so the deadline is checked as it comes.
+READ_CHUNK = 64 * 1024
 
 # An order of magnitude over the largest JSON-escaped replacement the guard accepts. Counts wire
 # bytes: nothing asks for compression.
@@ -241,9 +246,10 @@ class OpenAICompat:
         key = self.environ.get(self.api_key_env, "")
         if key:
             request.add_header("Authorization", f"Bearer {key}")
+        deadline = time.monotonic() + self.timeout_s
         try:
             with self.opener.open(request, timeout=self.timeout_s) as response:
-                raw: bytes = response.read(RESPONSE_BYTE_LIMIT + 1)
+                raw = self._read(response, deadline)
         except urllib.error.HTTPError as error:
             raise self._answered(error) from error
         except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
@@ -258,6 +264,18 @@ class OpenAICompat:
             return json.loads(raw)
         except (ValueError, RecursionError) as error:
             raise self._failure("response_not_json", str(error)) from error
+
+    def _read(self, response: http.client.HTTPResponse, deadline: float) -> bytes:
+        """The body up to one byte over the cap, or `TimeoutError` once `deadline` has passed.
+
+        The socket timeout bounds each wait, so a reply dripped a byte at a time would outlast it.
+        """
+        body = bytearray()
+        while len(body) <= RESPONSE_BYTE_LIMIT and (piece := response.read1(READ_CHUNK)):
+            body += piece
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"no complete answer within {self.timeout_s:g} s")
+        return bytes(body)
 
     def _answered(self, error: urllib.error.HTTPError) -> base.ProviderError:
         """A status outside 200-299, with a redirect told apart from a refusal."""

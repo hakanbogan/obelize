@@ -8,8 +8,10 @@ from __future__ import annotations
 import email.message
 import http.client
 import io
+import itertools
 import json
 import socket
+import types
 import urllib.error
 import urllib.request
 from typing import Any
@@ -54,32 +56,16 @@ def _consultation(**changes: Any) -> base.Consultation:
     return base.Consultation(**fields)
 
 
-class _Answer:
-    """A response body for a caller that reads it once, with a size cap."""
-
-    def __init__(self, body: bytes) -> None:
-        self.body = body
-
-    def read(self, amount: int) -> bytes:
-        return self.body[:amount]
-
-    def __enter__(self) -> _Answer:
-        return self
-
-    def __exit__(self, *unused: object) -> None:
-        return None
-
-
 class _Stub:
     def __init__(self, outcome: bytes | Exception) -> None:
         self.outcome = outcome
         self.seen: list[urllib.request.Request] = []
 
-    def open(self, request: urllib.request.Request, timeout: float | None = None) -> _Answer:
+    def open(self, request: urllib.request.Request, timeout: float | None = None) -> io.BytesIO:
         self.seen.append(request)
         if isinstance(self.outcome, Exception):
             raise self.outcome
-        return _Answer(self.outcome)
+        return io.BytesIO(self.outcome)
 
 
 def _adapter(
@@ -269,6 +255,40 @@ def test_an_unreachable_endpoint_is_named_by_host_and_port_and_never_by_path(
     with pytest.raises(base.ProviderError) as raised:
         made.propose(_consultation())
     assert raised.value.detail == "localhost:8080: <urlopen error no route to host>"
+
+
+class _OneByteAtATime(io.BytesIO):
+    """A body whose every read is short, as a dripped reply's is."""
+
+    def read1(self, size: int | None = -1, /) -> bytes:
+        return self.read(1)
+
+
+@pytest.mark.parametrize(
+    ("timeout_s", "word"),
+    [(100.0, "endpoint_unreachable"), (1000.0, "response_not_json")],
+    ids=["past_the_deadline", "inside_it"],
+)
+def test_the_deadline_bounds_the_whole_body_and_not_each_read(
+    monkeypatch: pytest.MonkeyPatch, timeout_s: float, word: str
+) -> None:
+    """Each read is 40 s on a fake clock: no read waits long, and the third passes 100 s."""
+    ticks = itertools.count(0, 40)
+    monkeypatch.setattr(adapter, "time", types.SimpleNamespace(monotonic=lambda: next(ticks)))
+    made = adapter.OpenAICompat(
+        url="https://example.invalid/v1/chat/completions",
+        model="a-model",
+        environ={},
+        api_key_env="OBELIZE_MODEL_API_KEY",
+        timeout_s=timeout_s,
+    )
+    opener = types.SimpleNamespace(open=lambda request, timeout=None: _OneByteAtATime(b"x" * 9))
+    monkeypatch.setattr(made, "opener", opener)
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.failure == word
+    if word == "endpoint_unreachable":
+        assert raised.value.detail == "example.invalid: no complete answer within 100 s"
 
 
 def test_a_long_refusal_is_cut_and_says_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
