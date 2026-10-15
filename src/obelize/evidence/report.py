@@ -558,7 +558,7 @@ def document(
     proposals: Sequence[ProposalRecord] = (),
     guides: Sequence[Guide] = (),
     packs: Sequence[PackDocument] = (),
-    pack_dirs: Sequence[str] = (),
+    fixture_dirs: Sequence[str] = (),
     locks: Sequence[str] = (),
 ) -> str:
     """`REPORT.md`: everything the run learned, in the order it learned it.
@@ -567,7 +567,7 @@ def document(
     table beside the edits: a file the scan refused has no edit, and that is not a hole.
     `proposals` (from `model/`) are inlined because model hunks most need a human reader. `guides`
     and `packs` are the packs' own words: what a flagged change says, what a pack does not handle.
-    `pack_dirs` are the directories of the loaded packs inside the repository, which no scan enters;
+    `fixture_dirs` are the fixtures of the loaded packs inside the repository, which no scan enters;
     `locks` are the repository's lock files, where a manifest pin was or would be written.
     """
     _agree(record, run, plan)
@@ -576,7 +576,7 @@ def document(
         scan,
         run is not None,
         planned=plan is not None and bool(plan.files),
-        pack_dirs=pack_dirs,
+        fixture_dirs=fixture_dirs,
     )
     if scan.blocked:
         lines.extend(["## Blocked", ""])
@@ -621,7 +621,7 @@ def _agree(record: RunRecord, run: Run | None, plan: PlanDocument | None) -> Non
 
 
 def _preamble(
-    record: RunRecord, scan: Scan, fixing: bool, *, planned: bool, pack_dirs: Sequence[str]
+    record: RunRecord, scan: Scan, fixing: bool, *, planned: bool, fixture_dirs: Sequence[str]
 ) -> list[str]:
     counts = record.counts
     return [
@@ -640,7 +640,10 @@ def _preamble(
         f"- **Configuration** {record.config.source}, "
         f"include `{record.config.include}`, "
         f"{len(record.config.exclude)} extra exclusion(s)",
-        *(f"- **Not scanned** `{path}/`, which holds a pack this run loaded" for path in pack_dirs),
+        *(
+            f"- **Not scanned** `{path}/`, the fixtures of a pack this run loaded"
+            for path in fixture_dirs
+        ),
         "",
         _headline(counts, FIX_SPLIT if fixing else SPLIT),
         "",

@@ -116,7 +116,7 @@ def repo_command(root: Path, command: str) -> list[str]:
     return ["--trust-repo-config", "--non-interactive"]
 
 
-def test_the_directory_of_a_pack_inside_the_repository_is_neither_planned_nor_written(
+def test_the_fixtures_of_a_pack_inside_the_repository_are_neither_planned_nor_written(
     tree: Path,
 ) -> None:
     shutil.copytree(loader.BUNDLED / PACK, tree / "packs" / "gem")
@@ -137,7 +137,10 @@ def test_the_directory_of_a_pack_inside_the_repository_is_neither_planned_nor_wr
     ]
     assert [path.read_bytes() for path in fixtures] == before
     report = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
-    assert "- **Not scanned** `packs/gem/`, which holds a pack this run loaded\n" in report
+    assert (
+        "- **Not scanned** `packs/gem/fixtures/`, the fixtures of a pack this run loaded\n"
+        in report
+    )
 
 
 def test_without_a_pack_the_bundled_one_is_used_as_scan_uses_it(tree: Path) -> None:

@@ -117,7 +117,7 @@ def scan(
     from obelize import gitutil
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
-    from obelize.config import ConfigError, with_pack_dirs
+    from obelize.config import ConfigError, with_fixture_dirs
     from obelize.evidence import report, run_dir
     from obelize.models import FindingsDocument
     from obelize.scan import runner, walker
@@ -132,7 +132,8 @@ def scan(
         runner.worker_count(jobs)
         configuration = _configuration(root)
         if list_files:
-            scanned = with_pack_dirs(configuration.config, root, [one.path for one in packs])
+            own = [one.path for one in packs if not one.bundled]
+            scanned = with_fixture_dirs(configuration.config, root, own)
             for path in walker.walk(root, scanned).files:
                 typer.echo(path)
             return
@@ -180,7 +181,7 @@ def scan(
             findings,
             loaded,
             report.document(
-                record, result, guides=guides, packs=documents, pack_dirs=chosen.pack_dirs
+                record, result, guides=guides, packs=documents, fixture_dirs=chosen.fixture_dirs
             ),
         )
     except run_dir.EvidenceError as error:

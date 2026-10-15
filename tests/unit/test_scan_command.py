@@ -347,19 +347,45 @@ def _own_pack(tree: Path, where: str) -> Path:
     return tree / where / loader.PACK_FILENAME
 
 
-def test_the_directory_of_a_pack_inside_the_repository_is_not_scanned(tree: Path) -> None:
+def test_the_fixtures_of_a_pack_inside_the_repository_are_not_scanned(tree: Path) -> None:
     pack = _own_pack(tree, "packs/gem")
     document = json.loads(_scan(tree, "--json", "--pack", str(pack)).stdout)
     assert {row["path"] for row in document["findings"]} == {"app.py", "requirements.txt"}
     report = (_folder(tree) / "REPORT.md").read_text(encoding="utf-8")
-    assert "- **Not scanned** `packs/gem/`, which holds a pack this run loaded\n" in report
-    assert "packs/gem/fixtures" not in report
+    assert (
+        "- **Not scanned** `packs/gem/fixtures/`, the fixtures of a pack this run loaded\n"
+        in report
+    )
+    assert ".before.py" not in report
     assert "Excluded from the scan" not in report
     record = json.loads((_folder(tree) / "run.json").read_text(encoding="utf-8"))
     assert record["config"]["exclude"] == []
 
 
-def test_list_files_leaves_out_the_directory_of_a_pack_inside_the_repository(tree: Path) -> None:
+def test_a_file_beside_a_pack_inside_the_repository_is_still_scanned(tree: Path) -> None:
+    """It can import the legacy SDK, and an unscanned one would let the pin move past it."""
+    pack = _own_pack(tree, "tools")
+    (tree / "tools" / "helper.py").write_text(LEGACY, encoding="utf-8")
+    document = json.loads(_scan(tree, "--json", "--pack", str(pack)).stdout)
+    assert {row["path"] for row in document["findings"]} == {
+        "app.py",
+        "requirements.txt",
+        "tools/helper.py",
+    }
+
+
+def test_a_bundled_pack_installed_inside_the_repository_is_not_reported_as_unscanned(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A project-local venv holds the wheel's packs; the user supplied none of them."""
+    packs = tree / ".venv" / "lib" / "site-packages" / "obelize" / "packs"
+    shutil.copytree(loader.BUNDLED / "gemini", packs / "gemini")
+    monkeypatch.setattr(loader, "BUNDLED", packs)
+    assert _scan(tree, "--pack", GEMINI).exit_code == 0
+    assert "Not scanned" not in (_folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+def test_list_files_leaves_out_the_fixtures_of_a_pack_inside_the_repository(tree: Path) -> None:
     pack = _own_pack(tree, "packs/gem")
     assert _scan(tree, "--list-files", "--pack", str(pack)).stdout.split() == ["app.py", "plain.py"]
 

@@ -35,18 +35,22 @@ bare operator such as `|`, `&&`, `;`, `>` or `<`, or does not split at all, is
 refused and pointed at `sh -c '<command>'`. Tokens are checked, not the raw
 string, so `python -c "print(1>2)"` passes.
 
-**D6. The directory of a loaded pack that sits inside the repository is left out of every scan.**
-Its fixtures are legacy code by design, so a scan that entered them would plan edits to them. It
-is skipped as the always-excluded set is, not as an `exclude` is (an excluded file that imports the
-legacy distribution would hold the pin, and a fixture is not the repository's code), is the
-directory the pack file sits in, and is never the repository root. `REPORT.md` names it. It is
-not a configuration key: a repository's `.obelize.yml` cannot add to it.
+**D6. The `fixtures/` directory of a loaded pack that sits inside the repository is left out of
+every scan.** Its fixtures are legacy code by design, so a scan that entered them would plan edits
+to them. It is skipped as the always-excluded set is, not as an `exclude` is (an excluded file that
+imports the legacy distribution would hold the pin, and a fixture is not the repository's code).
+It is the `fixtures/` directory beside the pack file, which every fixture path of a pack is under
+(ADR-018), and no more: a file the pack sits beside is the repository's own and stays scanned, or
+the pin could move past a legacy import nothing read. A pack at the repository root gives up
+nothing, and neither does a pack the wheel carries, which the user did not supply. `REPORT.md`
+names the directory. It is not a configuration key: a repository's `.obelize.yml` cannot add to
+it.
 
 ## Consequences
 
 - The configuration models live in `obelize.models` and loading in
   `obelize.config`, so the evidence writer never imports a YAML parser.
-- Only the always-excluded set and a loaded pack's directory (D6) prune a directory; a user's
+- Only the always-excluded set and a loaded pack's `fixtures/` (D6) prune a directory; a user's
   `exclude` filters files and prunes nothing (ADR-016 D3).
 - `model.base_url` may not carry a credential, so `docs/RUN_FOLDER.md`'s
   recorded host and `docs/PRIVACY.md`'s never-written key stay true together.

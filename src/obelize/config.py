@@ -156,26 +156,30 @@ def _relative(path: str) -> str:
 
 
 class ScanConfig(Config):
-    """`Config` and the directories of the packs a run loaded, which it never scans.
+    """`Config` and the fixture directories of the packs a run loaded, which it never scans.
 
     A pack's fixtures are legacy code by design, so scanned they would be rewritten. `.obelize.yml`
     loads as `Config`, so a repository cannot name them.
     """
 
-    pack_dirs: tuple[str, ...] = ()
+    fixture_dirs: tuple[str, ...] = ()
 
 
-def with_pack_dirs(config: Config, root: Path, pack_files: Iterable[Path]) -> ScanConfig:
-    """`config` and the directory of each pack file strictly inside `root`, as repository paths.
+def with_fixture_dirs(config: Config, root: Path, pack_files: Iterable[Path]) -> ScanConfig:
+    """`config` and the `fixtures/` directory beside each pack file strictly inside `root`.
 
-    A pack at the root has no directory of its own to give up, and one outside it needs none.
+    Only that directory, which every fixture path of a pack is under: a file the pack sits beside is
+    the repository's own. A pack at the root gives up nothing, since a `fixtures/` there is as
+    likely the repository's own, and one outside `root` needs nothing.
     """
     base = root.resolve()
     parents = {file.resolve().parent for file in pack_files}
     inside = (parent for parent in parents if parent != base and parent.is_relative_to(base))
     return ScanConfig(
         **dict(config),
-        pack_dirs=tuple(sorted(parent.relative_to(base).as_posix() for parent in inside)),
+        fixture_dirs=tuple(
+            sorted(f"{parent.relative_to(base).as_posix()}/fixtures" for parent in inside)
+        ),
     )
 
 
@@ -190,9 +194,9 @@ class Selection:
     __slots__ = ("_always", "_exclude", "_include")
 
     def __init__(self, config: Config) -> None:
-        pack_dirs = config.pack_dirs if isinstance(config, ScanConfig) else ()
+        fixture_dirs = config.fixture_dirs if isinstance(config, ScanConfig) else ()
         # Anchored: a directory called `gem` is the one at the root, not every `gem`.
-        patterns = (*ALWAYS_EXCLUDED, *(f"/{_literal(path)}/" for path in pack_dirs))
+        patterns = (*ALWAYS_EXCLUDED, *(f"/{_literal(path)}/" for path in fixture_dirs))
         self._always = _spec(patterns, "the always-excluded set")
         self._exclude = _spec(config.exclude, "exclude")
         self._include = _spec((config.include,), "include")
