@@ -23,3 +23,6 @@ dependencies = ["google-generativeai==0.8.6"]
 
 [tool.hatch.envs.default.scripts]
 lock = "pip install google-generativeai==0.8.6"
+
+[tool.poetry.group.docs.dependencies]
+google-generativeai = {version = "^0.8.6"}

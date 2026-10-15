@@ -148,6 +148,24 @@ def test_a_table_value_that_is_not_a_version_string_is_refused() -> None:
     assert reported(edits) == [(2, "needs_review", "manifest_pin_shape_unsupported")]
 
 
+@pytest.mark.parametrize(
+    ("path", "table", "old"),
+    [
+        ("pyproject.toml", "tool.poetry.dependencies", "^1.2"),
+        ("Pipfile", "packages", "==1.2.3"),
+    ],
+)
+def test_an_inline_table_holding_only_a_version_is_rewritten_inside_its_quotes(
+    path: str, table: str, old: str
+) -> None:
+    source = f'[{table}]\nacme-sdk = {{version = "{old}"}}\n'
+    produced, edits = acme.declared(path, source, CLEAR)
+    assert produced == f'[{table}]\nacme-client = {{version = ">=2"}}\n'
+    assert reported(edits) == [(2, "auto", None)]
+    produced, _edits = acme.declared(path, source, BLOCKED)
+    assert produced == source + 'acme-client = {version = ">=2"}\n'
+
+
 def test_a_table_value_that_is_a_version_string_is_not() -> None:
     source = '[packages]\nacme-sdk = "==1.2.3"\n'
     produced, _edits = acme.declared("Pipfile", source, CLEAR)

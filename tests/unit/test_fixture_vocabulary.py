@@ -243,12 +243,12 @@ CENSUS = {
     "encoding": {"auto": 16, "needs_review": 4, "unsupported": 2, "not_a_usage": 0},
     "escapes": {"auto": 0, "needs_review": 54, "unsupported": 0, "not_a_usage": 0},
     "import_forms": {"auto": 27, "needs_review": 0, "unsupported": 0, "not_a_usage": 0},
-    "manifests": {"auto": 14, "needs_review": 14, "unsupported": 0, "not_a_usage": 1},
+    "manifests": {"auto": 15, "needs_review": 15, "unsupported": 0, "not_a_usage": 1},
     "gemini-legacy-app": {"auto": 3, "needs_review": 11, "unsupported": 1, "not_a_usage": 2},
     "negative": {"auto": 0, "needs_review": 0, "unsupported": 0, "not_a_usage": 6},
     "transitive": {"auto": 5, "needs_review": 1, "unsupported": 0, "not_a_usage": 0},
 }
-TOTALS = {"findings": 177, "bindings": 25, "must_not_report": 109, "must_not_autofix": 1}
+TOTALS = {"findings": 179, "bindings": 25, "must_not_report": 109, "must_not_autofix": 1}
 
 
 @pytest.mark.parametrize(("name", "data"), CASES, ids=[n for n, _ in CASES])

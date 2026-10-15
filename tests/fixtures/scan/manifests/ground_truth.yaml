@@ -264,6 +264,24 @@ findings:
       the distribution is the last part of the header and the version a key
       below it. Read and graded like the others; the rule refuses to write it.
 
+  - file: pyproject.toml
+    line: 37
+    symbol: google-genai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: auto
+    note: F-2's first half, beside a table key whose value is an inline table.
+  - file: pyproject.toml
+    line: 37
+    symbol: google-generativeai
+    kind: manifest
+    confidence_reason: manifest_dependency
+    verdict: needs_review
+    bail: repo_not_fully_migrated
+    note: >-
+      `{version = "^0.8.6"}`, an inline table holding only a version. The key is
+      still the distribution, and the version is the string inside the braces.
+
   # =====================================================================
   # Pipfile - TOML, and the declaration is a key in `[dev-packages]`.
   # =====================================================================

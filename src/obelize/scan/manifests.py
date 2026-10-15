@@ -679,26 +679,33 @@ def _is_dependency_array(table: tuple[str, ...], key: str) -> bool:
 
 
 def _value_pin(body: str, after: int) -> tuple[int, int] | None:
-    """The span inside a TOML value that is exactly one quoted string, else `None`.
+    """The span inside a TOML value that is exactly one quoted string, or an inline table holding
+    nothing but a quoted `version`; else `None`.
 
     Also refuses an unclosed quote (invalid TOML); an inner quote (triple-quoted, escaped) is fine.
     """
     rest = body[after:]
     value = rest.strip()
+    start = after + len(rest) - len(rest.lstrip())
+    only = _ONLY_VERSION.fullmatch(value)
+    if only:
+        return (start + only.start("version"), start + only.end("version"))
     quote = value[:1]
     if len(value) < 2 or quote not in "\"'" or value[-1] != quote:
         return None
-    start = after + rest.index(quote) + 1
-    return (start, start + len(value) - 2)
+    return (start + 1, start + len(value) - 1)
 
 
+# Any other key beside the version (extras, a marker, a source) would be carried to a distribution
+# that may not have it, so such a table is no pin.
+_ONLY_VERSION: Final = re.compile(r"""\{\s*version\s*=\s*(["'])(?P<version>[^"']*)\1\s*,?\s*\}""")
 _INLINE_VERSION: Final = re.compile(r"""^\{.*?\bversion\s*=\s*(["'])(.*?)\1""")
 
 
 def _inline_version(body: str, after: int) -> str | None:
     """The `version` of a one-line inline table (`{ version = "^3", extras = [...] }`), else `None`.
 
-    Read, not edited: the table has no pin the rule could replace.
+    Read, not edited: with other keys beside it the table has no pin the rule could replace.
     """
     found = _INLINE_VERSION.match(body[after:].strip())
     return None if found is None else found.group(2)

@@ -439,6 +439,49 @@ def test_the_version_of_a_dependency_table_is_the_string_under_its_own_header(
     assert (found.name, found.pin, found.spec) == ("acme-sdk", None, spec)
 
 
+@pytest.mark.parametrize(
+    ("value", "version"),
+    [
+        ('{version = "^1.0"}', "^1.0"),
+        ("{ version='>=1,<2' }", ">=1,<2"),
+        ('{version = "==1.0",}', "==1.0"),
+        ('  {version = ""}  # unpinned', ""),
+    ],
+)
+@pytest.mark.parametrize("path", ["pyproject.toml", "Pipfile"])
+def test_an_inline_table_holding_only_a_version_has_its_pin_inside_the_quotes(
+    path: str, value: str, version: str
+) -> None:
+    table = "packages" if path == "Pipfile" else "tool.poetry.dependencies"
+    text = f"[{table}]\nacme-sdk = {value}\n"
+    (found,) = manifests.declarations(path, text.encode())
+    assert found.pin is not None
+    assert (text.splitlines()[1][found.pin[0] : found.pin[1]], found.spec) == (version, version)
+
+
+@pytest.mark.parametrize(
+    ("value", "spec"),
+    [
+        ('{version = "^1.0", extras = ["x"]}', "^1.0"),
+        ('{version = "^1.0", python = ">=3.9"}', "^1.0"),
+        ('{extras = ["x"], version = "^1.0"}', "^1.0"),
+        ('{version = "^1.0", markers = "a == \'b\'"}', "^1.0"),
+        ("{version = '^1.0'", "^1.0"),
+        ("{version = 1}", None),
+        ('{git = "https://example.invalid/x"}', None),
+        ("{}", None),
+    ],
+)
+def test_an_inline_table_with_another_key_beside_the_version_has_no_pin(
+    value: str, spec: str | None
+) -> None:
+    """The other keys would be carried to a distribution that may not have them."""
+    (found,) = manifests.declarations(
+        "pyproject.toml", f"[tool.poetry.dependencies]\nacme-sdk = {value}\n".encode()
+    )
+    assert (found.pin, found.spec) == (None, spec)
+
+
 def test_a_dependency_table_with_a_name_pep_508_refuses_declares_nothing() -> None:
     text = """
 [tool.poetry.dependencies."not a name"]

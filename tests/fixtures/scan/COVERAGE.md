@@ -2,7 +2,7 @@
 
 These fixtures are the measurement oracle, hand-written so the implementation is judged
 against a decision rather than its own output. The first five were written before the scanner.
-Nine cases, 177 graded findings (81 `auto`, 84 `needs_review`, 3 `unsupported`,
+Nine cases, 179 graded findings (82 `auto`, 85 `needs_review`, 3 `unsupported`,
 9 `not_a_usage`), 25 bindings, 109 `must_not_report` rows and one
 `must_not_autofix` row. `tests/unit/test_fixture_vocabulary.py` asserts this
 census per case and every value against

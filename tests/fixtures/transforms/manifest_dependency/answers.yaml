@@ -68,12 +68,15 @@ cases:
           Lines 15, 19 and 22 are the arrays uv, PDM and Hatch keep their own
           requirements in, written like the PEP 621 one; the Hatch script on
           line 25 spells the distribution in a command, which is no declaration.
+          Line 28 is an inline table holding only a version, so the pin is the
+          string inside it and the braces stay.
         edits:
           - {line: 5, status: auto}
           - {line: 10, status: auto}
           - {line: 15, status: auto}
           - {line: 19, status: auto}
           - {line: 22, status: auto}
+          - {line: 28, status: auto}
       - file: Pipfile
         after: present
         why: The table-key form again, under Pipenv's own table name.
