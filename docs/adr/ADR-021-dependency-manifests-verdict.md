@@ -107,8 +107,11 @@ substring.
 ### D10. A lockfile is not a manifest in v0
 
 v0 reads the five hand-written layouts plus the `requirements/<name>.txt`
-directory form. A lockfile is generated, and a line edit would break its
-hashes; `constraints.txt` declares no dependency.
+directory form, and a requirements file is any `*requirement*.txt`. A constraints file and a
+pip-tools input (`*requirements*.in`) are read for their declarations and never written: the
+compiled file beside an input is what installs, and a declaration there has no pin, so the rule
+refuses it with `manifest_pin_shape_unsupported`. A lockfile is generated, and a line edit would
+break its hashes.
 
 ### D11. An unread file is a limitation and not a blocker
 

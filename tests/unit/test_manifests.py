@@ -58,6 +58,9 @@ def planned(source: str, path: str) -> ImpactPlan:
         ("requirements.txt", "requirements"),
         ("requirements-dev.txt", "requirements"),
         ("requirements_test.txt", "requirements"),
+        ("dev-requirements.txt", "requirements"),
+        ("requirement.txt", "requirements"),
+        ("docs/pip_requirements.txt", "requirements"),
         ("deploy/requirements.txt", "requirements"),
         ("requirements/base.txt", "requirements"),
         ("requirements/dev.txt", "requirements"),
@@ -66,8 +69,15 @@ def planned(source: str, path: str) -> ImpactPlan:
         ("Pipfile", "toml"),
         ("setup.cfg", "cfg"),
         ("setup.py", "setup_py"),
-        ("constraints.txt", None),
+        ("constraints.txt", "unwritten"),
+        ("constraints-3.12.txt", "unwritten"),
+        ("constraints/prod-constraints.txt", "unwritten"),
+        ("requirements/constraints.txt", "unwritten"),
+        ("requirements-constraints.txt", "unwritten"),
+        ("requirements.in", "unwritten"),
+        ("dev-requirements.in", "unwritten"),
         ("docs/notes.txt", None),
+        ("base.in", None),
         ("requirements/README.md", None),
         ("poetry.lock", None),
         ("Pipfile.lock", None),
@@ -78,7 +88,8 @@ def planned(source: str, path: str) -> ImpactPlan:
 def test_a_manifest_is_chosen_by_name_and_the_set_is_closed(
     path: str, expected: str | None
 ) -> None:
-    """Lock files are generated and hashed, so never edited; `constraints.txt` declares nothing."""
+    """Lock files are generated and hashed, so never edited; a constraints file and a pip-tools
+    input are read and never written, which `unwritten` says."""
     assert manifests.layout(path) == expected
     assert manifests.is_manifest(path) is (expected is not None)
 
@@ -1018,16 +1029,9 @@ def test_a_declaration_is_unmarked_unless_one_is_said() -> None:
         "pylock.dev.toml",
         "requirements.lock",
         "requirements-dev.lock",
-        "constraints.txt",
-        "constraints/prod-constraints.txt",
-        "requirements.in",
-        "dev-requirements.in",
-        "dev-requirements.txt",
-        "test_requirements.txt",
-        "docs/pip-requirements.txt",
     ],
 )
-def test_a_lock_or_constraints_file_nothing_reads_can_still_decide_the_release(path: str) -> None:
+def test_a_lock_nothing_reads_can_still_decide_the_release(path: str) -> None:
     assert manifests.is_lock(path) is True
     assert manifests.is_manifest(path) is False
 
@@ -1038,6 +1042,9 @@ def test_a_lock_or_constraints_file_nothing_reads_can_still_decide_the_release(p
         "requirements.txt",
         "requirements-dev.txt",
         "requirements/base.txt",
+        "dev-requirements.txt",
+        "constraints.txt",
+        "requirements.in",
         "pyproject.toml",
         "Pipfile",
         "setup.cfg",
@@ -1054,6 +1061,34 @@ def test_a_lock_or_constraints_file_nothing_reads_can_still_decide_the_release(p
 )
 def test_a_manifest_this_reads_and_a_file_that_is_no_lock_of_python_is_not_one(path: str) -> None:
     assert manifests.is_lock(path) is False
+
+
+@pytest.mark.parametrize(
+    ("path", "text"),
+    [
+        ("constraints.txt", "acme-sdk==1.0\n"),
+        ("constraints-3.12.txt", "acme-sdk==1.0\n"),
+        ("requirements.in", "acme-sdk==1.0  # pinned\n"),
+        ("dev-requirements.in", "-c constraints.txt\nacme-sdk==1.0\n"),
+    ],
+)
+def test_a_constraints_file_and_a_pip_tools_input_are_read_and_have_no_pin(
+    path: str, text: str
+) -> None:
+    """The compiled file is what installs, so a rule that edited the input would be undone."""
+    (found,) = manifests.declarations(path, text.encode())
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, "==1.0")
+
+
+def test_a_bare_name_in_such_a_file_constrains_nothing_and_declares_nothing() -> None:
+    text = (
+        "acme-sdk\nacme-sdk[x] ; python_version > '3'\nhttpx<1\n-e git+https://h/r#egg=acme-sdk\n"
+    )
+    found = manifests.declarations("requirements.in", text.encode())
+    assert [(row.line, row.name, row.spec) for row in found] == [
+        (3, "httpx", "<1"),
+        (4, "acme-sdk", None),
+    ]
 
 
 def test_the_lock_set_is_what_the_module_lists() -> None:

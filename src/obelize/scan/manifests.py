@@ -52,8 +52,8 @@ TRANSITIVE_BAIL: Final[BailCode] = "transitive_dependency_in_use"
 # The fields of a statement, handler or `case` that hold statements.
 _BODIES: Final = ("body", "orelse", "finalbody", "handlers", "cases")
 
-# Only `setup_py` is Python.
-Layout = Literal["requirements", "toml", "cfg", "setup_py"]
+# Only `setup_py` is Python. `unwritten` files are read for their declarations, which carry no pin.
+Layout = Literal["requirements", "unwritten", "toml", "cfg", "setup_py"]
 
 # Exact basenames. No lockfiles, deliberately: a line edit would break their hashes.
 NAMES: Final[dict[str, Layout]] = {
@@ -63,10 +63,17 @@ NAMES: Final[dict[str, Layout]] = {
     "setup.py": "setup_py",
 }
 
-REQUIREMENTS_GLOB: Final = "requirements*.txt"
+REQUIREMENTS_GLOB: Final = "*requirement*.txt"
 
-# Files nothing here reads that can still decide which release a requirement installs: a lock, a
-# constraints file, the installer's own settings. Python-free `*.lock` files are not among them.
+# Read, never written: a constraints file and a pip-tools input. The compiled file beside an input
+# is what installs, so an edit there alone would be undone by the next compile.
+UNWRITTEN_GLOBS: Final = ("*constraints*.txt", "*requirements*.in")
+
+# Layouts pip reads: a line may be an option, and a comment needs a blank before its `#`.
+PIP: Final[frozenset[Layout]] = frozenset({"requirements", "unwritten"})
+
+# Files nothing here reads that can still decide which release a requirement installs: a lock, the
+# installer's own settings. Python-free `*.lock` files are not among them.
 LOCKS: Final[frozenset[str]] = frozenset(
     {
         "Pipfile.lock",
@@ -82,13 +89,7 @@ LOCKS: Final[frozenset[str]] = frozenset(
         "uv.toml",
     }
 )
-LOCK_GLOBS: Final = (
-    "pylock.*.toml",
-    "requirements*.lock",
-    "*constraints*.txt",
-    "*requirements*.in",
-    "*requirements*.txt",
-)
+LOCK_GLOBS: Final = ("pylock.*.toml", "requirements*.lock")
 
 # `requirements/*.txt`, which the glob misses; a pin missed there reads as nothing to do.
 REQUIREMENTS_DIRECTORY: Final = "requirements"
@@ -129,9 +130,10 @@ _ARCHIVE: Final = re.compile(
 class Declaration:
     """One declared dependency: canonical `name`; `raw` as written, from `column` to `end`.
 
-    `pin` spans the version, or is `None` for extras, a URL or a non-string value a rewrite cannot
-    carry; the rule refuses such a row and the scan still reports it. `spec` is the version as
-    declared (a PEP 508 set, or Poetry's or Pipenv's string), `None` when it cannot be read.
+    `pin` spans the version, or is `None` for extras, a URL, a hash, an editable requirement, a file
+    no rule writes or a non-string value a rewrite cannot carry; the rule refuses such a row and the
+    scan still reports it. `spec` is the version as declared (a PEP 508 set, or Poetry's or
+    Pipenv's string), `None` when it cannot be read.
     """
 
     path: str
@@ -175,6 +177,8 @@ def layout(path: str) -> Layout | None:
     if name in NAMES:
         return NAMES[name]
     # `fnmatchcase`: `fnmatch` folds case on Windows only, and the answer must not vary by OS.
+    if any(fnmatch.fnmatchcase(name, glob) for glob in UNWRITTEN_GLOBS):
+        return "unwritten"
     if not fnmatch.fnmatchcase(name, "*.txt"):
         return None
     if fnmatch.fnmatchcase(name, REQUIREMENTS_GLOB):
@@ -211,7 +215,12 @@ def declarations(path: str, data: bytes) -> tuple[Declaration, ...]:
     if found == "setup_py":
         return tuple(_from_setup_py(path, data))
     lines = data.decode("utf-8", "surrogateescape").split("\n")
-    readers = {"requirements": _from_requirements, "toml": _from_toml, "cfg": _from_cfg}
+    readers = {
+        "requirements": _from_requirements,
+        "unwritten": _from_unwritten,
+        "toml": _from_toml,
+        "cfg": _from_cfg,
+    }
     return tuple(readers[found](path, lines))
 
 
@@ -598,9 +607,9 @@ def _archive(path: str, line: int, column: int, text: str) -> Declaration | None
 def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
     """One requirement per logical line, as pip reads it.
 
-    The options after a requirement (`--hash`) are cut, and the pin span stays on its own line. A
-    requirement that carries a hash or spans lines, and an editable one, get no pin: the rule
-    cannot rewrite them without breaking the install.
+    The options after a requirement (`--hash`) are cut before it is read. A requirement that
+    carries a hash, spans lines or is editable gets no pin: a hash belongs to its release, and a
+    copy of a continued line would split it.
     """
     for number, text, joined in _joined(lines):
         body, column = _span(PIP_COMMENT.sub("", text))
@@ -623,6 +632,17 @@ def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
                 declaration, pin=None, spec=None if editable else declaration.spec
             )
         yield declaration
+
+
+def _from_unwritten(path: str, lines: list[str]) -> Iterator[Declaration]:
+    """A constraints file or a pip-tools input, whose declarations are read and never edited.
+
+    A bare name constrains nothing, and the compiled file beside it names the release, so it is
+    not a declaration.
+    """
+    for declaration in _from_requirements(path, lines):
+        if declaration.spec != "":
+            yield replace(declaration, pin=None)
 
 
 def _table(text: str) -> tuple[str, ...]:
@@ -857,12 +877,14 @@ __all__ = [
     "LOCKS",
     "LOCK_GLOBS",
     "NAMES",
+    "PIP",
     "PIP_COMMENT",
     "REASON",
     "REQUIREMENTS_DIRECTORY",
     "REQUIREMENTS_GLOB",
     "SETUP_KEYWORDS",
     "TRANSITIVE_BAIL",
+    "UNWRITTEN_GLOBS",
     "Declaration",
     "Layout",
     "Migration",

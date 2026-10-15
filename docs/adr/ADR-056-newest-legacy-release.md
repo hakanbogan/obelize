@@ -35,10 +35,11 @@ does not move and a Gate 1 measurement stays bound to the spec it was taken on.
 
 The gate still asks every declaration of the legacy distribution, one at a time. One that fails the
 floor passes now when it installs the newest release: a requirement the edit can rewrite as a whole
-(no extras, no URL), with no environment marker that may switch it off, that no part of which allows
-a pre-release, and some alternative of which contains `newest`. `PyPDF2`, `PyPDF2>=2.10`,
-`PyPDF2<4` and `PyPDF2===3.0.1` install it; `PyPDF2<3`, `PyPDF2~=2.12`, `PyPDF2!=3.0.1`,
-`PyPDF2>=3.0.0rc1`, a requirement with a marker and one the scan cannot read do not.
+(no extras, no URL, no hash, on one line, not editable), with no environment marker that may switch
+it off, that no part of which allows a pre-release, and some alternative of which contains
+`newest`. `PyPDF2`, `PyPDF2>=2.10`, `PyPDF2<4` and `PyPDF2===3.0.1` install it; `PyPDF2<3`,
+`PyPDF2~=2.12`, `PyPDF2!=3.0.1`, `PyPDF2>=3.0.0rc1`, a requirement with a marker, a hash-pinned
+one, `-e git+...#egg=PyPDF2`, a wheel's file name and one the scan cannot read do not.
 
 Only then is the repository asked whether anything else decides the release
 (`scan/installed.py`, `contrary`). The first path that says it does is the evidence, and the run is
@@ -48,31 +49,37 @@ searched for a version, since no read of a scan goes past that limit.
 
 1. Code. A finding that is not `not_a_usage` for a name in `lacks`: that code cannot run on the
    newest release, so an older one is in use.
-2. A manifest the scan reads. One that cannot be read whole, or holds a NUL byte (a UTF-16
+2. A manifest the scan reads: every `*requirement*.txt` (`dev-requirements.txt` too),
+   `requirements/*.txt`, and, for their declarations only, `*requirements*.in` and
+   `*constraints*.txt`, which no rule writes (their declarations carry no pin, and a bare name in
+   one is not read). One that cannot be read whole, or holds a NUL byte (a UTF-16
    `pip freeze`); one with a line that names the distribution where no declaration was read, once
-   comments are cut (a hash-continued pin, `-e ...#egg=PyPDF2`, a wheel URL, a Poetry table, a
-   `[tool.uv.sources]` key); in a requirements file, a pip option that can move the release, which
-   is every option but `-r` or `-c` to a manifest the scan reads, `-e` to a local directory,
-   `--extra-index-url` and `--trusted-host`.
+   comments are cut (a bare name in an input or constraints file, a Poetry table, a
+   `[tool.uv.sources]` key); in a requirements, input or constraints file, a pip option that can
+   move the release, which is every option but `-r` or `-c` to a manifest the scan reads, `-e` to
+   a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued line is such
+   an option. A line that is read and names a release (`PyPDF2<3` in a constraints file) is judged
+   like any declaration, by the floor and by item 5; a file that names nothing about the
+   distribution is no evidence for being there.
 3. Resolver settings in `pyproject.toml` and `Pipfile`: `tool.uv.exclude-newer`, `resolution`,
    `index-url`, `find-links`, `no-index` or a `pip` table, a `tool.uv.index` that is not `explicit`,
    `tool.poetry.source`, `tool.pdm.source`, a Pipfile `[[source]]` that is not PyPI, or a TOML file
    this Python cannot parse (nested too deep for the parser included).
 4. A file git lists that can pin or constrain a release without being a manifest the scan reads:
    `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock`, `pixi.lock`, `conda-lock.yml`,
-   `pylock.toml` and `pylock.*.toml`, `environment.yml` and `.yaml`, `pip.conf`, `uv.toml`,
-   `requirements*.lock`, a constraints file, a `*requirements*.in` and a `*requirements*.txt` no
-   reader opens (`dev-requirements.txt`). `LOCKS` and `LOCK_GLOBS` in `scan/manifests.py` are the
-   list. So is a file name no report can spell (a control, format or backslash character), which the
-   walk skips: what is under it is unseen.
+   `pylock.toml` and `pylock.*.toml`, `environment.yml` and `.yaml`, `pip.conf`, `uv.toml` and
+   `requirements*.lock`. `LOCKS` and `LOCK_GLOBS` in `scan/manifests.py` are the list. So is a file
+   name no report can spell (a control, format or backslash character), which the walk skips: what
+   is under it is unseen.
 5. A version written anywhere else, in the name or the bytes of any file git lists, a dot-directory
    and a file the user's `exclude` removed included: `PyPDF2 <op> <version>` that does not admit
    the newest release or that cannot be read, or `PyPDF2-<version>` of another release (a
    Dockerfile, a CI file, a `tox.ini`, a notebook's `!pip install`, a committed environment's
    `dist-info`). A UTF-16 file is read after its byte-order mark.
-6. What git ignores, found with `scandir` and never read: a lock or constraints file beside the
-   repository root or a manifest that declares the distribution, and a `.venv`, `venv` or `env`
-   there whose `site-packages` holds a `dist-info` or `egg-info` of another release.
+6. What git ignores, found with `scandir` and never read: a lock, a constraints file or a
+   `*requirements*.in` beside the repository root or a manifest that declares the distribution, and
+   a `.venv`, `venv` or `env` there whose `site-packages` holds a `dist-info` or `egg-info` of
+   another release.
 
 Nothing is taken from a directory that is not the top of a git repository: the fallback walk skips
 dot-directories, so a pin in `.github/workflows` would never be seen.

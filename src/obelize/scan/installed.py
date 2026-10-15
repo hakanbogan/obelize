@@ -87,7 +87,7 @@ def contrary(
         or _settings(walk, contents)
         or _hidden(walk)
         or _mentioned(root, walk, contents, spelled, newest)
-        or _on_disk(root, rows, spelled, newest)
+        or _on_disk(root, walk, rows, spelled, newest)
     )
 
 
@@ -124,7 +124,7 @@ def _unread(
         # A NUL byte is UTF-16 (`pip freeze` on Windows): every line would read as nothing.
         if data is None or b"\0" in data:
             return path
-        pip = manifests.layout(path) == "requirements"
+        pip = manifests.layout(path) in manifests.PIP
         read = {row.line for row in rows if row.path == path}
         for number, line in enumerate(data.decode("utf-8", "surrogateescape").split("\n"), 1):
             body = manifests.PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)
@@ -232,16 +232,23 @@ def _rules_out(data: bytes, mention: re.Pattern[bytes], newest: str) -> bool:
     return False
 
 
-def _on_disk(root: Path, rows: Sequence[manifests.Declaration], spelled: str, newest: str) -> str:
-    """What the listing may not show, because git ignores it: a lock or constraints file beside the
-    repository root or a declaring manifest, and an environment kept there with another release."""
+def _on_disk(
+    root: Path, walk: Walk, rows: Sequence[manifests.Declaration], spelled: str, newest: str
+) -> str:
+    """What the listing may not show, because git ignores it: a lock, a constraints file or a
+    pip-tools input beside the repository root or a declaring manifest, and an environment kept
+    there with another release."""
     installed = re.compile(
         rf"{spelled}-(?P<release>\d+(?:\.\d+)*)(?:-py[\d.]+)?\.(?:dist|egg)-info", re.IGNORECASE
     )
+    listed = set(walk.listed)
     for directory in sorted({"", *(posixpath.dirname(row.path) for row in rows)}):
         for name in _names(root / directory):
-            if manifests.is_lock(posixpath.join(directory, name)):
-                return posixpath.join(directory, name)
+            path = posixpath.join(directory, name)
+            if path not in listed and (
+                manifests.is_lock(path) or manifests.layout(path) == "unwritten"
+            ):
+                return path
         for environment in _ENVIRONMENTS:
             here = posixpath.join(directory, environment)
             for packages in _site_packages(root / here):

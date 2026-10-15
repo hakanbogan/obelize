@@ -318,7 +318,7 @@ def test_a_resolver_file_nobody_could_read_is_skipped_by_the_settings_check(
     assert installed._settings(tree.walk, tree.contents) == "pyproject.toml"
 
 
-# What is listed: a lock, a constraints file, an installer's settings.
+# What is listed: a lock, an installer's settings; and the files read like manifests.
 
 
 @pytest.mark.parametrize(
@@ -338,18 +338,51 @@ def test_a_resolver_file_nobody_could_read_is_skipped_by_the_settings_check(
         "uv.toml",
         "requirements.lock",
         "requirements-dev.lock",
-        "constraints.txt",
-        "constraints-3.12.txt",
-        "requirements.in",
-        "dev-requirements.in",
-        "dev-requirements.txt",
-        "pip-requirements.txt",
         "sub/poetry.lock",
     ],
 )
-def test_a_lock_or_constraints_file_in_the_listing_is_evidence(tmp_path: Path, name: str) -> None:
+def test_a_lock_in_the_listing_is_evidence(tmp_path: Path, name: str) -> None:
     root = git_repo(tmp_path, {**REQUIRED, name: "x\n"})
     assert contrary(root) == name
+
+
+READ = [
+    "dev-requirements.txt",
+    "pip-requirements.txt",
+    "requirements.in",
+    "dev-requirements.in",
+    "constraints.txt",
+    "constraints-3.12.txt",
+]
+
+
+@pytest.mark.parametrize("name", READ)
+def test_a_requirements_constraints_or_input_file_is_judged_by_what_it_says(
+    tmp_path: Path, name: str
+) -> None:
+    """Listed, it is not evidence for being there: only a release it rules the newest out of is."""
+    quiet = git_repo(tmp_path / "quiet", {**REQUIRED, name: "six\nflask>=2\n"})
+    assert contrary(quiet) == ""
+    newer = git_repo(tmp_path / "newer", {**REQUIRED, name: "PyPDF2>=3\n"})
+    assert contrary(newer) == ""
+    older = git_repo(tmp_path / "older", {**REQUIRED, name: "PyPDF2<3\n"})
+    assert contrary(older) == name
+
+
+@pytest.mark.parametrize("name", ["requirements.in", "constraints.txt"])
+def test_a_bare_name_in_an_input_or_constraints_file_is_not_read_so_it_stays_evidence(
+    tmp_path: Path, name: str
+) -> None:
+    assert contrary(git_repo(tmp_path, {**REQUIRED, name: "PyPDF2\n"})) == name
+
+
+def test_an_option_in_a_constraints_file_is_judged_like_one_in_a_requirements_file(
+    tmp_path: Path,
+) -> None:
+    index = {**REQUIRED, "constraints.txt": "-i https://host/simple\n"}
+    assert contrary(git_repo(tmp_path / "a", index)) == "constraints.txt"
+    files = {**REQUIRED, "requirements.in": "-c constraints.txt\n", "constraints.txt": "six\n"}
+    assert contrary(git_repo(tmp_path / "b", files)) == ""
 
 
 @pytest.mark.parametrize(
@@ -489,6 +522,18 @@ def test_a_fifo_and_a_symlink_in_the_listing_are_never_opened(tmp_path: Path) ->
 def test_an_ignored_lock_beside_the_root_is_evidence(tmp_path: Path) -> None:
     root = git_repo(tmp_path, {**REQUIRED, "poetry.lock": "x\n"}, "poetry.lock\n")
     assert contrary(root) == "poetry.lock"
+
+
+@pytest.mark.parametrize("name", ["constraints.txt", "requirements.in"])
+def test_an_ignored_constraints_file_or_input_beside_the_root_is_evidence(
+    tmp_path: Path, name: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, name: "x\n"}, f"{name}\n")
+    assert contrary(root) == name
+
+
+def test_a_listed_constraints_file_is_read_and_not_looked_for_on_disk(tmp_path: Path) -> None:
+    assert contrary(git_repo(tmp_path, {**REQUIRED, "constraints.txt": "six\n"})) == ""
 
 
 def test_an_ignored_lock_beside_a_manifest_that_declares_is_evidence(tmp_path: Path) -> None:

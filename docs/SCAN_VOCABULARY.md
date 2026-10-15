@@ -17,7 +17,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `dynamic` | A legacy name reached through `getattr`, `importlib.import_module` or `__import__`. Of a shared module, also the bare module fetched by its string. |
 | `star_import` | `from google.generativeai import *`. Of a shared module, only one from the module itself or from a legacy symbol (`from openai.types import *` is not). Names it may bind are separate findings with `confidence_reason: star_import_candidate`. |
 | `text_mention` | The prefilter token in a string, comment or docstring, on a line with no AST finding. |
-| `manifest` | A dependency declaration in `requirements*.txt` (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. Lockfiles are not read: a line edit would break their hashes. |
+| `manifest` | A dependency declaration in a `*requirement*.txt` file (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. A `*requirements*.in` or `*constraints*.txt` file is read too but never written: its declarations are reported as `manifest_pin_shape_unsupported`. Lockfiles are not read: a line edit would break their hashes. |
 | `parse_error` | libcst or `compile()` refused the file. Reported, never edited. |
 
 ## 2. `Finding.confidence_reason`: why we believe it (16 values)

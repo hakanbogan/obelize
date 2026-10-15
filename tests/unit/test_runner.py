@@ -542,6 +542,12 @@ STANDS_IN: dict[str, dict[str, str | bytes]] = {
     "poetry": {"pyproject.toml": '[tool.poetry.dependencies]\nPyPDF2 = "*"\n'},
     "pipfile": {"Pipfile": '[packages]\nPyPDF2 = "*"\n'},
     "setup-py": {"setup.py": 'from setuptools import setup\nsetup(install_requires=["PyPDF2"])\n'},
+    "requirements-and-input-files-that-say-nothing-of-it": {
+        "requirements.txt": "PyPDF2\n",
+        "dev-requirements.txt": "pytest\n",
+        "requirements.in": "flask\n",
+        "constraints.txt": "flask==2\nPyPDF2>=3\n",
+    },
     "options-that-do-not-move-it": {
         "requirements.txt": "-r requirements-b.txt\n--extra-index-url https://x/simple\nPyPDF2\n",
         "requirements-b.txt": "six\n",
@@ -553,11 +559,6 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
         {"requirements.txt": "PyPDF2\n", "Pipfile.lock": "{}\n"},
         "Pipfile.lock\n",
         "Pipfile.lock",
-    ),
-    "constraints-file": (
-        {"requirements.txt": "-c constraints.txt\nPyPDF2\n", "constraints.txt": "PyPDF2<3\n"},
-        "",
-        "requirements.txt",
     ),
     "include-of-an-unread-file": (
         {"requirements.txt": "-r base.txt\nPyPDF2\n", "base.txt": "PyPDF2<3\n"},
@@ -657,6 +658,11 @@ UNHONOURED: dict[str, tuple[dict[str, str | bytes], str, str | None]] = {
         },
         "requirements-extra.txt",
         None,
+    ),
+    "constraints-file": (
+        {"requirements.txt": "-c constraints.txt\nPyPDF2\n", "constraints.txt": "PyPDF2<3\n"},
+        "constraints.txt",
+        "<3",
     ),
 }
 

@@ -109,6 +109,30 @@ def test_a_requirement_that_says_more_than_a_pin_is_refused(what: str, line: str
     assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")], what
 
 
+@pytest.mark.parametrize("name", ["requirements.in", "dev-requirements.in", "constraints.txt"])
+def test_a_constraints_file_and_a_pip_tools_input_are_graded_and_never_written(name: str) -> None:
+    """A rule that edited an input would be undone by the next compile, so the row is refused."""
+    source = "acme-sdk==1.2.3\n"
+    produced, edits = acme.declared(name, source, CLEAR)
+    assert produced == source
+    assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")]
+    produced, edits = acme.declared(name, source, BLOCKED)
+    assert produced == source
+    assert reported(edits) == [
+        (1, "needs_review", "manifest_pin_shape_unsupported"),
+        (1, "needs_review", "repo_not_fully_migrated"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "name", ["dev-requirements.txt", "requirement.txt", "pip_requirements.txt"]
+)
+def test_a_requirements_file_by_another_name_is_rewritten_like_the_usual_one(name: str) -> None:
+    produced, edits = acme.declared(name, "acme-sdk==1.2.3\n", CLEAR)
+    assert produced == "acme-client>=2\n"
+    assert reported(edits) == [(1, "auto", None)]
+
+
 def test_an_option_that_is_not_a_hash_stays_on_the_rewritten_line() -> None:
     produced, edits = acme.declared(
         "requirements.txt", "acme-sdk==1.2.3 --config-settings x=y\n", CLEAR
