@@ -60,7 +60,7 @@ path in it.
 | `unmigrated` | Ground-truth rows, call sites and manifest pins, the run left as they were. A row is migrated when the run refused nothing at its `(path, line, symbol)` and an applied edit landed on its line; one `requirements.txt` line can hold an applied `google-genai` add beside a withheld legacy pin. |
 | `false_positive_edit` | Applied edits at a position no ground-truth row names; on a negative control, every applied edit. |
 | `tests_baseline` | `{status, passed, failed, skipped}` before the migration, run by the harness. `status` is `pass`, `fail`, `inconclusive` or `not_run`, the words `obelize verify` uses. A pytest exit code `1` is `fail` and `2`-`5` are `inconclusive`, except a `2` whose junit report counts an error, which is `fail`. The counts come from a junit report added to a pytest command and are `null`, never `0`, without one. |
-| `tests_after` | The same, after the migration and the *to* SDK install. |
+| `tests_after` | The same, after the migration and the *to* SDK install, with the legacy SDK still installed ([step 7](#reproducible-run)). |
 | `human_edits` | Hunks a human had to write after obelize; `0` means autonomous. `null` until a reviewer reads the patch, and never read as `0`. |
 | `patch_correct` | The reviewer's judgement; `null` until made. |
 | `pr_opened` | `null`: the harness opens no pull request. |
@@ -165,7 +165,9 @@ module; and a manifest that disagrees with the code (the code is the evidence).
 ## Reproducible run
 
 `bench/run.py` runs locally; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
-environments and is not run on Windows. Per case:
+environments and is not run on Windows. It runs each repository's own install commands and test suite
+with no sandbox and the network available, so run it only on a machine or VM that holds no
+credentials. Per case:
 
 1. Shallow-fetch the repository at the pinned SHA into `<work>/<round>/<id>/`,
    under the system temporary directory. A `pyproject.toml`, `pytest.ini`,
@@ -181,7 +183,8 @@ environments and is not run on Windows. Per case:
 6. `obelize fix --pack gemini/... --apply --non-interactive --model none --json`,
    then compile every `.py` file it wrote with the case's interpreter.
 7. Install `google-genai==<to_version>` and assert the installed version equals
-   it.
+   it. The legacy distribution from step 4 stays installed beside it, so a file the migration
+   missed still imports and the after-run can pass over it.
 8. Run the tests again.
 9. Compare the findings in `findings.json` against the ground truth, and the
    applied edits in `plan.json` and `run.json` against the rows it names.
