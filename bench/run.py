@@ -393,9 +393,14 @@ def _is_pytest(argv: Sequence[str]) -> bool:
 
 
 def _pytest_command(argv: Sequence[str]) -> bool:
-    """Whether this is pytest at all; `suite_status` asks it of the argv that ran."""
-    head = list(argv[:3])
-    return head[:1] == ["pytest"] or head[1:3] == ["-m", "pytest"]
+    """Whether this is pytest at all, as `obelize verify` reads a command (`runner._is_pytest`).
+
+    `suite_status` asks it of the argv that ran.
+    """
+    first = processes.program_name(argv[0])
+    return first in ("pytest", "py.test") or (
+        first.startswith("python") and tuple(argv[1:3]) == ("-m", "pytest")
+    )
 
 
 def elide(

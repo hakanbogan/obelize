@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from obelize.verify import runner
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -408,7 +409,7 @@ def test_a_command_that_is_not_python_is_left_exactly_as_reviewed() -> None:
 
 
 def test_a_pytest_run_is_asked_for_a_junit_report() -> None:
-    built = run.suite_argv("python -m pytest -q", Path("/j/x.xml"), Path("/p"))
+    built = run.suite_argv("python -m pytest -q", Path("/j/x.xml"), Path("/venv/bin/python"))
     assert built[-1] == "--junitxml=/j/x.xml"
 
 
@@ -660,6 +661,51 @@ def test_a_regression_is_not_blamed_on_a_tool_that_wrote_nothing() -> None:
         patch_applied=False, patch_compiles=None, patch_correct=None, tests_after=failing
     )
     assert run.tier(refused) == "unsupported"
+
+
+# What counts as pytest is `obelize verify`'s reading, not a second one: `tox -m pytest` is tox.
+PYTEST_COMMANDS: list[tuple[tuple[str, ...], bool]] = [
+    (("pytest", "-q"), True),
+    (("py.test",), True),
+    (("/venv/bin/pytest", "tests"), True),
+    (("python", "-m", "pytest"), True),
+    (("python3.12", "-m", "pytest", "-q"), True),
+    (("/venv/bin/python", "-m", "pytest"), True),
+    (("python", "-m", "unittest"), False),
+    (("python", "check.py"), False),
+    (("make", "test"), False),
+    (("uv", "run", "pytest"), False),
+    (("tox", "-m", "pytest"), False),
+]
+
+
+@pytest.mark.parametrize(("argv", "is_pytest"), PYTEST_COMMANDS, ids=lambda v: str(v)[:40])
+def test_the_harness_and_obelize_verify_agree_on_what_a_pytest_command_is(
+    argv: tuple[str, ...], is_pytest: bool
+) -> None:
+    assert run._pytest_command(argv) is is_pytest
+    assert runner._is_pytest(argv) is is_pytest
+    wants_junit = is_pytest and not runner._carries_junit(argv)
+    assert run._is_pytest(argv) is wants_junit
+
+
+def test_every_test_command_of_the_round_is_a_pytest_run_under_obelize_verifys_reading() -> None:
+    commands = [subject.test_cmd for subject in run.corpus() if subject.test_cmd]
+    assert commands
+    for command in commands:
+        argv = run.suite_argv(command, None, Path("/venv/bin/python"))
+        assert runner._is_pytest(argv), command
+
+
+@pytest.mark.parametrize(
+    "argv", [("pytest", "--junitxml=x.xml"), ("pytest", "--junitxml", "x.xml")]
+)
+def test_a_pytest_command_that_writes_its_own_junit_report_is_left_alone(
+    argv: tuple[str, ...],
+) -> None:
+    assert run._pytest_command(argv) is True
+    assert run._is_pytest(argv) is False
+    assert runner._carries_junit(argv) is True
 
 
 def test_a_bare_pytest_program_is_a_pytest_run_here_too() -> None:
