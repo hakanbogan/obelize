@@ -285,8 +285,12 @@ class OpenAICompat:
         return self._failure("endpoint_redirected" if moved else "endpoint_refused", detail)
 
     def _failure(self, failure: ProviderFailure, detail: str) -> base.ProviderError:
-        """The word, with the endpoint's words redacted, then cut: gateways echo a rejected key."""
-        return base.ProviderError(failure, _short(redact.redact(detail, self.environ)))
+        """The word, with the endpoint's words redacted, then cut: gateways echo a rejected key.
+
+        A lone surrogate in them is spelt out, as the run folder could not write it.
+        """
+        said = _short(redact.redact(detail, self.environ))
+        return base.ProviderError(failure, said.encode("utf-8", "backslashreplace").decode("utf-8"))
 
 
 def build(settings: ModelConfig, environ: Mapping[str, str]) -> OpenAICompat | None:

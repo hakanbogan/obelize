@@ -366,6 +366,8 @@ _PLAIN_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # The user config names the variable holding the API key, never the key; a pasted `sk-...` key
 # fails because `-` is not a name character.
 _ENV_VAR_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Always lone in a `str`: JSON's `\ud800` escape makes one and UTF-8 cannot write it.
+_SURROGATE = re.compile("[\ud800-\udfff]")
 
 # Commands run via `shlex` with `shell=False`, so `|` would silently be an argument.
 _SHELL_OPERATORS = frozenset({"|", "||", "&", "&&", ";", ">", ">>", "<", "<<", "2>", "2>&1"})
@@ -773,6 +775,11 @@ class EditProposal(_Frozen):
         ):
             if not value.strip():
                 raise ValueError(f"{field} is empty, so the proposal names nothing")
+        for field in ("path", "symbol", "replacement", "rationale"):
+            if _SURROGATE.search(getattr(self, field)):
+                raise ValueError(
+                    f"{field} holds a lone surrogate, which no file or report can hold"
+                )
         return self
 
 

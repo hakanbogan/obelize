@@ -291,6 +291,16 @@ def test_the_deadline_bounds_the_whole_body_and_not_each_read(
         assert raised.value.detail == "example.invalid: no complete answer within 100 s"
 
 
+def test_a_lone_surrogate_in_an_endpoints_words_is_spelt_out_so_it_can_be_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """JSON's `\\ud800` escape makes one; the detail goes to the run folder as UTF-8."""
+    error = _refusal(monkeypatch, _completion("prose \ud800 and nothing else"))
+    assert error.failure == "answer_not_json"
+    assert error.detail == "prose \\ud800 and nothing else"
+    error.detail.encode("utf-8")
+
+
 def test_a_long_refusal_is_cut_and_says_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
     """The endpoint's words are bounded; redaction runs before the cut (ADR-038 D8)."""
     error = _refusal(monkeypatch, _http_error(500, b"x" * 3000))

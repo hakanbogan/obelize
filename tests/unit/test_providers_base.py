@@ -244,6 +244,16 @@ def test_a_proposal_holds_a_path_that_climbs_out_of_the_repository() -> None:
         pytest.param({"path": "   "}, "path is empty", id="blank-path"),
         pytest.param({"symbol": ""}, "symbol is empty", id="blank-symbol"),
         pytest.param({"rationale": "\n"}, "rationale is empty", id="blank-rationale"),
+        pytest.param({"path": "a\ud800.py"}, "path holds a lone surrogate", id="surrogate-path"),
+        pytest.param({"symbol": "s\udfff"}, "symbol holds a lone surrogate", id="surrogate-symbol"),
+        pytest.param(
+            {"replacement": "x = '\ud83d'"},
+            "replacement holds a lone surrogate",
+            id="surrogate-new",
+        ),
+        pytest.param(
+            {"rationale": "\ud800"}, "rationale holds a lone surrogate", id="surrogate-why"
+        ),
     ],
 )
 def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], message: str) -> None:

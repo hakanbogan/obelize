@@ -5,7 +5,7 @@
 # shape and then names the thing that makes it awkward: "Structured output is
 # not uniformly available. The Anthropic compatibility layer ignores
 # `response_format` and `strict`, so the fenced-JSON fallback is not optional
-# and must be tested." That is one row below. The other twenty-three are there
+# and must be tested." That is one row below. The other twenty-five are there
 # because an adapter graded only on the endpoint behaving is an adapter whose
 # failure path is written from imagination.
 #
@@ -295,3 +295,22 @@ cases:
     deadline_s: 0.25
     outcome: endpoint_unreachable
     detail_holds: no complete answer
+
+  - case: a_proposal_with_a_lone_surrogate
+    what_it_is: >-
+      A JSON `\ud800` escape in a field, which makes a string that no file, no
+      report and no JSON document obelize writes can hold. It is a proposal too
+      malformed to hold, so the case is unanswered, and the answer does not
+      reach the guard or the run folder to fail there.
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = None", "rationale": "the \ud800 case"}}'
+    outcome: proposal_does_not_hold
+    detail_holds: lone surrogate
+
+  - case: prose_with_a_lone_surrogate
+    what_it_is: >-
+      The same escape in a sentence that is no answer. The detail quotes the
+      endpoint's words, and a lone surrogate in it is spelt out so that the
+      record of the failure can be written.
+    content: "I cannot help with \ud800 that."
+    outcome: answer_not_json
+    detail_holds: '\ud800'

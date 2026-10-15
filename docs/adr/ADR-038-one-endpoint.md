@@ -78,8 +78,9 @@ Because the payload and the key must reach only the host the run prints.
 A failure detail carries the status and the endpoint's body, passed through
 `obelize.verify.redact` with the run's environment and then cut to 500
 characters. Every string in a `ProviderError` that obelize did not write is
-redacted, the operating system's included. Because a gateway may quote back the
-key it rejected.
+redacted, the operating system's included, and a lone surrogate in them is
+spelt out (`\ud800`), since the run folder is UTF-8. Because a gateway may quote
+back the key it rejected.
 
 ### D9. An unset key sends no `Authorization` header
 

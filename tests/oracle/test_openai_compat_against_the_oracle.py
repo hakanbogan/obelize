@@ -334,6 +334,7 @@ def test_the_endpoint_behaviour_gets_the_word_the_key_names(
     with pytest.raises(base.ProviderError) as raised:
         made.propose(driven.consultation)
     assert raised.value.failure == outcome
+    raised.value.detail.encode("utf-8")  # it is written to the run folder as UTF-8
     if "detail_holds" in case:
         assert str(case["detail_holds"]) in raised.value.detail
 

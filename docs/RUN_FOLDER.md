@@ -448,7 +448,7 @@ them.
 | `response_not_a_completion` | JSON with no `choices[0].message.content` string. |
 | `answer_not_json` | The content holds no JSON object under any of the three readings. |
 | `answer_not_a_proposal` | An object without the key it was asked for. A bare proposal at the top level is this too: the envelope separates "an edit" from "none". |
-| `proposal_does_not_hold` | `EditProposal` refuses it. Unanswered, not refused. |
+| `proposal_does_not_hold` | `EditProposal` refuses it: a field it cannot hold, such as an empty path or a lone surrogate, which no file or report can carry. Unanswered, not refused. |
 
 #### The guard refused a proposal (`GuardRefusal`)
 
