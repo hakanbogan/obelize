@@ -9,6 +9,7 @@ pydantic.
 
 from __future__ import annotations
 
+import ipaddress
 import keyword
 import re
 import shlex
@@ -374,6 +375,14 @@ _REFUSED_CATEGORIES = frozenset({"Cc", "Cf", "Cs"})
 
 # In characters: fits PACK_SPEC.md's longest limitation sentence and keeps a report row one row.
 DISPLAY_TEXT_LIMIT = 500
+
+
+def _loopback(host: str) -> bool:
+    """`localhost` or a loopback address by its text; a name that resolves to one is not."""
+    try:
+        return host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _relative_posix_path(value: str) -> str:
@@ -1078,6 +1087,7 @@ class ModelConfig(_Frozen):
 
     provider: ProviderName = "none"
     base_url: str | None = None
+    allow_insecure_http: bool = False
     model: str | None = None
     api_key_env: str = "OBELIZE_MODEL_API_KEY"
     log_prompts: bool = False
@@ -1107,6 +1117,14 @@ class ModelConfig(_Frozen):
                     "base_url must not carry a query string or fragment, which the appended "
                     "path would land inside; put the key in the environment variable named "
                     "by api_key_env"
+                )
+            if parts.scheme == "http" and not (
+                self.allow_insecure_http or _loopback(parts.hostname)
+            ):
+                raise ValueError(
+                    f"base_url is plain http to {parts.hostname}, which sends the key and your "
+                    f"source in the clear; use https, or set allow_insecure_http: true for a "
+                    f"network you trust"
                 )
         if self.provider != "none":
             missing = [

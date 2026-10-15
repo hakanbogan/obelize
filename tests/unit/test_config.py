@@ -121,7 +121,7 @@ def _write(directory: Path, body: str, name: str = CONFIG_FILENAME) -> Path:
 def test_the_configuration_table_parses() -> None:
     """So a zero-row parse cannot pass the parametrized tests vacuously."""
     assert len(DOCUMENTED) == 7, DOCUMENTED_KEYS
-    assert len(USER_MODEL) == 5, USER_MODEL
+    assert len(USER_MODEL) == 6, USER_MODEL
     assert DOCUMENTED_KEYS[0] == "include"
     assert all(len(row) == 4 for row in DOCUMENTED), DOCUMENTED
 
@@ -482,6 +482,10 @@ USER_MODEL_REFUSALS = [
     ("base_url: 'https://host/v1?api_key=abcd1234'", "query string or fragment"),
     ("base_url: 'https://host/v1?'", "query string or fragment"),
     ("base_url: 'https://host/v1#frag'", "query string or fragment"),
+    ("base_url: 'http://gateway.internal:8080/v1'", "plain http to gateway.internal"),
+    ("base_url: 'http://192.168.1.5/v1'", "plain http to 192.168.1.5"),
+    ("base_url: 'http://[2001:db8::1]/v1'", "plain http to 2001:db8::1"),
+    ("allow_insecure_http: 'sometimes'", "allow_insecure_http"),
 ]
 
 
@@ -546,7 +550,42 @@ def test_the_model_endpoint_is_recorded_as_a_host_and_never_as_a_url() -> None:
 def test_every_provider_the_documentation_names_is_accepted() -> None:
     assert {"none", "openai_compat"} == PROVIDER_NAMES
     assert ModelConfig(provider="none").provider == "none"
-    assert ModelConfig(provider="openai_compat", base_url="http://h/v1", model="m").provider
+    assert ModelConfig(provider="openai_compat", base_url="https://h/v1", model="m").provider
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:11434/v1",
+        "http://LOCALHOST/v1",
+        "http://127.0.0.1:9",
+        "http://127.255.0.2/v1",
+        "http://[::1]:8080/v1",
+        "https://gateway.example.test/v1",
+    ],
+)
+def test_a_loopback_endpoint_is_reached_by_plain_http_and_any_other_by_https(url: str) -> None:
+    assert ModelConfig(base_url=url).base_url == url
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://gateway.internal/v1", "http://10.0.0.5:8080", "http://127.0.0.1.nip.io/v1"],
+)
+def test_plain_http_beyond_this_machine_needs_the_users_say_so(url: str) -> None:
+    """The key and the source would cross the network in the clear; a name is not looked up."""
+    with pytest.raises(ValidationError, match="allow_insecure_http"):
+        ModelConfig(base_url=url)
+    assert ModelConfig(base_url=url, allow_insecure_http=True).base_url == url
+
+
+def test_the_users_file_can_allow_plain_http_and_the_model_flag_keeps_it(tmp_path: Path) -> None:
+    body = (
+        "model:\n  base_url: http://gateway.internal/v1\n  model: m\n  allow_insecure_http: true\n"
+    )
+    (tmp_path / "config.yml").write_text(body, encoding="utf-8")
+    user = user_config(tmp_path).model
+    assert model(user, "openai_compat", READ).allow_insecure_http is True
 
 
 def test_no_flags_change_nothing() -> None:
@@ -617,6 +656,7 @@ def test_the_model_flag_carries_every_other_model_setting_through_untouched() ->
         provider="openai_compat",
         base_url="https://example.test/v1",
         model="m",
+        allow_insecure_http=True,
         api_key_env="MY_KEY",
         log_prompts=True,
     )

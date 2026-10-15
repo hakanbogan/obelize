@@ -50,7 +50,9 @@ When you configure it:
   such as a local Ollama server, your own OpenAI-compatible gateway, or a provider you have an
   account with. Obelize has no endpoint of its own, and a `model:` block in a repository's
   `.obelize.yml` is refused with exit `2` before anything is sent, so the code being migrated
-  cannot choose where it, and your key, go.
+  cannot choose where it, and your key, go. Plain `http://` is accepted only for `localhost`,
+  `127.0.0.0/8` and `::1`; any other host needs `https://`, or `model.allow_insecure_http: true`
+  in that file, since the key and your source would cross the network in the clear.
 - Only the relevant slice of code is sent: the smallest function or class holding the whole
   binding group of the ambiguous call site, else that group with 20 lines either side, and
   nothing when neither fits in 80 lines. With it go the file's path, the reason the rules

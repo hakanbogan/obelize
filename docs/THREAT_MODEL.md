@@ -102,6 +102,10 @@ no compression, so the 1 MiB response cap counts bytes on the wire. The URL is
 `/v1`. Both are measured against a real local server, with `http_proxy` routed
 to it so a request through the proxy would be recorded.
 
+A `base_url` with a query string or fragment is refused, and so is plain `http://` to any host
+but `localhost`, `127.0.0.0/8` and `::1` unless the user's config sets
+`model.allow_insecure_http: true`: the key and the source would cross the network in the clear.
+
 **What is written down** never holds the API key: it travels in a header, outside the recorded prompt
 and its hash. The prompt is recorded only under `model.log_prompts`, because a
 prompt is source code. An endpoint's own words are redacted *before* being cut
