@@ -337,8 +337,9 @@ populations and every rejection. Its biases:
 What the rules alone would write, for each bundled pack, over a frame of repositories that use
 its library ([ADR-024](adr/ADR-024-gate-1-measurement.md) D10). `bench/gate1_collect.py dryrun --pack <id>`
 fetches each repository at its pinned commit and runs `obelize fix --pack <id> --model none` once,
-and keeps the number of files the plan would write, the pack's `blocked` reason, and every withheld
-row with its symbol and bail. It always runs the whole frame, so a retry cannot replace the other
+and keeps the number of files the plan would write, the pack's `blocked` reason with the declaration
+it stopped at (`block`: its path, the version set it declares and the path that suggested another
+release), and every withheld row with its symbol and bail. It always runs the whole frame, so a retry cannot replace the other
 records. `bench/dryrun_score.py` tables the outcomes:
 
 | Outcome | Meaning |

@@ -294,6 +294,20 @@ def _fix(checkout: Path, pack: str) -> tuple[dict[str, Any], dict[str, Any], lis
     return plan, run, json.loads((folder / "findings.json").read_text(encoding="utf-8"))["findings"]
 
 
+def _block(checkout: Path, pack: str) -> dict[str, str | None]:
+    """The declaration a blocked pack stopped at, which `run.json` leaves out (it keeps the reason):
+    its path, what it declares (a version set, never source) and the path that suggested another
+    release, if one did."""
+    from obelize import config
+    from obelize.scan import runner
+
+    scan = runner.scan(
+        checkout, config.load(checkout).config, loader.to_scan_spec(loader.load(pack))
+    )
+    (row,) = scan.blocked
+    return {"path": row.path, "declared": row.declared, "evidence": row.evidence}
+
+
 def _provenance(pack: str | None = None) -> dict[str, Any]:
     """The instrument beside the number; CI never re-runs these scans.
 
@@ -388,6 +402,8 @@ def scan(only: str | None) -> None:
 def dryrun(pack: str) -> None:
     """Per repository: the files a dry run would write, and every row it held back, with why.
 
+    A pack that stopped before it planned also records where (`block`).
+
     Never a subset: a retry of one repository would replace the record of the other seventy-nine.
     """
     document = yaml.safe_load(_frame(pack).read_text(encoding="utf-8"))
@@ -398,6 +414,8 @@ def dryrun(pack: str) -> None:
     def measure(record: dict[str, Any], checkout: Path) -> None:
         plan, run, found = _fix(checkout, pack)
         record["blocked"] = run["packs"][0]["blocked"]
+        if record["blocked"] is not None:
+            record["block"] = _block(checkout, pack)
         # The scanner's own "used": a manifest row or a mention in a comment is no usage.
         record["used"] = sum(
             1 for row in found if row["kind"] != "manifest" and row["scan_status"] != "not_a_usage"
