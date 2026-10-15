@@ -15,8 +15,9 @@ OpenAI, OpenRouter and Anthropic's compatibility layer. It asks for a JSON
 
 Configuration is the `model` key of the user's own
 `~/.config/obelize/config.yml`: `provider: none | openai_compat`, `base_url`,
-`model`, `api_key_env` (default `OBELIZE_MODEL_API_KEY`), `log_prompts: false`;
-`--model` replaces `provider`. A `model:` block in a repository's `.obelize.yml` exits 2
+`model`, `api_key_env` (default `OBELIZE_MODEL_API_KEY`), `log_prompts: false`
+and `allow_insecure_http` ([ADR-038](ADR-038-one-endpoint.md) D7); `--model`
+replaces `provider`. A `model:` block in a repository's `.obelize.yml` exits 2
 before any adapter is built, because where code and a credential are sent is
 the runner's choice. Claude Code headless and Codex CLI adapters are excluded
 until their licensing terms are verified in writing.

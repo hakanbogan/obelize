@@ -51,9 +51,9 @@ the `Edit` row, the report line and the guard's symbol check are all per finding
 
 `EditProposal.path` and `symbol` are plain `str`, and `replaces` and `replacement`
 are any text, the first required (ADR-037 D12). Only the shape is validated: lines
-at least 1, the end not before the start, and `path`, `symbol` and `rationale` not
-blank. Everything else is the
-guard's (ADR-037). A reply that fails even this is unanswered, not refused.
+at least 1, the end not before the start, `path`, `symbol` and `rationale` not
+blank, and no lone surrogate in a text field, which no file or report could hold.
+Everything else is the guard's (ADR-037). A reply that fails even this is unanswered, not refused.
 Because a proposal naming `../../.bashrc` must be representable to be refused
 by name.
 

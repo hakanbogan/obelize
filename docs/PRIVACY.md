@@ -6,9 +6,11 @@
   download, no crash report.
 - No telemetry code at all: no usage counters, no identifiers, no ping.
 - No account.
-- Everything Obelize writes goes into the repository you pointed it at, bar one file: when you
-  approve a verification command from a repository's `.obelize.yml`, the repository's path, the
-  command and its sha256 are kept in your own `~/.config/obelize/approved.json`.
+- Everything Obelize writes goes into the repository you pointed it at, bar two places. While
+  verification commands run, their JUnit XML, which can hold test output, sits in a temporary
+  directory under your system's temp folder and is removed afterwards. When you approve a
+  verification command from a repository's `.obelize.yml`, the repository's path, the command and
+  its sha256 are kept in your own `~/.config/obelize/approved.json`.
 
 Anything a future version adds that talks to a network will be opt-in and documented here,
 with exactly what it sends.
