@@ -324,6 +324,67 @@ def test_the_deadline_bounds_the_whole_body_and_not_each_read(
         assert raised.value.detail == "example.invalid: no complete answer within 100 s"
 
 
+class _BrokenBody(io.BytesIO):
+    """An error page whose first read fails, as a stalled or reset connection's does."""
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__(b"")
+        self.error = error
+
+    def read1(self, size: int | None = -1, /) -> bytes:
+        raise self.error
+
+
+def _error_with(body: io.BytesIO) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://example.invalid/v1/chat/completions",
+        502,
+        "Bad Gateway",
+        email.message.Message(),
+        body,
+    )
+
+
+@pytest.mark.parametrize(
+    ("raised", "said"),
+    [
+        (TimeoutError("timed out"), "timed out"),
+        (ConnectionResetError("reset"), "reset"),
+        (http.client.IncompleteRead(b"ab", 10), "IncompleteRead"),
+    ],
+    ids=["stalled", "reset", "cut_short"],
+)
+def test_an_error_page_that_does_not_arrive_is_the_status_and_not_an_exception(
+    monkeypatch: pytest.MonkeyPatch, raised: Exception, said: str
+) -> None:
+    """`base.consult` catches `ProviderError` alone: anything else ends the run in a traceback."""
+    error = _refusal(monkeypatch, _error_with(_BrokenBody(raised)))
+    assert error.failure == "endpoint_refused"
+    assert error.detail.startswith("HTTP 502 Bad Gateway: (the body did not arrive: ")
+    assert said in error.detail
+
+
+def test_the_deadline_bounds_an_error_page_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each read is 40 s on a fake clock, as for a 2xx body: the third passes the 100 s."""
+    ticks = itertools.count(0, 40)
+    monkeypatch.setattr(adapter, "time", types.SimpleNamespace(monotonic=lambda: next(ticks)))
+    made = adapter.OpenAICompat(
+        url="https://example.invalid/v1/chat/completions",
+        model="a-model",
+        environ={},
+        api_key_env="OBELIZE_MODEL_API_KEY",
+        timeout_s=100.0,
+    )
+    error = _error_with(_OneByteAtATime(b"x" * 9))
+    monkeypatch.setattr(made, "opener", _Stub(error))
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.failure == "endpoint_refused"
+    assert raised.value.detail.endswith(
+        "(the body did not arrive: no complete answer within 100 s)"
+    )
+
+
 def test_a_lone_surrogate_in_an_endpoints_words_is_spelt_out_so_it_can_be_written(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

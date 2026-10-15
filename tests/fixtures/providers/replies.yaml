@@ -5,7 +5,7 @@
 # shape and then names the thing that makes it awkward: "Structured output is
 # not uniformly available. The Anthropic compatibility layer ignores
 # `response_format` and `strict`, so the fenced-JSON fallback is not optional
-# and must be tested." That is one row below. The other twenty-six are there
+# and must be tested." That is one row below. The other twenty-eight are there
 # because an adapter graded only on the endpoint behaving is an adapter whose
 # failure path is written from imagination.
 #
@@ -305,6 +305,28 @@ cases:
     deadline_s: 0.25
     outcome: endpoint_unreachable
     detail_holds: no complete answer
+
+  - case: error_body_dripped_past_the_deadline
+    what_it_is: >-
+      A gateway that answers 502 at once and drips its error page a byte at a
+      time. The deadline bounds that body too: the status is still the
+      refusal, and the detail says the body did not arrive.
+    transport: drip
+    status: 502
+    deadline_s: 0.25
+    outcome: endpoint_refused
+    detail_holds: no complete answer
+
+  - case: error_body_that_stalls
+    what_it_is: >-
+      A gateway that answers 500, promises a body and sends three bytes of it
+      before going quiet. The wait for the rest is a refusal with the status,
+      not an exception that ends the run.
+    transport: stall
+    status: 500
+    deadline_s: 0.25
+    outcome: endpoint_refused
+    detail_holds: did not arrive
 
   - case: a_proposal_with_a_lone_surrogate
     what_it_is: >-

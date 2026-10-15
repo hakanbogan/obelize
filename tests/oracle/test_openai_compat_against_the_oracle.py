@@ -117,7 +117,10 @@ class Endpoint(http.server.BaseHTTPRequestHandler):
             time.sleep(SLOW_SECONDS)
             return
         if case.get("transport") == "drip":
-            self._drip()
+            self._drip(int(case.get("status", 200)))
+            return
+        if case.get("transport") == "stall":
+            self._stall(int(case["status"]))
             return
         self._answer(int(case.get("status", 200)), _reply(case), case.get("location"))
 
@@ -144,9 +147,9 @@ class Endpoint(http.server.BaseHTTPRequestHandler):
             )
         )
 
-    def _drip(self) -> None:
+    def _drip(self, status: int) -> None:
         try:
-            self.send_response(200)
+            self.send_response(status)
             self.send_header("Content-Length", str(DRIP_BYTES))
             self.end_headers()
             for _ in range(DRIP_BYTES):
@@ -154,6 +157,18 @@ class Endpoint(http.server.BaseHTTPRequestHandler):
                 time.sleep(DRIP_PAUSE_S)
         except OSError:
             pass  # The client gave up, which is what the deadline does.
+
+    def _stall(self, status: int) -> None:
+        """A body promised in full and sent in part, then silence."""
+        try:
+            self.send_response(status)
+            self.send_header("Content-Length", "1000")
+            self.end_headers()
+            self.wfile.write(b"abc")
+            self.wfile.flush()
+            time.sleep(SLOW_SECONDS)
+        except OSError:
+            pass  # The client gave up, which is what the socket timeout does.
 
     def _answer(self, status: int, payload: bytes, location: str | None = None) -> None:
         try:

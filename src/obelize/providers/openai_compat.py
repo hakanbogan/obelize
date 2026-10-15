@@ -36,8 +36,10 @@ COMPLETIONS_PATH = "/chat/completions"
 USER_AGENT = f"obelize/{__version__}"
 
 # Enough for a local model on a CPU, short enough that a hung endpoint cannot stall a migration.
-# Deliberately not a config key. It bounds the whole answer, checked between reads of the body, so
-# a reply can run one read past it; the wait for the headers is bounded by each read's timeout only.
+# Deliberately not a config key. It bounds the whole body, checked between reads, so a reply can
+# run one read past it. Not bounded by it: the wait for the headers, and a chunked body's chunk-size
+# line, which the http library reads in a loop of its own; each wait there is bounded by the socket
+# timeout only.
 REQUEST_TIMEOUT_S = 120.0
 
 # A read of the body takes what has arrived up to this much, so the deadline is checked as it comes.
@@ -263,7 +265,7 @@ class OpenAICompat:
             with self.opener.open(request, timeout=self.timeout_s) as response:
                 raw = self._read(response, deadline)
         except urllib.error.HTTPError as error:
-            raise self._answered(error) from error
+            raise self._answered(error, deadline) from error
         except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
             # Host and port only: this is written to the run folder and a path can hold a key.
             host = urlsplit(self.url).netloc
@@ -277,7 +279,9 @@ class OpenAICompat:
         except (ValueError, RecursionError) as error:
             raise self._failure("response_not_json", str(error)) from error
 
-    def _read(self, response: http.client.HTTPResponse, deadline: float) -> bytes:
+    def _read(
+        self, response: http.client.HTTPResponse | urllib.error.HTTPError, deadline: float
+    ) -> bytes:
         """The body up to one byte over the cap, or `TimeoutError` once `deadline` has passed.
 
         The socket timeout bounds each wait, so a reply dripped a byte at a time would outlast it.
@@ -289,9 +293,16 @@ class OpenAICompat:
                 raise TimeoutError(f"no complete answer within {self.timeout_s:g} s")
         return bytes(body)
 
-    def _answered(self, error: urllib.error.HTTPError) -> base.ProviderError:
-        """A status outside 200-299, with a redirect told apart from a refusal."""
-        said = error.read(DETAIL_LIMIT + 1).decode("utf-8", "replace")
+    def _answered(self, error: urllib.error.HTTPError, deadline: float) -> base.ProviderError:
+        """A status outside 200-299, with a redirect told apart from a refusal.
+
+        The body is read like a 2xx one, whole and by the deadline, so redaction sees any key it
+        echoes before the cut; one that stalls or resets is the status alone.
+        """
+        try:
+            said = self._read(error, deadline).decode("utf-8", "replace")
+        except (http.client.HTTPException, OSError) as reason:
+            said = f"(the body did not arrive: {reason})"
         detail = f"HTTP {error.code} {error.reason}: {said}"
         moved = 300 <= error.code < 400
         return self._failure("endpoint_redirected" if moved else "endpoint_refused", detail)
