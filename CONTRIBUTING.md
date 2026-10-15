@@ -37,6 +37,7 @@ Then the checks CI runs:
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
+uv run pre-commit run --all-files
 uv run mypy
 uv run mypy --platform win32
 uv run --only-group workflows zizmor .github

@@ -1172,6 +1172,14 @@ def test_a_windows_run_reports_every_failure_and_where_a_test_hangs() -> None:
         assert dumps[0] < job["timeout-minutes"] * 60
 
 
+def test_ci_runs_every_pre_commit_hook_over_every_file() -> None:
+    """The hooks check what `lint` does not: yaml, toml, key material, line endings, builders."""
+    job = _job("ci.yml", "pre-commit")
+    runs = [step.get("run") for step in job["steps"]]
+    assert "uv run pre-commit run --all-files --show-diff-on-failure" in runs
+    assert "SKIP" not in json.dumps(job)
+
+
 def test_a_benchmark_script_runs_as_a_module_of_the_bench_package() -> None:
     """Run by path, a script cannot import its siblings."""
     runs = [step.get("run", "") for _, _, job in _jobs() for step in job.get("steps", [])]
