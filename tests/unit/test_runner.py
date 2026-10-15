@@ -569,24 +569,6 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
         "",
         "requirements.txt",
     ),
-    "hashed-lowercase-export": (
-        {"requirements.txt": "PyPDF2\n", "requirements-lock.txt": HASHED},
-        "",
-        "requirements-lock.txt",
-    ),
-    "editable-egg": (
-        {"requirements.txt": "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"},
-        "",
-        "requirements.txt",
-    ),
-    "wheel-url": (
-        {
-            "requirements.txt": "PyPDF2\n",
-            "requirements-extra.txt": "https://host/PyPDF2-1.26.0-py3-none-any.whl\n",
-        },
-        "",
-        "requirements-extra.txt",
-    ),
     "poetry-table": (
         {
             "requirements.txt": "PyPDF2\n",
@@ -656,6 +638,29 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
 }
 
 
+# Declarations the scan reads but cannot honour: the row itself blocks, with no evidence to name.
+UNHONOURED: dict[str, tuple[dict[str, str | bytes], str, str | None]] = {
+    "hashed-lowercase-export": (
+        {"requirements.txt": "PyPDF2\n", "requirements-lock.txt": HASHED},
+        "requirements-lock.txt",
+        "==1.26.0",
+    ),
+    "editable-egg": (
+        {"requirements.txt": "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"},
+        "requirements.txt",
+        None,
+    ),
+    "wheel-url": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "requirements-extra.txt": "https://host/PyPDF2-1.26.0-py3-none-any.whl\n",
+        },
+        "requirements-extra.txt",
+        None,
+    ),
+}
+
+
 def gated(root: Path, spec: Any = PDF, config: Config | None = None) -> runner.Scan:
     return runner.scan(root, config or Config(), spec, jobs=1)
 
@@ -710,6 +715,17 @@ def test_what_holds_the_newest_release_back_is_not_what_blocks_without_it(
     spec = PDF.model_copy(update={"legacy_newest": None})
     scan = gated(repository(tmp_path, files, ignore), spec)
     assert [row.evidence for row in scan.blocked] == [""]
+
+
+@pytest.mark.parametrize("name", UNHONOURED)
+def test_a_declaration_the_gate_cannot_honour_blocks_at_its_own_line(
+    tmp_path: Path, name: str
+) -> None:
+    files, path, declared = UNHONOURED[name]
+    scan = gated(repository(tmp_path, files))
+    assert [(row.reason, row.path, row.declared, row.evidence) for row in scan.blocked] == [
+        ("legacy_version_unsupported", path, declared, "")
+    ]
 
 
 def test_a_requirement_built_around_its_string_has_no_pin_so_it_is_not_taken(

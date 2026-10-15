@@ -310,9 +310,9 @@ must_not_report:
   - file: requirements.txt
     line: 6
     why: >-
-      `-e .` is an option, not a requirement. PEP 508 refuses every line
-      beginning with `-`, which is what keeps a `pip` flag out without a rule
-      of our own about the dash.
+      `-e .` is an option, not a requirement. A line beginning with `-` is
+      read only when it is an editable requirement that names a distribution
+      (a name, or `#egg=`), and `.` names none.
   - file: requirements/dev.txt
     line: 3
     why: An unrelated pin.

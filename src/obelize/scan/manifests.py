@@ -113,6 +113,17 @@ _LIVE_MENTION: Final[ConfidenceReason] = "mock_patch_target"
 # Stripped before a column is taken; a BOM is not whitespace to `str.strip`.
 _BLANK: Final = " \t﻿"
 
+# How pip reads a requirements line: a `#` starts a comment only at the start or after a blank (so
+# a `#egg=` fragment is part of the line), and a token that starts with `-` begins the options.
+PIP_COMMENT: Final = re.compile(r"(?:^|\s)#.*")
+_PIP_OPTION: Final = re.compile(r"\s-")
+_EDITABLE: Final = re.compile(r"(?:-e|--editable)(?:\s+|=)")
+# The name of a requirement PEP 508 refuses: an `#egg=` fragment, or an archive's file name.
+_EGG: Final = re.compile(r"[#&]egg=(?P<name>[A-Za-z0-9][\w.-]*)")
+_ARCHIVE: Final = re.compile(
+    r"(?P<name>[A-Za-z0-9](?:[\w.]|-(?!\d))*)-\d.*\.(?:whl|tar\.gz|tgz|zip)$"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class Declaration:
@@ -544,15 +555,74 @@ def _quoted(body: str, start: int) -> Iterator[tuple[int, str]]:
             index += 1
 
 
-def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
-    """One PEP 508 requirement per line; `pip` options start with `-`, so PEP 508 rejects them."""
+def _joined(lines: list[str]) -> Iterator[tuple[int, str, bool]]:
+    """pip's logical lines: the number of the first, its text, and whether it spans several.
+
+    A line ending in a backslash goes on with the next, but a comment line never does.
+    """
+    first = 0
+    parts: list[str] = []
     for number, line in enumerate(lines, 1):
-        body, column = _span(uncommented(line))
+        text = line.rstrip("\r")
+        goes_on = text.endswith("\\") and not text.lstrip(_BLANK).startswith("#")
+        if not parts:
+            first = number
+        parts.append(text[:-1] if goes_on else text)
+        if not goes_on:
+            yield first, "".join(parts), len(parts) > 1
+            parts = []
+    if parts:
+        yield first, "".join(parts), True
+
+
+def _archive(path: str, line: int, column: int, text: str) -> Declaration | None:
+    """A requirement pip takes and PEP 508 does not, known by its name only: the `#egg=` of a VCS
+    URL, or the file name of an archive; no version is read from either."""
+    head = re.split("[#?]", text, maxsplit=1)[0]
+    found = _EGG.search(text) or _ARCHIVE.match(head, head.rfind("/") + 1)
+    if found is None:
+        return None
+    start, end = found.span("name")
+    return Declaration(
+        path=path,
+        line=line,
+        column=column + start,
+        name=canonicalize_name(found["name"]),
+        raw=found["name"],
+        end=column + end,
+        pin=None,
+        spec=None,
+    )
+
+
+def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
+    """One requirement per logical line, as pip reads it.
+
+    The options after a requirement (`--hash`) are cut, and the pin span stays on its own line. A
+    requirement that carries a hash or spans lines, and an editable one, get no pin: the rule
+    cannot rewrite them without breaking the install.
+    """
+    for number, text, joined in _joined(lines):
+        body, column = _span(PIP_COMMENT.sub("", text))
         if not body:
             continue
-        declaration = _declare(path, number, column, body)
-        if declaration is not None:
-            yield declaration
+        editable = _EDITABLE.match(body)
+        if editable:
+            body, column = body[editable.end() :], column + editable.end()
+        elif body.startswith("-"):
+            continue
+        cut = _PIP_OPTION.search(body)
+        written = body[: cut.start()] if cut else body
+        declaration = _declare(path, number, column, written) or _archive(
+            path, number, column, written
+        )
+        if declaration is None:
+            continue
+        if editable or joined or "--hash" in body[len(written) :]:
+            declaration = replace(
+                declaration, pin=None, spec=None if editable else declaration.spec
+            )
+        yield declaration
 
 
 def _table(text: str) -> tuple[str, ...]:
@@ -787,6 +857,7 @@ __all__ = [
     "LOCKS",
     "LOCK_GLOBS",
     "NAMES",
+    "PIP_COMMENT",
     "REASON",
     "REQUIREMENTS_DIRECTORY",
     "REQUIREMENTS_GLOB",

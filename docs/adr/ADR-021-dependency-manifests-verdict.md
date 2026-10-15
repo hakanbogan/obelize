@@ -92,7 +92,10 @@ declares nothing, and the rest of the file is read.
 
 ### D9. The comment rule is per layout, because the layouts do not agree
 
-- `requirements*.txt` and TOML: a `#` outside a quoted string starts a comment.
+- Requirements files: a `#` at the start of a line or after a blank starts a comment, as pip reads
+  it, so a `#egg=` fragment is part of its line. A line ending in a backslash goes on with the
+  next (a comment line never does), and the options after a requirement (`--hash`) are cut
+  before it is read. TOML: a `#` outside a quoted string.
 - `setup.cfg`: a comment only when `#` begins the line, as `configparser` and
   setuptools read it; a requirement with a trailing comment is invalid and is
   not read.

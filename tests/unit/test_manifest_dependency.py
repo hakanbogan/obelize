@@ -95,13 +95,26 @@ def test_a_replacement_that_would_declare_the_new_distribution_twice_is_refused(
     [
         ("extras", "acme-sdk[grpc]==1.2.3\n"),
         ("a direct url", "acme-sdk @ https://example.invalid/acme_sdk-1.2.3.whl\n"),
+        ("a hash", "acme-sdk==1.2.3 --hash=sha256:aaaa\n"),
+        ("a hash on the next line", "acme-sdk==1.2.3 \\\n    --hash=sha256:aaaa\n"),
+        ("an editable requirement", "-e git+https://example.invalid/acme.git#egg=acme-sdk\n"),
+        ("a local archive", "./acme_sdk-1.2.3-py3-none-any.whl\n"),
     ],
 )
 def test_a_requirement_that_says_more_than_a_pin_is_refused(what: str, line: str) -> None:
-    """An extra lives in the old distribution's namespace and a URL names its file."""
+    """An extra lives in the old distribution's namespace, a URL or an archive names its file, and
+    a hash belongs to the version it was made for."""
     produced, edits = acme.declared("requirements.txt", line, CLEAR)
     assert produced == line, what
     assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")], what
+
+
+def test_an_option_that_is_not_a_hash_stays_on_the_rewritten_line() -> None:
+    produced, edits = acme.declared(
+        "requirements.txt", "acme-sdk==1.2.3 --config-settings x=y\n", CLEAR
+    )
+    assert produced == "acme-client>=2 --config-settings x=y\n"
+    assert reported(edits) == [(1, "auto", None)]
 
 
 def test_a_table_value_that_is_not_a_version_string_is_refused() -> None:

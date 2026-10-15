@@ -39,7 +39,6 @@ _FILES: Final = frozenset({"-r", "--requirement", "-c", "--constraint"})
 _HARMLESS: Final = frozenset({"--extra-index-url", "--trusted-host"})
 _EDITABLE: Final = frozenset({"-e", "--editable"})
 _OPTION: Final = re.compile(r"(?P<flag>--?[A-Za-z][\w-]*)(?:[=\s]+(?P<argument>.*))?$")
-_PIP_COMMENT: Final = re.compile(r"(?:^|\s)#.*")
 
 # One line only, and a version starts with a digit: a markdown quote or an `<https://...>` link
 # after the name is prose, not a release.
@@ -128,7 +127,7 @@ def _unread(
         pip = manifests.layout(path) == "requirements"
         read = {row.line for row in rows if row.path == path}
         for number, line in enumerate(data.decode("utf-8", "surrogateescape").split("\n"), 1):
-            body = _PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)
+            body = manifests.PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)
             if named.search(body) and number not in read:
                 return path
             if pip and body.lstrip().startswith("-") and not _harmless(path, body.strip(), walk):

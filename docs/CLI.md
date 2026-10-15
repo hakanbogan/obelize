@@ -185,7 +185,7 @@ while any row of the pack is withheld, whatever the reason, it writes no file an
 each row of another file it would have written reads `repo_not_fully_migrated`, and an apply exits `4`. `scan` still
 grades each file on its own, so it can show `eligible` rows that `fix` then withholds. A declaration
 of `openai` that already admits only 1.109.1 or later is left as written. One that cannot be rewritten
-in place, with extras or a URL, holds every file too: `scan` marks it `manifest_pin_shape_unsupported`.
+in place, with extras, a URL, a hash or an editable requirement, holds every file too: `scan` marks it `manifest_pin_shape_unsupported`.
 
 A model is never asked about such a pack: a proposal is one row, and the pack writes a whole
 repository or none. `--model openai_compat`, `--accept-model` while a model is configured, and `--show-context` exit `2`

@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import ntpath
 import os
+import time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -105,6 +106,116 @@ this is not a requirement
 requests>=2.31
 """
     assert declared(text) == [(2, 0, "acme-sdk"), (7, 0, "requests")]
+
+
+def read(text: str) -> list[manifests.Declaration]:
+    return list(manifests.declarations("requirements.txt", text.lstrip("\n").encode("utf-8")))
+
+
+@pytest.mark.parametrize(
+    ("text", "pin", "spec"),
+    [
+        ("acme-sdk==1.0 --hash=sha256:aaaa\n", None, "==1.0"),
+        ("acme-sdk==1.0 \\\n    --hash=sha256:aaaa \\\n    --hash=sha256:bbbb\n", None, "==1.0"),
+        ("acme-sdk==1.0 \\\r\n    --hash=sha256:aaaa\r\n", None, "==1.0"),
+        ("acme-sdk \\\n    >=1.0\n", None, ">=1.0"),
+        ("acme-sdk==1.0 \\", None, "==1.0"),
+        ("acme-sdk==1.0 --config-settings x=y\n", (8, 13), "==1.0"),
+        ("acme-sdk>=1.0 ; python_version < '3.12' --global-option=-q\n", (8, 13), ">=1.0"),
+        ("# a note \\\nacme-sdk==1.0\n", (8, 13), "==1.0"),
+    ],
+    ids=[
+        "inline-hash",
+        "hashes-on-continued-lines",
+        "crlf",
+        "requirement-split-over-lines",
+        "file-ends-in-a-backslash",
+        "option-without-a-hash",
+        "marker-and-option",
+        "comment-does-not-continue",
+    ],
+)
+def test_a_requirement_is_read_as_pip_joins_and_cuts_its_line(
+    text: str, pin: tuple[int, int] | None, spec: str
+) -> None:
+    """A hash is tied to the version and a line that goes on cannot be copied: neither has a pin."""
+    (found,) = read(text)
+    line = 2 if text.startswith("#") else 1
+    assert (found.name, found.line, found.column, found.pin, found.spec) == (
+        "acme-sdk",
+        line,
+        0,
+        pin,
+        spec,
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "written"),
+    [
+        ("-e git+https://example.invalid/repo.git#egg=Acme_SDK\n", "Acme_SDK"),
+        ("--editable git+https://example.invalid/r.git#egg=acme-sdk&subdirectory=x\n", "acme-sdk"),
+        ("-e acme-sdk\n", "acme-sdk"),
+        ("--editable=acme-sdk[extra]\n", "acme-sdk"),
+        ("git+https://example.invalid/repo.git#egg=acme-sdk[extra]\n", "acme-sdk"),
+        ("./acme_sdk-1.0-py3-none-any.whl\n", "acme_sdk"),
+        ("./acme-sdk-1.0.whl\n", "acme-sdk"),
+        ("dist/acme-sdk-1.0.tar.gz\n", "acme-sdk"),
+        ("https://example.invalid/a-1/acme-sdk-1.0.zip#sha256=ab\n", "acme-sdk"),
+        ("https://example.invalid/acme-sdk-1.0.tgz?raw=1\n", "acme-sdk"),
+    ],
+)
+def test_a_requirement_pip_takes_and_pep_508_refuses_is_known_by_its_name_alone(
+    text: str, written: str
+) -> None:
+    """An `#egg=` or an archive's file name says which distribution; no version is read from it."""
+    (found,) = read(text)
+    assert (found.name, found.line, found.raw) == ("acme-sdk", 1, written)
+    assert text[found.column : found.end] == written
+    assert (found.pin, found.spec) == (None, None)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "-e .\n",
+        "-e ./local/acme-sdk\n",
+        "-eacme-sdk\n",
+        "./notes.whl.txt\n",
+        "dist/acme-sdk.zip\n",
+        "https://example.invalid/acme\n",
+        "acme-sdk==1.0#not-a-comment\n",
+        "acme-sdk==\n",
+        "-r base.txt\n",
+    ],
+)
+def test_a_line_that_names_no_distribution_declares_nothing(text: str) -> None:
+    assert read(text) == []
+
+
+def test_an_editable_requirement_names_the_distribution_and_nothing_else() -> None:
+    (found,) = read("-e acme-sdk==1.0\n")
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, None)
+
+
+def test_an_archive_name_is_cut_at_the_first_dash_before_a_digit() -> None:
+    names = [row.name for row in read("./py-3d-1.0.whl\n./acme_sdk-extras-1.0.tar.gz\n")]
+    assert names == ["py", "acme-sdk-extras"]
+
+
+def test_a_very_long_line_is_read_in_linear_time() -> None:
+    """None of the patterns that read a line backtracks over a name, a path or a run of blanks."""
+    lines = [
+        "a-" * 300_000,
+        "a-1" * 200_000,
+        "#egg=" * 100_000,
+        " " * 500_000 + "#",
+        "a -" * 200_000,
+    ]
+    began = time.monotonic()
+    for line in lines:
+        read(line + "\n")
+    assert time.monotonic() - began < 5
 
 
 def test_a_name_is_matched_after_canonicalisation() -> None:

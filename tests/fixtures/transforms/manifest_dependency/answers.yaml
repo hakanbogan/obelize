@@ -162,12 +162,21 @@ cases:
       - file: requirements.txt
         after: absent
         why: >-
-          A direct reference. The version is a URL, so there is no version span
-          to write `>=1` into, and a line built from this one would point the
-          new distribution at a file belonging to the old one.
+          Three lines, three reasons, one code. Line 3 is a direct reference:
+          the version is a URL, so there is no version span to write `>=1` into,
+          and a line built from this one would point the new distribution at a
+          file belonging to the old one. Line 5 carries a hash on the line that
+          follows it, and a hash is the digest of the old release's files, so
+          `pip --require-hashes` would refuse whatever replaced the version.
+          Line 7 is an editable VCS requirement, which names its distribution
+          only in `#egg=` and has no version to replace.
         edits:
           - {line: 3, status: needs_review, reason: manifest_pin_shape_unsupported}
           - {line: 3, status: needs_review, reason: repo_not_fully_migrated}
+          - {line: 5, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 5, status: needs_review, reason: repo_not_fully_migrated}
+          - {line: 7, status: needs_review, reason: manifest_pin_shape_unsupported}
+          - {line: 7, status: needs_review, reason: repo_not_fully_migrated}
       - file: pyproject.toml
         after: absent
         why: >-

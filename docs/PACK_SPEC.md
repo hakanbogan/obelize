@@ -269,10 +269,11 @@ decides whether two names are one distribution. `from_name` and `to_name` may be
 a pack is **coupled**: while any row of the pack is withheld, no file is written
 and the pin stays (`repo_not_fully_migrated`,
 [ADR-053](adr/ADR-053-shared-module-migrations.md) D6). A declaration whose rewrite
-would drop or duplicate something (extras, a direct URL, a non-version table
+would drop or duplicate something (extras, a direct URL, a hash, a requirement that goes over
+several lines, an editable requirement, a local archive, a non-version table
 value, a duplicated key or declaration) is `manifest_pin_shape_unsupported` and left alone. For a coupled pack the scan raises it too, once
-anything migrated, for a declaration with no pin the rule can write (extras, a URL, a non-version
-value), so the whole pack is withheld ([ADR-053](adr/ADR-053-shared-module-migrations.md) D12).
+anything migrated, for a declaration with no pin the rule can write (extras, a URL, a hash, an
+editable requirement, an archive, a non-version value), so the whole pack is withheld ([ADR-053](adr/ADR-053-shared-module-migrations.md) D12).
 
 ### Parameter constraints fixed by the Phase 0 spikes
 

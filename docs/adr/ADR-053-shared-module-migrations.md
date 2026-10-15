@@ -171,7 +171,7 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 | `File`, `Model`, `FineTune`, `Edit` and the rest, the image edit and variation calls, the raw audio calls | Their replacements differ in shape, and the edits and fine-tunes endpoints were shut down. `Audio.transcribe` and `translate`, `Image.create` and `Moderation.create` were in this row until D19. |
 | The twelve modules of the 0.28.1 package (`util`, `api_requestor`, ...) | None imports on 3.26.0, and `openai.cli` is another module on the releases that ship `openai migrate`. |
 | Dynamic access, `mock.patch` targets, `sys.modules` stubs | The legacy name is a string, so no rewrite can follow it. The bare module fetched by its string is one too (D14). A target written against your own module is not seen. |
-| `openai[datalib]` and other pins that name extras or a URL | The manifest rule cannot write the line, so the plan holds the repository (`manifest_pin_shape_unsupported`, D12). |
+| `openai[datalib]` and other pins that name extras, a URL, a hash or an editable requirement | The manifest rule cannot write the line, so the plan holds the repository (`manifest_pin_shape_unsupported`, D12). |
 
 
 The repository is blocked, as ADR-050 D4 and D5 say, when it declares Python below 3.8, declares
@@ -240,8 +240,8 @@ which the legacy-floor check now shares.
 
 ### D12. A pin the rule cannot write holds the repository when the scan plans it
 
-`manifest_dependency` refuses a declaration that names extras, a URL or a non-version value
-(`manifest_pin_shape_unsupported`, ADR-030 D7) when it writes. With two distributions that leaves one
+`manifest_dependency` refuses a declaration that names extras, a URL, a hash, an editable
+requirement or a non-version value (`manifest_pin_shape_unsupported`, ADR-030 D7) when it writes. With two distributions that leaves one
 pin and the rest migrates. With one it left 1.x code beside a 0.28.1 pin, the half D6 exists to
 prevent. So `manifests.plan` raises `SHAPE_BAIL` itself for a legacy declaration with no pin span,
 once anything has migrated and only where `new_range` is set. The row is withheld, `_unfinished`
