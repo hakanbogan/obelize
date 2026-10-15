@@ -788,6 +788,13 @@ def test_install_commands_exist_exactly_where_a_test_command_does() -> None:
         assert bool(entry["install"]) == bool(entry["test_cmd"])
 
 
+def test_every_install_command_is_uv_so_the_rounds_cutoff_reaches_it() -> None:
+    """`UV_EXCLUDE_NEWER` binds uv alone: a pip install would resolve as of the day it runs."""
+    for entry in CASES:
+        for command in entry["install"]:
+            assert command.startswith("uv pip install "), entry["repo"]
+
+
 def test_a_case_that_says_its_tests_cover_the_change_has_a_command_to_prove_it() -> None:
     for entry in CASES:
         if entry["ground_truth"]["tests_cover_change"]:
