@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from obelize import __version__
 from obelize.models import (
     ATOMICITY_BAIL,
+    BAIL_ACTIONS,
     REPO_ATOMICITY_BAIL,
     TIMEOUT_S,
     WARNING_MEANINGS,
@@ -271,10 +272,12 @@ def _left(record: RunRecord, held: ManifestPlan, evidence: str) -> list[str]:
     atomic = {ATOMICITY_BAIL, REPO_ATOMICITY_BAIL}
     codes = Counter(code for row in record.withheld for code in row.caused_by or (row.bail,))
     concrete = Counter({code: count for code, count in codes.items() if code not in atomic})
-    reasons = ", ".join(f"{code} ({count})" for code, count in (concrete or codes).most_common(3))
+    top = (concrete or codes).most_common(3)
+    reasons = ", ".join(f"{code} ({count})" for code, count in top)
     lines = [
         "",
         f"{len(record.withheld)} finding(s) left for you. Most common reasons: {reasons}.",
+        *(f"  {code}: {BAIL_ACTIONS[code]}" for code, _ in top),
     ]
     roots = [row for row in record.withheld if row.bail not in atomic]
     lines.extend(
@@ -793,7 +796,18 @@ def _withheld_section(record: RunRecord) -> list[str]:
             f"| `{row.path}` | {row.line} | {f'`{row.symbol}`' if row.symbol else '--'} "
             f"| `{row.bail}` | {caused} |"
         )
-    return [*lines, ""]
+    # Every code the table shows, in the order it first appears.
+    shown = dict.fromkeys(
+        code for row in record.withheld for code in (row.bail, *(row.caused_by or ()))
+    )
+    return [
+        *lines,
+        "",
+        "What to change, by reason:",
+        "",
+        *(f"- `{code}`: {BAIL_ACTIONS[code]}" for code in shown),
+        "",
+    ]
 
 
 def _prose(text: str) -> str:

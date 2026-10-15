@@ -139,7 +139,8 @@ the tool that made it; it holds no command, since a command would have to come f
 `REPORT.md` says the same under Dependency manifests, for a dry run too.
 
 **Findings left for you** are summarised whenever there are any, with a file written or not: how
-many, the most common reasons, up to five of the rows that cause them (`path:line symbol code`,
+many, the most common reasons with a sentence on what to change for each (the last column of
+[SCAN_VOCABULARY.md](SCAN_VOCABULARY.md#4-bail-codes-editreason)), up to five of the rows that cause them (`path:line symbol code`,
 with `and N more in REPORT.md` after them), the files that hold the pin without a row (a notebook
 is read but not analysed; list it under `exclude` to migrate the rest), and a link to what each
 code means. A pack whose one distribution holds both APIs adds a line saying the whole repository

@@ -131,6 +131,167 @@ BailCode = Literal[
 ]
 BAIL_CODES: frozenset[BailCode] = frozenset(get_args(BailCode))
 
+# What a person changes to move a withheld finding; `SCAN_VOCABULARY.md` section 4 holds the same
+# sentences beside each code, and a test keeps the two equal.
+BAIL_ACTIONS: dict[BailCode, str] = {
+    "roundtrip_mismatch": (
+        "Migrate the file by hand; obelize could not read it back byte for byte, so it will not "
+        "rewrite it."
+    ),
+    "input_does_not_parse": (
+        "Fix the syntax error in the file, or the Python requirement in pyproject.toml or "
+        "setup.cfg, then run again."
+    ),
+    "output_does_not_parse": (
+        "Migrate the file by hand; the rewrite did not parse, so the file was left alone."
+    ),
+    "output_names_unresolved": (
+        "Migrate the file by hand; the rewrite would read a name the module does not bind, so "
+        "the file was left alone."
+    ),
+    "file_too_large": "Raise max_file_bytes in .obelize.yml, or migrate the file by hand.",
+    "runtime_unsupported": (
+        "Raise the Python version the project declares to one the new distribution installs on, "
+        "then run again."
+    ),
+    "legacy_version_unsupported": (
+        "Declare the legacy distribution in a manifest obelize reads, pinned at or above the "
+        "pack's floor, then run again."
+    ),
+    "conditional_binding": (
+        "Bind the legacy name with one import statement, or migrate its uses by hand."
+    ),
+    "module_alias_rebound": (
+        "Stop rebinding or re-aliasing the legacy module's name, or migrate its uses by hand."
+    ),
+    "model_object_escapes": (
+        "Use the legacy object only as the receiver of its methods, in the file that makes it, "
+        "or migrate its uses by hand."
+    ),
+    "model_object_read_elsewhere": (
+        "Stop other modules importing or reading the legacy object, or migrate those modules by "
+        "hand."
+    ),
+    "multiple_assignments": "Assign the name once in its scope, or migrate its uses by hand.",
+    "class_attr_binding": (
+        "Build the object in a method or at module level, not in the class body, or migrate it "
+        "by hand."
+    ),
+    "receiver_unresolved": (
+        "Bind the receiver to a name assigned once from its constructor, or migrate the call by "
+        "hand."
+    ),
+    "receiver_method_unmapped": (
+        "Migrate the call by hand; the pack has no rewrite for this method."
+    ),
+    "multiple_configure_calls": "Call configure once in the module, or migrate the module by hand.",
+    "client_source_unresolved": (
+        "Call configure in this module so a client can be built from it, or migrate the calls "
+        "by hand."
+    ),
+    "client_name_collision": "Rename one of the names client and genai_client, then run again.",
+    "client_placement_ambiguous": (
+        "Call configure at module level, or move the calls into the function that configures, "
+        "or migrate them by hand."
+    ),
+    "configure_kwargs_unsupported": (
+        "Migrate the configure call by hand; the pack does not carry transport, client_options, "
+        "client_info or default_metadata over."
+    ),
+    "credentials_shape_differs": (
+        "Migrate the configure call by hand; the new SDK reads credentials in a different shape."
+    ),
+    "alias_collision": (
+        "Rename whatever the file already binds to the new alias or setting name, then run again."
+    ),
+    "type_symbol_unmapped": "Migrate the import by hand; the pack does not map this type.",
+    "from_import_unmigrated_symbol": (
+        "Migrate by hand the names on that import line the pack does not map, and the calls "
+        "that use them."
+    ),
+    "local_import": "Move the legacy import to module level, or migrate the code by hand.",
+    "lazy_import": (
+        "Migrate the lazy import and the code after it by hand; obelize binds no name for it."
+    ),
+    "star_import": "Replace the star import with named imports, or migrate the module by hand.",
+    "file_not_fully_migrated": (
+        "Resolve the findings in this file that name the cause; the file stays as it was until "
+        "none is left."
+    ),
+    "repo_not_fully_migrated": (
+        "Resolve the withheld findings in the files that still use the legacy distribution, then "
+        "run again to change its pin."
+    ),
+    "transitive_dependency_in_use": (
+        "Declare the distribution that provides the module you import, or stop importing it, "
+        "then run again."
+    ),
+    "manifest_code_mismatch": (
+        "Make the manifest and the code agree by hand; obelize never edits this declaration."
+    ),
+    "manifest_pin_shape_unsupported": (
+        "Change the pin by hand; obelize edits only a declaration that is a name and a version."
+    ),
+    "unknown_ctor_kwarg": "Migrate the call by hand; the pack does not know this keyword.",
+    "positional_arg_ambiguous": (
+        "Give each parameter once and no extra argument, as the call already must, then run again."
+    ),
+    "default_model_name_required": (
+        "Give the constructor a model name, or migrate the call by hand."
+    ),
+    "generation_config_not_static": (
+        "Write generation_config as a literal, or a name assigned once and used only as the "
+        "configuration, or migrate it by hand."
+    ),
+    "safety_settings_not_static": (
+        "Write safety_settings as a literal mapping of known categories to known thresholds, "
+        "or migrate it by hand."
+    ),
+    "history_parts_shape_incompatible": (
+        "Pass history as a literal list of turns, or migrate the call by hand."
+    ),
+    "dynamic_stream_flag": "Write stream= as True or False, or migrate the call by hand.",
+    "async_stream_await_missing": (
+        "Add the missing await before the streaming call, which raises a TypeError without it."
+    ),
+    "unsupported_kwarg": (
+        "Migrate the call by hand; the new call has no counterpart for this keyword."
+    ),
+    "afc_semantics_differ": (
+        "Migrate the call by hand; automatic function calling works differently in the new SDK."
+    ),
+    "response_shape_changed": (
+        "Migrate by hand the code that reads the result; the new call returns a different shape."
+    ),
+    "count_tokens_config_carries_semantics": (
+        "Migrate the count_tokens call by hand; system_instruction and tools change the count."
+    ),
+    "ctor_argument_not_portable": (
+        "Compute the model's name and configuration beforehand into names assigned once, or "
+        "migrate the calls by hand."
+    ),
+    "attribute_removed": (
+        "Migrate by hand the code that uses this attribute; the new object has none, or a "
+        "method in its place."
+    ),
+    "flag_only_surface": (
+        "Read the pack's suggestion and change the flagged code by hand; obelize never rewrites it."
+    ),
+    "types_import_typing_only": (
+        "Import the module at run time, outside TYPE_CHECKING, or migrate the file by hand."
+    ),
+    "error_class_changed": (
+        "Catch the exception class the new SDK raises in that handler, then run again."
+    ),
+    "usage_unmapped": (
+        "Migrate the usage by hand; no rewrite covers it, so the file was left alone."
+    ),
+    "configure_consumed_elsewhere": (
+        "Migrate the modules that rely on this file's configure call, or give each its own, then "
+        "run again."
+    ),
+}
+
 WarningCode = Literal[
     "client_constructed_eagerly",
     "model_name_looks_prefixed",

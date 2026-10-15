@@ -135,8 +135,8 @@ naming the command to run:
 
 - `0`: everything it found is migrated and your tests passed. Read `git diff`, then commit it or
   undo it.
-- `4`: some places are left for you. The summary names the most common reasons and the first
-  rows behind them, and `.obelize/runs/<id>/REPORT.md` lists each one with its
+- `4`: some places are left for you. The summary names the most common reasons, what to change for
+  each, and the first rows behind them, and `.obelize/runs/<id>/REPORT.md` lists each one with its
   [reason](docs/SCAN_VOCABULARY.md#4-bail-codes-editreason). Migrate them by hand with the guide of
   the pack that left them ([Gemini](https://ai.google.dev/gemini-api/docs/migrate),
   [openai](https://github.com/openai/openai-python/discussions/742),

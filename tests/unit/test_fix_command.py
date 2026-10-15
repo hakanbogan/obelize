@@ -21,7 +21,7 @@ from obelize import __version__, cli, commands, gitutil
 from obelize.cli import app
 from obelize.commands import CommandError
 from obelize.evidence import report, run_dir
-from obelize.models import WARNING_MEANINGS, EditProposal
+from obelize.models import BAIL_ACTIONS, WARNING_MEANINGS, EditProposal
 from obelize.native import shell, windows_programs
 from obelize.packs import loader
 from obelize.providers import base, openai_compat
@@ -1056,6 +1056,7 @@ def test_a_blocked_run_says_why_nothing_is_planned_and_how_to_unblock_it(
     )
     assert lines[5:7] == ["", "No change planned."]
     assert lines[8] == "5 finding(s) left for you. Most common reasons: runtime_unsupported (5)."
+    assert lines[9] == f"  runtime_unsupported: {BAIL_ACTIONS['runtime_unsupported']}"
     assert any("5 finding(s): 5 needs review" in line for line in lines)
 
 
@@ -1383,7 +1384,9 @@ def test_a_run_with_nothing_to_write_names_what_held_back_the_most(
         "4 finding(s) left for you. Most common reasons: model_object_escapes (3), "
         "flag_only_surface (1).",
     ]
-    assert lines[start + 3 : start + 6] == [
+    assert lines[start + 3 : start + 8] == [
+        f"  model_object_escapes: {BAIL_ACTIONS['model_object_escapes']}",
+        f"  flag_only_surface: {BAIL_ACTIONS['flag_only_surface']}",
         "  adapter.py:3  google.generativeai.GenerativeModel  flag_only_surface",
         "  app.py:4  google.generativeai.GenerativeModel  model_object_escapes",
         "What each code means: " + report.CODES.format(version=__version__),
