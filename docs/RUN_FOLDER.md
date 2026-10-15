@@ -548,9 +548,9 @@ from a different obelize may be refused rather than half-read.
 `undo.schema.json`, `model.schema.json` and `proposal.schema.json` in
 `src/obelize/schemas/` are generated from the models and committed;
 `ci / schema-drift` fails when one is stale. Every object is closed and every
-field required, because every writer writes every field. A value the models check with a regular
-expression (a digest, a run id, an instant, a name) carries that expression as its `pattern`; the
-checks JSON Schema cannot state stay in the models, so the models are authoritative.
+field required, because every writer writes every field. A digest, a run id, an instant or a name
+carries the regular expression its model checks it with as its `pattern`; the other checks, such as
+the name of an environment variable, stay in the models, so the models are authoritative.
 
 ## What `e2e` asserts today
 
