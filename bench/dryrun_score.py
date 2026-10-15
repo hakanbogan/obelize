@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from gate1_score import share
 
 from obelize.models import ATOMICITY_BAIL, REPO_ATOMICITY_BAIL
 
@@ -40,10 +41,6 @@ TIERS: tuple[tuple[str, str], ...] = (
     ("partial", "a file written, a row withheld"),
     ("complete", "a file written, nothing withheld"),
 )
-
-
-def _share(numerator: int, denominator: int) -> str:
-    return "--" if denominator == 0 else f"{numerator / denominator * 100:.1f}%"
 
 
 def tier(record: dict[str, Any]) -> str:
@@ -117,9 +114,9 @@ def _section(record: dict[str, Any], frame: dict[str, Any]) -> list[str]:
         "|---|---:|---:|---:|",
     ]
     for name, meaning in TIERS:
-        ran_on = "--" if name == "blocked" else _share(counted[name], ran)
+        ran_on = "--" if name == "blocked" else share(counted[name], ran)
         lines.append(
-            f"| `{name}`: {meaning} | {counted[name]} | {_share(counted[name], len(scored))} "
+            f"| `{name}`: {meaning} | {counted[name]} | {share(counted[name], len(scored))} "
             f"| {ran_on} |"
         )
     blocked = Counter((row["blocked"], bool(row["manifests"])) for row in scored if row["blocked"])

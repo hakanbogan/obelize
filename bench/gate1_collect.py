@@ -229,7 +229,7 @@ def sample(total: int, pack: str, term: str) -> None:
     print(f"{len(chosen)} repositories -> {frame.relative_to(ROOT)}")
 
 
-def _fetch(entry: dict[str, Any], into: Path) -> None:
+def fetch(entry: dict[str, Any], into: Path) -> None:
     """A one-commit checkout at the pinned SHA, with the `.git` a scan reads through."""
     into.mkdir(parents=True)
     url = f"https://github.com/{entry['full_name']}.git"
@@ -247,7 +247,7 @@ def _fetch(entry: dict[str, Any], into: Path) -> None:
         )
 
 
-def _runtime(checkout: Path) -> dict[str, Any]:
+def declared_runtime(checkout: Path) -> dict[str, Any]:
     """The declared Python via the shipped `scan/runtime.py`; `run.json` keeps only the verdict."""
     from run import DEFAULT_PACK
 
@@ -279,7 +279,7 @@ def _cli(arguments: list[str], timeout: int) -> dict[str, Any]:
     return json.loads(completed.stdout)  # type: ignore[no-any-return]
 
 
-def _scan(checkout: Path) -> dict[str, Any]:
+def scan_checkout(checkout: Path) -> dict[str, Any]:
     return _cli(["scan", "--repo", str(checkout)], SCAN_TIMEOUT_S)
 
 
@@ -294,7 +294,7 @@ def _fix(checkout: Path, pack: str) -> tuple[dict[str, Any], dict[str, Any], lis
     return plan, run, json.loads((folder / "findings.json").read_text(encoding="utf-8"))["findings"]
 
 
-def _provenance(pack: str | None = None) -> dict[str, Any]:
+def provenance(pack: str | None = None) -> dict[str, Any]:
     """The instrument beside the number; CI never re-runs these scans.
 
     `spec_sha256` hashes what `scan/*` and `impact/*` read (ADR-026 D8): only its change needs a
@@ -345,7 +345,7 @@ def _each(
         }
         started = time.monotonic()
         try:
-            _fetch(entry, checkout)
+            fetch(entry, checkout)
             measure(record, checkout)
         except RECORDED as error:
             record["error"] = f"{type(error).__name__}: {error}"[:300]
@@ -363,9 +363,9 @@ def scan(only: str | None) -> None:
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     def measure(record: dict[str, Any], checkout: Path) -> None:
-        findings = _scan(checkout)
+        findings = scan_checkout(checkout)
         record["counts"] = findings["counts"]
-        record["runtime"] = _runtime(checkout)
+        record["runtime"] = declared_runtime(checkout)
         # Line references to other people's code, never their source.
         record["findings"] = [
             {
@@ -379,7 +379,7 @@ def scan(only: str | None) -> None:
     records = _each(entries, measure, lambda record: f"{record['counts']['findings']} finding(s)")
     out = RESULTS / "scan.json"
     out.write_text(
-        json.dumps({**_provenance(), "scanned": records}, indent=2, sort_keys=False) + "\n",
+        json.dumps({**provenance(), "scanned": records}, indent=2, sort_keys=False) + "\n",
         encoding="utf-8",
     )
     print(f"{len(records)} record(s) -> {out.relative_to(ROOT)}")
@@ -424,7 +424,7 @@ def dryrun(pack: str) -> None:
     out.write_text(
         json.dumps(
             {
-                **_provenance(pack),
+                **provenance(pack),
                 "frame": _frame(pack).relative_to(ROOT).as_posix(),
                 "dry_run": records,
             },
@@ -468,7 +468,7 @@ def choose(extra_band: str) -> None:
             checkout = WORK / entry["full_name"].replace("/", "__")
             shutil.rmtree(checkout, ignore_errors=True)
             try:
-                _fetch(entry, checkout)
+                fetch(entry, checkout)
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as error:
                 print(f"    {entry['full_name']}: fetch failed ({type(error).__name__})")
                 shutil.rmtree(checkout, ignore_errors=True)

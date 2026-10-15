@@ -172,8 +172,8 @@ def _scan_one(name: str, sha: str, surface: candidates.Surface) -> dict[str, Any
     shutil.rmtree(checkout, ignore_errors=True)
     started = time.monotonic()
     try:
-        gate1_collect._fetch({"full_name": name, "sha": sha}, checkout)
-        found = gate1_collect._scan(checkout)
+        gate1_collect.fetch({"full_name": name, "sha": sha}, checkout)
+        found = gate1_collect.scan_checkout(checkout)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, RuntimeError, OSError):
         shutil.rmtree(checkout, ignore_errors=True)
         return None
@@ -182,7 +182,7 @@ def _scan_one(name: str, sha: str, surface: candidates.Surface) -> dict[str, Any
         "sha": sha,
         "drawn_for": surface.change,
         "counts": found["counts"],
-        "runtime": gate1_collect._runtime(checkout),
+        "runtime": gate1_collect.declared_runtime(checkout),
         # Line references to other people's code, never their source.
         "findings": [
             {key: value for key, value in row.items() if key != "evidence" and value is not None}
@@ -275,7 +275,7 @@ def draw() -> None:
 
     RESULTS.mkdir(parents=True, exist_ok=True)
     RESULTS.joinpath("scan.json").write_text(
-        json.dumps({**gate1_collect._provenance(), "scanned": records}, indent=2) + "\n",
+        json.dumps({**gate1_collect.provenance(), "scanned": records}, indent=2) + "\n",
         encoding="utf-8",
     )
     licensed = [
@@ -290,7 +290,7 @@ def draw() -> None:
             "repositories": len(frame["repositories"]),
             "licensed": len(licensed),
         },
-        "instrument": gate1_collect._provenance(),
+        "instrument": gate1_collect.provenance(),
         "max_per_owner": candidates.MAX_PER_OWNER,
         "size_cap_kb": gate1_collect.SIZE_CAP_KB,
         "examine_cap": EXAMINE_CAP,

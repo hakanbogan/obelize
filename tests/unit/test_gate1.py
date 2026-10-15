@@ -90,6 +90,13 @@ def test_an_empty_key_has_no_recall() -> None:
     assert gate1_score.compare(Counter(), Counter()).recall is None
 
 
+def test_a_share_of_nothing_is_not_a_percentage() -> None:
+    assert gate1_score.share(0, 0) == "--"
+    assert gate1_score.share(1, 4) == "25.0%"
+    assert gate1_score.percent(None) == "--"
+    assert gate1_score.percent(0.5) == "50.0%"
+
+
 def test_one_withheld_finding_disqualifies_the_whole_file() -> None:
     """ADR-010 F-1: a file with one bail is left as it was, so its eligible import stays too."""
     assert (

@@ -19,6 +19,7 @@ from typing import Any, NamedTuple
 
 import cases
 import run
+from gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCUMENT = ROOT / "docs" / "BENCHMARK_RESULTS.md"
@@ -136,11 +137,11 @@ def _headline_table(state: Round) -> list[str]:
         return []
     over_cases = [case for case in graded(state) if tier_of(state, case) is not None]
     wins = sum(tier_of(state, case) == "verified_success" for case in over_cases)
-    lines.append(f"| Cases | {len(over_cases)} | {wins} | {_share(wins, len(over_cases))} |")
+    lines.append(f"| Cases | {len(over_cases)} | {wins} | {share(wins, len(over_cases))} |")
     for side in SPLITS:
         subset = [case for case in over_cases if case.split == side]
         won = sum(tier_of(state, case) == "verified_success" for case in subset)
-        lines.append(f"| Cases ({side}) | {len(subset)} | {won} | {_share(won, len(subset))} |")
+        lines.append(f"| Cases ({side}) | {len(subset)} | {won} | {share(won, len(subset))} |")
     # `any`, not `all`: grouping stops inflation; it must not let one case veto another.
     for scope in (None, *SPLITS):
         groups = _run_patterns(state, scope)
@@ -149,7 +150,7 @@ def _headline_table(state: Round) -> list[str]:
             for members in groups.values()
         )
         label = "Unique patterns" if scope is None else f"Unique patterns ({scope})"
-        lines.append(f"| {label} | {len(groups)} | {won} | {_share(won, len(groups))} |")
+        lines.append(f"| {label} | {len(groups)} | {won} | {share(won, len(groups))} |")
     return lines
 
 
@@ -277,10 +278,6 @@ def _error_notes(state: Round) -> list[str]:
 def _number(value: Any) -> str:
     """A count, or `--` where nobody has answered yet."""
     return "--" if value is None else str(value)
-
-
-def _share(numerator: int, denominator: int) -> str:
-    return f"{numerator / denominator * 100:.1f}%" if denominator else "--"
 
 
 def render(state: Round) -> str:

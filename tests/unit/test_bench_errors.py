@@ -420,11 +420,6 @@ def test_a_case_the_round_did_not_reach_is_in_no_table() -> None:
     assert "`skipped`" not in rendered
 
 
-def test_a_share_of_nothing_is_a_dash_and_not_a_zero() -> None:
-    assert errors._share(0, 0) == "--"
-    assert errors._share(1, 4) == "25.0%"
-
-
 def write_work_tree(
     root: Path, case_id: str, sha: str, *, runs: int = 1, pack: str = "p" * 64
 ) -> Path:

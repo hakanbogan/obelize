@@ -289,7 +289,7 @@ def _case_table(corpus: Corpus) -> list[str]:
 
 
 def _agreement_table(corpus: Corpus) -> list[str]:
-    from gate1_score import _percent, rows
+    from gate1_score import percent, rows
 
     lines = [
         "| Case | Key | Scan | Matched | Missed | Unexpected |",
@@ -315,7 +315,7 @@ def _agreement_table(corpus: Corpus) -> list[str]:
     )
     lines.append("")
     lines.append(
-        f"Precision **{_percent(precision)}**, recall **{_percent(recall)}**, over the four "
+        f"Precision **{percent(precision)}**, recall **{percent(recall)}**, over the four "
         "kinds that are a call site and matched on path, line, kind and symbol together."
     )
     return lines
@@ -369,7 +369,7 @@ def _draw_table(corpus: Corpus) -> list[str]:
 
 
 def render(corpus: Corpus) -> str:
-    from gate1_score import _share
+    from gate1_score import share
 
     rows_ = cases(corpus)
     data = corpus.cases
@@ -416,12 +416,12 @@ def render(corpus: Corpus) -> str:
         f"**The ceiling.** {len(runnable)} of {len(rows_)} cases carry a test command that "
         f"exercises the change without credentials, and {len(covered)} of those carry a "
         "reviewer's judgement that the tests cover it. `verified_success` needs a baseline "
-        f"`pass` and an after `pass`, so at most **{_share(len(runnable), len(rows_))}** of "
+        f"`pass` and an after `pass`, so at most **{share(len(runnable), len(rows_))}** of "
         "this round can reach the only tier that counts toward the 70% target. That is the "
         "number Gate 4 has to be argued against.",
         "",
         f"**The split.** {len(rows_) - len(holdout)} `dev`, {len(holdout)} `holdout` "
-        f"({_share(len(holdout), len(rows_))}), assigned by `sha256(owner)` inside two "
+        f"({share(len(holdout), len(rows_))}), assigned by `sha256(owner)` inside two "
         "strata and never by hand.",
         "",
         f"**The second denominator.** The {len(rows_)} cases carry **{len(keys)} distinct "

@@ -22,7 +22,7 @@ from typing import Any, NamedTuple
 import run
 import summarize
 import yaml
-from gate1_score import ACTIONABLE_KINDS
+from gate1_score import ACTIONABLE_KINDS, share
 from gate1_score import Row as ScanRow
 from gate1_score import rows as scan_rows
 
@@ -189,7 +189,7 @@ def _state_table(state: Analysis) -> list[str]:
     total = sum(counted.values())
     lines = ["| What happened to the row | Rows | Share |", "|---|---:|---:|"]
     for name in STATES:
-        lines.append(f"| `{name}` | {counted[name]} | {_share(counted[name], total)} |")
+        lines.append(f"| `{name}` | {counted[name]} | {share(counted[name], total)} |")
     lines.append(f"| **Total** | **{total}** | |")
     return lines
 
@@ -281,10 +281,6 @@ def _unexpected_table(state: Analysis) -> list[str]:
             f"`{entry['disposition']}` | {entry['recorded']} |"
         )
     return lines
-
-
-def _share(numerator: int, denominator: int) -> str:
-    return f"{numerator / denominator * 100:.1f}%" if denominator else "--"
 
 
 def render(state: Analysis) -> str:

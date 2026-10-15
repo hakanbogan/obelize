@@ -106,7 +106,7 @@ def _slug(full_name: str) -> str:
 
 def _fetch(full_name: str, sha: str, into: Path) -> None:
     shutil.rmtree(into, ignore_errors=True)
-    gate1_collect._fetch({"full_name": full_name, "sha": sha}, into)
+    gate1_collect.fetch({"full_name": full_name, "sha": sha}, into)
 
 
 def _scan(full_name: str, sha: str, drawn_for: str) -> dict[str, Any] | None:
@@ -115,7 +115,7 @@ def _scan(full_name: str, sha: str, drawn_for: str) -> dict[str, Any] | None:
     started = time.monotonic()
     try:
         _fetch(full_name, sha, checkout)
-        found = gate1_collect._scan(checkout)
+        found = gate1_collect.scan_checkout(checkout)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, RuntimeError, OSError):
         shutil.rmtree(checkout, ignore_errors=True)
         return None
@@ -126,7 +126,7 @@ def _scan(full_name: str, sha: str, drawn_for: str) -> dict[str, Any] | None:
         "sha": sha,
         "drawn_for": drawn_for,
         "counts": found["counts"],
-        "runtime": gate1_collect._runtime(checkout),
+        "runtime": gate1_collect.declared_runtime(checkout),
         # Line references to other people's code, never their source.
         "findings": [
             {key: value for key, value in row.items() if key != "evidence" and value is not None}
@@ -306,7 +306,7 @@ def draw() -> None:
 
     RESULTS.mkdir(parents=True, exist_ok=True)
     RESULTS.joinpath("scan.json").write_text(
-        json.dumps({**gate1_collect._provenance(), "scanned": records}, indent=2) + "\n",
+        json.dumps({**gate1_collect.provenance(), "scanned": records}, indent=2) + "\n",
         encoding="utf-8",
     )
     document = {

@@ -1073,11 +1073,6 @@ def test_a_round_with_no_collected_record_says_so() -> None:
     assert comparison.dev(state) == []
 
 
-def test_a_share_of_nothing_is_not_a_percentage() -> None:
-    assert comparison._share(0, 0) == "--"
-    assert comparison._share(1, 4) == "25.0%"
-
-
 def test_a_long_run_is_printed_in_minutes() -> None:
     assert comparison._seconds(2.0) == "2.0s"
     assert comparison._seconds(120.0) == "2.0m"

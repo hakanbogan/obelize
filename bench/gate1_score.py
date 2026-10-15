@@ -135,11 +135,11 @@ def resolution(findings: list[dict[str, Any]]) -> tuple[int, int]:
     return resolved, unresolved
 
 
-def _percent(value: float | None) -> str:
+def percent(value: float | None) -> str:
     return "--" if value is None else f"{value * 100:.1f}%"
 
 
-def _share(numerator: int, denominator: int) -> str:
+def share(numerator: int, denominator: int) -> str:
     return "--" if denominator == 0 else f"{numerator / denominator * 100:.1f}%"
 
 
@@ -172,14 +172,14 @@ def _accuracy_table(scanned: dict[str, Any], labels: list[dict[str, Any]]) -> li
         lines.append(
             f"| [`{label['repository']}`]({label['url']}) | {len(label['files_read'])} "
             f"| {sum(key.values())} | {sum(found.values())} | {one.true_positive} "
-            f"| {one.false_positive} | {one.missed} | {_percent(one.precision)} "
-            f"| {_percent(one.recall)} |"
+            f"| {one.false_positive} | {one.missed} | {percent(one.precision)} "
+            f"| {percent(one.recall)} |"
         )
     lines.append(
         f"| **Total** | | {total.true_positive + total.missed} "
         f"| {total.true_positive + total.false_positive} | {total.true_positive} "
-        f"| {total.false_positive} | {total.missed} | **{_percent(total.precision)}** "
-        f"| **{_percent(total.recall)}** |"
+        f"| {total.false_positive} | {total.missed} | **{percent(total.precision)}** "
+        f"| **{percent(total.recall)}** |"
     )
     return lines
 
@@ -255,12 +255,12 @@ def _frame_table(sample: dict[str, Any], scanned: dict[str, Any]) -> list[str]:
         zero_total += len(zero)
         lines.append(
             f"| `{band}` | {row['population']:,} | {len(ok)} | {len(errored)} "
-            f"| {len(zero)} | {_share(len(zero), len(ok))} |"
+            f"| {len(zero)} | {share(len(zero), len(ok))} |"
         )
     lines.append(
         f"| **Total** | {sample['population']:,} | **{ok_total}** "
         f"| {len(scanned['scanned']) - ok_total} | **{zero_total}** "
-        f"| **{_share(zero_total, ok_total)}** |"
+        f"| **{share(zero_total, ok_total)}** |"
     )
     return lines
 
@@ -339,7 +339,7 @@ def _resolution_table(scanned: dict[str, Any]) -> list[str]:
     return [
         "| Usages | Statically resolved | Unresolved | Unresolved share | Gate 1 trigger |",
         "|---:|---:|---:|---:|---|",
-        f"| {total} | {resolved} | {unresolved} | {_share(unresolved, total)} "
+        f"| {total} | {resolved} | {unresolved} | {share(unresolved, total)} "
         f"| {'fires' if total and unresolved / total > 0.30 else 'does not fire'} |",
     ]
 
