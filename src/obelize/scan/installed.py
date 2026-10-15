@@ -5,9 +5,10 @@ decides: a lock, a constraints file, an index setting, a version written outside
 environment kept in the repository, code that uses what that release removed. `contrary` names the
 first path that says another release is in use. Every check fails closed (a manifest it cannot
 read is evidence, and so is a name no report can spell, which hides what is under it), but one: a
-listed file over `max_file_bytes` or unreadable is not searched for a version, since no read of a
-scan goes past that limit. Files are opened through `parse.contents` only, after the walk's own
-refusal check.
+listed file that cannot be read, or is over `_LIMIT`, is not searched for a version. One over
+`max_file_bytes` is searched in windows and never held whole, since that limit bounds what a scan
+holds. Files are opened through `parse.contents`, or `fsutil.windows` for those, only after the
+walk's own refusal check.
 
 Nothing outside the repository is read, on purpose: no `PIP_*` variable, no `pip.conf` in the home
 directory, no index. The machine that scans is not the one that installs, and a finding is the same
@@ -83,6 +84,14 @@ _SETTINGS: Final = (
 )
 
 _UTF_16: Final = (b"\xff\xfe", b"\xfe\xff")
+
+# A file over `max_file_bytes` is searched for a version in windows of this size, which repeat this
+# much of the one before so that a mention is whole in one of them, up to this size: past it a file
+# is not searched. A window cut through a mention can only read it as another release, which is
+# evidence: fail closed.
+_WINDOW: Final = 1 << 20
+_OVERLAP: Final = 1 << 12
+_LIMIT: Final = 32 << 20
 
 # A virtual environment kept in the repository, and where one holds the installed distributions.
 _ENVIRONMENTS: Final = (".venv", "venv", "env")
@@ -273,12 +282,27 @@ def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, n
         # named in the listing would block the read.
         if path not in vetted and fsutil.refusal(root, root / path) is not None:
             continue
-        data, _refused = contents(path)
-        if data is not None and data[:2] in _UTF_16:  # a PowerShell `pip freeze > freeze.txt`
+        data, refused = contents(path)
+        if data is None:
+            too_large = any(row.code == "file_too_large" for row in refused)
+            if too_large and _searched(root / path, mention, newest):
+                return path
+            continue
+        if data[:2] in _UTF_16:  # a PowerShell `pip freeze > freeze.txt`
             data = data.decode("utf-16", "ignore").encode()
-        if data is not None and _rules_out(data, mention, newest):
+        if _rules_out(data, mention, newest):
             return path
     return ""
+
+
+def _searched(path: Path, mention: re.Pattern[bytes], newest: str) -> bool:
+    """`_rules_out` over a file too large to hold, a window at a time; a UTF-16 one is read as
+    bytes, which finds nothing."""
+    try:
+        windows = fsutil.windows(path, _WINDOW, _OVERLAP, _LIMIT)
+        return any(_rules_out(window, mention, newest) for window in windows)
+    except OSError:  # gone or unreadable since it was listed, as `parse.contents` finds
+        return False
 
 
 def _rules_out(data: bytes, mention: re.Pattern[bytes], newest: str) -> bool:

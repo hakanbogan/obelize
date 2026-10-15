@@ -13,7 +13,7 @@ import hashlib
 import os
 import stat
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, get_args
@@ -156,6 +156,23 @@ def read(absolute: Path) -> bytes:
     descriptor = files.open_path(absolute)
     with os.fdopen(descriptor, "rb") as handle:
         return handle.read()
+
+
+def windows(absolute: Path, size: int, overlap: int, limit: int) -> Iterator[bytes]:
+    """A file `read` is not meant for, in windows of `size` bytes that repeat the last `overlap` of
+    the one before: no more is held, and a string up to `overlap` long lies whole in some window.
+
+    A file over `limit` yields nothing. The open is `read`'s, so a link fails with `ELOOP`.
+    """
+    descriptor = files.open_path(absolute)
+    with os.fdopen(descriptor, "rb") as handle:
+        if os.fstat(handle.fileno()).st_size > limit:
+            return
+        window = handle.read(size)
+        while window:
+            yield window
+            chunk = handle.read(size - overlap)
+            window = window[-overlap:] + chunk if chunk else b""
 
 
 def write(root: Path, path: str, data: bytes) -> PathRefusal | None:
@@ -355,5 +372,6 @@ __all__ = [
     "refusal",
     "sha256",
     "unusable",
+    "windows",
     "write",
 ]

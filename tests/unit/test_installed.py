@@ -6,6 +6,7 @@ dot-directory and an ignored file only there.
 
 from __future__ import annotations
 
+import errno
 import subprocess
 import time
 import tomllib
@@ -15,6 +16,7 @@ from pathlib import Path
 import pytest
 from pdf_repo import MAIN, SPEC, git_repo
 
+from obelize import fsutil
 from obelize.models import Config, Finding, ScanSpec
 from obelize.scan import installed, manifests, runner
 from obelize.scan.walker import Skipped
@@ -690,11 +692,64 @@ def test_a_binary_file_is_searched_without_trouble(tmp_path: Path) -> None:
     assert contrary(root) == ""
 
 
-def test_a_file_over_the_size_limit_is_not_read_and_is_not_evidence(tmp_path: Path) -> None:
+def test_a_file_over_the_size_limit_is_searched_without_being_held_whole(tmp_path: Path) -> None:
     files = {**REQUIRED, "notes.txt": "pip install PyPDF2==1.26.0\n" + "x" * 400}
     root = git_repo(tmp_path, files)
-    assert contrary(root, config=Config(max_file_bytes=200)) == ""
+    assert contrary(root, config=Config(max_file_bytes=200)) == "notes.txt"
     assert contrary(root) == "notes.txt"
+
+
+@pytest.fixture
+def small_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(installed, "_WINDOW", 32)
+    monkeypatch.setattr(installed, "_OVERLAP", 16)
+
+
+@pytest.mark.usefixtures("small_windows")
+def test_a_mention_across_the_edge_of_a_window_is_found_at_every_offset(tmp_path: Path) -> None:
+    config = Config(max_file_bytes=10)
+    for offset in range(70):
+        body = "x" * offset + "\nPyPDF2==1.26.0\n" + "x" * 80
+        root = git_repo(tmp_path / str(offset), {**REQUIRED, "notes.txt": body})
+        assert contrary(root, config=config) == "notes.txt", offset
+
+
+@pytest.mark.usefixtures("small_windows")
+@pytest.mark.parametrize(
+    "body",
+    [
+        "x" * 100,
+        "x" * 100 + "\nPyPDF2>=3\n",
+        "PyPDF2 reads PDFs" + "x" * 100,
+        "PyPDF2\n" * 20,
+    ],
+)
+def test_a_file_over_the_size_limit_that_names_no_other_release_is_not_evidence(
+    tmp_path: Path, body: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, "notes.txt": body})
+    assert contrary(root, config=Config(max_file_bytes=10)) == ""
+
+
+def test_a_file_over_the_search_limit_is_not_searched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, "notes.txt": "PyPDF2==1.26.0\n" + "x" * 300})
+    config = Config(max_file_bytes=100)
+    assert contrary(root, config=config) == "notes.txt"
+    monkeypatch.setattr(installed, "_LIMIT", 200)
+    assert contrary(root, config=config) == ""
+
+
+def test_a_file_over_the_size_limit_that_cannot_be_opened_is_not_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(*_arguments: object) -> object:
+        raise PermissionError(errno.EACCES, "denied")
+
+    root = git_repo(tmp_path, {**REQUIRED, "notes.txt": "PyPDF2==1.26.0\n" + "x" * 300})
+    monkeypatch.setattr(fsutil, "windows", refuse)
+    assert contrary(root, config=Config(max_file_bytes=100)) == ""
 
 
 def test_a_listed_name_that_is_gone_or_is_a_directory_is_not_opened(tmp_path: Path) -> None:

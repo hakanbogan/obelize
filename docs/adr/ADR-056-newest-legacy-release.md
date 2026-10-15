@@ -44,8 +44,8 @@ one, `-e git+...#egg=PyPDF2`, a wheel's file name and one the scan cannot read d
 Only then is the repository asked whether anything else decides the release
 (`scan/installed.py`, `contrary`). The first path that says it does is the evidence, and the run is
 blocked as before, naming that path. The checks run in this order, and each fails closed (a manifest
-it cannot read is evidence), except that a listed file over `max_file_bytes` or unreadable is not
-searched for a version, since no read of a scan goes past that limit.
+it cannot read is evidence), except that a listed file that cannot be read, or is over 32 MiB, is not
+searched for a version.
 
 1. Code. A finding that is not `not_a_usage` for a name in `lacks`: that code cannot run on the
    newest release, so an older one is in use.
@@ -82,7 +82,11 @@ searched for a version, since no read of a scan goes past that limit.
    and a file the user's `exclude` removed included: `PyPDF2 <op> <version>` that does not admit
    the newest release or that cannot be read, or `PyPDF2-<version>` of another release (a
    Dockerfile, a CI file, a `tox.ini`, a notebook's `!pip install`, a committed environment's
-   `dist-info`). A UTF-16 file is read after its byte-order mark.
+   `dist-info`). A UTF-16 file is read after its byte-order mark. A file over `max_file_bytes` is
+   searched too, in windows of 1 MiB that repeat the last 4 KiB of the one before, so that no more
+   than a window is held and a mention is whole in one of them; a UTF-16 one is read as bytes, and a
+   file over 32 MiB is not searched. A mention cut by a window's edge reads as another release, which
+   is evidence.
 6. What git ignores, found with `scandir` and never read: a lock, a constraints file or a
    `*requirements*.in` beside the repository root or a manifest that declares the distribution, and
    a `.venv`, `venv` or `env` in the root or beside any listed file, found with one `lstat` per
@@ -121,7 +125,8 @@ checks, so a second pack cannot name one without a check.
   endpoint that the earlier stop kept it from. The run says what it assumed, and `--verify` finds
   what the names do not.
 - The gate reads more of a repository on this path: every listed file, once, and only when some
-  declaration passes through `newest`. Elsewhere the walk still opens nothing it did not.
+  declaration passes through `newest`, a file over `max_file_bytes` up to 32 MiB of it in windows.
+  Elsewhere the walk still opens nothing it did not.
 - `run.json` gains `packs[].assumed`; the formats stay unstable through 0.x ([ADR-048](ADR-048-accepted-gaps-in-0-1-0.md)).
   The pypdf pack is 0.3.0: a pack field it now fills is a minor bump.
 - The inference is a claim about an install nobody ran. It cannot see the environment outside the
