@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 import acme
+import acme_kept as kept
 import libcst as cst
 import pytest
 
@@ -146,6 +147,14 @@ def test_a_module_left_out_of_the_run_still_runs_on_the_configure(tmp_path: Path
     )
     assert run.written == ()
 
+
+# Migrates whole under `acme_kept`, whose one distribution holds both APIs.
+KIT = """import acme.kit as kit
+
+
+def hello(name):
+    return kit.Greeter.say(name, loud=True).reply.text
+"""
 
 # Migrates whole with no client: the import is all it has.
 BARE = '"""An import and nothing else."""\n\nimport acme.sdk as sdk\n'
@@ -417,6 +426,83 @@ def test_a_file_too_deep_for_the_rewriter_is_kept_and_gated(
         ("needs_review", "output_does_not_parse")
     }
     assert {row.bail for row in run.plans[0].findings} == {"output_does_not_parse"}
+    assert run.limitations == (), "a stack overrun is the input's limit, not an obelize defect"
+
+
+def _finish_raises(monkeypatch: pytest.MonkeyPatch, path: str, error: Exception) -> None:
+    """Make the rewrite of one file raise, as a defect in a rule would."""
+    real = base.finish
+
+    def finish(context: RuleContext) -> cst.Module:
+        if context.path == path:
+            raise error
+        return real(context)
+
+    monkeypatch.setattr(base, "finish", finish)
+
+
+def test_a_file_a_rule_raises_on_is_kept_and_withheld_and_the_run_goes_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One file's defect names that file and its class, never the message (ADR-017 D9)."""
+    _finish_raises(monkeypatch, "bad.py", KeyError("/home/me/bad.py: sk-123"))
+    run = acme.repository(tmp_path, {"bad.py": CLEAN, "good.py": CLEAN})
+
+    assert [outcome.path for outcome in run.written] == ["good.py"]
+    bad = run.files[0]
+    assert bad.after == bad.before
+    assert {(row.status, row.reason, row.caused_by) for row in bad.edits} == {
+        ("needs_review", "internal_error", None)
+    }
+    assert {row.bail for row in run.plans[0].findings} == {"internal_error"}
+    assert {row.bail for row in run.plans[1].findings} == {None}
+    [limitation] = run.limitations
+    assert (limitation.path, limitation.code) == ("bad.py", "internal_error")
+    assert limitation.detail.endswith("It raised KeyError.")
+    assert "sk-123" not in limitation.detail
+
+
+def test_a_file_a_rule_raised_on_keeps_the_pin_like_any_withheld_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _finish_raises(monkeypatch, "bad.py", RuntimeError())
+    run = acme.repository(
+        tmp_path, {"bad.py": CLEAN, "good.py": CLEAN, "requirements.txt": MANIFEST}
+    )
+    assert run.manifest_plan.blocking == ("bad.py",)
+    assert run.manifests[0].after == b"acme-sdk==0.1.0\nacme-client>=2\n"
+
+
+def test_a_file_a_rule_raised_on_holds_the_whole_of_a_pack_that_is_its_own_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One distribution holds both APIs, so a half-migrated repository installs neither way."""
+    _finish_raises(monkeypatch, "bad.py", RuntimeError())
+    run = acme.repository(
+        tmp_path,
+        {"bad.py": KIT, "good.py": KIT, "requirements.txt": "acme-kit==1.5\n"},
+        spec=kept.SPEC,
+        pack=kept.PACK,
+    )
+    assert run.written == ()
+    assert {row.bail for row in run.plans[0].findings} == {"internal_error"}
+    assert {row.reason for row in run.files[1].edits} == {"repo_not_fully_migrated"}
+    assert [row.reason for row in run.manifests[0].edits] == ["repo_not_fully_migrated"]
+
+
+def test_the_files_a_rule_raised_on_survive_a_blocked_pass_and_a_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _finish_raises(monkeypatch, "bad.py", RuntimeError())
+    run = acme.repository(tmp_path, {"bad.py": CLEAN})
+
+    assert len(run.limitations) == 1
+    assert codemod.blocked(run, "runtime_unsupported").limitations == run.limitations
+    assert codemod.chained([("one", run), ("two", run)]).limitations == run.limitations * 2
+
+
+def test_a_clean_run_has_no_limitations(tmp_path: Path) -> None:
+    assert acme.repository(tmp_path, {"app.py": CLEAN}).limitations == ()
 
 
 @pytest.mark.usefixtures("breaking")

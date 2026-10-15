@@ -18,7 +18,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `star_import` | `from google.generativeai import *`. Of a shared module, only one from the module itself or from a legacy symbol (`from openai.types import *` is not). Names it may bind are separate findings with `confidence_reason: star_import_candidate`. |
 | `text_mention` | The prefilter token in a string, comment or docstring, on a line with no AST finding. |
 | `manifest` | A dependency declaration in `requirements*.txt` (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. Lockfiles are not read: a line edit would break their hashes. |
-| `parse_error` | libcst or `compile()` refused the file, or it is nested past the depth limit ([ADR-017](adr/ADR-017-input-gates.md) D1). Reported, never edited. |
+| `parse_error` | libcst or `compile()` refused the file, it is nested past the depth limit ([ADR-017](adr/ADR-017-input-gates.md) D1), or obelize raised on it (`internal_error`, D9). Reported, never edited. |
 
 ## 2. `Finding.confidence_reason`: why we believe it (16 values)
 
@@ -78,6 +78,7 @@ A bail withholds its whole binding group; the group is atomic.
 | `input_does_not_parse` | libcst or `compile()` refused the input, or it is nested more than 300 levels deep (a chain of that many operands, an `elif` ladder); `limitations[].detail` names which. Also a `pyproject.toml` or `setup.cfg` whose Python requirement is unreadable; that run is not blocked. |
 | `output_does_not_parse` | The rewritten bytes fail `cst.parse_module` or `compile()`. The file is left alone. |
 | `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. |
+| `internal_error` | obelize itself raised on the file, in the scan (the file is one `parse_error` row) or in a `fix` run (each row the scan graded `eligible` is withheld). The file is left alone, and `limitations[]` names the exception class and never its message. A defect in obelize, reported so one file does not end the run. |
 | `file_too_large` | Over `max_file_bytes`. |
 | `runtime_unsupported` | The project declares a Python the new distribution does not install on (the pack's `to.requires_python`). |
 | `legacy_version_unsupported` | The legacy distribution is declared with no version, or one below the floor of the pack's `from.version`, or not at all while the code uses it. A pack that names its newest release (`from.newest`) takes a declaration that installs it as that release, and is blocked only where the repository shows another one: the path is the run's evidence, not a code of its own. |
@@ -178,7 +179,7 @@ the defect's code on its rows and `file_not_fully_migrated` on the rest
 | Rung | What fired | Raised by |
 |:---:|---|---|
 | 1 | the pack refuses the surface outright (`flag_only_surface`, `attribute_removed`) | `scan/analysis.py` |
-| 2 | a file-level gate (`input_does_not_parse`, `roundtrip_mismatch`, `output_does_not_parse`, `output_names_unresolved`) | `scan/parse.py`; the last two `transforms/codemod.py`, on the bytes a run would write |
+| 2 | a file-level gate (`input_does_not_parse`, `internal_error`, `roundtrip_mismatch`, `output_does_not_parse`, `output_names_unresolved`) | `scan/parse.py`, `scan/runner.py`; `output_does_not_parse` and `output_names_unresolved` `transforms/codemod.py`, on the bytes a run would write, and `internal_error` there on a file a rule raised on |
 | 3 | a whole-file resolution defect (`module_alias_rebound`, `conditional_binding`, `star_import`) or where an import statement sits (`local_import`, `lazy_import`) | `scan/analysis.py` |
 | 4 | the module's client (`client_source_unresolved`, `multiple_configure_calls`) | `impact/planner.py` |
 | 5 | the binding group (`receiver_unresolved`, `model_object_escapes`, `class_attr_binding`, `multiple_assignments`) | `receiver_unresolved` by `scan/analysis.py`, the rest by `impact/dataflow.py` |
@@ -199,7 +200,8 @@ Outside `LADDER`, since nothing on their row competes:
 - `scan/manifests.py`'s codes: a manifest row names one declaration, so two
   never fire together. Rung 6 places `repo_not_fully_migrated` against the file codes. `manifest_pin_shape_unsupported` is the manifest rule's, and `scan/manifests.py` raises it too for a pack whose one distribution holds both APIs.
 - `transforms/codemod.py`'s four (`usage_unmapped`, the two output gates,
-  `configure_consumed_elsewhere`): fix-time, only on an `eligible` row. A pack
+  `configure_consumed_elsewhere`): fix-time, only on an `eligible` row. Its
+  `internal_error` is a file gate and lands on every `eligible` row of the file. A pack
   that is its own target gets `repo_not_fully_migrated` on its source rows the
   same way (ADR-031 D12).
 - Call-rewrite bails: fix-time, one per group.
@@ -226,6 +228,7 @@ other.
 | `roundtrip_mismatch` | File gate. |
 | `output_does_not_parse` | File gate, after the rewrite. |
 | `output_names_unresolved` | File gate, after the rewrite. |
+| `internal_error` | File gate: obelize raised on the file during a `fix` run, after the scan graded the row `eligible`. |
 | `flag_only_surface` | The imported surface is refused outright (`protos`, `caching`, the PaLM-era API). |
 | `module_alias_rebound` | The name it binds is reassigned or re-aliased. |
 | `conditional_binding` | It is one of two statements binding the same name. |
@@ -335,8 +338,8 @@ like an empty repository. `src/obelize/scan/walker.py` raises these;
 | `unreadable` | The filesystem would not answer (a directory would not list, permissions hide a path). A denial is a refusal, never a pass. |
 | `unusable_name` | Not valid UTF-8, holds a backslash, a control or format character, a backtick or a pipe, or on Windows is a name it reserves: a device such as `aux.py`, a `:` stream, a trailing dot or space. It cannot be reported and read back as one path, so its `limitations[]` row has no `path` and the detail quotes the name. The fallback walk refuses a directory with such a name whole. |
 
-`limitations[].code` adds the reader's `file_too_large` and
-`input_does_not_parse` ([RUN_FOLDER.md](RUN_FOLDER.md#limitations)). The reader
+`limitations[].code` adds the reader's `file_too_large`,
+`input_does_not_parse` and `internal_error` ([RUN_FOLDER.md](RUN_FOLDER.md#limitations)). The reader
 raises `unreadable` too, for a selected file that will not open, including one
 that became a symbolic link.
 

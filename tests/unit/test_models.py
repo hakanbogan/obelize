@@ -215,6 +215,7 @@ def test_the_import_bail_list_is_a_pinned_subset_of_the_bail_codes() -> None:
         "roundtrip_mismatch",
         "output_does_not_parse",
         "output_names_unresolved",
+        "internal_error",
         "flag_only_surface",
         "module_alias_rebound",
         "conditional_binding",
@@ -1003,11 +1004,11 @@ def record(**changes: object) -> RunRecord:
 
 
 def test_the_limitation_codes_are_exactly_the_two_halves_that_are_already_closed() -> None:
-    """Written out, not derived: `obelize.scan.parse` imports models. RUN_FOLDER.md says nine."""
+    """Written out, not derived: `obelize.scan.parse` imports models. RUN_FOLDER.md says ten."""
     from obelize.scan.parse import READ_REFUSALS
 
     assert LIMITATION_CODES == SKIP_REASONS | READ_REFUSALS
-    assert len(LIMITATION_CODES) == 9
+    assert len(LIMITATION_CODES) == 10
 
 
 def test_the_path_refusals_are_the_skip_reasons_one_path_can_produce() -> None:

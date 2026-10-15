@@ -21,9 +21,9 @@ from obelize.verify import cheap
 # Only `parsed` carries a tree; run.json's `files_parsed` counts it, round-trip failures included.
 ReadStatus = Literal["parsed", "does_not_parse", "not_a_candidate", "not_read"]
 
-# `limitations[].code` values, none new: two existing bail codes, and `unreadable` from
+# `limitations[].code` values, none new: three existing bail codes, and `unreadable` from
 # `Skipped.reason`.
-ReadRefusal = Literal["file_too_large", "input_does_not_parse", "unreadable"]
+ReadRefusal = Literal["file_too_large", "input_does_not_parse", "internal_error", "unreadable"]
 READ_REFUSALS: frozenset[ReadRefusal] = frozenset(get_args(ReadRefusal))
 
 # Recorded because the two parse gates can report different lines for the same file.
@@ -35,6 +35,9 @@ ROUNDTRIP_BAIL: Final = "roundtrip_mismatch"
 # Both parse gates' bail; the limitation names the gate. `Final`, not `BailCode`: the literal must
 # type-check as both `Finding.bail` and `Limitation.code`.
 PARSE_BAIL: Final = "input_does_not_parse"
+
+# The bail of a file obelize itself raised on: reported as a refusal, never edited.
+CRASH_BAIL: Final = "internal_error"
 
 # Characters kept of a parser message: room for libcst's "expected one of ..." list, no more.
 MESSAGE_LIMIT = 200
@@ -60,6 +63,10 @@ _DETAIL: dict[ReadRefusal, str] = {
     "input_does_not_parse": (
         "Not valid Python for this interpreter, so it is reported and not edited. "
         "If it is valid on a newer Python, run obelize with that version."
+    ),
+    "internal_error": (
+        "obelize raised an unexpected error on this file, so it is reported and not edited. This "
+        "is a defect in obelize: please report it."
     ),
     "unreadable": (
         "Selected but could not be opened: a permission problem, or the path became "
@@ -145,7 +152,7 @@ def gates(path: str, data: bytes) -> Read:
     except cheap.COMPILE_REFUSALS as error:
         return does_not_parse(path, data, "compile", error)
     if (deep := _past_limit(data)) is not None:
-        return _refused(path, data, *deep, _DEEP)
+        return _refused(path, data, *deep, PARSE_BAIL, _DEEP)
     try:
         module = cst.parse_module(data)
     except (cst.ParserSyntaxError, SyntaxError, ValueError) as error:
@@ -230,10 +237,26 @@ def _past_limit(data: bytes) -> tuple[int, int] | None:
 def does_not_parse(path: str, data: bytes, gate: Gate, error: Exception) -> Read:
     """The single finding and the row naming the gate; `evidence=None` so no line is quoted."""
     line, column = _coordinates(error)
-    return _refused(path, data, line, column, f"Refused by {gate}: {_message(error)}")
+    return _refused(path, data, line, column, PARSE_BAIL, f"Refused by {gate}: {_message(error)}")
 
 
-def _refused(path: str, data: bytes, line: int, column: int, extra: str) -> Read:
+def crashed(path: str, data: bytes, error: Exception) -> Read:
+    """The same refusal for a file obelize raised on; the row names the class, never the message.
+
+    A message can quote the file or a path. The status stays `does_not_parse`: no tree reaches
+    anything past this, so `files_parsed` does not count the file either.
+    """
+    return _refused(path, data, 1, 0, CRASH_BAIL, f"It raised {type(error).__name__}.")
+
+
+def _refused(
+    path: str,
+    data: bytes,
+    line: int,
+    column: int,
+    code: Literal["input_does_not_parse", "internal_error"],
+    extra: str,
+) -> Read:
     finding = Finding(
         path=path,
         line=line,
@@ -243,14 +266,14 @@ def _refused(path: str, data: bytes, line: int, column: int, extra: str) -> Read
         symbol=None,
         evidence=None,
         scan_status="unsupported",
-        bail=PARSE_BAIL,
+        bail=code,
     )
     return Read(
         path=path,
         status="does_not_parse",
         data=data,
         findings=(finding,),
-        limitations=(limitation(path, PARSE_BAIL, extra),),
+        limitations=(limitation(path, code, extra),),
     )
 
 
@@ -292,6 +315,8 @@ def limitation(path: str, code: ReadRefusal, extra: str = "") -> Limitation:
 
 
 __all__ = [
+    "CRASH_BAIL",
+    "MAX_DEPTH",
     "MESSAGE_LIMIT",
     "PARSE_BAIL",
     "READ_REFUSALS",
@@ -303,6 +328,7 @@ __all__ = [
     "ReadStatus",
     "candidate",
     "contents",
+    "crashed",
     "does_not_parse",
     "gates",
     "limitation",

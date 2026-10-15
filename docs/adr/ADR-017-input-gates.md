@@ -60,11 +60,11 @@ or `.msg`, capped. `str(cst.ParserSyntaxError)` and `SyntaxError.text` quote the
 source and are never used; `compile()`'s message may name an unknown coding
 cookie, a declaration kept because it explains the refusal.
 
-**D5. The reader writes three limitation codes and invents none.**
-`file_too_large` and `input_does_not_parse` are
+**D5. The reader writes four limitation codes and invents none.**
+`file_too_large`, `input_does_not_parse` and `internal_error` (D9) are
 [SCAN_VOCABULARY.md](../SCAN_VOCABULARY.md) §4 bails and `unreadable` is §11's.
 The set is closed and asserted against both, and `models.LimitationCode` is the
-union of the walker's seven and these three, which share `unreadable`: nine
+union of the walker's seven and these four, which share `unreadable`: ten
 values.
 
 **D6. `max_file_bytes` is a limit on the `lstat`, and the prefilter runs before
@@ -89,6 +89,19 @@ nothing else Python 3 lacks is accepted. Both `compile()` calls (the gate and
 annotations` would otherwise apply to the file and refuse, on 3.12 and 3.13, a
 walrus in an annotation that is valid there. A file's own `__future__` imports
 still count.
+
+**D9. An exception from one file does not end the run.** `runner.examine` and
+`codemod.run` catch `Exception` per file, after the handlers for a stack overrun
+(`RecursionError`, `MemoryError`), which keep their own codes. In a scan the file
+is one `parse_error` row with `internal_error` as its bail, `unsupported`, at line
+1 column 0, so it holds the repository as an unparsable file does, and
+`limitations[]` carries `internal_error` with the exception's class and never its
+message, which can quote the file or a path. In a `fix` run the file is kept as it
+was and each row the scan graded `eligible` is withheld as `internal_error`
+([ADR-031](ADR-031-codemod-driver.md) D13). Catching it is not hiding it: the row
+is withheld where a reader looks, and the limitation names the class. A native
+crash is a signal, not an exception, so `BrokenProcessPool` still propagates
+([ADR-022](ADR-022-runner-result-order.md) D7).
 
 ## Consequences
 

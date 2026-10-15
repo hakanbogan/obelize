@@ -181,14 +181,22 @@ def ordered(results: Iterable[FileResult]) -> tuple[FileResult, ...]:
 
 
 def examine(candidate: Candidate, spec: ScanSpec) -> FileResult:
-    """A worker's whole job: a pure function of bytes and spec, the cache key."""
-    read = parse.gates(candidate.path, candidate.data)
+    """A worker's whole job: a pure function of bytes and spec, the cache key.
+
+    No exception ends the run over one file: it is a `parse_error` row, which holds the repository
+    as an unparsable file does.
+    """
+    path, data = candidate.path, candidate.data
     try:
-        return _graded(candidate.path, candidate.sha256, read, spec)
-    except (RecursionError, MemoryError) as error:
-        # Parsed but too deep for the analysis visitors: one finding, never edited.
-        refused = parse.does_not_parse(candidate.path, candidate.data, "libcst", error)
-        return _graded(candidate.path, candidate.sha256, refused, spec)
+        read = parse.gates(path, data)
+        try:
+            return _graded(path, candidate.sha256, read, spec)
+        except (RecursionError, MemoryError) as error:
+            # Parsed but too deep for the analysis visitors: one finding, never edited.
+            read = parse.does_not_parse(path, data, "libcst", error)
+            return _graded(path, candidate.sha256, read, spec)
+    except Exception as error:
+        return _graded(path, candidate.sha256, parse.crashed(path, data, error), spec)
 
 
 def payload(result: FileResult) -> dict[str, Any]:

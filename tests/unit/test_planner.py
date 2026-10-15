@@ -40,7 +40,7 @@ def test_the_three_implemented_passes_raise_disjoint_sets_of_codes() -> None:
     assert not dataflow.BAILS & planner.BAILS
     assert set(planner.RUNG) == planner.BAILS
     assert planner.BAILS <= BAIL_CODES
-    assert planner.LADDER[parse.PARSE_BAIL] == 2
+    assert planner.LADDER[parse.PARSE_BAIL] == planner.LADDER[parse.CRASH_BAIL] == 2
 
 
 def test_the_most_specific_of_nothing_is_nothing() -> None:

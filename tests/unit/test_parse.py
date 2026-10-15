@@ -18,6 +18,7 @@ from obelize.models import BAIL_CODES, SKIP_REASONS, Config, ReceiverMethods, Sc
 from obelize.native import files
 from obelize.scan import parse, runner
 from obelize.scan.parse import (
+    CRASH_BAIL,
     MAX_DEPTH,
     MESSAGE_LIMIT,
     PARSE_BAIL,
@@ -27,6 +28,7 @@ from obelize.scan.parse import (
     Read,
     candidate,
     contents,
+    crashed,
     gates,
     read,
 )
@@ -65,7 +67,11 @@ def _fixture(name: str) -> bytes:
 def test_every_limitation_code_is_one_the_documents_already_publish() -> None:
     """No new vocabulary: `limitations[].code` draws only on bail codes and skip reasons."""
     assert READ_REFUSALS <= (BAIL_CODES | SKIP_REASONS)
-    assert sorted(READ_REFUSALS & BAIL_CODES) == ["file_too_large", "input_does_not_parse"]
+    assert sorted(READ_REFUSALS & BAIL_CODES) == [
+        "file_too_large",
+        "input_does_not_parse",
+        "internal_error",
+    ]
     assert sorted(READ_REFUSALS & SKIP_REASONS) == ["unreadable"]
 
 
@@ -77,10 +83,8 @@ def test_every_refusal_carries_a_sentence() -> None:
         assert len(sentence) > 40, code
 
 
-def test_the_two_bail_codes_are_the_ones_the_vocabulary_names() -> None:
-    assert PARSE_BAIL in BAIL_CODES
-    assert ROUNDTRIP_BAIL in BAIL_CODES
-    assert {PARSE_BAIL, ROUNDTRIP_BAIL} < BAIL_CODES
+def test_the_three_bail_codes_are_the_ones_the_vocabulary_names() -> None:
+    assert {PARSE_BAIL, ROUNDTRIP_BAIL, CRASH_BAIL} < BAIL_CODES
 
 
 @pytest.mark.parametrize("name", CLEAN)
@@ -271,6 +275,32 @@ def test_a_file_with_its_own_future_import_is_still_judged_with_it() -> None:
     """The flag is the file's, so `dont_inherit` must not hide a `__future__` the file declares."""
     source = b"from __future__ import annotations\nx: (y := 1) = 2\n"
     assert gates("own.py", source).status == "does_not_parse"
+
+
+def test_a_file_obelize_raised_on_is_one_refusal_that_names_only_the_error_class() -> None:
+    """The message of an exception can quote the file or a path, so the report never has it."""
+    data = b"import google.generativeai as genai\nSECRET = 'sk-123'\n"
+    result = crashed("pkg/app.py", data, KeyError("/home/me/pkg/app.py: sk-123"))
+
+    assert (result.status, result.module, result.bail, result.data) == (
+        "does_not_parse",
+        None,
+        None,
+        data,
+    )
+    [finding] = result.findings
+    assert (finding.kind, finding.scan_status, finding.bail) == (
+        "parse_error",
+        "unsupported",
+        CRASH_BAIL,
+    )
+    assert (finding.line, finding.column, finding.symbol, finding.evidence) == (1, 0, None, None)
+    [row] = result.limitations
+    assert (row.path, row.code) == ("pkg/app.py", CRASH_BAIL)
+    assert row.detail.startswith(parse._DETAIL[CRASH_BAIL])
+    assert row.detail.endswith("It raised KeyError.")
+    assert "sk-123" not in row.detail
+    assert "/home/me" not in row.detail
 
 
 def test_a_refusal_with_no_message_is_named_by_its_type() -> None:

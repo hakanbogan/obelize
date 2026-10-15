@@ -66,6 +66,7 @@ BailCode = Literal[
     "input_does_not_parse",
     "output_does_not_parse",
     "output_names_unresolved",
+    "internal_error",
     "file_too_large",
     "runtime_unsupported",
     "legacy_version_unsupported",
@@ -167,6 +168,7 @@ IMPORT_BAILS: frozenset[BailCode] = frozenset(
         "roundtrip_mismatch",
         "output_does_not_parse",
         "output_names_unresolved",
+        "internal_error",
         "flag_only_surface",
         "module_alias_rebound",
         "conditional_binding",
@@ -1482,6 +1484,7 @@ BlockedReason = Literal["runtime_unsupported", "legacy_version_unsupported"]
 LimitationCode = Literal[
     "file_too_large",
     "input_does_not_parse",
+    "internal_error",
     "missing",
     "not_a_file",
     "outside_root",
