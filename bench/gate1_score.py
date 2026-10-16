@@ -396,8 +396,8 @@ def render(sample: dict[str, Any], scanned: dict[str, Any], labels: list[dict[st
         *_bail_table(scanned),
         "",
         "**What repositories declare about their Python.** `blocked: runtime_unsupported` "
-        "is read from a manifest and never from `setup.py`, which is code; this is how "
-        "often any of that fires outside a fixture.",
+        "is read from `pyproject.toml`, `setup.cfg`, a `Pipfile` or a string `python_requires=` "
+        "in `setup.py`; this is how often any of that fires outside a fixture.",
         "",
         *_runtime_table(scanned),
         "",

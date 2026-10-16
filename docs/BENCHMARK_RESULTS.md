@@ -25,7 +25,7 @@ them is [written up separately](adr/ADR-024-gate-1-measurement.md).
 
 Frame drawn 2026-09-18T14:05:55Z over the term `generativeai`; 80 repositories in the frame, 80 scanned, 665 file(s) selected and 144 parsed -- the byte prefilter eliminated the rest -- for 698 findings over 207 file(s), 90 of which nothing bails in.
 
-Measured with obelize 0.1.0 on CPython 3.12.9 / arm64, against pack `gemini/google-generativeai-to-google-genai` sha256 `fbe82d40afea4894...`. Nothing re-fetches eighty checkouts on CI, so these records are a dated artefact: a change to the scanner does not invalidate them visibly, and re-running `bench/gate1_collect.py scan` is what makes the number current again. A change to what the **pack** tells a scan to look for does fail a test -- the projection `2195fa003c3070aa...`, which is the whole of what `scan/` and `impact/` read, and not the pack's own bytes, which move whenever a rewrite rule gains a parameter.
+Measured with obelize 0.1.0 on CPython 3.12.9 / arm64, against pack `gemini/google-generativeai-to-google-genai` sha256 `fbe82d40afea4894...`. Nothing re-fetches eighty checkouts on CI, so these records are a dated artefact: a change to the scanner does not invalidate them visibly, and re-running `python -m bench.gate1_collect scan` is what makes the number current again. A change to what the **pack** tells a scan to look for does fail a test -- the projection `2195fa003c3070aa...`, which is the whole of what `scan/` and `impact/` read, and not the pack's own bytes, which move whenever a rewrite rule gains a parameter.
 
 **Precision and recall, over the hand-labelled repositories.** Actionable kinds only (`attribute`, `call`, `import`, `method_call`); a row matches on path, line, kind and symbol together.
 
@@ -75,7 +75,7 @@ Of the 80 repositories scanned, 47 had nothing withheld anywhere, 10 had a zero-
 | `module_alias_rebound` | 3 |  |
 | **Primary causes** | **133** | |
 
-**What repositories declare about their Python.** `blocked: runtime_unsupported` is read from a manifest and never from `setup.py`, which is code; this is how often any of that fires outside a fixture.
+**What repositories declare about their Python.** `blocked: runtime_unsupported` is read from `pyproject.toml`, `setup.cfg`, a `Pipfile` or a string `python_requires=` in `setup.py`; this is how often any of that fires outside a fixture.
 
 | Declares | Repositories | Reads as |
 |---|---:|---|
