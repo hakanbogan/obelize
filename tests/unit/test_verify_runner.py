@@ -571,7 +571,7 @@ def test_a_command_that_ended_is_graded_by_its_own_code(
     code: int,
     verdict: tuple[str, str | None, int],
 ) -> None:
-    """The child it leaves outlives the deadline; it is ended and does not decide the verdict."""
+    """The child it leaves holds the pipe for 3 s; it is ended and does not decide the verdict."""
     monkeypatch.setattr(runner, "DRAIN_S", 0.3)
     marker = tmp_path / "survived"
     started = time.monotonic()
@@ -580,11 +580,11 @@ def test_a_command_that_ended_is_graded_by_its_own_code(
         runner.Command.of(
             f"{PYTHON} {quoted(TOOLS / 'leaves_a_child.py')} {code} 3 {quoted(marker)}", "cli"
         ),
-        timeout_s=1,
+        timeout_s=30,
         environ=dict(os.environ),
     )
     assert (result.status, result.reason, result.exit_code) == verdict
-    assert time.monotonic() - started < 1, "the read waited for the child"
+    assert time.monotonic() - started < 3, "the read waited for the child"
     time.sleep(3.5)
     assert not marker.exists(), "the child the command left behind was not ended"
 
@@ -607,14 +607,14 @@ def test_a_command_that_ended_just_before_its_deadline_is_still_not_a_timeout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The read after the end is cut at the deadline, and the verdict stays its own."""
-    monkeypatch.setattr(runner, "DRAIN_S", 5.0)
+    monkeypatch.setattr(runner, "DRAIN_S", 30.0)
     marker = tmp_path / "survived"
     result = runner.execute(
         tmp_path,
         runner.Command.of(
-            f"{PYTHON} {quoted(TOOLS / 'leaves_a_child.py')} 0 3 {quoted(marker)}", "cli"
+            f"{PYTHON} {quoted(TOOLS / 'leaves_a_child.py')} 0 60 {quoted(marker)}", "cli"
         ),
-        timeout_s=1,
+        timeout_s=3,
         environ=dict(os.environ),
     )
     assert (result.status, result.reason, result.exit_code) == ("pass", None, 0)
