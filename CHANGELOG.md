@@ -22,8 +22,11 @@ each pack's record is bound to the sha of the pack it was taken with, so a chang
 until it is measured again.
 
 - Gate 1: scan precision is 100.0% and recall 98.4% over the same 64 usages in five repositories.
-  The share of the 80 repositories with a file where nothing bails moved from 71.2% (57), the
-  record taken with 0.1.0, to 73.8% (59).
+  The record was taken with `obelize scan` and no `--pack`, so it also holds 91 rows of the `PyPDF2`
+  pack and 3 of the `openai` pack under the Gemini pack's name, and its generated block counts them:
+  59 of 80 repositories (73.8%) with a file where nothing bails. Over the Gemini pack's rows alone
+  it gives the 57 (71.2%) of the record taken with 0.1.0. One repository now stops on the Python
+  floor it declares.
 - `openai/openai-0-to-1`: complete 12 to 27, blocked 41 to 27 and held 27 to 26. Nine repositories
   moved from blocked to complete, six from held to complete and six from blocked to held, and one
   moved from held to blocked on a Python floor that is now read.

@@ -106,9 +106,13 @@ withheld legacy pin, in a repository that migrates one of its two modules.
 
 The scan records were taken again after 0.5.0, against the scanner and the pack of this tree, over
 the same 80 repositories at the same commits; the version has not moved, so they read
-`obelize 0.5.0`. Precision and recall are the numbers the record taken with 0.1.0 gave. The share
-of repositories with a zero-bail file moved from 71.2% (57 of 80) to 73.8% (59), and one repository
-now stops on the Python floor it declares.
+`obelize 0.5.0`. Precision and recall are the numbers the record taken with 0.1.0 gave. The record
+was taken with `obelize scan` and no `--pack`, which runs every pack a repository uses, so under the
+Gemini pack's name it also holds 91 rows of the `PyPDF2` pack and 3 of the `openai` pack. They are
+counted in the findings, the usages and the zero-bail share above, which is why the block reads 59
+repositories (73.8%) with a zero-bail file and 46 with nothing withheld. Over the Gemini pack's rows
+alone the record gives the 0.1.0 record's 57 (71.2%) and 47, and one repository now stops on the
+Python floor it declares.
 
 The zero-bail share decided Phase 2's scope. It clears the roughly 40%
 threshold pre-registered before the round, although the three development-corpus
