@@ -357,6 +357,8 @@ A file the scan already refused has no row here, since no rule claimed it; so
 the table shows. It also holds what each pack says about the
 findings it flagged (Guidance) and what each pack does not handle (Limitations), read from the
 packs the run loaded: no field of `findings.json`, `plan.json` or `run.json` carries them. Under
+Limitations it also names the files that use the legacy API and that no rule writes, a notebook
+with the cells that do and a stub with none, which no field carries either. Under
 Dependency manifests it names the lock files beside a manifest pin that was written or would be, or
 above it, since obelize does not edit them; that is not recorded in a field either.
 

@@ -29,8 +29,9 @@ that is not valid UTF-8 is refused as `unusable_name`, never scanned mangled.
 **D5. The walker opens nothing.** It lists, stats and matches; the prefilter,
 `max_file_bytes` and the parse gates belong to the reader, so a file is read
 once. `Walk.unincluded` names the paths `include` did not take that can hold
-Python (`*.ipynb`, `*.pyi`, `*.pyw`): nothing analyses them, and F-2 prefilters
-their bytes ([ADR-021](ADR-021-dependency-manifests-verdict.md)).
+Python (`*.ipynb`, `*.pyi`, `*.pyw`): a stub and a `.pyw` are not analysed, a notebook's code cells
+are read and never written, and F-2 prefilters their bytes
+([ADR-021](ADR-021-dependency-manifests-verdict.md) D3 and D14).
 
 **D6. A listed path that is not on disk is `missing`, not an escape.** An
 ordinary `rm` of a tracked file leaves its name in the index; calling it

@@ -31,9 +31,9 @@ the removal when a non-eligible row still loads the distribution: `import`,
 `star_import`, `dynamic`, `parse_error` (fail-closed), or a `mock_patch_target`,
 which imports the module when the patch is entered; a prose mention does not.
 A file the default `include` leaves out (a notebook, a stub, a windowed script)
-that matches the byte prefilter blocks as an import does; under a narrowed
-`include`, or when the user's `exclude` matches it, it is named as excluded and
-blocks nothing. Neither is analysed.
+that matches the byte prefilter blocks as an import does, except a notebook that D14
+reads and finds no use of the legacy API in; under a narrowed `include`, or when the user's
+`exclude` matches it, it is named as excluded and blocks nothing, and is not read.
 
 ### D4. Nothing migrated means nothing is added, and the pin is not touched
 
@@ -183,6 +183,33 @@ changes rows). The module is then declared where it came from, as the pin moves:
 - The plan's `transitive` list is empty when the run declares them, since nothing waits.
 
 `undo` restores each manifest from its journalled original, so the inserted lines go with the pin.
+
+### D14. A notebook is read for the legacy API and never written
+
+A notebook that names the library held the pin whether or not it called the old API: three of the
+five such notebooks in the openai frame installed a package or used the new client. Under the
+default `include`, one that matches the prefilter is now read as code (`parse.notebook`), in the
+scan's own process and never by a rule:
+
+- Its code cells become one module, in order, since a cell sees what the cells before it bound.
+  A line that starts with `!` or `%` is a shell escape or a line magic, no Python, and becomes a
+  `pass` at its indent, so every other line keeps its number. A cell that starts with `%%` is left
+  out, and a cell may `await` at its top level, which `compile()` is told to accept for it.
+- The module goes through the gates and the analysis of any source file, and the notebook holds the
+  pin only where a row that is not `not_a_usage` appears. It is the only effect: no row of a notebook
+  is in the findings, the plan or the model's questions, and a notebook is never in `Run.files`,
+  so nothing can write it.
+- `Scan.unwritten` names each file that uses the legacy API and that no rule writes, with the
+  places of the cells of a notebook, counted from 1 among all its cells. The terminal and
+  `REPORT.md` say so, under Limitations in the report, and a pack that has no other row still
+  applies when it has one (`runner.applies`), so a notebook beside a pin that has arrived is no
+  longer "No pack applies".
+- A notebook that is not a list of cells with text sources, or whose cells do not compile, is a
+  `input_does_not_parse` limitation (the cell is named for a refused parse), is not analysed and
+  holds the pin where it names the library, as before. A stub and a `.pyw` are not analysed either;
+  where their bytes spell a symbol of a shared module (its module otherwise), they are named too.
+- Under a narrowed `include`, or where `exclude` takes it, a notebook is the user's choice and is
+  not read.
 
 ## Consequences
 

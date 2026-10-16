@@ -172,8 +172,8 @@ uvx obelize verify --run "$(cat .obelize/latest)" --verify ".venv/bin/python -m 
 
 If you ran `fix --apply --verify` with 1.x already installed, the tests fail before the change and
 `verify` cannot rerun that run: `obelize undo` it, run `fix --apply` without `--verify`, then
-`verify --run` the new id. A notebook that names `openai` holds the pin until you list it under
-`exclude` in `.obelize.yml`; the notebook then needs the same changes by hand.
+`verify --run` the new id. A notebook whose code cells call the old `openai` API holds the pin until you migrate it by hand
+or list it under `exclude` in `.obelize.yml`; obelize reads a notebook and never writes one.
 
 ## With a coding agent
 
@@ -309,9 +309,10 @@ snapshot from 2026-09-22 that I have not measured again. I have not measured the
 - It keeps model names as they are. Google and OpenAI retire models on published schedules
   ([Gemini](https://ai.google.dev/gemini-api/docs/deprecations),
   [OpenAI](https://platform.openai.com/docs/deprecations)), so check each name your calls use.
-- It finds notebooks (`.ipynb`) that use the old SDK but does not migrate them, and while one
-  does, the old dependency line stays. List the notebook under `exclude` in `.obelize.yml` and the
-  rest migrates and the pin moves; the notebook then loses the old SDK, so fix it by hand.
+- It reads the code cells of notebooks (`.ipynb`) and finds those that use the old SDK but does not
+  migrate them, and while one does, the old dependency line stays. Migrate the notebook by hand, or
+  list it under `exclude` in `.obelize.yml` and the rest migrates and the pin moves; the notebook
+  then loses the old SDK, so fix it by hand.
 - It does not find every use. Code that reaches the SDK through a function's return value, a star
   import in another file or a container is missed, and the benchmark counts those misses.
 - On Windows, the test suite on GitHub's runner is all that has run. A real console, a OneDrive

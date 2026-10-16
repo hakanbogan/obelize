@@ -281,9 +281,9 @@ cases:
         written: false
         after: absent
         why: >-
-          Not analysed, because `**/*.py` does not take it, and read for the
-          byte prefilter only, which it matches. That is enough to keep the
-          pin the notebook needs.
+          Never written, because `**/*.py` does not take it. Its code cells are
+          read as one module all the same, and its first cell imports the
+          legacy SDK, which is enough to keep the pin the notebook needs.
         edits: []
       - file: app.py
         written: true
