@@ -1,8 +1,8 @@
 {
   "obelize_version": "0.5.0",
   "pack": "gemini/google-generativeai-to-google-genai",
-  "pack_sha256": "4fb58bd146f75519bdfa5c4e67e8899ce36be0e24146c2e8ac9ef18178de17f2",
-  "spec_sha256": "2195fa003c3070aa1ad58d9adec097883984f1cdafab2556b53bfc563428fb2d",
+  "pack_sha256": "5017c6856ceb122c86fd13377b2ee4e8156741433d484ad46aa1ea4c97f728f7",
+  "spec_sha256": "fa59b7a16c9d722b841a8eab71503bc7dddccc8f83ca436a50632f7c7f7c17ba",
   "python": "3.12.9",
   "machine": "arm64",
   "os": "Darwin",
@@ -12,7 +12,7 @@
       "full_name": "LucasHJin/vit",
       "sha": "472b94039b5c314bda67136432ea70be5f516215",
       "band": "size:<1000",
-      "blocked": null,
+      "blocked": "runtime_unsupported",
       "used": 13,
       "manifests": 1,
       "files": 0,
@@ -116,7 +116,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.59
+      "seconds": 1.62
     },
     {
       "full_name": "aryanbrite/project-ai",
@@ -348,7 +348,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.56
+      "seconds": 2.75
     },
     {
       "full_name": "SONA1114/CHATBOT",
@@ -410,7 +410,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.53
+      "seconds": 0.73
     },
     {
       "full_name": "Prateek07-Kumar/End-To-End-Projects-Generative-AI-Google-Gemini-",
@@ -503,7 +503,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.7
+      "seconds": 2.6
     },
     {
       "full_name": "Momen2410/Question-Answering-ChatBot-Using-Gemini1.5",
@@ -514,7 +514,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.61
+      "seconds": 0.76
     },
     {
       "full_name": "ShreyasGandhi0607/Gemini-Project",
@@ -525,7 +525,7 @@
       "manifests": 1,
       "files": 3,
       "withheld": [],
-      "seconds": 1.68
+      "seconds": 0.81
     },
     {
       "full_name": "atharvv8/Gemini-Powered-AI-App",
@@ -536,7 +536,7 @@
       "manifests": 1,
       "files": 3,
       "withheld": [],
-      "seconds": 2.0
+      "seconds": 0.79
     },
     {
       "full_name": "chirag6521/Multilingual-AI-Assistant",
@@ -569,7 +569,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.09
+      "seconds": 0.79
     },
     {
       "full_name": "sito-sikino/avatar-ui-core",
@@ -580,7 +580,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.45
+      "seconds": 0.83
     },
     {
       "full_name": "whitehatboy005/AI-Chatbot",
@@ -642,7 +642,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.63
+      "seconds": 0.8
     },
     {
       "full_name": "sumitx99/Calories-Estimator",
@@ -650,10 +650,10 @@
       "band": "size:1000..4000",
       "blocked": null,
       "used": 4,
-      "manifests": 0,
-      "files": 1,
+      "manifests": 1,
+      "files": 2,
       "withheld": [],
-      "seconds": 1.62
+      "seconds": 0.78
     },
     {
       "full_name": "AyaanKhaan5/Story_Create_AI_Agent",
@@ -662,9 +662,81 @@
       "blocked": null,
       "used": 8,
       "manifests": 1,
-      "files": 3,
-      "withheld": [],
-      "seconds": 1.81
+      "files": 0,
+      "withheld": [
+        {
+          "path": "backend.py",
+          "line": 1,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "backend.py",
+          "line": 4,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "backend.py",
+          "line": 6,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "backend.py",
+          "line": 38,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "ui.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "ui.py",
+          "line": 8,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "ui.py",
+          "line": 42,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "ui.py",
+          "line": 44,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        }
+      ],
+      "seconds": 0.86
     },
     {
       "full_name": "gecitemre/issue-filler",
@@ -727,7 +799,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.75
+      "seconds": 0.79
     },
     {
       "full_name": "YuvBindal/FinBloom",
@@ -738,7 +810,7 @@
       "manifests": 0,
       "files": 2,
       "withheld": [],
-      "seconds": 7.41
+      "seconds": 6.47
     },
     {
       "full_name": "LJX2017/A-Song-of-Ice-and-Fire",
@@ -854,7 +926,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.45
+      "seconds": 1.3
     },
     {
       "full_name": "Hiba550/Google-DeepMind-for-Discord",
@@ -863,9 +935,49 @@
       "blocked": null,
       "used": 4,
       "manifests": 1,
-      "files": 2,
-      "withheld": [],
-      "seconds": 1.63
+      "files": 0,
+      "withheld": [
+        {
+          "path": "dm.py",
+          "line": 3,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "dm.py",
+          "line": 13,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "dm.py",
+          "line": 42,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "dm.py",
+          "line": 55,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 0.76
     },
     {
       "full_name": "niteshsharmacodes/GenAI-powered-Invoice-Scanner",
@@ -918,7 +1030,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.65
+      "seconds": 0.76
     },
     {
       "full_name": "aniketsingh1023/HTM-5.0-Tier3Hackers",
@@ -981,7 +1093,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.83
+      "seconds": 1.05
     },
     {
       "full_name": "silky-modi22/Video-Transcribe-Summarizer",
@@ -992,7 +1104,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.88
+      "seconds": 0.76
     },
     {
       "full_name": "mukul-mschauhan/imagetotext",
@@ -1003,7 +1115,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.86
+      "seconds": 0.77
     },
     {
       "full_name": "Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents",
@@ -1060,7 +1172,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.7
+      "seconds": 0.78
     },
     {
       "full_name": "Satheesh2908/AI-Assistant-for-Satheesh",
@@ -1120,7 +1232,7 @@
           ]
         }
       ],
-      "seconds": 2.14
+      "seconds": 0.91
     },
     {
       "full_name": "samar45/yt_summarizer_and_QA",
@@ -1131,7 +1243,7 @@
       "manifests": 0,
       "files": 2,
       "withheld": [],
-      "seconds": 2.32
+      "seconds": 1.0
     },
     {
       "full_name": "PriyanshuDey23/DiseaseDetectAI",
@@ -1142,7 +1254,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.64
+      "seconds": 0.76
     },
     {
       "full_name": "ansarifaisal12/PharmaSQL",
@@ -1153,7 +1265,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.62
+      "seconds": 0.77
     },
     {
       "full_name": "000wan/ara-ai-bot",
@@ -1236,7 +1348,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.69
+      "seconds": 0.8
     },
     {
       "full_name": "ananyajoshi0707/twachic",
@@ -1304,7 +1416,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 7.01
+      "seconds": 6.59
     },
     {
       "full_name": "Shriii04/GramSwastya",
@@ -1427,7 +1539,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 28.79
+      "seconds": 8.91
     },
     {
       "full_name": "SureboyPR/Goodness_Medical_Center_Chatbot",
@@ -1438,7 +1550,7 @@
       "manifests": 0,
       "files": 1,
       "withheld": [],
-      "seconds": 11.29
+      "seconds": 7.33
     },
     {
       "full_name": "pareekshitreddy/QuerySense-Natural-Language-to-SQL-Converter-Database-Query-Tool",
@@ -1449,7 +1561,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 13.42
+      "seconds": 8.6
     },
     {
       "full_name": "miguel-webplace/questiFy",
@@ -1519,7 +1631,7 @@
           ]
         }
       ],
-      "seconds": 1.65
+      "seconds": 0.74
     },
     {
       "full_name": "Sharukesh3/LLM-for-hydrogen-storage",
@@ -1653,7 +1765,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.12
+      "seconds": 1.0
     },
     {
       "full_name": "yihong0618/tg_bing_dalle",
@@ -1732,7 +1844,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.04
+      "seconds": 1.27
     },
     {
       "full_name": "KalyanM45/OpenHealth",
@@ -1743,7 +1855,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 5.46
+      "seconds": 1.64
     },
     {
       "full_name": "Hrishikesh332/Nutrisnap-app-real",
@@ -1808,7 +1920,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.92
+      "seconds": 0.89
     },
     {
       "full_name": "rainepera/sabIA-ImersaoIA-2025",
@@ -1817,9 +1929,70 @@
       "blocked": null,
       "used": 7,
       "manifests": 1,
-      "files": 2,
-      "withheld": [],
-      "seconds": 4.97
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 1,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 6,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 9,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 23,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 38,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 51,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 69,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 0.86
     },
     {
       "full_name": "venkataRahulBabu/Chat-PDF-python",
@@ -1830,7 +2003,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.18
+      "seconds": 0.9
     },
     {
       "full_name": "ashishkumar5de/PDF-QL",
@@ -1841,7 +2014,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.16
+      "seconds": 0.88
     },
     {
       "full_name": "samkamau81/Literature_RAG",
@@ -1852,7 +2025,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.73
+      "seconds": 0.88
     },
     {
       "full_name": "Samitha-Edirisinghe/AI-Powered-Resume-Matching-System-CV-Embed",
@@ -1861,9 +2034,49 @@
       "blocked": null,
       "used": 4,
       "manifests": 1,
-      "files": 2,
-      "withheld": [],
-      "seconds": 8.86
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 6,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 17,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 34,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 149,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 16,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.16
     },
     {
       "full_name": "Triveni-35/AI-powered-MCQ-Generator",
@@ -1874,7 +2087,7 @@
       "manifests": 0,
       "files": 1,
       "withheld": [],
-      "seconds": 1.73
+      "seconds": 0.92
     },
     {
       "full_name": "Vaibhav8299/Conversational_AI_App",
@@ -2050,7 +2263,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.51
+      "seconds": 1.79
     },
     {
       "full_name": "Jyotish2002/PdfQuestions",
@@ -2108,7 +2321,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.8
+      "seconds": 0.93
     },
     {
       "full_name": "RedLordezh7Venom/VPeakFit",
@@ -2168,7 +2381,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.56
+      "seconds": 1.17
     },
     {
       "full_name": "nishankhareln/LangchainBot",
@@ -2176,10 +2389,10 @@
       "band": "size:4000..16000",
       "blocked": null,
       "used": 2,
-      "manifests": 0,
-      "files": 1,
+      "manifests": 1,
+      "files": 2,
       "withheld": [],
-      "seconds": 1.88
+      "seconds": 1.04
     },
     {
       "full_name": "Faiza-makhdoom/RAG-chatbot1",
@@ -2190,7 +2403,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.75
+      "seconds": 0.9
     },
     {
       "full_name": "Vinay-Krishna-Sarangapni/AI-powered-document-query-assistant",
@@ -2199,9 +2412,49 @@
       "blocked": null,
       "used": 4,
       "manifests": 1,
-      "files": 2,
-      "withheld": [],
-      "seconds": 1.92
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 13,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 20,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 131,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 146,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 10,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.05
     },
     {
       "full_name": "PreeBh/E2EQuerymultiplePDFsGoogleGemini",
@@ -2209,10 +2462,10 @@
       "band": "size:4000..16000",
       "blocked": null,
       "used": 2,
-      "manifests": 0,
-      "files": 1,
+      "manifests": 1,
+      "files": 2,
       "withheld": [],
-      "seconds": 1.73
+      "seconds": 0.82
     },
     {
       "full_name": "madanrajsagar/ResearchIQ",
@@ -2265,7 +2518,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.05
+      "seconds": 1.01
     },
     {
       "full_name": "Adiwanwade/pdf-chat-gemini",
@@ -2276,7 +2529,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.75
+      "seconds": 0.85
     },
     {
       "full_name": "Imran-ml/Chat_with_PDF_using_Gemini",
@@ -2311,7 +2564,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.93
+      "seconds": 0.89
     },
     {
       "full_name": "Abhisach687/bot-to-generate-MCQ-based-on-uploaded-pdf-webpage",
@@ -2322,7 +2575,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.83
+      "seconds": 0.92
     },
     {
       "full_name": "sobit-nep/samvaad-ai",
@@ -2333,7 +2586,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.72
+      "seconds": 0.88
     },
     {
       "full_name": "rajveerkhanduja/QueryMate",
@@ -2344,7 +2597,7 @@
       "manifests": 1,
       "files": 3,
       "withheld": [],
-      "seconds": 2.23
+      "seconds": 1.46
     },
     {
       "full_name": "SANTANUNAYAK19/AI-Vision-Assistant",
@@ -2379,7 +2632,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.23
+      "seconds": 1.01
     },
     {
       "full_name": "Anish-Ramesh/Doctor_Booker",
@@ -2430,7 +2683,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.31
+      "seconds": 0.96
     },
     {
       "full_name": "AdithyaPathakoti/Mediease",
@@ -2441,7 +2694,7 @@
       "manifests": 0,
       "files": 1,
       "withheld": [],
-      "seconds": 1.8
+      "seconds": 0.93
     },
     {
       "full_name": "Sai-Ashritha/Building-AI-Powered-Solution-for-Assisting-Visually-Impaired-Individuals",
@@ -2476,7 +2729,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.65
+      "seconds": 0.82
     },
     {
       "full_name": "aprameyak/GitaGPT",
@@ -2527,7 +2780,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.18
+      "seconds": 0.92
     },
     {
       "full_name": "Zierax/HackerHelper",
@@ -2567,7 +2820,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.43
+      "seconds": 1.16
     },
     {
       "full_name": "YOGANAND2003/chatbot-rag-streamlit-main",
@@ -2822,7 +3075,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.96
+      "seconds": 2.33
     },
     {
       "full_name": "ntiglao-umd/k-12mlsupport",
@@ -2831,9 +3084,77 @@
       "blocked": null,
       "used": 8,
       "manifests": 1,
-      "files": 2,
-      "withheld": [],
-      "seconds": 3.71
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app2.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app2.py",
+          "line": 11,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app2.py",
+          "line": 12,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app2.py",
+          "line": 13,
+          "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app2.py",
+          "line": 80,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app2.py",
+          "line": 88,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app2.py",
+          "line": 102,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app2.py",
+          "line": 114,
+          "symbol": "google.generativeai.ChatSession.send_message",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 15,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 1.02
     },
     {
       "full_name": "NJP6969/star-hack",
@@ -2983,7 +3304,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.18
+      "seconds": 2.03
     },
     {
       "full_name": "RuntimeAI/silly-merchants-for-safe-hackathon",
@@ -3043,7 +3364,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.96
+      "seconds": 0.95
     },
     {
       "full_name": "01-191-MaxavierGirvanusManurung/Tugas3-PAW",
@@ -3052,9 +3373,49 @@
       "blocked": null,
       "used": 4,
       "manifests": 1,
-      "files": 2,
-      "withheld": [],
-      "seconds": 4.05
+      "files": 0,
+      "withheld": [
+        {
+          "path": "backend/app.py",
+          "line": 8,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "backend/app.py",
+          "line": 29,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "backend/app.py",
+          "line": 84,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "backend/app.py",
+          "line": 93,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "backend/requirements.txt",
+          "line": 8,
+          "symbol": "google-generativeai",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "seconds": 0.97
     },
     {
       "full_name": "AKMessi/AI-IPO-Analyst",
@@ -3065,7 +3426,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.11
+      "seconds": 1.19
     },
     {
       "full_name": "xNabil/discord-ai-bot",
@@ -3202,7 +3563,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.65
+      "seconds": 3.79
     },
     {
       "full_name": "quangkhai5122/ASL_Pytorch",
@@ -3278,7 +3639,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 5.43
+      "seconds": 3.71
     },
     {
       "full_name": "kvcops/Virtual-Herbal-Garden",
@@ -3287,9 +3648,174 @@
       "blocked": null,
       "used": 20,
       "manifests": 0,
-      "files": 1,
-      "withheld": [],
-      "seconds": 17.76
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 17,
+          "symbol": "google.generativeai.types",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 29,
+          "symbol": "google.generativeai.types.GenerationConfig",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 38,
+          "symbol": "google.generativeai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 38,
+          "symbol": "google.generativeai.types.HarmBlockThreshold.BLOCK_NONE",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 39,
+          "symbol": "google.generativeai.types.HarmCategory.HARM_CATEGORY_HARASSMENT",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 39,
+          "symbol": "google.generativeai.types.HarmBlockThreshold.BLOCK_NONE",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 40,
+          "symbol": "google.generativeai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 40,
+          "symbol": "google.generativeai.types.HarmBlockThreshold.BLOCK_NONE",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 41,
+          "symbol": "google.generativeai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 41,
+          "symbol": "google.generativeai.types.HarmBlockThreshold.BLOCK_NONE",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 47,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 48,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 249,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 253,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 506,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 543,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 597,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 628,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 661,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        }
+      ],
+      "seconds": 2.17
     },
     {
       "full_name": "Wang-Haining/CMD-AInotator",
@@ -3342,7 +3868,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.92
+      "seconds": 1.91
     },
     {
       "full_name": "hari7261/Negotiation-MultiAgent",
@@ -3400,7 +3926,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.78
+      "seconds": 1.75
     },
     {
       "full_name": "malikEhsan09/RAG_Gemini",
@@ -3435,7 +3961,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.9
+      "seconds": 0.97
     },
     {
       "full_name": "AIApproach/AI-Approach-Chat",
@@ -3545,7 +4071,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.34
+      "seconds": 2.26
     },
     {
       "full_name": "kumareshbasu/Swasthya_AI",
@@ -3554,7 +4080,7 @@
       "blocked": null,
       "used": 17,
       "manifests": 1,
-      "files": 2,
+      "files": 0,
       "withheld": [
         {
           "path": "actions/actions.py",
@@ -3646,6 +4172,56 @@
           ]
         },
         {
+          "path": "app.py",
+          "line": 16,
+          "symbol": "google.generativeai",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 41,
+          "symbol": "google.generativeai.configure",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 521,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 522,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "response_shape_changed"
+          ]
+        },
+        {
+          "path": "app.py",
+          "line": 1627,
+          "symbol": "google.generativeai.GenerativeModel",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
+          "path": "app.py",
+          "line": 1628,
+          "symbol": "google.generativeai.GenerativeModel.generate_content",
+          "bail": "response_shape_changed",
+          "caused_by": null
+        },
+        {
           "path": "requirements.txt",
           "line": 54,
           "symbol": "google-generativeai",
@@ -3653,7 +4229,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 6.95
+      "seconds": 4.21
     },
     {
       "full_name": "niyati34/CaseyAi",
@@ -3716,7 +4292,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.67
+      "seconds": 2.43
     },
     {
       "full_name": "Sarthak061/ATMECS-Hackathon",
@@ -3784,7 +4360,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.12
+      "seconds": 1.47
     },
     {
       "full_name": "taitran501/dashboard_app",
@@ -3857,7 +4433,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.55
+      "seconds": 1.5
     },
     {
       "full_name": "Abhijeet212004/AIvestor",
@@ -3922,7 +4498,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 6.21
+      "seconds": 5.44
     },
     {
       "full_name": "BeraEkmekci/leonis-task-app",
@@ -3973,7 +4549,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 4.1
+      "seconds": 2.88
     },
     {
       "full_name": "AyaCherqi/Football",
@@ -4058,7 +4634,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 5.61
+      "seconds": 4.1
     }
   ]
 }

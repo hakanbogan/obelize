@@ -1,8 +1,8 @@
 {
-  "obelize_version": "0.1.0",
+  "obelize_version": "0.5.0",
   "pack": "gemini/google-generativeai-to-google-genai",
-  "pack_sha256": "fbe82d40afea4894fb756e0128f21889e08c210a2a5b0d2cfe7db0dae8187175",
-  "spec_sha256": "2195fa003c3070aa1ad58d9adec097883984f1cdafab2556b53bfc563428fb2d",
+  "pack_sha256": "5017c6856ceb122c86fd13377b2ee4e8156741433d484ad46aa1ea4c97f728f7",
+  "spec_sha256": "fa59b7a16c9d722b841a8eab71503bc7dddccc8f83ca436a50632f7c7f7c17ba",
   "python": "3.12.9",
   "machine": "arm64",
   "os": "Darwin",
@@ -21,8 +21,9 @@
         "not_a_usage": 0
       },
       "runtime": {
-        "declared": null,
-        "blocked": false
+        "declared": ">=3.8",
+        "path": "setup.py",
+        "blocked": true
       },
       "findings": [
         {
@@ -166,7 +167,7 @@
           "bail": "multiple_configure_calls"
         }
       ],
-      "seconds": 3.74
+      "seconds": 1.41
     },
     {
       "full_name": "aryanbrite/project-ai",
@@ -601,7 +602,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.98
+      "seconds": 2.02
     },
     {
       "full_name": "SONA1114/CHATBOT",
@@ -694,7 +695,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.65
+      "seconds": 0.83
     },
     {
       "full_name": "Prateek07-Kumar/End-To-End-Projects-Generative-AI-Google-Gemini-",
@@ -703,8 +704,8 @@
       "counts": {
         "files_selected": 123,
         "files_parsed": 8,
-        "findings": 38,
-        "eligible": 38,
+        "findings": 44,
+        "eligible": 44,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -714,6 +715,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "Chat-with-Multiple-PDF-using-Gemini/app.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "Chat-with-Multiple-PDF-using-Gemini/app.py",
           "line": 6,
@@ -733,12 +743,30 @@
           "scan_status": "eligible"
         },
         {
+          "path": "Chat-with-Multiple-PDF-using-Gemini/app.py",
+          "line": 25,
+          "column": 20,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
           "path": "Chat-with-Multiple-PDF-using-Gemini/requirements.txt",
           "line": 2,
           "column": 0,
           "kind": "manifest",
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Chat-with-Multiple-PDF-using-Gemini/requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
           "scan_status": "eligible"
         },
         {
@@ -958,6 +986,15 @@
           "scan_status": "eligible"
         },
         {
+          "path": "healthapp/requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
           "path": "invoice extractor/app.py",
           "line": 7,
           "column": 0,
@@ -1000,6 +1037,15 @@
           "kind": "manifest",
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "invoice extractor/requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
           "scan_status": "eligible"
         },
         {
@@ -1055,9 +1101,18 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 4.75
+      "seconds": 8.6
     },
     {
       "full_name": "Momen2410/Question-Answering-ChatBot-Using-Gemini1.5",
@@ -1132,7 +1187,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.98
+      "seconds": 0.95
     },
     {
       "full_name": "ShreyasGandhi0607/Gemini-Project",
@@ -1243,7 +1298,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.0
+      "seconds": 0.85
     },
     {
       "full_name": "atharvv8/Gemini-Powered-AI-App",
@@ -1354,7 +1409,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.04
+      "seconds": 0.91
     },
     {
       "full_name": "chirag6521/Multilingual-AI-Assistant",
@@ -1449,7 +1504,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.93
+      "seconds": 0.92
     },
     {
       "full_name": "sito-sikino/avatar-ui-core",
@@ -1524,7 +1579,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.42
+      "seconds": 0.95
     },
     {
       "full_name": "whitehatboy005/AI-Chatbot",
@@ -1599,7 +1654,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.81
+      "seconds": 0.87
     },
     {
       "full_name": "sumitx99/Calories-Estimator",
@@ -1608,8 +1663,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 4,
-        "eligible": 4,
+        "findings": 5,
+        "eligible": 5,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -1654,9 +1709,18 @@
           "confidence_reason": "receiver_bound_same_scope",
           "symbol": "google.generativeai.GenerativeModel.generate_content",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirement.txt",
+          "line": 2,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 2.98
+      "seconds": 0.87
     },
     {
       "full_name": "AyaanKhaan5/Story_Create_AI_Agent",
@@ -1758,7 +1822,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 3.72
+      "seconds": 0.93
     },
     {
       "full_name": "gecitemre/issue-filler",
@@ -1851,7 +1915,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.9
+      "seconds": 0.9
     },
     {
       "full_name": "YuvBindal/FinBloom",
@@ -1944,7 +2008,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 9.1
+      "seconds": 6.05
     },
     {
       "full_name": "LJX2017/A-Song-of-Ice-and-Fire",
@@ -2178,7 +2242,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.51
+      "seconds": 1.18
     },
     {
       "full_name": "Hiba550/Google-DeepMind-for-Discord",
@@ -2244,7 +2308,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.9
+      "seconds": 1.19
     },
     {
       "full_name": "niteshsharmacodes/GenAI-powered-Invoice-Scanner",
@@ -2323,7 +2387,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.98
+      "seconds": 0.85
     },
     {
       "full_name": "aniketsingh1023/HTM-5.0-Tier3Hackers",
@@ -2497,7 +2561,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 3.24
+      "seconds": 0.98
     },
     {
       "full_name": "silky-modi22/Video-Transcribe-Summarizer",
@@ -2563,7 +2627,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.65
+      "seconds": 0.81
     },
     {
       "full_name": "mukul-mschauhan/imagetotext",
@@ -2638,7 +2702,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.63
+      "seconds": 0.81
     },
     {
       "full_name": "Omadithya07/Phidata-Multimodal-Video-Summarizer-Using-AI-Agents",
@@ -2713,7 +2777,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.61
+      "seconds": 0.86
     },
     {
       "full_name": "Satheesh2908/AI-Assistant-for-Satheesh",
@@ -2806,7 +2870,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.26
+      "seconds": 0.85
     },
     {
       "full_name": "samar45/yt_summarizer_and_QA",
@@ -2917,7 +2981,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.36
+      "seconds": 1.01
     },
     {
       "full_name": "PriyanshuDey23/DiseaseDetectAI",
@@ -2983,7 +3047,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.65
+      "seconds": 0.81
     },
     {
       "full_name": "ansarifaisal12/PharmaSQL",
@@ -2992,9 +3056,9 @@
       "counts": {
         "files_selected": 2,
         "files_parsed": 1,
-        "findings": 5,
+        "findings": 6,
         "eligible": 5,
-        "needs_review": 0,
+        "needs_review": 1,
         "unsupported": 0,
         "not_a_usage": 0
       },
@@ -3047,9 +3111,19 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "needs_review",
+          "bail": "manifest_code_mismatch"
         }
       ],
-      "seconds": 1.65
+      "seconds": 0.87
     },
     {
       "full_name": "000wan/ara-ai-bot",
@@ -3065,7 +3139,8 @@
         "not_a_usage": 0
       },
       "runtime": {
-        "declared": null,
+        "declared": "==3.10.*",
+        "path": "Pipfile",
         "blocked": false
       },
       "findings": [
@@ -3172,7 +3247,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 1.83
+      "seconds": 0.83
     },
     {
       "full_name": "ananyajoshi0707/twachic",
@@ -3180,10 +3255,10 @@
       "band": "size:1000..4000",
       "counts": {
         "files_selected": 18,
-        "files_parsed": 1,
-        "findings": 8,
-        "eligible": 0,
-        "needs_review": 8,
+        "files_parsed": 3,
+        "findings": 12,
+        "eligible": 3,
+        "needs_review": 9,
         "unsupported": 0,
         "not_a_usage": 0
       },
@@ -3192,6 +3267,24 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "SkinAnalyzer/skin_app/ai_doctor_recommend.py",
+          "line": 4,
+          "column": 15,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "openai.ChatCompletion.create",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "SkinAnalyzer/skin_app/ai_skin_analysis.py",
+          "line": 8,
+          "column": 19,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "openai.Image.create",
+          "scan_status": "eligible"
+        },
         {
           "path": "SkinAnalyzer/skin_app/views.py",
           "line": 9,
@@ -3271,9 +3364,28 @@
           "symbol": "google-generativeai",
           "scan_status": "needs_review",
           "bail": "repo_not_fully_migrated"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 92,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "openai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 113,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "needs_review",
+          "bail": "manifest_code_mismatch"
         }
       ],
-      "seconds": 12.81
+      "seconds": 6.69
     },
     {
       "full_name": "Shriii04/GramSwastya",
@@ -3488,7 +3600,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 18.33
+      "seconds": 9.01
     },
     {
       "full_name": "SureboyPR/Goodness_Medical_Center_Chatbot",
@@ -3545,7 +3657,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 13.07
+      "seconds": 7.4
     },
     {
       "full_name": "pareekshitreddy/QuerySense-Natural-Language-to-SQL-Converter-Database-Query-Tool",
@@ -3611,7 +3723,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 16.25
+      "seconds": 8.87
     },
     {
       "full_name": "miguel-webplace/questiFy",
@@ -3714,7 +3826,7 @@
           ]
         }
       ],
-      "seconds": 1.73
+      "seconds": 0.8
     },
     {
       "full_name": "Sharukesh3/LLM-for-hydrogen-storage",
@@ -3722,9 +3834,9 @@
       "band": "size:1000..4000",
       "counts": {
         "files_selected": 5,
-        "files_parsed": 2,
-        "findings": 14,
-        "eligible": 0,
+        "files_parsed": 3,
+        "findings": 16,
+        "eligible": 2,
         "needs_review": 10,
         "unsupported": 4,
         "not_a_usage": 0
@@ -3734,6 +3846,24 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "Model.py",
+          "line": 1,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "Model.py",
+          "line": 18,
+          "column": 29,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
         {
           "path": "dataset_prep/gemini.py",
           "line": 2,
@@ -3907,7 +4037,7 @@
           "bail": "attribute_removed"
         }
       ],
-      "seconds": 3.34
+      "seconds": 1.24
     },
     {
       "full_name": "yihong0618/tg_bing_dalle",
@@ -4028,7 +4158,7 @@
           "bail": "client_source_unresolved"
         }
       ],
-      "seconds": 1.95
+      "seconds": 1.22
     },
     {
       "full_name": "KalyanM45/OpenHealth",
@@ -4121,7 +4251,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 6.67
+      "seconds": 1.34
     },
     {
       "full_name": "Hrishikesh332/Nutrisnap-app-real",
@@ -4218,7 +4348,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.0
+      "seconds": 0.97
     },
     {
       "full_name": "rainepera/sabIA-ImersaoIA-2025",
@@ -4311,7 +4441,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.35
+      "seconds": 0.86
     },
     {
       "full_name": "venkataRahulBabu/Chat-PDF-python",
@@ -4320,8 +4450,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -4331,6 +4461,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 6,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 10,
@@ -4350,6 +4489,15 @@
           "scan_status": "eligible"
         },
         {
+          "path": "app.py",
+          "line": 42,
+          "column": 13,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 5,
           "column": 0,
@@ -4357,9 +4505,18 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 9,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 2.07
+      "seconds": 0.99
     },
     {
       "full_name": "ashishkumar5de/PDF-QL",
@@ -4368,8 +4525,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -4379,6 +4536,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 5,
@@ -4398,6 +4564,15 @@
           "scan_status": "eligible"
         },
         {
+          "path": "app.py",
+          "line": 21,
+          "column": 25,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 2,
           "column": 0,
@@ -4405,9 +4580,18 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 2.38
+      "seconds": 1.01
     },
     {
       "full_name": "samkamau81/Literature_RAG",
@@ -4416,8 +4600,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -4427,6 +4611,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 7,
@@ -4446,6 +4639,15 @@
           "scan_status": "eligible"
         },
         {
+          "path": "app.py",
+          "line": 25,
+          "column": 20,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 2,
           "column": 0,
@@ -4453,9 +4655,18 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 1.71
+      "seconds": 0.93
     },
     {
       "full_name": "Samitha-Edirisinghe/AI-Powered-Resume-Matching-System-CV-Embed",
@@ -4463,9 +4674,9 @@
       "band": "size:4000..16000",
       "counts": {
         "files_selected": 19,
-        "files_parsed": 1,
-        "findings": 5,
-        "eligible": 5,
+        "files_parsed": 2,
+        "findings": 8,
+        "eligible": 8,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -4513,15 +4724,42 @@
         },
         {
           "path": "requirements.txt",
+          "line": 7,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
           "line": 16,
           "column": 0,
           "kind": "manifest",
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "resume_processor.py",
+          "line": 4,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "resume_processor.py",
+          "line": 12,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 15.87
+      "seconds": 2.11
     },
     {
       "full_name": "Triveni-35/AI-powered-MCQ-Generator",
@@ -4578,7 +4816,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.69
+      "seconds": 0.91
     },
     {
       "full_name": "Vaibhav8299/Conversational_AI_App",
@@ -4797,7 +5035,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.01
+      "seconds": 1.23
     },
     {
       "full_name": "Jyotish2002/PdfQuestions",
@@ -4806,8 +5044,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 6,
-        "eligible": 6,
+        "findings": 9,
+        "eligible": 9,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -4817,6 +5055,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 12,
@@ -4833,6 +5080,15 @@
           "kind": "call",
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
+          "line": 31,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
           "scan_status": "eligible"
         },
         {
@@ -4864,6 +5120,15 @@
         },
         {
           "path": "requirements.txt",
+          "line": 2,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
           "line": 7,
           "column": 0,
           "kind": "manifest",
@@ -4872,7 +5137,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.68
+      "seconds": 1.0
     },
     {
       "full_name": "RedLordezh7Venom/VPeakFit",
@@ -5015,7 +5280,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 3.8
+      "seconds": 1.14
     },
     {
       "full_name": "nishankhareln/LangchainBot",
@@ -5024,8 +5289,8 @@
       "counts": {
         "files_selected": 10,
         "files_parsed": 1,
-        "findings": 2,
-        "eligible": 2,
+        "findings": 3,
+        "eligible": 3,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5052,9 +5317,18 @@
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai.configure",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirement.txt",
+          "line": 39,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 1.71
+      "seconds": 0.91
     },
     {
       "full_name": "Faiza-makhdoom/RAG-chatbot1",
@@ -5063,8 +5337,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5074,6 +5348,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 4,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 11,
@@ -5093,6 +5376,15 @@
           "scan_status": "eligible"
         },
         {
+          "path": "app.py",
+          "line": 43,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 2,
           "column": 0,
@@ -5100,9 +5392,18 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 15,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 1.61
+      "seconds": 0.95
     },
     {
       "full_name": "Vinay-Krishna-Sarangapni/AI-powered-document-query-assistant",
@@ -5111,8 +5412,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 5,
-        "eligible": 5,
+        "findings": 8,
+        "eligible": 8,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5122,6 +5423,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 7,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 13,
@@ -5138,6 +5448,15 @@
           "kind": "call",
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
+          "line": 26,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
           "scan_status": "eligible"
         },
         {
@@ -5160,6 +5479,15 @@
         },
         {
           "path": "requirements.txt",
+          "line": 4,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
           "line": 10,
           "column": 0,
           "kind": "manifest",
@@ -5168,7 +5496,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.64
+      "seconds": 1.09
     },
     {
       "full_name": "PreeBh/E2EQuerymultiplePDFsGoogleGemini",
@@ -5177,8 +5505,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 2,
-        "eligible": 2,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5188,6 +5516,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 6,
@@ -5205,9 +5542,36 @@
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai.configure",
           "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
+          "line": 22,
+          "column": 19,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirement.txt",
+          "line": 2,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "google-generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirement.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 1.61
+      "seconds": 0.89
     },
     {
       "full_name": "madanrajsagar/ResearchIQ",
@@ -5215,18 +5579,95 @@
       "band": "size:4000..16000",
       "counts": {
         "files_selected": 15,
-        "files_parsed": 2,
-        "findings": 6,
+        "files_parsed": 3,
+        "findings": 17,
         "eligible": 0,
-        "needs_review": 5,
+        "needs_review": 8,
         "unsupported": 0,
-        "not_a_usage": 1
+        "not_a_usage": 9
       },
       "runtime": {
         "declared": null,
         "blocked": false
       },
       "findings": [
+        {
+          "path": "modules/extractor.py",
+          "line": 4,
+          "column": 31,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "modules/extractor.py",
+          "line": 14,
+          "column": 38,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "modules/extractor.py",
+          "line": 29,
+          "column": 57,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "modules/extractor.py",
+          "line": 31,
+          "column": 9,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "modules/extractor.py",
+          "line": 33,
+          "column": 8,
+          "kind": "import",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "needs_review",
+          "bail": "local_import"
+        },
+        {
+          "path": "modules/extractor.py",
+          "line": 35,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "needs_review",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "local_import"
+          ]
+        },
+        {
+          "path": "modules/extractor.py",
+          "line": 40,
+          "column": 22,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "modules/extractor.py",
+          "line": 42,
+          "column": 23,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
         {
           "path": "modules/similarity.py",
           "line": 152,
@@ -5278,6 +5719,16 @@
         },
         {
           "path": "requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "needs_review",
+          "bail": "repo_not_fully_migrated"
+        },
+        {
+          "path": "requirements.txt",
           "line": 26,
           "column": 0,
           "kind": "manifest",
@@ -5285,6 +5736,24 @@
           "symbol": "google-generativeai",
           "scan_status": "needs_review",
           "bail": "repo_not_fully_migrated"
+        },
+        {
+          "path": "run.py",
+          "line": 43,
+          "column": 10,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "run.py",
+          "line": 43,
+          "column": 29,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
         },
         {
           "path": "run.py",
@@ -5296,7 +5765,7 @@
           "scan_status": "not_a_usage"
         }
       ],
-      "seconds": 2.04
+      "seconds": 1.28
     },
     {
       "full_name": "Adiwanwade/pdf-chat-gemini",
@@ -5305,8 +5774,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5316,6 +5785,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 6,
@@ -5335,6 +5813,24 @@
           "scan_status": "eligible"
         },
         {
+          "path": "app.py",
+          "line": 27,
+          "column": 25,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 7,
           "column": 0,
@@ -5344,7 +5840,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.68
+      "seconds": 0.92
     },
     {
       "full_name": "Imran-ml/Chat_with_PDF_using_Gemini",
@@ -5353,8 +5849,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5366,11 +5862,29 @@
       "findings": [
         {
           "path": "app.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
           "line": 4,
           "column": 0,
           "kind": "import",
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
+          "line": 15,
+          "column": 17,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
           "scan_status": "eligible"
         },
         {
@@ -5384,6 +5898,15 @@
         },
         {
           "path": "requirements.txt",
+          "line": 1,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
           "line": 6,
           "column": 0,
           "kind": "manifest",
@@ -5392,7 +5915,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 2.02
+      "seconds": 0.98
     },
     {
       "full_name": "Abhisach687/bot-to-generate-MCQ-based-on-uploaded-pdf-webpage",
@@ -5401,14 +5924,15 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
       },
       "runtime": {
-        "declared": null,
+        "declared": "==3.11.5",
+        "path": "Pipfile",
         "blocked": false
       },
       "findings": [
@@ -5422,6 +5946,15 @@
           "scan_status": "eligible"
         },
         {
+          "path": "Pipfile",
+          "line": 13,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
           "path": "app.py",
           "line": 8,
           "column": 0,
@@ -5432,15 +5965,33 @@
         },
         {
           "path": "app.py",
+          "line": 14,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
           "line": 19,
           "column": 0,
           "kind": "call",
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai.configure",
           "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
+          "line": 91,
+          "column": 27,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 1.81
+      "seconds": 0.98
     },
     {
       "full_name": "sobit-nep/samvaad-ai",
@@ -5449,8 +6000,8 @@
       "counts": {
         "files_selected": 1,
         "files_parsed": 1,
-        "findings": 3,
-        "eligible": 3,
+        "findings": 6,
+        "eligible": 6,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5460,6 +6011,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 22,
@@ -5479,6 +6039,15 @@
           "scan_status": "eligible"
         },
         {
+          "path": "app.py",
+          "line": 31,
+          "column": 25,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 2,
           "column": 0,
@@ -5486,9 +6055,18 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 1.74
+      "seconds": 0.98
     },
     {
       "full_name": "rajveerkhanduja/QueryMate",
@@ -5497,8 +6075,8 @@
       "counts": {
         "files_selected": 2,
         "files_parsed": 2,
-        "findings": 5,
-        "eligible": 5,
+        "findings": 10,
+        "eligible": 10,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5508,6 +6086,15 @@
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 9,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
         {
           "path": "app.py",
           "line": 12,
@@ -5524,6 +6111,24 @@
           "kind": "call",
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
+          "line": 34,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "progress.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
           "scan_status": "eligible"
         },
         {
@@ -5545,6 +6150,24 @@
           "scan_status": "eligible"
         },
         {
+          "path": "progress.py",
+          "line": 27,
+          "column": 21,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 5,
           "column": 0,
@@ -5554,7 +6177,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.83
+      "seconds": 1.28
     },
     {
       "full_name": "SANTANUNAYAK19/AI-Vision-Assistant",
@@ -5608,7 +6231,7 @@
           "bail": "client_source_unresolved"
         }
       ],
-      "seconds": 1.64
+      "seconds": 0.83
     },
     {
       "full_name": "Anish-Ramesh/Doctor_Booker",
@@ -5674,7 +6297,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.76
+      "seconds": 0.92
     },
     {
       "full_name": "AdithyaPathakoti/Mediease",
@@ -5740,7 +6363,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.74
+      "seconds": 0.88
     },
     {
       "full_name": "Sai-Ashritha/Building-AI-Powered-Solution-for-Assisting-Visually-Impaired-Individuals",
@@ -5794,7 +6417,7 @@
           "bail": "client_source_unresolved"
         }
       ],
-      "seconds": 1.6
+      "seconds": 0.83
     },
     {
       "full_name": "aprameyak/GitaGPT",
@@ -5871,7 +6494,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.18
+      "seconds": 0.96
     },
     {
       "full_name": "Zierax/HackerHelper",
@@ -5932,7 +6555,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.29
+      "seconds": 1.25
     },
     {
       "full_name": "YOGANAND2003/chatbot-rag-streamlit-main",
@@ -5941,8 +6564,8 @@
       "counts": {
         "files_selected": 7,
         "files_parsed": 6,
-        "findings": 29,
-        "eligible": 0,
+        "findings": 39,
+        "eligible": 10,
         "needs_review": 29,
         "unsupported": 0,
         "not_a_usage": 0
@@ -5964,6 +6587,15 @@
           "caused_by": [
             "receiver_unresolved"
           ]
+        },
+        {
+          "path": "pages/\ud83d\udcac_Narrative_Chatbot.py",
+          "line": 9,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         },
         {
           "path": "pages/\ud83d\udcac_Narrative_Chatbot.py",
@@ -6016,6 +6648,15 @@
         },
         {
           "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
+          "line": 9,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
           "line": 27,
           "column": 0,
           "kind": "call",
@@ -6026,6 +6667,15 @@
           "caused_by": [
             "receiver_unresolved"
           ]
+        },
+        {
+          "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
+          "line": 53,
+          "column": 25,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
         },
         {
           "path": "pages/\ud83d\udcc4_PDF_Chatbot.py",
@@ -6062,6 +6712,15 @@
           "caused_by": [
             "receiver_unresolved"
           ]
+        },
+        {
+          "path": "pages/\ud83d\uddbc\ufe0f_Image_Chatbot.py",
+          "line": 9,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         },
         {
           "path": "pages/\ud83d\uddbc\ufe0f_Image_Chatbot.py",
@@ -6110,6 +6769,15 @@
           "bail": "repo_not_fully_migrated"
         },
         {
+          "path": "requirements.txt",
+          "line": 8,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
           "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
           "line": 7,
           "column": 0,
@@ -6124,6 +6792,15 @@
         },
         {
           "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
+          "line": 9,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
           "line": 29,
           "column": 0,
           "kind": "call",
@@ -6134,6 +6811,15 @@
           "caused_by": [
             "receiver_unresolved"
           ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
+          "line": 65,
+          "column": 29,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
         },
         {
           "path": "unused_files/\ud83d\udcc4_All_Chatbot.py",
@@ -6170,6 +6856,15 @@
           "caused_by": [
             "receiver_unresolved"
           ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
+          "line": 9,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         },
         {
           "path": "unused_files/\ud83d\udcc4_PDF_Image_Chatbot.py",
@@ -6245,6 +6940,15 @@
         },
         {
           "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 8,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
           "line": 24,
           "column": 0,
           "kind": "call",
@@ -6255,6 +6959,15 @@
           "caused_by": [
             "receiver_unresolved"
           ]
+        },
+        {
+          "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
+          "line": 44,
+          "column": 25,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
         },
         {
           "path": "unused_files/\ud83d\udcdd_PDF_Text_Chatbot.py",
@@ -6303,7 +7016,7 @@
           "bail": "receiver_unresolved"
         }
       ],
-      "seconds": 3.41
+      "seconds": 2.72
     },
     {
       "full_name": "ntiglao-umd/k-12mlsupport",
@@ -6311,9 +7024,9 @@
       "band": "size:4000..16000",
       "counts": {
         "files_selected": 5,
-        "files_parsed": 2,
-        "findings": 10,
-        "eligible": 9,
+        "files_parsed": 4,
+        "findings": 21,
+        "eligible": 20,
         "needs_review": 0,
         "unsupported": 0,
         "not_a_usage": 1
@@ -6330,6 +7043,15 @@
           "kind": "import",
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app2.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2",
           "scan_status": "eligible"
         },
         {
@@ -6357,6 +7079,15 @@
           "kind": "method_call",
           "confidence_reason": "receiver_bound_same_scope",
           "symbol": "google.generativeai.GenerativeModel.start_chat",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app2.py",
+          "line": 19,
+          "column": 17,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
           "scan_status": "eligible"
         },
         {
@@ -6405,6 +7136,87 @@
           "scan_status": "not_a_usage"
         },
         {
+          "path": "app_proto.py",
+          "line": 3,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app_proto.py",
+          "line": 30,
+          "column": 17,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app_proto2.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app_proto2.py",
+          "line": 32,
+          "column": 17,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app_proto2.py",
+          "line": 42,
+          "column": 13,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app_proto_v1.1.py",
+          "line": 2,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app_proto_v1.1.py",
+          "line": 31,
+          "column": 17,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app_proto_v1.1.py",
+          "line": 41,
+          "column": 13,
+          "kind": "call",
+          "confidence_reason": "direct_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
           "path": "requirements.txt",
           "line": 15,
           "column": 0,
@@ -6414,7 +7226,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 3.45
+      "seconds": 1.86
     },
     {
       "full_name": "NJP6969/star-hack",
@@ -6632,7 +7444,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 2.79
+      "seconds": 1.82
     },
     {
       "full_name": "RuntimeAI/silly-merchants-for-safe-hackathon",
@@ -6722,7 +7534,7 @@
           "bail": "receiver_unresolved"
         }
       ],
-      "seconds": 2.02
+      "seconds": 1.13
     },
     {
       "full_name": "01-191-MaxavierGirvanusManurung/Tugas3-PAW",
@@ -6788,7 +7600,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.89
+      "seconds": 0.91
     },
     {
       "full_name": "AKMessi/AI-IPO-Analyst",
@@ -6845,7 +7657,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 1.72
+      "seconds": 0.99
     },
     {
       "full_name": "xNabil/discord-ai-bot",
@@ -7046,7 +7858,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 3.05
+      "seconds": 2.37
     },
     {
       "full_name": "quangkhai5122/ASL_Pytorch",
@@ -7168,7 +7980,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 3.63
+      "seconds": 2.34
     },
     {
       "full_name": "kvcops/Virtual-Herbal-Garden",
@@ -7369,7 +8181,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 13.27
+      "seconds": 1.66
     },
     {
       "full_name": "Wang-Haining/CMD-AInotator",
@@ -7448,7 +8260,7 @@
           "bail": "receiver_unresolved"
         }
       ],
-      "seconds": 2.3
+      "seconds": 1.9
     },
     {
       "full_name": "hari7261/Negotiation-MultiAgent",
@@ -7553,7 +8365,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 2.15
+      "seconds": 1.23
     },
     {
       "full_name": "malikEhsan09/RAG_Gemini",
@@ -7561,18 +8373,27 @@
       "band": "size:>16000",
       "counts": {
         "files_selected": 2,
-        "files_parsed": 1,
-        "findings": 6,
-        "eligible": 3,
+        "files_parsed": 2,
+        "findings": 14,
+        "eligible": 8,
         "needs_review": 0,
         "unsupported": 0,
-        "not_a_usage": 3
+        "not_a_usage": 6
       },
       "runtime": {
         "declared": null,
         "blocked": false
       },
       "findings": [
+        {
+          "path": "app.py",
+          "line": 2,
+          "column": 7,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
         {
           "path": "app.py",
           "line": 8,
@@ -7593,11 +8414,29 @@
         },
         {
           "path": "app.py",
+          "line": 137,
+          "column": 7,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "app.py",
           "line": 315,
           "column": 9,
           "kind": "text_mention",
           "confidence_reason": "string_or_comment_mention",
           "symbol": "google.generativeai",
+          "scan_status": "not_a_usage"
+        },
+        {
+          "path": "app.py",
+          "line": 319,
+          "column": 7,
+          "kind": "text_mention",
+          "confidence_reason": "string_or_comment_mention",
+          "symbol": "PyPDF2",
           "scan_status": "not_a_usage"
         },
         {
@@ -7611,11 +8450,47 @@
         },
         {
           "path": "app.py",
+          "line": 473,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
           "line": 484,
           "column": 4,
           "kind": "call",
           "confidence_reason": "alias_resolved",
           "symbol": "google.generativeai.configure",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "app.py",
+          "line": 506,
+          "column": 17,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "main.py",
+          "line": 4,
+          "column": 0,
+          "kind": "import",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
+        },
+        {
+          "path": "main.py",
+          "line": 39,
+          "column": 10,
+          "kind": "call",
+          "confidence_reason": "from_import_resolved",
+          "symbol": "PyPDF2.PdfReader",
           "scan_status": "eligible"
         },
         {
@@ -7626,9 +8501,18 @@
           "confidence_reason": "manifest_dependency",
           "symbol": "google-generativeai",
           "scan_status": "eligible"
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "column": 0,
+          "kind": "manifest",
+          "confidence_reason": "manifest_dependency",
+          "symbol": "PyPDF2",
+          "scan_status": "eligible"
         }
       ],
-      "seconds": 1.74
+      "seconds": 1.24
     },
     {
       "full_name": "AIApproach/AI-Approach-Chat",
@@ -7808,7 +8692,7 @@
           "bail": "multiple_assignments"
         }
       ],
-      "seconds": 2.52
+      "seconds": 1.54
     },
     {
       "full_name": "kumareshbasu/Swasthya_AI",
@@ -8030,7 +8914,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 3.95
+      "seconds": 2.3
     },
     {
       "full_name": "niyati34/CaseyAi",
@@ -8160,7 +9044,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 3.05
+      "seconds": 1.65
     },
     {
       "full_name": "Sarthak061/ATMECS-Hackathon",
@@ -8261,7 +9145,7 @@
           "bail": "conditional_binding"
         }
       ],
-      "seconds": 2.87
+      "seconds": 1.22
     },
     {
       "full_name": "taitran501/dashboard_app",
@@ -8368,7 +9252,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 1.99
+      "seconds": 1.23
     },
     {
       "full_name": "Abhijeet212004/AIvestor",
@@ -8452,7 +9336,7 @@
           "scan_status": "eligible"
         }
       ],
-      "seconds": 8.24
+      "seconds": 5.59
     },
     {
       "full_name": "BeraEkmekci/leonis-task-app",
@@ -8529,7 +9413,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 3.26
+      "seconds": 1.78
     },
     {
       "full_name": "AyaCherqi/Football",
@@ -8655,7 +9539,7 @@
           "bail": "repo_not_fully_migrated"
         }
       ],
-      "seconds": 4.59
+      "seconds": 2.42
     }
   ]
 }
