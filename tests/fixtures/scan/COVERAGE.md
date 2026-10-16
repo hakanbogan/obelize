@@ -65,10 +65,10 @@ because task rows, ADRs, fixtures and `bench/errors.yaml` cite gaps by number.
 
 ### What the manifest pass refuses, or cannot see
 
-19. **Three manifest shapes v0 does not read, each for its own reason.** A lockfile (a line edit
-    would break its hashes); an unreadable source file, which does not block the pin's removal; and
-    a `setup.cfg` requirement with a trailing comment, which reads as no legacy pin. *Closes:
-    reading lockfiles, or a measurement that the `setup.cfg` shape occurs.*
+19. **Two manifest shapes v0 does not read, each for its own reason.** A lockfile (a line edit
+    would break its hashes) and an unreadable source file, which does not block the pin's removal.
+    A `setup.cfg` requirement with a trailing comment is a `manifest_pin_shape_unsupported` row
+    (ADR-021 D9). *Closes: reading lockfiles.*
 20. **An attribute read on a receiver that does not resolve.** The scan reports a method call on an
     unresolved receiver (ADR-019 D5) but not an attribute read, so the legacy `ChatSession`
     attributes (`history`, `last`, `rewind`) are missed whenever a chat is passed rather than built
