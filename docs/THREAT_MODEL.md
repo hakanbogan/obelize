@@ -146,7 +146,7 @@ counts the tokens of the longest statement in the replacement and refuses more t
 `replacement_too_large` before libcst sees it. A reply that passes both and still overruns the
 stack in the tree walks is `output_does_not_parse` ([ADR-037](adr/ADR-037-proposal-validation.md)
 D6, D11). The limit covers the replacement only: a file that already holds such an expression is
-read by the scanner, which has the same open item ([KNOWN_ISSUES](KNOWN_ISSUES.md)).
+refused by the scanner's own depth limit ([CLI.md](CLI.md#what-a-selected-file-still-has-to-survive)).
 
 **What it does not cover.** The guard proves an edit safe to apply, not
 correct; `--accept-model` and a reviewer cover the rest. Nothing detects an
