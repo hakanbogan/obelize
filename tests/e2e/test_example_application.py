@@ -18,6 +18,7 @@ from typer.testing import CliRunner, Result
 
 from obelize.cli import app
 from platforms import PYTHON
+from support import git
 
 pytestmark = pytest.mark.e2e
 
@@ -32,14 +33,6 @@ QUIET = f"{PYTHON} -c pass"
 
 # The eleven rows that can never migrate, the two in `config.py` waiting on them, and the pin.
 WITHHELD = 14
-
-
-def git(root: Path, *arguments: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", *arguments],
-        check=True,
-        capture_output=True,
-    )
 
 
 @pytest.fixture(scope="module")

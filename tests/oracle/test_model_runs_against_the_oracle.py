@@ -12,7 +12,6 @@ import json
 import re
 import shutil
 import socket
-import subprocess
 import sys
 import threading
 from dataclasses import dataclass
@@ -26,6 +25,7 @@ from typer.testing import CliRunner
 from obelize.cli import app
 from obelize.providers import openai_compat as adapter
 from platforms import PYTHON
+from support import git
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -125,14 +125,6 @@ def _closed_port() -> int:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         return int(probe.getsockname()[1])
-
-
-def git(root: Path, *arguments: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", *arguments],
-        check=True,
-        capture_output=True,
-    )
 
 
 def prepare(work: Path, case: dict[str, Any], base_url: str, config_home: Path) -> None:

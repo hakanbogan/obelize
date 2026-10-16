@@ -6,7 +6,6 @@ symlink after planning, and a rename failing halfway.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +17,7 @@ from obelize.models import Config
 from obelize.packs import loader
 from obelize.scan import runner, walker
 from obelize.transforms import codemod
+from support import git
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "apply"
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -75,15 +75,6 @@ def copied(source: Path, destination: Path) -> None:
         target = destination / path.relative_to(source)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(path.read_bytes())
-
-
-def git(root: Path, *arguments: str) -> None:
-    """`commit.gpgsign` is off, or a globally signing developer's run stops at a key prompt."""
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", *arguments],
-        check=True,
-        capture_output=True,
-    )
 
 
 def prepare(work: Path, root: Path, state: dict[str, Any]) -> None:

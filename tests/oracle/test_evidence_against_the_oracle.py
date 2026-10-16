@@ -31,6 +31,7 @@ from obelize.models import (
 from obelize.packs import loader
 from obelize.scan import runner, walker
 from obelize.transforms import codemod
+from support import git
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "evidence"
 BUNDLED = loader.load("gemini/google-generativeai-to-google-genai")
@@ -47,14 +48,6 @@ OUTPUT = "1 passed in 0.04s\n"
 
 # One parameter per run, so a failure names the run, not just the repository.
 RUNS = [(name, index) for name in sorted(CASES) for index in range(len(CASES[name]["runs"]))]
-
-
-def git(root: Path, *arguments: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", *arguments],
-        check=True,
-        capture_output=True,
-    )
 
 
 def prepare(work: Path, state: dict[str, Any]) -> None:

@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
 import time
 from collections.abc import Callable
@@ -16,6 +15,7 @@ from typing import Any
 import pytest
 
 import obelize
+import support
 from bench import cases, run
 from obelize.verify import runner
 from platforms import BENCH
@@ -1626,11 +1626,7 @@ def test_a_cutoff_that_uv_would_not_read_is_refused_before_a_round_starts(
 
 
 def git(where: Path, *arguments: str) -> None:
-    subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(where), *arguments],
-        check=True,
-        capture_output=True,
-    )
+    support.git(where, "-c", "user.name=t", "-c", "user.email=t@t", *arguments)
 
 
 def test_the_commit_and_the_tree_are_read_from_this_checkout() -> None:

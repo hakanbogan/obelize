@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -21,6 +20,7 @@ from typer.testing import CliRunner, Result
 from obelize.cli import app
 from obelize.evidence import report
 from platforms import PYTHON, copied
+from support import git
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "commands"
 KEY: dict[str, Any] = yaml.safe_load((ROOT / "answers.yaml").read_text(encoding="utf-8"))
@@ -33,14 +33,6 @@ runner = CliRunner()
 # One parameter per run. A case's runs share one working copy, in order, so `verify` and `undo`
 # can point at an earlier run's folder.
 RUNS = [(name, index) for name in sorted(CASES) for index in range(len(CASES[name]["runs"]))]
-
-
-def git(root: Path, *arguments: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", *arguments],
-        check=True,
-        capture_output=True,
-    )
 
 
 def commit(root: Path, message: str) -> None:

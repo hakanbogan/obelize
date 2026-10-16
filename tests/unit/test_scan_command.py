@@ -17,6 +17,7 @@ import libcst as cst
 import pytest
 from typer.testing import CliRunner, Result
 
+import support
 from obelize import __version__
 from obelize.cli import app
 from obelize.evidence import run_dir
@@ -439,12 +440,8 @@ def test_every_artefact_a_scan_writes_is_there(tree: Path) -> None:
 
 
 def _git(root: Path, *arguments: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t.invalid", *arguments],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
+    identity = ("-c", "user.name=t", "-c", "user.email=t@t.invalid")
+    return support.git(root, *identity, *arguments).stdout.decode()
 
 
 def test_a_scan_leaves_git_nothing_to_add(tree: Path) -> None:
