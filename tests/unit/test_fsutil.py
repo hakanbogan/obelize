@@ -72,6 +72,14 @@ def root(
     shutil.rmtree(base, ignore_errors=True)
 
 
+@pytest.fixture
+def scratch(root: Path) -> Iterator[Path]:
+    """An empty directory beside `root`, reached the way `root` is, for a test that writes."""
+    path = Path(tempfile.mkdtemp(dir=root.parent, prefix="scratch-"))
+    yield path
+    shutil.rmtree(path, ignore_errors=True)
+
+
 def _naive(root: Path, candidate: Path) -> bool:
     """The guard with the root left unresolved: the version that finds nothing."""
     try:
@@ -205,16 +213,16 @@ def test_a_junction_is_refused_as_a_link(tree: Path) -> None:
     assert refusal(tree, tree / "joined") == "symlink"
 
 
-def test_a_listed_path_under_something_that_is_not_a_directory_is_missing(root: Path) -> None:
+def test_a_listed_path_under_something_that_is_not_a_directory_is_missing(scratch: Path) -> None:
     """`ENOTDIR`: the index still names `pkg/app.py` after `pkg` became a file."""
-    (root / "pkg").write_text("", encoding="utf-8", newline="\n")
-    assert refusal(root, root / "pkg" / "app.py") == "missing"
+    (scratch / "pkg").write_text("", encoding="utf-8", newline="\n")
+    assert refusal(scratch, scratch / "pkg" / "app.py") == "missing"
 
 
-def test_a_listed_path_under_a_symbolic_link_loop_is_missing(root: Path) -> None:
+def test_a_listed_path_under_a_symbolic_link_loop_is_missing(scratch: Path) -> None:
     """`ELOOP`: nothing can be at a path whose parent never resolves."""
-    (root / "loop").symlink_to("loop")
-    assert refusal(root, root / "loop" / "app.py") == "missing"
+    (scratch / "loop").symlink_to("loop")
+    assert refusal(scratch, scratch / "loop" / "app.py") == "missing"
 
 
 def test_every_refusal_this_module_can_return_is_a_published_skip_reason(root: Path) -> None:
