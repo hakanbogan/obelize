@@ -746,6 +746,7 @@ def _new(spec: str | None, path: str = "requirements.txt") -> manifests.Declarat
         "^3.0",
         "<4 || ==4.*",
         "!=5.2,<5.1",
+        ">=5,<5.2,!=5.1.*",
     ],
 )
 def test_a_pin_of_the_new_distribution_that_admits_no_release_the_pack_writes_blocks(
@@ -772,6 +773,10 @@ def test_a_pin_of_the_new_distribution_that_admits_no_release_the_pack_writes_bl
         "~=5.1",
         "^5.0",
         ">=5.1,!=5.1",
+        ">=5,!=5.1.*",
+        "!=5.1.*",
+        ">=5.1,!=5.1.*",
+        "!=5.1.*,!=5.2.*,<6",
         ">5.1.3,<5.1.4",
         "<4 || >=5",
         "===5.2",

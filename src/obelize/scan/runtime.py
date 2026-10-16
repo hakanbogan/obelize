@@ -192,7 +192,8 @@ def _reaches(declared: str | None, needed: str) -> bool:
     a block on a string nobody parsed would be a guess.
 
     The two sets meet where some version is in both. One is found at a version either names, just
-    above one, or at 0, since a range of PEP 440 specifiers starts at one of them.
+    above one, the release after one (where `!=6.19.*` ends) or at 0, since a range of PEP 440
+    specifiers starts at one of them.
     """
     found = None if declared is None else alternatives(declared)
     if found is None:
@@ -204,10 +205,21 @@ def _reaches(declared: str | None, needed: str) -> bool:
             named = {Version(item.version.removesuffix(".*")) for item in both}
         except InvalidVersion:  # `===` takes any string
             return True
-        probes = {Version("0"), *named, *(Version(f"{v.base_version}.0.1") for v in named)}
+        probes = {
+            Version("0"),
+            *named,
+            *(Version(f"{version.base_version}.0.1") for version in named),
+            *map(_after, named),
+        }
         if any(both.contains(version, prereleases=True) for version in probes):
             return True
     return False
+
+
+def _after(version: Version) -> Version:
+    """The release after `version` at its own depth: where `!=6.19.*` ends, at 6.20."""
+    *head, last = version.release
+    return Version(".".join(map(str, (*head, last + 1))))
 
 
 def installs(row: Declaration, newest: str) -> bool:
