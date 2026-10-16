@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from obelize.fsutil import WRITE_REFUSALS
 from obelize.models import (
     ATOMICITY_BAIL,
+    BAIL_ACTIONS,
     BAIL_CODES,
     BINDING_KINDS,
     CONFIDENCE_REASONS,
@@ -132,6 +133,16 @@ def test_the_sentences_a_terminal_prints_are_the_ones_the_document_gives() -> No
     body = TEXT[TEXT.index("## 5. ") : TEXT.index("## 6. ")]
     documented = dict(re.findall(r"^\| `([a-z_]+)` \| (.+?) \|", body, re.MULTILINE))
     assert documented == WARNING_MEANINGS
+
+
+def test_every_bail_code_has_the_one_sentence_the_document_gives_beside_it() -> None:
+    body = TEXT[TEXT.index("## 4. ") : TEXT.index("## 5. ")]
+    documented = dict(re.findall(r"^\| `([a-z_]+)` \| .+ \| (.+) \|$", body, re.MULTILINE))
+    assert documented == BAIL_ACTIONS
+    assert set(BAIL_ACTIONS) == BAIL_CODES
+    for code, action in BAIL_ACTIONS.items():
+        assert action.endswith("."), code
+        assert ". " not in action, f"{code} is more than one sentence"
 
 
 def test_the_document_parses_into_the_thirteen_sections_it_claims() -> None:

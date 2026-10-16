@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from obelize import _yaml
 from obelize.config import ConfigError
 from obelize.native import processes, windows_programs
 from obelize.verify import runner
@@ -76,6 +77,11 @@ BROKEN = [
     ('verify:\n  allow: ["pytest |"]\n', "is not valid"),
     ("verify:\n  allow: []\n  allow: []\n", "duplicate key"),
     ("verify: [\n", "not valid YAML"),
+    ("verify: {allow: [!!binary cHl0ZXN0]}\n", "is not valid"),
+    ("pack_dirs: [!!binary L3RtcA==]\n", "is not valid"),
+    ("verify: 2020-13-45\n", "month must be in 1..12"),
+    ("verify: {allow: [!!bool maybe]}\n", "not a valid bool"),
+    ("verify: " + "[" * 5000 + "\n", "nested too deeply to read"),
 ]
 
 
@@ -87,6 +93,23 @@ def test_an_allowlist_that_cannot_be_used_is_an_error(
     written(tmp_path, text)
     with pytest.raises(ConfigError, match=message):
         runner.allowlist(tmp_path)
+
+
+def test_an_allowlist_that_is_not_utf8_is_an_error_not_a_traceback(tmp_path: Path) -> None:
+    (tmp_path / runner.ALLOWLIST_FILENAME).write_bytes(b"verify:\n  allow: ['\xff']\n")
+    with pytest.raises(ConfigError, match=r"is not UTF-8: invalid start byte at byte 19"):
+        runner.user_config(tmp_path)
+
+
+def test_an_allowlist_over_the_size_limit_is_an_error_and_one_at_it_is_read(tmp_path: Path) -> None:
+    # Bytes, so that Windows does not turn a newline into two.
+    path = tmp_path / runner.ALLOWLIST_FILENAME
+    head = b"verify:\n  allow: []\n"
+    path.write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head)))
+    assert runner.user_config(tmp_path) == runner.UserConfig()
+    path.write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head) + 1))
+    with pytest.raises(ConfigError, match=r"config\.yml is larger than 1 MiB$"):
+        runner.user_config(tmp_path)
 
 
 def test_a_refusal_names_the_key_in_the_users_file_without_pydantics_prefix(
@@ -134,6 +157,11 @@ MALFORMED = ["not json at all", '["a list"]', '{"approvals": 3}', '{"approvals":
 def test_a_store_that_does_not_parse_fails_closed(tmp_path: Path, text: str) -> None:
     """Unlike the allowlist: losing a cache of given answers costs one prompt, not the run."""
     (tmp_path / runner.APPROVALS_FILENAME).write_text(text, encoding="utf-8")
+    assert runner.approvals(tmp_path) == frozenset()
+
+
+def test_a_store_nested_past_the_recursion_limit_fails_closed(tmp_path: Path) -> None:
+    (tmp_path / runner.APPROVALS_FILENAME).write_text("[" * 100_000, encoding="utf-8")
     assert runner.approvals(tmp_path) == frozenset()
 
 

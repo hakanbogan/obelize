@@ -1,20 +1,22 @@
 """`obelize fix`: the plan, the write, the verification and the evidence, in a fixed order.
 
 The tree gate runs before the model and the baseline, so a refused apply sends no source and
-spends no test suite. A refused verify command still writes (exit 5), since writing nothing would
-look like a repository needing no work; a failed baseline still writes and skips the after-phase.
+spends no test suite; the files a model proposed are gated again before the baseline. A refused
+verify command still writes (exit 5), since writing nothing would look like a repository needing
+no work; a failed baseline still writes and skips the after-phase.
 """
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 from obelize import __version__, fsutil, gitutil
 from obelize.commands import CommandError, reports
+from obelize.config import with_fixture_dirs
 from obelize.evidence import report, run_dir
 from obelize.models import FindingsDocument, ManifestPlan, ModelConfig, VerifyPhase, VerifyResult
 from obelize.native import processes
@@ -98,6 +100,8 @@ class Outcome:
     guides: tuple[flag_only.Guide, ...] = ()
     # The pin check, in memory only: it names files that hold a pin without a row in `withheld`.
     manifest_plan: ManifestPlan = field(default_factory=ManifestPlan)
+    # Lock files beside a manifest pin that was or would be written, or above it; none is edited.
+    locks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,9 +141,7 @@ def run(request: Request) -> Outcome:
     ruled = _changes(driven)
     # A run that writes nothing leaves a dirty tree alone; a model's proposal could write.
     asked = request.apply and bool(ruled or request.model.provider != "none")
-    stopped = (
-        fsutil.gate(request.root, ruled, allow_dirty=request.config.allow_dirty) if asked else None
-    )
+    stopped = _gate(request, ruled) if asked else None
     gate_ms = _ms(gating)
 
     notes: tuple[str, ...] = ()
@@ -183,9 +185,16 @@ def run(request: Request) -> Outcome:
     # Before the write, or `git_dirty` would report obelize's own migration.
     state = gitutil.state(request.root)
     writable = _writable(request, plan, model.session)
+    if stopped is None and len(writable) > len(ruled):
+        # A file only a model proposed was not in the first gate; refuse it before a command starts.
+        gating = time.monotonic()
+        stopped = _gate(request, writable)
+        gate_ms += _ms(gating)
     run_id = run_dir.new_id(started)
     journaled = _journaled(request, run_id, plan)
     phases = _phases(request, writable, stopped, gate_ms)
+    pinned = plan.document.files if phases.applied is None else phases.applied.written
+    locks = _locks(chosen.tree, [row.path for row in pinned])
     code = _exit(phases, outstanding=bool(report.withheld_rows(driven.findings)), idle=not passes)
     recorded = _recorded(request, model, phases.applied)
     used = [run_dir.Used.of(one.loaded, one.scan) for one in passes]
@@ -235,6 +244,8 @@ def run(request: Request) -> Outcome:
                 () if recorded is None else recorded[2],
                 guides=guides,
                 packs=documents,
+                fixture_dirs=chosen.fixture_dirs,
+                locks=locks,
             ),
             artefacts,
             journaled=journaled,
@@ -254,6 +265,7 @@ def run(request: Request) -> Outcome:
         notes=notes,
         guides=guides,
         manifest_plan=driven.manifest_plan,
+        locks=locks,
     )
 
 
@@ -288,6 +300,8 @@ class Chosen:
     packs: tuple[Scanned, ...]
     # Every pack tried, so a run that finds none can say which it asked.
     tried: tuple[str, ...]
+    # The fixture directories of those packs inside the repository, which the scan did not enter.
+    fixture_dirs: tuple[str, ...]
 
 
 def select(
@@ -305,6 +319,9 @@ def select(
     """
     ordered = sorted(packs, key=lambda loaded: loaded.pack.id)
     specs = [loader.to_scan_spec(loaded) for loaded in ordered]
+    config = with_fixture_dirs(
+        config, root, [loaded.path for loaded in ordered if not loaded.bundled]
+    )
     tree = scanner.read(root, config, specs)
     scans = [
         Scanned(loaded, scanner.scan(root, config, spec, jobs=jobs, tree=tree))
@@ -316,7 +333,7 @@ def select(
             reason = loader.conflict(first.loaded.pack, second.loaded.pack)
             if reason is not None:
                 raise CommandError(f"{reason}; run them one at a time with --pack.", 2)
-    return Chosen(tree, kept, tuple(one.loaded.pack.id for one in scans))
+    return Chosen(tree, kept, tuple(one.loaded.pack.id for one in scans), config.fixture_dirs)
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,6 +399,32 @@ def _changes(driven: codemod.Run) -> tuple[Change, ...]:
     return tuple(
         fsutil.Change(path=outcome.path, before=outcome.before, after=outcome.after)
         for outcome in driven.written
+    )
+
+
+def _gate(request: Request, changes: Sequence[Change]) -> Apply | None:
+    return fsutil.gate(request.root, changes, allow_dirty=request.config.allow_dirty)
+
+
+def _locks(tree: scanner.Tree, written: Sequence[str]) -> tuple[str, ...]:
+    """The lock files the walk listed beside a manifest pin written, or to be, or above it.
+
+    A lock below or beside the manifest belongs to another project, such as a vendored one.
+    """
+    homes = [PurePosixPath(path).parent for path in written if manifests.is_manifest(path)]
+    return tuple(path for path in tree.walk.listed if _is_lock_of(path, homes))
+
+
+def _is_lock_of(path: str, homes: Sequence[PurePosixPath]) -> bool:
+    """Whether `path` is a lock file a tool regenerates, in a directory of `homes` or above one.
+
+    `is_lock` also takes settings and constraints files, which no tool regenerates.
+    """
+    lock = PurePosixPath(path)
+    return (
+        manifests.is_lock(path)
+        and (lock.name.endswith(".lock") or lock.name.startswith(("pylock.", "conda-lock.")))
+        and any(home.is_relative_to(lock.parent) for home in homes)
     )
 
 

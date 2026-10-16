@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import difflib
 import os
-from collections.abc import Sequence
+import re
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -154,13 +155,49 @@ def _relative(path: str) -> str:
     return path
 
 
+class ScanConfig(Config):
+    """`Config` and the fixture directories of the packs a run loaded, which it never scans.
+
+    A pack's fixtures are legacy code by design, so scanned they would be rewritten. `.obelize.yml`
+    loads as `Config`, so a repository cannot name them.
+    """
+
+    fixture_dirs: tuple[str, ...] = ()
+
+
+def with_fixture_dirs(config: Config, root: Path, pack_files: Iterable[Path]) -> ScanConfig:
+    """`config` and the `fixtures/` directory beside each pack file strictly inside `root`.
+
+    Only that directory, which every fixture path of a pack is under: a file the pack sits beside is
+    the repository's own. A pack at the root gives up nothing, since a `fixtures/` there is as
+    likely the repository's own, and one outside `root` needs nothing.
+    """
+    base = root.resolve()
+    parents = {file.resolve().parent for file in pack_files}
+    inside = (parent for parent in parents if parent != base and parent.is_relative_to(base))
+    return ScanConfig(
+        **dict(config),
+        fixture_dirs=tuple(
+            sorted(f"{parent.relative_to(base).as_posix()}/fixtures" for parent in inside)
+        ),
+    )
+
+
+def _literal(path: str) -> str:
+    """`path` as a gitignore pattern that matches only itself, such as a directory named `[v2]`."""
+    return re.sub(r"[*?\[]", r"\\\g<0>", path)
+
+
 class Selection:
     """Which repository-relative paths a scan may look at; pure path arithmetic, no filesystem."""
 
     __slots__ = ("_always", "_exclude", "_include")
 
     def __init__(self, config: Config) -> None:
-        self._always = _spec(ALWAYS_EXCLUDED, "the always-excluded set")
+        fixture_dirs = config.fixture_dirs if isinstance(config, ScanConfig) else ()
+        # Anchored: a directory called `gem` is the one at the root, not every `gem`.
+        patterns = (*ALWAYS_EXCLUDED, *(f"/{_literal(path)}/" for path in fixture_dirs))
+        self._always = _spec(patterns, "the always-excluded set")
         self._exclude = _spec(config.exclude, "exclude")
         self._include = _spec((config.include,), "include")
 
@@ -210,7 +247,10 @@ def load(repo: Path) -> LoadedConfig:
             )
         return LoadedConfig(config=Config(), source="defaults")
     try:
-        text = fsutil.read(path).decode("utf-8")
+        raw = fsutil.read(path, _yaml.MAX_BYTES + 1)
+        if len(raw) > _yaml.MAX_BYTES:
+            raise ConfigError(f"{CONFIG_FILENAME} is larger than {_yaml.MAX_BYTES >> 20} MiB")
+        text = raw.decode("utf-8")
     except UnicodeDecodeError as error:
         raise ConfigError(
             f"{CONFIG_FILENAME} is not UTF-8: {error.reason} at byte {error.start}"

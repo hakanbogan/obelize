@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 
 from obelize import _yaml
 from obelize.config import ConfigError, refusal
@@ -64,7 +64,7 @@ class UserConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     # Where more migration packs live. A pack decides what is written and which imports a model may
     # add, so only the user names them: a repository never does.
-    pack_dirs: tuple[str, ...] = ()
+    pack_dirs: tuple[StrictStr, ...] = ()
 
     @field_validator("pack_dirs")
     @classmethod
@@ -157,9 +157,15 @@ def user_config(config_dir: Path) -> UserConfig:
     """
     path = config_dir / ALLOWLIST_FILENAME
     try:
-        text = path.read_text(encoding="utf-8")
+        with path.open("rb") as handle:
+            raw = handle.read(_yaml.MAX_BYTES + 1)
+        if len(raw) > _yaml.MAX_BYTES:
+            raise ConfigError(f"{path} is larger than {_yaml.MAX_BYTES >> 20} MiB")
+        text = raw.decode("utf-8")
     except FileNotFoundError:
         return UserConfig()
+    except UnicodeDecodeError as error:
+        raise ConfigError(f"{path} is not UTF-8: {error.reason} at byte {error.start}") from error
     except OSError as error:
         raise ConfigError(f"{path} cannot be read: {error.strerror}") from error
     try:
@@ -196,7 +202,7 @@ def _stored(config_dir: Path) -> list[dict[str, Any]]:
     """The rows of the store as they are written, those that name a repository and a hash."""
     try:
         data: Any = json.loads((config_dir / APPROVALS_FILENAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return []
     if not isinstance(data, dict) or not isinstance(data.get("approvals"), list):
         return []

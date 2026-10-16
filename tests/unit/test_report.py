@@ -18,6 +18,7 @@ from obelize import gitutil
 from obelize.config import load as load_config
 from obelize.evidence import report, run_dir
 from obelize.models import (
+    BAIL_ACTIONS,
     WARNING_MEANINGS,
     CommandRecord,
     Edit,
@@ -717,23 +718,46 @@ def test_the_most_common_causes_are_named_and_the_files_they_held_are_not_counte
         "local_import (1)."
     )
     assert lines[2:4] == [
+        f"  model_object_escapes: {BAIL_ACTIONS['model_object_escapes']}",
+        f"  local_import: {BAIL_ACTIONS['local_import']}",
+    ]
+    assert lines[4:6] == [
         "  a.py:3  acme.sdk.Model  model_object_escapes",
         "  b.py:1  acme.sdk  local_import",
     ]
     assert not [line for line in lines if "whole repository" in line]
 
 
+def test_the_withheld_section_says_what_to_change_for_every_code_its_table_shows() -> None:
+    record = _withheld(
+        ("a.py", 3, "acme.sdk.Model", "model_object_escapes", None),
+        ("a.py", 4, "acme.sdk.Model.run", "file_not_fully_migrated", ("model_object_escapes",)),
+        ("b.py", 1, "acme.sdk", "local_import", None),
+    )
+    section = report._withheld_section(record)
+    assert section[-7:] == [
+        "",
+        "What to change, by reason:",
+        "",
+        f"- `model_object_escapes`: {BAIL_ACTIONS['model_object_escapes']}",
+        f"- `file_not_fully_migrated`: {BAIL_ACTIONS['file_not_fully_migrated']}",
+        f"- `local_import`: {BAIL_ACTIONS['local_import']}",
+        "",
+    ]
+
+
 def test_a_repository_held_only_by_atomicity_still_names_that() -> None:
     record = _withheld(("requirements.txt", 1, "acme-sdk", "repo_not_fully_migrated", None))
     lines = report._left(record, ManifestPlan(findings=(_pin(),), blocking=("a.py",)), "x")
     assert lines[1].endswith("Most common reasons: repo_not_fully_migrated (1).")
+    assert lines[2] == f"  repo_not_fully_migrated: {BAIL_ACTIONS['repo_not_fully_migrated']}"
 
 
 def test_only_five_causes_are_named_and_the_rest_are_counted() -> None:
     record = _withheld(*((f"m{n}.py", 1, "acme.sdk", "local_import", None) for n in range(7)))
     lines = report._left(record, NO_PINS, ".obelize/runs/x")
     assert len([line for line in lines if line.startswith("  m")]) == 5
-    assert lines[7] == f"  and 2 more in {Path('.obelize/runs/x', 'REPORT.md')}"
+    assert lines[8] == f"  and 2 more in {Path('.obelize/runs/x', 'REPORT.md')}"
 
 
 def test_files_that_hold_the_pin_without_a_row_are_named_apart() -> None:

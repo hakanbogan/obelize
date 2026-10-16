@@ -105,7 +105,9 @@ compile check of the written bytes is the one the rules already made in memory
 (`output_does_not_parse`). Consequences, each a case in
 `tests/fixtures/commands/` or `tests/fixtures/providers/runs.yaml`:
 
-- A refused apply runs no command and sends nothing to a model.
+- The gate refuses an apply before any command runs, and before anything is sent to a model
+  unless the file is one a model proposed. A refusal no gate can see in advance comes later, with
+  the baseline already run: a tracked file a baseline command changed, or a race.
 - A verification refused by [the trust rule](THREAT_MODEL.md#verification-command-trust-rule)
   does not stop the write: the run exits `5` with `not_run` / `policy_refused`
   rather than looking like a repository that needed no work.
@@ -130,10 +132,16 @@ that held it, are in `run.json`'s `withheld[]`, so read that file to list them.
 **The summary ends with the next step**: a `Next:` line holding the command to run after a dry run
 that planned a file (`obelize fix --apply`), after an apply that exits `0`, `4` with review items,
 `5` or `6`, and after a `scan` with an `eligible` row and no blocked pack (`obelize fix`). A command
-repeats the `--pack` and `--repo` you gave.
+repeats the `--pack` and `--repo` you gave. After an apply that wrote a manifest pin with a lock file
+(`uv.lock`, `poetry.lock`, `Pipfile.lock` and the like) in the manifest's directory or above it, one
+more `Next:` line comes before it, naming those files, which obelize does not edit, and saying to
+regenerate each with the tool that made it; it holds no command, since a command would have to come
+from the repository. A lock in a sibling or a subdirectory belongs to another project and is not
+named. `REPORT.md` says the same under Dependency manifests, for a dry run too.
 
 **Findings left for you** are summarised whenever there are any, with a file written or not: how
-many, the most common reasons, up to five of the rows that cause them (`path:line symbol code`,
+many, the most common reasons with a sentence on what to change for each (the last column of
+[SCAN_VOCABULARY.md](SCAN_VOCABULARY.md#4-bail-codes-editreason)), up to five of the rows that cause them (`path:line symbol code`,
 with `and N more in REPORT.md` after them), the files that hold the pin without a row (a notebook
 is read but not analysed; list it under `exclude` to migrate the rest), and a link to what each
 code means. A pack whose one distribution holds both APIs adds a line saying the whole repository
@@ -241,6 +249,7 @@ content it did not write. `undo.json` gets a row for **every** file the run
 wrote, so a partial undo cannot read as complete
 ([RUN_FOLDER.md](RUN_FOLDER.md#undojson)). A file that already holds its original counts as put
 back, so a second `undo` of the same run exits `0`, and it leaves the first `undo.json` as it was.
+`undo` reads no `.obelize.yml`, so a mistake in it never stands between you and putting files back.
 
 The record formats change between 0.x releases. A run another release wrote, whose `run.json` this
 one cannot read, exits `2` and names that release with the command that undoes the run:
@@ -360,15 +369,16 @@ your allowlist is `user_allowlist`.
 
 ## Configuration file (`.obelize.yml`)
 
-At the repository root; flags take precedence. A file that does not parse, or
-has an unknown, duplicate or wrongly typed key, exits `2` before anything is
-read; it is never partially applied.
+At the repository root; flags take precedence. A file that does not parse, is larger than
+1 MiB, or has an unknown, duplicate or wrongly typed key, exits `2` before anything is
+read; it is never partially applied. A number or a flag is not read from text: `allow_dirty: "yes"`
+and `verify.timeout_s: "60"` are errors, and so is a YAML set, which has no order.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `include` | string | `**/*.py` | Files the scan considers, after all exclusions. Same semantics as `exclude`. |
 | `exclude` | list of strings | empty | Patterns to skip, with git's `.gitignore` semantics (`pathspec.GitIgnoreSpec`): `legacy/*` excludes everything under `legacy/`, at any depth. Added to [the always-excluded set](#the-always-excluded-set); a `!` pattern re-includes only what this list excluded. |
-| `verify.commands` | list of strings | empty | Verification commands, under the [trust rules](#trust-rules-for-verification-commands). Split with `shlex` and run without a shell, so a bare `\|`, `&&` or `>` is refused on load; use `sh -c "<command>"`. |
+| `verify.commands` | list of strings | empty | Verification commands, under the [trust rules](#trust-rules-for-verification-commands). Split with `shlex` and run without a shell, so a bare `\|`, `&&` or `>` is refused on load; use `sh -c "<command>"`, or `cmd /c "<command>"` on Windows. |
 | `verify.timeout_s` | integer | `600` | Per-command timeout in seconds; on expiry the process group (the job object on Windows) is killed and the status is `inconclusive` / `timeout`. |
 | `verify.junit` | boolean | `true` | Add `--junitxml` into the run folder to a `pytest` or `python -m pytest` command that has none, to compare per-test results with the baseline. |
 | `allow_dirty` | boolean | `false` | Same as `--allow-dirty`. |
@@ -393,10 +403,19 @@ Applied first on every run; no `!` pattern brings these back.
 | `vendor/`, `_vendor/` | Vendored source. |
 | `build/`, `dist/`, `*.egg-info/` | Build output, a second copy of your source. |
 
-Only these skip a directory whole. **Your own `exclude` never does**: an
-excluded file that still imports the legacy distribution is still named,
+Only these, and the `fixtures/` directory of a pack (below), skip a directory whole. **Your own
+`exclude` never does**: an excluded file that still imports the legacy distribution is still named,
 because the dependency pin it breaks is not excluded. Excluding means *do not
 migrate*, not *do not look*.
+
+**The `fixtures/` directory beside a pack file inside the repository is skipped the same way**, for
+every pack of your own the run loaded (`--pack <path>`, or a directory of your own packs; the packs
+the wheel carries add none): its fixtures are legacy code by design, and scanned they would be
+rewritten. Only that directory goes. A file the pack sits beside is your own, is read, and still
+holds the dependency pin when it imports the legacy distribution. A `pack.yaml` at the repository
+root takes nothing, since a `fixtures/` there is as likely your own. `REPORT.md` says `Not scanned`
+and names the directory, and `--list-files` leaves it out. `run.json` records no change: this is not
+an `exclude`.
 
 In a git repository, files come from
 `git ls-files --cached --others --exclude-standard`, so `.gitignore` applies.
@@ -488,7 +507,8 @@ at once, and only an `.exe` or `.com` program runs: a batch file is refused.
 Outside every repository, so no checkout can write them (`$XDG_CONFIG_HOME` is
 honoured). On Windows the folder is `%USERPROFILE%\.config\obelize` unless `HOME`
 is set. `config.yml` holds the three settings a repository may not make: the
-allowlist, the model and the directories of your own packs. Unknown keys are an error.
+allowlist, the model and the directories of your own packs. Unknown keys are an error, and so is
+a file larger than 1 MiB.
 
 ```yaml
 # ~/.config/obelize/config.yml

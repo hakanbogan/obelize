@@ -6,24 +6,46 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import TypeAdapter, ValidationError
 
 from obelize.models import (
     BAIL_CODES,
     CONFIDENCE_REASONS,
     FINDING_KINDS,
+    QUALIFIED_NAME,
     SCAN_STATUSES,
+    DisplayText,
+    DistributionName,
     FindingsDocument,
+    Instant,
     ModelDocument,
+    PlainName,
     PlanDocument,
+    PrefilterToken,
     ProposalRecord,
+    QualifiedName,
+    RelativePath,
+    RunId,
     RunRecord,
+    Sha256,
     UndoRecord,
 )
-from obelize.packs.schema import CHANGE_KINDS, PackDocument
+from obelize.packs.schema import (
+    CHANGE_KINDS,
+    EnumMemberName,
+    FixturePath,
+    PackDocument,
+    PackId,
+    SemVer,
+    Slug,
+    SymbolKey,
+    TrailingCharacter,
+)
 from obelize.schemas import generate
 from platforms import text_files_as_on_windows
 
@@ -169,6 +191,68 @@ def test_the_nullable_fields_publish_their_vocabulary_too() -> None:
     options = document["$defs"]["Finding"]["properties"]["bail"]["anyOf"]
     enums = [set(option["enum"]) for option in options if "enum" in option]
     assert enums == [set(BAIL_CODES)]
+
+
+def _schema_accepts(schema: dict[str, Any], value: str) -> bool:
+    """The keywords a validator without `format` support applies to a string."""
+    pattern = schema.get("pattern")
+    return (pattern is None or re.search(pattern, value) is not None) and (
+        schema.get("minLength", 0) <= len(value) <= schema.get("maxLength", len(value))
+    )
+
+
+VALUE_RULES: dict[str, tuple[Any, str, list[str]]] = {
+    "Sha256": (Sha256, "a" * 64, ["A" * 64, "a" * 63, ""]),
+    "RunId": (RunId, "20260917T142530Z-3f9a1c72", ["20260917-142530-3f9a1c72", "x"]),
+    "Instant": (
+        Instant,
+        "2026-09-18T09:14:07Z",
+        ["2026-09-18 09:14:07", "2026-09-18T09:14:07+00:00"],
+    ),
+    "QualifiedName": (QualifiedName, "pkg.mod.Name", ["pkg..Name", "1pkg", "pkg."]),
+    "DistributionName": (DistributionName, "google-genai", ["-genai", "genai-", "a b"]),
+    "PlainName": (PlainName, "client", ["1client", "a.b", "a-b"]),
+    "PackId": (PackId, "google/gemini-1", ["google", "Google/gemini", "google/gemini/x", "g.x/y"]),
+    "Slug": (Slug, "py-pdf", ["Py-pdf", "py--pdf", "-py"]),
+    "SemVer": (SemVer, "0.1.0-rc.1", ["1.0", "01.0.0", "1.0.0+build", "1\u0662.0.0"]),
+    "EnumMemberName": (EnumMemberName, "HARM_CATEGORY_X", ["harm", "_X", "1X"]),
+    "SymbolKey": (SymbolKey, "Name", ["a.b.c", "a-b", ".a"]),
+    "TrailingCharacter": (TrailingCharacter, "!", ["ab", "7", "'", "\\", ""]),
+    "FixturePath": (
+        FixturePath,
+        "fixtures/a\nb.py",
+        ["fixtures/", "fixtures", "positive/a.py", ""],
+    ),
+    "DisplayText": (DisplayText, "x" * 500, ["x" * 501, ""]),
+    "PrefilterToken": (PrefilterToken, "google", [""]),
+    "RelativePath": (RelativePath, "a/b.py", [""]),
+}
+
+
+@pytest.mark.parametrize(("kind", "valid", "invalid"), VALUE_RULES.values(), ids=VALUE_RULES)
+def test_the_schema_states_the_value_rules_its_validator_checks(
+    kind: Any, valid: str, invalid: list[str]
+) -> None:
+    """The schema never rejects what the validator accepts, and rejects what it can state."""
+    adapter = TypeAdapter(kind)
+    schema = adapter.json_schema()
+    assert adapter.validate_python(valid) == valid
+    assert _schema_accepts(schema, valid)
+    for value in invalid:
+        with pytest.raises(ValidationError):
+            adapter.validate_python(value)
+        assert not _schema_accepts(schema, value), value
+
+
+def test_a_map_keyed_by_a_name_refuses_a_key_that_is_not_one() -> None:
+    """`patternProperties` alone lets a key outside the pattern through unchecked."""
+    transitive = _document("pack.schema.json")["$defs"]["Match"]["properties"]["transitive"]
+    assert transitive["additionalProperties"] is False
+    assert list(transitive["patternProperties"]) == [QUALIFIED_NAME.pattern]
+
+
+def test_the_pack_schema_says_which_rules_it_leaves_to_the_validator() -> None:
+    assert "`obelize pack validate`" in _document("pack.schema.json")["description"]
 
 
 def test_the_generator_writes_where_it_is_told(tmp_path: Path) -> None:

@@ -101,7 +101,7 @@ def scan(
         metavar="N",
         help="Number of worker processes. The default is one fewer than the CPU "
         "count, at most 8, with a small repository scanned in-process; a number you "
-        "give is always used. The number does not change the output.",
+        "give is always used, at most 61 on Windows. The number does not change the output.",
     ),
     list_files: bool = typer.Option(
         False,
@@ -117,7 +117,7 @@ def scan(
     from obelize import gitutil
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
-    from obelize.config import ConfigError
+    from obelize.config import ConfigError, with_fixture_dirs
     from obelize.evidence import report, run_dir
     from obelize.models import FindingsDocument
     from obelize.scan import runner, walker
@@ -132,7 +132,9 @@ def scan(
         runner.worker_count(jobs)
         configuration = _configuration(root)
         if list_files:
-            for path in walker.walk(root, configuration.config).files:
+            own = [one.path for one in packs if not one.bundled]
+            scanned = with_fixture_dirs(configuration.config, root, own)
+            for path in walker.walk(root, scanned).files:
                 typer.echo(path)
             return
         chosen = fixer.select(root, configuration.config, packs, named=named, jobs=jobs)
@@ -178,7 +180,9 @@ def scan(
             record,
             findings,
             loaded,
-            report.document(record, result, guides=guides, packs=documents),
+            report.document(
+                record, result, guides=guides, packs=documents, fixture_dirs=chosen.fixture_dirs
+            ),
         )
     except run_dir.EvidenceError as error:
         typer.echo(str(error), err=True)
@@ -347,6 +351,7 @@ def fix(
             pack or (),
             outcome.manifest_plan,
             outcome.guides,
+            outcome.locks,
         ),
     )
     raise typer.Exit(outcome.exit_code)
@@ -453,15 +458,13 @@ def undo(
     """
     from obelize.commands import CommandError
     from obelize.commands import undo as reverter
-    from obelize.config import ConfigError
     from obelize.evidence import report
 
     root = Path(repo)
-    try:
-        _configuration(root)
-    except ConfigError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(2) from error
+    # No `.obelize.yml`: putting files back must not depend on a file the user may be mending.
+    if not root.is_dir():
+        typer.echo(f"--repo {root} is not a directory", err=True)
+        raise typer.Exit(2)
     try:
         outcome = reverter.run(reverter.Request(root=root, run_id=run_id, argv=_recorded_argv()))
     except CommandError as error:

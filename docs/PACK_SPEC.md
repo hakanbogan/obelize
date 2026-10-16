@@ -6,6 +6,11 @@ ADR-006, [ADR-018](adr/ADR-018-pack-schema.md),
 [ADR-053](adr/ADR-053-shared-module-migrations.md),
 [ADR-056](adr/ADR-056-newest-legacy-release.md)._
 
+`pack.schema.json` states the shape of each value (the patterns of ids, symbols, versions and
+digests, and the length of display text). It cannot state the rules on a dotted call, a result path
+or a source URL, PEP 440 specifiers, sorted order or a rule that compares two fields, so a pack that
+passes it can still be refused: `obelize pack validate` is authoritative.
+
 A MigrationPack declares one migration between two versions of one SDK: which
 symbols to find and which rule kind handles each. How a rewrite is done lives in
 Python, in a fixed registry of rule kinds. A pack is **untrusted data**
@@ -260,7 +265,7 @@ The scanner reads the union of all `flag_only` channels, so each refused row
 gets an edit whose `rule_id` names the refusing change: the link from a report
 line to its message and suggestion. A resolved name is
 claimed by `symbols` or `attributes`, a `dynamic` or `text_mention` finding by
-`patterns`, so a surface is reported once as long as no two changes name it. `scan` and `fix` print the message
+`patterns`, so a surface is reported once: a pack in which two `flag_only` changes name one is refused. `scan` and `fix` print the message
 and the suggestion once for each change that claimed a finding, and `REPORT.md`
 repeats them under Guidance ([ADR-054](adr/ADR-054-pack-guidance-in-the-report.md)).
 
@@ -543,7 +548,9 @@ Every run records the pack id, `pack_version` and sha256.
 
 Per field:
 
+- A file larger than 1 MiB.
 - An unknown field anywhere.
+- A number or a flag written as text, such as `line_length: "100"` or `shared: 1`: neither is coerced.
 - A `from`/`to` version, or a `to` with no `requires_python` or one that is not PEP 440, or
   ranges that overlap or contradict. Only ranges over one distribution are compared: a
   rename may keep the version.
@@ -551,6 +558,10 @@ Per field:
   not admit, or beside a `from.version` with no floor; a `from.lacks` with no `newest`, or one that
   is not sorted and de-duplicated; a `newest` or `lacks` on `to`.
 - A duplicate `changes[].id`.
+- Two `flag_only` changes that name one surface: the same attribute, the same symbol or one that is
+  the other's dotted prefix (`a.b` and `a.b.c`, not `a.b` and `a.bc`), or shape ids that report one
+  reason (`dynamic_access` and `sys_modules_stub` both report `dynamic_access`). A symbol and an
+  attribute of one spelling are different rows and may sit in two changes.
 - An unknown `changes[].kind`.
 - A missing `source.url` or `source.retrieved_at`.
 - `language` other than `python`.

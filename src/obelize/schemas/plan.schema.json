@@ -78,6 +78,7 @@
           "type": "integer"
         },
         "path": {
+          "minLength": 1,
           "title": "Path",
           "type": "string"
         },
@@ -202,10 +203,12 @@
       "description": "One file whose bytes a run would change (`plan.json`) or changed (`run.json`).",
       "properties": {
         "after_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
           "title": "After Sha256",
           "type": "string"
         },
         "before_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
           "title": "Before Sha256",
           "type": "string"
         },
@@ -215,6 +218,7 @@
           "type": "integer"
         },
         "path": {
+          "minLength": 1,
           "title": "Path",
           "type": "string"
         },
@@ -254,6 +258,7 @@
           "type": "string"
         },
         "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
           "title": "Sha256",
           "type": "string"
         },

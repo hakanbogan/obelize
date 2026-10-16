@@ -12,7 +12,8 @@ Accepted.
 nothing) and starts the baseline only when it answers `None`; `fsutil.apply`
 asks both again at the write and is the authority. It is asked only when a file would be
 written or a model is configured, whose proposal could write; a run with neither touches nothing
-and looks at nothing. An apply the gate refuses
+and looks at nothing. The files a model proposed were not in the first ask, so a plan that holds
+one is asked again before the baseline. An apply the gate refuses
 records `verify: not_run`, reason `no_changes_to_verify`, no commands and no
 baseline. Because a refused apply must not have run somebody's test suite. An
 apply `fsutil.apply` refuses after the baseline ran keeps that baseline under

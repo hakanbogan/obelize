@@ -352,9 +352,12 @@ No time-derived value and no `counts`: it lives only beside `run.json`.
 | `warnings` | array of strings | §5, sorted. |
 
 A file the scan already refused has no row here, since no rule claimed it; so
-`REPORT.md` prints the findings beside the edits. It also holds what each pack says about the
+`REPORT.md` prints the findings beside the edits, and under Withheld what to change for each reason
+the table shows. It also holds what each pack says about the
 findings it flagged (Guidance) and what each pack does not handle (Limitations), read from the
-packs the run loaded: no field of `findings.json`, `plan.json` or `run.json` carries them.
+packs the run loaded: no field of `findings.json`, `plan.json` or `run.json` carries them. Under
+Dependency manifests it names the lock files beside a manifest pin that was written or would be, or
+above it, since obelize does not edit them; that is not recorded in a field either.
 
 ## `patch.diff`
 
@@ -501,7 +504,7 @@ the run did with it.
 | `not_applied` | Accepted; the run had no `--apply`. |
 | `not_accepted` | Accepted; `--accept-model` was not given. |
 | `file_already_proposed` | Accepted, and an earlier proposal holds this file. The guard checks a whole file, so a file takes one model edit per run; the next run asks about the rest. |
-| `write_refused` | Accepted, and the apply was refused: a file can change between the tree gate and the write. |
+| `write_refused` | Accepted, and the apply was refused: the tree or path gate, asked again over the files a model proposed, or a file that changed between that gate and the write. |
 | `written` | On disk; its `Edit` row reads `model_proposed`. |
 
 ## `undo.json`
@@ -546,7 +549,9 @@ from a different obelize may be refused rather than half-read.
 `undo.schema.json`, `model.schema.json` and `proposal.schema.json` in
 `src/obelize/schemas/` are generated from the models and committed;
 `ci / schema-drift` fails when one is stale. Every object is closed and every
-field required, because every writer writes every field.
+field required, because every writer writes every field. A digest, a run id, an instant or a name
+carries the regular expression its model checks it with as its `pattern`; the other checks, such as
+the name of an environment variable, stay in the models, so the models are authoritative.
 
 ## What `e2e` asserts today
 

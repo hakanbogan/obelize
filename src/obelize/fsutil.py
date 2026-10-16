@@ -147,15 +147,16 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def read(absolute: Path) -> bytes:
-    """Read a file, failing with `ELOOP` if it became a symlink after `refusal` checked it.
+def read(absolute: Path, limit: int = -1) -> bytes:
+    """Read a file, or its first `limit` bytes, failing with `ELOOP` if it became a symlink after
+    `refusal` checked it.
 
     Unlike `write`, only the last component is guarded: a scan opens every file, so a per-directory
     descent is too costly, and a raced read misreports while a raced write damages a tree.
     """
     descriptor = files.open_path(absolute)
     with os.fdopen(descriptor, "rb") as handle:
-        return handle.read()
+        return handle.read(limit)
 
 
 def write(root: Path, path: str, data: bytes) -> PathRefusal | None:

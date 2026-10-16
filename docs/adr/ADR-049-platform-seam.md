@@ -52,6 +52,9 @@ together with everything it started. Those calls go through
   whitespace or a character `cmd.exe` or PowerShell acts on. A path the
   summary joins under the run folder takes the platform's separator
   throughout.
+  The examples a message gives follow the same split: a project's
+  interpreter is `.venv/bin/python` or `.venv/Scripts/python.exe`, and a shell
+  to ask for is `sh -c` or `cmd /c`, which a Windows machine always has.
 
 Each module picks its implementation once, at import, by `sys.platform`. The
 code that calls it keeps its own logic and holds no platform branch, and the

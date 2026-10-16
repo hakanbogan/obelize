@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path, PureWindowsPath
@@ -20,9 +21,10 @@ from obelize import __version__, cli, commands, gitutil
 from obelize.cli import app
 from obelize.commands import CommandError
 from obelize.evidence import report, run_dir
-from obelize.models import WARNING_MEANINGS
+from obelize.models import BAIL_ACTIONS, WARNING_MEANINGS, EditProposal
 from obelize.native import shell, windows_programs
 from obelize.packs import loader
+from obelize.providers import base, openai_compat
 from obelize.verify import runner as verifier
 from platforms import (
     AS_ROOT,
@@ -112,6 +114,33 @@ def repo_command(root: Path, command: str) -> list[str]:
         check=True,
     )
     return ["--trust-repo-config", "--non-interactive"]
+
+
+def test_the_fixtures_of_a_pack_inside_the_repository_are_neither_planned_nor_written(
+    tree: Path,
+) -> None:
+    shutil.copytree(loader.BUNDLED / PACK, tree / "packs" / "gem")
+    fixtures = sorted((tree / "packs").rglob("*.py"))
+    before = [path.read_bytes() for path in fixtures]
+    assert fixtures
+    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "own pack"],
+        check=True,
+    )
+    pack = str(tree / "packs" / "gem" / loader.PACK_FILENAME)
+    result = runner.invoke(app, ["fix", "--repo", str(tree), "--pack", pack, "--apply", "--json"])
+    assert result.exit_code == 6, "written, with no test command to verify it"
+    assert [row["path"] for row in json.loads(result.stdout)["files"]] == [
+        "app.py",
+        "requirements.txt",
+    ]
+    assert [path.read_bytes() for path in fixtures] == before
+    report = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert (
+        "- **Not scanned** `packs/gem/fixtures/`, the fixtures of a pack this run loaded\n"
+        in report
+    )
 
 
 def test_without_a_pack_the_bundled_one_is_used_as_scan_uses_it(tree: Path) -> None:
@@ -345,6 +374,7 @@ HINT = "came from the environment obelize runs in"
 
 
 @SHEBANG
+@pytest.mark.parametrize("interpreter", [".venv/bin/python", ".venv/Scripts/python.exe"])
 @pytest.mark.parametrize(
     ("inside", "code", "hinted"),
     [(True, 1, True), (False, 1, False), (True, 0, False)],
@@ -357,8 +387,11 @@ def test_a_baseline_run_from_obelizes_own_environment_says_so(
     inside: bool,
     code: int,
     hinted: bool,
+    interpreter: str,
 ) -> None:
-    """Under `uv run` a bare `pytest` is obelize's; only a failing baseline from it is hinted."""
+    """Under `uv run` a bare `pytest` is obelize's; only a failing baseline from it is hinted, with
+    the interpreter this system spells (stubbed here)."""
+    monkeypatch.setattr(shell, "VENV_PYTHON", interpreter)
     own = tmp_path / "obelize-env"
     bin_dir = (own if inside else tmp_path / "project-env") / "bin"
     bin_dir.mkdir(parents=True)
@@ -374,7 +407,7 @@ def test_a_baseline_run_from_obelizes_own_environment_says_so(
         "{0} failed, and its program " + HINT + ", which may not be your project's. "
         "To run your project's tests, name its interpreter: {1}."
     )
-    tests = '--verify "/path/to/your/project/.venv/bin/python -m pytest -q"'
+    tests = f'--verify "/path/to/your/project/{interpreter} -m pytest -q"'
     # Every hint, so a command that started and failed is not also said to have never started.
     shown = [line for line in result.stdout.splitlines() if line.startswith("Hint:")]
     assert shown == ([f"Hint: {hint.format('pytest -q', tests)}"] if hinted else [])
@@ -612,6 +645,104 @@ def _nothing_to_write(tree: Path) -> None:
     subprocess.run(["git", "-C", str(tree), "add", "notes.txt"], check=True)
 
 
+def _commit_files(tree: Path, files: dict[str, str]) -> None:
+    for name, text in files.items():
+        (tree / name).parent.mkdir(parents=True, exist_ok=True)
+        (tree / name).write_text(text, encoding="utf-8", newline="\n")
+    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "files"], check=True
+    )
+
+
+# Settings and constraints files can decide a release too, but no tool regenerates them, and a lock
+# below the manifest's directory or beside it, such as a vendored project's, is not its lock.
+LOCKS = {
+    "requirements.lock": "x\n",
+    "uv.lock": "x\n",
+    "api/poetry.lock": "x\n",
+    "vendor/lib/uv.lock": "x\n",
+    "pip.conf": "x\n",
+    "constraints.txt": "x\n",
+    "blocklist-constraints.txt": "x\n",
+    "docs/unlocked-requirements.in": "x\n",
+}
+LOCK_LINE = (
+    "Not edited by obelize, so they may still pin the old release: `requirements.lock`, "
+    "`uv.lock`. Regenerate each with the tool that made it."
+)
+
+
+def test_a_manifest_pin_written_next_to_a_lock_file_says_to_regenerate_it(tree: Path) -> None:
+    _commit_files(tree, LOCKS)
+    result = fix(tree, "--apply", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 0, result.output
+    evidence, locked, step = result.stdout.splitlines()[-3:]
+    assert evidence.startswith("Evidence: ")
+    assert locked == (
+        "Next: regenerate each lock file with the tool that made it: requirements.lock, uv.lock. "
+        "obelize does not edit them, so they may still pin the old release."
+    )
+    assert step.startswith("Next: git -C ")
+    assert f"obelize undo --run {folder(tree).name}" in step
+    report_text = (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+    assert f"\n{LOCK_LINE}\n" in report_text
+    assert report_text.index("## Dependency manifests") < report_text.index(LOCK_LINE)
+    assert report_text.index(LOCK_LINE) < report_text.index("## Verification")
+
+
+def test_a_lock_file_is_named_for_the_manifest_beside_it_or_below_it_and_for_no_other(
+    tree: Path,
+) -> None:
+    (tree / "svc").mkdir()
+    (tree / "svc" / "app.py").write_text(LEGACY, encoding="utf-8", newline="\n")
+    _commit_files(
+        tree,
+        {
+            "svc/requirements.txt": "google-generativeai==0.8.6\n",
+            "svc/poetry.lock": "x\n",
+            "svc/sub/uv.lock": "x\n",
+            "other/uv.lock": "x\n",
+            "uv.lock": "x\n",
+        },
+    )
+    result = fix(tree, "--apply", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 0, result.output
+    written = {
+        row["path"]
+        for row in json.loads((folder(tree) / "run.json").read_text("utf-8"))["file_edits"]
+    }
+    assert {"requirements.txt", "svc/requirements.txt"} <= written
+    assert "lock file with the tool that made it: svc/poetry.lock, uv.lock. " in result.stdout
+
+
+def test_a_dry_run_that_would_write_a_pin_names_the_lock_files_in_the_report_only(
+    tree: Path,
+) -> None:
+    _commit_files(tree, LOCKS)
+    result = fix(tree)
+    assert result.exit_code == 0, result.output
+    assert "lock file" not in result.stdout
+    assert f"\n{LOCK_LINE}\n" in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+def test_a_run_that_writes_no_manifest_pin_says_nothing_of_lock_files(tree: Path) -> None:
+    _nothing_to_write(tree)
+    _commit_files(tree, LOCKS)
+    result = fix(tree, "--apply", "--allow-dirty")
+    assert result.exit_code == 4, result.output
+    assert "lock file" not in result.stdout
+    assert "Not edited by obelize" not in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
+def test_a_pin_written_in_a_repository_with_no_lock_file_says_nothing_of_one(tree: Path) -> None:
+    _commit_files(tree, {"pip.conf": "x\n", "constraints.txt": "x\n"})
+    result = fix(tree, "--apply", "--verify", f"{PYTHON} -c pass")
+    assert result.exit_code == 0, result.output
+    assert result.stdout.count("Next:") == 1
+    assert "Not edited by obelize" not in (folder(tree) / "REPORT.md").read_text(encoding="utf-8")
+
+
 def test_an_apply_that_would_write_nothing_leaves_a_dirty_tree_alone(tree: Path) -> None:
     """There is no `git diff` to protect, so the refusal would only hide the real reason."""
     _nothing_to_write(tree)
@@ -681,6 +812,69 @@ def test_an_apply_refused_only_over_an_untracked_file_says_to_commit_it(tree: Pa
         "Next: commit the file(s) git does not track (git add, then git commit), "
         "or run again with --allow-dirty."
     )
+
+
+class _ProposesNested:
+    """A model that answers only the question about `nested.py`, with the oracle's accepted edit."""
+
+    def request(self, consultation: base.Consultation) -> bytes:
+        return b"{}"
+
+    def propose(self, consultation: base.Consultation) -> base.Reply:
+        if (consultation.context.path, consultation.line) != ("nested.py", 31):
+            return base.Reply(None)
+        return base.Reply(
+            EditProposal(
+                path="nested.py",
+                start_line=31,
+                end_line=34,
+                symbol="google.generativeai.GenerativeModel",
+                replacement=(
+                    "        from google import genai as new_genai\n\n"
+                    "        model = new_genai.Client().models"
+                ),
+                rationale="The client is constructed where the model was.",
+            )
+        )
+
+
+def test_a_file_only_a_model_proposed_is_refused_before_the_baseline_starts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rules write nothing here, so the first gate saw no file; the proposal's is untracked."""
+    root = tmp_path / "repo"
+    shutil.copytree(Path(__file__).parents[1] / "fixtures" / "providers" / "deep", root)
+    git = ["git", "-C", str(root)]
+    subprocess.run([*git, "init", "-q", "-b", "work"], check=True)
+    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
+        subprocess.run([*git, "config", key, value], check=True)
+    subprocess.run([*git, "add", "--", ".", ":!nested.py"], check=True)
+    subprocess.run([*git, "-c", "commit.gpgsign=false", "commit", "-qm", "before"], check=True)
+    home = tmp_path / "home"
+    (home / "obelize").mkdir(parents=True)
+    (home / "obelize" / "config.yml").write_text(
+        "model:\n  provider: openai_compat\n  base_url: http://127.0.0.1:9/v1\n  model: m\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
+    monkeypatch.setattr(openai_compat, "build", lambda _settings, _environ: _ProposesNested())
+    before = (root / "nested.py").read_bytes()
+
+    result = fix(
+        root, "--apply", "--accept-model", "--verify", f"{PYTHON} -c \"open('started', 'w')\""
+    )
+
+    assert result.exit_code == 5, result.output
+    assert not (root / "started").exists(), "a baseline command started"
+    assert (root / "nested.py").read_bytes() == before
+    record = json.loads((folder(root) / "run.json").read_text(encoding="utf-8"))
+    assert record["verify"]["reason"] == "no_changes_to_verify"
+    assert record["verify"]["baseline"] is None
+    assert record["model"]["proposals"] == 1
+    held = sorted((folder(root) / "model").glob("proposals-*.json"))
+    outcomes = [json.loads(one.read_text(encoding="utf-8"))["outcome"] for one in held]
+    assert outcomes.count("write_refused") == 1
+    assert _refusal(result.output).startswith("Not written: git does not track 1 file(s)")
 
 
 def test_a_tracked_file_the_baseline_changes_is_not_called_untracked(tree: Path) -> None:
@@ -900,6 +1094,7 @@ def test_a_blocked_run_says_why_nothing_is_planned_and_how_to_unblock_it(
     )
     assert lines[5:7] == ["", "No change planned."]
     assert lines[8] == "5 finding(s) left for you. Most common reasons: runtime_unsupported (5)."
+    assert lines[9] == f"  runtime_unsupported: {BAIL_ACTIONS['runtime_unsupported']}"
     assert any("5 finding(s): 5 needs review" in line for line in lines)
 
 
@@ -1227,7 +1422,9 @@ def test_a_run_with_nothing_to_write_names_what_held_back_the_most(
         "4 finding(s) left for you. Most common reasons: model_object_escapes (3), "
         "flag_only_surface (1).",
     ]
-    assert lines[start + 3 : start + 6] == [
+    assert lines[start + 3 : start + 8] == [
+        f"  model_object_escapes: {BAIL_ACTIONS['model_object_escapes']}",
+        f"  flag_only_surface: {BAIL_ACTIONS['flag_only_surface']}",
         "  adapter.py:3  google.generativeai.GenerativeModel  flag_only_surface",
         "  app.py:4  google.generativeai.GenerativeModel  model_object_escapes",
         "What each code means: " + report.CODES.format(version=__version__),

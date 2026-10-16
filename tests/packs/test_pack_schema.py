@@ -17,8 +17,10 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from obelize import _yaml
 from obelize.models import ScanSpec
 from obelize.packs import loader, schema
+from obelize.transforms.kinds import flag_only
 
 ROOT = Path(__file__).resolve().parents[2]
 NEGATIVE = Path(__file__).resolve().parent / "_negative"
@@ -653,6 +655,70 @@ def test_the_three_channels_of_a_flag_rule_produce_two_different_bails() -> None
     assert params.attributes == ("demo_legacy.Chat.history",)
 
 
+def _two_flags(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
+    """`FLAG_CHANGE` with `first` added to its params, and a second change that flags `second`."""
+    document = with_change(builder.FLAG_CHANGE)
+    builder.flagged_twice(first, second)(document)
+    return document
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "shared"),
+    [
+        ({}, {"symbols": ["demo_legacy.protos"]}, "demo_legacy.protos"),
+        ({}, {"symbols": ["demo_legacy.protos.Message"]}, "demo_legacy.protos.Message"),
+        (
+            {"symbols": ["demo_legacy.protos.Message"]},
+            {"symbols": ["demo_legacy.protos"]},
+            "demo_legacy.protos.Message",
+        ),
+        (
+            {"attributes": ["demo_legacy.Reply.text"]},
+            {"attributes": ["demo_legacy.Reply.text"]},
+            "demo_legacy.Reply.text",
+        ),
+        ({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}, "dynamic_access"),
+        ({"patterns": ["dynamic_access"]}, {"patterns": ["dynamic_access"]}, "dynamic_access"),
+        (
+            {"patterns": ["mock_patch_target"]},
+            {"patterns": ["mock_patch_target"]},
+            "mock_patch_target",
+        ),
+    ],
+)
+def test_two_flag_rules_that_claim_one_surface_are_refused_naming_both(
+    first: dict[str, Any], second: dict[str, Any], shared: str
+) -> None:
+    """A row is reported once for each change that claims it, and the guidance counts it twice."""
+    with pytest.raises(
+        ValidationError,
+        match=re.escape(f"changes 'flag-out-of-scope' and 'flag-again' both flag ['{shared}']"),
+    ):
+        build(_two_flags(first, second))
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ({}, {"symbols": ["demo_legacy.proto"]}),
+        ({}, {"symbols": ["demo_legacy.protosx"]}),
+        ({"attributes": ["demo_legacy.Reply.text"]}, {"attributes": ["demo_legacy.Reply.parts"]}),
+        ({"patterns": ["dynamic_access"]}, {"patterns": ["mock_patch_target"]}),
+        ({}, {"attributes": ["demo_legacy.protos"]}),
+    ],
+    ids=["segment", "suffix", "attribute", "shape", "symbol-and-attribute"],
+)
+def test_two_flag_rules_on_different_surfaces_are_accepted(
+    first: dict[str, Any], second: dict[str, Any]
+) -> None:
+    """A prefix is by dotted segment; a symbol and an attribute are rows with different bails."""
+    assert len(build(_two_flags(first, second)).changes) == 3
+
+
+def test_the_reason_each_shape_is_claimed_by_is_the_one_the_rule_uses() -> None:
+    assert schema.PATTERN_REASONS == flag_only.REASONS
+
+
 def test_one_distribution_may_stand_on_both_sides_of_the_migration() -> None:
     """Canonicalised, so `Demo_Legacy` and `demo-legacy` are one; the version ranges part them."""
     document = with_change(builder.MANIFEST_CHANGE, to_name="Demo_Legacy")
@@ -721,6 +787,41 @@ def test_a_module_is_not_shared_unless_the_pack_says_so() -> None:
     assert build(minimal()).match.shared is False
     built = build(shared())
     assert (built.match.shared, built.match.symbols) == (True, ("demo_legacy.configure",))
+
+
+def _with_coroutine(value: Any) -> dict[str, Any]:
+    document = with_change(builder.MODEL_CHANGE)
+    document["changes"][-1]["params"]["rewrites"]["demo_legacy.Model.generate"]["coroutine"] = value
+    return document
+
+
+WRONG_TYPES = [
+    minimal(layout={"line_length": "100"}),
+    minimal(layout={"line_length": 100.0}),
+    minimal(layout={"line_length": True}),
+    {**minimal(), "match": {**minimal()["match"], "shared": 1}},
+    _with_coroutine("yes"),
+]
+
+
+@pytest.mark.parametrize(
+    "document", WRONG_TYPES, ids=["str", "float", "bool", "shared", "coroutine"]
+)
+def test_a_number_or_a_flag_of_the_wrong_type_is_refused_not_coerced(
+    document: dict[str, Any],
+) -> None:
+    with pytest.raises(ValidationError, match=r"Input should be a valid (integer|boolean)"):
+        build(document)
+
+
+def test_a_flag_and_a_number_of_the_right_type_are_read_as_written() -> None:
+    document = _with_coroutine(True)
+    document["layout"] = {"line_length": 88}
+    built = build(document)
+    assert built.layout.line_length == 88
+    change = built.changes[-1]
+    assert isinstance(change, schema.GenerativeModelCallsChange)
+    assert change.params.rewrites["demo_legacy.Model.generate"].coroutine is True
 
 
 def test_a_shared_module_must_list_what_is_legacy_in_it() -> None:
@@ -883,13 +984,30 @@ DOCUMENT_DEFECTS = [
     (b"- one\n- two\n", "this one is a list"),
     (b"# nothing but a comment\n", "the file is empty"),
     (b"provider: demo\nprovider: demo\n", "duplicate key 'provider'"),
+    (b"source:\n  retrieved_at: 2020-13-45\n", "line 2, column 17: month must be in 1..12"),
+    (b"id: !!timestamp foo\n", "line 1, column 5: not a valid timestamp"),
+    (b"id: " + b"[" * 5000, "not valid YAML: nested too deeply to read"),
+    (b"#" * (_yaml.MAX_BYTES + 1), "larger than 1 MiB"),
+    (b"#" * _yaml.MAX_BYTES, "the file is empty"),
 ]
 
 
 @pytest.mark.parametrize(
     ("data", "says"),
     DOCUMENT_DEFECTS,
-    ids=["not-utf8", "not-yaml", "unreadable-character", "not-a-mapping", "empty", "duplicate-key"],
+    ids=[
+        "not-utf8",
+        "not-yaml",
+        "unreadable-character",
+        "not-a-mapping",
+        "empty",
+        "duplicate-key",
+        "impossible-date",
+        "bad-timestamp",
+        "nested-too-deeply",
+        "over-the-size-limit",
+        "at-the-size-limit",
+    ],
 )
 def test_bytes_that_are_not_a_pack_document_are_refused_with_a_reason(
     tmp_path: Path, data: bytes, says: str

@@ -24,8 +24,9 @@ the hand work on those places, and let obelize check that nothing is left.
    uvx obelize fix --apply
    ```
 
-   The summary names the most common reasons and the first rows left for you. `REPORT.md` in the
-   run folder it prints lists every one, and the guide of each pack that left them.
+   The summary names the most common reasons, what to change for each, and the first rows left for
+   you. `REPORT.md` in the run folder it prints lists every one, and the guide of each pack that
+   left them.
 4. Fix the rows `REPORT.md` lists under `Withheld`, apart from those whose reason is
    `file_not_fully_migrated` or `repo_not_fully_migrated`: those only wait for the others. Use the
    guide for the pack. Commit, then run `uvx obelize fix --apply` again.

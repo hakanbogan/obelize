@@ -68,90 +68,92 @@ Ground-truth rules (`tests/unit/test_fixture_vocabulary.py`):
 
 ## 4. Bail codes (`Edit.reason`)
 
-A bail withholds its whole binding group; the group is atomic.
+A bail withholds its whole binding group; the group is atomic. The last column is what the
+summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACTIONS` in
+`obelize.models`.
 
 ### Scanner and file handling
 
-| Code | Raised when |
-|---|---|
-| `roundtrip_mismatch` | `cst.parse_module(data).bytes != data` on the input. |
-| `input_does_not_parse` | libcst or `compile()` refused the input; `limitations[].detail` names which. Also a `pyproject.toml` or `setup.cfg` whose Python requirement is unreadable; that run is not blocked. |
-| `output_does_not_parse` | The rewritten bytes fail `cst.parse_module` or `compile()`. The file is left alone. |
-| `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. |
-| `file_too_large` | Over `max_file_bytes`. |
-| `runtime_unsupported` | The project declares a Python the new distribution does not install on (the pack's `to.requires_python`). |
-| `legacy_version_unsupported` | The legacy distribution is declared with no version, or one below the floor of the pack's `from.version`, or not at all while the code uses it. A pack that names its newest release (`from.newest`) takes a declaration that installs it as that release, and is blocked only where the repository shows another one: the path is the run's evidence, not a code of its own. |
+| Code | Raised when | What to do |
+|---|---|---|
+| `roundtrip_mismatch` | `cst.parse_module(data).bytes != data` on the input. | Migrate the file by hand; obelize could not read it back byte for byte, so it will not rewrite it. |
+| `input_does_not_parse` | libcst or `compile()` refused the input; `limitations[].detail` names which. Also a `pyproject.toml` or `setup.cfg` whose Python requirement is unreadable; that run is not blocked. | Fix the syntax error in the file, or the Python requirement in pyproject.toml or setup.cfg, then run again. |
+| `output_does_not_parse` | The rewritten bytes fail `cst.parse_module` or `compile()`. The file is left alone. | Migrate the file by hand; the rewrite did not parse, so the file was left alone. |
+| `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. | Migrate the file by hand; the rewrite would read a name the module does not bind, so the file was left alone. |
+| `file_too_large` | Over `max_file_bytes`. | Raise max_file_bytes in .obelize.yml, or migrate the file by hand. |
+| `runtime_unsupported` | The project declares a Python the new distribution does not install on (the pack's `to.requires_python`). | Raise the Python version the project declares to one the new distribution installs on, then run again. |
+| `legacy_version_unsupported` | The legacy distribution is declared with no version, or one below the floor of the pack's `from.version`, or not at all while the code uses it. A pack that names its newest release (`from.newest`) takes a declaration that installs it as that release, and is blocked only where the repository shows another one: the path is the run's evidence, not a code of its own. | Declare the legacy distribution in a manifest obelize reads, pinned at or above the pack's floor, then run again. |
 
 ### Resolution and bindings
 
-| Code | Raised when |
-|---|---|
-| `conditional_binding` | Two or more `IMPORT` qualified names for one node. |
-| `module_alias_rebound` | The legacy module alias was rebound, or aliased again (`g = genai`). |
-| `model_object_escapes` | A bound name used other than as a supported method's receiver (argument, return, store, `del`, `global`, attribute read); a module constant in `__all__`; an instance attribute reached other than through its class's methods' first parameter; or, at fix time, a reference the rewrite would leave behind. |
-| `model_object_read_elsewhere` | No escape in its own file, but another selected module imports the module constant (by name or `*`) or reads it or the instance attribute off the module; judged from imports and reads, never text. |
-| `multiple_assignments` | The name is assigned more than once in its scope (`len(scope[name]) > 1`); an instance attribute counts every write in the class's methods. |
-| `class_attr_binding` | The constructor is a class-body attribute. Out of scope in v0. |
-| `receiver_unresolved` | A supported method on a receiver with no binding record, including an unbound constructor result. |
-| `receiver_method_unmapped` | A supported method in the pack's `methods` with no `rewrites` entry; the whole group is withheld. |
+| Code | Raised when | What to do |
+|---|---|---|
+| `conditional_binding` | Two or more `IMPORT` qualified names for one node. | Bind the legacy name with one import statement, or migrate its uses by hand. |
+| `module_alias_rebound` | The legacy module alias was rebound, or aliased again (`g = genai`). | Stop rebinding or re-aliasing the legacy module's name, or migrate its uses by hand. |
+| `model_object_escapes` | A bound name used other than as a supported method's receiver (argument, return, store, `del`, `global`, attribute read); a module constant in `__all__`; an instance attribute reached other than through its class's methods' first parameter; or, at fix time, a reference the rewrite would leave behind. | Use the legacy object only as the receiver of its methods, in the file that makes it, or migrate its uses by hand. |
+| `model_object_read_elsewhere` | No escape in its own file, but another selected module imports the module constant (by name or `*`) or reads it or the instance attribute off the module; judged from imports and reads, never text. | Stop other modules importing or reading the legacy object, or migrate those modules by hand. |
+| `multiple_assignments` | The name is assigned more than once in its scope (`len(scope[name]) > 1`); an instance attribute counts every write in the class's methods. | Assign the name once in its scope, or migrate its uses by hand. |
+| `class_attr_binding` | The constructor is a class-body attribute. Out of scope in v0. | Build the object in a method or at module level, not in the class body, or migrate it by hand. |
+| `receiver_unresolved` | A supported method on a receiver with no binding record, including an unbound constructor result. | Bind the receiver to a name assigned once from its constructor, or migrate the call by hand. |
+| `receiver_method_unmapped` | A supported method in the pack's `methods` with no `rewrites` entry; the whole group is withheld. | Migrate the call by hand; the pack has no rewrite for this method. |
 
 ### Client
 
-| Code | Raised when |
-|---|---|
-| `multiple_configure_calls` | Two or more resolved `configure(...)` calls in one module; a `mock.patch` target does not count. |
-| `client_source_unresolved` | No `configure(...)` in the module, so no client can be introduced. Withholds its call rewrites, not a type import or an identity-mapped enum member. |
-| `client_name_collision` | `client` and `genai_client` are both bound (for an attribute client, `self.client` and `self.genai_client` are both used). |
-| `client_placement_ambiguous` | The `configure(...)` is inside a function and the module's call rewrites are not, so no one client reaches them all. |
-| `configure_kwargs_unsupported` | `configure(transport=…, client_options=…, client_info=…, default_metadata=…)`. |
-| `credentials_shape_differs` | `configure(credentials=<dict literal>)`. |
+| Code | Raised when | What to do |
+|---|---|---|
+| `multiple_configure_calls` | Two or more resolved `configure(...)` calls in one module; a `mock.patch` target does not count. | Call configure once in the module, or migrate the module by hand. |
+| `client_source_unresolved` | No `configure(...)` in the module, so no client can be introduced. Withholds its call rewrites, not a type import or an identity-mapped enum member. | Call configure in this module so a client can be built from it, or migrate the calls by hand. |
+| `client_name_collision` | `client` and `genai_client` are both bound (for an attribute client, `self.client` and `self.genai_client` are both used). | Rename one of the names client and genai_client, then run again. |
+| `client_placement_ambiguous` | The `configure(...)` is inside a function and the module's call rewrites are not, so no one client reaches them all. | Call configure at module level, or move the calls into the function that configures, or migrate them by hand. |
+| `configure_kwargs_unsupported` | `configure(transport=…, client_options=…, client_info=…, default_metadata=…)`. | Migrate the configure call by hand; the pack does not carry transport, client_options, client_info or default_metadata over. |
+| `credentials_shape_differs` | `configure(credentials=<dict literal>)`. | Migrate the configure call by hand; the new SDK reads credentials in a different shape. |
 
 ### Imports and manifests
 
-| Code | Raised when |
-|---|---|
-| `alias_collision` | The target alias is already bound to something else; for `rename_setting`, the file already uses the setting's new name. |
-| `type_symbol_unmapped` | A `from google.generativeai.types import X` whose `X` is not in `symbol_map`. |
-| `from_import_unmigrated_symbol` | A `from … import` line whose symbols are not all rewritten; also a call a module-rooted `rewrite_call` reaches through such an import (`ChatCompletion.create` after `from openai import ChatCompletion`), which has no root to keep. |
-| `local_import` | The legacy import is inside a function, method or class body. One under `if TYPE_CHECKING:` counts as module level. |
-| `lazy_import` | A PEP 810 `lazy import` or `lazy from … import` names the legacy module (Python 3.15). libcst binds no name for it, so nothing after it resolves: the statement is the one row, and the file and the pin stay. |
-| `star_import` | `from google.generativeai import *`. |
-| `file_not_fully_migrated` | **Import atomicity.** A resolved legacy usage in the file is not `auto`, so the file is left exactly as it was: every otherwise-`auto` finding in it carries this code. |
-| `repo_not_fully_migrated` | **Manifest atomicity.** An in-scope file still imports the legacy distribution, so removing its pin is withheld. Adding the new pin is a separate `auto` edit once anything migrated. Where the new distribution is the legacy one (`openai`), any withheld row of the pack holds the one pin, and a `fix` run then leaves every file as it was, each row of another file that would have been `auto` naming this code too (the rows of the file that holds the cause read `file_not_fully_migrated`). A declaration already in the new range has no row. |
-| `transitive_dependency_in_use` | Nothing imports the legacy distribution, but an in-scope file imports a module only it installed (the pack's `match.transitive`) that no manifest declares. Removing the pin is withheld; the files are listed in the manifest plan's `transitive`. |
-| `manifest_code_mismatch` | The manifest and the code disagree, either way. It declares the new distribution and **no** legacy pin while an in-scope file imports the legacy one (the no-legacy-pin clause keeps a half-migrated manifest from matching); or it still pins the legacy distribution while nothing imports it, which is how a pin kept on purpose for another library reads until it is removed. Reported, never edited. A pack whose one distribution holds both APIs is never judged the second way. |
-| `manifest_pin_shape_unsupported` | The legacy declaration or its line holds more than name and version: extras, a URL, a non-string table value, a shared key, a second declaration. The line is left alone. Fix time, except for a pack whose one distribution holds both APIs: its scan raises it for a declaration with extras, a URL or a non-string table value once anything migrated, and `fix` then leaves every file as it was. |
+| Code | Raised when | What to do |
+|---|---|---|
+| `alias_collision` | The target alias is already bound to something else; for `rename_setting`, the file already uses the setting's new name. | Rename whatever the file already binds to the new alias or setting name, then run again. |
+| `type_symbol_unmapped` | A `from google.generativeai.types import X` whose `X` is not in `symbol_map`. | Migrate the import by hand; the pack does not map this type. |
+| `from_import_unmigrated_symbol` | A `from … import` line whose symbols are not all rewritten; also a call a module-rooted `rewrite_call` reaches through such an import (`ChatCompletion.create` after `from openai import ChatCompletion`), which has no root to keep. | Migrate by hand the names on that import line the pack does not map, and the calls that use them. |
+| `local_import` | The legacy import is inside a function, method or class body. One under `if TYPE_CHECKING:` counts as module level. | Move the legacy import to module level, or migrate the code by hand. |
+| `lazy_import` | A PEP 810 `lazy import` or `lazy from … import` names the legacy module (Python 3.15). libcst binds no name for it, so nothing after it resolves: the statement is the one row, and the file and the pin stay. | Migrate the lazy import and the code after it by hand; obelize binds no name for it. |
+| `star_import` | `from google.generativeai import *`. | Replace the star import with named imports, or migrate the module by hand. |
+| `file_not_fully_migrated` | **Import atomicity.** A resolved legacy usage in the file is not `auto`, so the file is left exactly as it was: every otherwise-`auto` finding in it carries this code. | Resolve the findings in this file that name the cause; the file stays as it was until none is left. |
+| `repo_not_fully_migrated` | **Manifest atomicity.** An in-scope file still imports the legacy distribution, so removing its pin is withheld. Adding the new pin is a separate `auto` edit once anything migrated. Where the new distribution is the legacy one (`openai`), any withheld row of the pack holds the one pin, and a `fix` run then leaves every file as it was, each row of another file that would have been `auto` naming this code too (the rows of the file that holds the cause read `file_not_fully_migrated`). A declaration already in the new range has no row. | Resolve the withheld findings in the files that still use the legacy distribution, then run again to change its pin. |
+| `transitive_dependency_in_use` | Nothing imports the legacy distribution, but an in-scope file imports a module only it installed (the pack's `match.transitive`) that no manifest declares. Removing the pin is withheld; the files are listed in the manifest plan's `transitive`. | Declare the distribution that provides the module you import, or stop importing it, then run again. |
+| `manifest_code_mismatch` | The manifest and the code disagree, either way. It declares the new distribution and **no** legacy pin while an in-scope file imports the legacy one (the no-legacy-pin clause keeps a half-migrated manifest from matching); or it still pins the legacy distribution while nothing imports it, which is how a pin kept on purpose for another library reads until it is removed. Reported, never edited. A pack whose one distribution holds both APIs is never judged the second way. | Make the manifest and the code agree by hand; obelize never edits this declaration. |
+| `manifest_pin_shape_unsupported` | The legacy declaration or its line holds more than name and version: extras, a URL, a non-string table value, a shared key, a second declaration. The line is left alone. Fix time, except for a pack whose one distribution holds both APIs: its scan raises it for a declaration with extras, a URL or a non-string table value once anything migrated, and `fix` then leaves every file as it was. | Change the pin by hand; obelize edits only a declaration that is a name and a version. |
 
 ### Call rewrites
 
-| Code | Raised when |
-|---|---|
-| `unknown_ctor_kwarg` | A `GenerativeModel(...)` keyword the rule does not know. |
-| `ctor_argument_not_portable` | Folding the model's name or configuration into each call would change its meaning: it runs something (a call, an `await`, a comprehension), or a name in it is bound more than once or differently at the call. |
-| `positional_arg_ambiguous` | A parameter given by position and by keyword, or more positional arguments than the signature has (a parameter the pack lists only under `keywords` is not carried by position). Already a `TypeError`; refusing keeps it from becoming a silently wrong model. |
-| `default_model_name_required` | `GenerativeModel()` with no model name. |
-| `generation_config_not_static` | `generation_config=` is a spread, a computed `dict(...)`, a name that is not one plain assignment read only as a configuration (assigned twice, changed, read elsewhere, a parameter), or has a key outside the legal 15; or a configuration object is not a constructor argument. |
-| `safety_settings_not_static` | A category or threshold outside the closed tables, a shape other than a category-to-threshold mapping or a list of one-row mappings, or a name that is not one plain assignment read only as a configuration. |
-| `history_parts_shape_incompatible` | `start_chat(history=…)` outside the rewritable shape; also a model request that is a single turn, a name filled with a mapping, or any turn on a chat's `send_message`. A literal list of turns in a client call is reshaped instead. |
-| `dynamic_stream_flag` | `stream=` is not a literal. |
-| `async_stream_await_missing` | `async for` over `generate_content_async(..., stream=True)` with no `await`: already a `TypeError`, since the legacy method is a coroutine function. |
-| `unsupported_kwarg` | `request_options=` and other kwargs with no counterpart, or in no list the rule carries; `stream=` where the new method cannot stream; a `**` splat. |
-| `afc_semantics_differ` | `tools=`, `tool_config=`, or `enable_automatic_function_calling=`. |
-| `response_shape_changed` | The pack says the new call returns a different shape. `result_access_flags`: the legacy result was a mapping; raised on a call whose result is used, or a stream read other than as a `for` iterable. `dispatch_prefixes`: the argument is not a literal under a prefix the new call reproduces (`get_model("tunedModels/…")` would silently return the wrong class). `result_paths`: a read of the result that is not along a listed path, written as attributes or as string keys (a key off the path, `.get`, a loop over the whole result, a part that stops short of a leaf and is not carried on into a name or a loop over its items, a key read of a name that may hold something else, in a closure or a generator expression, or in a `try` that catches `KeyError`, the result or a part passed on or returned). |
-| `count_tokens_config_carries_semantics` | `count_tokens` on a constructor with `system_instruction=` or `tools=`, which change the count. |
-| `attribute_removed` | An attribute only the legacy object has (`supported_generation_methods`) or that became a method (`chat.history` -> `chat.get_history()`); at fix time, a call result read for a field listed in `result_attribute_flags`, or a use other than a plain assignment of a setting a `rename_setting` change renames. |
-| `flag_only_surface` | The pack's `flag_only` rule matched: a `mock.patch` target, a dynamic import, a `sys.modules` stub, `protos`/`caching`, the PaLM-era surface. Reported with a suggestion, never rewritten. |
-| `error_class_changed` | A rewritten call is in a `try` whose handler, in the same function, names an exception from the change's `legacy_error_modules` (`google.api_core.exceptions`). The new SDK raises `google.genai.errors`, so the handler would never run. |
-| `types_import_typing_only` | The rewrite needs a submodule (Gemini's `types`) at run time and the file imports it only under `if TYPE_CHECKING:`, with no replaced statement that runs to anchor a fresh import. |
+| Code | Raised when | What to do |
+|---|---|---|
+| `unknown_ctor_kwarg` | A `GenerativeModel(...)` keyword the rule does not know. | Migrate the call by hand; the pack does not know this keyword. |
+| `ctor_argument_not_portable` | Folding the model's name or configuration into each call would change its meaning: it runs something (a call, an `await`, a comprehension), or a name in it is bound more than once or differently at the call. | Compute the model's name and configuration beforehand into names assigned once, or migrate the calls by hand. |
+| `positional_arg_ambiguous` | A parameter given by position and by keyword, or more positional arguments than the signature has (a parameter the pack lists only under `keywords` is not carried by position). Already a `TypeError`; refusing keeps it from becoming a silently wrong model. | Give each parameter once and no extra argument, as the call already must, then run again. |
+| `default_model_name_required` | `GenerativeModel()` with no model name. | Give the constructor a model name, or migrate the call by hand. |
+| `generation_config_not_static` | `generation_config=` is a spread, a computed `dict(...)`, a name that is not one plain assignment read only as a configuration (assigned twice, changed, read elsewhere, a parameter), or has a key outside the legal 15; or a configuration object is not a constructor argument. | Write generation_config as a literal, or a name assigned once and used only as the configuration, or migrate it by hand. |
+| `safety_settings_not_static` | A category or threshold outside the closed tables, a shape other than a category-to-threshold mapping or a list of one-row mappings, or a name that is not one plain assignment read only as a configuration. | Write safety_settings as a literal mapping of known categories to known thresholds, or migrate it by hand. |
+| `history_parts_shape_incompatible` | `start_chat(history=…)` outside the rewritable shape; also a model request that is a single turn, a name filled with a mapping, or any turn on a chat's `send_message`. A literal list of turns in a client call is reshaped instead. | Pass history as a literal list of turns, or migrate the call by hand. |
+| `dynamic_stream_flag` | `stream=` is not a literal. | Write stream= as True or False, or migrate the call by hand. |
+| `async_stream_await_missing` | `async for` over `generate_content_async(..., stream=True)` with no `await`: already a `TypeError`, since the legacy method is a coroutine function. | Add the missing await before the streaming call, which raises a TypeError without it. |
+| `unsupported_kwarg` | `request_options=` and other kwargs with no counterpart, or in no list the rule carries; `stream=` where the new method cannot stream; a `**` splat. | Migrate the call by hand; the new call has no counterpart for this keyword. |
+| `afc_semantics_differ` | `tools=`, `tool_config=`, or `enable_automatic_function_calling=`. | Migrate the call by hand; automatic function calling works differently in the new SDK. |
+| `response_shape_changed` | The pack says the new call returns a different shape. `result_access_flags`: the legacy result was a mapping; raised on a call whose result is used, or a stream read other than as a `for` iterable. `dispatch_prefixes`: the argument is not a literal under a prefix the new call reproduces (`get_model("tunedModels/…")` would silently return the wrong class). `result_paths`: a read of the result that is not along a listed path, written as attributes or as string keys (a key off the path, `.get`, a loop over the whole result, a part that stops short of a leaf and is not carried on into a name or a loop over its items, a key read of a name that may hold something else, in a closure or a generator expression, or in a `try` that catches `KeyError`, the result or a part passed on or returned). | Migrate by hand the code that reads the result; the new call returns a different shape. |
+| `count_tokens_config_carries_semantics` | `count_tokens` on a constructor with `system_instruction=` or `tools=`, which change the count. | Migrate the count_tokens call by hand; system_instruction and tools change the count. |
+| `attribute_removed` | An attribute only the legacy object has (`supported_generation_methods`) or that became a method (`chat.history` -> `chat.get_history()`); at fix time, a call result read for a field listed in `result_attribute_flags`, or a use other than a plain assignment of a setting a `rename_setting` change renames. | Migrate by hand the code that uses this attribute; the new object has none, or a method in its place. |
+| `flag_only_surface` | The pack's `flag_only` rule matched: a `mock.patch` target, a dynamic import, a `sys.modules` stub, `protos`/`caching`, the PaLM-era surface. Reported with a suggestion, never rewritten. | Read the pack's suggestion and change the flagged code by hand; obelize never rewrites it. |
+| `error_class_changed` | A rewritten call is in a `try` whose handler, in the same function, names an exception from the change's `legacy_error_modules` (`google.api_core.exceptions`). The new SDK raises `google.genai.errors`, so the handler would never run. | Catch the exception class the new SDK raises in that handler, then run again. |
+| `types_import_typing_only` | The rewrite needs a submodule (Gemini's `types`) at run time and the file imports it only under `if TYPE_CHECKING:`, with no replaced statement that runs to anchor a fresh import. | Import the module at run time, outside TYPE_CHECKING, or migrate the file by hand. |
 
 ### The run
 
 The codemod driver's own codes.
 
-| Code | Raised when |
-|---|---|
-| `usage_unmapped` | A detected usage no change rewrites (a free function referenced, not called; a `methods` entry with no `rewrites`). Writing the file would strand it behind a rewritten import, so the file is left alone. |
-| `configure_consumed_elsewhere` | Another in-scope module with no `configure` stays on the legacy SDK and relies on this file's process-wide default, which the rewrite would remove. The file is left alone; a `mock.patch` target does not count. |
+| Code | Raised when | What to do |
+|---|---|---|
+| `usage_unmapped` | A detected usage no change rewrites (a free function referenced, not called; a `methods` entry with no `rewrites`). Writing the file would strand it behind a rewritten import, so the file is left alone. | Migrate the usage by hand; no rewrite covers it, so the file was left alone. |
+| `configure_consumed_elsewhere` | Another in-scope module with no `configure` stays on the legacy SDK and relies on this file's process-wide default, which the rewrite would remove. The file is left alone; a `mock.patch` target does not count. | Migrate the modules that rely on this file's configure call, or give each its own, then run again. |
 
 ## 5. Warning codes (`Edit.warnings[]`)
 

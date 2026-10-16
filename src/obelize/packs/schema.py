@@ -15,10 +15,19 @@ from urllib.parse import urlsplit
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
 
 from obelize.models import (
     QUALIFIED_NAME,
+    ConfidenceReason,
     DisplayText,
     DistributionName,
     FlagOnlyPattern,
@@ -28,6 +37,7 @@ from obelize.models import (
     RelativePath,
     Sha256,
     bounds,
+    schema_hint,
     terminal_unsafe,
 )
 
@@ -63,12 +73,14 @@ FORBIDDEN_SAFETY_VALUES: frozenset[str] = frozenset({"HARM_CATEGORY_HATE"})
 _PACK_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z0-9]+(?:-[a-z0-9]+)*$")
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 # No `+build`: comparisons ignore it, so two different packs could compare as one version.
-_SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$")
+_SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 _ENUM_MEMBER = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _SYMBOL_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
 # One visible ASCII character, no quote, backslash or digit, so it ends a string literal as written
 # (a digit after an octal escape would join it).
 _TRAILING = re.compile(r"^[!#-&(-/:-\[\]-~]$")
+# `_fixture_path` as one pattern, for the schema; `[\s\S]` because `.` stops at a newline there.
+_FIXTURE = re.compile(r"^fixtures/[\s\S]*[^/]$")
 
 
 def _pack_id(value: str) -> str:
@@ -197,17 +209,23 @@ def _call_path(value: str) -> str:
     return value
 
 
-PackId = Annotated[str, AfterValidator(_pack_id)]
-Slug = Annotated[str, AfterValidator(_slug)]
-SemVer = Annotated[str, AfterValidator(_semver)]
-EnumMemberName = Annotated[str, AfterValidator(_enum_member)]
-SymbolKey = Annotated[str, AfterValidator(_symbol_key)]
-TrailingCharacter = Annotated[str, AfterValidator(_trailing_character)]
+PackId = Annotated[str, AfterValidator(_pack_id), schema_hint(pattern=_PACK_ID.pattern)]
+Slug = Annotated[str, AfterValidator(_slug), schema_hint(pattern=_SLUG.pattern)]
+SemVer = Annotated[str, AfterValidator(_semver), schema_hint(pattern=_SEMVER.pattern)]
+EnumMemberName = Annotated[
+    str, AfterValidator(_enum_member), schema_hint(pattern=_ENUM_MEMBER.pattern)
+]
+SymbolKey = Annotated[str, AfterValidator(_symbol_key), schema_hint(pattern=_SYMBOL_KEY.pattern)]
+TrailingCharacter = Annotated[
+    str, AfterValidator(_trailing_character), schema_hint(pattern=_TRAILING.pattern)
+]
 SafetyKey = Annotated[str, AfterValidator(_lower_key)]
 SourceUrl = Annotated[str, AfterValidator(_source_url)]
 Pep440Specifier = Annotated[str, AfterValidator(_pep440_specifier)]
 Release = Annotated[str, AfterValidator(_release)]
-FixturePath = Annotated[RelativePath, AfterValidator(_fixture_path)]
+FixturePath = Annotated[
+    RelativePath, AfterValidator(_fixture_path), schema_hint(pattern=_FIXTURE.pattern)
+]
 DottedCall = Annotated[str, AfterValidator(_dotted_call)]
 CallPath = Annotated[str, AfterValidator(_call_path)]
 
@@ -326,7 +344,7 @@ class Match(_Closed):
     # file imports one that no manifest declares, the legacy pin stays.
     transitive: dict[QualifiedName, DistributionName] = Field(default_factory=dict)
     # The module is the new SDK's too, so `import M` is no finding and only `symbols` are legacy.
-    shared: bool = False
+    shared: StrictBool = False
 
     @model_validator(mode="after")
     def _check(self) -> Match:
@@ -564,7 +582,7 @@ class MethodRewrite(_Closed):
     contents_kwarg: PlainName | None = None
     # The legacy method and its replacement are both coroutine functions, so `await` carries over.
     # A streaming call under `async for` with no `await` already raised before migration.
-    coroutine: bool = False
+    coroutine: StrictBool = False
     # Absent: the new call takes no config, so the constructor's is dropped and the edit says so.
     config_kwarg: PlainName | None = None
     # Constructor keywords that change this call's answer, so they may not be dropped.
@@ -964,6 +982,15 @@ class RenameSettingParams(_Closed):
         return self
 
 
+# The reason a shape row carries, which is what a change's `patterns` claim it by: two ids with one
+# reason claim the same rows (`transforms.kinds.flag_only.REASONS` is the same table, tested).
+PATTERN_REASONS: dict[FlagOnlyPattern, ConfidenceReason] = {
+    "dynamic_access": "dynamic_access",
+    "mock_patch_target": "mock_patch_target",
+    "sys_modules_stub": "dynamic_access",
+}
+
+
 class FlagOnlyParams(_Closed):
     """Symbols, string patterns and removed attributes a pack refuses, and what it says instead."""
 
@@ -991,6 +1018,18 @@ class FlagOnlyParams(_Closed):
         if both:
             raise ValueError(f"{both} is named as both a symbol and an attribute")
         return self
+
+    def shared_with(self, other: FlagOnlyParams) -> list[str]:
+        """What both claim a row by: an attribute, a shape's reason, or a symbol and its prefix."""
+        return sorted(
+            {
+                *set(self.attributes) & set(other.attributes),
+                *{PATTERN_REASONS[pattern] for pattern in self.patterns}
+                & {PATTERN_REASONS[pattern] for pattern in other.patterns},
+                *(symbol for symbol in self.symbols if under_any(symbol, other.symbols)),
+                *(symbol for symbol in other.symbols if under_any(symbol, self.symbols)),
+            }
+        )
 
 
 class ManifestDependencyParams(_Closed):
@@ -1068,7 +1107,7 @@ Change = Annotated[
 class Layout(_Closed):
     """The maximum line width the pack's rules emit; match it to the user's formatter."""
 
-    line_length: int = Field(default=100, ge=40, le=320)
+    line_length: StrictInt = Field(default=100, ge=40, le=320)
 
 
 class Verification(_Closed):
@@ -1085,7 +1124,11 @@ class Verification(_Closed):
 
 
 class PackDocument(_Closed):
-    """One migration between two versions of one SDK, as declarative data."""
+    """One migration between two versions of one SDK, as declarative data.
+
+    This schema states the shape of each value. PEP 440 specifiers, sorted order and every rule that
+    compares two fields are checked by `obelize pack validate`, which is authoritative.
+    """
 
     # The format is unversioned through 0.x: a version field is refused like any unknown key.
     id: PackId
@@ -1116,6 +1159,7 @@ class PackDocument(_Closed):
         self._check_change_ids()
         self._check_client_source()
         self._check_receivers_and_symbols_are_claimed_once()
+        self._check_a_surface_is_flagged_once()
         self._check_every_legacy_symbol_is_looked_for()
         self._check_mapped_symbols_are_not_also_refused()
         self._check_a_setting_is_not_renamed_onto_a_legacy_name()
@@ -1201,6 +1245,18 @@ class PackDocument(_Closed):
                 f"{contested} is both rewritten and refused; the order of the rules would decide "
                 f"which wins"
             )
+
+    def _check_a_surface_is_flagged_once(self) -> None:
+        """Each change that claims a row reports it, so a surface in two would be counted twice."""
+        flagged = [change for change in self.changes if isinstance(change, FlagOnlyChange)]
+        for index, first in enumerate(flagged):
+            for second in flagged[index + 1 :]:
+                shared = first.params.shared_with(second.params)
+                if shared:
+                    raise ValueError(
+                        f"changes {first.id!r} and {second.id!r} both flag {shared}; each row "
+                        f"would be reported under both and counted twice"
+                    )
 
     def _check_mapped_symbols_are_not_also_refused(self) -> None:
         """A symbol is mapped or refused, not both; the rename would silently win.

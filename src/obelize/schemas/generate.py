@@ -47,12 +47,25 @@ SCHEMAS: tuple[tuple[str, type[BaseModel]], ...] = (
 READ: frozenset[type[BaseModel]] = frozenset({PackDocument})
 
 
+def _refuse_other_keys(node: object) -> None:
+    """A map whose keys must match a pattern refuses the rest: pydantic leaves them unchecked."""
+    if isinstance(node, dict):
+        if "patternProperties" in node:
+            node["additionalProperties"] = False
+        for child in node.values():
+            _refuse_other_keys(child)
+    elif isinstance(node, list):
+        for child in node:
+            _refuse_other_keys(child)
+
+
 def render(model: type[BaseModel]) -> str:
     """The exact bytes of a committed schema; `sort_keys` keeps a reordered field from diffing."""
     if model in READ:
         schema = model.model_json_schema(mode="validation")
     else:
         schema = model.model_json_schema(mode="serialization")
+    _refuse_other_keys(schema)
     schema["$schema"] = DIALECT
     return json.dumps(schema, indent=2, sort_keys=True) + "\n"
 

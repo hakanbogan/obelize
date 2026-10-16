@@ -121,6 +121,18 @@ def test_a_repo_that_is_not_a_directory_is_a_usage_error(tmp_path: Path) -> None
         app, ["undo", "--repo", str(tmp_path / "gone"), "--run", "20260101T000000Z-deadbeef"]
     )
     assert result.exit_code == 2
+    assert f"--repo {tmp_path / 'gone'} is not a directory" in result.output
+
+
+@pytest.mark.parametrize("body", ["bogus_field: 1\n", "verify: [\n", "max_file_bytes: 0\n"])
+def test_a_configuration_that_cannot_be_used_does_not_block_the_undo(
+    tree: Path, run_id: str, body: str
+) -> None:
+    """The way back reads nothing from `.obelize.yml`, so a mistake in it cannot strand a run."""
+    (tree / ".obelize.yml").write_text(body, encoding="utf-8")
+    result = undo(tree, run_id)
+    assert result.exit_code == 0, result.output
+    assert (tree / "app.py").read_text(encoding="utf-8") == LEGACY
 
 
 def test_a_second_undo_succeeds_and_leaves_the_first_account_as_it_was(

@@ -15,6 +15,7 @@ import pytest
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from obelize import _yaml
 from obelize.config import (
     ALWAYS_EXCLUDED,
     CONFIG_FILENAME,
@@ -22,15 +23,17 @@ from obelize.config import (
     ConfigError,
     LoadedConfig,
     Overrides,
+    ScanConfig,
     Selection,
     documented_keys,
     flags,
     load,
     merge,
     model,
+    with_fixture_dirs,
 )
 from obelize.models import DEFAULT_INCLUDE, PROVIDER_NAMES, Config, ModelConfig, VerifyConfig
-from obelize.native import processes
+from obelize.native import processes, shell
 from obelize.verify.runner import user_config
 from platforms import AS_ROOT, deny, link, windows_only
 
@@ -250,6 +253,18 @@ def test_a_configuration_file_that_is_not_utf8_is_refused(tmp_path: Path) -> Non
         load(tmp_path)
 
 
+def test_a_configuration_file_over_the_size_limit_is_refused_and_one_at_it_is_read(
+    tmp_path: Path,
+) -> None:
+    # Bytes, so that Windows does not turn the newline into two.
+    head = b"max_file_bytes: 11\n"
+    (tmp_path / CONFIG_FILENAME).write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head)))
+    assert load(tmp_path).config.max_file_bytes == 11
+    (tmp_path / CONFIG_FILENAME).write_bytes(head + b"#" * (_yaml.MAX_BYTES - len(head) + 1))
+    with pytest.raises(ConfigError, match=r"\.obelize\.yml is larger than 1 MiB$"):
+        load(tmp_path)
+
+
 def test_a_configuration_file_that_is_a_link_is_not_read_through(tmp_path: Path) -> None:
     """A repository can link it to a file elsewhere, and a parse error would quote the file."""
     secret = tmp_path / "secret.txt"
@@ -369,6 +384,23 @@ def test_a_yaml_failure_without_a_position_still_names_the_file(tmp_path: Path) 
         load(tmp_path)
 
 
+@pytest.mark.parametrize(
+    ("body", "said"),
+    [
+        ("include: 2020-13-45\n", r"\.obelize\.yml:1:10: month must be in 1\.\.12"),
+        ("allow_dirty: !!bool maybe\n", r"\.obelize\.yml:1:14: not a valid bool"),
+        ("include: " + "[" * 5000 + "\n", "is not valid YAML: nested too deeply to read"),
+    ],
+    ids=["impossible-date", "bad-bool", "nested-too-deeply"],
+)
+def test_a_value_the_yaml_reader_cannot_construct_is_refused_not_a_traceback(
+    tmp_path: Path, body: str, said: str
+) -> None:
+    _write(tmp_path, body)
+    with pytest.raises(ConfigError, match=said):
+        load(tmp_path)
+
+
 def test_a_document_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
     _write(tmp_path, "- include\n- exclude\n")
     with pytest.raises(ConfigError, match=r"holds a mapping of settings.*holds a list"):
@@ -401,12 +433,13 @@ def test_an_anchor_on_a_value_is_ordinary_yaml_and_works(tmp_path: Path) -> None
     assert loaded.config.exclude == ("pytest -q",)
 
 
-def test_a_merge_key_is_refused_and_was_never_usable_anyway(tmp_path: Path) -> None:
-    """The key that would hold the anchor is itself unknown under `extra="forbid"`."""
+def test_a_merge_key_is_read_and_its_anchor_needs_a_known_key_to_sit_under(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "verify:\n  <<: {timeout_s: 30, junit: true}\n  junit: false\n")
+    verify = load(tmp_path).config.verify
+    assert (verify.timeout_s, verify.junit) == (30, False)
     _write(tmp_path, "_base: &b {timeout_s: 30}\nverify:\n  <<: *b\n")
-    with pytest.raises(ConfigError, match="constructor for the tag"):
-        load(tmp_path)
-    _write(tmp_path, "_base: {timeout_s: 30}\n")
     with pytest.raises(ConfigError, match="unknown key '_base'"):
         load(tmp_path)
 
@@ -471,6 +504,41 @@ def test_a_value_the_documentation_does_not_admit_is_refused(tmp_path: Path, bod
         load(tmp_path)
 
 
+# What lax validation read as a number, a flag or a string: `'60'`, `1`, and bytes from `!!binary`.
+WRONG_TYPES = [
+    ("max_file_bytes: '1000'", "max_file_bytes"),
+    ("max_file_bytes: 1000.0", "max_file_bytes"),
+    ("max_file_bytes: true", "max_file_bytes"),
+    ("allow_dirty: 1", "allow_dirty"),
+    ("allow_dirty: 'yes'", "allow_dirty"),
+    ("verify: {timeout_s: '60'}", "verify.timeout_s"),
+    ("verify: {junit: 0}", "verify.junit"),
+    ("include: !!binary Zm9v", "include"),
+    ("exclude: [!!binary Zm9v]", "exclude.0"),
+    ("verify: {commands: [!!binary cHl0ZXN0]}", "verify.commands.0"),
+]
+
+
+@pytest.mark.parametrize(("body", "key"), WRONG_TYPES)
+def test_a_value_of_the_wrong_type_is_refused_where_it_would_have_been_coerced(
+    tmp_path: Path, body: str, key: str
+) -> None:
+    _write(tmp_path, f"{body}\n")
+    with pytest.raises(
+        ConfigError, match=rf"- {key}: Input should be a valid (integer|boolean|string)"
+    ):
+        load(tmp_path)
+
+
+def test_a_value_of_the_right_type_is_read_as_written(tmp_path: Path) -> None:
+    _write(
+        tmp_path, "max_file_bytes: 1000\nallow_dirty: true\nverify: {timeout_s: 60, junit: false}\n"
+    )
+    loaded = load(tmp_path).config
+    assert (loaded.max_file_bytes, loaded.allow_dirty) == (1000, True)
+    assert (loaded.verify.timeout_s, loaded.verify.junit) == (60, False)
+
+
 # `model:` values the user's file refuses, with the message; a repository file refuses any `model:`.
 USER_MODEL_REFUSALS = [
     ("api_key_env: 'sk-not-a-variable-name'", "is not a variable name"),
@@ -505,8 +573,16 @@ def test_a_pattern_that_does_not_compile_is_refused_when_the_file_is_read(tmp_pa
         load(tmp_path)
 
 
-def test_a_command_that_needs_a_shell_says_so_and_offers_the_alternative() -> None:
-    with pytest.raises(ValidationError, match=r"sh -c '<command>'"):
+@pytest.mark.parametrize(
+    "ask", ["sh -c '<command>'", 'cmd /c "<command>"'], ids=["posix", "windows"]
+)
+def test_a_command_that_needs_a_shell_says_so_and_offers_the_alternative(
+    monkeypatch: pytest.MonkeyPatch, ask: str
+) -> None:
+    monkeypatch.setattr(shell, "SHELL", ask)
+    with pytest.raises(
+        ValidationError, match=re.escape(f"Ask for a shell explicitly instead: {ask}.")
+    ):
         VerifyConfig(commands=("pytest -q && ruff check .",))
 
 
@@ -771,6 +847,95 @@ def test_a_negating_list_still_re_includes_the_file_it_names() -> None:
 
 def test_an_ordinary_directory_is_not_skipped() -> None:
     assert not Selection(Config()).prunes_directory("src")
+
+
+def test_the_fixtures_of_a_loaded_pack_are_skipped_like_the_always_excluded_set(
+    tmp_path: Path,
+) -> None:
+    """They are legacy code by design, and no `!` pattern brings them back."""
+    (tmp_path / "packs" / "gem").mkdir(parents=True)
+    packed = with_fixture_dirs(
+        Config(include="**/*", exclude=("!packs/**",)), tmp_path, [tmp_path / "packs/gem/pack.yaml"]
+    )
+    selection = Selection(packed)
+    assert packed.fixture_dirs == ("packs/gem/fixtures",)
+    assert selection.decide("packs/gem/fixtures/one.before.py") == "always_excluded"
+    assert selection.prunes_directory("packs/gem/fixtures")
+    assert selection.decide("packs/other/one.py") == "selected"
+
+
+def test_a_file_beside_a_loaded_pack_is_the_repositorys_own_and_is_still_read(
+    tmp_path: Path,
+) -> None:
+    """A helper next to `pack.yaml` can import the legacy SDK, and then it holds the pin."""
+    packed = with_fixture_dirs(Config(), tmp_path, [tmp_path / "tools/pack.yaml"])
+    selection = Selection(packed)
+    assert selection.decide("tools/helper.py") == "selected"
+    assert selection.decide("tools/sub/helper.py") == "selected"
+    assert selection.selects_manifest("tools/requirements.txt")
+    assert not selection.prunes_directory("tools")
+
+
+def test_the_fixtures_of_a_pack_are_the_ones_at_that_path_and_no_other_of_the_name() -> None:
+    selection = Selection(ScanConfig(fixture_dirs=("gem/fixtures",)))
+    assert selection.decide("gem/fixtures/a.py") == "always_excluded"
+    assert selection.decide("src/gem/fixtures/a.py") == "selected"
+    assert selection.decide("gem/fixtures_extra/a.py") == "selected"
+
+
+@pytest.mark.parametrize("name", ["[v2]", "*", "a?b"])
+def test_a_pack_directory_is_matched_literally(name: str) -> None:
+    selection = Selection(ScanConfig(fixture_dirs=(f"top/{name}/fixtures",)))
+    assert selection.decide(f"top/{name}/fixtures/a.py") == "always_excluded"
+    assert selection.decide("top/v/fixtures/a.py") == "selected"
+    assert selection.decide("top/ab/fixtures/a.py") == "selected"
+
+
+def test_a_pack_at_the_root_or_outside_the_repository_gives_up_no_directory(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    packed = with_fixture_dirs(
+        Config(),
+        repo,
+        [repo / "pack.yaml", tmp_path / "pack.yaml", tmp_path / "elsewhere/pack.yaml"],
+    )
+    assert packed.fixture_dirs == ()
+    assert Selection(packed).decide("fixtures/a.py") == "selected"
+
+
+def test_two_packs_in_one_directory_and_one_below_it_are_listed_in_order(tmp_path: Path) -> None:
+    files = [tmp_path / "b/one.yaml", tmp_path / "b/two.yaml", tmp_path / "a/deep/pack.yaml"]
+    assert with_fixture_dirs(Config(), tmp_path, files).fixture_dirs == (
+        "a/deep/fixtures",
+        "b/fixtures",
+    )
+
+
+def test_a_directory_reached_through_a_link_is_the_one_it_resolves_to(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "real").mkdir(parents=True)
+    link(repo / "alias", "real")
+    packed = with_fixture_dirs(Config(), repo, [repo / "alias/pack.yaml"])
+    assert packed.fixture_dirs == ("real/fixtures",)
+
+
+def test_the_scan_configuration_keeps_every_setting_of_the_one_it_extends() -> None:
+    base = Config(include="src/**", exclude=("x/",), allow_dirty=True, max_file_bytes=9)
+    assert dict(with_fixture_dirs(base, Path.cwd(), [])) == {**dict(base), "fixture_dirs": ()}
+
+
+def test_a_repository_cannot_name_the_directories_a_run_leaves_out(tmp_path: Path) -> None:
+    (tmp_path / CONFIG_FILENAME).write_text("fixture_dirs: [src]\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="unknown key 'fixture_dirs'"):
+        load(tmp_path)
+
+
+def test_a_repository_cannot_name_the_pack_directories_a_run_loads(tmp_path: Path) -> None:
+    (tmp_path / CONFIG_FILENAME).write_text("pack_dirs: [src]\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="pack directories are not read from a repository"):
+        load(tmp_path)
 
 
 @pytest.mark.parametrize(

@@ -26,11 +26,12 @@ cannot be read.
 ### D3 -- The model pass sits between the plan and the tree gate
 
 ```
-scan -> rules -> [ tree gate ] -> model -> baseline -> write -> compile -> verify
+scan -> rules -> [ tree gate ] -> model -> [ gate again ] -> baseline -> write -> compile -> verify
 ```
 
 After the rules, because it asks about rows they refused; after the tree gate, because a refused
-apply must not have sent source code first. `fsutil.apply` asks both gates again. A dry run consults
+apply must not have sent source code first. A file only the model proposed was not in that gate, so
+the plan is asked again before the baseline. `fsutil.apply` asks both gates again. A dry run consults
 too, so `--accept-model` has something to decide on.
 
 ### D4 -- A model edit and a rule edit never touch the same file

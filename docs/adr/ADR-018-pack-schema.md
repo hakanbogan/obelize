@@ -116,6 +116,9 @@ that fails, which is a defect in obelize.
 - `tests/packs/_negative/` holds one generated pack per documented refusal,
   each one edit from a valid document.
 - `pack.schema.json` lets a pack be checked without installing obelize, and
-  `ci / schema-drift` keeps it equal to the model.
+  `ci / schema-drift` keeps it equal to the model. It carries the regular expression of each id,
+  slug, version, symbol, digest and fixture path the model checks with one, but not the rules on a
+  dotted call, a result path or a source URL, PEP 440 specifiers, sorted order or a rule across
+  fields: `obelize pack validate` is authoritative.
 - Open: a second primary source makes `source` a list; remote packs need
   signing and a trust policy (ADR-006).

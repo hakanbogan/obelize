@@ -271,13 +271,15 @@ def test_the_model_flag_names_every_provider_it_accepts() -> None:
     assert set(re.findall(r"[a-z_]+", shown)) >= PROVIDER_NAMES
 
 
-def test_the_jobs_flag_states_the_cap_on_its_default() -> None:
-    """Above the cap, one fewer than the CPU count is not the default."""
+def test_the_jobs_flag_states_the_cap_on_its_default_and_the_limit_windows_enforces() -> None:
+    """Above the cap, one fewer than the CPU count is not the default; `test_scan_command.py` pins
+    the 61 against Windows' own pool."""
     from obelize.scan.runner import MAX_WORKERS
 
     scan = typer.main.get_command(app).commands["scan"]  # type: ignore[attr-defined]
     shown = next(one.help for one in scan.params if "--jobs" in one.opts)
     assert f"at most {MAX_WORKERS}" in shown
+    assert "at most 61 on Windows" in shown
 
 
 def test_the_timeout_flags_state_the_default_the_report_names() -> None:

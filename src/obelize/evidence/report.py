@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from obelize import __version__
 from obelize.models import (
     ATOMICITY_BAIL,
+    BAIL_ACTIONS,
     REPO_ATOMICITY_BAIL,
     TIMEOUT_S,
     WARNING_MEANINGS,
@@ -88,9 +89,6 @@ CODES = (
 # Rows `_left` names with their file and line; the rest are in REPORT.md.
 ROOT_ROWS = 5
 
-# The interpreter the hint about obelize's own environment gives as an example.
-_VENV_TESTS = '--verify "/path/to/your/project/.venv/bin/python -m pytest -q"'
-
 
 def _code(text: str) -> str:
     """A code span in `REPORT.md`; a terminal would print the backticks.
@@ -108,6 +106,11 @@ def _bare(text: str) -> str:
 
 def _tests() -> str:
     return f"--verify {shell.quote(TESTS)}"
+
+
+def _venv_tests() -> str:
+    """The interpreter the hint about obelize's own environment gives as an example."""
+    return f'--verify "/path/to/your/project/{shell.VENV_PYTHON} -m pytest -q"'
 
 
 def _inside(folder: str, name: str) -> str:
@@ -195,12 +198,14 @@ def fixed(
     packs: Sequence[str],
     held: ManifestPlan,
     guides: Sequence[Guide] = (),
+    locks: Sequence[str] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
     `repo` is `--repo` as typed and `packs` the `--pack` values, so the closing `Next:` command
     runs where the user is, on what the user chose. `held` is the pin check, which names the
-    files that hold a pin without a row.
+    files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
+    or above it.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -232,6 +237,11 @@ def fixed(
     if record.model is not None:
         lines.append(_consulted(record.model))
     lines.append(f"Evidence: {evidence}")
+    if applying and locks:
+        lines.append(
+            f"Next: regenerate each lock file with the tool that made it: {', '.join(locks)}. "
+            f"obelize does not edit them, so they may still pin the old release."
+        )
     lines.extend(_next(record, plan, evidence, repo, packs))
     return lines
 
@@ -262,10 +272,12 @@ def _left(record: RunRecord, held: ManifestPlan, evidence: str) -> list[str]:
     atomic = {ATOMICITY_BAIL, REPO_ATOMICITY_BAIL}
     codes = Counter(code for row in record.withheld for code in row.caused_by or (row.bail,))
     concrete = Counter({code: count for code, count in codes.items() if code not in atomic})
-    reasons = ", ".join(f"{code} ({count})" for code, count in (concrete or codes).most_common(3))
+    top = (concrete or codes).most_common(3)
+    reasons = ", ".join(f"{code} ({count})" for code, count in top)
     lines = [
         "",
         f"{len(record.withheld)} finding(s) left for you. Most common reasons: {reasons}.",
+        *(f"  {code}: {BAIL_ACTIONS[code]}" for code, _ in top),
     ]
     roots = [row for row in record.withheld if row.bail not in atomic]
     lines.extend(
@@ -518,7 +530,7 @@ def _hints(verify: VerifyRecord, code: Callable[[str], str]) -> list[str]:
             f"{code(row.command)} {'timed out' if row.reason == 'timeout' else 'failed'}, and "
             "its program came from the environment obelize runs in, which may not be your "
             "project's. To run your project's tests, name its interpreter: "
-            f"{code(_VENV_TESTS)}."
+            f"{code(_venv_tests())}."
             for row in rows
             if row.status != "pass" and row.in_obelize_environment
         ),
@@ -546,6 +558,8 @@ def document(
     proposals: Sequence[ProposalRecord] = (),
     guides: Sequence[Guide] = (),
     packs: Sequence[PackDocument] = (),
+    fixture_dirs: Sequence[str] = (),
+    locks: Sequence[str] = (),
 ) -> str:
     """`REPORT.md`: everything the run learned, in the order it learned it.
 
@@ -553,9 +567,17 @@ def document(
     table beside the edits: a file the scan refused has no edit, and that is not a hole.
     `proposals` (from `model/`) are inlined because model hunks most need a human reader. `guides`
     and `packs` are the packs' own words: what a flagged change says, what a pack does not handle.
+    `fixture_dirs` are the fixtures of the loaded packs inside the repository, which no scan enters;
+    `locks` are the lock files beside a manifest pin that was or would be written, or above it.
     """
     _agree(record, run, plan)
-    lines = _preamble(record, scan, run is not None, planned=plan is not None and bool(plan.files))
+    lines = _preamble(
+        record,
+        scan,
+        run is not None,
+        planned=plan is not None and bool(plan.files),
+        fixture_dirs=fixture_dirs,
+    )
     if scan.blocked:
         lines.extend(["## Blocked", ""])
         for blocked in scan.blocked:
@@ -572,6 +594,14 @@ def document(
     lines.extend(_withheld_section(record))
     lines.extend(_guidance_section(guides))
     lines.extend(_manifest_section(scan.manifests if run is None else run.manifest_plan))
+    if locks:
+        lines.extend(
+            [
+                f"Not edited by obelize, so they may still pin the old release: "
+                f"{', '.join(map(_code, locks))}. Regenerate each with the tool that made it.",
+                "",
+            ]
+        )
     if record.verify is not None:
         lines.extend(_verification_section(record.verify, packs))
     if record.model is not None:
@@ -590,7 +620,9 @@ def _agree(record: RunRecord, run: Run | None, plan: PlanDocument | None) -> Non
     )
 
 
-def _preamble(record: RunRecord, scan: Scan, fixing: bool, *, planned: bool) -> list[str]:
+def _preamble(
+    record: RunRecord, scan: Scan, fixing: bool, *, planned: bool, fixture_dirs: Sequence[str]
+) -> list[str]:
     counts = record.counts
     return [
         f"# obelize {'fix' if fixing else 'scan'}",
@@ -608,6 +640,10 @@ def _preamble(record: RunRecord, scan: Scan, fixing: bool, *, planned: bool) -> 
         f"- **Configuration** {record.config.source}, "
         f"include `{record.config.include}`, "
         f"{len(record.config.exclude)} extra exclusion(s)",
+        *(
+            f"- **Not scanned** `{path}/`, the fixtures of a pack this run loaded"
+            for path in fixture_dirs
+        ),
         "",
         _headline(counts, FIX_SPLIT if fixing else SPLIT),
         "",
@@ -763,7 +799,18 @@ def _withheld_section(record: RunRecord) -> list[str]:
             f"| `{row.path}` | {row.line} | {f'`{row.symbol}`' if row.symbol else '--'} "
             f"| `{row.bail}` | {caused} |"
         )
-    return [*lines, ""]
+    # Every code the table shows, in the order it first appears.
+    shown = dict.fromkeys(
+        code for row in record.withheld for code in (row.bail, *(row.caused_by or ()))
+    )
+    return [
+        *lines,
+        "",
+        "What to change, by reason:",
+        "",
+        *(f"- `{code}`: {BAIL_ACTIONS[code]}" for code in shown),
+        "",
+    ]
 
 
 def _prose(text: str) -> str:
