@@ -282,7 +282,10 @@ def _cli(arguments: list[str], timeout: int) -> dict[str, Any]:
 
 
 def scan_checkout(checkout: Path) -> dict[str, Any]:
-    return _cli(["scan", "--repo", str(checkout)], SCAN_TIMEOUT_S)
+    """The default pack alone: without `--pack` a scan runs every pack the repository uses."""
+    from .run import DEFAULT_PACK
+
+    return _cli(["scan", "--repo", str(checkout), "--pack", DEFAULT_PACK], SCAN_TIMEOUT_S)
 
 
 def _fix(checkout: Path, pack: str) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
