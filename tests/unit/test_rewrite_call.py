@@ -399,6 +399,16 @@ def test_the_configuration_and_the_call_wrap_at_the_width_the_pack_sets() -> Non
             ],
         ),
         (
+            "xs = {\n    'a': sdk.lookup('kinds/a'),\n}\n",
+            [
+                "xs = {",
+                "    'a': handle.registry.fetch(",
+                "        tag='kinds/a',",
+                "    ),",
+                "}",
+            ],
+        ),
+        (
             "def f():\n    return {'a': sdk.lookup('kinds/a')}\n",
             [
                 "def f():",
@@ -408,7 +418,7 @@ def test_the_configuration_and_the_call_wrap_at_the_width_the_pack_sets() -> Non
             ],
         ),
     ],
-    ids=["a list element", "a dictionary value"],
+    ids=["a list element", "a dictionary value on its own line", "a dictionary value after a key"],
 )
 def test_a_call_inside_a_multi_line_bracket_wraps_at_the_indent_of_the_line_it_starts_on(
     body: str, lines: list[str]
