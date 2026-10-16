@@ -79,7 +79,8 @@ displace one that does. The latter withholds the pin while nothing imports the
 legacy distribution but an in-scope file imports a module only it installed
 (the pack's `match.transitive`) and no manifest of that file's app declares that module's
 distribution: one in its directory or above it, a `requirements/` directory counting for the
-directory it is in. Another app's manifest does not cover it.
+directory it is in. Another app's manifest does not cover it, and a constraints file does not
+declare: it bounds a version and installs nothing.
 
 ### D8. Lines, not a parse-and-serialise round trip — except for `setup.py`
 

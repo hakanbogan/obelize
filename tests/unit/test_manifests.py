@@ -1137,6 +1137,10 @@ def test_a_distribution_a_manifest_declares_keeps_nothing() -> None:
         ("requirements/base.txt", "app2/b.py", False),
         ("app1/requirements/base.txt", "app1/b.py", False),
         ("app1/requirements/base.txt", "app2/b.py", True),
+        ("requirements.in", "b.py", False),
+        ("constraints.txt", "b.py", True),
+        ("requirements/constraints-3.12.txt", "b.py", True),
+        ("app1/requirements-constraints.txt", "app1/b.py", True),
     ],
 )
 def test_a_module_only_the_legacy_distribution_installed_is_declared_by_the_manifests_of_its_app(
@@ -1171,6 +1175,24 @@ def test_one_app_that_lacks_a_distribution_holds_the_pin_of_every_app(tmp_path: 
     declared = runner.scan(tmp_path, Config(), SPEC, jobs=1)
     assert declared.manifests.transitive == ()
     assert not any(row.bail for row in declared.manifests.findings)
+
+
+def test_a_constraints_file_declares_nothing_a_pin_of_the_legacy_distribution_must_keep(
+    tmp_path: Path,
+) -> None:
+    """`acme-wire<3` bounds a version and installs nothing, so the old pin's modules must stay."""
+    files = {
+        "main.py": MIGRATES,
+        "retry.py": "import acme.wire\n",
+        "requirements.txt": "acme-sdk==0.1.0\n",
+        "constraints.txt": "acme-wire<3\n",
+    }
+    for name, text in files.items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    scanned = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert scanned.manifests.transitive == ("retry.py",)
+    held = {(row.path, row.bail) for row in scanned.manifests.findings if row.bail}
+    assert ("requirements.txt", "transitive_dependency_in_use") in held
 
 
 def test_an_import_of_the_legacy_distribution_is_the_reason_given_first() -> None:

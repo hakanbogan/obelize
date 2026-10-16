@@ -73,7 +73,8 @@ REQUIREMENTS_GLOB: Final = "*requirement*.txt"
 
 # Read, never written: a constraints file and a pip-tools input. The compiled file beside an input
 # is what installs, so an edit there alone would be undone by the next compile.
-UNWRITTEN_GLOBS: Final = ("*constraints*.txt", "*requirements*.in")
+_CONSTRAINTS: Final = "*constraints*.txt"
+UNWRITTEN_GLOBS: Final = (_CONSTRAINTS, "*requirements*.in")
 
 # Layouts pip reads: a line may be an option, and a comment needs a blank before its `#`.
 PIP: Final[frozenset[Layout]] = frozenset({"requirements", "unwritten"})
@@ -351,7 +352,8 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
     """Grade every declaration against the pin-edit rule and the state of the code.
 
     A file imports a module only the legacy distribution installed with a declaration of its
-    distribution in the manifests of its own app: its directory, or one above it, up to the root.
+    distribution in the manifests of its own app: its directory, or one above it, up to the root. A
+    constraints file does not declare: it bounds a version and installs nothing.
     """
     legacy = canonicalize_name(spec.legacy_distribution)
     new = canonicalize_name(spec.new_distribution)
@@ -359,7 +361,8 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
     owners: dict[str, set[PurePosixPath]] = {}
     for declaration in found:
         declares.setdefault(declaration.path, set()).add(declaration.name)
-        owners.setdefault(declaration.name, set()).add(_owner(declaration.path))
+        if not fnmatch.fnmatchcase(PurePosixPath(declaration.path).name, _CONSTRAINTS):
+            owners.setdefault(declaration.name, set()).add(_owner(declaration.path))
     needed = tuple(
         sorted(
             {
