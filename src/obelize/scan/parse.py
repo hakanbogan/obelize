@@ -7,7 +7,7 @@ refuses a leading BOM; `read_text(errors="replace")` destroys non-ASCII.
 from __future__ import annotations
 
 import ast
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, get_args
@@ -21,8 +21,7 @@ from obelize.verify import cheap
 # Only `parsed` carries a tree; run.json's `files_parsed` counts it, round-trip failures included.
 ReadStatus = Literal["parsed", "does_not_parse", "not_a_candidate", "not_read"]
 
-# `limitations[].code` values, none new: three existing bail codes, and `unreadable` from
-# `Skipped.reason`.
+# `limitations[].code` values: three bail codes, and `unreadable` from `Skipped.reason`.
 ReadRefusal = Literal["file_too_large", "input_does_not_parse", "internal_error", "unreadable"]
 READ_REFUSALS: frozenset[ReadRefusal] = frozenset(get_args(ReadRefusal))
 
@@ -42,16 +41,20 @@ CRASH_BAIL: Final = "internal_error"
 # Characters kept of a parser message: room for libcst's "expected one of ..." list, no more.
 MESSAGE_LIMIT = 200
 
-# Levels of nesting a file may have. On the default stack libcst renders a level in two Python
-# frames and gives out near 490; the scan's visitors use three and give out near 320. `compile()`
-# accepts a chain of thirteen thousand terms on some versions and libcst's parser then dies with
-# SIGSEGV, so a deeper file is refused before libcst sees it.
+# Levels of nesting a file may have, as `_past_limit` counts them: an operand-chain level is one,
+# and libcst's own nodes between a container and its items cost more. On the default stack libcst
+# renders a level in two Python frames and gives out near 490; the scan's visitors use three and
+# give out near 320 on a chain. `compile()` accepts a chain of thirteen thousand terms on some
+# versions, and a dotted import of fifteen thousand names on all, and libcst's parser then dies
+# with SIGSEGV, so a deeper file is refused before libcst sees it.
 MAX_DEPTH: Final = 300
 
-# The detail of a file nested past `MAX_DEPTH`, after `_DETAIL`'s sentence.
+# What the report says of a file nested past `MAX_DEPTH`; its own sentence, since a newer Python
+# does not help.
 _DEEP: Final = (
     f"Refused by obelize: nested more than {MAX_DEPTH} levels deep (a long chain of operands, an "
-    "`elif` ladder), more than its tree walkers can follow."
+    "`elif` ladder, a dotted name, brackets inside brackets), more than its tree walkers can "
+    "follow."
 )
 
 # One report sentence per ReadRefusal; a test pins the key set.
@@ -218,26 +221,67 @@ def disk(root: Path, config: Config) -> Contents:
 def _past_limit(data: bytes) -> tuple[int, int] | None:
     """The line and column where nesting passes `MAX_DEPTH`, or `None`.
 
-    Walked without recursion, since the input is what overruns it. libcst nests the operands of an
-    `and` or `or` one level each, where `ast` holds them flat.
+    Walked without recursion, since the input is what overruns it.
     """
     try:
         stack: list[tuple[ast.AST, int]] = [(ast.parse(data), 0)]
         while stack:
             node, depth = stack.pop()
-            if depth > MAX_DEPTH and isinstance(node, ast.expr | ast.stmt):
+            if isinstance(node, ast.expr | ast.stmt | ast.alias) and (
+                depth + _dots(node) > MAX_DEPTH
+            ):
                 return node.lineno, node.col_offset
-            step = len(node.values) - 1 if isinstance(node, ast.BoolOp) else 1
-            stack.extend((child, depth + step) for child in ast.iter_child_nodes(node))
+            stack.extend((child, depth + step) for child, step in _children(node))
     except (RecursionError, MemoryError):  # building the tree already overran the stack
         return 1, 0
     return None
 
 
+def _children(node: ast.AST) -> Iterator[tuple[ast.AST, int]]:
+    """Each child of `node` with the levels it sits below it in libcst's tree, which `ast` hides.
+
+    A field holding one node is a level, an index four. An item of a list costs three: a node of
+    libcst's own (`Arg`, `Element`, `IndentedBlock`) and the frames its visitors spend on a
+    sequence. The costs are measured, by `tests/unit/test_parse.py::SHAPES`.
+    """
+    for name, value in ast.iter_fields(node):
+        if isinstance(value, ast.AST):
+            yield value, 4 if isinstance(node, ast.Subscript) and name == "slice" else 1
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, ast.AST):
+                    yield item, _item(node, name, item)
+
+
+def _item(node: ast.AST, field: str, item: ast.AST) -> int:
+    """An `and` or `or` nests each operand one level a term, where `ast` holds them flat. An `elif`
+    nests no more than the `if` above it, and starts in its column, where an `if` inside `else:` is
+    indented; an `else` or `finally` is a node of its own more."""
+    if isinstance(node, ast.BoolOp):
+        return len(node.values) - 1
+    if (
+        isinstance(node, ast.If)
+        and isinstance(item, ast.stmt)
+        and field == "orelse"
+        and item.col_offset == node.col_offset
+    ):
+        return 1
+    return 4 if field in {"orelse", "finalbody"} else 3
+
+
+def _dots(node: ast.AST) -> int:
+    """Levels libcst nests in a dotted name that `ast` holds as one string: `a.b.c` is two."""
+    match node:
+        case ast.alias(name=name) | ast.ImportFrom(module=name) if name:
+            return name.count(".")
+    return 0
+
+
 def does_not_parse(path: str, data: bytes, gate: Gate, error: Exception) -> Read:
     """The single finding and the row naming the gate; `evidence=None` so no line is quoted."""
     line, column = _coordinates(error)
-    return _refused(path, data, line, column, PARSE_BAIL, f"Refused by {gate}: {_message(error)}")
+    detail = f"{_DETAIL[PARSE_BAIL]} Refused by {gate}: {_message(error)}"
+    return _refused(path, data, line, column, PARSE_BAIL, detail)
 
 
 def crashed(path: str, data: bytes, error: Exception) -> Read:
@@ -246,7 +290,9 @@ def crashed(path: str, data: bytes, error: Exception) -> Read:
     A message can quote the file or a path. The status stays `does_not_parse`: no tree reaches
     anything past this, so `files_parsed` does not count the file either.
     """
-    return _refused(path, data, 1, 0, CRASH_BAIL, f"It raised {type(error).__name__}.")
+    return _refused(
+        path, data, 1, 0, CRASH_BAIL, f"{_DETAIL[CRASH_BAIL]} It raised {type(error).__name__}."
+    )
 
 
 def _refused(
@@ -255,7 +301,7 @@ def _refused(
     line: int,
     column: int,
     code: Literal["input_does_not_parse", "internal_error"],
-    extra: str,
+    detail: str,
 ) -> Read:
     finding = Finding(
         path=path,
@@ -273,7 +319,7 @@ def _refused(
         status="does_not_parse",
         data=data,
         findings=(finding,),
-        limitations=(limitation(path, code, extra),),
+        limitations=(Limitation(path=path, code=code, detail=detail),),
     )
 
 

@@ -75,7 +75,7 @@ A bail withholds its whole binding group; the group is atomic.
 | Code | Raised when |
 |---|---|
 | `roundtrip_mismatch` | `cst.parse_module(data).bytes != data` on the input. |
-| `input_does_not_parse` | libcst or `compile()` refused the input, or it is nested more than 300 levels deep (a chain of that many operands, an `elif` ladder); `limitations[].detail` names which. Also a `pyproject.toml` or `setup.cfg` whose Python requirement is unreadable; that run is not blocked. |
+| `input_does_not_parse` | libcst or `compile()` refused the input, or it is nested more than 300 levels deep (a chain of that many operands, a dotted name, an `elif` ladder, about a hundred brackets inside brackets); `limitations[].detail` names which. Also a `pyproject.toml` or `setup.cfg` whose Python requirement is unreadable; that run is not blocked. |
 | `output_does_not_parse` | The rewritten bytes fail `cst.parse_module` or `compile()`. The file is left alone. |
 | `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. |
 | `internal_error` | obelize itself raised on the file, in the scan (the file is one `parse_error` row) or in a `fix` run (each row the scan graded `eligible` is withheld). The file is left alone, and `limitations[]` names the exception class and never its message. A defect in obelize, reported so one file does not end the run. |

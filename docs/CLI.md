@@ -426,7 +426,8 @@ Other flags have no file equivalent.
    expression nested so deeply that libcst's parser would crash the process.
    Some versions of `compile()` accept a longer one, so the depth check
    refuses a file nested more than 300 levels deep (a chain of that many
-   operands, attributes or calls, an `elif` ladder).
+   operands, attributes or calls, a dotted name, an `elif` ladder; brackets
+   inside brackets count for more, so about a hundred of them are the limit).
 4. Byte round-trip: if libcst does not reproduce the file exactly (bare-CR
    line endings, for example), every finding in it is withheld.
 

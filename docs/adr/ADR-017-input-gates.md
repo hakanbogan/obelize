@@ -15,20 +15,26 @@ and a late `__future__` import, in `tests/unit/test_parse.py`) is one
 parentheses, a chain of 100,000 operands, 10,000 `not`s) overruns libcst's
 parser and kills the process with SIGSEGV, where `compile()` raises. A chain of
 about thirteen thousand operands, or of attributes, calls or subscripts, is
-accepted by `compile()` on some versions (3.14) and kills libcst the same way,
-so a second check, `parse.MAX_DEPTH`, refuses a file whose syntax tree is nested
-more than 300 levels deep before libcst sees it. The walk is iterative, and an
-`and` or `or` counts one level an operand, as libcst nests them where `ast`
-holds them flat. 300 is under where libcst gives out, near 490 levels to render
-and 320 for the scan's visitors on the default stack: a chain the check passes
-does not overrun the stack later, which would depend on the stack (`--jobs`, a
-test runner) and not on the file. The refusal is one
-`input_does_not_parse` finding and its detail names the limit. The
-analysis and the codemod catch `RecursionError` and `MemoryError` per file for
-the trees that do parse (libcst nests a call argument two levels where `ast` has
-one, so a file within the limit can still overrun): the file is one
-`input_does_not_parse` finding, or, when only the rewrite overruns, kept as it
-was with `output_does_not_parse`.
+accepted by `compile()` on some versions (3.14) and kills libcst the same way, as
+does a dotted import of fifteen thousand names on every version, so a second
+check, `parse.MAX_DEPTH`, refuses a file whose syntax tree is nested more than
+300 levels deep before libcst sees it. The walk is iterative and counts libcst's
+tree, which `ast` does not show: an `and` or `or` nests each operand one level,
+the components of a dotted name in an `import` nest one level each, and libcst
+puts a node of its own between a container and each item, so a list's item, a
+call's argument or a block's statement costs three levels, an index four, and
+the `else` or `finally` of a statement one more. An `elif` costs one. Those
+costs are measured against where the analysis visitors give out, near 320 levels
+of a chain on the default stack and fewer for a sequence, so brackets inside
+brackets reach about 100 and `a[a[a[...]]]` about 75. The limit is under that
+point with room for a caller sixty frames deep: a file the check passes does not
+overrun the stack later, which would depend on the stack (`--jobs`, a test
+runner) and not on the file. The refusal is one `input_does_not_parse` finding
+whose detail is its own sentence, naming the limit. The analysis and the codemod
+still catch `RecursionError` and `MemoryError` per file for a tree that does
+parse (a shape the costs do not know, or a caller deeper than that): the file is
+one `input_does_not_parse` finding, or, when only the rewrite overruns, kept as
+it was with `output_does_not_parse`.
 
 **D2. The handler is `except (cst.ParserSyntaxError, SyntaxError, ValueError)`.**
 That is libcst's handler: `cst.ParserSyntaxError` is not a `SyntaxError`, and

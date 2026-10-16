@@ -183,6 +183,9 @@ DEEP: dict[str, bytes] = {
     "a long attribute chain": b"x = a" + b".b" * 20_000 + b"\n",
     "a long call chain": b"x = f" + b"()" * 20_000 + b"\n",
     "a long subscript chain": b"x = a" + b"[0]" * 20_000 + b"\n",
+    "a dotted import": b"import " + b".".join([b"a"] * 20_000) + b"\n",
+    "a dotted from import": b"from " + b".".join([b"a"] * 20_000) + b" import x\n",
+    "a dotted alias": b"import " + b".".join([b"a"] * 20_000) + b" as b\n",
 }
 
 
@@ -199,46 +202,114 @@ def test_an_expression_too_deep_for_the_parsers_is_one_unparsable_file(shape: st
     assert (done.returncode, done.stdout.strip()) == (0, b"does_not_parse")
 
 
-# Each is MAX_DEPTH terms deep or one fewer: built from `Name`s, whose `Load` context sits one level
-# below the term and is the one node of the walk that is not an expression or a statement.
-SHAPES: dict[str, Callable[[int], bytes]] = {
-    "a sum": lambda n: b"x = " + b" + ".join([b"a"] * n) + b"\n",
-    "an and": lambda n: b"x = " + b" and ".join([b"a"] * n) + b"\n",
-    "an or": lambda n: b"x = " + b" or ".join([b"a"] * n) + b"\n",
-    "an elif ladder": lambda n: b"if a:\n    pass\n" + b"elif a:\n    pass\n" * (n - 1),
-    "an attribute chain": lambda n: b"x = a" + b".b" * (n - 1) + b"\n",
-    "a call chain": lambda n: b"x = a" + b"()" * (n - 1) + b"\n",
+def _repeat(head: bytes, open_: bytes, middle: bytes, close: bytes, tail: bytes = b"\n") -> Any:
+    return lambda n: head + open_ * n + middle + close * n + tail
+
+
+# Each builds a file nested `n` deep, with the most `n` the nesting limit lets through. The numbers
+# are the cost of a level in the unit of an operand chain, measured against where the analysis
+# visitors give out: a list's item and a call's argument cost three, an index four, so brackets
+# in brackets reach 98 and an `a[a[a[...]]]` 74 where a chain of operands reaches 297.
+SHAPES: dict[str, tuple[Callable[[int], bytes], int]] = {
+    "a sum": (lambda n: b"x = " + b" + ".join([b"a"] * n) + b"\n", 297),
+    "an and": (lambda n: b"x = " + b" and ".join([b"a"] * n) + b"\n", 297),
+    "an or": (lambda n: b"x = " + b" or ".join([b"a"] * n) + b"\n", 297),
+    "an elif ladder": (lambda n: b"if a:\n    pass\n" + b"elif a:\n    pass\n" * (n - 1), 295),
+    "an attribute chain": (lambda n: b"x = a" + b".b" * (n - 1) + b"\n", 297),
+    "a call chain": (lambda n: b"x = a" + b"()" * (n - 1) + b"\n", 297),
+    "a lambda chain": (lambda n: b"x = " + b"lambda: " * n + b"1\n", 296),
+    "a list in a list": (_repeat(b"x = ", b"[", b"1", b"]"), 98),
+    "a tuple in a tuple": (_repeat(b"x = ", b"(", b"1", b",)"), 98),
+    "a call in a call": (_repeat(b"x = ", b"f(", b"1", b")"), 98),
+    "a keyword in a call": (_repeat(b"x = ", b"f(k=", b"1", b")"), 74),
+    "a dict in a dict": (_repeat(b"x = ", b"{1: ", b"1", b"}"), 98),
+    "a comparison in a comparison": (_repeat(b"x = ", b"a < (", b"1", b")"), 98),
+    "an index in an index": (_repeat(b"x = a", b"[a", b"", b"]"), 74),
+    "a slice in a slice": (_repeat(b"x = a", b"[1:a", b"", b"]"), 59),
+    "a starred list": (_repeat(b"x = ", b"[*", b"1", b"]"), 74),
+    "a comprehension": (_repeat(b"x = ", b"[a for a in ", b"1", b"]"), 74),
+    "an f-string": (_repeat(b"x = ", b"f'{", b"1", b"}'"), 74),
+    "an else": (
+        lambda n: (
+            b"if a:\n    pass\nelse:\n"
+            + b"".join(
+                b" " * 4 * (i + 1)
+                + b"if a:\n"
+                + b" " * 4 * (i + 2)
+                + b"pass\n"
+                + b" " * 4 * (i + 1)
+                + b"else:\n"
+                for i in range(n)
+            )
+            + b" " * 4 * (n + 1)
+            + b"pass\n"
+        ),
+        73,
+    ),
+    "a dotted import": (lambda n: b"import " + b".".join([b"a"] * n) + b"\n", 295),
+    "a dotted alias": (lambda n: b"import " + b".".join([b"a"] * n) + b" as b\n", 295),
+    "a dotted from import": (lambda n: b"from " + b".".join([b"a"] * n) + b" import x\n", 298),
+}
+
+# What `compile()` refuses before the nesting limit is reached: a statement nested 100 deep.
+BLOCKS: dict[str, Callable[[int], bytes]] = {
+    "an if": lambda n: b"".join(b" " * i + b"if a:\n" for i in range(n)) + b" " * n + b"pass\n",
+    "a def": lambda n: b"".join(b" " * i + b"def f():\n" for i in range(n)) + b" " * n + b"pass\n",
 }
 
 
 @pytest.mark.parametrize("shape", sorted(SHAPES), ids=sorted(SHAPES))
 def test_the_nesting_limit_has_no_gap_between_what_passes_and_what_is_refused(shape: str) -> None:
     """The limit is the nesting, not the term count, which differs by the statement around it."""
-    assert gates("deep.py", SHAPES[shape](MAX_DEPTH - 1)).status == "parsed"
+    build, limit = SHAPES[shape]
+    assert gates("deep.py", build(limit)).status == "parsed"
 
-    refused = gates("deep.py", SHAPES[shape](MAX_DEPTH))
+    refused = gates("deep.py", build(limit + 1))
     assert refused.status == "does_not_parse"
     assert [finding.bail for finding in refused.findings] == [PARSE_BAIL]
-    assert refused.limitations[0].detail.startswith(parse._DETAIL[PARSE_BAIL])
+    assert refused.limitations[0].detail == parse._DEEP
     assert f"nested more than {MAX_DEPTH} levels deep" in refused.limitations[0].detail
 
 
-def test_every_file_the_depth_check_lets_through_is_one_the_scan_can_walk() -> None:
-    """The limit sits under where the analysis visitors give out (three frames a level), so no
-    file passes the gate and then fails on the stack, which would vary with `--jobs`."""
-    source = b"import acme.sdk\n" + SHAPES["a sum"](MAX_DEPTH - 1)
-    result = runner.examine(runner.Candidate("deep.py", "0" * 64, source), acme.SPEC)
-    assert result.parsed
+def _walked(source: bytes) -> bool:
+    return runner.examine(runner.Candidate("deep.py", "0" * 64, source), acme.SPEC).parsed
+
+
+@pytest.mark.parametrize("shape", sorted(SHAPES), ids=sorted(SHAPES))
+def test_every_file_the_depth_check_lets_through_is_one_the_scan_can_walk(shape: str) -> None:
+    """The limit sits under where the analysis visitors give out (three frames a level, more for a
+    sequence), so no file passes the gate and then fails on the stack, which would vary with
+    `--jobs`."""
+    build, limit = SHAPES[shape]
+    assert _walked(b"import acme.sdk\n" + build(limit))
+
+
+@pytest.mark.parametrize("shape", sorted(BLOCKS), ids=sorted(BLOCKS))
+def test_the_deepest_statements_python_accepts_are_ones_the_scan_can_walk(shape: str) -> None:
+    assert _walked(b"import acme.sdk\n" + BLOCKS[shape](99))
 
 
 def test_a_file_past_the_nesting_limit_names_the_line_it_passes_it_on() -> None:
     """The line of a term below the limit, and none of the file's text."""
-    source = b"import google.generativeai as genai\n\n" + SHAPES["a sum"](MAX_DEPTH + 40)
+    source = b"import google.generativeai as genai\n\n" + SHAPES["a sum"][0](MAX_DEPTH + 40)
     refused = gates("deep.py", source)
     finding = refused.findings[0]
     assert finding.line == 3
     assert finding.evidence is None
     assert "generativeai" not in refused.limitations[0].detail
+
+
+def test_a_relative_import_has_no_dotted_name_to_count() -> None:
+    """`from . import x` has no module for `ast` to name, and libcst holds its dots flat."""
+    assert (
+        gates("rel.py", b"from . import x\nfrom ... import y\nfrom .a.b import z\n").status
+        == "parsed"
+    )
+
+
+def test_the_lists_ast_holds_names_and_gaps_in_are_not_nodes_to_measure() -> None:
+    """`global a, b` lists strings, and `{**c}` lists a `None` key."""
+    assert gates("lists.py", b"def f():\n    global a, b\n    return {**c}\n").status == "parsed"
 
 
 def test_nesting_is_not_measured_in_the_statements_that_hold_it() -> None:
