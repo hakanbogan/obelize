@@ -451,6 +451,13 @@ rewritten to its attribute on the same terms:
   its binding in a loop is the second pass's), no class body, and no file that mentions a way to reach
   a name by its string: `eval`, `exec`, `globals`, `locals`, `vars`, `f_locals`, `f_globals`,
   `currentframe`, `_getframe` or `__dict__`, called or not, since `f = locals` calls it unseen.
+- Not a name another module takes. A name the module binds (also by `global`, a part of the result
+  or the target of a loop at the module's level) may be imported (`from a import resp`, `from a
+  import *`) or read off the module (`a.resp`) by a file this one never sees, which reads it by
+  key. `codemod.run` hands each file's rules the question `scan/reach.py` asks of a model constant,
+  by imports and attribute reads of the other selected modules, matched by the last segment of the
+  path, so another package's `a.py` counts too (the safe side), and a name the module reaches is
+  `response_shape_changed`. A name bound in a function is nobody else's.
 - Every keyed read in the call's own frame. A generator expression is a frame of its own, since it
   runs when something iterates it, possibly outside the handler around it, so a key read in one is
   refused, and so is a call inside one.

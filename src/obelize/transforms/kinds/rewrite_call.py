@@ -24,6 +24,7 @@ from libcst.metadata import (
     ClassScope,
     ExpressionContext,
     ExpressionContextProvider,
+    GlobalScope,
     QualifiedName,
     QualifiedNameSource,
     Scope,
@@ -444,6 +445,7 @@ class _Tree(Tree):
         super().__init__(context, [ScopeProvider, ExpressionContextProvider])
         self._scopes = context.wrapper.resolve(ScopeProvider)
         self._contexts = context.wrapper.resolve(ExpressionContextProvider)
+        self._imported = context.imported_elsewhere
         self._reads: dict[tuple[Scope | None, str], list[cst.CSTNode]] = {}
         self._confined: dict[
             tuple[Scope | None, str, frozenset[tuple[str, ...]]], dict[Read, str] | None
@@ -509,7 +511,12 @@ class _Tree(Tree):
         def hold(target: cst.Name, path: tuple[str, ...], shared: bool) -> bool:
             """Queue the reads of a name that holds what `path` reaches; False if none can be."""
             scope = self._scopes[target]
-            if isinstance(scope, ClassScope) or self._by_name or self._augmented(target):
+            if (
+                isinstance(scope, ClassScope)
+                or self._by_name
+                or self._augmented(target)
+                or self._exported(target)
+            ):
                 return False
             shared = shared or self._shared(target)
             if (key := (scope, target.value, path, shared)) not in seen:
@@ -754,6 +761,15 @@ class _Tree(Tree):
             if not any(each.scope is scope for each in access.referents)
         ]
         return [*strays, *self._unlinked.get(target.value, ())]
+
+    def _exported(self, target: cst.Name) -> bool:
+        """Whether the name is the module's own (also by `global`) and another module takes it.
+
+        Its reads there are keys of the dictionary, which no pass over this file sees.
+        """
+        return any(
+            isinstance(each.scope, GlobalScope) for each in self._assigned(target)
+        ) and self._imported(target.value)
 
     def _augmented(self, target: cst.Name) -> bool:
         """Whether a binding of the name is `name |= x`: it reads the part, and no read lists it."""

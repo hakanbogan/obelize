@@ -224,6 +224,9 @@ such as `choices[].message.content` or `usage.total_tokens`:
   left out or sent null is None on both sides. The quotes stay as written. A `getattr` the file
   binds itself withholds the call, and so does `.get` with a default, which the model reads as None
   where the dictionary gave the default.
+- A name the module itself binds (also by `global`) and another selected module imports or reads off
+  the module, by imports and attribute reads of the last name of its path, is read where no pass over
+  this file looks: the call is `response_shape_changed`.
 - A read the scope analysis links to no assignment (above it, in a loop's second pass) counts as
   a read of the result, and a result bound in a class body is `response_shape_changed`: `A.r` and
   `self.r` link to no scope.

@@ -4,6 +4,9 @@ Deleting the constructor breaks a module that imports the model (`from llm impor
 it off an instance (`desk.model`); no per-file pass sees that. Only imports and attribute reads
 count, never text. A module matches by its last dotted segment, so another package's `llm` also
 withholds (the safe side). The code lands only on rows no other code fired on, so it has no rung.
+
+A rule that rewrites a value it cannot follow out of its file asks `read_elsewhere` the same
+question of one name.
 """
 
 from __future__ import annotations
@@ -92,6 +95,18 @@ def _trees(
     return trees
 
 
+def read_elsewhere(path: str, paths: Sequence[str], contents: Contents, name: str) -> bool:
+    """Whether a module of `paths` other than `path` takes `name` from the module `path` is.
+
+    As `revised` asks it of a module constant: imported by name or `*`, or read off the module once
+    that is imported.
+    """
+    segment = _segment(path)
+    others = [other for other in paths if other.endswith(".py") and other != path]
+    trees = _trees(contents, others, {name}, {segment})
+    return any(_takes(_reads(tree), segment, name) for tree in trees.values())
+
+
 @dataclass(frozen=True, slots=True)
 class _Reads:
     """What one module imports and reads, from one walk of it."""
@@ -125,10 +140,17 @@ def _reaches(reads: _Reads, segment: str, row: Binding) -> bool:
     instance attribute: anything imported from the module and that attribute read off anything.
     """
     name = _attribute(row)
-    module_read = segment in reads.modules and name in reads.attributes
     if row.kind == "module_const":
-        return bool(reads.taken.get(segment, set()) & {name, "*"}) or module_read
-    return module_read
+        return _takes(reads, segment, name)
+    return _read_off(reads, segment, name)
+
+
+def _read_off(reads: _Reads, segment: str, name: str) -> bool:
+    return segment in reads.modules and name in reads.attributes
+
+
+def _takes(reads: _Reads, segment: str, name: str) -> bool:
+    return bool(reads.taken.get(segment, set()) & {name, "*"}) or _read_off(reads, segment, name)
 
 
 def _withheld(result: FileResult, reached: Sequence[Binding]) -> ImpactPlan:
@@ -172,4 +194,4 @@ def _withheld(result: FileResult, reached: Sequence[Binding]) -> ImpactPlan:
     )
 
 
-__all__ = ["BAILS", "CODE", "REACHABLE", "revised"]
+__all__ = ["BAILS", "CODE", "REACHABLE", "read_elsewhere", "revised"]

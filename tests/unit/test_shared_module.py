@@ -15,7 +15,7 @@ import pytest
 from obelize.models import Edit
 from obelize.packs import loader
 from obelize.packs.schema import PackDocument
-from obelize.scan import manifests
+from obelize.scan import manifests, reach
 from obelize.transforms.kinds.rewrite_call import (
     _NOT_MISSING_KEY,
     MODULE_BAILS,
@@ -883,6 +883,108 @@ def test_a_hold_in_the_manifest_alone_holds_the_files_too(tmp_path: Path) -> Non
     freed, _ = migrate(tmp_path / "freed", declared, pack, spec)
     assert freed["requirements.txt"].splitlines()[0] == "acme-kit>=2,<3"
     assert "talk.say" in freed["a.py"]
+
+
+# A result bound to a name another module takes: its reads there are dictionary reads that no pass
+# over this file sees.
+
+HOLDS = "import acme.kit\n\nreply = acme.kit.Greeter.say(name='a')\nprint(reply.reply.text)\n"
+FILES = {"pkg/__init__.py": "", "pkg/a.py": HOLDS, "requirements.txt": PINNED}
+
+
+def held_by(tmp_path: Path, reader: str, holder: str = HOLDS) -> bool:
+    """Whether `reader`, a module beside the one holding the result, keeps it from being written."""
+    files = {**FILES, "pkg/a.py": holder, "pkg/b.py": reader}
+    after, rows = migrate(tmp_path, files)
+    held = ("pkg/a.py", 3, "needs_review", "response_shape_changed") in rows
+    assert (after == files) is held
+    return held
+
+
+@pytest.mark.parametrize(
+    "reader",
+    [
+        "from a import reply\n\nprint(reply['reply']['text'])\n",
+        "from pkg.a import reply\n",
+        "from .a import reply as answer\n",
+        "from other.a import *\n",
+        "import pkg.a as m\n\nprint(m.reply['reply'])\n",
+        "from . import a\n\nprint(a.reply)\n",
+        "import a\n\nprint(a.reply)\n",
+    ],
+)
+def test_a_result_another_module_imports_or_reads_off_its_module_withholds_the_call(
+    tmp_path: Path, reader: str
+) -> None:
+    assert held_by(tmp_path, reader)
+
+
+@pytest.mark.parametrize(
+    "reader",
+    [
+        "from a import other\n",
+        "from other import reply\n",
+        "import a\n\nprint(a.other, reply)\n",
+        "import other\n\nprint(other.reply)\n",
+        "# from a import reply\nprint('a.reply')\n",
+        "x = 1\n",
+    ],
+    ids=[
+        "another name",
+        "another module",
+        "another attribute",
+        "an unread module",
+        "prose",
+        "no import",
+    ],
+)
+def test_a_result_no_other_module_takes_is_written_as_before(tmp_path: Path, reader: str) -> None:
+    assert not held_by(tmp_path, reader)
+
+
+@pytest.mark.parametrize(
+    "holder",
+    [
+        f"import acme.kit\n\n\ndef load():\n    global reply\n    reply = {CALL}\n",
+        f"import acme.kit\n\nreply = {CALL}\nmessage = reply.reply\n",
+        f"import acme.kit\n\nfor reply in {ROWS}.rows:\n    print(reply.price)\n",
+    ],
+    ids=["a global write", "a part", "a loop target"],
+)
+def test_a_name_the_module_binds_by_global_a_part_or_a_loop_is_the_modules_too(
+    tmp_path: Path, holder: str
+) -> None:
+    files = {**FILES, "pkg/a.py": holder, "pkg/b.py": "from a import reply, message\n"}
+    after, rows = migrate(tmp_path, files)
+    assert after == files
+    assert ("pkg/a.py", "response_shape_changed") in {(path, why) for path, _, _, why in rows}
+
+
+def test_a_result_in_a_function_is_nobody_elses_to_import(tmp_path: Path) -> None:
+    holder = f"import acme.kit\n\n\ndef f():\n    reply = {CALL}\n    return reply.reply.text\n"
+    files = {**FILES, "pkg/a.py": holder, "pkg/b.py": "from a import reply\n\nprint(reply)\n"}
+    after, _rows = migrate(tmp_path, files)
+    assert "talk.say" in after["pkg/a.py"]
+
+
+def test_a_name_is_taken_only_by_another_module_that_parses_and_imports_it() -> None:
+    sources = {
+        "pkg/a.py": b"reply = 1\n",
+        "pkg/b.py": b"from a import reply\n",
+        "pkg/c.py": b"def (:\nfrom a import reply\n",
+        "notes.txt": b"from a import reply\n",
+    }
+
+    def taken(*paths: str) -> bool:
+        return reach.read_elsewhere(
+            "pkg/a.py", paths, lambda path: (sources.get(path), ()), "reply"
+        )
+
+    assert taken("pkg/a.py", "pkg/b.py")
+    assert not taken("pkg/a.py")
+    assert not taken("pkg/a.py", "pkg/c.py")
+    assert not taken("pkg/a.py", "notes.txt")
+    assert not taken("pkg/a.py", "pkg/gone.py")
 
 
 # Names the module's namespace reaches, and what a scan must not trip over.

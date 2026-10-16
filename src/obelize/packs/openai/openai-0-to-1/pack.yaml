@@ -537,7 +537,7 @@ limitations:
   - "A repository whose pyproject.toml or setup.cfg declares a Python below 3.8 is blocked. A Python declared only in setup.py or a Pipfile is not read."
   - "A requirement the pack cannot rewrite in place, openai[datalib] with extras for one, holds the whole repository (manifest_pin_shape_unsupported): edit that line by hand and run again."
   - "A declaration that already pins openai at 1.109.1 or above (openai==3.26.0, openai>=2) is left as written, and the code is still rewritten; one that admits an older release, openai>=0.28.1,<3 or openai>=1.0, is rewritten to openai>=1.109.1."
-  - "A result bound to a module name that another module imports is read in this file only."
+  - "A result, or a part of it, bound to a name of its module (also by global) that another selected module imports or reads off the module (from a import resp, a.resp) withholds the file, since the reads there are keys that no pass sees. Modules are matched by their last name, so another package's a.py counts."
   - "Dynamic access, star imports and mock patch targets are reported, never rewritten. A patch target is seen only when it starts at openai: one written against your own module, as in myapp.llm.openai.ChatCompletion.create, is not."
   - "The module is followed inside one file. A name another of your modules re-exports (from mylib import openai) and a client built elsewhere are not seen."
   - "A file whose round trip through the parser is not byte-identical is reported and never edited."

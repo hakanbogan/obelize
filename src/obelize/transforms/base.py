@@ -19,10 +19,15 @@ from obelize.transforms.imports import ImportPlan
 from obelize.transforms.layout import comments
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from obelize.models import BailCode, Edit, Finding, ImpactPlan, ScanSpec
     from obelize.packs.schema import ChangeKind
+
+
+def _alone(name: str) -> bool:
+    """A file seen by itself: no other module is known to read what it binds."""
+    return False
 
 
 class BailError(Exception):
@@ -64,6 +69,9 @@ class RuleContext:
     client_readers: frozenset[str]
     # Filled in by whichever rule introduces the client.
     client: ClientBinding
+    # Whether another selected module imports a name of this file's module, or reads it off the
+    # module: a value bound to one is read where no rule here looks.
+    imported_elsewhere: Callable[[str], bool]
 
     @classmethod
     def build(
@@ -73,6 +81,7 @@ class RuleContext:
         spec: ScanSpec,
         rules: Sequence[Rule] = (),
         layout: Layout | None = None,
+        imported_elsewhere: Callable[[str], bool] = _alone,
     ) -> RuleContext:
         """The only constructor; `consumed` comes from `rules`, the ones that will run here."""
         wrapper = MetadataWrapper(module, unsafe_skip_copy=True)
@@ -88,6 +97,7 @@ class RuleContext:
             consumed=frozenset().union(*(rule.consumes for rule in rules)),
             client_readers=frozenset().union(*(rule.client_readers for rule in rules)),
             client=ClientBinding(),
+            imported_elsewhere=imported_elsewhere,
         )
 
 

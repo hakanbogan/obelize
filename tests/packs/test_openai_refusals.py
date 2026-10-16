@@ -169,3 +169,33 @@ def test_a_name_imported_from_the_module_holds_the_file(tmp_path: Path, header: 
     run = codemod.run(scan, sources, LOADED.pack, SPEC)
     assert {edit.reason for edit in run.edits} == {"usage_unmapped"}
     assert run.written == ()
+
+
+MODULE_LEVEL = "import openai\n\nresp = openai.ChatCompletion.create(model='m', messages=[])\n"
+GLOBAL = (
+    "import openai\n\n\ndef load():\n    global resp\n"
+    "    resp = openai.ChatCompletion.create(model='m', messages=[])\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("holder", "reader", "line"),
+    [
+        (MODULE_LEVEL, "from a import resp\n\nprint(resp['usage']['total_tokens'])\n", 3),
+        (MODULE_LEVEL, "import a\n\nprint(a.resp['usage']['total_tokens'])\n", 3),
+        (GLOBAL, "from a import resp\n\nprint(resp['usage']['total_tokens'])\n", 6),
+    ],
+    ids=["imported by name", "read off the module", "assigned by global"],
+)
+def test_a_result_another_module_takes_holds_the_whole_repository(
+    tmp_path: Path, holder: str, reader: str, line: int
+) -> None:
+    (tmp_path / "a.py").write_text(holder + "print(resp['usage']['total_tokens'])\n", "utf-8")
+    (tmp_path / "b.py").write_text(reader, "utf-8")
+    scan = scanner.scan(tmp_path, Config(), SPEC, jobs=1)
+    sources = {result.path: (tmp_path / result.path).read_bytes() for result in scan.results}
+    run = codemod.run(scan, sources, LOADED.pack, SPEC)
+    assert ("a.py", line, "response_shape_changed") in {
+        (edit.path, edit.line, edit.reason) for edit in run.edits
+    }
+    assert run.written == ()
