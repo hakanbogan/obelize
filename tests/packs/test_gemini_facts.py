@@ -208,7 +208,7 @@ def _created(
     """The `File` that `files.upload` would ask the service to create."""
     path = tmp_path / "a.txt"
     path.write_text("hi", encoding="utf-8")
-    client = Client(api_key="not-a-key")
+    client = Client(vertexai=False, api_key="not-a-key")
     seen: list[types.File] = []
 
     def create(*, file: types.File, config: object) -> object:
