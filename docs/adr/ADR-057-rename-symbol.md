@@ -121,8 +121,9 @@ refusal has a negative pack.
 - A handler for `openai.APIError`, which both sides define and the pack does not report, catches
   every status class on the new releases and caught the 5xx and malformed responses alone on 0.28.1.
   The rule reads the handlers of one `try`; one in a caller, or reached by a name, is not seen.
-- A mock given the class, not an instance (`Mock(side_effect=openai.error.RateLimitError)`), raises
-  it with no arguments, which the new class refuses with a `TypeError`: a test fails loudly where
+- A class given to a mock (`Mock(side_effect=openai.error.RateLimitError)`) or kept in a name that
+  is called later (`E = openai.error.RateLimitError; raise E("x")`) is built with no arguments or
+  with the old ones, which the new class refuses with a `TypeError`: a test fails loudly where
   0.28.1's passed. `getattr(error, "http_status")` and `vars(error)` on a bound name read an
   attribute the rule does not see.
 - `import openai` beside `import openai.error` is a name bound by two imports, which the scan reads
