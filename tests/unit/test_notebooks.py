@@ -68,12 +68,36 @@ def test_a_line_magic_stays_as_a_line_that_does_nothing_and_keeps_its_indent() -
     assert parse.gates("n.ipynb", found.source).status == "parsed"
 
 
-def test_a_cell_magic_is_no_python_and_leaves_its_cell_out() -> None:
+def test_a_cell_magic_that_runs_a_shell_or_markup_leaves_its_cell_out() -> None:
     data = book(cell("%%bash\npip install openai\n"), cell("import openai\n"))
     found = parse.notebook(data)
     assert found is not None
     assert found.source == b"import openai\n\n"
     assert found.cells == ((1, 2),)
+
+
+def test_a_cell_magic_that_runs_python_is_read_as_code_after_its_line() -> None:
+    data = book(cell("%%time\nimport openai\nopenai.ChatCompletion.create()\n"))
+    found = parse.notebook(data)
+    assert found is not None
+    assert found.source == b"pass\nimport openai\nopenai.ChatCompletion.create()\n\n"
+    assert found.cells == ((1, 1),)
+
+
+def test_a_cell_magic_that_is_python_is_a_call_of_the_old_api_and_one_that_is_not_holds_the_pin(
+    tmp_path: Path,
+) -> None:
+    old = scanned(repository(tmp_path / "a", {"n.ipynb": book(cell("%%time\n" + OLD))}))
+    assert old.unwritten == (("n.ipynb", (1,)),)
+    foreign = scanned(
+        repository(
+            tmp_path / "b",
+            {"n.ipynb": book(cell("%%writefile requirements.txt\nopenai==0.28.1\n"))},
+        )
+    )
+    assert foreign.unwritten == ()
+    assert foreign.unanalysed == ("n.ipynb",)
+    assert [row.code for row in foreign.limitations] == ["input_does_not_parse"]
 
 
 def test_a_notebook_with_no_code_is_an_empty_module() -> None:

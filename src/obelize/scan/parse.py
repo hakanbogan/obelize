@@ -138,6 +138,22 @@ class Read:
             )
 
 
+# Cell magics whose body is a shell script or markup, never Python.
+_FOREIGN: Final = frozenset(
+    {
+        "%%bash",
+        "%%sh",
+        "%%script",
+        "%%html",
+        "%%markdown",
+        "%%latex",
+        "%%javascript",
+        "%%js",
+        "%%svg",
+    }
+)
+
+
 @dataclass(frozen=True, slots=True)
 class Notebook:
     """A notebook's code cells as the one module they run as, and where each starts."""
@@ -157,8 +173,9 @@ def notebook(data: bytes) -> Notebook | None:
     sources are text.
 
     A line magic (`%matplotlib inline`, `!pip install openai`) is no Python and becomes a `pass`
-    where it stood, so the lines and the indent around it stay; a cell that starts with `%%` is
-    not Python at all and is left out.
+    where it stood, so the lines and the indent around it stay. The body of a cell magic is Python
+    (`%%time`, `%%capture`) unless the magic is known to run something else (`_FOREIGN`): any other
+    body that is not Python is a notebook that does not compile, which holds the pin.
     """
     try:
         document = json.loads(data)
@@ -179,7 +196,7 @@ def notebook(data: bytes) -> Notebook | None:
             source = "".join(source)
         if not isinstance(source, str):
             return None
-        if source.startswith("%%"):
+        if source.startswith("%%") and source.split(maxsplit=1)[0] in _FOREIGN:
             continue
         starts.append((len(lines) + 1, place))
         lines.extend(_magic(line) for line in source.split("\n"))

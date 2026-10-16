@@ -193,8 +193,10 @@ scan's own process and never by a rule:
 
 - Its code cells become one module, in order, since a cell sees what the cells before it bound.
   A line that starts with `!` or `%` is a shell escape or a line magic, no Python, and becomes a
-  `pass` at its indent, so every other line keeps its number. A cell that starts with `%%` is left
-  out, and a cell may `await` at its top level, which `compile()` is told to accept for it.
+  `pass` at its indent, so every other line keeps its number. A cell magic that runs a shell or
+  markup (`%%bash`, `%%html`) leaves its cell out; the body of any other (`%%time`, `%%capture`) is
+  code after its first line, and one that is not Python is a notebook that does not compile, which
+  holds the pin. A cell may `await` at its top level, which `compile()` is told to accept for it.
 - The module goes through the gates and the analysis of any source file, and the notebook holds the
   pin only where a row that is not `not_a_usage` appears. It is the only effect: no row of a notebook
   is in the findings, the plan or the model's questions, and a notebook is never in `Run.files`,
