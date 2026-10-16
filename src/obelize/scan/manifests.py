@@ -39,7 +39,7 @@ from obelize.models import (
 )
 from obelize.scan import parse
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping, Sequence
 
 

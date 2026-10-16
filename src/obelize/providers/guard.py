@@ -23,7 +23,7 @@ from obelize.packs.schema import under_any
 from obelize.providers import base
 from obelize.verify import cheap, redact
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 

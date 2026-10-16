@@ -13,10 +13,11 @@ import pytest
 import yaml
 from unresolved import names_unresolved
 
+import support
 from obelize import config as configuration
 from obelize.models import Config
 from obelize.packs import loader
-from obelize.scan import manifests, runner, walker
+from obelize.scan import manifests
 from obelize.transforms import codemod
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "transforms" / "codemod"
@@ -52,12 +53,7 @@ def copied(source: Path, destination: Path) -> None:
 
 
 def migrate(work: Path, config: Config | None = None) -> codemod.Run:
-    config = config or Config()
-    scan = runner.scan(work, config, SPEC, jobs=1)
-    selection = walker.walk(work, config)
-    wanted = {result.path for result in scan.results} | set(selection.manifests)
-    sources = {name: (work / name).read_bytes() for name in sorted(wanted)}
-    return codemod.run(scan, sources, BUNDLED.pack, SPEC)
+    return support.migrate(work, SPEC, BUNDLED.pack, config)
 
 
 @pytest.fixture(scope="module")

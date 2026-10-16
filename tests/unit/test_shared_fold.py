@@ -12,7 +12,7 @@ from pathlib import Path
 import acme
 import acme_kept as kept
 import pytest
-from test_several_packs import GEMINI, OPENAI, document, latest, repository, run, sources
+from test_several_packs import GEMINI, OPENAI, document, latest, run, sources
 
 from obelize.commands import CommandError
 from obelize.commands import fix as fixer
@@ -21,6 +21,7 @@ from obelize.packs import loader
 from obelize.packs.schema import PackDocument
 from obelize.verify.runner import Mode
 from platforms import PYTHON
+from support import committed
 
 QUIET = f"{PYTHON} -c pass"
 HELD = "repo_not_fully_migrated"
@@ -164,7 +165,7 @@ def rows(outcome: fixer.Outcome) -> set[tuple[str, str, str | None]]:
 def test_a_file_using_both_sdks_is_migrated_for_both_and_a_second_run_changes_nothing(
     tmp_path: Path,
 ) -> None:
-    tree = repository(tmp_path / "repo", {"app.py": BOTH, "requirements.txt": PINS})
+    tree = committed(tmp_path / "repo", {"app.py": BOTH, "requirements.txt": PINS})
     outcome = fold(tree, SDK, KIT)
     assert outcome.exit_code == 0
     assert [pack.id for pack in outcome.record.packs] == [kept.PACK.id, acme.PACK.id]
@@ -191,7 +192,7 @@ def test_a_dict_style_read_holds_all_the_shared_pack_would_write_and_nothing_of_
         "bad.py": KIT_DICT,
         "requirements.txt": PINS,
     }
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     outcome = fold(tree, SDK, KIT)
     assert outcome.exit_code == 4
     assert sources(tree) == {
@@ -230,7 +231,7 @@ def test_one_withheld_row_of_the_shared_pack_holds_every_file_and_the_pin(
     tmp_path: Path, source: str, cause: str
 ) -> None:
     files = {"good.py": KIT_CLEAN, "bad.py": source, "requirements.txt": "acme-kit==1.5\n"}
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     outcome = fold(tree, KIT)
     assert outcome.exit_code == 4
     assert sources(tree) == files
@@ -254,7 +255,7 @@ def test_a_module_only_the_legacy_distribution_installs_holds_the_shared_pack_un
         "net.py": "import wirelib\n\nwirelib.send()\n",
         "requirements.txt": "acme-kit==1.5\n",
     }
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     held = fold(tree, WIRED)
     assert held.exit_code == 4
     assert sources(tree) == files
@@ -299,7 +300,7 @@ def test_a_pack_blocked_beside_one_that_writes_still_leaves_the_run_unfinished(
     reason: str,
 ) -> None:
     files = {"app.py": SDK_CLEAN, "greet.py": KIT_CLEAN, "requirements.txt": pins, **extra}
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     outcome = fold(tree, SDK, blocked)
     assert outcome.exit_code == 4
     assert {pack.id: pack.blocked for pack in outcome.record.packs} == {
@@ -318,7 +319,7 @@ def test_a_pack_blocked_beside_one_that_writes_still_leaves_the_run_unfinished(
 def test_a_repository_using_only_the_names_a_shared_pack_kept_selects_no_pack(
     tmp_path: Path,
 ) -> None:
-    tree = repository(
+    tree = committed(
         tmp_path / "repo", {"kept.py": KEPT_ONLY, "requirements.txt": "acme-kit==1.5\n"}
     )
     outcome = fold(tree, SDK, KIT, apply=False)
@@ -330,7 +331,7 @@ def test_a_repository_using_only_the_names_a_shared_pack_kept_selects_no_pack(
 
 def test_a_dropped_name_beside_kept_ones_selects_the_shared_pack(tmp_path: Path) -> None:
     source = KEPT_ONLY + "\nSAY = kit.Greeter.say\n"
-    tree = repository(tmp_path / "repo", {"kept.py": source, "requirements.txt": "acme-kit==1.5\n"})
+    tree = committed(tmp_path / "repo", {"kept.py": source, "requirements.txt": "acme-kit==1.5\n"})
     outcome = fold(tree, SDK, KIT, apply=False)
     assert [pack.id for pack in outcome.record.packs] == [kept.PACK.id]
     assert outcome.notes == ()
@@ -359,7 +360,7 @@ NEW = {
 
 @pytest.fixture
 def migrated(tmp_path: Path) -> Path:
-    tree = repository(tmp_path / "repo", LEGACY)
+    tree = committed(tmp_path / "repo", LEGACY)
     result = run(tree, "fix", "--apply", "--verify", QUIET)
     assert result.exit_code == 0, result.output
     return tree
@@ -397,7 +398,7 @@ def test_an_openai_pin_in_a_requirements_file_declares_requests_as_both_packs_wr
     """`requests` came with openai 0.x and does not with 1.x, so the pack declares it, unpinned,
     below the pin it moves, in the file the other pack writes its own pin in."""
     files = {**LEGACY, "fetch.py": FETCH}
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     result = run(tree, "fix", "--apply", "--verify", QUIET)
     assert result.exit_code == 0, result.output
     assert sources(tree) == {
@@ -421,7 +422,7 @@ def test_an_openai_pin_held_by_requests_leaves_gemini_to_write(tmp_path: Path) -
         "pyproject.toml": pyproject,
         "requirements.txt": "google-generativeai==0.8.6\n",
     }
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     held = run(tree, "fix", "--apply", "--verify", QUIET)
     assert held.exit_code == 4, held.output
     assert sources(tree) == {
@@ -446,7 +447,7 @@ MODEL = ModelConfig(provider="openai_compat", base_url="http://127.0.0.1:9", mod
 
 def test_a_model_is_not_asked_about_a_pack_that_moves_a_whole_repository(tmp_path: Path) -> None:
     files = {"bad.py": KIT_DICT, "requirements.txt": "acme-kit==1.5\n"}
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     outcome = fold(tree, KIT, model=MODEL)
     assert outcome.notes == (
         f"The configured model was not asked: {kept.PACK.id} moves a whole repository.",
@@ -458,9 +459,7 @@ def test_a_model_is_not_asked_about_a_pack_that_moves_a_whole_repository(tmp_pat
 def test_a_model_a_flag_asked_for_is_refused_with_a_pack_that_moves_a_whole_repository(
     tmp_path: Path,
 ) -> None:
-    tree = repository(
-        tmp_path / "repo", {"bad.py": KIT_DICT, "requirements.txt": "acme-kit==1.5\n"}
-    )
+    tree = committed(tmp_path / "repo", {"bad.py": KIT_DICT, "requirements.txt": "acme-kit==1.5\n"})
     with pytest.raises(CommandError, match="moves a whole repository or none of it") as refused:
         fold(tree, KIT, model=MODEL, flagged=True)
     assert refused.value.code == 2
@@ -470,7 +469,7 @@ def test_a_pin_the_rule_cannot_write_holds_the_files_the_shared_pack_would_write
     tmp_path: Path,
 ) -> None:
     files = {"good.py": KIT_CLEAN, "requirements.txt": "acme-kit[extra]==1.5\n"}
-    tree = repository(tmp_path / "repo", files)
+    tree = committed(tmp_path / "repo", files)
     outcome = fold(tree, KIT)
     assert outcome.exit_code == 4
     assert sources(tree) == files
@@ -488,7 +487,7 @@ def test_a_setup_py_naming_both_distributions_is_one_row_of_the_plan(tmp_path: P
         "from setuptools import setup\n\n"
         'setup(install_requires=["acme-kit==1.5", "acme-sdk==0.1.0"])\n'
     )
-    tree = repository(tmp_path / "repo", {"app.py": BOTH, "setup.py": setup})
+    tree = committed(tmp_path / "repo", {"app.py": BOTH, "setup.py": setup})
     outcome = fold(tree, SDK, KIT)
     assert outcome.exit_code == 0
     assert sources(tree)["setup.py"] == setup.replace("acme-kit==1.5", "acme-kit>=2,<3").replace(
@@ -498,9 +497,7 @@ def test_a_setup_py_naming_both_distributions_is_one_row_of_the_plan(tmp_path: P
 
 
 def test_show_context_is_refused_for_a_pack_that_moves_a_whole_repository(tmp_path: Path) -> None:
-    tree = repository(
-        tmp_path / "repo", {"bad.py": KIT_DICT, "requirements.txt": "acme-kit==1.5\n"}
-    )
+    tree = committed(tmp_path / "repo", {"bad.py": KIT_DICT, "requirements.txt": "acme-kit==1.5\n"})
     request = fixer.Request(
         root=tree,
         packs=(KIT,),
@@ -529,7 +526,7 @@ def test_a_file_another_pack_wrote_as_a_manifest_is_one_row_from_first_bytes_to_
         "from setuptools import setup\n\n"
         'setup(install_requires=["acme-kit==1.5", "acme-sdk==0.1.0"])\n'
     )
-    tree = repository(tmp_path / "repo", {"setup.py": setup, "app.py": BOTH})
+    tree = committed(tmp_path / "repo", {"setup.py": setup, "app.py": BOTH})
     outcome = fold(tree, SDK, KIT)
     rows = [row for row in outcome.plan.edits if row.path == "setup.py"]
     assert len(rows) == 2

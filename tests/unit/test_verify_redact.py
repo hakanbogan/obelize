@@ -203,5 +203,4 @@ def test_output_that_is_not_utf8_travels_through_rather_than_raising() -> None:
 
 
 def test_the_cap_is_the_two_halves_the_documents_name() -> None:
-    assert redact.HEAD_BYTES + redact.TAIL_BYTES == redact.OUTPUT_LIMIT
-    assert redact.OUTPUT_LIMIT == 1024 * 1024
+    assert redact.HEAD_BYTES + redact.TAIL_BYTES == 1024 * 1024

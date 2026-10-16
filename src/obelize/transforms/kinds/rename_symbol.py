@@ -18,11 +18,12 @@ import libcst.matchers as m
 from libcst.metadata import QualifiedNameSource
 
 from obelize.models import BailCode, Edit
+from obelize.scan.analysis import dotted_name
 from obelize.transforms.base import BailError, RuleContext
-from obelize.transforms.imports import dotted, dotted_name
+from obelize.transforms.imports import dotted
 from obelize.transforms.tree import Position, Tree
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
     from obelize.models import Finding

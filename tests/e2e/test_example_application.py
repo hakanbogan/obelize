@@ -18,6 +18,7 @@ from typer.testing import CliRunner, Result
 
 from obelize.cli import app
 from platforms import PYTHON
+from support import commit_all, init_repo
 
 pytestmark = pytest.mark.e2e
 
@@ -34,24 +35,13 @@ QUIET = f"{PYTHON} -c pass"
 WITHHELD = 14
 
 
-def git(root: Path, *arguments: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", *arguments],
-        check=True,
-        capture_output=True,
-    )
-
-
 @pytest.fixture(scope="module")
 def app_repo(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A committed copy: apply refuses a dirty tree."""
     work = tmp_path_factory.mktemp("e2e") / "app"
     shutil.copytree(EXAMPLE, work)
-    git(work, "init", "-q", "-b", "work")
-    git(work, "config", "user.name", "obelize tests")
-    git(work, "config", "user.email", "tests@obelize.invalid")
-    git(work, "add", "-A")
-    git(work, "commit", "-q", "-m", "the application before the migration")
+    init_repo(work)
+    commit_all(work, "the application before the migration")
     return work
 
 

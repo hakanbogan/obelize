@@ -47,7 +47,7 @@ from obelize.scan import analysis, manifests, parse, runner
 from obelize.transforms import base, codemod, registry
 from obelize.transforms import manifest as manifest_rules
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Mapping
 
 SPEC = ScanSpec(

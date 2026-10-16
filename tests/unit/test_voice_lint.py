@@ -64,6 +64,22 @@ def test_a_front_facing_file_keeps_the_maintainers_voice(path: Path) -> None:
     assert not violations, f"{path.relative_to(ROOT)}: {', '.join(violations)}"
 
 
+EXAMPLE_FILES = sorted(
+    path
+    for path in (ROOT / "examples").rglob("*")
+    if path.suffix in {".md", ".py", ".txt", ".yaml", ".yml"}
+)
+
+
+def test_an_example_names_no_internal_task() -> None:
+    found = [
+        str(path.relative_to(ROOT))
+        for path in EXAMPLE_FILES
+        if TASK_ID.search(path.read_text(encoding="utf-8"))
+    ]
+    assert found == []
+
+
 # Planted defects, one per branch `voice_violations` can take. The two word checks use the
 # literal banned words on purpose, as fixture data proving detection, the same way
 # `test_status_claims.py`'s own CITATIONS list must spell out the phrases it forbids elsewhere.

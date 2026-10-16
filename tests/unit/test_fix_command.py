@@ -41,6 +41,7 @@ from platforms import (
     text_files_as_on_windows,
     windows_only,
 )
+from support import commit_all, committed, git, init_repo, write_tree
 
 runner = CliRunner()
 
@@ -76,21 +77,9 @@ FLAGGED = f"{PACK}:flag-legacy-module-reached-indirectly"
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    root = tmp_path / "repo"
-    root.mkdir()
-    (root / "app.py").write_text(LEGACY, encoding="utf-8", newline="\n")
-    (root / "requirements.txt").write_text(
-        "google-generativeai==0.8.6\n", encoding="utf-8", newline="\n"
+    return committed(
+        tmp_path / "repo", {"app.py": LEGACY, "requirements.txt": "google-generativeai==0.8.6\n"}
     )
-    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "before"],
-        check=True,
-    )
-    return root
 
 
 def fix(tree: Path, *extra: str) -> Result:
@@ -109,11 +98,7 @@ def repo_command(root: Path, command: str) -> list[str]:
     can be one that never starts.
     """
     (root / ".obelize.yml").write_text(f"verify:\n  commands:\n    - {command}\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "command"],
-        check=True,
-    )
+    commit_all(root, "command")
     return ["--trust-repo-config", "--non-interactive"]
 
 
@@ -124,11 +109,7 @@ def test_the_fixtures_of_a_pack_inside_the_repository_are_neither_planned_nor_wr
     fixtures = sorted((tree / "packs").rglob("*.py"))
     before = [path.read_bytes() for path in fixtures]
     assert fixtures
-    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "own pack"],
-        check=True,
-    )
+    commit_all(tree, "own pack")
     pack = str(tree / "packs" / "gem" / loader.PACK_FILENAME)
     result = runner.invoke(app, ["fix", "--repo", str(tree), "--pack", pack, "--apply", "--json"])
     assert result.exit_code == 6, "written, with no test command to verify it"
@@ -592,11 +573,7 @@ def test_a_run_with_nothing_to_write_never_asks_about_a_command(tree: Path) -> N
     from obelize.verify.runner import Mode
 
     assert fix(tree, "--apply", "--verify", f"{PYTHON} -c pass").exit_code == 0
-    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "after"],
-        check=True,
-    )
+    commit_all(tree, "after")
     asked: list[str] = []
 
     def spy(command: str) -> bool:
@@ -662,22 +639,14 @@ def test_an_apply_on_a_dirty_tree_names_the_flag_that_permits_it(tree: Path) -> 
 def _nothing_to_write(tree: Path) -> None:
     """Everything the pack finds is held back, and another file has an uncommitted change."""
     (tree / "app.py").write_text(ESCAPING, encoding="utf-8", newline="\n")
-    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "held"], check=True
-    )
+    commit_all(tree, "held")
     (tree / "notes.txt").write_text("mine\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(tree), "add", "notes.txt"], check=True)
+    git(tree, "add", "notes.txt")
 
 
 def _commit_files(tree: Path, files: dict[str, str]) -> None:
-    for name, text in files.items():
-        (tree / name).parent.mkdir(parents=True, exist_ok=True)
-        (tree / name).write_text(text, encoding="utf-8", newline="\n")
-    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "files"], check=True
-    )
+    write_tree(tree, files)
+    commit_all(tree, "files")
 
 
 # Settings and constraints files can decide a release too, but no tool regenerates them, and a lock
@@ -820,11 +789,8 @@ def test_a_write_that_stops_partway_names_the_undo_that_puts_back_what_was_writt
 
 def test_an_apply_refused_only_over_an_untracked_file_says_to_commit_it(tree: Path) -> None:
     """`git stash` leaves an untracked file where it is, so it would not unblock this run."""
-    subprocess.run(["git", "-C", str(tree), "rm", "-q", "--cached", "requirements.txt"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "untrack"],
-        check=True,
-    )
+    git(tree, "rm", "-q", "--cached", "requirements.txt")
+    git(tree, "commit", "-qm", "untrack")
     (tree / "other.py").write_text(LEGACY, encoding="utf-8")
     result = fix(tree, "--apply")
     assert result.exit_code == 5, result.output
@@ -875,12 +841,9 @@ def test_a_file_only_a_model_proposed_is_refused_before_the_baseline_starts(
     """The rules write nothing here, so the first gate saw no file; the proposal's is untracked."""
     root = tmp_path / "repo"
     shutil.copytree(Path(__file__).parents[1] / "fixtures" / "providers" / "deep", root)
-    git = ["git", "-C", str(root)]
-    subprocess.run([*git, "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run([*git, "config", key, value], check=True)
-    subprocess.run([*git, "add", "--", ".", ":!nested.py"], check=True)
-    subprocess.run([*git, "-c", "commit.gpgsign=false", "commit", "-qm", "before"], check=True)
+    init_repo(root)
+    git(root, "add", "--", ".", ":!nested.py")
+    git(root, "commit", "-qm", "before")
     home = tmp_path / "home"
     (home / "obelize").mkdir(parents=True)
     (home / "obelize" / "config.yml").write_text(
@@ -1099,14 +1062,6 @@ def test_a_plan_keeps_no_copy_of_what_it_did_not_write(
     assert fix(tree).exit_code == 0
 
 
-def _commit(root: Path) -> None:
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "more"],
-        check=True,
-    )
-
-
 @pytest.mark.parametrize("extra", [(), ("--apply",)], ids=["dry_run", "apply"])
 def test_a_blocked_run_says_why_nothing_is_planned_and_how_to_unblock_it(
     tree: Path, extra: tuple[str, ...]
@@ -1115,7 +1070,7 @@ def test_a_blocked_run_says_why_nothing_is_planned_and_how_to_unblock_it(
     (tree / "pyproject.toml").write_text(
         '[project]\nname = "x"\nrequires-python = ">=3.9"\n', encoding="utf-8"
     )
-    _commit(tree)
+    commit_all(tree, "more")
     lines = fix(tree, *extra).output.splitlines()
     assert lines[4].startswith("pyproject.toml declares Python >=3.9, which allows")
     assert lines[4].endswith(
@@ -1133,7 +1088,7 @@ def test_a_declared_floor_the_new_distribution_supports_blocks_nothing(tree: Pat
     (tree / "pyproject.toml").write_text(
         '[project]\nname = "x"\nrequires-python = ">=3.10"\n', encoding="utf-8"
     )
-    _commit(tree)
+    commit_all(tree, "more")
     output = fix(tree).output
     assert "declares Python" not in output
     assert "No change planned." not in output
@@ -1426,11 +1381,7 @@ def test_a_typed_program_that_exists_but_does_not_run_is_refused_too(tree: Path)
     script = tree / "check.sh"
     script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     script.chmod(0o644)
-    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "script"],
-        check=True,
-    )
+    commit_all(tree, "script")
     refused = fix(tree, "--apply", "--verify", "./check.sh")
     assert refused.exit_code == 2, refused.output
     script.chmod(0o755)
@@ -1492,7 +1443,7 @@ def test_a_warning_on_an_edit_that_is_written_is_printed_with_what_to_look_at(
     tree: Path, extra: tuple[str, ...]
 ) -> None:
     (tree / "app.py").write_text(EAGER, encoding="utf-8")
-    _commit(tree)
+    commit_all(tree, "more")
     lines = fix(tree, *extra).stdout.splitlines()
     eager = WARNING_MEANINGS["client_constructed_eagerly"]
     prefixed = WARNING_MEANINGS["model_name_looks_prefixed"]
@@ -1503,7 +1454,7 @@ def test_a_warning_on_an_edit_that_is_written_is_printed_with_what_to_look_at(
 
 def test_a_warning_on_an_edit_that_is_not_written_is_not_printed(tree: Path) -> None:
     (tree / "app.py").write_text(EAGER + "KEEP = [MODEL]\n", encoding="utf-8")
-    _commit(tree)
+    commit_all(tree, "more")
     assert "Check app.py" not in fix(tree).stdout
 
 

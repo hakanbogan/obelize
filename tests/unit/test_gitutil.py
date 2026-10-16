@@ -16,6 +16,7 @@ import pytest
 from obelize import fsutil, gitutil
 from obelize.native import processes
 from platforms import posix_only, program, windows_only
+from support import commit_all, git, init_repo
 
 HEX = 40
 
@@ -26,20 +27,13 @@ def modified(root: Path) -> tuple[str, ...]:
     return found.modified
 
 
-def _git(root: Path, *arguments: str) -> None:
-    subprocess.run(["git", "-C", str(root), *arguments], check=True, capture_output=True)
-
-
 @pytest.fixture
 def repository(tmp_path: Path) -> Path:
     root = tmp_path / "checkout"
     root.mkdir()
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
-    _git(root, "init", "-q", "-b", "work")
-    _git(root, "config", "user.name", "obelize tests")
-    _git(root, "config", "user.email", "tests@obelize.invalid")
-    _git(root, "add", "-A")
-    _git(root, "commit", "-q", "-m", "first")
+    init_repo(root)
+    commit_all(root, "first")
     return root
 
 
@@ -56,8 +50,8 @@ def test_a_hook_the_repository_names_for_the_file_monitor_is_not_run(repository:
     hook = repository / ".git" / "hook.sh"
     hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
     hook.chmod(0o755)
-    _git(repository, "config", "core.fsmonitor", str(hook))
-    _git(repository, "status", "--porcelain")
+    git(repository, "config", "core.fsmonitor", str(hook))
+    git(repository, "status", "--porcelain")
     assert marker.exists(), "control: git runs the hook when nothing stops it"
     marker.unlink()
 
@@ -76,11 +70,11 @@ def test_a_hook_a_stale_index_would_run_is_not(repository: Path) -> None:
     hook = hooks / "post-index-change"
     hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
     hook.chmod(0o755)
-    _git(repository, "config", "core.hooksPath", str(hooks))
+    git(repository, "config", "core.hooksPath", str(hooks))
     app = repository / "app.py"
 
     os.utime(app, (1, 1))
-    _git(repository, "status", "--porcelain")
+    git(repository, "status", "--porcelain")
     assert marker.exists(), "control: git runs the hook when nothing stops it"
     marker.unlink()
 
@@ -103,7 +97,7 @@ def test_an_untracked_file_is_not(repository: Path) -> None:
 
 
 def test_a_detached_head_has_a_commit_and_no_branch(repository: Path) -> None:
-    _git(repository, "checkout", "-q", "--detach", "HEAD")
+    git(repository, "checkout", "-q", "--detach", "HEAD")
     state = gitutil.state(repository)
     assert len(state.sha or "") == HEX
     assert state.branch is None
@@ -112,7 +106,7 @@ def test_a_detached_head_has_a_commit_and_no_branch(repository: Path) -> None:
 def test_a_repository_with_no_commit_yet_has_neither(tmp_path: Path) -> None:
     root = tmp_path / "fresh"
     root.mkdir()
-    _git(root, "init", "-q", "-b", "work")
+    git(root, "init", "-q", "-b", "work")
     state = gitutil.state(root)
     assert state.sha is None
     # `symbolic-ref` answers before the first commit: the branch exists, the commit does not.
@@ -180,7 +174,7 @@ def test_a_change_in_the_working_tree_is_named(repository: Path) -> None:
 def test_a_change_in_the_index_alone_is_named(repository: Path) -> None:
     """Staged work is uncommitted too, and `--apply` would overwrite it."""
     (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-    _git(repository, "add", "app.py")
+    git(repository, "add", "app.py")
     assert modified(repository) == ("app.py",)
 
 
@@ -193,16 +187,16 @@ def test_an_untracked_file_is_not_outstanding(repository: Path) -> None:
 def test_a_staged_rename_names_both_ends_of_it(repository: Path) -> None:
     """Both names are uncommitted work; the origin arrives as a status-less record of its own."""
     (repository / "other.py").write_text("OTHER = 1\n", encoding="utf-8")
-    _git(repository, "add", "other.py")
-    _git(repository, "commit", "-q", "-m", "second")
-    _git(repository, "mv", "app.py", "renamed.py")
+    git(repository, "add", "other.py")
+    git(repository, "commit", "-q", "-m", "second")
+    git(repository, "mv", "app.py", "renamed.py")
     assert modified(repository) == ("app.py", "renamed.py")
 
 
 def test_a_path_that_needs_quoting_is_named_as_it_is_spelled(repository: Path) -> None:
     awkward = "caf\u00e9 notes.py"
     (repository / awkward).write_text("NOTE = 1\n", encoding="utf-8")
-    _git(repository, "add", awkward)
+    git(repository, "add", awkward)
     assert modified(repository) == (awkward,)
 
 
@@ -440,13 +434,13 @@ def test_every_outstanding_path_is_named_once_in_path_order(repository: Path) ->
     tracked = [f"t{index}.py" for index in range(6)]
     for name in tracked:
         (repository / name).write_text("T = 1\n", encoding="utf-8")
-    _git(repository, "add", *tracked)
-    _git(repository, "commit", "-q", "-m", "more")
+    git(repository, "add", *tracked)
+    git(repository, "commit", "-q", "-m", "more")
     for name in tracked:
         (repository / name).write_text("T = 2\n", encoding="utf-8")
     loose = [f"a{index}.py" for index in range(6)]
     for name in loose:
         (repository / name).write_text("A = 1\n", encoding="utf-8")
-    _git(repository, "rm", "-q", "--cached", "app.py")
+    git(repository, "rm", "-q", "--cached", "app.py")
     stopped = fsutil.gate(repository, [change(repository, name) for name in ["app.py", *loose]])
     assert stopped == fsutil.Apply(dirty=tuple(sorted(["app.py", *tracked, *loose])))

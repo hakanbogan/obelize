@@ -21,10 +21,11 @@ from typing import Any
 import pytest
 
 from obelize import fsutil
-from obelize.fsutil import contained, refusal
+from obelize.fsutil import refusal
 from obelize.models import PATH_REFUSALS, SKIP_REASONS
 from obelize.native import files
 from platforms import AS_ROOT, MODE_BITS, deny, junction, link, posix_only, windows_only
+from support import write_tree
 
 
 def _build(root: Path) -> None:
@@ -43,6 +44,10 @@ def _build(root: Path) -> None:
     sealed = root / "sealed"
     sealed.mkdir()
     (sealed / "hidden.py").write_text("hidden = True\n", encoding="utf-8", newline="\n")
+
+
+def contained(root: Path, candidate: Path) -> bool:
+    return fsutil._placement(root, candidate) == "inside"
 
 
 TMP = posix_only("only POSIX has /tmp; the symlinked root poses its macOS trap everywhere")
@@ -66,6 +71,14 @@ def root(
     with deny(built / "sealed"):
         yield built
     shutil.rmtree(base, ignore_errors=True)
+
+
+@pytest.fixture
+def scratch(root: Path) -> Iterator[Path]:
+    """An empty directory beside `root`, reached the way `root` is, for a test that writes."""
+    path = Path(tempfile.mkdtemp(dir=root.parent, prefix="scratch-"))
+    yield path
+    shutil.rmtree(path, ignore_errors=True)
 
 
 def _naive(root: Path, candidate: Path) -> bool:
@@ -201,16 +214,16 @@ def test_a_junction_is_refused_as_a_link(tree: Path) -> None:
     assert refusal(tree, tree / "joined") == "symlink"
 
 
-def test_a_listed_path_under_something_that_is_not_a_directory_is_missing(root: Path) -> None:
+def test_a_listed_path_under_something_that_is_not_a_directory_is_missing(scratch: Path) -> None:
     """`ENOTDIR`: the index still names `pkg/app.py` after `pkg` became a file."""
-    (root / "pkg").write_text("", encoding="utf-8", newline="\n")
-    assert refusal(root, root / "pkg" / "app.py") == "missing"
+    (scratch / "pkg").write_text("", encoding="utf-8", newline="\n")
+    assert refusal(scratch, scratch / "pkg" / "app.py") == "missing"
 
 
-def test_a_listed_path_under_a_symbolic_link_loop_is_missing(root: Path) -> None:
+def test_a_listed_path_under_a_symbolic_link_loop_is_missing(scratch: Path) -> None:
     """`ELOOP`: nothing can be at a path whose parent never resolves."""
-    (root / "loop").symlink_to("loop")
-    assert refusal(root, root / "loop" / "app.py") == "missing"
+    (scratch / "loop").symlink_to("loop")
+    assert refusal(scratch, scratch / "loop" / "app.py") == "missing"
 
 
 def test_every_refusal_this_module_can_return_is_a_published_skip_reason(root: Path) -> None:
@@ -224,10 +237,7 @@ def test_every_refusal_this_module_can_return_is_a_published_skip_reason(root: P
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    (tmp_path / "pkg").mkdir()
-    (tmp_path / "app.py").write_text("VALUE = 1\n", encoding="utf-8", newline="\n")
-    (tmp_path / "pkg" / "mod.py").write_text("INNER = 1\n", encoding="utf-8", newline="\n")
-    return tmp_path
+    return write_tree(tmp_path, {"app.py": "VALUE = 1\n", "pkg/mod.py": "INNER = 1\n"})
 
 
 def temporaries(root: Path) -> list[str]:

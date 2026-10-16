@@ -31,6 +31,7 @@ from obelize.models import (
 from obelize.packs import loader
 from obelize.scan import runner, walker
 from obelize.transforms import codemod
+from support import git, init_repo
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "evidence"
 BUNDLED = loader.load("gemini/google-generativeai-to-google-genai")
@@ -49,21 +50,11 @@ OUTPUT = "1 passed in 0.04s\n"
 RUNS = [(name, index) for name in sorted(CASES) for index in range(len(CASES[name]["runs"]))]
 
 
-def git(root: Path, *arguments: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", *arguments],
-        check=True,
-        capture_output=True,
-    )
-
-
 def prepare(work: Path, state: dict[str, Any]) -> None:
     """Commit first, then append the key's edits: `dirty/` must become dirty after a clean tree."""
     if not state.get("init"):
         return
-    git(work, "init", "-q", "-b", "work")
-    git(work, "config", "user.name", "obelize tests")
-    git(work, "config", "user.email", "tests@obelize.invalid")
+    init_repo(work)
     git(work, "add", ".")
     git(work, "commit", "-q", "-m", "the tree before obelize saw it")
     for name, text in (state.get("appended") or {}).items():

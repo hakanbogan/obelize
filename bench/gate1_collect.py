@@ -36,6 +36,8 @@ from packaging.utils import canonicalize_name
 
 from obelize.packs import loader
 
+from . import read_yaml
+
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE = ROOT / "bench" / "gate1" / "sample.yaml"
 RESULTS = ROOT / "bench" / "results" / "gate1"
@@ -358,7 +360,7 @@ def _each(
 
 
 def scan(only: str | None) -> None:
-    document = yaml.safe_load(SAMPLE.read_text(encoding="utf-8"))
+    document = read_yaml(SAMPLE)
     entries = [row for row in document["repositories"] if only is None or row["full_name"] == only]
     RESULTS.mkdir(parents=True, exist_ok=True)
 
@@ -390,7 +392,7 @@ def dryrun(pack: str) -> None:
 
     Never a subset: a retry of one repository would replace the record of the other seventy-nine.
     """
-    document = yaml.safe_load(_frame(pack).read_text(encoding="utf-8"))
+    document = read_yaml(_frame(pack))
     DRYRUN.mkdir(parents=True, exist_ok=True)
 
     legacy = canonicalize_name(loader.to_scan_spec(loader.load(pack)).legacy_distribution)
@@ -445,7 +447,7 @@ def _token_files(checkout: Path) -> list[str]:
     for path in sorted(checkout.rglob("*.py")):
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:  # pragma: no cover - a broken symlink in someone's tree
+        except OSError:  # a broken symlink in someone's tree
             continue
         if TERM in text:
             found.append(str(path.relative_to(checkout)))
@@ -457,7 +459,7 @@ def choose(extra_band: str) -> None:
 
     Per band in frame order, the first with `LABEL_FILES` token files, plus one from `extra_band`.
     """
-    document = yaml.safe_load(SAMPLE.read_text(encoding="utf-8"))
+    document = read_yaml(SAMPLE)
     low, high = LABEL_FILES
     wanted = dict.fromkeys(BANDS, 1)
     wanted[extra_band] += 1

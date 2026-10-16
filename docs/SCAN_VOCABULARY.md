@@ -2,7 +2,7 @@
 
 The closed sets of strings the scanner, planner, rewrite rules and fixture
 ground truth use; an unlisted value is a bug. `tests/unit/test_models.py` fails
-unless each section's values equal its `Literal` in `src/obelize/models.py`, so
+unless each section's values equal its `Literal` in `src/obelize/models/vocabulary.py`, so
 a member is added to both in one commit; `tests/unit/test_fixture_vocabulary.py`
 grades the fixtures against them. §6 and §7 derive from §1-§5.
 
@@ -306,7 +306,7 @@ method call is rewritten only when the receiver's whole world is visible.
 | `self_attr` | `self.model = genai.GenerativeModel(...)` in `__init__`, used as `self.model.<method>(...)` in the same class; matched on (enclosing `ClassDef`, first-parameter name, attribute name). | `class:<Name>` | automatic, with the closed-world guard |
 | `class_attr` | An assignment in a class body. | `class:<Name>` | `needs_review` (`class_attr_binding`) |
 
-`models.py` refuses a `scope` that contradicts the kind. Only `self_attr` has a
+`models/scan.py` refuses a `scope` that contradicts the kind. Only `self_attr` has a
 dotted `name` (`self.model`). Any use of a bound name other than as a supported
 method's receiver withholds the whole group (`model_object_escapes`,
 `multiple_assignments`): a new constructor with an old call site, or the
@@ -368,7 +368,7 @@ write is reported in `run.json`'s `refused[]` (§13), not in `limitations[]`.
 
 ## 13. `RefusalCode`: what `run.json`'s `refused[]` may say (8 values)
 
-§12 plus two refusals about the repository. Declared in `src/obelize/models.py`
+§12 plus two refusals about the repository. Declared in `src/obelize/models/vocabulary.py`
 as that union, since `obelize.fsutil` imports `models`;
 `tests/unit/test_models.py` asserts the union.
 

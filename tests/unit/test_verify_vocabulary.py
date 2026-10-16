@@ -77,7 +77,7 @@ PUBLISHED = {
 def test_the_page_and_the_code_hold_the_same_members(name: str) -> None:
     documented, _ = _table(name)
     assert documented == set(PUBLISHED[name]), (
-        f"docs/CLI.md's `{name}` table and src/obelize/models.py disagree. Only in the "
+        f"docs/CLI.md's `{name}` table and src/obelize/models/vocabulary.py disagree. Only in the "
         f"document: {sorted(documented - set(PUBLISHED[name]))}. Only in the code: "
         f"{sorted(set(PUBLISHED[name]) - documented)}. A member is added to both, in one commit."
     )

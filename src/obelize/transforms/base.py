@@ -18,7 +18,7 @@ from obelize.packs.schema import Layout
 from obelize.transforms.imports import ImportPlan
 from obelize.transforms.layout import comments
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from obelize.models import BailCode, Edit, Finding, ImpactPlan, ScanSpec

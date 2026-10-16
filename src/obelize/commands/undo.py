@@ -15,7 +15,7 @@ from obelize.commands import CommandError
 from obelize.evidence import run_dir
 from obelize.models import UndoFile, UndoRecord
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from obelize.evidence.folder import RunFolder
     from obelize.models import ExitCode, FileEdit, UndoSkip
 
@@ -82,7 +82,7 @@ def _one(root: Path, folder: RunFolder, row: FileEdit) -> UndoFile:
     if fsutil.unusable(row.path):
         # Before any read by path: Windows opens `aux.py` as a device and `C:x` elsewhere.
         return _skipped(row, stored, "outside_root", None)
-    current = _digest(root / row.path)
+    current = fsutil.digest(root / row.path)
     if current is None:
         return _skipped(row, stored, _unreadable(root, row.path), None)
     if current != row.after_sha256:
@@ -128,14 +128,6 @@ def _original(folder: RunFolder, stored: str, digest: str) -> bytes | None:
     except OSError:
         return None
     return data if fsutil.sha256(data) == digest else None
-
-
-def _digest(path: Path) -> str | None:
-    """The sha256 at this path now, or `None` if nothing readable is there."""
-    try:
-        return fsutil.sha256(fsutil.read(path))
-    except OSError:
-        return None
 
 
 __all__ = ["Outcome", "Request", "run"]

@@ -97,11 +97,6 @@ def _placement(root: Path, candidate: Path) -> Literal["inside", "outside", "unr
     return "inside" if inside else "outside"
 
 
-def contained(root: Path, candidate: Path) -> bool:
-    """Whether `candidate` is inside `root`, both resolved; a dangling link or loop is a refusal."""
-    return _placement(root, candidate) == "inside"
-
-
 def refusal(root: Path, candidate: Path) -> PathRefusal | None:
     """Why `candidate` must not be opened, or `None` when it may be.
 
@@ -157,6 +152,14 @@ def read(absolute: Path, limit: int = -1) -> bytes:
     descriptor = files.open_path(absolute)
     with os.fdopen(descriptor, "rb") as handle:
         return handle.read(limit)
+
+
+def digest(path: Path) -> str | None:
+    """The sha256 at this path now, or `None` if nothing readable is there."""
+    try:
+        return sha256(read(path))
+    except OSError:
+        return None
 
 
 def windows(absolute: Path, size: int, overlap: int, limit: int) -> Iterator[bytes]:
@@ -366,7 +369,7 @@ __all__ = [
     "WriteRefusal",
     "Written",
     "apply",
-    "contained",
+    "digest",
     "gate",
     "linked",
     "read",

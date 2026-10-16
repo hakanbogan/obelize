@@ -57,7 +57,6 @@ _LABELLED: tuple[re.Pattern[str], ...] = (
 # One mebibyte kept as its two ends: the first thing that went wrong, and the summary.
 HEAD_BYTES = 256 * 1024
 TAIL_BYTES = 768 * 1024
-OUTPUT_LIMIT = HEAD_BYTES + TAIL_BYTES
 
 
 def marker(elided: int) -> str:
@@ -111,7 +110,6 @@ def cap(head: bytes, tail: bytes, elided: int) -> tuple[str, bool]:
 __all__ = [
     "HEAD_BYTES",
     "MIN_SECRET_LENGTH",
-    "OUTPUT_LIMIT",
     "REDACTED",
     "SECRET_NAME",
     "TAIL_BYTES",

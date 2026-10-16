@@ -220,3 +220,5 @@ posix-only = "sys_platform == 'win32'"
 fail_under = 100
 show_missing = true
 skip_covered = true
+# Names only the type checker reads; recent coverage excludes the block by default, older does not.
+exclude_also = ['if (typing\.)?TYPE_CHECKING:']

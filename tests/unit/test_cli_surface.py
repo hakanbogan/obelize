@@ -206,7 +206,7 @@ def test_a_defect_in_obelize_says_where_to_report_it(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.parametrize("command", UNIMPLEMENTED_COMMANDS)
-def test_documented_commands_are_not_implemented_yet(command: str) -> None:  # pragma: no cover
+def test_documented_commands_are_not_implemented_yet(command: str) -> None:
     """Nothing may claim to work before it does; runs zero times while the list is empty."""
     result = runner.invoke(app, [command])
     assert result.exit_code != 0

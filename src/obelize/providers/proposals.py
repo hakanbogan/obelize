@@ -22,7 +22,7 @@ from obelize.providers import base, guard
 from obelize.providers import openai_compat as adapter
 from obelize.transforms import codemod
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
     from pathlib import Path
 

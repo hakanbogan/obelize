@@ -458,7 +458,7 @@ notes: |
   - `roundtrip_mismatch` is **not** a reason. ADR-010 F-5 split the two fields, and the four
     `bare_cr.py` rows carry `confidence_reason: alias_resolved` with the refusal in `bail`, which is
     what the note on line 2 records. It is absent from the reason vocabulary in
-    `src/obelize/models.py`, so a row that wrote it there now fails
+    `src/obelize/models/vocabulary.py`, so a row that wrote it there now fails
     `tests/unit/test_fixture_vocabulary.py`.
   - `parse_error` **is** both, on purpose, and SCAN_VOCABULARY.md section 7 is where that is written
     down and asserted: "the finding kind and the reason are the same fact, because a file that does

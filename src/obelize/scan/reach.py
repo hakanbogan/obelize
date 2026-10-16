@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from obelize.impact import dataflow, planner
 from obelize.models import ATOMICITY_BAIL, Binding, Finding, ImpactPlan
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from obelize.models import BailCode, BindingKind

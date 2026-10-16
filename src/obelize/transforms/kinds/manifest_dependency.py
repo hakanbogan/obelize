@@ -18,7 +18,7 @@ from obelize.models import BailCode, Edit
 from obelize.scan.manifests import SHAPE_BAIL
 from obelize.transforms.base import BailError
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from obelize.models import Finding
     from obelize.packs.schema import ChangeKind, ManifestDependencyChange
     from obelize.scan.manifests import Declaration

@@ -25,7 +25,7 @@ from typing import Any, NamedTuple
 
 import yaml
 
-from . import candidates, candidates_collect, cases, gate1_collect
+from . import candidates, candidates_collect, cases, gate1_collect, read_yaml
 from .gate1_score import ACTIONABLE_KINDS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -291,7 +291,7 @@ def draw_control(
 
 
 def draw() -> None:
-    corpus = yaml.safe_load(candidates.DATA.read_text(encoding="utf-8"))
+    corpus = read_yaml(candidates.DATA)
     taken = {row["full_name"] for row in corpus["candidates"]}
     owners: dict[str, int] = {}
     for row in corpus["candidates"]:

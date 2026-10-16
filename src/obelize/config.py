@@ -26,7 +26,7 @@ from obelize.models import (
     VerifyConfig,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from pydantic_core import ErrorDetails
 
 # The only name read; a `.obelize.yaml` is refused by name rather than silently ignored.

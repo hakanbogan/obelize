@@ -6,7 +6,6 @@ decoding can be chosen for a file whose encoding is under test.
 
 from __future__ import annotations
 
-import subprocess
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -15,6 +14,7 @@ import pytest
 from obelize.evidence import patch
 from obelize.fsutil import Change
 from platforms import posix_only
+from support import git
 
 # Ten lines apart is more than 2 * CONTEXT, so the two changes below cannot share a hunk.
 FILLER = b"".join(b"pad %d\n" % index for index in range(10))
@@ -117,10 +117,6 @@ NAMED = [
     pytest.param(*case, marks=[UNSTORABLE] if set(case[1]) & {'"', "\t"} else []) for case in CASES
 ]
 IDS = [case[0] for case in CASES]
-
-
-def git(root: Path, *arguments: str) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(["git", "-C", str(root), *arguments], check=True, capture_output=True)
 
 
 @pytest.fixture

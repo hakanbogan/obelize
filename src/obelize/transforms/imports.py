@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, cast
 import libcst as cst
 from libcst.metadata import MetadataWrapper, ParentNodeProvider, ScopeProvider
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Collection
 
     from libcst.metadata import Scope
@@ -188,15 +188,6 @@ def dotted(path: str) -> cst.Attribute | cst.Name:
         segment, _, tail = tail.partition(".")
         node = cst.Attribute(value=node, attr=cst.Name(segment))
     return node
-
-
-def dotted_name(node: cst.BaseExpression) -> str:
-    """The dotted path an import statement's `Attribute`/`Name` chain spells."""
-    if isinstance(node, cst.Name):
-        return node.value
-    if isinstance(node, cst.Attribute):
-        return f"{dotted_name(node.value)}.{node.attr.value}"
-    return ""  # pragma: no cover - an import target is always a dotted name
 
 
 def _bare(node: cst.BaseSmallStatement) -> cst.BaseSmallStatement:

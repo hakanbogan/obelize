@@ -27,7 +27,7 @@ from obelize.native import shell
 from obelize.verify import redact
 from obelize.verify import status as verdicts
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from obelize.models import (

@@ -95,7 +95,6 @@ _LIMIT: Final = 32 << 20
 
 # A virtual environment kept in the repository, and where one holds the installed distributions.
 _ENVIRONMENTS: Final = (".venv", "venv", "env")
-_PACKAGES: Final = (("lib", "site-packages"), ("Lib", "site-packages"))
 
 
 def contrary(

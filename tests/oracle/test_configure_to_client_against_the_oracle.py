@@ -17,8 +17,9 @@ import yaml
 from obelize.impact import planner
 from obelize.models import Config, Edit
 from obelize.packs import loader
-from obelize.scan import analysis, parse, runner
+from obelize.scan import analysis, runner
 from obelize.transforms import base, registry
+from support import parsed
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "transforms" / "configure_to_client"
 BUNDLED = loader.load("gemini/google-generativeai-to-google-genai")
@@ -142,9 +143,7 @@ def test_no_line_of_a_complete_key_is_wider_than_the_pack_allows(
 def test_applying_twice_equals_applying_once(name: str, corpus: dict[str, Any]) -> None:
     """The scan is re-run over the output, not reused: idempotence covers the whole path."""
     produced, _edits, _unclaimed = outcome(corpus, name)
-    read = parse.gates(f"{name}.py", produced)
-    if read.module is None:  # pragma: no cover - every case parses, asserted above
-        pytest.fail("the produced bytes did not parse")
+    read = parsed(f"{name}.py", produced)
     again, edits, _unclaimed = run(planner.plan(analysis.analyse(read, SPEC), SPEC), produced)
     assert [row for row in edits if row.status == "auto"] == []
     assert again == produced

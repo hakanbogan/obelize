@@ -19,7 +19,7 @@ from obelize.transforms.kinds.rename_setting import RenameSetting
 from obelize.transforms.kinds.rename_symbol import RenameSymbol
 from obelize.transforms.kinds.rewrite_call import RewriteCall
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from obelize.packs.schema import PackDocument
     from obelize.transforms.base import Rule
     from obelize.transforms.manifest import ManifestRule

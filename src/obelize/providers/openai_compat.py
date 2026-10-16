@@ -23,7 +23,7 @@ from obelize.models import EditProposal
 from obelize.providers import base
 from obelize.verify import redact
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
     from typing import IO
 

@@ -274,6 +274,6 @@ def test_the_runaway_took_its_child_with_it(corpora: dict[str, dict[str, Any]]) 
         if not alive(child):
             break
         time.sleep(0.05)
-    else:  # pragma: no cover - only reached when the group kill did not work
+    else:  # only reached when the group kill did not work
         pytest.fail(f"pid {child} outlived the process group it was killed with")
     assert not (built["root"] / "survived").exists(), "the child finished its sleep"

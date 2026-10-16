@@ -7,7 +7,6 @@ what the first wrote.
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +20,7 @@ from obelize.models import Config, ModelConfig
 from obelize.packs import loader
 from obelize.verify.runner import Mode
 from platforms import PYTHON
+from support import committed
 
 runner = CliRunner()
 
@@ -63,24 +63,9 @@ def ask(text):
 PINS = "google-generativeai==0.8.6\nPyPDF2==3.0.1\nrequests>=2.31\n"
 
 
-def repository(root: Path, files: dict[str, str]) -> Path:
-    root.mkdir(parents=True)
-    for name, text in files.items():
-        (root / name).write_text(text, encoding="utf-8", newline="\n")
-    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "before"],
-        check=True,
-    )
-    return root
-
-
 @pytest.fixture
 def both(tmp_path: Path) -> Path:
-    return repository(
+    return committed(
         tmp_path / "repo",
         {"app.py": BOTH, "pdfs.py": PDFS, "chat.py": CHAT, "requirements.txt": PINS},
     )
@@ -116,7 +101,7 @@ def test_the_packs_a_repository_uses_are_the_ones_chosen(both: Path) -> None:
 
 def test_a_pack_whose_library_the_repository_does_not_use_is_not_chosen(tmp_path: Path) -> None:
     pins = "google-generativeai==0.8.6\nrequests>=2.31\n"
-    tree = repository(tmp_path / "repo", {"chat.py": CHAT, "requirements.txt": pins})
+    tree = committed(tmp_path / "repo", {"chat.py": CHAT, "requirements.txt": pins})
     result = run(tree, "scan", "--json")
     assert [pack["id"] for pack in json.loads(result.stdout)["packs"]] == [GEMINI]
 
@@ -146,7 +131,7 @@ def test_a_pin_the_code_has_moved_past_is_reported_and_blocks_nothing(
     tmp_path: Path, pack: str, code: str, pin: str, status: str, bail: str | None
 ) -> None:
     """One distribution for both APIs of `openai` cannot tell a stale pin from a live one."""
-    tree = repository(tmp_path / "repo", {"app.py": code, "requirements.txt": pin + "\n"})
+    tree = committed(tmp_path / "repo", {"app.py": code, "requirements.txt": pin + "\n"})
     result = run(tree, "scan", "--json", "--pack", pack)
     assert result.exit_code == 0, result.output
     found = json.loads(result.stdout)["findings"]
@@ -155,7 +140,7 @@ def test_a_pin_the_code_has_moved_past_is_reported_and_blocks_nothing(
 
 
 def test_a_pack_the_user_names_runs_whether_or_not_the_repository_uses_it(tmp_path: Path) -> None:
-    tree = repository(tmp_path / "repo", {"chat.py": CHAT, "requirements.txt": PINS})
+    tree = committed(tmp_path / "repo", {"chat.py": CHAT, "requirements.txt": PINS})
     result = run(tree, "scan", "--json", "--pack", PYPDF)
     document_ = json.loads(result.stdout)
     assert [pack["id"] for pack in document_["packs"]] == [PYPDF]
@@ -163,7 +148,7 @@ def test_a_pack_the_user_names_runs_whether_or_not_the_repository_uses_it(tmp_pa
 
 
 def test_a_repository_no_pack_applies_to_says_so_and_exits_zero(tmp_path: Path) -> None:
-    tree = repository(tmp_path / "repo", {"plain.py": "print('hello')\n"})
+    tree = committed(tmp_path / "repo", {"plain.py": "print('hello')\n"})
     result = run(tree, "scan")
     assert result.exit_code == 0, result.output
     assert f"No pack applies. Checked: {GEMINI}, {OPENAI}, {PYPDF}." in result.output
@@ -181,8 +166,8 @@ def test_one_run_over_two_packs_writes_what_two_runs_one_after_the_other_write(
     tmp_path: Path,
 ) -> None:
     files = {"app.py": BOTH, "pdfs.py": PDFS, "chat.py": CHAT, "requirements.txt": PINS}
-    together = repository(tmp_path / "together", files)
-    one_by_one = repository(tmp_path / "one_by_one", files)
+    together = committed(tmp_path / "together", files)
+    one_by_one = committed(tmp_path / "one_by_one", files)
 
     assert run(together, "fix", "--apply", "--allow-dirty").exit_code in {0, 4, 6}
     for pack in (GEMINI, PYPDF):
@@ -229,7 +214,7 @@ def test_a_pack_blocked_beside_one_that_writes_still_leaves_the_run_unfinished(
     tmp_path: Path,
 ) -> None:
     """PyPDF2 pinned below 3 blocks only its own pack; the other writes, and the run says so."""
-    tree = repository(
+    tree = committed(
         tmp_path / "repo",
         {
             "chat.py": CHAT,
@@ -251,7 +236,7 @@ def test_a_pack_blocked_beside_one_that_writes_still_leaves_the_run_unfinished(
 
 
 def test_two_packs_that_cannot_run_together_are_refused(tmp_path: Path) -> None:
-    tree = repository(tmp_path / "repo", {"chat.py": CHAT})
+    tree = committed(tmp_path / "repo", {"chat.py": CHAT})
     copy = tmp_path / "copy.yaml"
     document_ = yaml.safe_load(loader.load(GEMINI).data)
     document_["id"] = "gemini/a-copy-of-it"
@@ -357,7 +342,7 @@ def test_a_pack_in_a_user_directory_is_chosen_like_a_bundled_one(
     (config / "config.yml").write_text(f"pack_dirs:\n  - {packs}\n", encoding="utf-8")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
-    tree = repository(
+    tree = committed(
         tmp_path / "repo", {"app.py": "import demo_legacy\n\ndemo_legacy.configure(api_key='k')\n"}
     )
     result = run(tree, "scan", "--json")
@@ -382,7 +367,7 @@ def test_a_pack_directory_that_is_not_an_absolute_existing_one_is_a_usage_error(
     config.mkdir(parents=True)
     (config / "config.yml").write_text(f"pack_dirs:\n  - {entry}\n", encoding="utf-8")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    tree = repository(tmp_path / "repo", {"plain.py": "x = 1\n"})
+    tree = committed(tmp_path / "repo", {"plain.py": "x = 1\n"})
     result = run(tree, "scan")
     assert result.exit_code == 2
     assert "absolute path" in result.output
@@ -395,7 +380,7 @@ TAKEN = "PyPDF2 is declared with no version that rules out 3.0.1, so this migrat
 def test_an_unversioned_pypdf2_is_taken_as_its_newest_release_beside_a_pack_that_needs_none(
     tmp_path: Path,
 ) -> None:
-    tree = repository(
+    tree = committed(
         tmp_path / "repo", {"chat.py": CHAT, "pdfs.py": PDFS, "requirements.txt": UNVERSIONED}
     )
     result = run(tree, "fix", "--apply", "--allow-dirty", "--verify", f"{PYTHON} -c pass")
@@ -413,7 +398,7 @@ def test_an_unversioned_pypdf2_is_taken_as_its_newest_release_beside_a_pack_that
 
 
 def test_a_lock_file_closes_only_the_pack_that_took_the_newest_release(tmp_path: Path) -> None:
-    tree = repository(
+    tree = committed(
         tmp_path / "repo",
         {
             "chat.py": CHAT,
@@ -440,7 +425,7 @@ def test_a_lock_file_closes_only_the_pack_that_took_the_newest_release(tmp_path:
 
 
 def test_a_low_pin_of_the_new_library_closes_only_the_pack_that_writes_it(tmp_path: Path) -> None:
-    tree = repository(
+    tree = committed(
         tmp_path / "repo",
         {
             "chat.py": CHAT,
@@ -465,7 +450,7 @@ def test_a_low_pin_of_the_new_library_closes_only_the_pack_that_writes_it(tmp_pa
 
 
 def test_a_scan_says_what_it_took_where_the_plan_would_have_said_it(tmp_path: Path) -> None:
-    tree = repository(tmp_path / "repo", {"pdfs.py": PDFS, "requirements.txt": "PyPDF2\n"})
+    tree = committed(tmp_path / "repo", {"pdfs.py": PDFS, "requirements.txt": "PyPDF2\n"})
     result = run(tree, "scan", "--pack", PYPDF)
     assert result.exit_code == 0, result.output
     assert f"{TAKEN} 3.0.1, its newest release." in result.output
@@ -474,7 +459,7 @@ def test_a_scan_says_what_it_took_where_the_plan_would_have_said_it(tmp_path: Pa
 
 @pytest.mark.parametrize("pinned", ["PyPDF2>=3\n", "PyPDF2==3.0.1\n"], ids=["floor", "exact"])
 def test_a_pin_inside_the_range_is_not_an_assumption(tmp_path: Path, pinned: str) -> None:
-    tree = repository(tmp_path / "repo", {"pdfs.py": PDFS, "requirements.txt": pinned})
+    tree = committed(tmp_path / "repo", {"pdfs.py": PDFS, "requirements.txt": pinned})
     result = run(tree, "scan", "--pack", PYPDF)
     assert result.exit_code == 0, result.output
     assert TAKEN not in result.output
@@ -505,7 +490,7 @@ def test_only_the_packs_that_name_a_newest_release_ever_take_one(tmp_path: Path)
         for pack in (GEMINI, OPENAI, PYPDF)
     }
     assert taken == {GEMINI: None, OPENAI: None, PYPDF: "3.0.1"}
-    tree = repository(
+    tree = committed(
         tmp_path / "repo",
         {
             "app.py": "import openai\n\nopenai.Embedding.create(model='m', input='x')\n",

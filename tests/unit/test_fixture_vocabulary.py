@@ -1,4 +1,4 @@
-"""Fixture answer keys may use only the vocabulary `src/obelize/models.py` declares.
+"""Fixture answer keys may use only the vocabulary `src/obelize/models/vocabulary.py` declares.
 
 `tests/unit/test_models.py` ties the models to `docs/SCAN_VOCABULARY.md`, so the document has one
 parser and no link in document -> code -> fixtures repeats a list.

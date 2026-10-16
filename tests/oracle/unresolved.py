@@ -10,7 +10,7 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from pathlib import Path
 
 # Undefined name, unused redefinition, local read before assignment, typing-only import used live.

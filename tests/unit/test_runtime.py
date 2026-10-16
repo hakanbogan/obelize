@@ -17,7 +17,7 @@ import pytest
 from obelize.models import Config
 from obelize.scan import manifests, parse, runtime
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from obelize.models import ScanSpec
 
 SPEC = acme.SPEC.model_copy(update={"requires_python": ">=3.10"})

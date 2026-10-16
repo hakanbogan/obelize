@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from . import candidates, gate1_collect
+from . import candidates, gate1_collect, read_yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "candidates.yaml"
@@ -251,7 +251,7 @@ def _draw_for(
 
 
 def draw() -> None:
-    frame = yaml.safe_load(gate1_collect.SAMPLE.read_text(encoding="utf-8"))
+    frame = read_yaml(gate1_collect.SAMPLE)
     gate1 = json.loads(gate1_collect.RESULTS.joinpath("scan.json").read_text(encoding="utf-8"))
     scanned = {row["full_name"]: row["findings"] for row in gate1["scanned"] if "error" not in row}
     kept, rejected = _from_the_frame(frame, scanned)

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import yaml
+from . import read_yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE = ROOT / "bench" / "gate1" / "sample.yaml"
@@ -144,11 +144,9 @@ def share(numerator: int, denominator: int) -> str:
 
 
 def load() -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-    sample = yaml.safe_load(SAMPLE.read_text(encoding="utf-8"))
+    sample = read_yaml(SAMPLE)
     scanned = json.loads(SCAN.read_text(encoding="utf-8"))
-    labels = [
-        yaml.safe_load(path.read_text(encoding="utf-8")) for path in sorted(LABELS.glob("*.yaml"))
-    ]
+    labels = [read_yaml(path) for path in sorted(LABELS.glob("*.yaml"))]
     return sample, scanned, labels
 
 

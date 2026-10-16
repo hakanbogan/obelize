@@ -18,7 +18,7 @@ import typer
 
 from obelize import __version__
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Callable
 
     from obelize.config import LoadedConfig, Overrides
