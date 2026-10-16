@@ -245,7 +245,7 @@ network access unless you configure a model in your own `~/.config/obelize/confi
 `--model`.
 
 Run obelize in a repository that is committed or backed up, and pass only verification commands
-you trust. These gaps are known in 0.5.0:
+you trust. These gaps are known:
 
 - obelize turns `core.fsmonitor` off for its own git calls and keeps `git status` from refreshing a
   stale index, which would run a `post-index-change` hook. A repository's `.git/config` can still
@@ -280,9 +280,11 @@ code it runs.
 
 Each number comes from [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), which lists every
 case behind it. The method is in [docs/BENCHMARK.md](docs/BENCHMARK.md). Every number is for the
-Gemini pack, measured with obelize 0.1.0. `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf` have
-no accuracy figure and no benchmark run; a [dry run](docs/BENCHMARK_RESULTS.md#fix-dry-run) over
-80 repositories each shows how many get a written plan.
+Gemini pack. The migration numbers were measured with obelize 0.1.0; the scan precision and recall
+were measured again on a later scanner and came out the same. `openai/openai-0-to-1` and
+`py-pdf/pypdf2-to-pypdf` have no accuracy figure and no benchmark run; a
+[dry run](docs/BENCHMARK_RESULTS.md#fix-dry-run) over 80 repositories each shows how many get a
+written plan.
 
 | Measure | obelize | n |
 |---|---|---|
