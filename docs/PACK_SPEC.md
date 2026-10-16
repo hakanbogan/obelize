@@ -43,7 +43,7 @@ Breaking one rejects the pack.
 | `provider` | string | yes | The vendor or maintaining project, e.g. `gemini` or `py-pdf`. |
 | `language` | string | yes | `python`. |
 | `source` | mapping | yes | See [Source provenance](#source-provenance). |
-| `from` | mapping | yes | `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. |
+| `from` | mapping | yes | `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, or `since`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. |
 | `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required): the PEP 440 set of Pythons the new distribution installs on. A repository declaring support for one outside it is blocked (`runtime_unsupported`). |
 | `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest of its app declares its distribution, the legacy pin stays: a manifest in the file's directory or above it, and a `requirements/` directory counts for the one it is in; a constraints file declares nothing), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
 | `changes` | list | yes | See [Change entries](#change-entries). |
@@ -128,6 +128,28 @@ nobody can read is not judged, and `to.version` is a gate like the floor: `spec_
   so the scan reports it. Without `newest` it is refused.
 - `to` has neither field. A pack that sets neither is gated as before, and `spec_digest` ignores both,
   as it ignores `from.version`'s floor.
+
+A pack whose newest release is on the new side, as `openai`'s 3.x is, names `since` instead:
+
+```yaml
+from:
+  package: openai
+  version: ">=0.27.0,<1"
+  since:
+    - openai.Audio
+    - openai.ChatCompletion
+```
+
+- `since` lists the qualified names that no release below the floor of `from.version` defines and
+  that the new releases dropped, so code that uses one was written for a release `from.version`
+  admits, whichever release an unversioned install would resolve to today. A declaration that may
+  install such a release, with no version, `openai<1` or `openai>=0.20`, is then taken as the range
+  where code uses one of the names, and on the same evidence as `newest`. `openai==0.18.0` admits
+  none and stays blocked. Each name is under `match.symbols` (or `match.imports` where the module is
+  not shared), so the scan reports a use of it, and the list is sorted and de-duplicated. It needs a
+  floor and is refused beside `newest`. A name that an older release defines too proves nothing, so
+  it does not belong here; `SOURCES.md` records the release that was measured to lack each.
+- `spec_digest` ignores it, with the range it reads (`ScanSpec.legacy_range`).
 
 ### Change entries
 
@@ -574,8 +596,8 @@ obelize's version. `+build` metadata is refused: comparisons ignore it.
 - MAJOR: changes what is rewritten automatically, or moves an edit between
   automatic and refused.
 - MINOR: new changes, symbols or limitations, a change to `from.version` or `to.version`, or a
-  `from` field the pack starts to fill (`newest`, `lacks`), since each moves what a run takes or
-  stops on.
+  `from` field the pack starts to fill (`newest`, `lacks`, `since`), since each moves what a run
+  takes or stops on.
 - PATCH: citations, messages, suggestions, fixtures, wording.
 
 Every run records the pack id, `pack_version` and sha256.
@@ -592,7 +614,9 @@ Per field:
   rename may keep the version.
 - A `from.newest` that is not a final release in PEP 440's normal spelling, that `from.version` does
   not admit, or beside a `from.version` with no floor; a `from.lacks` with no `newest`, or one that
-  is not sorted and de-duplicated; a `newest` or `lacks` on `to`.
+  is not sorted and de-duplicated; a `newest` or `lacks` on `to`; a `from.since` beside a `newest`,
+  beside a `from.version` with no floor, that is not sorted and de-duplicated, or that names a symbol
+  under nothing the pack matches.
 - A duplicate `changes[].id`.
 - Two `flag_only` changes that name one surface: the same attribute, the same symbol or one that is
   the other's dotted prefix (`a.b` and `a.b.c`, not `a.b` and `a.bc`), or shape ids that report one

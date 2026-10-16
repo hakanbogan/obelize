@@ -502,7 +502,7 @@ def test_only_the_packs_that_name_a_newest_release_ever_take_one(tmp_path: Path)
     tree = repository(
         tmp_path / "repo",
         {
-            "app.py": "import openai\n\nopenai.ChatCompletion.create(model='m', messages=[])\n",
+            "app.py": "import openai\n\nopenai.Embedding.create(model='m', input='x')\n",
             "requirements.txt": "openai\n",
         },
     )

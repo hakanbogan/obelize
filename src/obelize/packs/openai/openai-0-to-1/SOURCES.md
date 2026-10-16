@@ -47,6 +47,15 @@ could not use, so the rules mean the same on 0.27.0. `ChatCompletion` does not e
 which is the floor. The weekly job runs the `.before.py` fixtures on 0.27.0 and requires the
 results to equal 0.28.1's.
 
+`from.since` rests on a fourth: `openai.ChatCompletion` and `openai.Audio` are not defined by 0.26.5,
+the last release before 0.27.0, and are defined by 0.27.0 and 0.28.1 (`hasattr` on the installed
+module, CPython 3.12, `uv run --isolated --no-project --with openai==<release>`, no call to the
+API). 1.109.1 and 3.26.0 define both as stubs that raise (`tests/packs/test_openai_facts.py`). Code
+that calls one therefore ran on a release in `>=0.27.0,<1`, whichever release a bare `openai`
+resolves to today. `Completion`, `Embedding` and `error` exist below 0.27.0 too, so they prove
+nothing and are not listed. The releases are published and cannot change, so no weekly job reads an
+index for this.
+
 Facts about the old release are held in `tests/packs/openai_legacy_surface.json`
 and compared to the real 0.28.1 weekly by `tests/packs/openai_legacy_check.py`;
 facts about the new one are checked by `tests/packs/test_openai_facts.py` on

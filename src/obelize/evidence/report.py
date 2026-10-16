@@ -950,11 +950,16 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
         )
     declared = code(blocked.declared) if blocked.declared else "with no version"
     if blocked.evidence:
+        took = (
+            f"a release in {code(blocked.taken)}"
+            if blocked.taken
+            else f"the newest release of {package}"
+        )
         return (
-            f"{path} declares {package} {declared}, which this migration would take as the newest "
-            f"release of {package}, but {code(blocked.evidence)} suggests another release is in "
-            f"use, so it reports its findings and plans no change. To migrate, pin {package} to "
-            f"{needed} in {path} and run again."
+            f"{path} declares {package} {declared}, which this migration would take as {took}, "
+            f"but {code(blocked.evidence)} suggests another release is in use, so it reports its "
+            f"findings and plans no change. To migrate, pin {package} to {needed} in {path} and "
+            f"run again."
         )
     if blocked.unlisted:
         return (
@@ -972,11 +977,22 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
 
 
 def _assumed(assumed: Sequence[tuple[str, str]], code: Callable[[str], str]) -> list[str]:
-    """What was taken for a version nobody wrote down, said where the plan is."""
+    """What was taken for a version nobody wrote down, said where the plan is.
+
+    A release is the pack's newest; a range, which starts with an operator, is what the code
+    that uses a name only those releases define stands for.
+    """
     lines = [
-        f"{code(package)} is declared with no version that rules out {code(release)}, so this "
-        f"migration takes it as {code(release)}, its newest release. A repository that installs "
-        f"an older one needs that pinned in a manifest obelize reads."
+        (
+            f"{code(package)} is declared with no version that rules out {code(release)}, so this "
+            f"migration takes it as {code(release)}, its newest release. A repository that "
+            f"installs an older one needs that pinned in a manifest obelize reads."
+            if release[:1].isdigit()
+            else f"{code(package)} is declared with no version that rules out a release in "
+            f"{code(release)}, and the code uses a name only those releases define, so this "
+            f"migration takes it as one of them. A repository that installs another needs that "
+            f"pinned in a manifest obelize reads."
+        )
         for package, release in assumed
     ]
     return [*lines, ""] if lines else []

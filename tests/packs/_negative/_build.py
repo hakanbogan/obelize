@@ -232,6 +232,16 @@ def _newest(**fields: Any) -> Callable[[Document], None]:
     return mutate
 
 
+def _since(**fields: Any) -> Callable[[Document], None]:
+    """A source range with a floor that names what only it defines; `fields` replace keys."""
+
+    def mutate(document: Document) -> None:
+        document["from"].update(version=">=1,<4", since=["demo_legacy.Thing"])
+        document["from"].update(fields)
+
+    return mutate
+
+
 def _symbols_without_a_submodule_map(document: Document) -> None:
     for key in ("submodule_map", "alias_fallbacks"):
         document["changes"][1]["params"].pop(key)
@@ -407,6 +417,34 @@ CASES: tuple[Case, ...] = (
         says="which no flag_only change lists in symbols",
         extra=FLAG_CHANGE,
         mutate=_newest(lacks=["demo_legacy.elsewhere"]),
+    ),
+    Case(
+        name="since_with_a_range_that_has_no_floor",
+        defect="names what only the source range defines, for a range with no floor to start it",
+        path="from",
+        says="must have a floor",
+        mutate=_since(version="<4"),
+    ),
+    Case(
+        name="since_beside_a_newest_release",
+        defect="names a newest release and what only the range defines, two ways to take one thing",
+        path="from",
+        says="each stand for an unversioned declaration",
+        mutate=_since(newest="3.0.1"),
+    ),
+    Case(
+        name="since_that_is_not_sorted",
+        defect="a list of names that is not sorted, so one set has two spellings",
+        path="from",
+        says="sorted and de-duplicated",
+        mutate=_since(since=["demo_legacy.b", "demo_legacy.a"]),
+    ),
+    Case(
+        name="since_a_name_the_scan_never_reports",
+        defect="a name outside every module the pack matches, so no finding could prove it",
+        path="",
+        says="which is under nothing in match.imports",
+        mutate=_since(since=["elsewhere.Thing"]),
     ),
     Case(
         name="newest_on_the_target",

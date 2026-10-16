@@ -608,7 +608,7 @@ def test_a_requirement_a_rewrite_cannot_carry_or_a_marker_may_skip_installs_noth
 
 @pytest.mark.parametrize("pinned", ["", "*", ">=1", "<4", "===2.4.1", "^1.0 || ^2.0"], ids=repr)
 def test_a_declaration_that_installs_the_newest_release_passes_the_floor(pinned: str) -> None:
-    assert runtime.legacy([_plain(pinned)], NEWEST, used=True, newest="2.4.1") is None
+    assert runtime.legacy([_plain(pinned)], NEWEST, used=True, taken="2.4.1") is None
     assert runtime.legacy([_plain(pinned)], NEWEST, used=True) is not None
 
 
@@ -630,7 +630,7 @@ def test_a_declaration_that_installs_the_newest_release_passes_the_floor(pinned:
 def test_a_declaration_that_does_not_install_the_newest_release_blocks_as_before(
     row: manifests.Declaration,
 ) -> None:
-    found = runtime.legacy([row], NEWEST, used=True, newest="2.4.1")
+    found = runtime.legacy([row], NEWEST, used=True, taken="2.4.1")
     assert found is not None
     assert found == runtime.legacy([row], NEWEST, used=True)
     assert found.evidence == ""
@@ -660,11 +660,11 @@ def test_a_block_is_unlisted_only_where_the_newest_release_would_have_passed_it(
     found = runtime.legacy([row], spec, used=True)
     assert found is not None
     assert found.unlisted is False
-    assert runtime.legacy([row], spec, used=True, newest=spec.legacy_newest) == found
+    assert runtime.legacy([row], spec, used=True, taken=spec.legacy_newest) == found
 
 
 def test_a_block_with_evidence_or_with_nothing_declared_is_not_unlisted() -> None:
-    held = runtime.legacy([_plain("")], NEWEST, used=True, newest="2.4.1", contrary="poetry.lock")
+    held = runtime.legacy([_plain("")], NEWEST, used=True, taken="2.4.1", contrary="poetry.lock")
     assert held is not None
     assert held.unlisted is False
     assert runtime.legacy([], NEWEST, used=True) == runtime.Blocked(
@@ -674,31 +674,31 @@ def test_a_block_with_evidence_or_with_nothing_declared_is_not_unlisted() -> Non
 
 def test_every_declaration_is_judged_and_not_only_the_first_that_passes() -> None:
     both = [_plain(">=2", "a.txt"), _plain("", "b.txt")]
-    assert runtime.legacy(both, NEWEST, used=True, newest="2.4.1") is None
+    assert runtime.legacy(both, NEWEST, used=True, taken="2.4.1") is None
     held = [_plain("", "a.txt"), _plain("<2.4", "b.txt"), _plain(">=2", "c.txt")]
-    found = runtime.legacy(held, NEWEST, used=True, newest="2.4.1")
+    found = runtime.legacy(held, NEWEST, used=True, taken="2.4.1")
     assert found is not None
     assert (found.path, found.declared) == ("b.txt", "<2.4")
 
 
 def test_a_legacy_distribution_declared_nowhere_blocks_whatever_the_newest_release_is() -> None:
-    assert runtime.legacy([], NEWEST, used=True, newest="2.4.1") == runtime.Blocked(
+    assert runtime.legacy([], NEWEST, used=True, taken="2.4.1") == runtime.Blocked(
         "legacy_version_unsupported", "acme-old", "", None, ">=2"
     )
 
 
 def test_contrary_evidence_takes_the_newest_release_back_and_is_the_blocks_evidence() -> None:
     rows = [_plain("", "z.txt"), _plain(">=1", "a.txt"), _plain(">=2", "b.txt")]
-    found = runtime.legacy(rows, NEWEST, used=True, newest="2.4.1", contrary="poetry.lock")
+    found = runtime.legacy(rows, NEWEST, used=True, taken="2.4.1", contrary="poetry.lock")
     assert found == runtime.Blocked(
         "legacy_version_unsupported", "acme-old", "a.txt", ">=1", ">=2", "poetry.lock"
     )
 
 
 def test_where_no_code_uses_the_pin_there_is_nothing_to_infer() -> None:
-    assert runtime.legacy([_plain("")], NEWEST, used=False, newest="2.4.1") is None
+    assert runtime.legacy([_plain("")], NEWEST, used=False, taken="2.4.1") is None
     open_range = NEWEST.model_copy(update={"legacy_floor": None})
-    assert runtime.legacy([_plain("")], open_range, used=True, newest="2.4.1") is None
+    assert runtime.legacy([_plain("")], open_range, used=True, taken="2.4.1") is None
 
 
 def test_a_run_infers_the_newest_release_only_where_a_declaration_needs_it() -> None:

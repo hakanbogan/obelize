@@ -58,7 +58,8 @@ measurement stays bound to the spec it was taken on.
 
 A pack that names the newest release of the legacy distribution (`from.newest`, ADR-056) lets a
 declaration through that fails the floor but installs that release, a requirement with no version
-for one, unless the repository shows another release. A pack that names none is gated as above.
+for one, unless the repository shows another release; `from.since` does the same for code that uses
+a name only the old range defines (ADR-056 D5). A pack that names neither is gated as above.
 
 A pack with two distributions also gates the new side: a manifest that pins the new distribution so
 that it admits no release `to.version` allows (`pypdf==3.0.0`, `pypdf<6`) blocks the run

@@ -29,7 +29,7 @@ from packaging.version import Version
 
 from obelize import fsutil
 from obelize.models import printable
-from obelize.scan import manifests, parse
+from obelize.scan import manifests, parse, runtime
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -105,10 +105,9 @@ def contrary(
     findings: Sequence[Finding],
     spec: ScanSpec,
 ) -> str:
-    """The first path that says a release other than `spec.legacy_newest` is in use, or `""`."""
-    newest = spec.legacy_newest
-    if newest is None:  # pragma: no cover - callers ask `runtime.inferred` first
-        return ""
+    """The first path that says a release the run does not take is in use, or `""`: other than
+    `spec.legacy_newest`, or, where the pack has none, outside `spec.legacy_range`."""
+    taken = spec.legacy_newest or SpecifierSet(spec.legacy_range)
     name = canonicalize_name(spec.legacy_distribution)
     rows = [row for row in found if row.name == name]
     spelled = "[-_.]+".join(re.escape(part) for part in name.split("-"))
@@ -117,8 +116,8 @@ def contrary(
         or _unread(walk, contents, rows, spelled)
         or _settings(walk, contents)
         or _hidden(walk)
-        or _mentioned(root, walk, contents, spelled, newest)
-        or _on_disk(root, walk, rows, spelled, newest)
+        or _mentioned(root, walk, contents, spelled, taken)
+        or _on_disk(root, walk, rows, spelled, taken)
     )
 
 
@@ -279,13 +278,15 @@ def _index(source: Any) -> str:
     return url.rstrip("/") if isinstance(url, str) else ""
 
 
-def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, newest: str) -> str:
+def _mentioned(
+    root: Path, walk: Walk, contents: parse.Contents, spelled: str, taken: str | SpecifierSet
+) -> str:
     """A version of the distribution written anywhere, in a file or in a file's name, that rules
-    the newest release out: `PyPDF2==1.26.0`, `PyPDF2-1.26.0.dist-info`."""
+    the release taken out: `PyPDF2==1.26.0`, `PyPDF2-1.26.0.dist-info`."""
     mention = _mention(spelled)
     vetted = {*walk.files, *walk.manifests}
     for path in walk.listed:
-        if _rules_out(os.fsencode(path), mention, newest):
+        if _rules_out(os.fsencode(path), mention, taken):
             return path
         # The walk opened and checked only what it selected, so the rest is checked here: a fifo
         # named in the listing would block the read.
@@ -294,12 +295,12 @@ def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, n
         data, refused = contents(path)
         if data is None:
             too_large = any(row.code == "file_too_large" for row in refused)
-            if too_large and _searched(root / path, mention, newest):
+            if too_large and _searched(root / path, mention, taken):
                 return path
             continue
         if data[:2] in _UTF_16:  # a PowerShell `pip freeze > freeze.txt`
             data = data.decode("utf-16", "ignore").encode()
-        if _rules_out(data, mention, newest):
+        if _rules_out(data, mention, taken):
             return path
     return ""
 
@@ -315,7 +316,7 @@ def _mention(spelled: str) -> re.Pattern[bytes]:
     )
 
 
-def _searched(path: Path, mention: re.Pattern[bytes], newest: str) -> bool:
+def _searched(path: Path, mention: re.Pattern[bytes], taken: str | SpecifierSet) -> bool:
     """`_rules_out` over a file too large to hold, a window at a time; a UTF-16 one is read as
     bytes, which finds nothing.
 
@@ -326,17 +327,22 @@ def _searched(path: Path, mention: re.Pattern[bytes], newest: str) -> bool:
     try:
         window = b""
         for at, window in enumerate(fsutil.windows(path, _WINDOW, _OVERLAP, _LIMIT)):
-            if _rules_out(window, mention, newest, min(at, 1), len(window) - _OVERLAP):
+            if _rules_out(window, mention, taken, min(at, 1), len(window) - _OVERLAP):
                 return True
-        return _rules_out(window, mention, newest, max(len(window) - _OVERLAP + 1, 0))
+        return _rules_out(window, mention, taken, max(len(window) - _OVERLAP + 1, 0))
     except OSError:  # gone or unreadable since it was listed, as `parse.contents` finds
         return False
 
 
 def _rules_out(
-    data: bytes, mention: re.Pattern[bytes], newest: str, start: int = 0, stop: int | None = None
+    data: bytes,
+    mention: re.Pattern[bytes],
+    taken: str | SpecifierSet,
+    start: int = 0,
+    stop: int | None = None,
 ) -> bool:
-    """Whether `data` writes a release of the distribution that is not, or may not be, `newest`.
+    """Whether `data` writes a release of the distribution that is not, or may not be, the one
+    taken: a release (`3.0.1`), or one of a range of them.
 
     Only a mention that starts from `start` on, and at or before `stop`, is read.
     """
@@ -345,17 +351,33 @@ def _rules_out(
             return False
         try:
             if found["spec"] is None:
-                if Version(found["release"].decode()) != Version(newest):
+                if _outside(taken, Version(found["release"].decode())):
                     return True
-            elif not SpecifierSet(found["spec"].decode()).contains(newest):
+            elif _excludes(taken, SpecifierSet(found["spec"].decode())):
                 return True
         except ValueError:  # not a version, or one of more digits than Python converts
             return True
     return False
 
 
+def _outside(taken: str | SpecifierSet, release: Version) -> bool:
+    """Whether `release` is none of the releases taken."""
+    return release not in taken if isinstance(taken, SpecifierSet) else release != Version(taken)
+
+
+def _excludes(taken: str | SpecifierSet, clauses: SpecifierSet) -> bool:
+    """Whether `clauses` admit none of the releases taken."""
+    if isinstance(taken, SpecifierSet):
+        return not runtime.meets((clauses,), taken)
+    return not clauses.contains(taken)
+
+
 def _on_disk(
-    root: Path, walk: Walk, rows: Sequence[manifests.Declaration], spelled: str, newest: str
+    root: Path,
+    walk: Walk,
+    rows: Sequence[manifests.Declaration],
+    spelled: str,
+    taken: str | SpecifierSet,
 ) -> str:
     """What the listing may not show, because git ignores it: a lock, or a requirements,
     constraints or pip-tools input file, beside the repository root or a declaring manifest, and
@@ -380,7 +402,7 @@ def _on_disk(
             for packages in _site_packages(root / here):
                 for name in _names(root / here / packages):
                     found = installed.fullmatch(name)
-                    if found and Version(found["release"]) != Version(newest):
+                    if found and _outside(taken, Version(found["release"])):
                         return posixpath.join(here, packages, name)
     return ""
 

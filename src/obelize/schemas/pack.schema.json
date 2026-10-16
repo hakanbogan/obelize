@@ -472,7 +472,7 @@
     },
     "Legacy": {
       "additionalProperties": false,
-      "description": "The old side, which may also name the newest release of its distribution.\n\n`newest` is what an unversioned declaration installs, so it stands for a version nothing in the\nrepository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names\nwhat that release no longer defines, which the code may still use.",
+      "description": "The old side, which may also say which release an unversioned declaration stands for.\n\n`newest` is what an unversioned declaration installs, so it stands for a version nothing in the\nrepository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names\nwhat that release no longer defines, which the code may still use. `since` is the other way,\nfor a distribution whose newest release is on the new side: the names no release below the\nfloor of `version` defines, so code that uses one was written for a release `version` admits.",
       "properties": {
         "lacks": {
           "default": [],
@@ -499,6 +499,15 @@
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "Package",
           "type": "string"
+        },
+        "since": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Since",
+          "type": "array"
         },
         "version": {
           "title": "Version",

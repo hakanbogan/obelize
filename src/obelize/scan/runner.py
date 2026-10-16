@@ -97,7 +97,8 @@ class Scan:
     unanalysed: tuple[str, ...] = ()
     transitive: tuple[tuple[str, str], ...] = ()
     # (distribution, release) taken where nothing in the repository says which release is in use:
-    # the pack's newest, for a declaration that names no version that rules it out.
+    # the pack's newest, for a declaration that names no version that rules it out, or, as the
+    # range `from.version` states, where the code uses a name only those releases define.
     assumed: tuple[tuple[str, str], ...] = ()
 
     @property
@@ -346,19 +347,17 @@ def scan(
     limitations.extend(unreadable)
     limitations.extend(floor.limitations)
     used = any(row.kind != "manifest" and row.scan_status != "not_a_usage" for row in findings)
-    # The newest release is taken only where git names every file: elsewhere a pin could be in a
-    # file the walk never lists (it skips a dot-directory).
-    newest = (
-        spec.legacy_newest
-        if used and selection.source == "git" and runtime.inferred(declared, spec)
-        else None
+    # A release is taken only where git names every file: elsewhere a pin could be in a file the
+    # walk never lists (it skips a dot-directory).
+    taken = (
+        runtime.taken_for(declared, findings, spec) if used and selection.source == "git" else None
     )
-    blocked = floor.blocked or runtime.legacy(declared, spec, used, newest)
+    blocked = floor.blocked or runtime.legacy(declared, spec, used, taken)
     assumed: tuple[tuple[str, str], ...] = ()
-    if newest and blocked is None:
+    if taken and blocked is None:
         because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
-        blocked = runtime.legacy(declared, spec, used, newest, because) if because else None
-        assumed = () if because else ((spec.legacy_distribution, newest),)
+        blocked = runtime.legacy(declared, spec, used, taken, because) if because else None
+        assumed = () if because else ((spec.legacy_distribution, taken),)
     return Scan(
         source=selection.source,
         results=files,

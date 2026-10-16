@@ -1080,6 +1080,8 @@ PROJECTED = {
     "legacy_floor",
     "legacy_newest",
     "legacy_lacks",
+    "legacy_range",
+    "legacy_since",
     "new_version",
     "shared",
     "new_range",
@@ -1174,6 +1176,44 @@ def test_what_the_newest_release_lacks_needs_it_and_is_sorted_and_flagged() -> N
         build(newest(lacks=["demo_legacy.configure"]))
 
 
+def since(**fields: Any) -> dict[str, Any]:
+    """A pack whose source range has a floor and names what only that range defines."""
+    document = minimal()
+    document["from"].update(version=">=1,<4", since=["demo_legacy.Thing"])
+    document["from"].update(fields)
+    return document
+
+
+def test_a_source_range_may_name_what_only_it_defines() -> None:
+    built = build(since())
+    assert built.from_.since == ("demo_legacy.Thing",)
+    spec = loader.to_scan_spec(_loaded(built))
+    assert (spec.legacy_floor, spec.legacy_range, spec.legacy_since) == (
+        "1",
+        ">=1,<4",
+        ("demo_legacy.Thing",),
+    )
+    plain = loader.to_scan_spec(_loaded(build(minimal())))
+    assert (plain.legacy_range, plain.legacy_since) == ("<1", ())
+
+
+def test_what_only_the_source_range_defines_needs_a_floor_and_no_newest_and_is_looked_for() -> None:
+    with pytest.raises(ValidationError, match="must have a floor"):
+        build(since(version="<4"))
+    with pytest.raises(ValidationError, match="since and newest each stand for"):
+        build(since(newest="3.0.1"))
+    with pytest.raises(ValidationError, match="sorted and de-duplicated"):
+        build(since(since=["demo_legacy.b", "demo_legacy.a"]))
+    with pytest.raises(ValidationError, match=r"which is under nothing in match\.imports"):
+        build(since(since=["elsewhere.Thing"]))
+    shared_document = shared()
+    shared_document["from"].update(version=">=1,<4", since=["demo_legacy.Thing"])
+    with pytest.raises(ValidationError, match=r"which is under nothing in match\.symbols"):
+        build(shared_document)
+    shared_document["match"]["symbols"] = ["demo_legacy.Thing", "demo_legacy.configure"]
+    assert build(shared_document).from_.since == ("demo_legacy.Thing",)
+
+
 def test_only_the_source_side_names_a_newest_release() -> None:
     document = minimal()
     document["to"]["newest"] = "1.0.0"
@@ -1222,6 +1262,8 @@ def test_the_projection_digest_ignores_the_pack_identity_and_the_gates_and_nothi
         "legacy_floor": "0.1",
         "legacy_newest": "9.9",
         "legacy_lacks": ("demo.other",),
+        "legacy_range": ">=0.1,<9",
+        "legacy_since": ("demo.other",),
         "new_version": ">=9.9",
     }
     exercised: set[str] = set()

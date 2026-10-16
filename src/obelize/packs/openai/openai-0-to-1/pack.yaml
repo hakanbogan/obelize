@@ -17,6 +17,11 @@ source:
 from:
   package: openai
   version: ">=0.27.0,<1"
+  # Neither exists below 0.27.0 (0.26.5 measured) and the new releases dropped both, so code that
+  # uses one ran on a release this range admits, whichever release a bare `openai` would install.
+  since:
+    - openai.Audio
+    - openai.ChatCompletion
 to:
   package: openai
   version: ">=1.109.1"

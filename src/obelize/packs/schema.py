@@ -298,22 +298,33 @@ class VersionRange(_Closed):
 
 
 class Legacy(VersionRange):
-    """The old side, which may also name the newest release of its distribution.
+    """The old side, which may also say which release an unversioned declaration stands for.
 
     `newest` is what an unversioned declaration installs, so it stands for a version nothing in the
     repository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names
-    what that release no longer defines, which the code may still use.
+    what that release no longer defines, which the code may still use. `since` is the other way,
+    for a distribution whose newest release is on the new side: the names no release below the
+    floor of `version` defines, so code that uses one was written for a release `version` admits.
     """
 
     newest: Release | None = None
     lacks: tuple[QualifiedName, ...] = ()
+    since: tuple[QualifiedName, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> Legacy:
         _sorted_set(self.lacks, "lacks")
+        _sorted_set(self.since, "since")
+        if self.since and self.newest is not None:
+            raise ValueError("since and newest each stand for an unversioned declaration: set one")
         if self.newest is None:
             if self.lacks:
                 raise ValueError("lacks is what the newest release does not define: set newest")
+            if self.since and bounds(SpecifierSet(self.version))[0] is None:
+                raise ValueError(
+                    f"since names what no release below the floor of from.version defines, so "
+                    f"from.version {self.version!r} must have a floor"
+                )
             return self
         admitted = SpecifierSet(self.version)
         if bounds(admitted)[0] is None:
@@ -1212,6 +1223,7 @@ class PackDocument(_Closed):
         self._check_manifest_matches_the_migration()
         self._check_version_ranges()
         self._check_what_the_newest_release_lacks_is_flagged()
+        self._check_what_the_code_may_prove_is_looked_for()
         return self
 
     def to_modules(self) -> tuple[str, ...]:
@@ -1397,6 +1409,17 @@ class PackDocument(_Closed):
                 raise ValueError(
                     f"from.lacks names {name!r}, which no flag_only change lists in symbols, so "
                     f"the scan never reports it and the check could not see it"
+                )
+
+    def _check_what_the_code_may_prove_is_looked_for(self) -> None:
+        """The check reads `since` off the scan's findings, so each name must be one it reports."""
+        field = "match.symbols" if self.match.shared else "match.imports"
+        looked = self.match.symbols if self.match.shared else self.match.imports
+        for name in self.from_.since:
+            if not under_any(name, looked):
+                raise ValueError(
+                    f"from.since names {name!r}, which is under nothing in {field} "
+                    f"{list(looked)}, so the scan never reports a use of it"
                 )
 
     def _check_version_ranges(self) -> None:
