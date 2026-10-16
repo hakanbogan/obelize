@@ -6,10 +6,10 @@ frame what a `fix` dry run would write, for any pack, scored by `bench/dryrun_sc
 
 Usage::
 
-    python bench/gate1_collect.py sample                 # writes bench/gate1/sample.yaml
-    python bench/gate1_collect.py scan                   # writes bench/results/gate1/scan.json
-    python bench/gate1_collect.py sample --pack P --term T   # the pack's frame (see `_frame`)
-    python bench/gate1_collect.py dryrun --pack P            # bench/results/dryrun/<slug>.json
+    python -m bench.gate1_collect sample                 # writes bench/gate1/sample.yaml
+    python -m bench.gate1_collect scan                   # writes bench/results/gate1/scan.json
+    python -m bench.gate1_collect sample --pack P --term T   # the pack's frame (see `_frame`)
+    python -m bench.gate1_collect dryrun --pack P            # bench/results/dryrun/<slug>.json
 
 `<slug>` is the pack id with its slash written `__`.
 
@@ -151,7 +151,7 @@ def _metadata(full_name: str) -> dict[str, Any]:
 
 def _frame(pack: str) -> Path:
     """The Gemini frame keeps its place; another pack's is `bench/gate1/<slug>/sample.yaml`."""
-    from run import DEFAULT_PACK
+    from .run import DEFAULT_PACK
 
     if pack == DEFAULT_PACK:
         return SAMPLE
@@ -229,7 +229,7 @@ def sample(total: int, pack: str, term: str) -> None:
     print(f"{len(chosen)} repositories -> {frame.relative_to(ROOT)}")
 
 
-def _fetch(entry: dict[str, Any], into: Path) -> None:
+def fetch(entry: dict[str, Any], into: Path) -> None:
     """A one-commit checkout at the pinned SHA, with the `.git` a scan reads through."""
     into.mkdir(parents=True)
     url = f"https://github.com/{entry['full_name']}.git"
@@ -247,12 +247,12 @@ def _fetch(entry: dict[str, Any], into: Path) -> None:
         )
 
 
-def _runtime(checkout: Path) -> dict[str, Any]:
+def declared_runtime(checkout: Path) -> dict[str, Any]:
     """The declared Python via the shipped `scan/runtime.py`; `run.json` keeps only the verdict."""
-    from run import DEFAULT_PACK
-
     from obelize.models import Config
     from obelize.scan import parse, runtime, walker
+
+    from .run import DEFAULT_PACK
 
     selection = walker.walk(checkout, Config())
     spec = loader.to_scan_spec(loader.load(DEFAULT_PACK))
@@ -279,7 +279,7 @@ def _cli(arguments: list[str], timeout: int) -> dict[str, Any]:
     return json.loads(completed.stdout)  # type: ignore[no-any-return]
 
 
-def _scan(checkout: Path) -> dict[str, Any]:
+def scan_checkout(checkout: Path) -> dict[str, Any]:
     return _cli(["scan", "--repo", str(checkout)], SCAN_TIMEOUT_S)
 
 
@@ -294,15 +294,15 @@ def _fix(checkout: Path, pack: str) -> tuple[dict[str, Any], dict[str, Any], lis
     return plan, run, json.loads((folder / "findings.json").read_text(encoding="utf-8"))["findings"]
 
 
-def _provenance(pack: str | None = None) -> dict[str, Any]:
+def provenance(pack: str | None = None) -> dict[str, Any]:
     """The instrument beside the number; CI never re-runs these scans.
 
     `spec_sha256` hashes what `scan/*` and `impact/*` read (ADR-026 D8): only its change needs a
     re-run. `pack_sha256` names the file. The pack is Gemini's unless one is named.
     """
-    from run import DEFAULT_PACK
-
     from obelize import __version__
+
+    from .run import DEFAULT_PACK
 
     pack = pack or DEFAULT_PACK
     loaded = loader.load(pack)
@@ -345,7 +345,7 @@ def _each(
         }
         started = time.monotonic()
         try:
-            _fetch(entry, checkout)
+            fetch(entry, checkout)
             measure(record, checkout)
         except RECORDED as error:
             record["error"] = f"{type(error).__name__}: {error}"[:300]
@@ -363,9 +363,9 @@ def scan(only: str | None) -> None:
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     def measure(record: dict[str, Any], checkout: Path) -> None:
-        findings = _scan(checkout)
+        findings = scan_checkout(checkout)
         record["counts"] = findings["counts"]
-        record["runtime"] = _runtime(checkout)
+        record["runtime"] = declared_runtime(checkout)
         # Line references to other people's code, never their source.
         record["findings"] = [
             {
@@ -379,7 +379,7 @@ def scan(only: str | None) -> None:
     records = _each(entries, measure, lambda record: f"{record['counts']['findings']} finding(s)")
     out = RESULTS / "scan.json"
     out.write_text(
-        json.dumps({**_provenance(), "scanned": records}, indent=2, sort_keys=False) + "\n",
+        json.dumps({**provenance(), "scanned": records}, indent=2, sort_keys=False) + "\n",
         encoding="utf-8",
     )
     print(f"{len(records)} record(s) -> {out.relative_to(ROOT)}")
@@ -424,7 +424,7 @@ def dryrun(pack: str) -> None:
     out.write_text(
         json.dumps(
             {
-                **_provenance(pack),
+                **provenance(pack),
                 "frame": _frame(pack).relative_to(ROOT).as_posix(),
                 "dry_run": records,
             },
@@ -468,7 +468,7 @@ def choose(extra_band: str) -> None:
             checkout = WORK / entry["full_name"].replace("/", "__")
             shutil.rmtree(checkout, ignore_errors=True)
             try:
-                _fetch(entry, checkout)
+                fetch(entry, checkout)
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as error:
                 print(f"    {entry['full_name']}: fetch failed ({type(error).__name__})")
                 shutil.rmtree(checkout, ignore_errors=True)
@@ -485,7 +485,7 @@ def choose(extra_band: str) -> None:
 
 
 def main() -> None:
-    from run import DEFAULT_PACK
+    from .run import DEFAULT_PACK
 
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter

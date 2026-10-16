@@ -95,7 +95,7 @@ answer key, so it counts what is written and not whether it is right.
   narrowing fires, and the numbers are only in the generated block.
 - `bench/` is under `mypy --strict`, and its pure half under the branch gate.
 - A scanner change leaves the records describing an older scanner and no test
-  notices; re-running `bench/gate1_collect.py scan` is manual. A rule change that leaves a pack
-  file as it was does the same to the dry-run records, whose `obelize_version` says which tool
+  notices; re-running `python -m bench.gate1_collect scan` is manual. A rule change that leaves a
+  pack file as it was does the same to the dry-run records, whose `obelize_version` says which tool
   wrote them.
 - The one miss is open as `tests/fixtures/scan/COVERAGE.md` gap 20.

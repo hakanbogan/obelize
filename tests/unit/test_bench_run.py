@@ -2,24 +2,29 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import obelize
+from bench import cases, run
+from obelize.verify import runner
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import cases  # noqa: E402
-import run  # noqa: E402
 
 pytestmark = BENCH
+
+TOOLS = ROOT / "tests" / "fixtures" / "verify" / "tools"
 
 Answer = Callable[[tuple[str, ...], Path], run.Completed]
 
@@ -123,10 +128,12 @@ class Fake:
 
     def __init__(self, rules: list[tuple[str, Answer]] | None = None) -> None:
         self.calls: list[tuple[str, ...]] = []
+        self.envs: list[dict[str, str]] = []
         self.rules = list(rules or [])
 
     def __call__(self, argv: Any, cwd: Any, env: Any, timeout_s: int) -> run.Completed:
         self.calls.append(tuple(argv))
+        self.envs.append(dict(env))
         for needle, answer in self.rules:
             if needle in " ".join(argv):
                 return answer(tuple(argv), Path(cwd))
@@ -228,6 +235,29 @@ def test_a_command_that_outlasts_its_ceiling_is_a_timeout(tmp_path: Path) -> Non
     assert said.exit_code == 124
 
 
+def test_a_child_a_finished_command_leaves_behind_neither_delays_it_nor_outlives_it(
+    tmp_path: Path,
+) -> None:
+    """A pipe it held would make a command that exited `0` look like a timeout."""
+    marker = tmp_path / "survived"
+    argv = [sys.executable, str(TOOLS / "leaves_a_child.py"), "0", "3", str(marker)]
+    said = run.shell(argv, tmp_path, dict(os.environ), 2)
+    assert (said.exit_code, said.timed_out) == (0, False)
+    assert "child" in said.output
+    time.sleep(3.5)
+    assert not marker.exists(), "the child the command left behind was not ended"
+
+
+def test_a_command_past_its_ceiling_takes_what_it_started_with_it(tmp_path: Path) -> None:
+    marker = tmp_path / "survived"
+    argv = [sys.executable, str(TOOLS / "stubborn.py"), "3", str(marker)]
+    said = run.shell(argv, tmp_path, dict(os.environ), 1)
+    assert (said.exit_code, said.timed_out) == (124, True)
+    assert "armed" in said.output
+    time.sleep(3.5)
+    assert not marker.exists(), "the child outlived the ceiling"
+
+
 def test_a_program_that_does_not_exist_is_a_fact_about_the_case(tmp_path: Path) -> None:
     said = run.shell(["obelize-not-a-program"], tmp_path, {}, 60)
     assert said.exit_code == 127
@@ -262,6 +292,57 @@ def test_the_offline_executor_refuses_an_empty_command(tmp_path: Path) -> None:
 def test_the_offline_executor_still_runs_this_interpreter(tmp_path: Path) -> None:
     said = run.offline(run.shell)([sys.executable, "-c", "print(1)"], tmp_path, {}, 60)
     assert said.exit_code == 0
+
+
+def test_a_case_inherits_what_is_listed_and_a_home_that_is_not_ours(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    given = {name: name.lower() for name in run.PASSED_ENVIRONMENT}
+    given |= {"GH_TOKEN": "planted", "AWS_SECRET_ACCESS_KEY": "planted", "HOME": "/real"}
+    got = run.case_environ(given, None)
+    assert got == {**{name: name.lower() for name in run.PASSED_ENVIRONMENT}, "HOME": got["HOME"]}
+    assert Path(got["HOME"]) == tmp_path / "work" / "home"
+    assert Path(got["HOME"]).is_dir()
+    assert run.case_environ({}, None) == {"HOME": got["HOME"]}
+    assert run.case_environ({}, "2026-10-15T09:00:00Z") == {
+        "HOME": got["HOME"],
+        "UV_EXCLUDE_NEWER": "2026-10-15T09:00:00Z",
+    }
+
+
+def test_a_secret_in_the_harness_environment_reaches_no_step_of_a_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    monkeypatch.setenv("GH_TOKEN", "planted")
+    monkeypatch.setenv("VIRTUAL_ENV", "/the/harness/venv")
+    fake = Fake(a_whole_run())
+    run.run_case(corpus_case(), execute=fake, fixtures_only=False)
+    assert len(fake.envs) == len(fake.calls) > 10
+    for env in fake.envs:
+        assert "GH_TOKEN" not in env
+        assert env["HOME"] == str(tmp_path / "work" / "home")
+    assert "VIRTUAL_ENV" not in fake.envs[0]
+    assert fake.envs[-1]["VIRTUAL_ENV"].endswith("owner__repo/.venv")
+
+
+def test_a_real_command_of_a_case_sees_no_secret_and_not_the_real_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    monkeypatch.setenv("GH_TOKEN", "planted")
+    program = "import os;print(os.environ.get('GH_TOKEN'), os.environ['HOME'])"
+    said = run.shell(
+        [sys.executable, "-c", program], tmp_path, run.case_environ(os.environ, None), 60
+    )
+    assert said.output.split() == ["None", str(tmp_path / "work" / "home")]
+
+
+def test_every_variable_a_case_inherits_is_named_in_the_protocol() -> None:
+    protocol = (ROOT / "docs" / "BENCHMARK.md").read_text(encoding="utf-8")
+    for name in run.PASSED_ENVIRONMENT:
+        assert f"`{name}`" in protocol
 
 
 def test_a_checkout_is_one_commit_deep_and_names_the_sha(tmp_path: Path) -> None:
@@ -326,7 +407,7 @@ def test_a_command_that_is_not_python_is_left_exactly_as_reviewed() -> None:
 
 
 def test_a_pytest_run_is_asked_for_a_junit_report() -> None:
-    built = run.suite_argv("python -m pytest -q", Path("/j/x.xml"), Path("/p"))
+    built = run.suite_argv("python -m pytest -q", Path("/j/x.xml"), Path("/venv/bin/python"))
     assert built[-1] == "--junitxml=/j/x.xml"
 
 
@@ -580,6 +661,51 @@ def test_a_regression_is_not_blamed_on_a_tool_that_wrote_nothing() -> None:
     assert run.tier(refused) == "unsupported"
 
 
+# What counts as pytest is `obelize verify`'s reading, not a second one: `tox -m pytest` is tox.
+PYTEST_COMMANDS: list[tuple[tuple[str, ...], bool]] = [
+    (("pytest", "-q"), True),
+    (("py.test",), True),
+    (("/venv/bin/pytest", "tests"), True),
+    (("python", "-m", "pytest"), True),
+    (("python3.12", "-m", "pytest", "-q"), True),
+    (("/venv/bin/python", "-m", "pytest"), True),
+    (("python", "-m", "unittest"), False),
+    (("python", "check.py"), False),
+    (("make", "test"), False),
+    (("uv", "run", "pytest"), False),
+    (("tox", "-m", "pytest"), False),
+]
+
+
+@pytest.mark.parametrize(("argv", "is_pytest"), PYTEST_COMMANDS, ids=lambda v: str(v)[:40])
+def test_the_harness_and_obelize_verify_agree_on_what_a_pytest_command_is(
+    argv: tuple[str, ...], is_pytest: bool
+) -> None:
+    assert run._pytest_command(argv) is is_pytest
+    assert runner._is_pytest(argv) is is_pytest
+    wants_junit = is_pytest and not runner._carries_junit(argv)
+    assert run._is_pytest(argv) is wants_junit
+
+
+def test_every_test_command_of_the_round_is_a_pytest_run_under_obelize_verifys_reading() -> None:
+    commands = [subject.test_cmd for subject in run.corpus() if subject.test_cmd]
+    assert commands
+    for command in commands:
+        argv = run.suite_argv(command, None, Path("/venv/bin/python"))
+        assert runner._is_pytest(argv), command
+
+
+@pytest.mark.parametrize(
+    "argv", [("pytest", "--junitxml=x.xml"), ("pytest", "--junitxml", "x.xml")]
+)
+def test_a_pytest_command_that_writes_its_own_junit_report_is_left_alone(
+    argv: tuple[str, ...],
+) -> None:
+    assert run._pytest_command(argv) is True
+    assert run._is_pytest(argv) is False
+    assert runner._carries_junit(argv) is True
+
+
 def test_a_bare_pytest_program_is_a_pytest_run_here_too() -> None:
     assert run.suite_status(completed(("pytest", "-q"), 5)) == "inconclusive"
 
@@ -708,7 +834,22 @@ def test_the_measurement_table_is_filled_from_one_run_folder() -> None:
     assert table["detected"] == 1
     assert table["missed_call_site"] == 1
     assert table["false_positive"] == 0
+    assert table["forbidden_reported"] == 0
     assert table["patch_applied"] is True
+
+
+def test_a_report_at_a_position_the_key_forbids_is_counted_whatever_its_kind() -> None:
+    """A `text_mention` there is no false positive, so only this count shows it."""
+    truth = {
+        "call_sites": [],
+        "manifests": [],
+        "must_not_report": [{"path": "app.py", "line": 1, "why": "a string"}],
+        "tests_cover_change": False,
+    }
+    reports = [site(kind="text_mention"), site(kind="call"), site(line=2)]
+    table = run.measure(case(ground_truth=truth), reports, {"edits": []}, {})
+    assert table["forbidden_reported"] == 2
+    assert table["false_positive"] == 2
 
 
 def test_an_edit_the_key_never_named_is_a_false_positive_edit() -> None:
@@ -994,6 +1135,7 @@ STEPS = [
     "compile",
     "install-to",
     "install-to-check",
+    "freeze",
     "after",
 ]
 
@@ -1018,6 +1160,7 @@ def test_the_protocol_runs_its_steps_in_the_order_the_document_gives_them(
         5,
         6,
         6,
+        7,
         7,
         7,
         8,
@@ -1114,6 +1257,7 @@ def test_a_step_the_protocol_needs_fails_the_case_with_its_own_reason(
     assert record["error"]["reason"] == reason
     # A case that never ran measured nothing, not two unmigrated rows.
     assert record["measurements"]["detected"] == 0
+    assert record["measurements"]["forbidden_reported"] == 0
     assert record["measurements"]["unmigrated"] == 0
     assert record["measurements"]["patch_applied"] is False
 
@@ -1386,9 +1530,13 @@ def test_two_identical_records_differ_in_nothing() -> None:
     assert run.differences(same, same) == []
 
 
+COMMITTED = run.Instrument("c" * 40, False)
+
+
 def test_a_round_writes_one_result_file_per_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="only")])
     monkeypatch.setattr(
@@ -1401,6 +1549,7 @@ def test_a_round_writes_one_result_file_per_case(
 
 
 def test_a_round_can_be_asked_for_one_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a"), corpus_case(id="b")])
     monkeypatch.setattr(run, "run_case", lambda subject, **_: {"case": subject.id, "tier": "error"})
@@ -1412,6 +1561,7 @@ def test_a_round_can_be_asked_for_one_case(tmp_path: Path, monkeypatch: pytest.M
 def test_a_case_nobody_defined_is_a_failure_and_not_an_empty_round(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
     monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a")])
     assert run.round_pass("nope") == 1
@@ -1445,19 +1595,250 @@ def test_the_two_modes_are_two_runs_and_not_one(capsys: pytest.CaptureFixture[st
 def test_with_no_flags_the_round_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     asked: list[Any] = []
 
-    def remember(only: Any) -> int:
-        asked.append(only)
+    def remember(only: Any, cutoff: Any) -> int:
+        asked.append((only, cutoff))
         return 0
 
     monkeypatch.setattr(run, "round_pass", remember)
     assert run.main([]) == 0
-    assert run.main(["--case", "x"]) == 0
-    assert asked == [None, "x"]
+    assert run.main(["--case", "x", "--exclude-newer", "2026-10-15T09:00:00Z"]) == 0
+    assert asked == [(None, None), ("x", "2026-10-15T09:00:00Z")]
 
 
-def test_the_commit_is_recorded_and_its_absence_is_not_fatal(
+@pytest.mark.parametrize(
+    "cutoff",
+    [
+        "yesterday",
+        "2026-10-15T09:00:00",
+        "2026-13-01T09:00:00Z",
+        "2026-10-5T09:00:00Z",
+        "2026-10-15T9:00:00Z",
+        "2026-1-5T9:0:0Z",
+    ],
+)
+def test_a_cutoff_that_uv_would_not_read_is_refused_before_a_round_starts(
+    cutoff: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`strptime` accepts the unpadded ones; uv refuses them, and every case would then error."""
+    with pytest.raises(SystemExit):
+        run.main(["--exclude-newer", cutoff])
+    assert "not a UTC time" in capsys.readouterr().err
+
+
+def git(where: Path, *arguments: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(where), *arguments],
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_the_commit_and_the_tree_are_read_from_this_checkout() -> None:
+    instrument = run.read_instrument()
+    assert instrument.commit is not None
+    assert re.fullmatch(r"[0-9a-f]{40}", instrument.commit)
+    assert isinstance(instrument.dirty, bool)
+
+
+def test_outside_a_checkout_the_commit_and_the_tree_are_unknown_and_not_fatal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert run._commit() is not None
     monkeypatch.setattr(run, "ROOT", tmp_path)
-    assert run._commit() is None
+    monkeypatch.setattr(run, "shell", lambda *_: completed(code=127, out="no uv"))
+    assert run.read_instrument() == run.UNREAD
+
+
+def test_a_change_outside_the_results_makes_the_tree_dirty_and_one_inside_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    (tmp_path / "bench" / "results").mkdir(parents=True)
+    (tmp_path / "bench" / "run.py").write_text("one\n")
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-q", "-m", "one")
+    (tmp_path / "bench" / "results" / "round-9.json").write_text("{}\n")
+    assert run.read_instrument().dirty is False
+    (tmp_path / "bench" / "run.py").write_text("two\n")
+    assert run.read_instrument().dirty is True
+
+
+def test_a_round_starts_only_on_a_committed_tree_of_this_checkout() -> None:
+    assert run.refusal(COMMITTED) is None
+
+
+def test_a_round_on_changes_nobody_committed_is_refused() -> None:
+    said = run.refusal(run.Instrument("c" * 40, True))
+    assert said is not None
+    assert "commit the changes" in said
+
+
+def test_a_round_with_no_commit_to_name_is_refused() -> None:
+    for unread in (run.UNREAD, run.Instrument("c" * 40, None)):
+        said = run.refusal(unread)
+        assert said is not None
+        assert "not a git checkout" in said
+
+
+def test_a_round_that_would_run_another_checkouts_obelize_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The commit of this checkout says nothing about the package the cases ran."""
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    said = run.refusal(COMMITTED)
+    assert said is not None
+    assert "not from this checkout" in said
+
+
+@pytest.mark.parametrize(
+    ("package", "refused"),
+    [("src", False), (".venv/lib/python3.12/site-packages", True), ("build/lib", True)],
+)
+def test_only_the_checkouts_source_counts_as_its_obelize(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, package: str, refused: bool
+) -> None:
+    """A wheel in the checkout's own `.venv` is under it and can be older than `HEAD`."""
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    monkeypatch.setattr(obelize, "__file__", str(tmp_path / package / "obelize" / "__init__.py"))
+    assert (run.refusal(COMMITTED) is not None) is refused
+
+
+def test_a_refused_round_runs_and_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(run, "read_instrument", lambda _: run.Instrument("c" * 40, True))
+    monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
+    monkeypatch.setattr(run, "run_case", lambda *_, **__: pytest.fail("a case ran"))
+    assert run.round_pass(None) == 1
+    assert "no round: " in capsys.readouterr().out
+    assert not (tmp_path / "results").exists()
+
+
+def test_every_case_of_a_round_gets_the_instrument_read_at_its_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    given: list[run.Instrument] = []
+    monkeypatch.setattr(run, "read_instrument", lambda _: COMMITTED)
+    monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
+    monkeypatch.setattr(run, "corpus", lambda: [corpus_case(id="a"), corpus_case(id="b")])
+
+    def remember(subject: run.Case, **over: Any) -> dict[str, Any]:
+        given.append(over["instrument"])
+        return {"case": subject.id, "tier": "partial"}
+
+    monkeypatch.setattr(run, "run_case", remember)
+    assert run.round_pass(None) == 0
+    assert given == [COMMITTED, COMMITTED]
+
+
+def test_the_instrument_names_the_uv_that_will_install_and_the_cutoff_it_was_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(run, "shell", lambda *_: completed(out="uv 1.2.3 (abc 2026-10-01)\n"))
+    instrument = run.read_instrument("2026-10-15T09:00:00Z")
+    assert instrument.uv_version == "uv 1.2.3 (abc 2026-10-01)"
+    assert instrument.exclude_newer == "2026-10-15T09:00:00Z"
+
+
+def test_a_round_resolves_as_of_the_cutoff_it_was_given_or_else_as_of_now(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[str | None] = []
+
+    def read(cutoff: str | None) -> run.Instrument:
+        asked.append(cutoff)
+        return COMMITTED
+
+    monkeypatch.setattr(run, "read_instrument", read)
+    monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
+    monkeypatch.setattr(run, "corpus", lambda: [])
+    run.round_pass(None, "2026-10-15T09:00:00Z")
+    run.round_pass(None)
+    assert asked[0] == "2026-10-15T09:00:00Z"
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", str(asked[1]))
+
+
+def test_every_step_of_a_case_resolves_as_of_the_cutoff_and_a_case_run_alone_has_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    instrument = run.Instrument("c" * 40, False, "uv 1.2.3", "2026-10-15T09:00:00Z")
+    fake = Fake(a_whole_run())
+    record = run.run_case(corpus_case(), execute=fake, fixtures_only=False, instrument=instrument)
+    assert {env["UV_EXCLUDE_NEWER"] for env in fake.envs} == {"2026-10-15T09:00:00Z"}
+    assert record["provenance"]["uv_version"] == "uv 1.2.3"
+    assert record["provenance"]["exclude_newer"] == "2026-10-15T09:00:00Z"
+    alone = Fake(a_whole_run())
+    record = run.run_case(corpus_case(), execute=alone, fixtures_only=False)
+    assert all("UV_EXCLUDE_NEWER" not in env for env in alone.envs)
+    assert record["provenance"]["uv_version"] is None
+    assert record["provenance"]["exclude_newer"] is None
+
+
+def test_the_listing_of_what_is_installed_is_quiet_sorted_and_leaves_the_checkout_out(
+    tmp_path: Path,
+) -> None:
+    built = run.freeze_argv(tmp_path / "python")
+    assert built[:4] == ("uv", "pip", "freeze", "--quiet")
+    assert "--exclude-editable" in built
+    assert built[-2:] == ("--python", str(tmp_path / "python"))
+
+
+LISTING = "google-genai==2.24.0\ngoogle-generativeai==0.8.6\n"
+
+
+def test_what_is_installed_once_the_new_sdk_is_in_is_hashed_and_listed_in_the_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    rules = a_whole_run(extra=[("pip freeze", says(0, LISTING))])
+    record = run.run_case(corpus_case(), execute=Fake(rules), fixtures_only=False)
+    assert record["provenance"]["packages_sha256"] == hashlib.sha256(LISTING.encode()).hexdigest()
+    names = [step["name"] for step in record["steps"]]
+    assert names.index("install-to-check") < names.index("freeze") < names.index("after")
+    logs = tmp_path / "work" / f"round-{cases.load().cases['round']}" / "owner__repo.logs"
+    assert LISTING in next(logs.glob("*-freeze.log")).read_text()
+
+
+def test_a_package_installed_from_the_checkout_hashes_the_same_wherever_the_work_root_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = set()
+    for name in ("one", "two"):
+        work = tmp_path / name
+        monkeypatch.setattr(run, "WORK", work)
+        listing = f"app @ file://{work}/round-1/owner__repo\nsix==1.17.0\n"
+        rules = a_whole_run(extra=[("pip freeze", says(0, listing))])
+        record = run.run_case(corpus_case(), execute=Fake(rules), fixtures_only=False)
+        seen.add(record["provenance"]["packages_sha256"])
+    assert len(seen) == 1
+
+
+def test_a_listing_that_failed_is_no_hash_and_not_an_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    rules = a_whole_run(extra=[("pip freeze", says(1, "boom"))])
+    record = run.run_case(corpus_case(), execute=Fake(rules), fixtures_only=False)
+    assert record["error"] is None
+    assert record["provenance"]["packages_sha256"] is None
+
+
+def test_a_record_names_the_commit_and_tree_its_round_started_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    record = run.run_case(
+        corpus_case(), execute=Fake(a_whole_run()), fixtures_only=False, instrument=COMMITTED
+    )
+    assert record["provenance"]["obelize_commit"] == "c" * 40
+    assert record["provenance"]["obelize_tree_dirty"] is False
+
+
+def test_a_case_run_alone_records_no_commit_and_no_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WORK", tmp_path / "work")
+    record = run.run_case(corpus_case(), execute=Fake(a_whole_run()), fixtures_only=False)
+    assert record["provenance"]["obelize_commit"] is None
+    assert record["provenance"]["obelize_tree_dirty"] is None

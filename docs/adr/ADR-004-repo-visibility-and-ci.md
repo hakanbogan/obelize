@@ -12,7 +12,8 @@ runs from the first commit, and Trusted Publishing on PyPI is a pending publishe
 
 Every push and pull request runs `ci.yml`: lint, lock, the test suite on Ubuntu with Python 3.12,
 3.13, 3.14 and 3.15, the suite on macOS and on Windows with 3.12, 3.14 and 3.15, a smoke test of the
-built wheel, a check that the JSON Schemas match the models, and zizmor's audit of the workflows.
+built wheel, a check that the JSON Schemas match the models, the pre-commit hooks over every file,
+and zizmor's audit of the workflows.
 Coverage is measured on the newest Python of each system; the other legs run `--no-cov`.
 `test-macos` and `test-windows` carry the same `if:` guard. On a public repository it passes every
 event, and on a private one it admits only a manual run and a tag, because private Actions minutes
@@ -33,6 +34,8 @@ these fifteen checks, written as GitHub shows them:
 - `smoke (built wheel, clean venv)`
 - `schema-drift (JSON Schemas match the models)`
 - `workflows (zizmor)`
+
+The `pre-commit (hooks over every file)` job is not among them; requiring it is a ruleset change.
 
 macOS and Windows keep 3.14 beside 3.12 and 3.15. Ubuntu covers 3.14 too, so a later change can
 drop it from the two, once the ruleset stops requiring it.

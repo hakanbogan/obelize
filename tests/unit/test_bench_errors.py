@@ -7,20 +7,15 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import errors, errors_collect, run
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import errors  # noqa: E402
-import errors_collect  # noqa: E402
-import run  # noqa: E402
 
 pytestmark = BENCH
 
@@ -418,11 +413,6 @@ def test_a_case_the_round_did_not_reach_is_in_no_table() -> None:
     rendered = errors.render(state)
     assert "`ran`" in rendered
     assert "`skipped`" not in rendered
-
-
-def test_a_share_of_nothing_is_a_dash_and_not_a_zero() -> None:
-    assert errors._share(0, 0) == "--"
-    assert errors._share(1, 4) == "25.0%"
 
 
 def write_work_tree(

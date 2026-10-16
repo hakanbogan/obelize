@@ -17,11 +17,11 @@ from typing import Any, NamedTuple
 
 import yaml
 
-# Shared with the gate-1 scorer, so both agree on what a usage is.
-from gate1_score import ACTIONABLE_KINDS
-
 from obelize.packs import loader
 from obelize.scan import manifests
+
+# Shared with the gate-1 scorer, so both agree on what a usage is.
+from .gate1_score import ACTIONABLE_KINDS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "candidates.yaml"
@@ -101,7 +101,7 @@ class Corpus(NamedTuple):
 
 def surfaces() -> tuple[Surface, ...]:
     """Each pack change's legacy symbols, via the loader the scanner uses."""
-    from run import DEFAULT_PACK
+    from .run import DEFAULT_PACK
 
     found: list[Surface] = []
     for change in loader.load(DEFAULT_PACK).pack.changes:
@@ -440,7 +440,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/candidates.yaml")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/candidates.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.candidates` and paste the block")
     return 1
 
 

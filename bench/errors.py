@@ -6,8 +6,8 @@ ADR-010's atomicity rules; lifting nothing reproduces the published migrated cou
 
 Usage::
 
-    python bench/errors.py            # print the block
-    python bench/errors.py --check    # exit 1 if the document is stale
+    python -m bench.errors            # print the block
+    python -m bench.errors --check    # exit 1 if the document is stale
 """
 
 from __future__ import annotations
@@ -19,12 +19,12 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import run
-import summarize
 import yaml
-from gate1_score import ACTIONABLE_KINDS
-from gate1_score import Row as ScanRow
-from gate1_score import rows as scan_rows
+
+from . import run, summarize
+from .gate1_score import ACTIONABLE_KINDS, share
+from .gate1_score import Row as ScanRow
+from .gate1_score import rows as scan_rows
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "errors.yaml"
@@ -189,7 +189,7 @@ def _state_table(state: Analysis) -> list[str]:
     total = sum(counted.values())
     lines = ["| What happened to the row | Rows | Share |", "|---|---:|---:|"]
     for name in STATES:
-        lines.append(f"| `{name}` | {counted[name]} | {_share(counted[name], total)} |")
+        lines.append(f"| `{name}` | {counted[name]} | {share(counted[name], total)} |")
     lines.append(f"| **Total** | **{total}** | |")
     return lines
 
@@ -283,10 +283,6 @@ def _unexpected_table(state: Analysis) -> list[str]:
     return lines
 
 
-def _share(numerator: int, denominator: int) -> str:
-    return f"{numerator / denominator * 100:.1f}%" if denominator else "--"
-
-
 def render(state: Analysis) -> str:
     if not state.record["cases"]:
         return f"_None: round {state.number} has no collected record._"
@@ -353,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/errors.yaml")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/errors.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.errors` and paste the block")
     return 1
 
 

@@ -6,8 +6,8 @@ scan of the tree each left; obelize's scan count must equal the round's own arit
 
 Usage::
 
-    python bench/comparison.py           # print the block
-    python bench/comparison.py --check   # fail when the document is stale
+    python -m bench.comparison           # print the block
+    python -m bench.comparison --check   # fail when the document is stale
 """
 
 from __future__ import annotations
@@ -18,9 +18,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import run
-import summarize
 import yaml
+
+from . import run, summarize
+from .gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCUMENT = ROOT / "docs" / "BENCHMARK_RESULTS.md"
@@ -360,7 +361,7 @@ def _arms_table(state: Comparison) -> list[str]:
         added = totals(state, arm)
         lines.append(
             f"| {NAMES[arm]} | {added['cases']} | {added['verified_success']} | "
-            f"{added['rows']} | {added['cleared']} ({_share(added['cleared'], added['rows'])}) | "
+            f"{added['rows']} | {added['cleared']} ({share(added['cleared'], added['rows'])}) | "
             f"{added['human_edits']} | {_seconds(added['runtime'])} |"
         )
     return lines
@@ -451,10 +452,6 @@ def _seconds(value: float) -> str:
     return f"{value:.1f}s" if value < 60 else f"{value / 60:.1f}m"
 
 
-def _share(numerator: int, denominator: int) -> str:
-    return f"{numerator / denominator * 100:.1f}%" if denominator else "--"
-
-
 def render(state: Comparison) -> str:
     if not dev(state):
         return f"_Not run: round {state.number} has no collected comparison record._"
@@ -522,7 +519,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/comparison.yaml")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/comparison.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.comparison` and paste the block")
     return 1
 
 

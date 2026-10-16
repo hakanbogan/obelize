@@ -1,5 +1,5 @@
 # A fixture case: the offline half of the benchmark protocol, over a repository
-# small enough to read in a minute. `bench/run.py --fixtures-only` runs these
+# small enough to read in a minute. `python -m bench.run --fixtures-only` runs these
 # with no network, no venv and no installed SDK, and compares what it computes
 # against `expected.json`. See docs/adr/ADR-042.
 id: clean

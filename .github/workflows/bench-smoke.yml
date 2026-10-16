@@ -36,36 +36,15 @@ jobs:
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
-
-      - name: Check whether the benchmark harness exists
-        id: guard
-        run: |
-          set -euo pipefail
-          if [ -f bench/run.py ]; then
-            echo "runner=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "runner=false" >> "$GITHUB_OUTPUT"
-            echo "SKIPPED: bench/run.py does not exist yet."
-            echo "No benchmark fixtures were run."
-          fi
-          if [ -f bench/summarize.py ]; then
-            echo "summarizer=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "summarizer=false" >> "$GITHUB_OUTPUT"
-            echo "SKIPPED: bench/summarize.py does not exist yet."
-            echo "docs/BENCHMARK_RESULTS.md was not checked for staleness."
-          fi
+          version: "0.12.15"
 
       - name: Sync the dev environment
-        if: steps.guard.outputs.runner == 'true' || steps.guard.outputs.summarizer == 'true'
         run: uv sync
 
-      - name: bench/run.py --fixtures-only
-        if: steps.guard.outputs.runner == 'true'
+      - name: python -m bench.run --fixtures-only
         # Starts nothing but the interpreter, so it cannot reach the network (ADR-042 D6).
-        run: uv run python bench/run.py --fixtures-only
+        run: uv run python -m bench.run --fixtures-only
 
-      - name: bench/summarize.py --check
-        if: steps.guard.outputs.summarizer == 'true'
+      - name: python -m bench.summarize --check
         # Fails when docs/BENCHMARK_RESULTS.md drifts from the committed bench/results/.
-        run: uv run python bench/summarize.py --check
+        run: uv run python -m bench.summarize --check

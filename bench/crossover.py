@@ -6,7 +6,7 @@ runs it on demand.
 
 Usage::
 
-    uv run python bench/crossover.py [--sizes 8,16,24,32] [--jobs auto,8] [--repeat 3]
+    uv run python -m bench.crossover [--sizes 8,16,24,32] [--jobs auto,8] [--repeat 3]
 
 Every corpus file passes the prefilter on purpose: the threshold counts candidates.
 """

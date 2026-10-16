@@ -17,6 +17,8 @@ import yaml
 
 from obelize.models import ATOMICITY_BAIL, REPO_ATOMICITY_BAIL
 
+from .gate1_score import share
+
 ROOT = Path(__file__).resolve().parent.parent
 RECORDS = ROOT / "bench" / "results" / "dryrun"
 DOCUMENT = ROOT / "docs" / "BENCHMARK_RESULTS.md"
@@ -40,10 +42,6 @@ TIERS: tuple[tuple[str, str], ...] = (
     ("partial", "a file written, a row withheld"),
     ("complete", "a file written, nothing withheld"),
 )
-
-
-def _share(numerator: int, denominator: int) -> str:
-    return "--" if denominator == 0 else f"{numerator / denominator * 100:.1f}%"
 
 
 def tier(record: dict[str, Any]) -> str:
@@ -117,9 +115,9 @@ def _section(record: dict[str, Any], frame: dict[str, Any]) -> list[str]:
         "|---|---:|---:|---:|",
     ]
     for name, meaning in TIERS:
-        ran_on = "--" if name == "blocked" else _share(counted[name], ran)
+        ran_on = "--" if name == "blocked" else share(counted[name], ran)
         lines.append(
-            f"| `{name}`: {meaning} | {counted[name]} | {_share(counted[name], len(scored))} "
+            f"| `{name}`: {meaning} | {counted[name]} | {share(counted[name], len(scored))} "
             f"| {ran_on} |"
         )
     blocked = Counter((row["blocked"], bool(row["manifests"])) for row in scored if row["blocked"])
@@ -178,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/results/dryrun/")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/dryrun_score.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.dryrun_score` and paste the block")
     return 1
 
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import platform
@@ -24,11 +25,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, NamedTuple, NoReturn
 
-import cases
 import yaml
-from gate1_score import ACTIONABLE_KINDS, Row, compare, rows
 
+import obelize
 from obelize import __version__
+from obelize.native import processes
+
+from . import cases
+from .gate1_score import ACTIONABLE_KINDS, Row, compare, rows
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "bench" / "fixtures"
@@ -43,7 +47,8 @@ DEFAULT_PACK = "gemini/google-generativeai-to-google-genai"
 FROM_DISTRIBUTION = "google-generativeai"
 TO_DISTRIBUTION = "google-genai"
 
-# `bench/summarize.py` refuses any other version: bump it on every shape change.
+# `bench/summarize.py` refuses any other version: bump it when a reader would break, not for a
+# field that is only added (round 1's records lack several).
 RESULT_SCHEMA_VERSION = 2
 
 # Per-step ceilings in seconds; an overrun errors the case as `timeout`.
@@ -54,7 +59,10 @@ FIX_TIMEOUT_S = 900
 COMPILE_TIMEOUT_S = 120
 TEST_TIMEOUT_S = 600
 
-# Characters kept per output stream; logs stay under `WORK` and are never committed.
+# The UTC form of `--exclude-newer` and of `run_at`.
+TIMESTAMP = "%Y-%m-%dT%H:%M:%SZ"
+
+# Bytes of a step's merged output kept; logs stay under `WORK` and are never committed.
 OUTPUT_CAP = 200_000
 
 # Written out, not derived, so adding one fails a test.
@@ -90,6 +98,18 @@ PYTEST_EXITS: Mapping[int, str] = {
     5: "inconclusive",
 }
 
+# All a case's commands inherit, besides a `HOME` of their own: the repositories are unreviewed, so
+# no credential or tool configuration of this machine may reach an install or a suite.
+PASSED_ENVIRONMENT: tuple[str, ...] = (
+    "PATH",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+    "UV_CACHE_DIR",
+    "UV_PYTHON_INSTALL_DIR",
+    "PIP_CACHE_DIR",
+)
+
 # Configs pytest, ruff, mypy, tox and setuptools find by searching upward.
 ANCESTOR_CONFIGS: frozenset[str] = frozenset(
     {
@@ -119,6 +139,22 @@ class Completed(NamedTuple):
 
 
 Execute = Callable[[Sequence[str], Path, Mapping[str, str], int], Completed]
+
+
+class Instrument(NamedTuple):
+    """What a round runs on, read once at its start: `HEAD` and the tree move during a long round.
+
+    `dirty` is whether anything but `bench/results/` differs from `commit`; both are `None` outside
+    a git checkout. Every install resolves as of `exclude_newer`, a UTC timestamp.
+    """
+
+    commit: str | None
+    dirty: bool | None
+    uv_version: str | None = None
+    exclude_newer: str | None = None
+
+
+UNREAD = Instrument(None, None)
 
 
 class Step(NamedTuple):
@@ -152,29 +188,44 @@ class StepError(Exception):
 
 
 def shell(argv: Sequence[str], cwd: Path, env: Mapping[str, str], timeout_s: int) -> Completed:
-    """Run one command, output merged; a missing program is exit 127 so the round goes on."""
+    """Run one command, output merged; a missing program is exit 127 so the round goes on.
+
+    The command gets a session of its own, killed once it ends or passes its ceiling, and its output
+    goes to a file: a child it leaves behind would hold a pipe open and make a finished command
+    wait out the ceiling.
+    """
     started = time.monotonic()
-    try:
-        finished = subprocess.run(
-            list(argv),
-            cwd=cwd,
-            env=dict(env),
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            timeout=timeout_s,
-        )
-    except subprocess.TimeoutExpired as expired:
-        return Completed(
-            tuple(argv), 124, round(time.monotonic() - started, 3), True, _text(expired.output)
-        )
-    except OSError as error:
-        return Completed(tuple(argv), 127, round(time.monotonic() - started, 3), False, str(error))
+    with tempfile.TemporaryFile() as sink:
+        try:
+            process = subprocess.Popen(
+                list(argv),
+                cwd=cwd,
+                env=dict(env),
+                stdin=subprocess.DEVNULL,
+                stdout=sink,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        except OSError as error:
+            return Completed(
+                tuple(argv), 127, round(time.monotonic() - started, 3), False, str(error)
+            )
+        timed_out = False
+        try:
+            process.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+        finally:
+            processes.close(process)
+            code = process.wait()
+        sink.seek(0)
+        output = sink.read(OUTPUT_CAP).decode("utf-8", "replace")
     return Completed(
         tuple(argv),
-        finished.returncode,
+        124 if timed_out else code,
         round(time.monotonic() - started, 3),
-        False,
-        _text(finished.stdout) + _text(finished.stderr),
+        timed_out,
+        output,
     )
 
 
@@ -192,8 +243,17 @@ def offline(inner: Execute) -> Execute:
     return execute
 
 
-def _text(raw: bytes | None) -> str:
-    return (raw or b"").decode("utf-8", "replace")[:OUTPUT_CAP]
+def case_environ(environ: Mapping[str, str], exclude_newer: str | None) -> dict[str, str]:
+    """`PASSED_ENVIRONMENT` from `environ`, and a `HOME` under `WORK` that holds nothing of ours.
+
+    `uv` reads `exclude_newer` from `UV_EXCLUDE_NEWER`, which reaches every install a case runs.
+    """
+    home = WORK / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    own = {"HOME": str(home)}
+    if exclude_newer is not None:
+        own["UV_EXCLUDE_NEWER"] = exclude_newer
+    return {name: environ[name] for name in PASSED_ENVIRONMENT if name in environ} | own
 
 
 def corpus() -> list[Case]:
@@ -273,6 +333,11 @@ def pin_argv(venv_python: Path, distribution: str, version: str) -> tuple[str, .
     return ("uv", "pip", "install", "--python", str(venv_python), f"{distribution}=={version}")
 
 
+def freeze_argv(venv_python: Path) -> tuple[str, ...]:
+    """Every installed distribution, sorted; quiet, since uv names the venv's path on stderr."""
+    return ("uv", "pip", "freeze", "--quiet", "--exclude-editable", "--python", str(venv_python))
+
+
 def probe_argv(venv_python: Path, distribution: str) -> tuple[str, ...]:
     """Ask the venv's own interpreter, not `uv pip show`, which version it imports."""
     program = "import importlib.metadata as m,sys;print(m.version(sys.argv[1]))\n"
@@ -330,9 +395,14 @@ def _is_pytest(argv: Sequence[str]) -> bool:
 
 
 def _pytest_command(argv: Sequence[str]) -> bool:
-    """Whether this is pytest at all; `suite_status` asks it of the argv that ran."""
-    head = list(argv[:3])
-    return head[:1] == ["pytest"] or head[1:3] == ["-m", "pytest"]
+    """Whether this is pytest at all, as `obelize verify` reads a command (`runner._is_pytest`).
+
+    `suite_status` asks it of the argv that ran.
+    """
+    first = processes.program_name(argv[0])
+    return first in ("pytest", "py.test") or (
+        first.startswith("python") and tuple(argv[1:3]) == ("-m", "pytest")
+    )
 
 
 def elide(
@@ -478,14 +548,23 @@ def unmigrated(case: Case, plan: dict[str, Any], run: dict[str, Any]) -> int:
 def measure(
     case: Case, findings: list[dict[str, Any]], plan: dict[str, Any], run: dict[str, Any]
 ) -> dict[str, Any]:
-    """`docs/BENCHMARK.md`'s measurement table, from one run folder."""
+    """`docs/BENCHMARK.md`'s measurement table, from one run folder.
+
+    `forbidden_reported` counts findings of any kind at a `must_not_report` position: one of an
+    actionable kind is also a `false_positive`, but a `text_mention` there is nothing else.
+    """
     written = [edit["path"] for edit in run.get("file_edits") or ()]
     landed = applied_positions(plan, written)
     wanted = Counter((path, line) for path, line, _ in expected_rows(case))
     accuracy = compare(key_rows(case), rows(findings, ACTIONABLE_KINDS))
+    forbidden = {
+        (str(row["path"]), int(row["line"]))
+        for row in case.ground_truth.get("must_not_report") or ()
+    }
     return {
         "detected": accuracy.true_positive + accuracy.false_positive,
         "false_positive": accuracy.false_positive,
+        "forbidden_reported": sum(1 for row in findings if (row["path"], row["line"]) in forbidden),
         "missed_call_site": accuracy.missed,
         "unmigrated": unmigrated(case, plan, run),
         "patch_applied": bool(written),
@@ -625,13 +704,16 @@ class Session:
         )
 
 
-def run_case(case: Case, *, execute: Execute, fixtures_only: bool) -> dict[str, Any]:
+def run_case(
+    case: Case, *, execute: Execute, fixtures_only: bool, instrument: Instrument = UNREAD
+) -> dict[str, Any]:
     """The ten steps, in order, over one case."""
     checkout = WORK / ("fixtures" if fixtures_only else _round_name()) / case.id
     shutil.rmtree(checkout, ignore_errors=True)
     logs = checkout.parent / f"{case.id}.logs"
     shutil.rmtree(logs, ignore_errors=True)
-    session = Session(case, execute, checkout, logs, dict(os.environ))
+    environ = case_environ(os.environ, instrument.exclude_newer)
+    session = Session(case, execute, checkout, logs, environ)
 
     interpreter = Path(sys.executable)
     build: str | None = HARNESS_BUILD
@@ -641,7 +723,7 @@ def run_case(case: Case, *, execute: Execute, fixtures_only: bool) -> dict[str, 
     plan: dict[str, Any] = {}
     run: dict[str, Any] = {}
     compiles: bool | None = None
-    observed: dict[str, str | None] = {"sdk_from": None, "sdk_to": None}
+    observed: dict[str, str | None] = {"sdk_from": None, "sdk_to": None, "packages_sha256": None}
     junit = logs / "junit"
     runtime = 0.0
 
@@ -661,6 +743,7 @@ def run_case(case: Case, *, execute: Execute, fixtures_only: bool) -> dict[str, 
             observed["sdk_to"] = _install_pin(
                 session, 7, "install-to", interpreter, TO_DISTRIBUTION, case.to_version
             )
+            observed["packages_sha256"] = _freeze(session, interpreter)
         after = _phase(session, 8, "after", case, junit, interpreter)
     except StepError:
         pass
@@ -691,7 +774,7 @@ def run_case(case: Case, *, execute: Execute, fixtures_only: bool) -> dict[str, 
         "error": session.error,
         "measurements": measured,
         "steps": [step._asdict() for step in session.steps],
-        "provenance": provenance(case, interpreter, build, observed),
+        "provenance": provenance(case, interpreter, build, observed, instrument),
     }
     record["tier"] = tier(record)
     return record
@@ -708,6 +791,7 @@ def _unmeasured() -> dict[str, Any]:
     return {
         "detected": 0,
         "false_positive": 0,
+        "forbidden_reported": 0,
         "missed_call_site": 0,
         "unmigrated": 0,
         "patch_applied": False,
@@ -794,6 +878,20 @@ def _install_pin(
     return seen
 
 
+def _freeze(session: Session, interpreter: Path) -> str | None:
+    """The sha256 of what is installed once step 7 is done; the list is the step's log.
+
+    A package installed from the checkout names it by path, which `elide` takes out.
+    """
+    completed = session.do(
+        7, "freeze", freeze_argv(interpreter), timeout_s=VENV_TIMEOUT_S, reason=None
+    )
+    if completed.exit_code != 0:
+        return None
+    listed = elide((completed.output,), session.checkout, session.logs)[0]
+    return hashlib.sha256(listed.encode()).hexdigest()
+
+
 def _phase(
     session: Session, number: int, name: str, case: Case, junit: Path, interpreter: Path
 ) -> Completed | None:
@@ -867,14 +965,19 @@ def _compile(session: Session, interpreter: Path, run: dict[str, Any]) -> bool |
 
 
 def provenance(
-    case: Case, interpreter: Path, build: str | None, observed: Mapping[str, str | None]
+    case: Case,
+    interpreter: Path,
+    build: str | None,
+    observed: Mapping[str, str | None],
+    instrument: Instrument,
 ) -> dict[str, Any]:
     from obelize.packs import loader
 
     loaded = loader.load(DEFAULT_PACK)
     return {
         "obelize_version": __version__,
-        "obelize_commit": _commit(),
+        "obelize_commit": instrument.commit,
+        "obelize_tree_dirty": instrument.dirty,
         "pack": DEFAULT_PACK,
         "pack_sha256": loaded.sha256,
         "spec_sha256": loader.spec_digest(loader.to_scan_spec(loaded)),
@@ -885,18 +988,44 @@ def provenance(
         "os": platform.system(),
         "sdk_from": observed.get("sdk_from"),
         "sdk_to": observed.get("sdk_to"),
-        "run_at": dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "packages_sha256": observed.get("packages_sha256"),
+        "uv_version": instrument.uv_version,
+        "exclude_newer": instrument.exclude_newer,
+        "run_at": _now(),
     }
 
 
-def _commit() -> str | None:
-    """`HEAD` of this repository, or `None` outside a checkout (recorded, not fatal)."""
-    finished = subprocess.run(
-        ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, check=False
+def _now() -> str:
+    return dt.datetime.now(dt.UTC).strftime(TIMESTAMP)
+
+
+def read_instrument(exclude_newer: str | None = None) -> Instrument:
+    """The instrument of this checkout, `HEAD` and the tree (results aside) and `uv` included."""
+    status = _git("status", "--porcelain", "--", ".", ":!bench/results")
+    uv = observed_version(shell(("uv", "--version"), ROOT, os.environ, VENV_TIMEOUT_S))
+    return Instrument(
+        _git("rev-parse", "HEAD"), None if status is None else bool(status), uv, exclude_newer
     )
-    if finished.returncode != 0:
-        return None
-    return finished.stdout.decode().strip()
+
+
+def _git(*arguments: str) -> str | None:
+    """What `git` printed in this checkout, or `None` outside one (recorded, not fatal)."""
+    finished = subprocess.run(
+        ["git", "-C", str(ROOT), *arguments], capture_output=True, check=False
+    )
+    return finished.stdout.decode().strip() if finished.returncode == 0 else None
+
+
+def refusal(instrument: Instrument) -> str | None:
+    """Why a round must not start: its records would name code other than what ran."""
+    imported = Path(obelize.__file__).resolve()
+    if not imported.is_relative_to(ROOT / "src"):
+        return f"obelize is imported from {imported.parent}, not from this checkout's src"
+    if instrument.commit is None or instrument.dirty is None:
+        return "this is not a git checkout, so no commit can be recorded"
+    if instrument.dirty:
+        return "the working tree differs from HEAD; commit the changes first"
+    return None
 
 
 def comparable(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -950,7 +1079,12 @@ def fixtures_pass(execute: Execute) -> int:
     return 1 if failures else 0
 
 
-def round_pass(only: str | None) -> int:
+def round_pass(only: str | None, exclude_newer: str | None = None) -> int:
+    instrument = read_instrument(exclude_newer or _now())
+    reason = refusal(instrument)
+    if reason is not None:
+        print(f"no round: {reason}", flush=True)
+        return 1
     into = RESULTS / _round_name()
     into.mkdir(parents=True, exist_ok=True)
     selected = [case for case in corpus() if only is None or case.id == only]
@@ -958,13 +1092,24 @@ def round_pass(only: str | None) -> int:
         print(f"no case named {only}", flush=True)
         return 1
     for case in selected:
-        record = run_case(case, execute=shell, fixtures_only=False)
+        record = run_case(case, execute=shell, fixtures_only=False, instrument=instrument)
         destination = into / f"{case.id}.json"
         destination.write_text(
             json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         print(f"{case.id}: {record['tier']} -> {destination}", flush=True)
     return 0
+
+
+def _timestamp(text: str) -> str:
+    """`text` if it is `TIMESTAMP` digit for digit: `strptime` takes `9:00:00`, uv does not."""
+    try:
+        exact = dt.datetime.strptime(text, TIMESTAMP).strftime(TIMESTAMP) == text
+    except ValueError:
+        exact = False
+    if not exact:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a UTC time like 2026-10-15T09:00:00Z")
+    return text
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -975,13 +1120,18 @@ def main(argv: list[str] | None = None) -> int:
         help="run the offline fixtures and compare them against their expected results",
     )
     parser.add_argument("--case", help="run one case of the round by id")
+    parser.add_argument(
+        "--exclude-newer",
+        type=_timestamp,
+        help="resolve every install as of this UTC time (default: now), as an earlier round did",
+    )
     arguments = parser.parse_args(argv)
     if arguments.fixtures_only:
         if arguments.case is not None:
             print("--case and --fixtures-only are different runs", flush=True)
             return 2
         return fixtures_pass(offline(shell))
-    return round_pass(arguments.case)
+    return round_pass(arguments.case, arguments.exclude_newer)
 
 
 if __name__ == "__main__":  # pragma: no cover - the module is imported by its test

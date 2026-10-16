@@ -706,6 +706,19 @@ def test_a_run_on_a_release_tag_restores_no_cache() -> None:
     assert tagged == ["ci.yml", "release.yml"]
 
 
+def test_every_step_that_installs_uv_installs_the_same_exact_release() -> None:
+    """The newest uv is not taken on faith; Dependabot moves no `version:`, so a bump is one commit
+    over every step."""
+    versions = [
+        step.get("with", {}).get("version")
+        for _, _, job in _jobs()
+        for step in _setup_uv_steps(job)
+    ]
+    assert len(versions) > 1
+    assert len(set(versions)) == 1
+    assert re.fullmatch(r"\d+\.\d+\.\d+", str(versions[0]))
+
+
 @pytest.mark.parametrize("workflow", ["release.yml", "post-release.yml"])
 def test_what_uploads_or_checks_a_release_restores_no_cache_on_any_trigger(workflow: str) -> None:
     """A manual run uploads too, and `auto` restores a cache on one; an install check that
@@ -1159,6 +1172,23 @@ def test_a_windows_run_reports_every_failure_and_where_a_test_hangs() -> None:
         assert dumps[0] < job["timeout-minutes"] * 60
 
 
+def test_ci_runs_every_pre_commit_hook_over_every_file() -> None:
+    """The hooks check what `lint` does not: yaml, toml, key material, line endings, builders."""
+    job = _job("ci.yml", "pre-commit")
+    runs = [step.get("run") for step in job["steps"]]
+    assert "uv run pre-commit run --all-files --show-diff-on-failure" in runs
+    assert "SKIP" not in json.dumps(job)
+
+
+def test_a_benchmark_script_runs_as_a_module_of_the_bench_package() -> None:
+    """Run by path, a script cannot import its siblings."""
+    runs = [step.get("run", "") for _, _, job in _jobs() for step in job.get("steps", [])]
+    named = {name for run in runs for name in re.findall(r"python -m bench\.(\w+)", run)}
+    assert named == {"run", "summarize", "crossover"}
+    assert all((ROOT / "bench" / f"{name}.py").is_file() for name in named)
+    assert not [run for run in runs if "python bench/" in run]
+
+
 PYPDF2_NEWEST = (
     "PyPI lists no PyPDF2 release newer than the one an unpinned requirement is taken as"
 )
@@ -1248,3 +1278,48 @@ def test_the_weekly_pypdf2_check_reads_the_newest_the_pack_states() -> None:
         if "newest:" in pack.read_text(encoding="utf-8")
     }
     assert packs == {"py-pdf/pypdf2-to-pypdf"}
+
+
+DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
+
+
+def _images_pinned_by_a_tag(document: dict[str, Any]) -> list[str]:
+    """What zizmor's default persona, the one ci runs, lets through; only `pedantic` reports it."""
+    uses = [
+        step.get("uses", "") for job in document["jobs"].values() for step in job.get("steps", [])
+    ]
+    return [name for name in uses if name.startswith("docker://") and not DIGEST.search(name)]
+
+
+def test_no_workflow_runs_a_docker_image_pinned_by_a_tag() -> None:
+    for path in WORKFLOWS:
+        assert _images_pinned_by_a_tag(_workflow(path.name)) == [], path.name
+
+
+def test_a_docker_image_is_pinned_only_by_a_digest() -> None:
+    digest = "@sha256:" + "ab" * 32
+    steps = [{"uses": f"docker://alpine{ref}"} for ref in (":3.20", "", "@sha256:abc", digest)]
+    steps.append({"uses": "actions/checkout@" + "0" * 40})
+    document = {"jobs": {"one": {"steps": steps[:2]}, "two": {"steps": steps[2:]}}}
+    assert _images_pinned_by_a_tag(document) == [
+        "docker://alpine:3.20",
+        "docker://alpine",
+        "docker://alpine@sha256:abc",
+    ]
+
+
+def test_the_legacy_openai_check_pins_numpy_beside_the_sdk() -> None:
+    """0.28.1 reads an embedding with numpy, so a newer numpy could change what the legacy side
+    prints; the diff against the new side would then fail on a release nobody chose."""
+    run = _step("e2e.yml", "e2e", "The migrated openai fixtures do what the legacy ones did")["run"]
+    numpy = [name for name in re.findall(r"--with (\S+)", run) if name.startswith("numpy")]
+    assert len(numpy) == 2
+    assert all("==" in name for name in numpy)
+
+
+def test_no_workflow_skips_its_check_because_the_script_is_missing() -> None:
+    """A deleted script has to fail the run: a step that prints SKIPPED and passes hides it."""
+    for path in WORKFLOWS:
+        text = path.read_text(encoding="utf-8")
+        assert "SKIPPED" not in text, path.name
+        assert "steps.guard." not in text, path.name

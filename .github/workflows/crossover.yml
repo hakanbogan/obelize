@@ -36,6 +36,7 @@ jobs:
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
+          version: "0.12.15"
 
       - name: Sync the environment
         run: uv sync
@@ -47,8 +48,8 @@ jobs:
           uv run python -c "import platform, sys; print('machine:', platform.machine()); print('python:', sys.version)"
 
       - name: Sweep, at the worker count the default picks
-        run: uv run python bench/crossover.py --sizes 4,8,12,16,20,24,32,48,64,96,128 --jobs auto,2 --repeat 3
+        run: uv run python -m bench.crossover --sizes 4,8,12,16,20,24,32,48,64,96,128 --jobs auto,2 --repeat 3
 
       - name: Sweep, over-subscribed
         # What `--jobs 8` gets on a two-core runner: the flag promises it, so it is measured.
-        run: uv run python bench/crossover.py --sizes 16,32,64,128 --jobs 8 --repeat 2
+        run: uv run python -m bench.crossover --sizes 16,32,64,128 --jobs 8 --repeat 2

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import sys
 import urllib.request
 from collections import Counter
 from pathlib import Path
@@ -15,14 +14,11 @@ from typing import Any
 
 import pytest
 
+from bench import comparison, run
+from bench import comparison_collect as collect
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import comparison  # noqa: E402
-import comparison_collect as collect  # noqa: E402
-import run  # noqa: E402
 
 pytestmark = BENCH
 
@@ -512,10 +508,12 @@ class Fake:
 
     def __init__(self, rules: list[tuple[str, Any]] | None = None) -> None:
         self.calls: list[tuple[str, ...]] = []
+        self.envs: list[dict[str, str]] = []
         self.rules = list(rules or [])
 
     def __call__(self, argv: Any, cwd: Any, env: Any, timeout_s: int) -> run.Completed:
         self.calls.append(tuple(argv))
+        self.envs.append(dict(env))
         for needle, answer in self.rules:
             if needle in " ".join(str(part) for part in argv):
                 found: run.Completed = answer(tuple(argv), Path(cwd))
@@ -1073,11 +1071,6 @@ def test_a_round_with_no_collected_record_says_so() -> None:
     assert comparison.dev(state) == []
 
 
-def test_a_share_of_nothing_is_not_a_percentage() -> None:
-    assert comparison._share(0, 0) == "--"
-    assert comparison._share(1, 4) == "25.0%"
-
-
 def test_a_long_run_is_printed_in_minutes() -> None:
     assert comparison._seconds(2.0) == "2.0s"
     assert comparison._seconds(120.0) == "2.0m"
@@ -1095,12 +1088,19 @@ def test_preparing_from_the_command_line_uses_the_round_the_case_file_names(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     only(a_case("c"), monkeypatch)
-    monkeypatch.setattr(run, "shell", Fake([("git -C", makes_a_repo)]))
+    fake = Fake([("git -C", makes_a_repo)])
+    monkeypatch.setattr(run, "shell", fake)
+    monkeypatch.setattr(run, "WORK", tmp_path / "bench")
     monkeypatch.setattr(collect, "download", lambda url: b"<p>hi</p>")
+    monkeypatch.setenv("GH_TOKEN", "planted")
     work = tmp_path / "w"
     assert collect.main(["prepare", "--work", str(work), "--at", "2026-01-01T00:00:00Z"]) == 0
     assert "1 cases prepared" in capsys.readouterr().out
     assert json.loads((work / "order.json").read_text())["prepared_at"] == "2026-01-01T00:00:00Z"
+    assert fake.envs
+    for env in fake.envs:
+        assert "GH_TOKEN" not in env
+        assert env["HOME"] == str(tmp_path / "bench" / "home")
 
 
 def test_preparing_stamps_the_moment_when_none_is_given(
@@ -1108,6 +1108,7 @@ def test_preparing_stamps_the_moment_when_none_is_given(
 ) -> None:
     only(a_case("c"), monkeypatch)
     monkeypatch.setattr(run, "shell", Fake([("git -C", makes_a_repo)]))
+    monkeypatch.setattr(run, "WORK", tmp_path / "bench")
     monkeypatch.setattr(collect, "download", lambda url: b"<p>hi</p>")
     work = tmp_path / "w"
     assert collect.main(["prepare", "--work", str(work)]) == 0
@@ -1147,6 +1148,71 @@ def test_recording_writes_the_file_the_scorer_reads(
     assert written["round"] == 1
     assert written["arms"] == ["general_agent", "obelize"]
     assert written["cases"]["c"]["runtime_seconds"] == 60
+
+
+CUTOFF = "2026-10-15T09:00:00Z"
+
+
+def publishes(root: Path, number: int, **cutoffs: str | None) -> None:
+    """A round's result files, `case: exclude_newer`, where the key is left out for `None`."""
+    folder = root / f"round-{number}"
+    folder.mkdir(parents=True)
+    for case_id, cutoff in cutoffs.items():
+        provenance = {} if cutoff is None else {"exclude_newer": cutoff}
+        (folder / f"{case_id}.json").write_text(json.dumps({"provenance": provenance}))
+
+
+def test_the_arm_is_installed_and_tested_under_the_environment_and_cutoff_of_the_round(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The agent's tree is unreviewed code, and `tests_after` is graded against the round's."""
+    case = a_case("c", install=("uv pip install pytest",), test_cmd="python -m pytest -q")
+    only(case, monkeypatch)
+    work = tmp_path / "w"
+    prepared(work)
+    a_tree(tmp_path / "round-1" / "c")
+    publishes(tmp_path / "results", 1, c=CUTOFF)
+    monkeypatch.setattr(run, "WORK", tmp_path)
+    monkeypatch.setattr(run, "RESULTS", tmp_path / "results")
+    monkeypatch.setattr(collect, "RESULTS", tmp_path / "out")
+    monkeypatch.setenv("GH_TOKEN", "planted")
+    fake = Fake(
+        [
+            ("rev-parse", says(0, "0" * 40)),
+            ("scan", scans()),
+            ("importlib.metadata", says(0, "2.24.0\n")),
+        ]
+    )
+    monkeypatch.setattr(run, "shell", fake)
+    assert collect.main(["record", "--work", str(work), "--round", "1"]) == 0
+    assert any("uv pip install pytest" in name for name in fake.names())
+    assert any("--junitxml" in name for name in fake.names())
+    assert len(fake.envs) == len(fake.calls)
+    for env in fake.envs:
+        assert "GH_TOKEN" not in env
+        assert env["HOME"] == str(tmp_path / "home")
+        assert env["UV_EXCLUDE_NEWER"] == CUTOFF
+    assert json.loads((tmp_path / "out" / "round-1.json").read_text())["exclude_newer"] == CUTOFF
+
+
+def test_the_cutoff_is_what_the_rounds_own_records_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "RESULTS", tmp_path)
+    assert collect.round_cutoff(1) is None
+    publishes(tmp_path, 1, a=None, b=None)
+    publishes(tmp_path, 2, a=CUTOFF, b=CUTOFF)
+    assert collect.round_cutoff(1) is None
+    assert collect.round_cutoff(2) == CUTOFF
+
+
+def test_records_of_one_round_that_name_different_cutoffs_are_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "RESULTS", tmp_path)
+    publishes(tmp_path, 1, a=CUTOFF, b=None)
+    with pytest.raises(SystemExit, match="2 different cutoffs"):
+        collect.round_cutoff(1)
 
 
 def test_a_collected_record_carries_no_line_of_anybody_elses_source() -> None:

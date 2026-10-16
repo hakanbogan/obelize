@@ -4,8 +4,8 @@ Owns only that fence. The ceiling table needs only the keys, so it renders befor
 
 Usage::
 
-    python bench/summarize.py            # print the block
-    python bench/summarize.py --check    # exit 1 if the document is stale
+    python -m bench.summarize            # print the block
+    python -m bench.summarize --check    # exit 1 if the document is stale
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import cases
-import run
+from . import cases, run
+from .gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCUMENT = ROOT / "docs" / "BENCHMARK_RESULTS.md"
@@ -136,11 +136,11 @@ def _headline_table(state: Round) -> list[str]:
         return []
     over_cases = [case for case in graded(state) if tier_of(state, case) is not None]
     wins = sum(tier_of(state, case) == "verified_success" for case in over_cases)
-    lines.append(f"| Cases | {len(over_cases)} | {wins} | {_share(wins, len(over_cases))} |")
+    lines.append(f"| Cases | {len(over_cases)} | {wins} | {share(wins, len(over_cases))} |")
     for side in SPLITS:
         subset = [case for case in over_cases if case.split == side]
         won = sum(tier_of(state, case) == "verified_success" for case in subset)
-        lines.append(f"| Cases ({side}) | {len(subset)} | {won} | {_share(won, len(subset))} |")
+        lines.append(f"| Cases ({side}) | {len(subset)} | {won} | {share(won, len(subset))} |")
     # `any`, not `all`: grouping stops inflation; it must not let one case veto another.
     for scope in (None, *SPLITS):
         groups = _run_patterns(state, scope)
@@ -149,7 +149,7 @@ def _headline_table(state: Round) -> list[str]:
             for members in groups.values()
         )
         label = "Unique patterns" if scope is None else f"Unique patterns ({scope})"
-        lines.append(f"| {label} | {len(groups)} | {won} | {_share(won, len(groups))} |")
+        lines.append(f"| {label} | {len(groups)} | {won} | {share(won, len(groups))} |")
     return lines
 
 
@@ -279,10 +279,6 @@ def _number(value: Any) -> str:
     return "--" if value is None else str(value)
 
 
-def _share(numerator: int, denominator: int) -> str:
-    return f"{numerator / denominator * 100:.1f}%" if denominator else "--"
-
-
 def render(state: Round) -> str:
     out: list[str] = []
     out.append(
@@ -366,7 +362,7 @@ def main(argv: list[str] | None = None) -> int:
     if block(DOCUMENT.read_text(encoding="utf-8")) == generated:
         print(f"{DOCUMENT.name} is up to date with bench/results/")
         return 0
-    print(f"{DOCUMENT.name} is stale; run `python bench/summarize.py` and paste the block")
+    print(f"{DOCUMENT.name} is stale; run `python -m bench.summarize` and paste the block")
     return 1
 
 

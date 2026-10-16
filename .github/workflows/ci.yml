@@ -33,6 +33,8 @@ jobs:
       - name: Install uv
         # setup-uv caches by default, but not on a tag push: another ref may have written the cache.
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: Sync the dev environment
         run: uv sync
@@ -51,6 +53,30 @@ jobs:
         # The same files as Windows sees them: a `sys.platform` branch is checked only here.
         run: uv run mypy --platform win32
 
+  pre-commit:
+    name: pre-commit (hooks over every file)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
+
+      - name: Sync the dev environment
+        run: uv sync
+
+      - name: pre-commit
+        # No hook environments are cached: a run on a release tag restores no cache.
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
   lock:
     name: lock (uv.lock is in sync)
     runs-on: ubuntu-latest
@@ -63,6 +89,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: uv lock --check
         # Fix a stale uv.lock with `uv lock` and commit it.
@@ -85,6 +113,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: zizmor
         # Holds each action to a commit (docs/THREAT_MODEL.md, TM-7) and audits permissions,
@@ -115,6 +145,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: Sync the environment
         run: uv sync --python "${{ matrix.python-version }}"
@@ -147,6 +179,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: Sync the environment
         run: uv sync --python "${{ matrix.python-version }}"
@@ -178,6 +212,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: Sync the environment
         run: uv sync --python "${{ matrix.python-version }}"
@@ -202,6 +238,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: Build the wheel
         run: uv build
@@ -283,6 +321,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
 
       - name: Regenerate the JSON Schemas and fail on drift
         # Committed schemas must match the models; a new schema is a row in the generator's

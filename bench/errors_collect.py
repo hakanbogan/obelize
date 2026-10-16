@@ -5,8 +5,8 @@ a temporary work tree the next round overwrites.
 
 Usage::
 
-    python bench/errors_collect.py            # writes bench/results/errors/round-1.json
-    python bench/errors_collect.py --round 2
+    python -m bench.errors_collect            # writes bench/results/errors/round-1.json
+    python -m bench.errors_collect --round 2
 
 Run by hand while the round's work tree is still on disk; recreating it needs the network.
 """
@@ -19,8 +19,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import cases
-import run
+from . import cases, run
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results" / "errors"

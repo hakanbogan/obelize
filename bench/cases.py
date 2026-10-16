@@ -5,8 +5,8 @@ draws and scans; the hand-written ground truth is only scored against the scanne
 
 Usage::
 
-    python bench/cases.py            # print the block
-    python bench/cases.py --check    # exit 1 if the document is stale
+    python -m bench.cases            # print the block
+    python -m bench.cases --check    # exit 1 if the document is stale
 """
 
 from __future__ import annotations
@@ -22,11 +22,12 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import candidates
 import yaml
 
+from . import candidates
+
 # Shared with the gate-1 scorer, so both agree on what a usage is.
-from gate1_score import ACTIONABLE_KINDS
+from .gate1_score import ACTIONABLE_KINDS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "cases.yaml"
@@ -191,7 +192,7 @@ def sites(case: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def labelled(case: dict[str, Any]) -> Counter[Any]:
-    from gate1_score import rows
+    from .gate1_score import rows
 
     return rows(sites(case), ACTIONABLE_KINDS)
 
@@ -211,7 +212,7 @@ def verifiable(case: dict[str, Any]) -> bool:
 
 
 def accuracy(corpus: Corpus, case: dict[str, Any]) -> Any:
-    from gate1_score import compare, rows
+    from .gate1_score import compare, rows
 
     found = corpus.findings.get(case["full_name"], [])
     return compare(labelled(case), rows(found, ACTIONABLE_KINDS))
@@ -288,8 +289,21 @@ def _case_table(corpus: Corpus) -> list[str]:
     return lines
 
 
+def violations(corpus: Corpus) -> list[str]:
+    """Every `must_not_report` position the scan reported anyway, of any kind."""
+    found = []
+    for case in cases(corpus):
+        positions = {(row["path"], row["line"]) for row in case["ground_truth"]["must_not_report"]}
+        found += [
+            f"{case['id']} {row['path']}:{row['line']}"
+            for row in corpus.findings.get(case["full_name"], [])
+            if (row["path"], row["line"]) in positions
+        ]
+    return sorted(found)
+
+
 def _agreement_table(corpus: Corpus) -> list[str]:
-    from gate1_score import _percent, rows
+    from .gate1_score import percent, rows
 
     lines = [
         "| Case | Key | Scan | Matched | Missed | Unexpected |",
@@ -315,8 +329,15 @@ def _agreement_table(corpus: Corpus) -> list[str]:
     )
     lines.append("")
     lines.append(
-        f"Precision **{_percent(precision)}**, recall **{_percent(recall)}**, over the four "
+        f"Precision **{percent(precision)}**, recall **{percent(recall)}**, over the four "
         "kinds that are a call site and matched on path, line, kind and symbol together."
+    )
+    forbidden = sum(len(case["ground_truth"]["must_not_report"]) for case in cases(corpus))
+    broken = violations(corpus)
+    lines.append("")
+    lines.append(
+        f"{forbidden} position(s) the keys forbid outright, {len(broken)} of them reported"
+        + (f": {', '.join(f'`{row}`' for row in broken)}." if broken else ".")
     )
     return lines
 
@@ -369,7 +390,7 @@ def _draw_table(corpus: Corpus) -> list[str]:
 
 
 def render(corpus: Corpus) -> str:
-    from gate1_score import _share
+    from .gate1_score import share
 
     rows_ = cases(corpus)
     data = corpus.cases
@@ -416,12 +437,12 @@ def render(corpus: Corpus) -> str:
         f"**The ceiling.** {len(runnable)} of {len(rows_)} cases carry a test command that "
         f"exercises the change without credentials, and {len(covered)} of those carry a "
         "reviewer's judgement that the tests cover it. `verified_success` needs a baseline "
-        f"`pass` and an after `pass`, so at most **{_share(len(runnable), len(rows_))}** of "
+        f"`pass` and an after `pass`, so at most **{share(len(runnable), len(rows_))}** of "
         "this round can reach the only tier that counts toward the 70% target. That is the "
         "number Gate 4 has to be argued against.",
         "",
         f"**The split.** {len(rows_) - len(holdout)} `dev`, {len(holdout)} `holdout` "
-        f"({_share(len(holdout), len(rows_))}), assigned by `sha256(owner)` inside two "
+        f"({share(len(holdout), len(rows_))}), assigned by `sha256(owner)` inside two "
         "strata and never by hand.",
         "",
         f"**The second denominator.** The {len(rows_)} cases carry **{len(keys)} distinct "
@@ -442,7 +463,8 @@ def render(corpus: Corpus) -> str:
         "**Where the key and the scanner disagree.** The key was written from the source "
         "before the scan record was opened, so this table is a measurement and not a "
         "tautology. `Missed` is a ground-truth call site the scan does not report; "
-        "`Unexpected` is a reported call site the key does not have.",
+        "`Unexpected` is a reported call site the key does not have. The positions the keys forbid "
+        "outright are counted under the table, whatever kind was reported there.",
         "",
         *_agreement_table(corpus),
         "",
@@ -481,7 +503,7 @@ def main(argv: list[str] | None = None) -> int:
         print(fresh)
         return 0
     if block(DOCUMENT.read_text(encoding="utf-8")) != fresh:
-        print(f"{DOCUMENT.name} is stale; re-run `python bench/cases.py` and paste the block")
+        print(f"{DOCUMENT.name} is stale; re-run `python -m bench.cases` and paste the block")
         return 1
     print(f"{DOCUMENT.name} is up to date with {DATA.name}")
     return 0

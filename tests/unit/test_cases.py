@@ -4,20 +4,16 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import candidates, cases
+from bench.gate1_score import ACTIONABLE_KINDS, rows
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import candidates  # noqa: E402
-import cases  # noqa: E402
-from gate1_score import ACTIONABLE_KINDS, rows  # noqa: E402
 
 pytestmark = BENCH
 
@@ -589,6 +585,33 @@ def test_a_module_named_as_a_string_never_enters_the_comparison() -> None:
     assert "| `owner__repo` | 0 | 0 | 0 | 0 | 0 |" in text
 
 
+def finding(path: str, line: int, kind: str = "text_mention") -> dict[str, Any]:
+    return {"path": path, "line": line, "kind": kind, "symbol": None}
+
+
+def forbidding(*positions: tuple[str, int]) -> dict[str, Any]:
+    forbidden = [{"path": path, "line": line, "why": "a string"} for path, line in positions]
+    return case(ground_truth={**case()["ground_truth"], "must_not_report": forbidden})
+
+
+def test_a_forbidden_position_the_scan_reported_is_named_whatever_its_kind() -> None:
+    one = forbidding(("app.py", 7), ("b.py", 1))
+    found = [finding("app.py", 7), finding("b.py", 2), finding("app.py", 7, "call")]
+    assert cases.violations(corpus([one], findings_={"owner/repo": found})) == [
+        "owner__repo app.py:7",
+        "owner__repo app.py:7",
+    ]
+    text = "\n".join(cases._agreement_table(corpus([one], findings_={"owner/repo": found})))
+    assert "2 position(s) the keys forbid outright, 2 of them reported: " in text
+    assert "`owner__repo app.py:7`, `owner__repo app.py:7`." in text
+
+
+def test_a_forbidden_position_nothing_reported_says_so_without_a_list() -> None:
+    one = forbidding(("app.py", 7))
+    text = "\n".join(cases._agreement_table(corpus([one], findings_={"owner/repo": []})))
+    assert "1 position(s) the keys forbid outright, 0 of them reported." in text
+
+
 def test_the_change_table_names_every_change_in_the_pack_and_counts_it() -> None:
     """One case naming `configure` twice: one change met, two call sites, the rest zero."""
     one = case(
@@ -716,7 +739,7 @@ def test_every_case_copies_the_corpus_faithfully() -> None:
 
 
 def _dev_owners() -> frozenset[str]:
-    import gate1_collect
+    from bench import gate1_collect
 
     return gate1_collect.DEV_CORPUS_OWNERS
 
@@ -741,7 +764,7 @@ def test_every_pattern_key_is_the_one_its_ground_truth_names() -> None:
 
 
 def test_every_case_names_the_provider_and_the_migration_the_pack_is() -> None:
-    from run import DEFAULT_PACK
+    from bench.run import DEFAULT_PACK
 
     provider, change = DEFAULT_PACK.split("/")
     for entry in CASES:
@@ -763,6 +786,13 @@ def test_install_commands_exist_exactly_where_a_test_command_does() -> None:
     """ADR-041 D8: install exists to make `test_cmd` runnable, and for nothing else."""
     for entry in CASES:
         assert bool(entry["install"]) == bool(entry["test_cmd"])
+
+
+def test_every_install_command_is_uv_so_the_rounds_cutoff_reaches_it() -> None:
+    """`UV_EXCLUDE_NEWER` binds uv alone: a pip install would resolve as of the day it runs."""
+    for entry in CASES:
+        for command in entry["install"]:
+            assert command.startswith("uv pip install "), entry["repo"]
 
 
 def test_a_case_that_says_its_tests_cover_the_change_has_a_command_to_prove_it() -> None:
@@ -799,6 +829,15 @@ def test_every_ground_truth_row_uses_the_vocabulary_and_explains_itself() -> Non
         for row in truth["must_not_report"]:
             assert row["why"]
             assert row["line"] >= 1
+
+
+def test_no_position_a_key_forbids_is_one_it_names_as_a_call_site_or_a_pin() -> None:
+    """A row cannot be both wanted and forbidden; the forbidden count would hide it."""
+    for entry in CASES:
+        truth = entry["ground_truth"]
+        forbidden = {(row["path"], row["line"]) for row in truth["must_not_report"]}
+        named = {(row["path"], row["line"]) for row in [*truth["call_sites"], *truth["manifests"]]}
+        assert not forbidden & named, entry["id"]
 
 
 def test_every_case_names_a_reviewer_and_a_date() -> None:
@@ -855,7 +894,7 @@ def test_no_control_is_also_a_case() -> None:
 
 
 def test_every_repository_t27_drew_obeys_the_corpus_rules() -> None:
-    import gate1_collect
+    from bench import gate1_collect
 
     owners: dict[str, int] = {}
     for row in CORPUS.draws["drawn"]:

@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Gemini 1.5 Flash is cheap and fast enough for summaries.
-MODEL_NAME = os.environ.get("SUMMARIZER_MODEL", "gemini-1.5-flash")
+# Gemini 2.5 Flash is cheap and fast enough for summaries.
+MODEL_NAME = os.environ.get("SUMMARIZER_MODEL", "gemini-2.5-flash")
 
 # Empty string rather than None so importing the package never reaches the
 # credentials machinery; the API rejects the empty key on the first real call,

@@ -4,6 +4,7 @@
   "measurements": {
     "detected": 5,
     "false_positive": 0,
+    "forbidden_reported": 0,
     "missed_call_site": 0,
     "unmigrated": 6,
     "patch_applied": false,

@@ -43,36 +43,16 @@ jobs:
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
+          version: "0.12.15"
 
-      - name: Decide whether the end-to-end flow can run
-        id: guard
-        # Skips, and says why, unless the example app and every probed command exist.
+      - name: Name where the flow works
         run: |
-          set -euo pipefail
-          missing=()
-          if [ ! -f "$EXAMPLE_DIR/pyproject.toml" ] && [ ! -f "$EXAMPLE_DIR/requirements.txt" ]; then
-            missing+=("the example application at $EXAMPLE_DIR")
-          fi
-          for cmd in scan fix verify; do
-            if ! uv run --frozen obelize "$cmd" --help >/dev/null 2>&1; then
-              missing+=("the \`obelize $cmd\` command")
-            fi
-          done
-          if [ "${#missing[@]}" -eq 0 ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            {
-              echo "OBELIZE_VENV=$RUNNER_TEMP/obelize-venv"
-              echo "APP_DIR=$RUNNER_TEMP/app"
-            } >> "$GITHUB_ENV"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "SKIPPED: the end-to-end flow needs things that do not exist yet:"
-            for m in "${missing[@]}"; do echo "  - $m"; done
-            echo "No wheel was built and no scan/fix/verify flow was executed."
-          fi
+          {
+            echo "OBELIZE_VENV=$RUNNER_TEMP/obelize-venv"
+            echo "APP_DIR=$RUNNER_TEMP/app"
+          } >> "$GITHUB_ENV"
 
       - name: Build the wheel and install it into a clean venv (not editable)
-        if: steps.guard.outputs.present == 'true'
         run: |
           set -euo pipefail
           uv build
@@ -87,7 +67,6 @@ jobs:
           "$OBELIZE_VENV/bin/obelize" --version
 
       - name: Copy the example app into a scratch git repo
-        if: steps.guard.outputs.present == 'true'
         # --apply refuses a dirty tree (docs/THREAT_MODEL.md, TM-8) and must never touch this
         # checkout, so the example is migrated in its own committed repo.
         run: |
@@ -100,7 +79,6 @@ jobs:
           git -C "$APP_DIR" commit -q -m "example app before migration"
 
       - name: obelize scan
-        if: steps.guard.outputs.present == 'true'
         run: |
           set -euo pipefail
           "$OBELIZE_VENV/bin/obelize" scan --repo "$APP_DIR" --pack "$PACK_ID" --json \
@@ -109,7 +87,6 @@ jobs:
             || { echo "::error::scan found no legacy SDK usage in the example app"; exit 1; }
 
       - name: obelize fix --apply
-        if: steps.guard.outputs.present == 'true'
         # `4` (wrote nothing or left review items, docs/CLI.md) is correct here, not a failure.
         run: |
           set -euo pipefail
@@ -127,7 +104,6 @@ jobs:
           fi
 
       - name: Assert the run.json evidence
-        if: steps.guard.outputs.present == 'true'
         run: |
           set -euo pipefail
           run_id=$(cat "$APP_DIR/.obelize/latest")
@@ -162,7 +138,6 @@ jobs:
           done
 
       - name: Second fix changes nothing (idempotence)
-        if: steps.guard.outputs.present == 'true'
         # A second apply must leave the tree byte-identical. No commit first: the first run
         # wrote nothing, and `git commit` refuses an empty commit.
         run: |
@@ -191,7 +166,6 @@ jobs:
             || { echo "::error::second run.json did not report idempotent=true with zero file edits"; exit 1; }
 
       - name: Several packs in one run (quickstart, no --pack)
-        if: steps.guard.outputs.present == 'true'
         # The quickstart uses two of the three bundled libraries, so one run with no `--pack` chooses
         # and applies those two packs, a scan of what it wrote finds no pack that applies, and one undo
         # puts every file back.
@@ -314,7 +288,7 @@ jobs:
             after+=("$fixtures/$fixture.after.py")
           done
           check=tests/packs/openai_behaviour_check.py
-          uv run --isolated --no-project --python 3.12 --with openai==0.28.1 --with numpy \
+          uv run --isolated --no-project --python 3.12 --with openai==0.28.1 --with numpy==2.5.3 \
             python -I "$check" "${before[@]}" > "$out/legacy.txt"
           for release in "openai==1.109.1" "openai"; do
             uv run --isolated --no-project --python 3.12 --with "$release" \
@@ -323,13 +297,13 @@ jobs:
               || { echo "::error::$release prints something else than 0.28.1 did"; exit 1; }
           done
           # `from.version` starts at 0.27.0, so the legacy fixtures must print the same there.
-          uv run --isolated --no-project --python 3.12 --with openai==0.27.0 --with numpy \
+          uv run --isolated --no-project --python 3.12 --with openai==0.27.0 --with numpy==2.5.3 \
             python -I "$check" "${before[@]}" > "$out/floor.txt"
           diff "$out/legacy.txt" "$out/floor.txt" \
             || { echo "::error::openai 0.27.0 prints something else than 0.28.1 did"; exit 1; }
 
       - name: Upload the evidence directory
-        if: always() && steps.guard.outputs.present == 'true'
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-evidence

@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from bench import run, summarize
 from platforms import BENCH
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bench"))
-
-import run  # noqa: E402
-import summarize  # noqa: E402
 
 pytestmark = BENCH
 
@@ -387,8 +383,3 @@ def test_a_round_in_which_nothing_errored_has_no_error_table() -> None:
 def test_the_tables_that_need_results_say_so_when_there_are_none() -> None:
     rendered = summarize.render(a_round([case("a")]))
     assert rendered.count("_None: no case has been run._") == 3
-
-
-def test_a_rate_over_nothing_is_not_zero_percent() -> None:
-    assert summarize._share(0, 0) == "--"
-    assert summarize._share(1, 3) == "33.3%"

@@ -5,8 +5,8 @@ into their own file.
 
 Usage::
 
-    python bench/cases_collect.py draw
-    python bench/cases_collect.py checkout owner/name
+    python -m bench.cases_collect draw
+    python -m bench.cases_collect checkout owner/name
 
 `draw` needs an authenticated `gh`, `git` and `obelize`, and is dated, not reproducible.
 `checkout` leaves one repository at its pinned SHA in the gitignored `bench/work/cases/`.
@@ -23,12 +23,10 @@ import time
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import candidates
-import candidates_collect
-import cases
-import gate1_collect
 import yaml
-from gate1_score import ACTIONABLE_KINDS
+
+from . import candidates, candidates_collect, cases, gate1_collect
+from .gate1_score import ACTIONABLE_KINDS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "cases_draws.yaml"
@@ -106,7 +104,7 @@ def _slug(full_name: str) -> str:
 
 def _fetch(full_name: str, sha: str, into: Path) -> None:
     shutil.rmtree(into, ignore_errors=True)
-    gate1_collect._fetch({"full_name": full_name, "sha": sha}, into)
+    gate1_collect.fetch({"full_name": full_name, "sha": sha}, into)
 
 
 def _scan(full_name: str, sha: str, drawn_for: str) -> dict[str, Any] | None:
@@ -115,7 +113,7 @@ def _scan(full_name: str, sha: str, drawn_for: str) -> dict[str, Any] | None:
     started = time.monotonic()
     try:
         _fetch(full_name, sha, checkout)
-        found = gate1_collect._scan(checkout)
+        found = gate1_collect.scan_checkout(checkout)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, RuntimeError, OSError):
         shutil.rmtree(checkout, ignore_errors=True)
         return None
@@ -126,7 +124,7 @@ def _scan(full_name: str, sha: str, drawn_for: str) -> dict[str, Any] | None:
         "sha": sha,
         "drawn_for": drawn_for,
         "counts": found["counts"],
-        "runtime": gate1_collect._runtime(checkout),
+        "runtime": gate1_collect.declared_runtime(checkout),
         # Line references to other people's code, never their source.
         "findings": [
             {key: value for key, value in row.items() if key != "evidence" and value is not None}
@@ -156,7 +154,7 @@ def _witness(checkout: Path, pattern: str, where: str) -> str | None:
 
 
 def _head(full_name: str, repository: dict[str, Any]) -> str | None:
-    commit = candidates_collect._api(f"repos/{full_name}/commits/{repository['default_branch']}")
+    commit = candidates_collect.api(f"repos/{full_name}/commits/{repository['default_branch']}")
     if commit is None:
         return None
     return str(commit["sha"])
@@ -169,11 +167,11 @@ def _eligible(
     if name in taken:
         entry["skipped"].append({"full_name": name, "reason": "already_a_candidate"})
         return None
-    repository = candidates_collect._api(f"repos/{name}")
+    repository = candidates_collect.api(f"repos/{name}")
     if repository is None:
         entry["skipped"].append({"full_name": name, "reason": "gone"})
         return None
-    reason = candidates_collect._disqualified(repository, owners)
+    reason = candidates_collect.disqualified(repository, owners)
     if reason is not None:
         entry["skipped"].append({"full_name": name, "reason": reason})
         return None
@@ -181,7 +179,7 @@ def _eligible(
 
 
 def draw_test_suites(taken: set[str], owners: dict[str, int]) -> tuple[dict[str, Any], list[Any]]:
-    hits, names = candidates_collect._search(TESTS_QUERY)
+    hits, names = candidates_collect.search(TESTS_QUERY)
     entry: dict[str, Any] = {
         "query": TESTS_QUERY,
         "hits": hits,
@@ -220,7 +218,7 @@ def draw_test_suites(taken: set[str], owners: dict[str, int]) -> tuple[dict[str,
         if not any(row["kind"] in ACTIONABLE_KINDS for row in record["findings"]):
             entry["skipped"].append({"full_name": name, "reason": "no_finding"})
             continue
-        row = candidates_collect._row(repository, sha, "tests")
+        row = candidates_collect.candidate_row(repository, sha, "tests")
         if "test_files" not in row["tests"]:
             entry["skipped"].append({"full_name": name, "reason": "no_test_file"})
             continue
@@ -238,7 +236,7 @@ def draw_test_suites(taken: set[str], owners: dict[str, int]) -> tuple[dict[str,
 def draw_control(
     control: Control, taken: set[str], owners: dict[str, int]
 ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
-    hits, names = candidates_collect._search(control.query)
+    hits, names = candidates_collect.search(control.query)
     entry: dict[str, Any] = {
         "control": control.id,
         "shape": control.shape,
@@ -283,7 +281,11 @@ def draw_control(
         owners[repository["owner"]["login"]] = owners.get(repository["owner"]["login"], 0) + 1
         taken.add(name)
         print(f"  {control.id}: drew {name} ({witness})", flush=True)
-        return entry, candidates_collect._row(repository, sha, f"control:{control.id}"), record
+        return (
+            entry,
+            candidates_collect.candidate_row(repository, sha, f"control:{control.id}"),
+            record,
+        )
     print(f"  {control.id}: {entry['outcome']} after {entry['examined']} result(s)", flush=True)
     return entry, None, None
 
@@ -306,11 +308,11 @@ def draw() -> None:
 
     RESULTS.mkdir(parents=True, exist_ok=True)
     RESULTS.joinpath("scan.json").write_text(
-        json.dumps({**gate1_collect._provenance(), "scanned": records}, indent=2) + "\n",
+        json.dumps({**gate1_collect.provenance(), "scanned": records}, indent=2) + "\n",
         encoding="utf-8",
     )
     document = {
-        "drawn_at": candidates_collect._now(),
+        "drawn_at": candidates_collect.now(),
         "corpus": "bench/candidates.yaml",
         "scan": "bench/results/cases/scan.json",
         "examine_cap": candidates_collect.EXAMINE_CAP,

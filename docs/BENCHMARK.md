@@ -55,12 +55,13 @@ path in it.
 | `detected` | Call sites obelize found. |
 | `false_positive` | Findings that are not real usage. |
 | `missed_call_site` | Ground-truth call sites obelize did not find. |
+| `forbidden_reported` | Findings of any kind at a `ground_truth.must_not_report` position. An actionable one is also a `false_positive`, but a `text_mention` there is nothing else. Recorded, not a tier input; round 1's records lack it, and [`bench/CASES.md`](../bench/CASES.md) counts the same positions in the scan records. |
 | `patch_applied` | Whether a patch was written. |
 | `patch_compiles` | Whether every `.py` file the run wrote compiles under the case's interpreter, or `null` when nothing was written. The harness checks it because `obelize fix` with no verification command does not. |
 | `unmigrated` | Ground-truth rows, call sites and manifest pins, the run left as they were. A row is migrated when the run refused nothing at its `(path, line, symbol)` and an applied edit landed on its line; one `requirements.txt` line can hold an applied `google-genai` add beside a withheld legacy pin. |
 | `false_positive_edit` | Applied edits at a position no ground-truth row names; on a negative control, every applied edit. |
-| `tests_baseline` | `{status, passed, failed, skipped}` before the migration, run by the harness. `status` is `pass`, `fail`, `inconclusive` or `not_run`, the words `obelize verify` uses. A pytest exit code `1` is `fail` and `2`-`5` are `inconclusive`, except a `2` whose junit report counts an error, which is `fail`. The counts come from a junit report added to a pytest command and are `null`, never `0`, without one. |
-| `tests_after` | The same, after the migration and the *to* SDK install. |
+| `tests_baseline` | `{status, passed, failed, skipped}` before the migration, run by the harness. `status` is `pass`, `fail`, `inconclusive` or `not_run`, the words `obelize verify` uses. A pytest exit code `1` is `fail` and `2`-`5` are `inconclusive`, except a `2` whose junit report counts an error, which is `fail`. The counts come from a junit report added to a pytest command (`pytest`, `py.test` or `python -m pytest`, as `obelize verify` reads one) and are `null`, never `0`, without one. |
+| `tests_after` | The same, after the migration and the *to* SDK install, with the legacy SDK still installed ([step 7](#reproducible-run)). |
 | `human_edits` | Hunks a human had to write after obelize; `0` means autonomous. `null` until a reviewer reads the patch, and never read as `0`. |
 | `patch_correct` | The reviewer's judgement; `null` until made. |
 | `pr_opened` | `null`: the harness opens no pull request. |
@@ -69,13 +70,16 @@ path in it.
 | `llm_tokens_in` / `llm_tokens_out` | Token counts, if a model was used. |
 | `llm_cost_usd` | Cost, if a model was used. |
 
-Provenance: `obelize_version`, `obelize_commit`, `pack`, `pack_sha256`,
+Provenance: `obelize_version`, `obelize_commit` and `obelize_tree_dirty` (read once when the round
+starts), `pack`, `pack_sha256`,
 `spec_sha256` (the `ScanSpec` a scan reads),
 `python`, `python_executable` (harness paths shown as `<case>`, `<logs>`,
 `<work>`, `<repo>` or `<harness-python>`), `python_build` (its `sys.version`,
 which tells two machines' resolutions of one key apart),
-`machine`, `os`, `sdk_from` and `sdk_to` (versions observed in the venv), and
-`run_at`.
+`machine`, `os`, `sdk_from` and `sdk_to` (versions observed in the venv), `uv_version`,
+`exclude_newer` (the cutoff every install resolved as of), `packages_sha256` (the installed set
+after step 7, with the checkout's own path elided) and `run_at`. Round 1's records lack
+`obelize_tree_dirty`, `uv_version`, `exclude_newer` and `packages_sha256`.
 
 ## Version pinning is mandatory
 
@@ -130,7 +134,7 @@ is a field of the record, and a `null` is never read as a zero or a true. Tiers 
   `LJX2017__A-Song-of-Ice-and-Fire` in `dev`: they were holdout cases in round 1, and the
   rule that closed COVERAGE gap 29 was written from their code. `bench/cases.yaml` still reads
   `round: 1` and `holdout` for them, because `bench/results/round-1/` and the results page are
-  round 1's and `bench/summarize.py --check` holds the two together. The file changes in the
+  round 1's and `python -m bench.summarize --check` holds the two together. The file changes in the
   commit that publishes round 2. A `fix` dry run over the 23 round-1 repositories at their pinned
   commits gives the rows 0.3.0 gave, except the 26 that the rule moved from `needs_review` to
   `auto`: 20 in kvcops and 6 in `Momen2410__Question-Answering-ChatBot-Using-Gemini1.5`.
@@ -164,8 +168,14 @@ module; and a manifest that disagrees with the code (the code is the evidence).
 
 ## Reproducible run
 
-`bench/run.py` runs locally; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
-environments and is not run on Windows. Per case:
+`python -m bench.run` runs locally, from the repository root; CI runs only its `--fixtures-only` pass. It builds POSIX virtual
+environments and is not run on Windows. It runs each repository's own install commands and test suite
+with no sandbox and the network available, so run it only on a machine or VM that holds no
+credentials. A round starts only on a committed tree (`bench/results/` aside) whose `src/` is where
+`obelize` is imported from, not an installed copy, even one in the checkout's own `.venv`, so each
+record names the code that ran. Every install resolves as of the
+round's start (`UV_EXCLUDE_NEWER`, recorded as `exclude_newer`), and `--exclude-newer <UTC time>`
+runs a round as of an earlier one. Per case:
 
 1. Shallow-fetch the repository at the pinned SHA into `<work>/<round>/<id>/`,
    under the system temporary directory. A `pyproject.toml`, `pytest.ini`,
@@ -181,7 +191,9 @@ environments and is not run on Windows. Per case:
 6. `obelize fix --pack gemini/... --apply --non-interactive --model none --json`,
    then compile every `.py` file it wrote with the case's interpreter.
 7. Install `google-genai==<to_version>` and assert the installed version equals
-   it.
+   it. The legacy distribution from step 4 stays installed beside it, so a file the migration
+   missed still imports and the after-run can pass over it. `uv pip freeze` then lists what is
+   installed: the list is that step's log, and its sha256 is `packages_sha256`.
 8. Run the tests again.
 9. Compare the findings in `findings.json` against the ground truth, and the
    applied edits in `plan.json` and `run.json` against the rows it names.
@@ -190,7 +202,15 @@ environments and is not run on Windows. Per case:
 Step 6 passes no `--verify`: the *to* SDK arrives only at step 7, so obelize's
 own after-phase would fail every case; steps 5 and 8 replace it.
 The harness grades from the run folder, never from the
-[exit code](CLI.md#exit-codes). Step output goes to `<work>/<round>/<id>.logs/`
+[exit code](CLI.md#exit-codes). Each step runs without a shell, in a session of its own whose
+process group is killed when the step ends, so a process a suite leaves in that group does not
+outlive its step, and its output goes to a file, so no child holds a finished step to its ceiling.
+A child that starts a session of its own is not reached ([TM-10](THREAT_MODEL.md) says the same of
+`obelize verify`). A step inherits `PATH`, `LANG`, `LC_ALL`, `TMPDIR`, `UV_CACHE_DIR`,
+`UV_PYTHON_INSTALL_DIR` and `PIP_CACHE_DIR` where the harness has them, and a `HOME` of its own
+under `<work>/home`, so no credential, key or tool configuration of the machine reaches an install
+or a suite. Without the three directory variables, uv and pip keep their caches and interpreters
+under that `HOME`, and the first round on a machine downloads them again. Step output goes to `<work>/<round>/<id>.logs/`
 and is never committed. The gitignored `bench/work/` holds only
 checkouts of `bench/gate1_collect.py`, `bench/candidates_collect.py` and
 `bench/cases_collect.py`, which run no test suite.
@@ -201,7 +221,7 @@ checkouts of `bench/gate1_collect.py`, `bench/candidates_collect.py` and
 obelize skips, so `verified_success` is reachable offline. Its executor refuses
 every program but the running interpreter, so it cannot reach the network. `wrong` and `error` are covered by the tier function's own tests.
 
-`bench/summarize.py` writes the round block of
+`python -m bench.summarize` writes the round block of
 [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md), which lists every generated block
 and its test; `--check` runs in the `bench-smoke` workflow. The candidate
 corpus (URLs, SHAs, licences and metadata only) is
@@ -236,7 +256,11 @@ argues each part.
   repository.
 - **Same restrictions.** One pass over the source: neither arm installs
   anything or runs the tests. No network beyond the guide, since live search
-  would make the arm unreproducible. Every free choice favours the agent.
+  would make the arm unreproducible. Every free choice favours the agent. Afterwards
+  `python -m bench.comparison_collect record` installs each case's requirements and runs its
+  suite over the agent's tree, as step 8 does over obelize's: with a step's environment
+  ([above](#reproducible-run)) and as of the round's `exclude_newer`, which the comparison
+  record repeats (round 1 named none).
 - **One instrument.** A key row is *cleared* when a scan of the tree afterwards
   no longer reports it, matched on `(path, kind, symbol)` because edits move
   lines. A row the scan misses on the untouched tree is credited to neither
@@ -328,14 +352,14 @@ populations and every rejection. Its biases:
   committed, not the query.
 - **Small single-purpose applications**, not codebases that would look for a
   migration tool.
-- **Five keys chosen for labelling cost** (`bench/gate1_collect.py choose`): the
+- **Five keys chosen for labelling cost** (`python -m bench.gate1_collect choose`): the
   first repository per band with two to eight Python files containing the
   token, plus one from the most populous band, so none of the largest.
 
 ## Fix dry run
 
 What the rules alone would write, for each bundled pack, over a frame of repositories that use
-its library ([ADR-024](adr/ADR-024-gate-1-measurement.md) D10). `bench/gate1_collect.py dryrun --pack <id>`
+its library ([ADR-024](adr/ADR-024-gate-1-measurement.md) D10). `python -m bench.gate1_collect dryrun --pack <id>`
 fetches each repository at its pinned commit and runs `obelize fix --pack <id> --model none` once,
 and keeps the number of files the plan would write, the pack's `blocked` reason, and every withheld
 row with its symbol and bail. It always runs the whole frame, so a retry cannot replace the other
