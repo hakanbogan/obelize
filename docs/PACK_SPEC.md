@@ -246,8 +246,8 @@ with `=` is `response_shape_changed`: the field prints its own source text, whic
 changes.
 
 **`literal_prefixes`** is the converse, for an argument whose value only some of the new call's
-answers fit: `images.generate` returns no `url` for `gpt-image-1`, which `Image.create` was never
-asked for. A parameter written as a string literal without a listed prefix is
+answers fit: `gpt-image-1` answers an image call with no `url`, a read the new model turns into
+None where 0.28.1 raised. A parameter written as a string literal without a listed prefix is
 `response_shape_changed`; one left out, or computed, carries, since the legacy call sent the same
 request and only a name written out can be shown to differ. A parameter is under one of the two.
 
