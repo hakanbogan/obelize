@@ -40,7 +40,7 @@ findings:
       The scan grades this row `auto` and the run withholds it: `summarize.py` and
       `conversation.py` have no `configure` of their own and run on this one, so
       `obelize fix` leaves the file alone under `configure_consumed_elsewhere`
-      (ADR-031 D11, T54). The warning stays on the withheld row.
+      (ADR-031 D11). The warning stays on the withheld row.
 
   # ---- summarizer/summarize.py: no configure in this module ----
   - file: summarizer/summarize.py
@@ -75,17 +75,16 @@ findings:
       `model_object_escapes` -- ADR-006 defines that escape over references to a BOUND name, and
       this file has none. The note said `model_object_escapes` before ADR-010; the direction was
       conservative either way, but the code was being used outside its definition.
-      What WOULD map, if a client existed and C-31 landed: `config.MODEL_NAME` is the positional
+      What WOULD map, if a client existed: `config.MODEL_NAME` is the positional
       `model_name` at index 0; both `safety_settings` keys are canonical long forms with identity
       rows, and both were confirmed present in `google.genai.types.HarmCategory.__members__` with
       their thresholds (`BLOCK_ONLY_HIGH`, `BLOCK_MEDIUM_AND_ABOVE`) in
       `types.HarmBlockThreshold.__members__` on 2026-09-17; `system_instruction` moves onto
       `GenerateContentConfig`. The qualifier matters: `generation_config=GENERATION_CONFIG` and
-      `safety_settings=SAFETY_SETTINGS` are bare Names, not literals, so reading their three keys
-      at all needs C-31 (same-scope constant promotion), which ADR-008 lists as NOT landed, and the
-      keys of a Name are not static values today. This is the fixture set's only
-      instance of the C-31 shape, and it is a second, independent reason this group cannot go
-      automatic.
+      `safety_settings=SAFETY_SETTINGS` are bare Names, not literals, and C-31 (ADR-008, same-scope
+      constant promotion) reads their keys: each is assigned once and read only as that argument.
+      This is the fixture set's only instance of the C-31 shape, and the missing client is what keeps
+      this group from going automatic.
   - file: summarizer/summarize.py
     line: 39
     symbol: google.generativeai.GenerativeModel.generate_content
@@ -361,16 +360,16 @@ notes: |
   is the corpus shape ADR-008 describes under "The honest one", and an end-to-end test that shows this
   app going fully automatic would be measuring something the rules do not claim.
 
-  WHAT `obelize fix --apply` DOES TO THIS APP, since T54: nothing. The scan still grades the
+  WHAT `obelize fix --apply` DOES TO THIS APP, since ADR-031 D11: nothing. The scan still grades the
   three rows below `auto` -- the import and the `configure` in `summarizer/config.py`, and one
   added line in `requirements.txt` -- and the run withholds all three. `summarize.py` and
   `conversation.py` stay on the legacy SDK with no `configure` of their own, so they run on
   `config.py`'s, and the codemod driver leaves that file alone under
   `configure_consumed_elsewhere` (ADR-031 D11); with nothing migrated, F-2 owes the manifest no new
   line. The run exits `4` with fourteen rows for a person and verifies nothing, because it wrote
-  nothing. The three paragraphs below record what the run did before T54, and why that was wrong.
+  nothing. The three paragraphs below record what the run did before ADR-031 D11, and why that was wrong.
 
-  WHAT `obelize fix --apply` DID TO THIS APP, after ADR-010 and until T54. Three edits: the import
+  WHAT `obelize fix --apply` DID TO THIS APP, after ADR-010 and until ADR-031 D11. Three edits: the import
   and the `configure` in `summarizer/config.py`, and one added line in `requirements.txt`.
   Everything else was left untouched -- `summarize.py`, `conversation.py`, and the legacy pin --
   with six withheld items in the report. The suite still passed: the migrated `config.py` no longer
@@ -396,7 +395,7 @@ notes: |
   same command rewrote all three imports and the manifest, and produced three collection errors.
 
   TESTS THE FULL MIGRATION WOULD INVALIDATE. None of these fire today, because the code they cover
-  bails, but they are what a future C-31 or cross-module client would walk into, and they are the
+  bails, but they are what a future cross-module client would walk into, and they are the
   reason `obelize verify` is evidence rather than proof:
 
   - `tests/test_conversation.py:30` asserts `history[0]["parts"] == ["You are reviewing a summary I
@@ -437,5 +436,5 @@ notes: |
   - `genai.Client(api_key="")` and `genai.Client()` with no key in the environment both raise
     `ValueError: No API key was provided.`
 
-  No `expected.json` here on purpose: the Finding JSON schema does not exist until Phase 1 task T3.
-  This file records the semantic facts; T3's harness translates them.
+  No `expected.json` here on purpose: this file records the semantic facts, and the harness in
+  `tests/oracle/` translates them into the Finding schema.
