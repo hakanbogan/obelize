@@ -1108,6 +1108,31 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        name="a_warning_that_is_always_and_unless",
+        defect="a warning both carried by every call and withheld by one that passes a parameter",
+        path=f"{EXTRA}.params",
+        says="is in warnings and in warnings_unless",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            {
+                "warnings": ["upload_display_name_unset"],
+                "warnings_unless": {"upload_display_name_unset": "kind"},
+            }
+        ),
+    ),
+    Case(
+        name="a_conditional_warning_on_a_parameter_no_list_names",
+        defect="a warning no call could ever be rid of",
+        path=f"{EXTRA}.params",
+        says="warnings_unless names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(
+            d["changes"][1]["params"],
+            "warnings_unless",
+            {"upload_display_name_unset": "flavour"},
+        ),
+    ),
+    Case(
         name="a_warning_nothing_defines",
         defect="a warning code no report could explain",
         path=f"{EXTRA}.params.warnings[0]",

@@ -34,7 +34,7 @@ from obelize.transforms.imports import dotted
 from obelize.transforms.tree import Position, Tree, literal_string
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
-    from obelize.models import Finding
+    from obelize.models import Finding, WarningCode
     from obelize.packs.schema import ChangeKind, RewriteCallChange, RewriteCallParams
 
 # What reaches a variable by its name written as a string: the builtins, a frame's variables, a
@@ -136,7 +136,7 @@ class RewriteCall:
 
     def _edit(self, context: RuleContext, tree: _Tree, position: Position) -> Edit:
         try:
-            self._rewrite(context, tree, position)
+            warnings = self._rewrite(context, tree, position)
         except BailError as bail:
             return Edit(
                 path=context.path,
@@ -150,11 +150,13 @@ class RewriteCall:
             line=position[0],
             status="auto",
             rule_id=self._id,
-            warnings=self._params.warnings,
+            warnings=warnings,
         )
 
-    def _rewrite(self, context: RuleContext, tree: _Tree, position: Position) -> None:
-        """Record what replaces one call, or raise the one code that refuses it.
+    def _rewrite(
+        self, context: RuleContext, tree: _Tree, position: Position
+    ) -> tuple[WarningCode, ...]:
+        """Record what replaces one call and return what it warns about, or raise the refusal.
 
         Asked in precedence order, as `generative_model_calls` does: the client (the planner's code,
         raised here as the projection misses free functions), arguments, result, then surroundings.
@@ -198,6 +200,18 @@ class RewriteCall:
             )
             context.rewrites.set(subscript, attribute)
             context.rewrites.keep_comments(tree.statement_of(subscript), subscript, attribute)
+        return tuple(
+            sorted(
+                {
+                    *self._params.warnings,
+                    *(
+                        code
+                        for code, name in self._params.warnings_unless.items()
+                        if name not in read.given
+                    ),
+                }
+            )
+        )
 
     def _callee(self, context: RuleContext, call: cst.Call) -> cst.BaseExpression:
         """What the new call is made on: the file's client, or the root the author wrote.

@@ -844,6 +844,8 @@ class RewriteCallParams(_Closed):
     value_maps: dict[PlainName, dict[LowerKey, EnumMemberName]] = Field(default_factory=dict)
     # What every call this rule writes warns about: a difference the new call leaves unsaid.
     warnings: tuple[WarningCode, ...] = ()
+    # What a call warns about unless it passes the parameter that settles the difference.
+    warnings_unless: dict[WarningCode, PlainName] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check(self) -> RewriteCallParams:
@@ -869,6 +871,7 @@ class RewriteCallParams(_Closed):
         self._check_no_two_parameters_land_on_one_keyword()
         self._check_every_dispatching_parameter_is_one_the_rule_reads()
         self._check_every_mapped_parameter_is_one_the_rule_reads()
+        self._check_every_conditional_warning_is_one_the_rule_can_withhold()
         return self
 
     def _check_the_result_is_read_one_way(self) -> None:
@@ -944,6 +947,23 @@ class RewriteCallParams(_Closed):
                     f"value_maps[{parameter!r}] is empty, which refuses every call rather than "
                     f"saying which values carry; drop the entry instead"
                 )
+
+    def _check_every_conditional_warning_is_one_the_rule_can_withhold(self) -> None:
+        both = sorted(set(self.warnings) & set(self.warnings_unless))
+        if both:
+            raise ValueError(
+                f"{both} is in warnings and in warnings_unless; a call carries it always or "
+                f"unless it passes the parameter, and a pack that says both leaves the rule to "
+                f"decide"
+            )
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.warnings_unless.values()) - known)
+        if unknown:
+            raise ValueError(
+                f"warnings_unless names {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not; the rule reads an argument by its legacy name, so no call "
+                f"could ever pass it and the warning would never be withheld"
+            )
 
     def _check_no_two_parameters_land_on_one_keyword(self) -> None:
         """After `arg_map`, no two parameters share a keyword: libcst emits that; Python refuses."""

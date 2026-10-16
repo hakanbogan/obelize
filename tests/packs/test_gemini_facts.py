@@ -231,8 +231,9 @@ def test_an_upload_names_nothing_for_a_path_and_prefixes_every_name_not_starting
     assert _created(tmp_path, monkeypatch, "sample").name == "files/sample"
     assert _created(tmp_path, monkeypatch, "files/sample").name == "files/sample"
     assert _created(tmp_path, monkeypatch, "a/b").name == "files/a/b"
-    unset = [call for call in CALL_PARAMS if "upload_display_name_unset" in call.warnings]
+    unset = [call for call in CALL_PARAMS if "upload_display_name_unset" in call.warnings_unless]
     assert [call.legacy_symbol for call in unset] == ["google.generativeai.upload_file"]
+    assert unset[0].warnings_unless == {"upload_display_name_unset": "display_name"}
 
 
 def test_every_class_the_pack_names_on_the_new_side_exists() -> None:

@@ -124,13 +124,29 @@ cases:
     edits:
       - {line: 7, rule: rename-import, status: auto}
       - {line: 9, rule: configure-to-client, status: auto}
-      - {line: 13, rule: upload-file, status: auto, warnings: [upload_display_name_unset]}
+      - {line: 13, rule: upload-file, status: auto}
     notes: >-
-      The legacy call named the file after its path and the new one names it
-      nothing, which the edit says. The configuration fits on its own line and the call around it does not,
+      The configuration fits on its own line and the call around it does not,
       which is the layout rule's third clause in its smallest form: the inner
       call is built at the indent the outer one would wrap to, and only the
-      outer one uses it.
+      outer one uses it. The call names `display_name`, so there is nothing to
+      say about the file's name; `files_upload_unnamed` is the call that has.
+
+  - file: files_upload_unnamed
+    what_it_is: >-
+      The upload that names no `display_name`, which the legacy call took from
+      the path.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 6, rule: rename-import, status: auto}
+      - {line: 8, rule: configure-to-client, status: auto}
+      - {line: 12, rule: upload-file, status: auto, warnings: [upload_display_name_unset]}
+    notes: >-
+      The legacy call named the file after its path and the new one names it
+      nothing, which the edit says. Only a call that leaves `display_name` out
+      says it: `files_upload` passes one and carries no warning.
 
   - file: files_get_and_delete
     what_it_is: >-

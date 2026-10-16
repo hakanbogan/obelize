@@ -443,8 +443,8 @@ changes:
       legacy_error_modules:
         - google.api_core.exceptions
       # The legacy call gave a path its own name as `display_name`; the new one gives none.
-      warnings:
-        - upload_display_name_unset
+      warnings_unless:
+        upload_display_name_unset: display_name
     fixtures:
       - fixtures/negative/files_surface_new_sdk.py
       - fixtures/positive/files_surface.before.py

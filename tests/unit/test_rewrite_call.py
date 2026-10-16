@@ -162,6 +162,33 @@ def test_a_call_written_carries_the_warnings_the_pack_names_and_a_refused_one_no
     ]
 
 
+def test_a_warning_a_parameter_settles_is_carried_only_by_a_call_that_leaves_it_out() -> None:
+    settled = acme.MEASURE.model_copy(
+        update={
+            "params": acme.MEASURE.params.model_copy(
+                update={
+                    "warnings": ("response_text_may_be_none",),
+                    "warnings_unless": {"upload_display_name_unset": "body"},
+                }
+            )
+        }
+    )
+    _code, edits = acme.transform(
+        f"{HEADER}\nsdk.measure(kind='a')\nsdk.measure('a', 'x')\n"
+        "sdk.measure(kind='a', body='x')\nsdk.measure(retries=3)\n",
+        acme.CHANGE,
+        acme.CLIENT,
+        settled,
+    )
+    both = ("response_text_may_be_none", "upload_display_name_unset")
+    assert [row.warnings for row in edits if row.rule_id == "measure"] == [
+        both,
+        ("response_text_may_be_none",),
+        ("response_text_may_be_none",),
+        (),
+    ]
+
+
 def test_a_refused_call_leaves_its_own_line_and_nothing_else_alone() -> None:
     """A free call holds no group; ADR-010 F-1 keeps the half-rewritten file off disk a layer up."""
     code, edits = run("sdk.measure(kind='a', retries=3)\n")

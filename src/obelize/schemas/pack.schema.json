@@ -1041,6 +1041,25 @@
           },
           "title": "Warnings",
           "type": "array"
+        },
+        "warnings_unless": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "enum": [
+              "client_constructed_eagerly",
+              "model_name_looks_prefixed",
+              "count_tokens_config_dropped",
+              "positional_args_mapped_by_index",
+              "history_parts_rewritten",
+              "async_stream_await_preserved",
+              "response_text_may_be_none",
+              "upload_display_name_unset"
+            ]
+          },
+          "title": "Warnings Unless",
+          "type": "object"
         }
       },
       "required": [
