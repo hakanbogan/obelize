@@ -16,6 +16,7 @@ from obelize.transforms.kinds.generative_model_calls import GenerativeModelCalls
 from obelize.transforms.kinds.manifest_dependency import ManifestDependency
 from obelize.transforms.kinds.rename_import import RenameImport
 from obelize.transforms.kinds.rename_setting import RenameSetting
+from obelize.transforms.kinds.rename_symbol import RenameSymbol
 from obelize.transforms.kinds.rewrite_call import RewriteCall
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
@@ -30,6 +31,7 @@ RULES: Final[dict[ChangeKind, type[Rule]]] = {
     GenerativeModelCalls.kind: GenerativeModelCalls,
     RewriteCall.kind: RewriteCall,
     RenameSetting.kind: RenameSetting,
+    RenameSymbol.kind: RenameSymbol,
     FlagOnly.kind: FlagOnly,
 }
 

@@ -362,22 +362,124 @@ changes:
       - fixtures/negative/module_client_new.py
       - fixtures/positive/settings.before.py
 
-  - id: flag-errors
+  - id: error-classes
+    kind: rename_symbol
+    citation: "openai-python v1.0.0 Migration Guide, 'All name changes'"
+    params:
+      # The classes the same responses raise on both sides (SOURCES.md); the rest of openai.error
+      # is flagged below.
+      symbols:
+        openai.error.PermissionError: PermissionDeniedError
+        openai.error.RateLimitError: RateLimitError
+        openai.error.Timeout: APITimeoutError
+      # What the new classes derive from and 0.28.1's, siblings under OpenAIError, did not.
+      now_caught_by:
+        - openai.APIConnectionError
+        - openai.APIError
+        - openai.APIStatusError
+    fixtures:
+      - fixtures/negative/module_client_new.py
+      - fixtures/positive/error_classes.before.py
+
+  - id: flag-error-no-key
+    kind: flag_only
+    citation: "openai-python v1.0.0 Migration Guide, 'All name changes'"
+    params:
+      symbols:
+        - openai.error.AuthenticationError
+        - openai.error.OpenAIError
+      message: >-
+        0.28.1 raised AuthenticationError for a missing API key before it sent
+        anything, and every one of its errors derived from OpenAIError. The new
+        releases raise OpenAIError for a missing key up to 2.0 and a TypeError
+        from 2.54, which neither class catches, and an empty 2xx body raises
+        json.JSONDecodeError where 0.28.1 raised an APIError.
+      suggestion: >-
+        Catch openai.OpenAIError (openai.AuthenticationError for a 401) and add
+        TypeError where a missing key must still be handled, and read
+        status_code, body and message instead of http_status, json_body and
+        user_message.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/error_handlers.before.py
+
+  - id: flag-error-invalid-request
     kind: flag_only
     citation: "openai-python v1.0.0 Migration Guide, 'All name changes'"
     params:
       symbols:
         - openai.InvalidRequestError
-        - openai.error
+        - openai.error.InvalidRequestError
       message: >-
-        The 0.28.1 exception classes were renamed, and a handler for a name that
-        is gone fails or never runs. The classes of the new releases carry other
-        attributes: status_code and body where the old ones had http_status and
-        json_body.
+        0.28.1 raised InvalidRequestError for the statuses 400, 404 and 415.
+        The new releases have no such class: 400 is BadRequestError, 404
+        NotFoundError and 415 only the APIStatusError both derive from, so no
+        one class catches what it did.
       suggestion: >-
-        Catch openai.OpenAIError, or the status classes of the new release
-        (BadRequestError, RateLimitError, APITimeoutError), and read
-        status_code instead of http_status.
+        Catch (openai.BadRequestError, openai.NotFoundError), or
+        openai.APIStatusError to take 415 as well, and read status_code, body
+        and message instead of http_status, json_body and user_message.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/error_handlers.before.py
+
+  - id: flag-error-status-classes
+    kind: flag_only
+    citation: "openai-python v1.0.0 Migration Guide, 'All name changes'"
+    params:
+      symbols:
+        - openai.error.APIConnectionError
+        - openai.error.APIError
+        - openai.error.ServiceUnavailableError
+      message: >-
+        0.28.1 raised APIError for a 5xx status or a body that was no API
+        error, APIConnectionError for a refused connection and
+        ServiceUnavailableError for a 503, each beside the others. The new
+        releases derive APIStatusError and APIConnectionError from APIError,
+        raise InternalServerError for every 5xx and APIConnectionError for a
+        timeout too, so a handler for one catches more than before.
+      suggestion: >-
+        Catch openai.InternalServerError for ServiceUnavailableError,
+        openai.APIConnectionError for APIConnectionError, with
+        openai.APITimeoutError ahead of it, and openai.APIStatusError for what
+        APIError caught; read status_code instead of http_status.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/error_handlers.before.py
+
+  - id: flag-error-try-again
+    kind: flag_only
+    citation: "openai-python v1.0.0 Migration Guide, 'All name changes'"
+    params:
+      symbols:
+        - openai.error.TryAgain
+      message: >-
+        0.28.1 raised TryAgain for a 409 only once the timeout argument had
+        passed, and retried until then, so a call with none never raised it.
+        The new releases raise ConflictError for a 409 after two retries.
+      suggestion: >-
+        Catch openai.ConflictError, or leave the retry to the module client's
+        openai.max_retries.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/error_handlers.before.py
+
+  - id: flag-error-removed
+    kind: flag_only
+    citation: "openai-python v1.0.0 Migration Guide, 'All name changes'"
+    params:
+      symbols:
+        - openai.error.InvalidAPIType
+        - openai.error.SignatureVerificationError
+      message: >-
+        0.28.1 raised InvalidAPIType for an api_type it did not support and
+        defined SignatureVerificationError without raising it. The new releases
+        have neither: api_type selects an Azure client once, and a webhook with
+        a bad signature raises openai.InvalidWebhookSignatureError.
+      suggestion: >-
+        Port these handlers by hand: catch openai.OpenAIError where the
+        api_type was the failure, and openai.InvalidWebhookSignatureError for a
+        webhook signature.
     fixtures:
       - fixtures/negative/already_new.py
       - fixtures/positive/error_handlers.before.py
@@ -487,7 +589,10 @@ limitations:
   - "A call is refused unless every argument is one the pack lists, written as a keyword, or in the old order for Moderation.create and the two audio calls: other positional arguments, stream, engine, deployment_id, request_timeout, timeout, api_key, api_base, the response_format of an audio call and a ** splat are not carried, since the new methods lack them or read them differently."
   - "Azure (api_type, api_version, engine, deployment_id) and every setting with no counterpart in the new releases are reported, never rewritten: assigning them still succeeds and changes nothing."
   - "openai.api_base = value becomes openai.base_url = value, with a / added to a string literal and (\"%s\" % (value,)).rstrip(\"/\") + \"/\" around anything else, since the module client joins routes onto it unseparated. A file that already uses openai.base_url, or uses openai.api_base other than assigned (a read, +=, del, a tuple target, from openai import api_base), is withheld. The address is formed once, at the assignment, not at each request."
-  - "Async calls, the other resources (File, Model, FineTune, the image edit and variation calls, the raw audio calls and the rest), the openai.error classes and the modules of the 0.28.1 package are reported, never rewritten. The top-level openai.APIError exists on both sides and is not reported, since code already on the new release uses it: a handler for it that reads http_status, json_body or user_message fails with AttributeError once the pin moves."
+  - "openai.error.RateLimitError, PermissionError and Timeout become openai.RateLimitError, PermissionDeniedError and APITimeoutError, in a handler, an argument or an assignment and in the import that names them. A class that is called, raised or derived from, an except clause that reads an attribute of its error, a handler ahead that names openai.APIError or cannot be told, and a name the file already binds are withheld."
+  - "A renamed class is raised for the responses the old one was, which a local server shows on both sides, but not for a response that is no API error: a proxy's HTML page was an APIError on 0.28.1 and is the class of its status now. The text of a caught exception also changes: str(error) was the API's message, and is now Error code: <status> - <body>."
+  - "A handler for openai.APIError, which exists on both sides, catches every status error on the new releases where it caught only the 5xx and malformed responses, so a rate limit or a refusal that 0.28.1 let through to a handler further out is caught there. The pack reads the handlers of one try and cannot see the others."
+  - "Async calls, the other resources (File, Model, FineTune, the image edit and variation calls, the raw audio calls and the rest), the openai.error classes other than the three renamed and the modules of the 0.28.1 package are reported, never rewritten. The top-level openai.APIError exists on both sides and is not reported, since code already on the new release uses it: a handler for it that reads http_status, json_body or user_message fails with AttributeError once the pin moves."
   - "The distribution is one, so the pin moves with the code or not at all: when any row of the repository is withheld, every file is left as it was and the pin stays (repo_not_fully_migrated)."
   - "A module that 0.28.1 installed and a release it migrates to does not (requests, aiohttp, urllib3, certifi, tqdm and the rest of what those two bring: see match.transitive), imported by a file while no manifest of the repository declares it, holds the repository until one does. Any manifest counts, not the one that governs the file."
   - "0.28.1 read OPENAI_API_BASE and OPENAI_ORGANIZATION from the environment, and the new releases read OPENAI_BASE_URL and OPENAI_ORG_ID, so a gateway or an organization set only there is lost without an error once the pin moves. Rename them where they are set: the code is not asked."

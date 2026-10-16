@@ -88,6 +88,39 @@ CASES = [
         'return openai.ChatCompletion.create(model=x, messages=a, api_base="http://h/v1")',
         "unsupported_kwarg",
     ),
+    ("try:\n        pass\n    except openai.error.RateLimitError:\n        pass", None),
+    ("try:\n        pass\n    except openai.error.PermissionError as e:\n        print(e)", None),
+    ("try:\n        pass\n    except (openai.error.Timeout, ValueError):\n        pass", None),
+    ("return backoff.on_exception(backoff.expo, openai.error.RateLimitError)", None),
+    ("raise openai.error.RateLimitError(x)", "error_class_changed"),
+    ("raise openai.error.PermissionError", "error_class_changed"),
+    ("return openai.error.Timeout(x)", "error_class_changed"),
+    (
+        "try:\n        pass\n    except openai.error.RateLimitError as e:\n        return e.body",
+        "attribute_removed",
+    ),
+    (
+        "try:\n        pass\n    except openai.APIError:\n        pass\n"
+        "    except openai.error.RateLimitError:\n        pass",
+        "error_class_changed",
+    ),
+    (
+        "try:\n        pass\n    except a:\n        pass\n"
+        "    except openai.error.Timeout:\n        pass",
+        "error_class_changed",
+    ),
+    ("return isinstance(x, openai.error.OpenAIError)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.AuthenticationError)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.InvalidRequestError)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.APIError)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.APIConnectionError)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.ServiceUnavailableError)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.TryAgain)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.InvalidAPIType)", "flag_only_surface"),
+    ("return isinstance(x, openai.error.SignatureVerificationError)", "flag_only_surface"),
+    ("return isinstance(x, openai.InvalidRequestError)", "flag_only_surface"),
+    ("return openai.error", "usage_unmapped"),
+    ("return openai.error.helper(x)", "usage_unmapped"),
     ("return openai.Image", "usage_unmapped"),
     ("return openai.Moderation.get_url()", "usage_unmapped"),
     ("return openai.Audio.OBJECT_NAME", "usage_unmapped"),
@@ -107,6 +140,30 @@ def test_a_call_is_written_or_withheld_by_the_code_the_pack_says(
     run = codemod.run(scan, sources, LOADED.pack, SPEC)
     held = {edit.reason for edit in run.edits if edit.status != "auto"}
     assert (withheld in held) if withheld else not held, held
+    assert bool(run.written) is (withheld is None)
+
+
+@pytest.mark.parametrize(
+    ("header", "withheld"),
+    [
+        ("import openai.error\n", None),
+        ("import openai.error as faults\n", None),
+        ("from openai.error import RateLimitError, PermissionError as Refused\n", None),
+        ("from openai.error import OpenAIError\n", "from_import_unmigrated_symbol"),
+        ("from openai.error import RateLimitError, APIError\n", "from_import_unmigrated_symbol"),
+        ("from openai import error\n", "from_import_unmigrated_symbol"),
+        ("import openai\nimport openai.error\n", "conditional_binding"),
+    ],
+)
+def test_the_import_of_the_error_module_is_moved_or_holds_the_file(
+    tmp_path: Path, header: str, withheld: str | None
+) -> None:
+    (tmp_path / "app.py").write_text(f"{header}\nx = 1\n", encoding="utf-8")
+    scan = scanner.scan(tmp_path, Config(), SPEC, jobs=1)
+    sources = {result.path: (tmp_path / result.path).read_bytes() for result in scan.results}
+    run = codemod.run(scan, sources, LOADED.pack, SPEC)
+    held = {row.bail for row in run.findings if row.bail}
+    assert held == ({withheld} if withheld else set())
     assert bool(run.written) is (withheld is None)
 
 

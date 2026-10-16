@@ -172,6 +172,18 @@ SETTING_CHANGE: Document = {
     "params": {"settings": {"demo_legacy.endpoint": "address"}, "value_ends_with": "/"},
 }
 
+# A class the new release exports from the package instead of from a submodule.
+SYMBOL_CHANGE: Document = {
+    "id": "errors",
+    "kind": "rename_symbol",
+    "citation": "Guide, Errors",
+    "fixtures": ["fixtures/negative/none.py", "fixtures/positive/one.before.py"],
+    "params": {
+        "symbols": {"demo_legacy.errors.Busy": "Busy"},
+        "now_caught_by": ["demo_legacy.Fault"],
+    },
+}
+
 MANIFEST_CHANGE: Document = {
     "id": "manifest-dependency",
     "kind": "manifest_dependency",
@@ -240,6 +252,24 @@ def _symbols_without_a_submodule_map(document: Document) -> None:
 def _shared(document: Document) -> None:
     """The module is the new SDK's too; `configure` is the one legacy name listed."""
     document["match"].update(shared=True, symbols=["demo_legacy.configure"])
+
+
+def _symbol(
+    *,
+    legacy: list[str] | None = None,
+    more: tuple[Document, ...] = (),
+    **params: Any,
+) -> Callable[[Document], None]:
+    """A shared module with the submodule listed as legacy, `params` set on its rule, and `more`."""
+
+    def mutate(document: Document) -> None:
+        document["match"].update(
+            shared=True, symbols=legacy or ["demo_legacy.configure", "demo_legacy.errors"]
+        )
+        document["changes"][1]["params"].update(params)
+        document["changes"].extend(more)
+
+    return mutate
 
 
 def _setting(
@@ -1345,6 +1375,112 @@ CASES: tuple[Case, ...] = (
                     **FLAG_CHANGE,
                     "id": "flag-endpoint",
                     "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.endpoint"]},
+                },
+            )
+        ),
+    ),
+    # rename_symbol: a name a kept package's submodule defined, exported from the package now.
+    Case(
+        name="a_rename_symbol_with_no_symbol",
+        defect="a rule that renames nothing",
+        path=f"{EXTRA}.params",
+        says="a rename_symbol rule must name a symbol",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(symbols={}),
+    ),
+    Case(
+        name="a_symbol_that_is_no_member_of_a_submodule",
+        defect="a symbol with no submodule to leave, which is a rename of the package's own name",
+        path=f"{EXTRA}.params",
+        says="names a member of a submodule, so it is a path of three names or more",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(symbols={"demo_legacy.Busy": "Fault"}),
+    ),
+    Case(
+        name="two_symbols_renamed_onto_one_name",
+        defect="two classes that would be one name in the package",
+        path=f"{EXTRA}.params",
+        says="are both renamed onto 'demo_legacy.Fault'",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(
+            symbols={"demo_legacy.errors.Busy": "Fault", "demo_legacy.errors.Denied": "Fault"}
+        ),
+    ),
+    Case(
+        name="a_symbol_renamed_onto_a_keyword",
+        defect="a new name that no attribute access can spell",
+        path=f"{EXTRA}.params.symbols.demo_legacy.errors.Busy",
+        says="not a keyword",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(symbols={"demo_legacy.errors.Busy": "class"}),
+    ),
+    Case(
+        name="bases_that_are_not_sorted",
+        defect="a list with two spellings, so the pack's hash would hide that it is one list",
+        path=f"{EXTRA}.params",
+        says="now_caught_by must be sorted and de-duplicated",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(now_caught_by=["demo_legacy.Fault", "demo_legacy.Base"]),
+    ),
+    Case(
+        name="a_symbol_in_a_package_that_moves",
+        defect="a renamed symbol in a pack whose package is renamed too",
+        path="",
+        says="renames a symbol and keeps its package",
+        extra=SYMBOL_CHANGE,
+    ),
+    Case(
+        name="a_symbol_outside_the_listed_legacy_names",
+        defect="a symbol the package's own imports reach but `symbols` does not list",
+        path="",
+        says="under nothing in match.symbols",
+        extra=SYMBOL_CHANGE,
+        mutate=_shared,
+    ),
+    Case(
+        name="a_symbol_renamed_onto_a_legacy_name",
+        defect="a rename that lands on a name `symbols` lists, so the result is found again",
+        path="",
+        says="which match.symbols lists as legacy",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(legacy=["demo_legacy.Busy", "demo_legacy.configure", "demo_legacy.errors"]),
+    ),
+    Case(
+        name="two_changes_that_claim_one_symbol",
+        defect="two rules on one symbol, so the order of the list would pick",
+        path="",
+        says="two changes claim 'demo_legacy.errors.Busy'",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(more=({**SYMBOL_CHANGE, "id": "errors-again"},)),
+    ),
+    Case(
+        name="a_symbol_both_renamed_and_refused",
+        defect="a symbol one rule renames and another reports",
+        path="",
+        says="is both rewritten and refused",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(
+            more=(
+                {
+                    **FLAG_CHANGE,
+                    "id": "flag-busy",
+                    "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.errors.Busy"]},
+                },
+            )
+        ),
+    ),
+    Case(
+        name="a_symbol_under_a_refused_prefix",
+        defect="a symbol under one a flag_only rule reports, which the scan grades first",
+        path="",
+        says="is under a symbol a flag_only rule refuses",
+        extra=SYMBOL_CHANGE,
+        mutate=_symbol(
+            more=(
+                {
+                    **FLAG_CHANGE,
+                    "id": "flag-errors",
+                    "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.errors"]},
                 },
             )
         ),

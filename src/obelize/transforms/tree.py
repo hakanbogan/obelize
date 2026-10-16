@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sys
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 import libcst as cst
 import libcst.matchers as m
@@ -34,6 +34,8 @@ _LINE_BREAK = re.compile(r"\r\n|\r|\n")
 
 # Where a node starts; a finding and the call it names share it, so the index is keyed on it.
 Position = tuple[int, int]
+
+_Node = TypeVar("_Node", cst.Attribute, cst.Name)
 
 
 class Tree:
@@ -88,6 +90,13 @@ class Tree:
             None,
         )
 
+    def name(self, position: Position, symbol: str) -> cst.Name | None:
+        """The bare name a finding names (a from-imported one), or None where it names a chain."""
+        return next(
+            (node for node in self._names.get(position, ()) if self.qualified(node) == symbol),
+            None,
+        )
+
     def mentions(self, symbol: str) -> bool:
         """Whether some attribute in the file resolves to `symbol`."""
         leaf = symbol.rpartition(".")[2]
@@ -99,9 +108,16 @@ class Tree:
 
     @cached_property
     def _attributes(self) -> dict[Position, list[cst.Attribute]]:
-        found: dict[Position, list[cst.Attribute]] = {}
+        return self._at(cst.Attribute)
+
+    @cached_property
+    def _names(self) -> dict[Position, list[cst.Name]]:
+        return self._at(cst.Name)
+
+    def _at(self, kind: type[_Node]) -> dict[Position, list[_Node]]:
+        found: dict[Position, list[_Node]] = {}
         for node, span in self._pos.items():
-            if isinstance(node, cst.Attribute):
+            if isinstance(node, kind):
                 found.setdefault((span.start.line, span.start.column), []).append(node)
         return found
 
