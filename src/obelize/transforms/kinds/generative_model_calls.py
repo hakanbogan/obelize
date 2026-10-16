@@ -417,7 +417,7 @@ class GenerativeModelCalls:
             plans.append(plan)
             for produced in use.produces:
                 held[produced] = plan.config
-        self._check_the_response_is_still_read_the_old_way(tree, group)
+        read = self._response_reads(tree, group)
         self._check_what_the_constructor_wrote_travels(tree, group, ctor, plans)
         # A module's name stays and is read by no one else, so its class is the new one.
         kept = {
@@ -443,10 +443,13 @@ class GenerativeModelCalls:
         if alias is not None:
             for func in kept.values():
                 context.rewrites.set(func, self._config_class(alias))
-        return {
-            group.position: ctor.warnings,
-            **{plan.use.position: plan.warnings for plan in plans},
-        }
+        warned = {group.position: ctor.warnings}
+        for plan in plans:
+            extra: tuple[WarningCode, ...] = (
+                ("response_text_may_be_none",) if plan.use.position in read else ()
+            )
+            warned[plan.use.position] = tuple(sorted({*plan.warnings, *extra}))
+        return warned
 
     def _check_what_the_constructor_wrote_travels(
         self, tree: _Tree, group: _Group, ctor: _Ctor, plans: Sequence[_Plan]
@@ -1148,25 +1151,44 @@ class GenerativeModelCalls:
             (*line.leading_lines[start:], *(cst.EmptyLine(comment=found) for found in moved)),
         )
 
-    def _check_the_response_is_still_read_the_old_way(self, tree: _Tree, group: _Group) -> None:
-        """Refuse a read, now `None` where it raised, guarded by a handler naming the old error.
+    def _response_reads(self, tree: _Tree, group: _Group) -> frozenset[Position]:
+        """The calls whose result has an attribute read that is now `None` where it raised.
 
-        E.g. `response.text` raised `ValueError`, so the handler would silently never run.
+        Refused when a handler that could catch the old error surrounds the read, since it would
+        silently never run (`response.text` raised `ValueError`). Any other read runs on and is
+        warned about, as the value can be `None`.
         """
-        if not self._params.response_attrs_now_none:
-            return
-        reads = _handled_reads(
-            tree.module,
-            self._params.response_legacy_error or "",
-            frozenset(self._params.response_attrs_now_none),
-        )
-        held = {id(use.call) for use in group.uses}
-        names = _bound_by(tree, group)
-        for value in reads:
-            if id(value) in held:
+        attributes = frozenset(self._params.response_attrs_now_none)
+        if not attributes:
+            return frozenset()
+        read = _reads(tree.module, attributes)
+        loops = _loop_targets(tree.module)
+        handled = {
+            id(value)
+            for value in _handled_reads(
+                tree.module, self._params.response_legacy_error or "", attributes
+            )
+        }
+        positions: set[Position] = set()
+        for use in group.uses:
+            names = _bound_by(tree, (use,))
+            # A stream's chunks are read through the loop's own name, over the call or its name.
+            names |= {
+                target
+                for iterable, target in loops
+                if iterable is use.call
+                or (isinstance(iterable, cst.Name) and iterable.value in names)
+            }
+            mine = [
+                value
+                for value in read
+                if value is use.call or (isinstance(value, cst.Name) and value.value in names)
+            ]
+            if any(id(value) in handled for value in mine):
                 raise BailError("response_shape_changed")
-            if isinstance(value, cst.Name) and value.value in names:
-                raise BailError("response_shape_changed")
+            if mine:
+                positions.add(use.position)
+        return frozenset(positions)
 
 
 class _Tree(Tree):
@@ -1356,10 +1378,10 @@ def _literal_flag(node: cst.BaseExpression) -> bool:
     raise BailError("dynamic_stream_flag")
 
 
-def _bound_by(tree: _Tree, group: _Group) -> frozenset[str]:
-    """The plain names this group's calls are assigned to."""
+def _bound_by(tree: _Tree, uses: Sequence[_Use]) -> frozenset[str]:
+    """The plain names these calls are assigned to."""
     names: set[str] = set()
-    for use in group.uses:
+    for use in uses:
         statement = tree.parent(use.call)
         if not isinstance(statement, cst.Assign):
             continue
@@ -1371,10 +1393,28 @@ def _bound_by(tree: _Tree, group: _Group) -> frozenset[str]:
     return frozenset(names)
 
 
+def _loop_targets(module: cst.Module) -> list[tuple[cst.BaseExpression, str]]:
+    """Each `for <name> in <iterable>` of the module, as the iterable and the name."""
+    found = _Loops()
+    module.visit(found)
+    return found.targets
+
+
+def _reads(module: cst.Module, attributes: frozenset[str]) -> list[cst.BaseExpression]:
+    """Everything read as one of `attributes` anywhere in the module."""
+    found = _Reads(attributes)
+    module.visit(found)
+    return found.found
+
+
 def _handled_reads(
     module: cst.Module, error: str, attributes: frozenset[str]
 ) -> list[cst.BaseExpression]:
-    """Everything read as one of `attributes` inside a `try` that names `error`."""
+    """Everything read as one of `attributes` inside a `try` whose handler could catch `error`.
+
+    That is one naming it or a class that holds it, and a bare `except:`: nothing says the
+    exception was not relied on, so the group is refused rather than guessed about.
+    """
     found = _Handled(error, attributes)
     module.visit(found)
     return found.reads
@@ -1395,11 +1435,23 @@ class _Handled(cst.CSTVisitor):
         return True
 
     def _names(self, node: cst.BaseExpression | None) -> bool:
+        if node is None:
+            return True
         if isinstance(node, cst.Name):
-            return node.value == self._error
+            return node.value in {self._error, "BaseException", "Exception"}
         if isinstance(node, cst.Tuple):
             return any(self._names(element.value) for element in node.elements)
         return False
+
+
+class _Loops(cst.CSTVisitor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.targets: list[tuple[cst.BaseExpression, str]] = []
+
+    def visit_For(self, node: cst.For) -> None:  # noqa: N802 - libcst dispatch
+        if isinstance(node.target, cst.Name):
+            self.targets.append((node.iter, node.target.value))
 
 
 class _Reads(cst.CSTVisitor):

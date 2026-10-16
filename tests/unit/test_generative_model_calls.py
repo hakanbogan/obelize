@@ -24,6 +24,15 @@ def refusals(edits: list[Edit]) -> list[str | None]:
     return [row.reason for row in edits if row.rule_id == "model-calls"]
 
 
+def warned(edits: list[Edit]) -> list[tuple[str, ...]]:
+    """The rule's warnings but the one for the answer's own read, which most programs here have."""
+    return [
+        tuple(name for name in row.warnings if name != "response_text_may_be_none")
+        for row in edits
+        if row.rule_id == "model-calls"
+    ]
+
+
 # A module-level model's one call, below whatever builds it.
 CALLED = "\n\n\ndef a(p):\n    return MODEL.run(p).answer\n"
 
@@ -67,21 +76,18 @@ def test_a_model_name_that_is_not_a_literal_carries_no_warning() -> None:
         'NAME = "acme/m"\nMODEL = sdk.Model(NAME)\n\n\ndef a(p):\n    return MODEL.run(p).answer\n'
     )
     assert "target=NAME" in produced
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [(), ()]
+    assert warned(edits) == [(), ()]
 
 
 def test_the_prefix_the_pack_names_and_not_the_one_the_other_pack_names() -> None:
     _produced, edits = run(
         'MODEL = sdk.Model("acme/m")\n\n\ndef a(p):\n    return MODEL.run(p).answer\n'
     )
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [
-        ("model_name_looks_prefixed",),
-        (),
-    ]
+    assert warned(edits) == [("model_name_looks_prefixed",), ()]
     _produced, edits = run(
         'MODEL = sdk.Model("models/m")\n\n\ndef a(p):\n    return MODEL.run(p).answer\n'
     )
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [(), ()]
+    assert warned(edits) == [(), ()]
 
 
 def test_the_keyword_that_turns_automatic_calling_on_is_refused_by_name() -> None:
@@ -752,9 +758,7 @@ def test_a_list_of_turns_in_the_call_is_reshaped_and_says_so() -> None:
         ASKED.format("    return MODEL.run([{'who': 'us', 'said': ['hi']}]).answer\n")
     )
     assert "body=[{'who': 'us', 'said': [{'words': 'hi'}]}]" in produced
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"][-1] == (
-        "history_parts_rewritten",
-    )
+    assert warned(edits)[-1] == ("history_parts_rewritten",)
 
 
 @pytest.mark.parametrize(
@@ -812,7 +816,6 @@ def test_a_call_a_legacy_handler_catches_refuses_the_group(source: str) -> None:
     [
         "    try:\n        return MODEL.run(p).answer\n"
         "    except ValueError:\n        return None\n",
-        "    try:\n        return MODEL.run(p).answer\n    except:\n        return None\n",
         "    try:\n        pass\n    except errors.Busy:\n        return MODEL.run(p).answer\n",
         "    try:\n        pass\n    except errors.Busy:\n        return None\n"
         "    else:\n        return MODEL.run(p).answer\n",
@@ -823,7 +826,6 @@ def test_a_call_a_legacy_handler_catches_refuses_the_group(source: str) -> None:
     ],
     ids=[
         "another exception",
-        "a bare except",
         "in the handler",
         "in the else",
         "in a def it holds",
@@ -1009,12 +1011,77 @@ def test_a_handler_that_names_another_error_is_not_this_shape() -> None:
     assert refusals(edits) == [None, None]
 
 
-def test_a_bare_handler_is_not_evidence_that_anybody_relied_on_the_error() -> None:
+@pytest.mark.parametrize(
+    "handler",
+    ["except:", "except Exception:", "except BaseException:", "except (OSError, Exception) as e:"],
+    ids=["bare", "Exception", "BaseException", "among others"],
+)
+def test_a_handler_that_would_catch_the_old_error_without_naming_it_refuses_the_group(
+    handler: str,
+) -> None:
+    """Nothing says the exception was not relied on, and the new attribute never raises it."""
     _produced, edits = run(
         'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    r = MODEL.run(p)\n'
-        "    try:\n        return r.answer\n    except:\n        return None\n"
+        f"    try:\n        return r.answer\n    {handler}\n        return None\n"
     )
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+def test_a_handler_around_a_stream_chunk_read_is_the_same_hazard() -> None:
+    _produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    for c in MODEL.run(p, live=True):\n'
+        "        try:\n            yield c.answer\n        except Exception:\n            pass\n"
+    )
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+@pytest.mark.parametrize(
+    ("body", "noted"),
+    [
+        ("    return MODEL.run(p).answer\n", [(), ("response_text_may_be_none",)]),
+        ("    r = MODEL.run(p)\n    return r.answer\n", [(), ("response_text_may_be_none",)]),
+        (
+            "    for c in MODEL.run(p, live=True):\n        yield c.answer\n",
+            [(), ("response_text_may_be_none",)],
+        ),
+        (
+            "    r = MODEL.run(p, live=True)\n    for c in r:\n        yield c.answer\n",
+            [(), ("response_text_may_be_none",)],
+        ),
+        ("    r = MODEL.run(p)\n    for i, c in other:\n        yield c.answer\n", [(), ()]),
+        ("    return MODEL.run(p).other\n", [(), ()]),
+        ("    r = MODEL.run(p)\n    return other.answer\n", [(), ()]),
+        ("    return MODEL.run(p)\n", [(), ()]),
+    ],
+    ids=[
+        "in place",
+        "through a name",
+        "a stream's chunk",
+        "a name's chunk",
+        "an unpacking loop over something else",
+        "another attribute",
+        "another object",
+        "never read",
+    ],
+)
+def test_a_call_whose_result_is_read_as_an_attribute_that_stopped_raising_is_warned(
+    body: str, noted: list[tuple[str, ...]]
+) -> None:
+    """Only the call that is read, not the constructor beside it, and only that attribute."""
+    _produced, edits = run(f'MODEL = sdk.Model("m")\n\n\ndef a(p, other=None):\n{body}')
     assert refusals(edits) == [None, None]
+    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == noted
+
+
+def test_the_warning_for_a_read_joins_the_warnings_the_call_already_has() -> None:
+    _produced, edits = run(
+        'MODEL = sdk.Model("acme/m")\n\n\ndef a(p):\n'
+        '    return MODEL.run([{"who": "us", "said": ["hi"]}]).answer\n'
+    )
+    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [
+        ("model_name_looks_prefixed",),
+        ("history_parts_rewritten", "response_text_may_be_none"),
+    ]
 
 
 def test_a_handler_around_something_that_is_not_this_groups_answer() -> None:

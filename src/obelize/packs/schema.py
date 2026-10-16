@@ -664,7 +664,8 @@ class GenerativeModelCallsParams(_Closed):
     model_name_prefix: str
     rewrites: dict[QualifiedName, MethodRewrite] = Field(default_factory=dict)
     # Response attributes that raised `response_legacy_error` on the legacy object and return `None`
-    # on the new one. A handler would silently stop running, so the shape is refused.
+    # on the new one. A handler would silently stop running, so a read it could catch is refused;
+    # any other read warns `response_text_may_be_none`.
     response_attrs_now_none: tuple[PlainName, ...] = ()
     response_legacy_error: PlainName | None = None
     # Exceptions only the legacy SDK raises: a handler would never run, so `error_class_changed`.

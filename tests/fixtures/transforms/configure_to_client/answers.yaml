@@ -183,7 +183,7 @@ cases:
       - {line: 13, rule: rename-import, status: auto}
       - {line: 17, rule: configure-to-client, status: auto}
       - {line: 18, rule: generative-model-calls, status: auto}
-      - {line: 19, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       A local where the `configure` was. No warning: D5's rule is about a
       module-level client and this one is not, so nothing is constructed at
@@ -201,7 +201,7 @@ cases:
       - {line: 13, rule: rename-import, status: auto}
       - {line: 18, rule: configure-to-client, status: auto}
       - {line: 19, rule: generative-model-calls, status: auto}
-      - {line: 22, rule: generative-model-calls, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       `self.client`, with `self` read off the method's own first parameter
       rather than assumed. `chat_async_self/ground_truth.yaml` called this "the
@@ -431,7 +431,7 @@ cases:
       - {line: 11, rule: rename-import, status: auto}
       - {line: 22, rule: configure-to-client, status: auto}
       - {line: 23, rule: generative-model-calls, status: auto}
-      - {line: 26, rule: generative-model-calls, status: auto}
+      - {line: 26, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       transforms:CODEMOD-25. The base's `self.client` is taken, so the ladder moves to `genai_client`.
 
@@ -459,7 +459,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 13, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       transforms:CODEMOD-25. A name the class body defines is taken.
 

@@ -167,7 +167,7 @@ REPORT.md.
 | `positional_args_mapped_by_index` | A positional argument past the model name was matched by the old SDK's order (model_name, safety_settings, generation_config, tools, tool_config, system_instruction); safety_settings comes first, so check each landed where you meant. | A positional `GenerativeModel(...)` argument past index 0 was mapped by that order. |
 | `history_parts_rewritten` | Each string part of the start_chat history literal became {"text": the string}. | A `start_chat(history=...)` literal held string parts. |
 | `async_stream_await_preserved` | An await before an async streaming call was kept after the rename; dropping it raises TypeError. | An `await` precedes an async streaming call that was renamed. |
-| `response_text_may_be_none` | The reply's text is read where the old SDK raised ValueError for a reply with none; the new one returns None, so the value can be None and a handler for that error never runs. | A rewritten model call's result, or a name it is assigned to, has `.text` read. |
+| `response_text_may_be_none` | The reply's text is read where the old SDK raised ValueError for a reply with none; the new one returns None, so the value can be None and a handler for that error never runs. | A rewritten model call's result, a name it is assigned to, or a loop name over either (a stream's chunks) has `.text` read, with no handler that could catch the old error around it (that refuses the group). |
 | `upload_display_name_unset` | The old upload_file set display_name to the file's name when none was given; the new files.upload sets none, so a read of the uploaded file's display_name is now None. | An `upload_file(...)` call was rewritten. |
 
 ## 6. Bail selection: which code a withheld finding names

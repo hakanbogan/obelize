@@ -55,6 +55,7 @@ findings:
     kind: method_call
     confidence_reason: receiver_bound_self_attr
     verdict: auto
+    warnings: [response_text_may_be_none]
     note: >-
       D2. The receiver matches on the tuple (enclosing ClassDef node, first-parameter name,
       attribute name) - never on the qualified-name string, which here would be
@@ -68,6 +69,7 @@ findings:
     kind: method_call
     confidence_reason: receiver_bound_self_attr
     verdict: auto
+    warnings: [response_text_may_be_none]
     note: >-
       `stream=True` is a literal, so `literal_stream_flag` holds: the method becomes
       `self.client.models.generate_content_stream(...)` and the `stream=` argument is dropped, the
@@ -98,6 +100,7 @@ findings:
     kind: method_call
     confidence_reason: receiver_bound_same_scope
     verdict: auto
+    warnings: [response_text_may_be_none]
     note: >-
       C-17. Legacy is `ChatSession.send_message(self, content, *, ...)`, new is
       `Chat.send_message(self, message, config=None)`, so `send_message(content=text)` must become
@@ -172,8 +175,8 @@ must_not_report:
 notes: |
   Byte-for-byte target output is `assistant.after.py`, and after ADR-010 that statement is exact:
   nothing in this fixture bails, every finding is `auto`, so `after_file_is: fix_apply_output` and
-  `obelize fix --apply` must produce this file byte for byte. Three findings carry warnings
-  (lines 13, 32 and 46) - a warning is printed with the edit and recorded in REPORT.md; it does not
+  `obelize fix --apply` must produce this file byte for byte. Six findings carry warnings
+  (lines 13, 24, 28, 32, 38 and 46) - a warning is printed with the edit and recorded in REPORT.md; it does not
   withhold the hunk, which is what `needs_review` does. `assistant.after.py` compiles under CPython.
 
   This file was originally written with lines 13, 32 and 46 graded `needs_review` while the after
@@ -241,9 +244,11 @@ notes: |
      change half-writing this file would fail there rather than here.
      **Produced by rule since T13**
      ([ADR-028](../../../../docs/adr/ADR-028-chat-surface-async.md)). The same test
-     now asserts these bytes and these nine edits, including the three warnings this file grades:
-     the positional safety table on line 13, the reshaped history on line 32 and the `await` that
-     survives the async streaming rename on line 46. Every decision numbered here was made before
+     now asserts these bytes and these nine edits, including the warnings this file grades:
+     the positional safety table on line 13, the reshaped history on line 32, the `await` that
+     survives the async streaming rename on line 46, and on lines 24, 28 and 38 a reply whose
+     `.text` is now `None` where it raised (`response_text_may_be_none`, added to this key when
+     the rule began to warn on every such read). Every decision numbered here was made before
      any rule existed and the only one that moved is note 5's rewrapping, which was T11's and is
      recorded there.
 

@@ -45,7 +45,7 @@ cases:
       - {line: 12, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
       - {line: 14, rule: generative-model-calls, status: auto}
       - {line: 16, rule: generative-model-calls, status: auto}
-      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
       - {line: 25, rule: generative-model-calls, status: auto, warnings: [count_tokens_config_dropped]}
     notes: >-
       Line 14 is the constructor and line 16 the configuration written inside
@@ -65,7 +65,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
-      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       Every key is checked against the legal fifteen before it becomes a field
       of a class that would accept it. The client edit carries no warning: the
@@ -82,7 +82,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
-      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The emitted call is invented rather than rebuilt, which is the one case
       where the layout rule has no earlier decision to respect. The
@@ -117,7 +117,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
-      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The legacy SDK merged the two and let the call win key by key, so
       `temperature` is the call's value in the constructor's position and
@@ -134,8 +134,8 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
-      - {line: 16, rule: generative-model-calls, status: auto}
-      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
+      - {line: 21, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       `True` goes to a differently named method and `False` is the legacy
       default written out, so the keyword goes and the call does not move. The
@@ -153,7 +153,7 @@ cases:
       - {line: 9, rule: rename-import, status: auto}
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 13, rule: generative-model-calls, status: auto, warnings: [positional_args_mapped_by_index]}
-      - {line: 17, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The second positional is the safety table and the third is the
       configuration, which is the mapping a reader has to be able to check --
@@ -170,7 +170,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto, warnings: [model_name_looks_prefixed]}
-      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       Both SDKs accept it, so the string is carried across exactly as written.
       The warning is on the constructor's row and not on the call's: the
@@ -186,7 +186,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       A local binding rather than a module constant, which is a different row
       of the resolution table and the same rewrite. The client stays at module
@@ -203,7 +203,7 @@ cases:
       - {line: 10, rule: rename-import, status: auto}
       - {line: 17, rule: configure-to-client, status: auto}
       - {line: 18, rule: generative-model-calls, status: auto}
-      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
       - {line: 24, rule: generative-model-calls, status: auto}
     notes: >-
       This rule writes `self.client.models...` without knowing how `self.`
@@ -222,7 +222,7 @@ cases:
       - {line: 10, rule: rename-import, status: auto}
       - {line: 12, rule: configure-to-client, status: auto}
       - {line: 15, rule: generative-model-calls, status: auto}
-      - {line: 19, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The comment moves onto the statement that now comes first, after that
       statement's own blank lines. The blank line that separated the comment
@@ -239,7 +239,7 @@ cases:
     edits:
       - {line: 9, rule: rename-import, status: auto}
       - {line: 11, rule: configure-to-client, status: auto}
-      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
       - {line: 19, rule: generative-model-calls, status: auto}
     notes: >-
       The comment goes to the end of the block and keeps the blank lines that
@@ -259,7 +259,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
-      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       What is deleted is the statement and not the line, so the line survives
       with what is left on it -- and the semicolon goes, because a semicolon
@@ -275,7 +275,7 @@ cases:
       - {line: 9, rule: rename-import, status: auto}
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 13, rule: generative-model-calls, status: auto}
-      - {line: 17, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       `../rename_import/top_level_symbol.before.py` is this shape graded by one
       rule, where the honest answer is `from_import_unmigrated_symbol`. Here
@@ -296,7 +296,7 @@ cases:
       - {line: 15, rule: rename-import, status: auto}
       - {line: 13, rule: configure-to-client, status: auto}
       - {line: 15, rule: generative-model-calls, status: auto}
-      - {line: 19, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       Line 15 carries two rows and they belong to two rules: the import rule
       claims the configuration, because the name it is reached by is one of
@@ -335,7 +335,7 @@ cases:
       - {line: 9, rule: rename-import, status: auto}
       - {line: 13, rule: configure-to-client, status: auto}
       - {line: 15, rule: generative-model-calls, status: auto}
-      - {line: 19, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The middle rung of the same ladder `types_names_taken` grades the bottom
       of. The emitted configuration is spelled `genai_types.GenerateContentConfig`,
@@ -352,7 +352,7 @@ cases:
       - {line: 10, rule: rename-import, status: auto}
       - {line: 12, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 20, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The second argument this rule generates rather than moves. The row this
       file used to carry graded it `unknown_ctor_kwarg`, because the pack
@@ -371,7 +371,7 @@ cases:
       - {line: 10, rule: rename-import, status: auto}
       - {line: 12, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 26, rule: generative-model-calls, status: auto}
+      - {line: 26, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The canonical long form, a short alias, a shorter one and a mixed-case
       one, against four thresholds written the same four ways. The legacy
@@ -392,7 +392,7 @@ cases:
       - {line: 16, rule: rename-import, status: auto}
       - {line: 12, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       A member carries across under its own name, so the member lists and the
       string tables are two different sets and the pack declares both.
@@ -412,7 +412,7 @@ cases:
       - {line: 9, rule: rename-import, status: auto}
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 13, rule: generative-model-calls, status: auto}
-      - {line: 23, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       Both forms become the same list of objects. The two keys a row is read
       by are pack data and not knowledge: they are spelled the way the new
@@ -431,7 +431,7 @@ cases:
       - {line: 9, rule: rename-import, status: auto}
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 13, rule: generative-model-calls, status: auto}
-      - {line: 20, rule: generative-model-calls, status: auto}
+      - {line: 20, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       `merged_ss.update(safety_settings)` over a mapping keyed by category,
       read off the installed 0.8.6, so the call wins **per category** and not
@@ -469,9 +469,9 @@ cases:
       - {line: 10, rule: rename-import, status: auto}
       - {line: 12, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
       - {line: 22, rule: generative-model-calls, status: auto}
-      - {line: 23, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The file that made `receiver_method_unmapped` necessary, now that the
       methods have rewrites. Four edits from this rule over two bindings: the
@@ -492,7 +492,7 @@ cases:
       - {line: 13, rule: configure-to-client, status: auto}
       - {line: 15, rule: generative-model-calls, status: auto}
       - {line: 19, rule: generative-model-calls, status: auto, warnings: [history_parts_rewritten]}
-      - {line: 25, rule: generative-model-calls, status: auto}
+      - {line: 25, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       Each string part becomes `{"text": ...}` and the list keeps its own
       layout, because only the parts are rebuilt and everything around them is
@@ -516,7 +516,7 @@ cases:
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 13, rule: generative-model-calls, status: auto}
       - {line: 17, rule: generative-model-calls, status: auto}
-      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       Nothing is reshaped, so there is no warning -- which is what separates
       this row from its neighbour's and is why the warning is emitted from
@@ -537,7 +537,7 @@ cases:
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
       - {line: 16, rule: generative-model-calls, status: auto}
-      - {line: 17, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The same literal-flag rule as the model's own streaming call, one object
       further along, and the same refusal beside it: a non-literal flag is
@@ -595,7 +595,7 @@ cases:
       - {line: 12, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
       - {line: 20, rule: generative-model-calls, status: auto}
-      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The legacy SDK merged the model's configuration into the call's; the new
       `Chat.send_message` is `config if config else self._config`, read off the
@@ -687,7 +687,7 @@ cases:
       - {line: 9, rule: rename-import, status: auto}
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 13, rule: generative-model-calls, status: auto}
-      - {line: 17, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       transforms:CODEMOD-02. The client is `genai_client` because a parameter
       binds `client`; the rewritten call inside `answer` would read the
@@ -806,10 +806,30 @@ cases:
     notes: >-
       Nothing about the call is wrong, which is why the refusal is about what
       is done with the answer: the handler still compiles, never runs, and the
-      branch it guarded is gone. Only a handler that **names** the exception
-      counts. `model_constant` is the contrast, and it is the one two
-      `must_not_report` rows in the scan fixtures point at: a bare
-      `response.text` is not a finding and not a refusal.
+      branch it guarded is gone. A handler that could catch the exception
+      counts, one that names it or `Exception`, `BaseException` or no class
+      (`response_text_broad_guard`). `model_constant` is the contrast, and it is
+      the one two `must_not_report` rows in the scan fixtures point at: a bare
+      `response.text` is not a finding and not a refusal, though the call that
+      produced it carries a warning.
+
+  - file: response_text_broad_guard
+    what_it_is: >-
+      A handler for any exception around a read of `text`, which no longer
+      raises.
+    complete: false
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 13, rule: rename-import, status: auto}
+      - {line: 15, rule: configure-to-client, status: auto}
+      - {line: 17, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+      - {line: 21, rule: generative-model-calls, status: needs_review, reason: response_shape_changed}
+    notes: >-
+      `except Exception:` and a bare `except:` catch the `ValueError` the old
+      attribute raised, and nothing in the file says the handler was not written
+      for it. The refusal is the one for a handler that names the error, so the
+      two shapes are one defect.
 
   - file: dynamic_stream
     what_it_is: >-
@@ -889,7 +909,7 @@ cases:
       - {line: 15, rule: configure-to-client, status: auto}
       - {line: 17, rule: generative-model-calls, status: needs_review, reason: generation_config_not_static}
       - {line: 19, rule: generative-model-calls, status: auto}
-      - {line: 23, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       One row refused, and it is the object itself: no group consumed it,
       because the only place a rewrite can put a configuration is inside the
@@ -1265,7 +1285,7 @@ cases:
       - {line: 7, rule: rename-import, status: auto}
       - {line: 9, rule: configure-to-client, status: auto}
       - {line: 11, rule: generative-model-calls, status: auto}
-      - {line: 15, rule: generative-model-calls, status: auto}
+      - {line: 15, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The second of the two shapes a stream is written in; a loop's header is
       the first, in `stream_flags`.
@@ -1281,7 +1301,7 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
-      - {line: 16, rule: generative-model-calls, status: auto, warnings: [history_parts_rewritten]}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [history_parts_rewritten, response_text_may_be_none]}
     notes: >-
       Reshaped the way a chat history is. The call no longer fits on its line,
       so it wraps.
@@ -1355,7 +1375,7 @@ cases:
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 22, rule: generative-model-calls, status: auto}
       - {line: 25, rule: generative-model-calls, status: auto}
-      - {line: 26, rule: generative-model-calls, status: auto}
+      - {line: 26, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The name has one assignment and the model is its only reader, so the
       four keys are written into `chats.create`, the call the group's chat
@@ -1374,7 +1394,7 @@ cases:
       - {line: 14, rule: rename-import, status: auto}
       - {line: 12, rule: configure-to-client, status: auto}
       - {line: 20, rule: generative-model-calls, status: auto}
-      - {line: 24, rule: generative-model-calls, status: auto}
+      - {line: 24, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The model is the name's only reader, so the three keys are written into
       the call. The name stays where it is, and the class it holds is the new
@@ -1393,7 +1413,7 @@ cases:
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 18, rule: generative-model-calls, status: auto}
+      - {line: 18, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The spelling through the module is this rule's own symbol, so the
       object's row is its own and it is the rule that makes the class the new
@@ -1411,10 +1431,10 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 15, rule: generative-model-calls, status: auto}
-      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
       - {line: 20, rule: generative-model-calls, status: auto}
       - {line: 21, rule: generative-model-calls, status: auto}
-      - {line: 22, rule: generative-model-calls, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The assignment goes with the constructor, and so does the legacy
       `GenerationConfig` call in the second function: line 20 is that call,
@@ -1437,7 +1457,7 @@ cases:
       - {line: 17, rule: rename-import, status: auto}
       - {line: 11, rule: configure-to-client, status: auto}
       - {line: 21, rule: generative-model-calls, status: auto}
-      - {line: 25, rule: generative-model-calls, status: auto}
+      - {line: 25, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The mapping is read where it is assigned and rebuilt as
       `SafetySetting` objects. Its own lines stay, with the names of the new
@@ -1456,7 +1476,7 @@ cases:
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 21, rule: generative-model-calls, status: auto}
       - {line: 22, rule: generative-model-calls, status: auto}
-      - {line: 23, rule: generative-model-calls, status: auto}
+      - {line: 23, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       The model has no configuration, so the call restates only the table.
       The stream is read by a `for`, which is what lets

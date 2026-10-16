@@ -130,14 +130,19 @@ and go before the block's own footer. A line that shares its statement with
 another keeps its own comments. A commented constructor is not refused, because a
 comment above a model constant is ordinary.
 
-### D12. C-56 is a refusal about the answer, not about the call
+### D12. C-56 is a refusal about the answer, not about the call, and a warning where it is only read
 
 `response.text` raised `ValueError` with no parts and now returns `None`, so a
 handler for it never runs. The group is `response_shape_changed` when an
-attribute in `response_attrs_now_none` is read, on the call's result or a name
-it was assigned to, inside a `try` whose handler names `response_legacy_error`.
-A bare `except:` does not count: it is no evidence anyone relied on the
-exception. The schema requires both fields or neither.
+attribute in `response_attrs_now_none` is read, on the call's result, a name it
+was assigned to, or the name a `for` binds over either (a stream's chunks),
+inside a `try` whose handler could catch `response_legacy_error`: one naming it,
+`Exception` or `BaseException`, alone or in a tuple, or a bare `except:`. Nothing
+says the exception was not relied on, and a wrongly refused file costs a manual
+edit where a wrongly kept handler is a silent change. Any other read is
+rewritten, and the call carries `response_text_may_be_none`, since the value can
+be `None`: a handler in a caller, `builtins.ValueError` and an unguarded
+`.strip()` are not seen. The schema requires both fields or neither.
 
 ### D13. A fix-time bail's order is the rule's, and it is not on the scan's ladder
 
