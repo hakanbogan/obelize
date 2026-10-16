@@ -12,10 +12,10 @@ from typing import Any
 import pytest
 import yaml
 
+import support
 from obelize import fsutil
 from obelize.models import Config
 from obelize.packs import loader
-from obelize.scan import runner, walker
 from obelize.transforms import codemod
 from support import git, init_repo
 
@@ -106,21 +106,11 @@ def prepare(work: Path, root: Path, state: dict[str, Any]) -> None:
 
 def snapshot(work: Path) -> dict[str, bytes]:
     """Every file outside `.git/`, by relative path."""
-    return {
-        str(path.relative_to(work).as_posix()): path.read_bytes()
-        for path in sorted(work.rglob("*"))
-        if path.is_file() and ".git/" not in str(path.relative_to(work).as_posix())
-    }
+    return {name: data for name, data in support.snapshot(work).items() if ".git/" not in name}
 
 
 def plan(work: Path, config: Config | None = None) -> codemod.Run:
-    """From the walk to the last manifest edit, writing nothing."""
-    config = config or Config()
-    scan = runner.scan(work, config, SPEC, jobs=1)
-    selection = walker.walk(work, config)
-    wanted = {result.path for result in scan.results} | set(selection.manifests)
-    sources = {name: (work / name).read_bytes() for name in sorted(wanted)}
-    return codemod.run(scan, sources, BUNDLED.pack, SPEC)
+    return support.migrate(work, SPEC, BUNDLED.pack, config)
 
 
 def changes(run: codemod.Run) -> list[fsutil.Change]:

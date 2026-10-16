@@ -17,8 +17,9 @@ import yaml
 from obelize.impact import planner
 from obelize.models import Config, Edit
 from obelize.packs import loader
-from obelize.scan import analysis, parse, runner
+from obelize.scan import analysis, runner
 from obelize.transforms import base, registry
+from support import parsed
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "transforms" / "rename_import"
 BUNDLED = loader.load("gemini/google-generativeai-to-google-genai")
@@ -104,8 +105,7 @@ def test_the_output_parses_and_compiles(name: str, corpus: dict[str, Any]) -> No
 def test_applying_twice_equals_applying_once(name: str, corpus: dict[str, Any]) -> None:
     """The scan re-runs on the output: idempotence is the whole path's claim, not one rule's."""
     produced, _edits, _unclaimed = outcome(corpus, name)
-    read = parse.gates(f"{name}.py", produced)
-    assert read.module is not None, "the produced bytes did not parse"
+    read = parsed(f"{name}.py", produced)
     plan = planner.plan(analysis.analyse(read, SPEC), SPEC)
     active = rule()
     context = base.RuleContext.build(

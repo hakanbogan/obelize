@@ -16,6 +16,7 @@ import yaml
 from obelize import fsutil
 from obelize.models import GUARD_REFUSALS, EditProposal
 from obelize.providers import base, guard
+from support import snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 KEY: dict[str, Any] = yaml.safe_load(
@@ -164,7 +165,7 @@ def test_the_two_fake_adapters_are_refused_and_the_tree_is_unchanged(
     """TM-4's acceptance, over all five consultations: every byte in and out of the tree is kept."""
     outside = driven.root.parent.parent / ".bashrc"
     outside.write_bytes(b"# the file a patch tried to reach\n")
-    before = _tree(driven.root)
+    before = snapshot(driven.root)
 
     adapters = ((_Bashrc(), "path_outside_root"), (_Shell(), "import_outside_the_target"))
     for adapter, word in adapters:
@@ -182,16 +183,8 @@ def test_the_two_fake_adapters_are_refused_and_the_tree_is_unchanged(
             assert checked.refusal == word, checked.detail
             assert checked.after is None
 
-    assert _tree(driven.root) == before
+    assert snapshot(driven.root) == before
     assert outside.read_bytes() == b"# the file a patch tried to reach\n"
-
-
-def _tree(root: Path) -> dict[str, bytes]:
-    return {
-        str(path.relative_to(root)): path.read_bytes()
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    }
 
 
 class _Bashrc:

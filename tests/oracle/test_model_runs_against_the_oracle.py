@@ -25,7 +25,7 @@ from typer.testing import CliRunner
 from obelize.cli import app
 from obelize.providers import openai_compat as adapter
 from platforms import PYTHON
-from support import commit_all, init_repo
+from support import commit_all, init_repo, snapshot
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -159,14 +159,6 @@ def prepare(work: Path, case: dict[str, Any], base_url: str, config_home: Path) 
             handle.write("# edited by hand, and not committed\n")
 
 
-def digests(folder: Path) -> dict[str, bytes]:
-    return {
-        path.relative_to(folder).as_posix(): path.read_bytes()
-        for path in sorted(folder.rglob("*"))
-        if path.is_file()
-    }
-
-
 @dataclass(frozen=True, slots=True)
 class State:
     """One invocation, as the corpus left it."""
@@ -235,7 +227,7 @@ def drive(name: str, work: Path, server: str, patch: pytest.MonkeyPatch) -> Stat
         folder=folders[0] if folders else None,
         exit_code=result.exit_code,
         stdout=result.output,
-        files=digests(folders[0]) if folders else {},
+        files=snapshot(folders[0]) if folders else {},
         requests=[one for one in SEEN if one.case == name],
         changed=sorted(
             name for name, data in original.items() if (work / name).read_bytes() != data

@@ -17,7 +17,7 @@ from obelize.cli import app
 from obelize.models import UNDO_SKIPS
 from obelize.native import files
 from platforms import AS_ROOT, PYTHON, deny, link
-from support import commit_all, committed, git
+from support import commit_all, committed, git, snapshot
 
 runner = CliRunner()
 
@@ -237,26 +237,18 @@ def _outside(tmp_path: Path) -> Path:
     return outside
 
 
-def _snapshot(directory: Path) -> dict[str, bytes]:
-    return {
-        str(path.relative_to(directory)): path.read_bytes()
-        for path in sorted(directory.rglob("*"))
-        if path.is_file()
-    }
-
-
 def test_a_run_folder_that_is_a_link_is_refused(tree: Path, run_id: str, tmp_path: Path) -> None:
     outside = _outside(tmp_path)
     folder = tree / ".obelize" / "runs" / run_id
     folder.rename(outside / run_id)
     link(folder, outside / run_id)
-    before = _snapshot(outside)
+    before = snapshot(outside)
 
     result = undo(tree, run_id)
 
     assert result.exit_code == 2, result.output
     assert "symbolic link" in result.output
-    assert _snapshot(outside) == before
+    assert snapshot(outside) == before
 
 
 def test_an_index_that_is_a_link_is_refused(tree: Path, run_id: str, tmp_path: Path) -> None:
@@ -264,12 +256,12 @@ def test_an_index_that_is_a_link_is_refused(tree: Path, run_id: str, tmp_path: P
     index = tree / ".obelize" / "runs" / run_id / "run.json"
     index.rename(outside / "run.json")
     index.symlink_to(outside / "run.json")
-    before = _snapshot(outside)
+    before = snapshot(outside)
 
     result = undo(tree, run_id)
 
     assert result.exit_code == 2, result.output
-    assert _snapshot(outside) == before
+    assert snapshot(outside) == before
 
 
 def test_an_undo_record_that_is_a_link_is_replaced_and_not_followed(

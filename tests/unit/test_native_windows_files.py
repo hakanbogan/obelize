@@ -20,7 +20,7 @@ from obelize import fsutil
 from obelize.evidence.folder import RunFolder
 from obelize.native import _win32, files
 from platforms import held, junction, link, windows_only
-from support import write_tree
+from support import snapshot, write_tree
 
 pytestmark = windows_only("NT calls; `test_native_win32.py` checks what they pass on any system")
 
@@ -39,14 +39,6 @@ def outside(tmp_path: Path) -> Path:
     directory.mkdir()
     (directory / "mod.py").write_bytes(b"THEIRS = 1\n")
     return directory
-
-
-def snapshot(directory: Path) -> dict[str, bytes]:
-    return {
-        path.relative_to(directory).as_posix(): path.read_bytes()
-        for path in sorted(directory.rglob("*"))
-        if path.is_file()
-    }
 
 
 def test_a_directory_swapped_for_a_junction_is_not_written_through(

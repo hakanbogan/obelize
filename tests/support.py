@@ -1,4 +1,4 @@
-"""What the suites share: git in a directory, written trees and what a directory holds.
+"""What the suites share: git in a directory, written trees, what a directory holds, a codemod run.
 
 Imported as `support`, like `platforms`.
 """
@@ -9,8 +9,15 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obelize.models import Config
+from obelize.scan import parse, runner, walker
+from obelize.transforms import codemod
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+    from obelize.models import ScanSpec
+    from obelize.packs.schema import PackDocument
 
 
 def git(root: Path, *arguments: str) -> subprocess.CompletedProcess[bytes]:
@@ -51,3 +58,30 @@ def committed(root: Path, files: Mapping[str, str | bytes]) -> Path:
     init_repo(root)
     commit_all(root)
     return root
+
+
+def snapshot(directory: Path) -> dict[str, bytes]:
+    """Every file under `directory` by its `/`-spelled relative path, to compare."""
+    return {
+        path.relative_to(directory).as_posix(): path.read_bytes()
+        for path in sorted(directory.rglob("*"))
+        if path.is_file()
+    }
+
+
+def migrate(
+    work: Path, spec: ScanSpec, pack: PackDocument, config: Config | None = None
+) -> codemod.Run:
+    """From the walk to the last manifest edit over `work`, writing nothing."""
+    config = config or Config()
+    scan = runner.scan(work, config, spec, jobs=1)
+    wanted = {result.path for result in scan.results} | set(walker.walk(work, config).manifests)
+    sources = {name: (work / name).read_bytes() for name in sorted(wanted)}
+    return codemod.run(scan, sources, pack, spec)
+
+
+def parsed(path: str, data: bytes) -> parse.Read:
+    """`data` as the scan reads it, which must parse."""
+    read = parse.gates(path, data)
+    assert read.module is not None, f"{path} did not parse"
+    return read

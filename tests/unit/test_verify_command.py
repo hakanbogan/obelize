@@ -18,7 +18,7 @@ from obelize.cli import app
 from obelize.evidence import report
 from obelize.native import files
 from platforms import AS_ROOT, PYTHON, deny, link, quoted, reports_held_as_on_windows
-from support import commit_all, committed, git
+from support import commit_all, committed, git, snapshot
 
 runner = CliRunner()
 
@@ -412,14 +412,6 @@ def test_a_quiet_re_verification_leaves_no_log_from_the_noisy_one(tree: Path) ->
     assert (folder(tree, run_id) / "verify" / "baseline" / "1.log").is_file()
 
 
-def _snapshot(directory: Path) -> dict[str, bytes]:
-    return {
-        str(path.relative_to(directory)): path.read_bytes()
-        for path in sorted(directory.rglob("*"))
-        if path.is_file()
-    }
-
-
 def test_a_verification_folder_that_is_a_link_is_not_emptied(tree: Path, tmp_path: Path) -> None:
     """Re-verification empties `verify/after/`; through a link it would empty an outside one."""
     run_id = applied(tree)
@@ -429,13 +421,13 @@ def test_a_verification_folder_that_is_a_link_is_not_emptied(tree: Path, tmp_pat
     verification = folder(tree, run_id) / "verify"
     shutil.rmtree(verification)
     link(verification, outside)
-    before = _snapshot(outside)
+    before = snapshot(outside)
 
     result = verify(tree, run_id, "--verify", QUIET)
 
     assert result.exit_code == 1, result.output
     assert "symbolic link" in result.output
-    assert _snapshot(outside) == before
+    assert snapshot(outside) == before
 
 
 def test_a_report_that_is_a_link_is_neither_read_nor_written(tree: Path, tmp_path: Path) -> None:

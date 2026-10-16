@@ -20,7 +20,7 @@ from typer.testing import CliRunner, Result
 from obelize.cli import app
 from obelize.evidence import report
 from platforms import PYTHON, copied
-from support import commit_all, init_repo
+from support import commit_all, init_repo, snapshot
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "commands"
 KEY: dict[str, Any] = yaml.safe_load((ROOT / "answers.yaml").read_text(encoding="utf-8"))
@@ -50,15 +50,6 @@ def spelled(argv: list[str], marker: Path) -> list[str]:
         COMMANDS.get(word.strip("{}"), word).format(python=PYTHON, marker=marker.as_posix())
         for word in argv
     ]
-
-
-def digests(folder: Path) -> dict[str, bytes]:
-    """Every file under a run folder, by its folder-relative path spelled with `/`."""
-    return {
-        path.relative_to(folder).as_posix(): path.read_bytes()
-        for path in sorted(folder.rglob("*"))
-        if path.is_file()
-    }
 
 
 def prepare(work: Path, case: dict[str, Any]) -> None:
@@ -93,7 +84,7 @@ def drive(
         argv = list(spec["argv"])
         target = spec.get("updates", spec.get("undo_of"))
         folder = None if target is None else created[_written(case, target)]
-        before = {} if folder is None else digests(folder)
+        before = {} if folder is None else snapshot(folder)
         if folder is not None:
             argv += ["--run", folder.name]
         existing = _folders(work)
@@ -110,7 +101,7 @@ def drive(
                 "work": work,
                 "folder": folder,
                 "before": before,
-                "after": digests(folder),
+                "after": snapshot(folder),
                 "result": result,
                 "run": json.loads((folder / "run.json").read_text(encoding="utf-8")),
                 "legacy": (work / "app.py").read_bytes() == (original / "app.py").read_bytes(),
