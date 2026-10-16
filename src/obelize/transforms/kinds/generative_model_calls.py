@@ -1162,7 +1162,6 @@ class GenerativeModelCalls:
         if not attributes:
             return frozenset()
         read = _reads(tree.module, attributes)
-        loops = _loop_targets(tree.module)
         handled = {
             id(value)
             for value in _handled_reads(
@@ -1171,19 +1170,7 @@ class GenerativeModelCalls:
         }
         positions: set[Position] = set()
         for use in group.uses:
-            names = _bound_by(tree, (use,))
-            # A stream's chunks are read through the loop's own name, over the call or its name.
-            names |= {
-                target
-                for iterable, target in loops
-                if iterable is use.call
-                or (isinstance(iterable, cst.Name) and iterable.value in names)
-            }
-            mine = [
-                value
-                for value in read
-                if value is use.call or (isinstance(value, cst.Name) and value.value in names)
-            ]
+            mine = [value for value in read if tree.yields(value, use.call)]
             if any(id(value) in handled for value in mine):
                 raise BailError("response_shape_changed")
             if mine:
@@ -1293,6 +1280,40 @@ class _Tree(Tree):
                 )
         return False
 
+    def yields(self, value: cst.BaseExpression, call: cst.Call) -> bool:
+        """Whether `value` may be what `call` returns, or a chunk of a stream it returns.
+
+        The call itself, awaited or not, or a name that something binds to one: an assignment, a
+        walrus, or the `for` that takes a chunk of it. A name is resolved in its own scope, so
+        another function's variable of the same name is not this one.
+        """
+        pending, seen = [value], set[int]()
+        while pending:
+            node = pending.pop()
+            while isinstance(node, cst.Await):
+                node = node.expression
+            if node is call:
+                return True
+            if isinstance(node, cst.Name) and id(node) not in seen:
+                seen.add(id(node))
+                scope = self._scopes[node]
+                for assignment in scope[node.value] if scope is not None else ():
+                    if isinstance(assignment, Assignment):
+                        pending.extend(self._bound_to(assignment.node))
+        return False
+
+    def _bound_to(self, target: cst.CSTNode) -> list[cst.BaseExpression]:
+        """What the statement binding `target` takes its value from: none, or the one expression."""
+        match self.parent(target):
+            case cst.AssignTarget() as link:
+                site = self.parent(link)
+                return [site.value] if isinstance(site, cst.Assign) else []
+            case cst.AnnAssign(value=cst.BaseExpression() as value) | cst.NamedExpr(value=value):
+                return [value]
+            case cst.For(target=bound, iter=iterable) if bound is target:
+                return [iterable]
+        return []
+
     def receiver(self, call: cst.Call) -> str:
         """How the receiver of a method call is spelled in the source."""
         func = call.func
@@ -1378,28 +1399,6 @@ def _literal_flag(node: cst.BaseExpression) -> bool:
     raise BailError("dynamic_stream_flag")
 
 
-def _bound_by(tree: _Tree, uses: Sequence[_Use]) -> frozenset[str]:
-    """The plain names these calls are assigned to."""
-    names: set[str] = set()
-    for use in uses:
-        statement = tree.parent(use.call)
-        if not isinstance(statement, cst.Assign):
-            continue
-        names.update(
-            target.target.value
-            for target in statement.targets
-            if isinstance(target.target, cst.Name)
-        )
-    return frozenset(names)
-
-
-def _loop_targets(module: cst.Module) -> list[tuple[cst.BaseExpression, str]]:
-    """Each `for <name> in <iterable>` of the module, as the iterable and the name."""
-    found = _Loops()
-    module.visit(found)
-    return found.targets
-
-
 def _reads(module: cst.Module, attributes: frozenset[str]) -> list[cst.BaseExpression]:
     """Everything read as one of `attributes` anywhere in the module."""
     found = _Reads(attributes)
@@ -1442,16 +1441,6 @@ class _Handled(cst.CSTVisitor):
         if isinstance(node, cst.Tuple):
             return any(self._names(element.value) for element in node.elements)
         return False
-
-
-class _Loops(cst.CSTVisitor):
-    def __init__(self) -> None:
-        super().__init__()
-        self.targets: list[tuple[cst.BaseExpression, str]] = []
-
-    def visit_For(self, node: cst.For) -> None:  # noqa: N802 - libcst dispatch
-        if isinstance(node.target, cst.Name):
-            self.targets.append((node.iter, node.target.value))
 
 
 class _Reads(cst.CSTVisitor):

@@ -1013,7 +1013,12 @@ def test_a_handler_that_names_another_error_is_not_this_shape() -> None:
 
 @pytest.mark.parametrize(
     "handler",
-    ["except:", "except Exception:", "except BaseException:", "except (OSError, Exception) as e:"],
+    [
+        "except:",
+        "except Exception:",
+        "except BaseException:",
+        "except (OSError, Exception) as e:",
+    ],
     ids=["bare", "Exception", "BaseException", "among others"],
 )
 def test_a_handler_that_would_catch_the_old_error_without_naming_it_refuses_the_group(
@@ -1035,6 +1040,97 @@ def test_a_handler_around_a_stream_chunk_read_is_the_same_hazard() -> None:
     assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
 
 
+ASYNC = 'MODEL = sdk.Model("m")\n\n\nasync def a(p):\n'
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    r = await MODEL.later(p)\n"
+        "    try:\n        return r.answer\n    except LookupError:\n        return None\n",
+        "    try:\n        return (await MODEL.later(p)).answer\n"
+        "    except Exception:\n        return None\n",
+        "    async for c in await MODEL.later(p, live=True):\n"
+        "        try:\n            yield c.answer\n"
+        "        except BaseException:\n            pass\n",
+        "    coro = MODEL.later(p)\n    r = await coro\n"
+        "    try:\n        return r.answer\n    except:\n        return None\n",
+        "    r = await MODEL.later(p, live=True)\n    async for c in r:\n"
+        "        try:\n            yield c.answer\n        except Exception:\n            pass\n",
+    ],
+    ids=["a name", "in place", "a stream's chunk", "through a coroutine's name", "a name's chunk"],
+)
+def test_the_result_of_an_awaited_call_is_read_where_a_handler_could_catch_the_old_error(
+    body: str,
+) -> None:
+    """The async twin of the sync shapes, which are refused: the call sits under an `await`."""
+    _produced, edits = run(ASYNC + body)
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    r = await MODEL.later(p)\n    return r.answer\n",
+        "    return (await MODEL.later(p)).answer\n",
+        "    async for c in await MODEL.later(p, live=True):\n        yield c.answer\n",
+        "    coro = MODEL.later(p)\n    r = await coro\n    return r.answer\n",
+    ],
+    ids=["a name", "in place", "a stream's chunk", "through a coroutine's name"],
+)
+def test_the_result_of_an_awaited_call_is_warned_about_where_nothing_could_catch_the_old_error(
+    body: str,
+) -> None:
+    _produced, edits = run(ASYNC + body)
+    assert refusals(edits) == [None, None]
+    assert "response_text_may_be_none" in [
+        name for row in edits if row.rule_id == "model-calls" for name in row.warnings
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    r: object = MODEL.run(p)\n    return r.answer\n",
+        "    return (r := MODEL.run(p)).answer and r.answer\n",
+    ],
+    ids=["an annotated name", "a walrus"],
+)
+def test_a_name_the_result_is_bound_to_in_other_ways_is_read_the_same(body: str) -> None:
+    _produced, edits = run(f'MODEL = sdk.Model("m")\n\n\ndef a(p):\n{body}')
+    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [
+        (),
+        ("response_text_may_be_none",),
+    ]
+
+
+@pytest.mark.parametrize(
+    "scope",
+    ["", "MODEL = sdk.Model('m')\nr = MODEL.run('q')\n\n\n"],
+    ids=["a call in a function", "a call at module level"],
+)
+def test_a_read_of_another_variable_that_shares_the_name_is_not_this_calls(scope: str) -> None:
+    """`r` in `b` is not the result of the call, so the handler around it is not this group's."""
+    call = "" if scope else "    r = MODEL.run(p)\n    return r.other\n"
+    header = "" if scope else 'MODEL = sdk.Model("m")\n\n\ndef a(p):\n'
+    _produced, edits = run(
+        f"{scope}{header}{call}\n\ndef b(u):\n    try:\n        r = sdk.fetch(u)\n"
+        "        return r.answer\n    except Exception:\n        return None\n"
+    )
+    assert refusals(edits) == [None, None]
+    assert warned_for_the_read(edits) == []
+
+
+def warned_for_the_read(edits: list[Edit]) -> list[str]:
+    return [
+        name
+        for row in edits
+        if row.rule_id == "model-calls"
+        for name in row.warnings
+        if name == "response_text_may_be_none"
+    ]
+
+
 @pytest.mark.parametrize(
     ("body", "noted"),
     [
@@ -1051,6 +1147,7 @@ def test_a_handler_around_a_stream_chunk_read_is_the_same_hazard() -> None:
         ("    r = MODEL.run(p)\n    for i, c in other:\n        yield c.answer\n", [(), ()]),
         ("    return MODEL.run(p).other\n", [(), ()]),
         ("    r = MODEL.run(p)\n    return other.answer\n", [(), ()]),
+        ("    r = MODEL.run(p)\n    return str.answer\n", [(), ()]),
         ("    return MODEL.run(p)\n", [(), ()]),
     ],
     ids=[
@@ -1061,6 +1158,7 @@ def test_a_handler_around_a_stream_chunk_read_is_the_same_hazard() -> None:
         "an unpacking loop over something else",
         "another attribute",
         "another object",
+        "a builtin",
         "never read",
     ],
 )

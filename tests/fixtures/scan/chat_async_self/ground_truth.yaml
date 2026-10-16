@@ -112,6 +112,7 @@ findings:
     kind: method_call
     confidence_reason: receiver_bound_self_attr
     verdict: auto
+    warnings: [response_text_may_be_none]
     note: >-
       The non-streaming async branch, and the only branch where "await untouched" holds (C-18):
       `await self.client.aio.models.generate_content(model=..., contents=..., config=...)`. The
@@ -123,7 +124,7 @@ findings:
     kind: method_call
     confidence_reason: receiver_bound_self_attr
     verdict: auto
-    warnings: [async_stream_await_preserved]
+    warnings: [async_stream_await_preserved, response_text_may_be_none]
     note: >-
       C-18, the async streaming branch. Becomes
       `async for chunk in await self.client.aio.models.generate_content_stream(...)`. ADR-008
@@ -175,8 +176,8 @@ must_not_report:
 notes: |
   Byte-for-byte target output is `assistant.after.py`, and after ADR-010 that statement is exact:
   nothing in this fixture bails, every finding is `auto`, so `after_file_is: fix_apply_output` and
-  `obelize fix --apply` must produce this file byte for byte. Six findings carry warnings
-  (lines 13, 24, 28, 32, 38 and 46) - a warning is printed with the edit and recorded in REPORT.md; it does not
+  `obelize fix --apply` must produce this file byte for byte. Seven findings carry warnings
+  (lines 13, 24, 28, 32, 38, 42 and 46) - a warning is printed with the edit and recorded in REPORT.md; it does not
   withhold the hunk, which is what `needs_review` does. `assistant.after.py` compiles under CPython.
 
   This file was originally written with lines 13, 32 and 46 graded `needs_review` while the after

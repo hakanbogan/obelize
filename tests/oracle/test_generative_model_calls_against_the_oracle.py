@@ -236,8 +236,13 @@ def test_the_rules_produce_the_other_phase_zero_answer_key() -> None:
         (28, "auto", "generative-model-calls", ("response_text_may_be_none",)),
         (32, "auto", "generative-model-calls", ("history_parts_rewritten",)),
         (38, "auto", "generative-model-calls", ("response_text_may_be_none",)),
-        (42, "auto", "generative-model-calls", ()),
-        (46, "auto", "generative-model-calls", ("async_stream_await_preserved",)),
+        (42, "auto", "generative-model-calls", ("response_text_may_be_none",)),
+        (
+            46,
+            "auto",
+            "generative-model-calls",
+            ("async_stream_await_preserved", "response_text_may_be_none"),
+        ),
     ]
 
 
@@ -256,6 +261,7 @@ def test_the_warnings_the_chat_key_names_are_the_warnings_the_rules_emit() -> No
         (28, ("response_text_may_be_none",)),
         (32, ("history_parts_rewritten",)),
         (38, ("response_text_may_be_none",)),
-        (46, ("async_stream_await_preserved",)),
+        (42, ("response_text_may_be_none",)),
+        (46, ("async_stream_await_preserved", "response_text_may_be_none")),
     }
     assert {(row.line, row.warnings) for row in edits if row.warnings} == graded

@@ -572,16 +572,18 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 10, rule: configure-to-client, status: auto}
       - {line: 12, rule: generative-model-calls, status: auto}
-      - {line: 16, rule: generative-model-calls, status: auto}
+      - {line: 16, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
       - {line: 21, rule: generative-model-calls, status: auto}
     notes: >-
       Both sides are coroutine functions, so the rewrite is the service and
       the method name and nothing else. The `await` survives because this rule
       replaces the call and never the expression around it, which is the same
       mechanism that keeps `return `, `.total_tokens` and a trailing comment
-      where they are. No warning on either row: the warning belongs to the
-      streaming branch, where dropping the `await` is the mistake that
-      compiles.
+      where they are. The `await` does not hide the answer from the read check:
+      line 17 reads `.text` on what line 16 awaited, so line 16 warns as its
+      sync twin does. Line 21 reads another attribute and has no warning; the
+      `await` warning belongs to the streaming branch, where dropping it is the
+      mistake that compiles.
 
   - file: async_stream
     what_it_is: >-
@@ -593,14 +595,15 @@ cases:
       - {line: 12, rule: rename-import, status: auto}
       - {line: 14, rule: configure-to-client, status: auto}
       - {line: 16, rule: generative-model-calls, status: auto}
-      - {line: 20, rule: generative-model-calls, status: auto, warnings: [async_stream_await_preserved]}
+      - {line: 20, rule: generative-model-calls, status: auto, warnings: [async_stream_await_preserved, response_text_may_be_none]}
     notes: >-
       ADR-008 wrote this shape with no `await` and called the fix an inserted
       one; ADR-010 F-8 corrected it on a measurement, and this is the file that
       pins the correction. The warning is what makes the preserved `await`
       visible in the report, because an implementation that derived this from
       the sync streaming rule would drop it and the file would fail at runtime
-      rather than at import.
+      rather than at import. Each chunk's `.text` is read on line 21, so the
+      call carries `response_text_may_be_none` as well.
 
   - file: chat_send_config
     what_it_is: >-
