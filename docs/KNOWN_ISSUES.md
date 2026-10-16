@@ -156,7 +156,8 @@ imports and no requirements file can declare, or a dependency line it cannot rew
 leaves every file and the pin as they were, and an apply exits `4`. `obelize scan` grades files one
 at a time, so it can show rows `eligible` that `fix` then withholds. The pack has no Gate 1 result.
 The [dry run](BENCHMARK_RESULTS.md#fix-dry-run) counts those withheld rows and the repositories
-they leave unchanged.
+they leave unchanged. Writing the async, streamed, Azure, `File` or `FineTune` calls it withholds
+would free at most one repository of that 80-repository frame each, so none is written.
 
 An `openai` declaration with no lower bound (`openai`, `openai<1`, `openai>=0.20`) is migrated only
 where code uses `openai.ChatCompletion` or `openai.Audio`, which no release below 0.27.0 defines and
