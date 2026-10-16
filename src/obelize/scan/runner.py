@@ -463,8 +463,10 @@ def _cells(path: str, data: bytes, spec: ScanSpec) -> tuple[int, ...] | parse.Li
         read = parse.gates(path, book.source, notebook=True)
         if read.status != "parsed":
             row = read.limitations[0]
-            cell = f"It is in cell {book.cell(read.findings[0].line)}."
-            return parse.Limitation(path=path, code=row.code, detail=f"{row.detail} {cell}")
+            cell = book.cell(read.findings[0].line)
+            return parse.Limitation(
+                path=path, code=row.code, detail=f"In cell {cell}. {row.detail}"
+            )
         used = analysis.analyse(read, spec).findings
     except Exception as error:
         return parse.crashed(path, book.source, error).limitations[0]

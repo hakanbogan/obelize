@@ -208,8 +208,7 @@ def test_a_cell_that_does_not_compile_is_a_limitation_that_names_the_cell(tmp_pa
     scan = scanned(repository(tmp_path, {"n.ipynb": data}))
     [row] = scan.limitations
     assert (row.path, row.code) == ("n.ipynb", "input_does_not_parse")
-    assert row.detail.startswith("Not valid Python for this interpreter")
-    assert row.detail.endswith("It is in cell 3.")
+    assert row.detail.startswith("In cell 3. Not valid Python for this interpreter")
     assert scan.unanalysed == ("n.ipynb",)
     assert scan.manifests.blocking == ("n.ipynb",)
 
