@@ -84,6 +84,21 @@ cases:
       `configure(api_key="")` returns and `Client(api_key="")` raises
       `ValueError: No API key was provided.` D5 says non-empty for this row.
 
+  - file: bare_configure
+    what_it_is: >-
+      `configure()` with no argument, so the environment supplies the key.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      The rule writes `Client()` and does not look at the environment, where the
+      two SDKs read different variables first (the pack's limitations say so).
+      The one warning the row carries is that the client checks its key when it
+      is built, which a module-level one does at import.
+
   - file: trailing_comment
     what_it_is: >-
       `basic/app.py:7`'s shape, with a comment above the call and one after it.
@@ -465,11 +480,11 @@ cases:
 
 notes: |
   Every line number above was checked against `cat -n` and against a scan of
-  the twenty-eight `.before.py` files, all of which grade `eligible` with no bail:
+  the twenty-nine `.before.py` files, all of which grade `eligible` with no bail:
   the scan sees nothing wrong with any of them. What is withheld here is
   withheld by the rewrite.
 
-  The twenty-seven `.after.py` keys were written by hand before
+  The twenty-eight `.after.py` keys were written by hand before
   `src/obelize/transforms/kinds/configure_to_client.py` existed, and
   `module_alias_taken`, the one file with `after: none`, is the stronger claim
   of the two: both rules must hand back the module they were given, byte for
