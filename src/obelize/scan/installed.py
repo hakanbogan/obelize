@@ -253,8 +253,9 @@ def _harmless(path: str, option: str, walk: Walk) -> bool:
         return False
     flag, argument = found["flag"], (found["argument"] or "").strip()
     if flag in _FILES:
-        return posixpath.normpath(posixpath.join(posixpath.dirname(path), argument)) in set(
-            walk.manifests
+        return any(
+            target in walk.manifests
+            for target, _ in manifests.includes(path, option.encode("utf-8", "surrogateescape"))
         )
     if flag in _EDITABLE:
         return "://" not in argument and "+" not in argument.split("/")[0]

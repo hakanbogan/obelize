@@ -606,6 +606,11 @@ STANDS_IN: dict[str, dict[str, str | bytes]] = {
     "upper-bound-only": {"requirements.txt": "PyPDF2<4\n"},
     "two-bounds": {"requirements.txt": "PyPDF2>=2,<4\n"},
     "poetry": {"pyproject.toml": '[tool.poetry.dependencies]\nPyPDF2 = "*"\n'},
+    "an-include-spelled-with-windows-separators": {
+        "requirements.txt": "-r sub\\base.pip\nPyPDF2\n",
+        "sub/base.pip": "-c ..\\pins.pip\n",
+        "pins.pip": "flask<3\n",
+    },
     "an-include-of-a-file-that-says-nothing-of-it": {
         "requirements.txt": "-r base.pip\n-c pins.pip\nPyPDF2\n",
         "base.pip": "flask\n-r sub/more.pip\n",
