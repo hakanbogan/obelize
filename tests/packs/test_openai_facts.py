@@ -169,6 +169,17 @@ def test_a_name_that_proves_a_legacy_release_is_defined_by_it_and_is_a_stub_on_t
     assert type(getattr(openai, name)).__name__ == "APIRemovedInV1Proxy"
 
 
+@pytest.mark.parametrize("symbol", PACK.to.introduces)
+def test_a_name_the_new_side_introduces_is_defined_by_it_and_was_not_by_the_old_release(
+    symbol: str,
+) -> None:
+    """`to.introduces` says no release of 0.27.0 to 0.28.1 defines the name (`SOURCES.md`): code
+    that uses one cannot run on a pin that admits only those."""
+    name = symbol.removeprefix("openai.")
+    assert name not in SNAPSHOT["top"]
+    assert inspect.isclass(getattr(openai, name))
+
+
 @pytest.mark.parametrize(
     "name", sorted(name for name in SNAPSHOT["top"] if _legacy(name) and name.islower())
 )

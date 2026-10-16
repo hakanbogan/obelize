@@ -53,8 +53,9 @@ module, CPython 3.12, `uv run --isolated --no-project --with openai==<release>`,
 API). 1.109.1 and 3.26.0 define both as stubs that raise (`tests/packs/test_openai_facts.py`). Code
 that calls one therefore ran on a release in `>=0.27.0,<1`, whichever release a bare `openai`
 resolves to today. `Completion`, `Embedding` and `error` exist below 0.27.0 too, so they prove
-nothing and are not listed. The releases are published and cannot change, so no weekly job reads an
-index for this.
+nothing and are not listed. `to.introduces` rests on the same reading of the same three releases:
+none defines `OpenAI`, `AsyncOpenAI` or `AzureOpenAI`, which 1.109.1 and 3.26.0 define as classes.
+The releases are published and cannot change, so no weekly job reads an index for either.
 
 Facts about the old release are held in `tests/packs/openai_legacy_surface.json`
 and compared to the real 0.28.1 weekly by `tests/packs/openai_legacy_check.py`;

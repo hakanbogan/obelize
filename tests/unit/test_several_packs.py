@@ -132,7 +132,13 @@ def test_a_pack_whose_library_the_repository_does_not_use_is_not_chosen(tmp_path
             "manifest_code_mismatch",
         ),
         (PYPDF, "import pypdf\n", "PyPDF2==1.26.0", "needs_review", "manifest_code_mismatch"),
-        (OPENAI, "from openai import OpenAI\n", "openai==0.28.1", "not_a_usage", None),
+        (
+            OPENAI,
+            "from openai import OpenAI\n",
+            "openai==0.28.1",
+            "needs_review",
+            "manifest_code_mismatch",
+        ),
     ],
     ids=["gemini", "pypdf", "openai"],
 )

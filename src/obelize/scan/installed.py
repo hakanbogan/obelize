@@ -29,7 +29,7 @@ from packaging.version import Version
 
 from obelize import fsutil
 from obelize.models import printable
-from obelize.scan import manifests, parse, runtime
+from obelize.scan import manifests, parse
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -368,7 +368,7 @@ def _outside(taken: str | SpecifierSet, release: Version) -> bool:
 def _excludes(taken: str | SpecifierSet, clauses: SpecifierSet) -> bool:
     """Whether `clauses` admit none of the releases taken."""
     if isinstance(taken, SpecifierSet):
-        return not runtime.meets((clauses,), taken)
+        return not manifests.meets((clauses,), taken)
     return not clauses.contains(taken)
 
 

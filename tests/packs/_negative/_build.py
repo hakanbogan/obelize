@@ -242,6 +242,20 @@ def _since(**fields: Any) -> Callable[[Document], None]:
     return mutate
 
 
+def _introduces(*names: str, one: bool = True, shared: bool = True) -> Callable[[Document], None]:
+    """A target that names what only it defines; by default over the one shared module of one
+    distribution, where that is possible."""
+
+    def mutate(document: Document) -> None:
+        if one:
+            document["to"]["package"] = "demo-legacy"
+        if shared:
+            _shared(document)
+        document["to"]["introduces"] = list(names)
+
+    return mutate
+
+
 def _symbols_without_a_submodule_map(document: Document) -> None:
     for key in ("submodule_map", "alias_fallbacks"):
         document["changes"][1]["params"].pop(key)
@@ -445,6 +459,41 @@ CASES: tuple[Case, ...] = (
         path="",
         says="which is under nothing in match.imports",
         mutate=_since(since=["elsewhere.Thing"]),
+    ),
+    Case(
+        name="introduces_across_two_distributions",
+        defect="names what only the new side defines where the pack has two distributions",
+        path="",
+        says="this pack migrates between two",
+        mutate=_introduces("demo_legacy.Client", one=False),
+    ),
+    Case(
+        name="introduces_for_a_module_that_is_not_shared",
+        defect="names what only the new side defines in a module the new side does not keep",
+        path="",
+        says="match.shared says this module is not",
+        mutate=_introduces("demo_legacy.Client", shared=False),
+    ),
+    Case(
+        name="introduces_that_is_not_sorted",
+        defect="a list of names that is not sorted, so one set has two spellings",
+        path="to",
+        says="sorted and de-duplicated",
+        mutate=_introduces("demo_legacy.b", "demo_legacy.a"),
+    ),
+    Case(
+        name="introduces_a_name_outside_the_module",
+        defect="a name outside every module the pack matches, so no import could bind it",
+        path="",
+        says="which is not under a module of match.imports",
+        mutate=_introduces("elsewhere.Client"),
+    ),
+    Case(
+        name="introduces_a_legacy_name",
+        defect="a name the pack also lists as legacy, which cannot be both",
+        path="",
+        says="or is a legacy name in match.symbols",
+        mutate=_introduces("demo_legacy.configure"),
     ),
     Case(
         name="newest_on_the_target",

@@ -44,7 +44,7 @@ Breaking one rejects the pack.
 | `language` | string | yes | `python`. |
 | `source` | mapping | yes | See [Source provenance](#source-provenance). |
 | `from` | mapping | yes | `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, or `since`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. |
-| `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required): the PEP 440 set of Pythons the new distribution installs on. A repository declaring support for one outside it is blocked (`runtime_unsupported`). |
+| `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required): the PEP 440 set of Pythons the new distribution installs on, and optionally `introduces`, see [The newest legacy release](#the-newest-legacy-release). A repository declaring support for one outside it is blocked (`runtime_unsupported`). |
 | `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest of its app declares its distribution, the legacy pin stays: a manifest in the file's directory or above it, and a `requirements/` directory counts for the one it is in; a constraints file declares nothing), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
 | `changes` | list | yes | See [Change entries](#change-entries). |
 | `layout` | mapping | no | `line_length` (40-320, default `100`). See [Layout](#layout). |
@@ -150,6 +150,29 @@ from:
   floor and is refused beside `newest`. A name that an older release defines too proves nothing, so
   it does not belong here; `SOURCES.md` records the release that was measured to lack each.
 - `spec_digest` ignores it, with the range it reads (`ScanSpec.legacy_range`).
+
+A pack whose one distribution holds both APIs can also name what only the new API defines, on `to`:
+
+```yaml
+to:
+  package: openai
+  version: ">=1.109.1"
+  requires_python: ">=3.8"
+  introduces:
+    - openai.AsyncOpenAI
+    - openai.AzureOpenAI
+    - openai.OpenAI
+```
+
+- `introduces` lists qualified names that no release of `from.version` defines. A file that uses
+  one, as written or through an alias of the module, beside a legacy declaration that admits
+  some release of `from.version` and none above it (`openai==0.28.1`, `openai<1`), makes that
+  declaration a `manifest_code_mismatch` when nothing migrated and nothing holds the pin: the
+  code needs a release the pin cannot install. Without it such a pin is context only, since one
+  distribution holds both APIs and nothing imports the legacy module.
+- It is refused for a pack of two distributions or of a module that is not `shared`, when it is not
+  sorted and de-duplicated, and for a name that no module of `match.imports` holds or that
+  `match.symbols` lists as legacy. `spec_digest` includes it once set, since it adds rows.
 
 ### Change entries
 
@@ -596,8 +619,8 @@ obelize's version. `+build` metadata is refused: comparisons ignore it.
 - MAJOR: changes what is rewritten automatically, or moves an edit between
   automatic and refused.
 - MINOR: new changes, symbols or limitations, a change to `from.version` or `to.version`, or a
-  `from` field the pack starts to fill (`newest`, `lacks`, `since`), since each moves what a run
-  takes or stops on.
+  `from` or `to` field the pack starts to fill (`newest`, `lacks`, `since`, `introduces`), since
+  each moves what a run takes, stops on or reports.
 - PATCH: citations, messages, suggestions, fixtures, wording.
 
 Every run records the pack id, `pack_version` and sha256.
@@ -616,7 +639,9 @@ Per field:
   not admit, or beside a `from.version` with no floor; a `from.lacks` with no `newest`, or one that
   is not sorted and de-duplicated; a `newest` or `lacks` on `to`; a `from.since` beside a `newest`,
   beside a `from.version` with no floor, that is not sorted and de-duplicated, or that names a symbol
-  under nothing the pack matches.
+  under nothing the pack matches; a `to.introduces` for a pack of two distributions or of a module
+  that is not shared, that is not sorted and de-duplicated, or that names a symbol no module of
+  `match.imports` holds or `match.symbols` lists as legacy.
 - A duplicate `changes[].id`.
 - Two `flag_only` changes that name one surface: the same attribute, the same symbol or one that is
   the other's dotted prefix (`a.b` and `a.b.c`, not `a.b` and `a.bc`), or shape ids that report one

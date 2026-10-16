@@ -96,6 +96,8 @@ class Scan:
     # No plan carries either, so the manifest pin check is asked again after a run.
     unanalysed: tuple[str, ...] = ()
     transitive: tuple[tuple[str, str], ...] = ()
+    # Whether any file uses a name only the new API defines, which no plan carries either.
+    modern: bool = False
     # (distribution, release) taken where nothing in the repository says which release is in use:
     # the pack's newest, for a declaration that names no version that rules it out, or, as the
     # range `from.version` states, where the code uses a name only those releases define.
@@ -156,6 +158,7 @@ def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
         workers=max(scan.workers for scan in scans),
         unanalysed=tuple(sorted({row for scan in scans for row in scan.unanalysed})),
         transitive=tuple(sorted({row for scan in scans for row in scan.transitive})),
+        modern=any(scan.modern for scan in scans),
         assumed=tuple(sorted({row for scan in scans for row in scan.assumed})),
     )
 
@@ -325,12 +328,15 @@ def scan(
         if candidates or manifests.declares(declared, spec)
         else []
     )
+    # Only a pin can be at odds with it, and reading it parses every file that names the library.
+    modern = bool(spec.new_names) and manifests.declares(declared, spec) and _modern(tree, spec)
     migration = manifests.survey(
         [result.plan for result in files],
         hits,
         unanalysed,
         transitive,
         paired=manifests.coupled(spec),
+        modern=modern,
     )
     declarations = manifests.plan(declared, migration, spec)
     floor = runtime.detect(selection.manifests, tree.contents, spec)
@@ -371,6 +377,7 @@ def scan(
         workers=workers,
         unanalysed=unanalysed,
         transitive=migration.transitive,
+        modern=modern,
         assumed=assumed,
     )
 
@@ -404,6 +411,15 @@ def _imports(tree: Tree, files: Sequence[str], spec: ScanSpec) -> list[tuple[str
         if (data := tree.entries[path].data) is not None
         for row in manifests.provided(path, data, spec)
     ]
+
+
+def _modern(tree: Tree, spec: ScanSpec) -> bool:
+    """Whether any file kept uses a name only the new API defines."""
+    return any(
+        manifests.uses_new_names(data, spec)
+        for path in tree.walk.files
+        if (data := tree.entries[path].data) is not None
+    )
 
 
 def _pooled(candidates: Sequence[Candidate], spec: ScanSpec, workers: int) -> list[FileResult]:

@@ -12,18 +12,18 @@ from __future__ import annotations
 import ast
 import configparser
 import tomllib
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any, Final
 
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
-from packaging.version import InvalidVersion, Version
+from packaging.version import Version
 
 from obelize.models import BlockedReason, Finding, ScanSpec, terminal_unsafe
 from obelize.scan import parse
-from obelize.scan.manifests import Declaration, alternatives, coupled, lowest
+from obelize.scan.manifests import Declaration, alternatives, coupled, lowest, meets
 
 # Each one is asked, not one comparison: `>=3.7,!=3.9.*` admits 3.8 but not 3.9. Each minor is asked
 # at its last patch too, since `>=3.8.1` admits 3.8 only from its first patch on.
@@ -196,36 +196,6 @@ def _reaches(declared: str | None, needed: str) -> bool:
     a block on a string nobody parsed would be a guess."""
     found = None if declared is None else alternatives(declared)
     return True if found is None else meets(found, SpecifierSet(needed))
-
-
-def meets(found: Iterable[SpecifierSet], target: SpecifierSet) -> bool:
-    """Whether some release is in `target` and in one of `found`.
-
-    The two sets meet where some version is in both. One is found at a version either names, just
-    above one, the release after one (where `!=6.19.*` ends) or at 0, since a range of PEP 440
-    specifiers starts at one of them.
-    """
-    for part in found:
-        both = part & target
-        try:
-            named = {Version(item.version.removesuffix(".*")) for item in both}
-        except InvalidVersion:  # `===` takes any string
-            return True
-        probes = {
-            Version("0"),
-            *named,
-            *(Version(f"{version.base_version}.0.1") for version in named),
-            *map(_after, named),
-        }
-        if any(both.contains(version, prereleases=True) for version in probes):
-            return True
-    return False
-
-
-def _after(version: Version) -> Version:
-    """The release after `version` at its own depth: where `!=6.19.*` ends, at 6.20."""
-    *head, last = version.release
-    return Version(".".join(map(str, (*head, last + 1))))
 
 
 def _plain(row: Declaration) -> tuple[SpecifierSet, ...] | None:
@@ -441,7 +411,6 @@ __all__ = [
     "inferred",
     "installs",
     "legacy",
-    "meets",
     "taken_for",
     "within",
 ]

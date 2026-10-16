@@ -161,6 +161,23 @@ taken (`Blocked.taken`).
 check reads an index for it. The measurement is kept in the pack's `SOURCES.md` and, for the old
 release, in `tests/packs/openai_legacy_check.py`.
 
+### D6. A pin that admits only the old releases, beside code that needs the new one
+
+Where one distribution holds both APIs, a legacy pin over code that never imports it could not be
+told from a pin the code still runs on (ADR-021 D4), so it was context only and a run over
+`openai==0.28.1` beside `from openai import OpenAI` said "No pack applies", which reads as healthy.
+`to.introduces` lists qualified names no release of `from.version` defines (`openai.OpenAI`,
+`openai.AsyncOpenAI`, `openai.AzureOpenAI`: 0.26.5, 0.27.0 and 0.28.1 measured). A file that uses
+one, as written or through an alias of the module (`import openai as oa; oa.OpenAI`), found from its
+imports and the attributes of what they bind and not from a name alone, makes a legacy declaration
+that admits some release of `from.version` and none above it (`openai==0.28.1`, `openai<1`) a
+`manifest_code_mismatch`, a row left for review, when nothing migrated and nothing holds the pin. A
+declaration that admits a release of the new API (`openai`, `openai>=0.27`), one nobody can read and
+one the code still migrates around are not judged this way. The schema allows the field only for a
+pack whose two sides are one distribution and whose module is shared, and refuses a name that
+`match.symbols` lists as legacy or that no module of `match.imports` holds. `ScanSpec.new_names`
+carries it, and `spec_digest` includes it once set, since it adds rows.
+
 ## Consequences
 
 - A repository that declares PyPDF2 with no version, or with a range that reaches below 3 but admits

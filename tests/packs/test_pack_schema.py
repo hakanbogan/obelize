@@ -1083,6 +1083,7 @@ PROJECTED = {
     "legacy_range",
     "legacy_since",
     "new_version",
+    "new_names",
     "shared",
     "new_range",
 }
@@ -1212,6 +1213,40 @@ def test_what_only_the_source_range_defines_needs_a_floor_and_no_newest_and_is_l
         build(shared_document)
     shared_document["match"]["symbols"] = ["demo_legacy.Thing", "demo_legacy.configure"]
     assert build(shared_document).from_.since == ("demo_legacy.Thing",)
+
+
+def introduces(**fields: Any) -> dict[str, Any]:
+    """One distribution on both sides, over the module they share, and what only the new defines."""
+    document = shared()
+    document["to"].update(package="demo-legacy", introduces=["demo_legacy.Client"])
+    document["to"].update(fields)
+    return document
+
+
+def test_a_target_may_name_what_only_it_defines_where_one_module_holds_both_sides() -> None:
+    built = build(introduces())
+    assert built.to.introduces == ("demo_legacy.Client",)
+    assert loader.to_scan_spec(_loaded(built)).new_names == ("demo_legacy.Client",)
+    assert loader.to_scan_spec(_loaded(build(minimal()))).new_names == ()
+
+
+def test_what_only_the_target_defines_needs_one_shared_module_and_names_no_legacy_name() -> None:
+    document = introduces()
+    document["to"]["package"] = "demo-modern"
+    with pytest.raises(ValidationError, match="this pack migrates between two"):
+        build(document)
+    document = introduces()
+    document["match"].update(shared=False, symbols=[])
+    with pytest.raises(ValidationError, match=r"match\.shared says this module is not"):
+        build(document)
+    with pytest.raises(ValidationError, match="sorted and de-duplicated"):
+        build(introduces(introduces=["demo_legacy.b", "demo_legacy.a"]))
+    with pytest.raises(ValidationError, match=r"which is not under a module of match\.imports"):
+        build(introduces(introduces=["elsewhere.Client"]))
+    with pytest.raises(ValidationError, match=r"or is a legacy name in match\.symbols"):
+        build(introduces(introduces=["demo_legacy.configure"]))
+    with pytest.raises(ValidationError, match=r"or is a legacy name in match\.symbols"):
+        build(introduces(introduces=["demo_legacy.configure.deeper"]))
 
 
 def test_only_the_source_side_names_a_newest_release() -> None:

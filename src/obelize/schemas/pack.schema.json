@@ -1333,8 +1333,17 @@
     },
     "Target": {
       "additionalProperties": false,
-      "description": "The new side, which also says which Pythons it installs on.",
+      "description": "The new side, which also says which Pythons it installs on.\n\n`introduces` names what no release of `from.version` defines, where one module holds both\nsides: code that uses one cannot run on a pin that admits only the old releases.",
       "properties": {
+        "introduces": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Introduces",
+          "type": "array"
+        },
         "package": {
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "Package",

@@ -1097,6 +1097,9 @@ class ScanSpec(_Frozen):
     # Modules that came with the legacy pin, which the manifest pin check inspects before the
     # pin may go.
     transitive_modules: tuple[ProvidedModule, ...] = ()
+    # Names only the new API defines, where one distribution holds both: code that uses one beside
+    # a pin that admits only the legacy range is a manifest row.
+    new_names: tuple[str, ...] = ()
     # What the repository must declare for a run to propose anything: the PEP 440 set of Pythons
     # the new distribution installs on, and the lowest legacy version the pack's rules were
     # measured on. Neither changes a finding, so `spec_digest` leaves them out. Nor do the newest
@@ -1126,6 +1129,7 @@ class ScanSpec(_Frozen):
             ("flag_only_symbols", self.flag_only_symbols),
             ("legacy_lacks", self.legacy_lacks),
             ("legacy_since", self.legacy_since),
+            ("new_names", self.new_names),
         ):
             _sorted_unique(values, field)
             bad = [value for value in values if not QUALIFIED_NAME.fullmatch(value)]

@@ -46,7 +46,7 @@ would edit a manifest for a migration this run did not make. It stays
 user's `exclude` removed names the distribution, a module only it installs is
 imported, or one distribution holds both APIs (a pin of it over new-SDK code is
 `openai==0.28.1` beside 1.x code, which no row here can tell from a pin the code
-still runs on).
+still runs on, unless the pack names what only the new API defines: ADR-056 D6).
 
 ### D5. `manifest_code_mismatch` is both directions, and it is a review item
 

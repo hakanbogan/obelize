@@ -24,7 +24,7 @@ from libcst.metadata import (
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from obelize.models import (
     REPO_ATOMICITY_BAIL,
@@ -180,6 +180,8 @@ class Migration:
     excluded: tuple[str, ...] = ()
     # (file, distribution) per import of a module only the legacy distribution installed.
     transitive: tuple[tuple[str, str], ...] = ()
+    # Some file uses a name only the new API defines (`ScanSpec.new_names`).
+    modern: bool = False
 
 
 def layout(path: str) -> Layout | None:
@@ -247,12 +249,14 @@ def survey(
     transitive: Iterable[tuple[str, str]] = (),
     *,
     paired: bool = False,
+    modern: bool = False,
 ) -> Migration:
-    """The pin-edit conditions from the per-file plans, plus two lists no plan carries.
+    """The pin-edit conditions from the per-file plans, plus what no plan carries.
 
     A file migrated if any row is eligible; it blocks if a non-eligible row still loads the
     distribution (`IMPORTING` or a mock target). `unanalysed` files block like an import. Where
-    `paired` (see `coupled`) no import marks the old API, so any withheld row blocks.
+    `paired` (see `coupled`) no import marks the old API, so any withheld row blocks. `modern` is
+    whether any file uses a name only the new API defines (`uses_new_names`).
     """
     migrated: set[str] = set()
     blocking: set[str] = set()
@@ -272,6 +276,7 @@ def survey(
         blocking=tuple(sorted(blocking)),
         excluded=tuple(sorted(set(excluded))),
         transitive=tuple(sorted(set(transitive))),
+        modern=modern,
     )
 
 
@@ -309,6 +314,41 @@ def provided(path: str, data: bytes, spec: ScanSpec) -> tuple[tuple[str, str], .
             }
         )
     )
+
+
+def uses_new_names(data: bytes, spec: ScanSpec) -> bool:
+    """Whether a file uses a name only the new API defines, as written or through an alias.
+
+    Read from the imports and the attributes of what they bind, so a local variable of the same name
+    is not one. An unparsable file yields nothing; the scan reports it elsewhere.
+    """
+    if not any(name.rpartition(".")[2].encode() in data for name in spec.new_names):
+        return False
+    try:
+        tree = ast.parse(data)
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
+        return False
+    bound: dict[str, str] = {}
+    used: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                top = alias.name.partition(".")[0]
+                bound[alias.asname or top] = alias.name if alias.asname else top
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for alias in node.names:
+                bound[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+                used.add(f"{node.module}.{alias.name}")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute):
+            parts = [node.attr]
+            value = node.value
+            while isinstance(value, ast.Attribute):
+                parts.append(value.attr)
+                value = value.value
+            if isinstance(value, ast.Name) and value.id in bound:
+                used.add(".".join((bound[value.id], *reversed(parts))))
+    return any(name == new or name.startswith(f"{new}.") for name in used for new in spec.new_names)
 
 
 def declares(found: Iterable[Declaration], spec: ScanSpec) -> bool:
@@ -415,7 +455,9 @@ def _legacy(
             REPO_ATOMICITY_BAIL
             if migration.blocking
             else None
-            if needed or migration.excluded or coupled(spec)
+            if needed
+            or migration.excluded
+            or (coupled(spec) and not (migration.modern and _legacy_only(declaration, spec)))
             else "manifest_code_mismatch"
         )
         yield _row(declaration, spec.legacy_distribution, code, absent=code is None)
@@ -431,6 +473,21 @@ def _legacy(
         yield _row(declaration, spec.new_distribution, None)
     code = REPO_ATOMICITY_BAIL if migration.blocking else TRANSITIVE_BAIL
     yield _row(declaration, spec.legacy_distribution, code)
+
+
+def _legacy_only(declaration: Declaration, spec: ScanSpec) -> bool:
+    """Whether a declaration admits some release of the legacy range and none above it, so code
+    that uses a name only the new API defines cannot run on what it installs. One nobody can read
+    is not judged."""
+    found = None if declaration.spec is None else alternatives(declaration.spec)
+    legacy = SpecifierSet(spec.legacy_range)
+    ceiling = bounds(legacy)[1]
+    return (
+        found is not None
+        and ceiling is not None
+        and meets(found, legacy)
+        and not meets(found, SpecifierSet(f">={ceiling}"))
+    )
 
 
 def _arrived(declaration: Declaration, spec: ScanSpec) -> bool:
@@ -526,6 +583,36 @@ def lowest(declared: str | None) -> Version | None:
     if None in floors or any(floor is not None and floor.local for floor in floors):
         return None
     return min(floor for floor in floors if floor is not None)
+
+
+def meets(found: Iterable[SpecifierSet], target: SpecifierSet) -> bool:
+    """Whether some release is in `target` and in one of `found`.
+
+    The two sets meet where some version is in both. One is found at a version either names, just
+    above one, the release after one (where `!=6.19.*` ends) or at 0, since a range of PEP 440
+    specifiers starts at one of them.
+    """
+    for part in found:
+        both = part & target
+        try:
+            named = {Version(item.version.removesuffix(".*")) for item in both}
+        except InvalidVersion:  # `===` takes any string
+            return True
+        probes = {
+            Version("0"),
+            *named,
+            *(Version(f"{version.base_version}.0.1") for version in named),
+            *map(_after, named),
+        }
+        if any(both.contains(version, prereleases=True) for version in probes):
+            return True
+    return False
+
+
+def _after(version: Version) -> Version:
+    """The release after `version` at its own depth: where `!=6.19.*` ends, at 6.20."""
+    *head, last = version.release
+    return Version(".".join(map(str, (*head, last + 1))))
 
 
 def _requirement(path: str, line: int, column: int, text: str) -> Declaration | None:

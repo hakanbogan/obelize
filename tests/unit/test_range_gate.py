@@ -97,9 +97,9 @@ def test_a_requirement_a_rewrite_cannot_carry_or_that_may_pick_a_pre_release_is_
 
 def test_two_sets_meet_where_one_release_is_in_both() -> None:
     target = SpecifierSet(">=2,<3")
-    assert runtime.meets([SpecifierSet(">=3"), SpecifierSet("<2.5")], target) is True
-    assert runtime.meets([SpecifierSet(">=3"), SpecifierSet("==1.9")], target) is False
-    assert runtime.meets([], target) is False
+    assert manifests.meets([SpecifierSet(">=3"), SpecifierSet("<2.5")], target) is True
+    assert manifests.meets([SpecifierSet(">=3"), SpecifierSet("==1.9")], target) is False
+    assert manifests.meets([], target) is False
 
 
 @pytest.mark.parametrize(

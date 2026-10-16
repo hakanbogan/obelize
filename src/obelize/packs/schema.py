@@ -341,9 +341,19 @@ class Legacy(VersionRange):
 
 
 class Target(VersionRange):
-    """The new side, which also says which Pythons it installs on."""
+    """The new side, which also says which Pythons it installs on.
+
+    `introduces` names what no release of `from.version` defines, where one module holds both
+    sides: code that uses one cannot run on a pin that admits only the old releases.
+    """
 
     requires_python: Pep440Specifier
+    introduces: tuple[QualifiedName, ...] = ()
+
+    @model_validator(mode="after")
+    def _check(self) -> Target:
+        _sorted_set(self.introduces, "introduces")
+        return self
 
 
 class Match(_Closed):
@@ -1224,6 +1234,7 @@ class PackDocument(_Closed):
         self._check_version_ranges()
         self._check_what_the_newest_release_lacks_is_flagged()
         self._check_what_the_code_may_prove_is_looked_for()
+        self._check_what_the_new_side_introduces_is_not_legacy()
         return self
 
     def to_modules(self) -> tuple[str, ...]:
@@ -1420,6 +1431,27 @@ class PackDocument(_Closed):
                 raise ValueError(
                     f"from.since names {name!r}, which is under nothing in {field} "
                     f"{list(looked)}, so the scan never reports a use of it"
+                )
+
+    def _check_what_the_new_side_introduces_is_not_legacy(self) -> None:
+        """Names that tell the new API from the old one inside one module of one distribution."""
+        if not self.to.introduces:
+            return
+        if canonicalize_name(self.from_.package) != canonicalize_name(self.to.package):
+            raise ValueError(
+                "to.introduces tells the new API from the old one inside one distribution, and "
+                "this pack migrates between two"
+            )
+        if not self.match.shared:
+            raise ValueError(
+                "to.introduces names what the new API adds to a module both sides share, and "
+                "match.shared says this module is not"
+            )
+        for name in self.to.introduces:
+            if not under_any(name, self.match.imports) or under_any(name, self.match.symbols):
+                raise ValueError(
+                    f"to.introduces names {name!r}, which is not under a module of match.imports "
+                    f"{list(self.match.imports)} or is a legacy name in match.symbols"
                 )
 
     def _check_version_ranges(self) -> None:

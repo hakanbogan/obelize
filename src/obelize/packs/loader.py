@@ -252,6 +252,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         legacy_range=pack.from_.version,
         legacy_since=pack.from_.since,
         new_version=pack.to.version,
+        new_names=pack.to.introduces,
         constructor_symbols=tuple(sorted(constructors)),
         supported_methods=tuple(
             ReceiverMethods(receiver=receiver, methods=methods[receiver])
@@ -316,7 +317,9 @@ _GATES: Final[frozenset[str]] = frozenset(
 
 # Read by the scanner but absent from the measured digest of the packs that predate it: left out
 # while unset, so adding the field moved no digest.
-_WHEN_SET: Final[frozenset[str]] = frozenset({"shared", "new_range", "new_client_symbol"})
+_WHEN_SET: Final[frozenset[str]] = frozenset(
+    {"shared", "new_range", "new_client_symbol", "new_names"}
+)
 
 
 def spec_digest(spec: ScanSpec) -> str:

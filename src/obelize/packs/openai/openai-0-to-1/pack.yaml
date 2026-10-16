@@ -26,6 +26,12 @@ to:
   package: openai
   version: ">=1.109.1"
   requires_python: ">=3.8"
+  # No release below 1.0 defines any of the three, so code that uses one is a pin that admits only
+  # `>=0.27.0,<1` waiting to fail (0.27.0 and 0.28.1 measured).
+  introduces:
+    - openai.AsyncOpenAI
+    - openai.AzureOpenAI
+    - openai.OpenAI
 
 match:
   # The module keeps its name, so only what 0.28.1 defined and the new releases dropped or
