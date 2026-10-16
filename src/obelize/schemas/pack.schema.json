@@ -1151,11 +1151,15 @@
           "type": "string"
         },
         "value_maps": {
-          "additionalProperties": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "additionalProperties": {
+                "pattern": "^[A-Z][A-Z0-9_]*$",
+                "type": "string"
+              },
+              "type": "object"
+            }
           },
           "title": "Value Maps",
           "type": "object"
@@ -1180,6 +1184,7 @@
         },
         "warnings_unless": {
           "additionalProperties": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "propertyNames": {
