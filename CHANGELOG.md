@@ -12,6 +12,275 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Benchmark
+
+I did not run the benchmark again for this version. Round 1's numbers are still 0.1.0's and are for
+the Gemini pack alone: 25 of 277 usages (9.0%) migrated in 20 repositories with no wrong edit. The
+scan record of gate 1 and the three `fix` dry runs were measured again against the packs and the
+engine of this version; their records read `obelize 0.5.0` because the version has not moved, and
+each pack's record is bound to the sha of the pack it was taken with, so a changed pack fails a test
+until it is measured again.
+
+- Gate 1: scan precision is 100.0% and recall 98.4% over the same 64 usages in five repositories.
+  The share of the 80 repositories with a file where nothing bails moved from 71.2% (57), the
+  record taken with 0.1.0, to 73.8% (59).
+- `openai/openai-0-to-1`: complete 12 to 27, blocked 41 to 27 and held 27 to 26. Nine repositories
+  moved from blocked to complete, six from held to complete and six from blocked to held, and one
+  moved from held to blocked on a Python floor that is now read.
+- `py-pdf/pypdf2-to-pypdf`: complete 31 to 32, blocked 35 to 36, partial 6 to 5 and held 6 to 5.
+  Two repositories moved from blocked to complete because a `requirement.txt` is now read. Three
+  moved to blocked: a `pypdf` pin that admits nothing the pack writes (twice) and a Python floor read
+  from `setup.py` (once).
+- `gemini/google-generativeai-to-google-genai`: complete 35 to 27, held 32 to 40, partial 13 to 12
+  and blocked 0 to 1. Eight repositories moved from complete to held and one from partial to held,
+  because a read of `response.text` inside a bare, `Exception`, `BaseException` or `ValueError`
+  handler is now refused, which is the price of failing closed. One moved from held to blocked on a
+  Python floor read from a `Pipfile` or `setup.py`.
+
+These are plans that wrote something, not accuracy: there is no answer key for these frames, and
+"complete" means a file written and nothing withheld, not a correct migration. The dry-run records
+also keep the declaration a blocked pack stopped at. The benchmark scripts are a package now and run
+as `python -m bench.<name>`.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) lists what I know about and have chosen not to fix yet,
+and most of what 0.5.0 listed is gone from it. What it names now:
+
+- A file nested more than 300 levels deep is refused as one that does not parse, and a few hundred
+  parts of an implicit string concatenation, which that count does not see, fail through libcst's
+  own limit. The codemod's stack use per level is not measured.
+- `openai`: a result bound to a module-level name is checked against the modules that name `openai`,
+  so a module that imports it and never says so goes unseen. A requirement with extras, a hash, a
+  continued line or a URL holds the repository until you edit it, and the old pin in a form the
+  reader does not open (an `-r` of a file with another name, a Dockerfile, `tox.ini`) stays with no
+  row. A notebook that calls the old API holds the pin until you migrate it by hand.
+- `PyPDF2`: a requirement obelize cannot rewrite in place (extras, a hash, a continued line) leaves
+  the manifest on `PyPDF2` while the code moves to `pypdf`. Releases 1.x and 2.x are flagged and
+  never migrated. Installer settings outside the repository (a `pip.conf`, `PIP_*` variables) are
+  not read, on purpose, so that a finding is the same on every machine.
+- A model endpoint that drips the headers or the chunk sizes of a reply is held back only by the
+  socket timeout of each read.
+
+The formats that changed are `pack.yaml` (`from.since`, `to.introduces`, `manifest_dependency`'s
+`declare_transitive`, `rewrite_call`'s `value_maps`, `literal_prefixes` and `warnings_unless`,
+`flag_only`'s `variables` and the `rename_symbol` kind), the model proposal (`replaces`), the user
+config (`model.allow_insecure_http`), `findings.json` and `run.json` (the bails `internal_error` and
+`new_version_unsupported`, the limitation code `internal_error`, the warnings
+`response_text_may_be_none` and `upload_display_name_unset`, the guard refusal
+`replaced_text_differs`), the dry-run and round records (new provenance fields), and the JSON
+Schemas, which now carry the patterns of the values the models check.
+
+### Added
+
+- A model proposal must quote the lines it replaces (`replaces`), and the guard refuses one whose
+  quote is not the text of those lines as sent (`replaced_text_differs`); a reply without it is
+  unanswered as `proposal_does_not_hold`. The code sent to a model carries each line's number in the
+  file (`12: code`), added after redaction, and the prompt says the numbers are not code.
+- `model.allow_insecure_http`: a plain `http://` model `base_url` to a host other than `localhost`,
+  `127.0.0.0/8` or `::1` is refused unless it is `true`.
+- An unexpected error on one file no longer ends a run. A scan reports the file as one `parse_error`,
+  and `fix` leaves it as it was and withholds its rows as the new bail `internal_error`;
+  `run.json`'s `limitations` names the exception's class and never its message.
+- A manifest that pins the new distribution so that it admits no release the pack writes
+  (`pypdf==3.0.0`, `pypdf<6`) blocks the run as `new_version_unsupported` and names the path.
+- `pack validate` refuses a pack whose two `flag_only` changes name one surface, naming both.
+- After a manifest pin is written, the summary and `REPORT.md` name the lock files to regenerate,
+  and the fix summary says what to change for each reason a finding was left (also in
+  `REPORT.md` and `SCAN_VOCABULARY.md`).
+- A file that uses the legacy API and that no rule writes (a notebook, with the cells that call it,
+  or a stub) is named in the terminal summary and under Limitations in `REPORT.md`, also where the
+  pin has already moved and the run used to say "No pack applies".
+- Warnings on a rewritten Gemini call: `response_text_may_be_none` where the result's `.text` is
+  read (it is `None` now where it raised `ValueError`), and `upload_display_name_unset` on a
+  rewritten `upload_file` that leaves out `display_name`, whose old call named the file after its
+  path.
+- Benchmark rounds resolve every install as of the round's start (`UV_EXCLUDE_NEWER`, repeatable
+  with `--exclude-newer`) and record uv's version, that cutoff and a hash of the installed set in
+  each case's provenance. Results also record `forbidden_reported`, the findings at a position the
+  answer key forbids, and `bench/CASES.md` prints how many of the 38 forbidden positions the scan
+  reported.
+
+### Changed
+
+- The code of a model reply that `compile()` refuses is `output_does_not_compile`, and
+  `output_does_not_parse` is for a result `compile()` accepted and libcst cannot read. A reply
+  nested deeply enough to crash libcst's parser is refused before libcst sees it, and a statement
+  over 500 tokens in a replacement is refused as `replacement_too_large`.
+- A model `base_url` with a query string or fragment is refused, with a message that sends the key to
+  `api_key_env`; the failure detail of an unreachable endpoint names the host and port, not the URL.
+- A file nested more than 300 levels deep (a long chain of operands, attributes or calls, a dotted
+  name, an `elif` ladder, about a hundred brackets inside brackets) is refused as one that does not
+  parse, the same on every `--jobs` and every Python. On Python 3.14 a chain of about thirteen
+  thousand terms killed the scan with a segmentation fault.
+- A configuration or pack file over 1 MiB is refused unread, with the limit in the message. A YAML
+  set (`!!set`) in `.obelize.yml` or a pack is refused with a line and column, where it was read in
+  hash order.
+- `.obelize.yml`, the user's `pack_dirs` and `verify.allow`, and a pack's `layout.line_length`,
+  `match.shared` and `coroutine` refuse a number, flag or string of the wrong type
+  (`allow_dirty: 'yes'`, `max_file_bytes: '1000'`) instead of coercing it, so a config that loaded
+  by luck is refused.
+- The published JSON Schemas carry the regular expression of every digest, run id, instant, pack id,
+  version and symbol the models check, and the length limits of display text; a pack's
+  `pack_version` no longer accepts a digit of another script.
+- The `fixtures/` directory beside a pack of your own that sits inside the repository is left out of
+  a scan, not the whole directory the pack file is in: a helper beside `pack.yaml` that imports the
+  legacy API is scanned and holds the pin. `REPORT.md` says `Not scanned` and names the directory,
+  and `scan --list-files` leaves it out.
+- The `Next: regenerate each lock file` line names only the lock files in the written manifest's
+  directory or above it. The `--jobs` help says that Windows takes at most 61 workers.
+- A dependency file is read the way pip reads it: a line ending in a backslash joins the next,
+  options after a requirement (`--hash`, `--config-settings`) are cut, and a hash-pinned, continued
+  or editable requirement or a local wheel keeps its name and gets no pin edit
+  (`manifest_pin_shape_unsupported`) instead of being missed.
+- A `dev-requirements.txt`, `requirement.txt` or any other `*requirement*.txt` is a manifest and is
+  rewritten like `requirements.txt`. A `requirements.in` and a constraints file are read for their
+  declarations and never written, so a legacy pin in one is `manifest_pin_shape_unsupported` where
+  it stayed with no row. The arrays uv, PDM and Hatch keep requirements in are read and rewritten
+  like PEP 621's, and a Poetry dependency given as its own table is read and refused.
+- A Poetry or Pipfile inline table that holds only a version (`openai = {version = "0.28.1"}`) is
+  rewritten inside its quotes. A `setup.py` that assigns its requirements to a list or tuple first
+  (`REQS = [...]`, `setup(install_requires=REQS)`) is read, and the pin is rewritten where the list is
+  assigned.
+- The Python gate reads a `Pipfile`'s `[requires]` and a string `python_requires=` in `setup.py`,
+  so a repository that builds on a Python below the pack's floor there is blocked as
+  `runtime_unsupported`. A Pipfile that is not TOML 1.0 is reported as an unread manifest.
+- A module only the legacy distribution installed (`requests`, `aiohttp`) counts as declared for a
+  file only where a manifest in its directory or above it declares it, so one app's declaration no
+  longer covers another app in a monorepo.
+- A notebook that names the library is read as code, its cells in order, and holds the pin only where
+  a cell calls the legacy API, with the cell numbered, where it held the pin whether or not it did.
+  A notebook is still never written.
+- A read of `response.text` inside a `try`, `except*` or `contextlib.suppress` whose handler is bare,
+  `Exception`, `BaseException` or `ValueError` is refused as `response_shape_changed`, and the read
+  of an awaited call's result is judged like a sync one.
+- A `legacy_version_unsupported` block says that a pin moves the release and not the code, so a call
+  to a name the pinned release removed has to be ported first; it no longer reads as advice to move
+  `PyPDF2` code written for a release below 3 to `>=3` as it stands.
+- A block of an unversioned `PyPDF2` in a directory that is not the top of a git repository says that
+  obelize lists every file only at the top of a git repository, and to run it there or pin.
+- For `PyPDF2`, a `dev-requirements.txt`, `requirements.in` or constraints file no longer stops the
+  run for being there; each is read like a manifest, so only one that names another release
+  (`PyPDF2<3`), a bare `PyPDF2` or an option that moves the index does. A name in `[tool.isort]`, a
+  Ruff or mypy list, a project description or a URL no longer counts as an unread declaration. A
+  listed file over `max_file_bytes` is searched in 1 MiB windows up to 32 MiB, an ignored `.venv`,
+  `venv` or `env` stops the inference beside any listed file, and the pip options of a manifest the
+  user's `exclude` removed are judged.
+- The benchmark harness runs each case's installs and test suites with an allowlisted environment
+  (`PATH`, the locale, `TMPDIR`, the uv and pip cache and interpreter directories) and a home
+  directory of its own, in a session whose process group is killed when the step ends. A round
+  records the commit and tree state it started on (`obelize_tree_dirty`) and refuses to start on a
+  dirty tree, outside a git checkout, or when `obelize` is imported from elsewhere than the
+  checkout. The comparison arm's installs and suites get the same environment and cutoff.
+- The bundled legacy example application defaults to `gemini-2.5-flash`, the model the README and
+  `examples/quickstart` use, instead of the retired `gemini-1.5-flash` and `gemini-1.0-pro`.
+  CI installs a pinned uv and numpy, runs `pre-commit` over every file, and runs ruff from the
+  project environment; the hook repository is held to a commit, not a tag.
+- `obelize.models` is a package of six modules, with no import path or JSON Schema changed
+  ([ADR-058](docs/adr/ADR-058-models-by-section.md)).
+
+### Fixed
+
+- A model reply of one very long `or`, `and` or (from Python 3.14) `+` chain no longer kills
+  `obelize fix` with a segmentation fault; a reply nested deeply enough for the guard's tree walks,
+  deeply nested JSON and a lone surrogate no longer end the run with a traceback, and neither does a
+  120 KB body of brackets on Python 3.15. A model that quotes the lines it replaces as newline-joined
+  text is no longer refused when the range ends in a blank line.
+- The model request's 120-second limit bounds the whole reply body, not each read of it, so a reply
+  dripped a byte at a time is `endpoint_unreachable`. A 4xx or 5xx reply whose body stalls or resets
+  is `endpoint_refused` with the status, not a traceback.
+- Asking a model about several rows of one file parsed the file once per row (about 135 ms each on a
+  2,800-line file); it is parsed once now.
+- An impossible date, an over-long integer, a deeply nested document or an explicit tag on a value it
+  cannot read (`!!bool maybe`) in `.obelize.yml`, a pack or `~/.config/obelize/config.yml` ends in a
+  refusal with a line and column where there is one, not a traceback. A non-UTF-8 user config, or a
+  deeply nested config or `approved.json`, is a refusal, and the approvals store fails closed.
+- A YAML merge key (`<<`) failed with "could not determine a constructor for the tag merge"; merge
+  keys work in `.obelize.yml` and packs, and a duplicate key is found without constructing it twice.
+- `obelize undo` reads no configuration, so an invalid `.obelize.yml` no longer stops it.
+- An apply refused over a file only a model proposed runs no baseline command first.
+- The hint after a baseline that failed in obelize's own environment shows `.venv/Scripts/python.exe`
+  on Windows, and the refusal of a command that needs a shell advises `cmd /c` there.
+- The packs the wheel carries no longer add a `Not scanned` line to `REPORT.md` when obelize is
+  installed inside the scanned repository.
+- A `pyproject.toml` or `Pipfile` nested too deep for `tomllib` no longer aborts the scan with a
+  `RecursionError`; it is reported as `input_does_not_parse`.
+- A constraints file no longer counts as a declaration of a module's distribution, which let
+  `fix --apply` drop the legacy pin while a file still imported what only that pin installed.
+- The syntax check on a file no longer applies obelize's own `from __future__ import annotations`,
+  so a walrus in an annotation is not refused as unparsable on Python 3.12 and 3.13.
+- A requirement line PEP 508 refuses (`PyPDF2~=1`, `PyPDF2==1.*.*`, a `setup.cfg` line with a
+  trailing comment) is a row for its name with no version, so the version gate can no longer pass over
+  it. A local build of the legacy release (`PyPDF2==3.0.1+corp`) no longer reads as the release.
+- A rewritten call inside a multi-line bracket is laid out at the indent of the line it starts on, a
+  Gemini call written in an f-string field stays on one line, and a call in an f-string field written
+  with `=` is refused as `response_shape_changed` instead of rewritten.
+- A comment written inside a call the codemod replaces (between its arguments, after its opening
+  parenthesis, in the dotted callee) is kept, beside its argument where one remains and on a line
+  above the statement otherwise. A comment on a deleted `GenerativeModel(...)` statement, or between
+  its arguments, moves to the next statement, and onward when that is deleted too, and a comment
+  between the brackets of a rewritten string-key read moves to a line above its statement.
+- A combined import such as `import types, google.generativeai as genai` no longer lets the rewrite
+  take the name `types` for `from google.genai import types`; the submodule is bound as
+  `genai_types`.
+- `embed_content`'s literal `task_type` is written as the UPPER_SNAKE name the service reads, and a
+  name, integer, enum member or unknown string is refused as `unsupported_kwarg`. A mapping
+  `system_instruction` with string parts or a `system` role, which raises a `ValidationError` in
+  `GenerateContentConfig`, is refused as `history_parts_shape_incompatible`.
+- A call on a client built with `genai.Client()` in a file that also builds a legacy model is no
+  longer reported as `receiver_unresolved`, which withheld every other row of the file.
+- The benchmark harness no longer records a finished command as a timeout when a background process
+  it started still holds its output. A round is refused when obelize is imported from anywhere but
+  the checkout's `src/`, and `--exclude-newer` refuses a time that is not written digit for digit
+  (`2026-10-15T09:00:00Z`), which uv would refuse after the round had started.
+
+### Packs
+
+- `openai/openai-0-to-1` 0.3.0:
+  - A declaration with no lower bound (`openai`, `openai<1`, `openai>=0.20`) beside a call of
+    `openai.ChatCompletion` or `openai.Audio` is taken as a release in `>=0.27.0,<1`, the only range
+    that can run them, and migrated where it stopped the run as `legacy_version_unsupported`. The run
+    says what it took, and a lock, a constraint or a version written elsewhere that rules the range
+    out still stops it (pack field `from.since`).
+  - A pin that admits only 0.x (`openai==0.28.1`, `openai<1`) beside code that uses `openai.OpenAI`,
+    `AsyncOpenAI` or `AzureOpenAI` is a `manifest_code_mismatch` row for review, where the run said
+    "No pack applies" (pack field `to.introduces`).
+  - A module that 0.28.1 installed (`requests`, `aiohttp`, `tqdm`) which an app imports and no
+    manifest of the app declares is declared by name, with no version, below the `openai` requirement
+    of a requirements file as the pin moves, where the run held the pin as
+    `transitive_dependency_in_use` (pack parameter `declare_transitive`).
+  - `openai.error.RateLimitError`, `PermissionError` and `Timeout` are rewritten as
+    `openai.RateLimitError`, `PermissionDeniedError` and `APITimeoutError`, in references and in
+    `import openai.error` and `from openai.error import X`, by a new `rename_symbol` rule kind
+    ([ADR-057](docs/adr/ADR-057-rename-symbol.md)); the other `openai.error` classes stay reported,
+    each with a message that says what it became.
+  - `engine=` and `request_timeout=` of a chat, completion or embedding call are carried as `model=`
+    and `timeout=`, where they were refused.
+  - A one-argument `.get("key")` of a result is rewritten to `getattr(result, "key", None)` instead of
+    withholding the repository.
+  - A key read inside a handler for an imported class, which may subclass `KeyError`, is no longer
+    rewritten, and a result bound to a module-level name that another module imports or reads off the
+    module is withheld.
+  - `Image.create` is refused when the model is written out as one that is no `dall-e`, since
+    `gpt-image-1` returns no url.
+  - The pack reports a write of `OPENAI_API_BASE` or `OPENAI_ORGANIZATION` in code, which the new
+    releases do not read (`flag_only.variables` and the `environment_write` shape); a patch target
+    written under your own package, `patch.object(myapp.llm.openai, "Leaf")` and a dict literal keyed
+    by `openai` handed to `patch.dict(sys.modules, ...)` or `sys.modules.update`; a legacy name inside
+    a quoted annotation; and a read of `http_status`, `json_body` or `user_message` off the name of an
+    `except openai.APIError` or `openai.OpenAIError` handler.
+- `py-pdf/pypdf2-to-pypdf` 0.4.0 names `PyPDF2.pdf`, `PyPDF2.utils` and `PyPDF2.merger`, the modules
+  only PyPDF2 1 ships, in `from.lacks`, and reports them. A name the newest release lacks, written
+  in a notebook, a Python 2 file, a stub, excluded code or prose, counts as evidence of an older
+  release as the same name in a parsed file already did. The suggestion for `PdfFileReader`,
+  `PdfFileWriter` and `PdfFileMerger` names what their members become and the renames that are wrong
+  by name alone (`rotateCounterClockwise`, the fourth positional of `merge*Page`, `removeImages`,
+  `removeText`); no method is rewritten.
+- `gemini/google-generativeai-to-google-genai` 0.4.0 carries the two warnings, the `task_type` table
+  (`value_maps`) and the `system_instruction` refusal above. A call that passes `display_name` has
+  nothing to be told about it (`warnings_unless`), and the limitation about a bare `configure()` says
+  it is rewritten to `Client()` with one warning about the key being checked at construction.
+
 ## [0.5.0] - 2026-10-15
 
 ### Benchmark
