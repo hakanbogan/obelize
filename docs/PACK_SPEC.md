@@ -205,7 +205,8 @@ such as `choices[].message.content` or `usage.total_tokens`:
   scope. A read that stops at a proper prefix of a listed path is followed on where a single name
   takes it (`message = r.choices[0].message`) or a `for` or comprehension binds one name to each of
   its items (`for choice in r.choices`, where `choices[]` is a prefix), under the same rules for
-  that name. Anything else is `response_shape_changed`: a key off the path, `.get`, a loop over
+  that name. Anything else is `response_shape_changed`: a key off the path, a `.get` that is not
+  `.get("name")` with one string literal, a loop over
   something that is not a list on the path, a read of a path that is not a prefix of a listed one, a
   method on a non-leaf, a part or the result passed on, returned or printed. A result nothing reads
   carries.
@@ -217,7 +218,12 @@ such as `choices[].message.content` or `usage.total_tokens`:
   f-string field written with `=`, a read glued to a following word (`r["id"]or 1`), and a `try`
   handler that may name a missing key (`KeyError`, `LookupError`, a name the file defines, or any
   imported class but a few of the standard library that derive from neither) or a
-  `contextlib.suppress`, since the attribute read raises `AttributeError`. `.get` is not rewritten.
+  `contextlib.suppress`, since the attribute read raises `AttributeError`.
+- `x.get("name")`, a dictionary's `get` with one string literal that is an identifier and the next
+  segment of a path, is read the same way and written `getattr(x, "name", None)`: a field the server
+  left out or sent null is None on both sides. The quotes stay as written. A `getattr` the file
+  binds itself withholds the call, and so does `.get` with a default, which the model reads as None
+  where the dictionary gave the default.
 - A read the scope analysis links to no assignment (above it, in a loop's second pass) counts as
   a read of the result, and a result bound in a class body is `response_shape_changed`: `A.r` and
   `self.r` link to no scope.

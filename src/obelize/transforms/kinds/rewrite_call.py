@@ -4,7 +4,8 @@ Only `positional_to_kw` (the new call's own arguments, in legacy order), `keywor
 written as keywords), `config_kwargs` (the configuration object) and an alias of one of them carry;
 any other keyword is refused, never passed to a method that lacks it. Rooted on the `module`, the
 call stays on the name the author wrote and no client is needed. A read of the result by a string
-key along a listed `result_paths` becomes the attribute read of the same name.
+key along a listed `result_paths` becomes the attribute read of the same name, and a
+one-argument `.get` of one becomes a `getattr`.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import libcst.matchers as m
 from libcst.metadata import (
     Assignment,
     BaseAssignment,
+    BuiltinAssignment,
     ClassScope,
     ExpressionContext,
     ExpressionContextProvider,
@@ -67,8 +69,11 @@ _NOT_MISSING_KEY: Final = frozenset(
     }
 )
 
-# A string-keyed read and the name it becomes.
-Keyed = tuple[cst.Subscript, str]
+# What reads a field of an old result by its name: a string key, or a one-argument `.get`.
+Read = cst.Subscript | cst.Call
+
+# One such read and the attribute it becomes.
+Keyed = tuple[Read, str]
 
 # A node to climb from, the path of the result it holds, and whether a name on the way is shared.
 _Use = tuple[cst.CSTNode, tuple[str, ...], bool]
@@ -212,15 +217,10 @@ class RewriteCall:
         )
         context.rewrites.set(call, rewritten)
         context.rewrites.keep_comments(tree.statement_of(call), call, rewritten)
-        for subscript, name in keyed:
-            attribute = cst.Attribute(
-                value=subscript.value,
-                attr=cst.Name(name),
-                lpar=subscript.lpar,
-                rpar=subscript.rpar,
-            )
-            context.rewrites.set(subscript, attribute)
-            context.rewrites.keep_comments(tree.statement_of(subscript), subscript, attribute)
+        for node, name in keyed:
+            replacement = _attribute(node, name)
+            context.rewrites.set(node, replacement)
+            context.rewrites.keep_comments(tree.statement_of(node), node, replacement)
         return tuple(
             sorted(
                 {
@@ -360,7 +360,7 @@ class RewriteCall:
         an f-string field written with `=` (it prints the source text the rewrite changes), or under
         `result_paths` any read that stops short of one of them and is not followed on into a name
         (`confined`). A read of a field the new result lacks is `attribute_removed`, as the scan
-        grades it. A string-keyed read along a path is returned, to become the attribute read the
+        grades it. A string-keyed read or `.get` along a path is returned, to become the read the
         new result takes.
         """
         for parameter, prefixes in sorted(self._params.dispatch_prefixes.items()):
@@ -385,6 +385,26 @@ class RewriteCall:
 def _tokens(path: str) -> tuple[str, ...]:
     """`choices[].message` as `("choices", "[]", "message")`."""
     return tuple(re.findall(r"\[\]|\w+", path))
+
+
+def _attribute(read: Read, name: str) -> cst.BaseExpression:
+    """What the new result reads where the old one was keyed: `name` as an attribute.
+
+    A `.get("name")` is None for a field left out or null, as `getattr(x, "name", None)` is on a
+    model.
+    """
+    if isinstance(read, cst.Subscript):
+        return cst.Attribute(value=read.value, attr=cst.Name(name), lpar=read.lpar, rpar=read.rpar)
+    return cst.Call(
+        func=cst.Name("getattr"),
+        args=[
+            cst.Arg(cst.ensure_type(read.func, cst.Attribute).value),
+            cst.Arg(read.args[0].value),
+            cst.Arg(cst.Name("None")),
+        ],
+        lpar=read.lpar,
+        rpar=read.rpar,
+    )
 
 
 def _may_name_a_key(name: QualifiedName) -> bool:
@@ -420,7 +440,7 @@ class _Tree(Tree):
         self._contexts = context.wrapper.resolve(ExpressionContextProvider)
         self._reads: dict[tuple[Scope | None, str], list[cst.CSTNode]] = {}
         self._confined: dict[
-            tuple[Scope | None, str, frozenset[tuple[str, ...]]], dict[cst.Subscript, str] | None
+            tuple[Scope | None, str, frozenset[tuple[str, ...]]], dict[Read, str] | None
         ] = {}
 
     def reads(self, call: cst.Call, fields: frozenset[str]) -> bool:
@@ -447,12 +467,12 @@ class _Tree(Tree):
         """The string-keyed reads of the result if it is read only along `leaves`, else None.
 
         Each use is the call or a read of the one name it is assigned to. A use climbs through
-        attributes, integer subscripts and string keys, and must reach a leaf: a key off the path,
-        a method, or the value handed on stops short of one. One that stops at a stem is followed
-        into the name that takes it, or the loop variable that walks it (`_handed`), each name once.
-        A result nothing reads is confined. A key is rewritten only where every name on the way
-        holds the result's part alone (`_shared`), in the call's own frame, and linked (`_loose`):
-        a name something else may hold would lose its dictionary.
+        attributes, integer subscripts, string keys and `.get`, and must reach a leaf: a key off
+        the path, a method, or the value handed on stops short of one. One that stops at a stem is
+        followed into the name that takes it, or the loop variable that walks it (`_handed`), each
+        name once. A result nothing reads is confined. A key is rewritten only where every name on
+        the way holds the result's part alone (`_shared`), in the call's own frame, and linked
+        (`_loose`): a name something else may hold would lose its dictionary.
         """
         match self.consumer(call):
             case cst.Expr():
@@ -474,11 +494,11 @@ class _Tree(Tree):
         start: cst.Call | cst.Name,
         leaves: frozenset[tuple[str, ...]],
         stems: frozenset[tuple[str, ...]],
-    ) -> dict[cst.Subscript, str] | None:
+    ) -> dict[Read, str] | None:
         """The keyed reads of everything `start` reaches, or None if one read stops short."""
         todo: list[_Use] = []
         seen: set[tuple[Scope | None, str, tuple[str, ...], bool]] = set()
-        keyed: dict[cst.Subscript, str] = {}
+        keyed: dict[Read, str] = {}
 
         def hold(target: cst.Name, path: tuple[str, ...], shared: bool) -> bool:
             """Queue the reads of a name that holds what `path` reaches; False if none can be."""
@@ -508,7 +528,7 @@ class _Tree(Tree):
             keyed.update(reads)
         return keyed
 
-    def _same_frame(self, call: cst.Call, keyed: dict[cst.Subscript, str]) -> bool:
+    def _same_frame(self, call: cst.Call, keyed: dict[Read, str]) -> bool:
         """Whether every read runs where the call does: a closure runs when something calls it.
 
         A generator expression runs when something iterates it, so one that holds a key read is no
@@ -545,6 +565,13 @@ class _Tree(Tree):
         while path not in leaves:
             parent = self.parent(node)
             match parent:
+                case cst.Attribute(value=value, attr=cst.Name(value="get")) if value is node and (
+                    got := self._get(parent)
+                ):
+                    call, field = got
+                    path += (field,)
+                    keyed.append((call, field))
+                    parent = call
                 case cst.Attribute(value=value, attr=cst.Name(value=name)) if value is node:
                     path += (name,)
                 case cst.Subscript(
@@ -576,6 +603,31 @@ class _Tree(Tree):
                 return None
             node = parent
         return (keyed, None, path) if self._placed(keyed) else None
+
+    def _get(self, attribute: cst.Attribute) -> tuple[cst.Call, str] | None:
+        """The call and the key of `x.get("key")`, a dictionary's one-argument `get`, else None.
+
+        It is written `getattr(x, "key", None)`, so where the file rebinds `getattr` it is no `get`
+        to write.
+        """
+        match self.parent(attribute):
+            case (
+                cst.Call(func=func, args=[cst.Arg(value=value, keyword=None, star="")]) as call
+            ) if (
+                func is attribute
+                and (key := literal_string(value)) is not None
+                and key.isidentifier()
+                and self._builtin(call, "getattr")
+            ):
+                return call, key
+        return None
+
+    def _builtin(self, node: cst.CSTNode, name: str) -> bool:
+        """Whether `name`, read at `node`, is the builtin: nothing in sight binds it."""
+        scope = self._scopes[node]
+        return scope is not None and all(
+            isinstance(each, BuiltinAssignment) for each in scope[name]
+        )
 
     def _handed(
         self,

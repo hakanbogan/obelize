@@ -141,7 +141,7 @@ new names:
 and no path continues another. The reads are followed off the call itself and off the one name it is
 assigned to, in that name's scope (D16 says which reads that counts). A string key that is the next
 segment of a path is the same read written as a key (D18). Any other use is `response_shape_changed`:
-a key off the path, `.get`, a loop over something that is not a list on the path, the result or a part
+a key off the path, a `.get` the next paragraph does not list, a loop over something that is not a list on the path, the result or a part
 of it returned or passed on, a method on a path that is not a leaf (D20 says where a part may go). A
 result nothing reads is fine. `result_paths` and `result_access_flags` exclude each other, since the
 second refuses every use and the first would never be consulted. Both ways of knowing are
@@ -182,7 +182,7 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 |---|---|
 | `acreate` | The new module client has no async form: `AsyncOpenAI` is a client the file must build and close. |
 | `stream=True`, `deployment_id`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. `engine` and `request_timeout` are carried as `model` and `timeout` when they can be (D4). |
-| A result read with `.get`, by a key off the path, looped over, passed on or returned | D5, D18. |
+| A result read with `.get` and a default, by a key off the path, looped over, passed on or returned | D5, D18. |
 | The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. `api_base` has a counterpart and is rewritten (ADR-055). |
 | `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |
 | `openai.APIError` | **Deliberately not reported.** The name exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. The cost: a handler that reads `http_status`, `json_body` or `user_message` compiles and raises `AttributeError` once the pin moves, and nothing says so. It is a limitation of the pack. |
@@ -357,8 +357,14 @@ The format gains no field: whoever lists a path says both spellings read the sam
 legacy result. `dict_reads` reads every listed path by its keys, a test
 (`test_the_dict_reads_fixture_reads_every_listed_path_by_its_keys`) holds it to that, and the weekly
 job prints the fixture's results on 0.28.1 and on 1.109.1 and the newest release and diffs them.
-The other spellings stay refused: `.get` has a default where the attribute read raises, and a key
-held in a name or an expression is not known to be on the path. A comment between the brackets of a
+A one-argument `.get("name")` is read the same way and written `getattr(x, "name", None)`: on a
+0.28.1 result `.get` is `dict.get`, which gives None for a key that is left out or null, and on
+1.109.1 and 3.26.0 `getattr` gave the same for a field left out or null (measured for `id`,
+`usage` and a message's `content`, which a server may omit). The call and its string must be the
+one-argument shape with an identifier for a key; `getattr` must be the builtin, so a file that binds
+the name withholds the call. The other spellings stay refused: `.get` with a default, which
+the new model reads as None where the dictionary gave the default, and a key held in a name or an
+expression, which is not known to be on the path. A comment between the brackets of a
 rewritten read moves to a line above its statement (ADR-026 D7).
 
 ### D19. Image, Moderation and Audio are rewritten
@@ -503,7 +509,7 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   also lands on the source rows of a coupled pack, an import row included,
   `manifest_pin_shape_unsupported` is also raised by the scan for a coupled pack (D12), and
   `response_shape_changed` also means a read outside `result_paths`. `CHANGELOG.md` lists the format changes (ADR-048).
-- One withheld row anywhere keeps every file as it was: a `.get` read of a result, an `openai.File`
+- One withheld row anywhere keeps every file as it was: a `.get` of a result with a default, an `openai.File`
   call, an undeclared `requests` import or a pin it cannot write leaves the repository unchanged,
   with exit `4`. Gate 1 is
   not measured for this pack; the [dry run](../BENCHMARK_RESULTS.md#fix-dry-run) says how often.
@@ -520,6 +526,6 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   - Streaming: a `stream=True` result is read through its chunks, which have no `result_paths` yet.
   - Azure: `api_type`, `api_version`, `engine` and `deployment_id` become an `AzureOpenAI` client
     with an endpoint and an API version, which is a configuration rewrite across modules.
-  - A `.get` read of a result, which has no attribute spelling that raises the same way.
+  - A `.get` read of a result with a default, which the new model answers with None.
   - Client-object output: `openai.OpenAI(...)` with the module settings moved into its construction,
     for code that needs the client itself.

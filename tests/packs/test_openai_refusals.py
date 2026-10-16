@@ -48,6 +48,10 @@ CASES = [
     ('first = openai.Moderation.create(input=x)["results"][0]\n    return first["flagged"]', None),
     (
         'first = openai.Moderation.create(input=x)["results"][0]\n    return first.get("flagged")',
+        None,
+    ),
+    (
+        'top = openai.Moderation.create(input=x)["results"][0]\n    return top.get("flagged", 1)',
         "response_shape_changed",
     ),
     (

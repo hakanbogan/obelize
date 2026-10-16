@@ -250,6 +250,19 @@ def test_a_new_result_is_not_a_dictionary() -> None:
     assert not hasattr(result, "get")
 
 
+def test_a_field_the_server_left_out_or_sent_null_is_none_through_getattr() -> None:
+    """Why `r.get("usage")` is written `getattr(r, "usage", None)`: 0.28.1's `.get` gave None too.
+
+    The client builds a result without validating it, so a required field may be missing as well.
+    """
+    sent_null = openai.types.chat.ChatCompletion.construct(created=1, usage=None)
+    left_out = openai.types.chat.ChatCompletion.construct(created=1)
+    for result in (sent_null, left_out):
+        assert getattr(result, "usage", None) is None
+        assert getattr(result, "id", None) is None
+        assert getattr(result, "created", None) == 1
+
+
 def test_the_module_settings_the_pack_leaves_alone_are_read_by_the_module_client() -> None:
     """`api_key` and `organization` are module attributes the lazily built client reads."""
     assert {"api_key", "organization"} <= {*dir(openai)}

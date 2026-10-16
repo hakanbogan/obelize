@@ -140,6 +140,12 @@ The limitations that rest on the SDK's own text and not on a fixture:
   listed path by its keys and prints the same on 0.28.1, 1.109.1 and the newest release), and `result_paths` lists the fields every
   measured release defines
   (`choices[].message.content`, `usage.total_tokens`, `data[].embedding`, ...).
+- Measured: `r.get("k")` on a 0.28.1 result is `dict.get`, and `getattr(r, "k", None)` on a
+  1.109.1 and a 3.26.0 result gave the same for a field present, sent as null or left out, over a
+  local server's seven chat answers (no `usage`, a null `usage`, a null and an absent `content`, no
+  `finish_reason`, no `id`: `id` is required, and the client builds a result without validating it).
+  A `.get` with a default is not the same, since the model holds None for a field the server left
+  out, so it is refused. The `dict_reads` fixture reads the listed paths through `.get` as well.
 - Measured: the 0.28.1 result classes are not distinct types (a chat result is
   a plain `OpenAIObject`), so nothing can be read off the type: a file is
   decided by the reads it contains.

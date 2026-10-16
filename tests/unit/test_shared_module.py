@@ -466,6 +466,122 @@ def test_a_string_key_along_a_listed_path_is_read_as_the_attribute_of_that_name(
     assert code.splitlines()[-1] == line
 
 
+@pytest.mark.parametrize(
+    ("body", "line"),
+    [
+        (
+            f"r = {CALL}\nprint(r.get('reply').get('text'))\n",
+            "print(getattr(getattr(r, 'reply', None), 'text', None))",
+        ),
+        (
+            f"print({CALL}.get('reply').get('text'))\n",
+            "print(getattr(getattr(acme.kit.talk.say(who='a'), 'reply', None), 'text', None))",
+        ),
+        (
+            f"r = {CALL}\nm = r.get('reply')\nprint(m.get('text'), m.text)\n",
+            "print(getattr(m, 'text', None), m.text)",
+        ),
+        (
+            f"r = {ROWS}\nfor row in r.get('rows'):\n    print(row.get('price'))\n",
+            "    print(getattr(row, 'price', None))",
+        ),
+        (
+            f"r = {ROWS}\nprint(r.get('rows')[0].get('price'))\n",
+            "print(getattr(getattr(r, 'rows', None)[0], 'price', None))",
+        ),
+        (
+            f"r = {CALL}\nprint(r.get('reply')['text'])\n",
+            "print(getattr(r, 'reply', None).text)",
+        ),
+        (
+            f"r = {CALL}\nprint(r['reply'].get('text') or 1)\n",
+            "print(getattr(r.reply, 'text', None) or 1)",
+        ),
+        (
+            f"r = {CALL}\nprint(r.get(\"reply\").get( 'text' ))\n",
+            "print(getattr(getattr(r, \"reply\", None), 'text', None))",
+        ),
+        (
+            f"r = {CALL}\nprint(f\"{{r.get('reply').get('text')}}\")\n",
+            "print(f\"{getattr(getattr(r, 'reply', None), 'text', None)}\")",
+        ),
+    ],
+)
+def test_a_one_argument_get_along_a_listed_path_is_a_getattr_of_that_name(
+    body: str, line: str
+) -> None:
+    """A field left out or null is None on both sides, so the default says what `.get` said."""
+    code, edits = rewrite(body)
+    assert {row.status for row in edits} == {"auto"}, body
+    assert code.splitlines()[-1] == line
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\nprint(r.get('reply', {{}}).get('text'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('text', ''))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('text', default=''))\n",
+        f"r = {CALL}\nprint(r.get('reply').get(key))\n",
+        f"r = {CALL}\nprint(r.get('reply').get(key='text'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get(*keys))\n",
+        f"r = {CALL}\nprint(r.get('reply').get())\n",
+        f"r = {CALL}\nprint(r.get(b'reply'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('te-xt'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('words'))\n",
+        f"r = {CALL}\nf = r.get\nprint(f('reply'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('text')or 1)\n",
+        f"r = {CALL}\nprint(f\"{{r.get('reply').get('text')=}}\")\n",
+        f"r = {CALL}\ntry:\n    print(r.get('reply').get('text'))\nexcept KeyError:\n    pass\n",
+        f"r = {CALL}\nm = r.get('reply')\nm = {{}}\nprint(m.get('text'))\n",
+        f"r = {CALL}\ndef g():\n    return r.get('reply').get('text')\n",
+        f"r = {{}}\nif again:\n    r = {CALL}\nprint(r.get('reply').get('text'))\n",
+        f"g = (r.get('reply').get('text') for r in [{CALL}])\n",
+    ],
+)
+def test_a_get_the_rule_cannot_read_as_a_path_refuses_the_call(body: str) -> None:
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+
+
+@pytest.mark.parametrize(
+    "prelude",
+    [
+        "getattr = len\n",
+        "from lib import getattr\n",
+        "def getattr(obj, name, default): ...\n",
+        "import getattr\n",
+    ],
+    ids=["assigned", "imported", "defined", "a module"],
+)
+def test_a_get_is_not_written_as_a_getattr_the_file_has_rebound(prelude: str) -> None:
+    body = f"{prelude}r = {CALL}\nprint(r.get('reply').get('text'))\n"
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], prelude
+    assert "talk.say" not in code
+    _, edits = rewrite(body.replace(".get('reply').get('text')", ".reply.text"))
+    assert [row.status for row in edits] == ["auto"], prelude
+
+
+def test_a_getattr_rebound_in_another_function_is_no_reason_to_keep_a_get() -> None:
+    body = (
+        f"def f(getattr):\n    return getattr\n\n\nr = {CALL}\nprint(r.get('reply').get('text'))\n"
+    )
+    code, edits = rewrite(body)
+    assert [row.status for row in edits] == ["auto"]
+    assert code.splitlines()[-1] == "print(getattr(getattr(r, 'reply', None), 'text', None))"
+
+
+def test_a_comment_inside_a_get_is_kept_above_its_statement() -> None:
+    code, edits = rewrite(f"r = {CALL}\nprint(r.get('reply').get(  # why\n    'text'))\n")
+    assert [row.status for row in edits] == ["auto"]
+    assert code.splitlines()[-2:] == [
+        "# why",
+        "print(getattr(getattr(r, 'reply', None), 'text', None))",
+    ]
+
+
 def test_a_comment_written_inside_a_key_read_is_kept_above_its_statement() -> None:
     """The attribute has no brackets to hold it; the comment goes above, in the order written."""
     code, edits = rewrite(
@@ -499,7 +615,6 @@ def test_a_comment_written_inside_a_key_read_is_kept_above_its_statement() -> No
         f"r = {CALL}\nr['re' 'ply']['text']\n",
         f"r = {CALL}\nr[f'reply']['text']\n",
         f"r = {CALL}\nr[b'reply']['text']\n",
-        f"r = {CALL}\nr['reply'].get('text')\n",
         f"p = {FETCH_CALL}['rows']['[]']['price']\n",
         f"r = {CALL}\nprint(f\"{{r['reply']['text']=}}\")\n",
         f'print(f"{{{CALL}.reply.text=}}")\n',

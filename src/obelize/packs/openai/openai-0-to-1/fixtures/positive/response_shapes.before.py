@@ -18,7 +18,7 @@ def looped(prompt):
 
 def keyed(prompt):
     response = openai.Completion.create(model="gpt-3.5-turbo-instruct", prompt=prompt)
-    return response.get("choices")
+    return response.get("choices", [])
 
 
 def cached(prompt, saved):
