@@ -356,8 +356,9 @@ class RewriteCall:
         """Refuse a call whose result is not what the new call returns; else the reads to rewrite.
 
         `response_shape_changed`: a `dispatch_prefixes` argument that is not a literal with a listed
-        prefix, under `result_access_flags` any use of the result (it may be read unseen), a call in
-        an f-string field written with `=` (it prints the source text the rewrite changes), or under
+        prefix, a `literal_prefixes` argument that is a literal without one, under
+        `result_access_flags` any use of the result (it may be read unseen), a call in an f-string
+        field written with `=` (it prints the source text the rewrite changes), or under
         `result_paths` any read that stops short of one of them and is not followed on into a name
         (`confined`). A read of a field the new result lacks is `attribute_removed`, as the scan
         grades it. A string-keyed read or `.get` along a path is returned, to become the read the
@@ -367,6 +368,11 @@ class RewriteCall:
             value = read.given.get(parameter)
             written = literal_string(value) if value is not None else None
             if written is None or not written.startswith(prefixes):
+                raise BailError("response_shape_changed")
+        for parameter, prefixes in sorted(self._params.literal_prefixes.items()):
+            value = read.given.get(parameter)
+            written = literal_string(value) if value is not None else None
+            if written is not None and not written.startswith(prefixes):
                 raise BailError("response_shape_changed")
         if self._params.result_access_flags and not isinstance(tree.consumer(call), cst.Expr):
             raise BailError("response_shape_changed")

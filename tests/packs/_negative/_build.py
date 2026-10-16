@@ -1154,6 +1154,32 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: _with(d["changes"][1]["params"], "dispatch_prefixes", {"kind": []}),
     ),
     Case(
+        name="a_literal_prefix_on_a_parameter_no_list_names",
+        defect="a prefix list the rule would never consult",
+        path=f"{EXTRA}.params",
+        says="literal_prefixes names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            {"literal_prefixes": {"flavour": ["a/"]}}
+        ),
+    ),
+    Case(
+        name="a_literal_prefix_list_with_nothing_in_it",
+        defect="a prefix list that refuses every value written out, naming none that carries",
+        path=f"{EXTRA}.params",
+        says="literal_prefixes['body'] is empty",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "literal_prefixes", {"body": []}),
+    ),
+    Case(
+        name="a_parameter_both_dispatched_and_literal",
+        defect="a parameter that must be a listed literal and one that carries unless it is not",
+        path=f"{EXTRA}.params",
+        says="['kind'] is in dispatch_prefixes and in literal_prefixes",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"literal_prefixes": {"kind": ["a/"]}}),
+    ),
+    Case(
         name="a_value_map_on_a_parameter_no_list_names",
         defect="a table of spellings the rule would never consult",
         path=f"{EXTRA}.params",

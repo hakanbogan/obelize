@@ -863,6 +863,10 @@ class RewriteCallParams(_Closed):
     # The only reads of the result that carry: anything else, or the result passed on, is refused.
     result_paths: tuple[ResultPath, ...] = ()
     dispatch_prefixes: dict[PlainName, tuple[LiteralPrefix, ...]] = Field(default_factory=dict)
+    # A parameter that, written as a string literal, must begin with a listed prefix. Left out or
+    # computed, it carries: only a name written out can be shown to be one the new call answers
+    # otherwise.
+    literal_prefixes: dict[PlainName, tuple[LiteralPrefix, ...]] = Field(default_factory=dict)
     # A carried argument's legacy spellings (lower case, as the legacy lookup lowered its input)
     # and the one the new call takes; a value outside the table is `unsupported_kwarg`.
     value_maps: dict[PlainName, dict[LowerKey, EnumMemberName]] = Field(default_factory=dict)
@@ -944,20 +948,31 @@ class RewriteCallParams(_Closed):
 
     def _check_every_dispatching_parameter_is_one_the_rule_reads(self) -> None:
         known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
-        unknown = sorted(set(self.dispatch_prefixes) - known)
-        if unknown:
-            raise ValueError(
-                f"dispatch_prefixes names {unknown}, which positional_to_kw, keywords and "
-                f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
-                f"prefix list is never consulted"
-            )
-        for parameter, prefixes in sorted(self.dispatch_prefixes.items()):
-            if not prefixes:
+        for field, table in (
+            ("dispatch_prefixes", self.dispatch_prefixes),
+            ("literal_prefixes", self.literal_prefixes),
+        ):
+            unknown = sorted(set(table) - known)
+            if unknown:
                 raise ValueError(
-                    f"dispatch_prefixes[{parameter!r}] is empty, which refuses every call rather "
-                    f"than saying which values carry; drop the entry instead"
+                    f"{field} names {unknown}, which positional_to_kw, keywords and "
+                    f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
+                    f"prefix list is never consulted"
                 )
-            _sorted_set(prefixes, f"dispatch_prefixes[{parameter!r}]")
+            for parameter, prefixes in sorted(table.items()):
+                if not prefixes:
+                    raise ValueError(
+                        f"{field}[{parameter!r}] is empty, which refuses every call rather "
+                        f"than saying which values carry; drop the entry instead"
+                    )
+                _sorted_set(prefixes, f"{field}[{parameter!r}]")
+        both = sorted(set(self.dispatch_prefixes) & set(self.literal_prefixes))
+        if both:
+            raise ValueError(
+                f"{both} is in dispatch_prefixes and in literal_prefixes; the one refuses a value "
+                f"that is not a listed literal and the other carries one that is no literal, and a "
+                f"pack that says both leaves the rule to decide"
+            )
 
     def _check_every_mapped_parameter_is_one_the_rule_reads(self) -> None:
         known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}

@@ -561,6 +561,16 @@ KEYWORD_DEFECTS = [
         "['kind'] is in positive_numbers and has a value_maps table",
     ),
     ({"dispatch_prefixes": {"flavour": ["kinds/"]}}, "dispatch_prefixes names ['flavour']"),
+    ({"literal_prefixes": {"flavour": ["kinds/"]}}, "literal_prefixes names ['flavour']"),
+    ({"literal_prefixes": {"kind": []}}, "literal_prefixes['kind'] is empty"),
+    (
+        {"literal_prefixes": {"kind": ["kinds/", "flavours/"]}},
+        "literal_prefixes['kind'] must be sorted and de-duplicated",
+    ),
+    (
+        {"literal_prefixes": {"kind": ["kinds/"]}},
+        "['kind'] is in dispatch_prefixes and in literal_prefixes",
+    ),
     (
         {"arg_map": {"body": "kind"}},
         "two entries of positional_to_kw and keywords land on ['kind']",
@@ -611,6 +621,13 @@ def test_an_alias_and_a_number_only_parameter_are_names_the_rule_reads() -> None
     params = rewrite_params(build(document), 1)
     assert params.aliases == {"label": "kind", "span": "depth"}
     assert params.positive_numbers == ("depth",)
+
+
+def test_a_literal_prefix_list_may_sit_beside_a_dispatch_one_on_another_parameter() -> None:
+    document = with_change(builder.MODULE_CALL, literal_prefixes={"body": ["a/"]})
+    params = rewrite_params(build(document), 1)
+    assert params.literal_prefixes == {"body": ("a/",)}
+    assert params.dispatch_prefixes == {"kind": ("kinds/",)}
 
 
 NEW_CALLS = [

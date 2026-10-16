@@ -1113,6 +1113,19 @@
           "title": "Legacy Symbol",
           "type": "string"
         },
+        "literal_prefixes": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "title": "Literal Prefixes",
+          "type": "object"
+        },
         "new_call": {
           "title": "New Call",
           "type": "string"

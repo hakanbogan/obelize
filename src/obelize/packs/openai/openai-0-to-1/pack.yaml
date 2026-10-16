@@ -245,6 +245,11 @@ changes:
         - size
         - style
         - user
+      # A model written out that returns no url whatever the format (gpt-image-1) is refused. One
+      # left out is dall-e-2, the API's default, and one held in a name is not looked into.
+      literal_prefixes:
+        model:
+          - dall-e
       result_paths:
         - created
         - data[].url

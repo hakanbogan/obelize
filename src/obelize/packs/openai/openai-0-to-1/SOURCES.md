@@ -173,8 +173,11 @@ The limitations that rest on the SDK's own text and not on a fixture:
   that relied on the miss (`except Exception`, a bare `except`, `except AttributeError`) stops
   running. `url` is absent from a `b64_json` response and `revised_prompt` from a `dall-e-2` one, so
   `response_format` is not carried and only `url`, which the default format returns, is a listed
-  path. A model that returns no url whatever the format (`gpt-image-1`) is the case this does not
-  catch.
+  path. A model that returns no url whatever the format (`gpt-image-1`) is refused when it is
+  written as a string that does not begin with `dall-e`. Measured: `Image.create(prompt=...)` on
+  0.28.1 and `images.generate(prompt=...)` on 1.109.1 and 3.26.0 post the same body with no `model`,
+  so a call that names none is answered by the API's default, `dall-e-2` in its reference, which no
+  measurement here calls; a model held in a name is not looked into.
 - Measured: 0.28.1's `Moderation.create(input, model=None, api_key=None)` dropped a `model` of
   `None` from the body, where `moderations.create` sends `"model": null`, and raised `ValueError`
   before any request for a model other than `text-moderation-stable` and `text-moderation-latest`,

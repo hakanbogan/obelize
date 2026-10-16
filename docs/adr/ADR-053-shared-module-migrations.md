@@ -397,7 +397,11 @@ What a review of the first version changed, each confirmed by running both SDKs:
   `url`, `b64_json` and `revised_prompt` optional, and reads one the server left out as `None`: the
   handler stops running, as for the `KeyError` of D18, and no scan can see it. So `response_format` is
   not carried, `url` (what the default format returns) is the one listed path, and `b64_json` and
-  `revised_prompt` are not. A model that returns no url whatever the format, `gpt-image-1`, is not caught.
+  `revised_prompt` are not. A model that returns no url whatever the format, `gpt-image-1`, is refused when it
+  is written out as a string that does not begin with `dall-e` (`literal_prefixes`, which refuses
+  nothing else). A call with no `model` is sent as it was (the same body on 0.28.1 and on 1.109.1 and
+  3.26.0, measured) and answered by the API's default, which its reference gives as `dall-e-2`, and a
+  `model` held in a name or built up is not looked into.
 - `Moderation.create` carries only `input`. 0.28.1 dropped a `model` of `None` from the body and
   raised `ValueError` before any request for a name other than two; the new method sends `"model":
   null`, and sends any name on. A call with a `model` is `unsupported_kwarg` or `positional_arg_ambiguous`.
