@@ -12,6 +12,7 @@ import importlib
 import inspect
 import io
 import warnings
+from collections.abc import Callable
 from importlib.metadata import metadata, version
 from typing import Any, cast
 
@@ -30,6 +31,11 @@ with warnings.catch_warnings():
 BUNDLED_ID = "py-pdf/pypdf2-to-pypdf"
 BUNDLED = loader.load(BUNDLED_ID)
 PACK = BUNDLED.pack
+REMOVED = next(
+    change.params
+    for change in PACK.changes
+    if change.id == "flag-removed-names" and isinstance(change, schema.FlagOnlyChange)
+)
 RENAME = next(change.params for change in PACK.changes if change.kind == "rename_import")
 FLAGGED = {
     symbol
@@ -241,3 +247,73 @@ def test_page_boxes_and_float_objects_change_numeric_type() -> None:
     assert issubclass(PyPDF2.generic.FloatObject, decimal.Decimal)
     assert issubclass(pypdf.generic.FloatObject, float)
     assert "decimal.Decimal" in " ".join(PACK.limitations)
+
+
+# What the suggestion of `flag-removed-names` names, as a call on a reader, a writer and a page.
+CAMEL_CASE: dict[str, Callable[[Any, Any, Any], object]] = {
+    "getPage": lambda reader, writer, page: reader.getPage(0),
+    "numPages": lambda reader, writer, page: reader.numPages,
+    "getNumPages": lambda reader, writer, page: reader.getNumPages(),
+    "mediaBox": lambda reader, writer, page: page.mediaBox,
+    "addPage": lambda reader, writer, page: writer.addPage(page),
+    "mergePage": lambda reader, writer, page: page.mergePage(page),
+    "scaleBy": lambda reader, writer, page: page.scaleBy(2),
+    "extractText": lambda reader, writer, page: page.extractText(),
+    "rotateCounterClockwise": lambda reader, writer, page: page.rotateCounterClockwise(90),
+    "removeImages": lambda reader, writer, page: writer.removeImages(),
+    "removeText": lambda reader, writer, page: writer.removeText(),
+}
+
+
+@pytest.mark.parametrize("name", CAMEL_CASE)
+def test_a_camel_case_member_the_suggestion_names_raises_on_the_version_the_pack_migrates_from(
+    name: str,
+) -> None:
+    reader = PyPDF2.PdfReader(_pdf(PyPDF2))
+    with pytest.raises(PyPDF2.errors.DeprecationError, match=r"removed in PyPDF2 3\.0\.0"):
+        CAMEL_CASE[name](reader, PyPDF2.PdfWriter(), reader.pages[0])
+    assert name in REMOVED.suggestion
+
+
+def test_the_replacements_the_suggestion_names_exist_in_pypdf() -> None:
+    reader = pypdf.PdfReader(_pdf(pypdf))
+    page = reader.pages[0]
+    writer = pypdf.PdfWriter()
+    named = {
+        "pages": reader,
+        "mediabox": page,
+        "extract_text": page,
+        "merge_page": page,
+        "scale_by": page,
+        "rotate": page,
+        "add_page": writer,
+        "append": writer,
+        "merge": writer,
+    }
+    assert all(hasattr(owner, name) and name in REMOVED.suggestion for name, owner in named.items())
+    assert "strict=True" in REMOVED.suggestion
+    assert inspect.signature(pypdf.PdfReader).parameters["strict"].default is False
+
+
+def test_the_names_the_limitations_say_pypdf_changed_are_the_ones_it_has() -> None:
+    """What a rename by name alone gets wrong: a move of position, of keyword or of meaning."""
+    fourth = [
+        list(inspect.signature(method).parameters)[4]
+        for method in (
+            PyPDF2.PageObject.mergeTranslatedPage,
+            pypdf.PageObject.merge_translated_page,
+        )
+    ]
+    assert fourth == ["expand", "over"]
+    assert "the fourth positional of merge*Page is over, not expand" in REMOVED.suggestion
+    parameters = {
+        name: set(inspect.signature(getattr(pypdf.PdfWriter, name)).parameters)
+        for name in ("append", "merge", "remove_images", "remove_text", "encrypt")
+    }
+    assert {"outline_item", "import_outline"} <= parameters["append"] & parameters["merge"]
+    assert "to_delete" in parameters["remove_images"]
+    assert "font_names" in parameters["remove_text"]
+    assert {"user_password", "owner_password"} <= parameters["encrypt"]
+    text = " ".join(PACK.limitations)
+    for named in ("outline_item", "import_outline", "font_names", "to_delete", "user_password"):
+        assert named in text

@@ -1,7 +1,7 @@
 # Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
 # Measured on PyPDF2 3.0.1 and pypdf 6.19.0 (SOURCES.md).
 id: py-pdf/pypdf2-to-pypdf
-pack_version: 0.3.0
+pack_version: 0.4.0
 provider: py-pdf
 language: python
 
@@ -127,7 +127,7 @@ changes:
 
   - id: flag-removed-names
     kind: flag_only
-    citation: "PyPDF2 3.0.1 source, the DeprecationError each name raises"
+    citation: "PyPDF2 3.0.1 source, the DeprecationError each name raises; PyPDF2 1.26.0 and 2.12.1, the camelCase API"
     params:
       symbols:
         - PyPDF2.PdfFileMerger
@@ -138,8 +138,13 @@ changes:
         so code that still names it does not run on the versions this pack
         migrates from, and pypdf 6 does not define it.
       suggestion: >-
-        Port the call sites to PdfReader or PdfWriter, whose methods and
-        parameters are snake_case, before moving the import.
+        PdfFileReader(f) becomes PdfReader(f, strict=True), PdfFileWriter()
+        PdfWriter(), getPage(i) pages[i], numPages and getNumPages()
+        len(reader.pages), mediaBox mediabox, addPage add_page, mergePage
+        merge_page, scaleBy scale_by; extractText becomes extract_text, with
+        other spacing. Not by name: rotateCounterClockwise(a) is rotate(-a), the
+        fourth positional of merge*Page is over, not expand, removeImages and
+        removeText changed meaning, PdfFileMerger is PdfWriter.append and merge.
     fixtures:
       - fixtures/negative/already_pypdf.py
       - fixtures/positive/removed_names.before.py
@@ -206,6 +211,8 @@ limitations:
   - "pypdf 6 also lacks, among other things, PdfWriter.set_page_mode and the user_pwd, owner_pwd, pageNumber, Tj_sep and TJ_sep parameters that PyPDF2 3.0.1 accepts; the last four warn on 3.0.1."
   - "The names compared are those of the two projects, not their behaviour: pypdf 3 to 6 fixed parsing bugs and tightened limits, so a damaged file that PyPDF2 3.0.1 read one way may be read differently, or refused."
   - "PdfFileReader, PdfFileWriter and PdfFileMerger have raised DeprecationError since PyPDF2 3.0.0, and PdfMerger, generic.AnnotationBuilder and generic.Bookmark no longer exist in pypdf 6, so all of them are reported and never rewritten."
+  - "PdfFileReader and PdfFileMerger read strictly, so a damaged file raises on PyPDF2 below 3 where PdfReader and PdfWriter.append recover from it: PdfReader(f, strict=True) keeps the error, and PdfWriter(strict=True) does not make append strict. The bookmark and import_bookmarks arguments of PdfFileMerger.append and merge are outline_item and import_outline on pypdf 6."
+  - "removeImages() keeps inline images where remove_images() removes them, and removeText() and removeImages() take ignoreByteStringObject where pypdf 6 takes font_names and to_delete, so remove_text(True) is a TypeError. PdfWriter.encrypt takes user_password and owner_password where PyPDF2 took user_pwd and owner_pwd, and write returns a tuple where PyPDF2 1.26.0 returned None."
   - "A repository whose pyproject.toml or setup.cfg declares a Python below 3.9 is blocked, since pypdf 6 does not install there and pip would resolve an older release with the advisories this pack avoids. A Python declared only in setup.py or a Pipfile is not read."
   - "A repository that declares PyPDF2 below 3 is blocked, and so is one that uses it and declares it nowhere obelize reads: PyPDF2 1 and 2 have a camelCase API, and the rules were measured on 3.0.1."
   - "A declaration that names no version, or a range below 3 that admits 3.0.1 (PyPDF2, PyPDF2>=2.10), is taken as 3.0.1, the newest release on PyPI, which is what a fresh install resolves to; the run says so. A requirement with an environment marker or a pre-release is not taken, and nothing is taken in a directory that is not the top of a git repository."
