@@ -124,10 +124,21 @@ def contrary(
 
 def _hidden(walk: Walk) -> str:
     """A listed file that can pin or constrain a release, or a name no report can spell, under
-    which anything may be."""
-    return next((path for path in walk.listed if manifests.is_lock(path)), "") or next(
-        (row.path for row in walk.skipped if row.reason == "unusable_name"), ""
-    )
+    which anything may be.
+
+    A constraints file or a pip-tools input is one where no manifest was read from it: a link, or
+    a file in a directory the scan leaves out (`.ci/`, `vendor/`).
+    """
+    read = {*walk.manifests, *walk.excluded_manifests}
+    return next(
+        (
+            path
+            for path in walk.listed
+            if manifests.is_lock(path)
+            or (manifests.layout(path) == "unwritten" and path not in read)
+        ),
+        "",
+    ) or next((row.path for row in walk.skipped if row.reason == "unusable_name"), "")
 
 
 def _removed(findings: Sequence[Finding], spec: ScanSpec) -> str:
@@ -340,9 +351,9 @@ def _rules_out(
 def _on_disk(
     root: Path, walk: Walk, rows: Sequence[manifests.Declaration], spelled: str, newest: str
 ) -> str:
-    """What the listing may not show, because git ignores it: a lock, a constraints file or a
-    pip-tools input beside the repository root or a declaring manifest, and an environment kept
-    in the root or beside any listed file, with another release."""
+    """What the listing may not show, because git ignores it: a lock, or a requirements,
+    constraints or pip-tools input file, beside the repository root or a declaring manifest, and
+    an environment kept in the root or beside any listed file, with another release."""
     installed = re.compile(
         rf"{spelled}-(?P<release>\d+(?:\.\d+)*)(?:-py[\d.]+)?\.(?:dist|egg)-info", re.IGNORECASE
     )
@@ -351,7 +362,7 @@ def _on_disk(
         for name in _names(root / directory):
             path = posixpath.join(directory, name)
             if path not in listed and (
-                manifests.is_lock(path) or manifests.layout(path) == "unwritten"
+                manifests.is_lock(path) or manifests.layout(path) in manifests.PIP
             ):
                 return path
     # `lexists` first: nearly every directory holds none of the three, and a listing costs more.

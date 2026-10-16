@@ -75,9 +75,11 @@ searched for a version.
 4. A file git lists that can pin or constrain a release without being a manifest the scan reads:
    `poetry.lock`, `Pipfile.lock`, `uv.lock`, `pdm.lock`, `pixi.lock`, `conda-lock.yml`,
    `pylock.toml` and `pylock.*.toml`, `environment.yml` and `.yaml`, `pip.conf`, `uv.toml` and
-   `requirements*.lock`. `LOCKS` and `LOCK_GLOBS` in `scan/manifests.py` are the list. So is a file
-   name no report can spell (a control, format or backslash character), which the walk skips: what
-   is under it is unseen.
+   `requirements*.lock`. `LOCKS` and `LOCK_GLOBS` in `scan/manifests.py` are the list. So is a
+   constraints file or a `*requirements*.in` input that no manifest was read from: a link, or one in
+   a directory the scan leaves out (a dot-directory, `vendor/`, `build/`, `dist/`), where a `-c` from
+   anywhere can still reach it. So is a file name no report can spell (a control, format or
+   backslash character), which the walk skips: what is under it is unseen.
 5. A version written anywhere else, in the name or the bytes of any file git lists, a dot-directory
    and a file the user's `exclude` removed included: `PyPDF2 <op> <version>` that does not admit
    the newest release or that cannot be read, or `PyPDF2-<version>` of another release (a
@@ -87,8 +89,9 @@ searched for a version.
    than a window is held and a mention is whole in one of them; a UTF-16 one is read as bytes, and a
    file over 32 MiB is not searched. A mention is read by the window it starts in, where it lies
    whole, so an edge never cuts one into another release.
-6. What git ignores, found with `scandir` and never read: a lock, a constraints file or a
-   `*requirements*.in` beside the repository root or a manifest that declares the distribution, and
+6. What git ignores, found with `scandir` and never read: a lock, a requirements file, a
+   constraints file or a `*requirements*.in` beside the repository root or a manifest that declares
+   the distribution, and
    a `.venv`, `venv` or `env` in the root or beside any listed file, found with one `lstat` per
    name, whose `site-packages` holds a `dist-info` or `egg-info` of another release.
 

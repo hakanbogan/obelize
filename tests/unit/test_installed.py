@@ -586,6 +586,28 @@ def test_an_option_in_a_constraints_file_is_judged_like_one_in_a_requirements_fi
 
 
 @pytest.mark.parametrize(
+    "name",
+    [".ci/constraints.txt", "vendor/requirements.in", "build/constraints-3.12.txt"],
+)
+def test_a_constraints_file_or_input_in_a_directory_the_scan_leaves_out_is_evidence(
+    tmp_path: Path, name: str
+) -> None:
+    """Nothing reads it, and a `-c` to it from anywhere can hold a release back."""
+    root = git_repo(tmp_path, {**REQUIRED, name: "six\n"})
+    assert contrary(root) == name
+
+
+@posix_only("a symbolic link is a POSIX file; Windows is tested through the junction refusal")
+@pytest.mark.parametrize("name", ["constraints.txt", "requirements.in"])
+def test_a_constraints_file_or_input_that_is_a_link_is_evidence(tmp_path: Path, name: str) -> None:
+    root = git_repo(tmp_path / "repo", REQUIRED)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("six\n", encoding="utf-8")
+    link(root / name, outside)
+    assert contrary(root, listed=(name,)) == name
+
+
+@pytest.mark.parametrize(
     "name", ["yarn.lock", "package-lock.json", "Cargo.lock", "requirements-dev.txt", "notes.txt"]
 )
 def test_a_file_that_decides_no_python_release_is_not_evidence(tmp_path: Path, name: str) -> None:
@@ -801,12 +823,24 @@ def test_an_ignored_lock_beside_the_root_is_evidence(tmp_path: Path) -> None:
     assert contrary(root) == "poetry.lock"
 
 
-@pytest.mark.parametrize("name", ["constraints.txt", "requirements.in"])
-def test_an_ignored_constraints_file_or_input_beside_the_root_is_evidence(
+@pytest.mark.parametrize(
+    "name",
+    ["constraints.txt", "requirements.in", "dev-requirements.txt", "requirements-dev.txt"],
+)
+def test_an_ignored_requirements_constraints_or_input_file_beside_the_root_is_evidence(
     tmp_path: Path, name: str
 ) -> None:
     root = git_repo(tmp_path, {**REQUIRED, name: "x\n"}, f"{name}\n")
     assert contrary(root) == name
+
+
+def test_an_ignored_requirements_file_beside_a_manifest_that_declares_is_evidence(
+    tmp_path: Path,
+) -> None:
+    files = {"requirements.txt": "six\n", "app/requirements.txt": "PyPDF2\n"}
+    ignored = {**files, "app/pip-requirements.txt": "x\n"}
+    root = git_repo(tmp_path, ignored, "pip-requirements.txt\n")
+    assert contrary(root) == "app/pip-requirements.txt"
 
 
 def test_a_listed_constraints_file_is_read_and_not_looked_for_on_disk(tmp_path: Path) -> None:
