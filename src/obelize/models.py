@@ -80,6 +80,7 @@ BailCode = Literal[
     "file_too_large",
     "runtime_unsupported",
     "legacy_version_unsupported",
+    "new_version_unsupported",
     # Resolution and bindings
     "conditional_binding",
     "module_alias_rebound",
@@ -353,6 +354,7 @@ IMPORT_BAILS: frozenset[BailCode] = frozenset(
         "usage_unmapped",
         "runtime_unsupported",
         "legacy_version_unsupported",
+        "new_version_unsupported",
     }
 )
 
@@ -1084,6 +1086,9 @@ class ScanSpec(_Frozen):
     legacy_floor: str | None = None
     legacy_newest: str | None = None
     legacy_lacks: tuple[str, ...] = ()
+    # The releases the pack writes (`to.version`): a declaration of the new distribution that admits
+    # none of them stops the run. Also a gate, so `spec_digest` leaves it out.
+    new_version: str | None = None
 
     @model_validator(mode="after")
     def _check(self) -> ScanSpec:
@@ -1114,8 +1119,9 @@ class ScanSpec(_Frozen):
         if self.client_symbol is not None and not QUALIFIED_NAME.fullmatch(self.client_symbol):
             raise ValueError(f"client_symbol must be a qualified name, got {self.client_symbol!r}")
         SpecifierSet(self.requires_python)
-        if self.new_range is not None:
-            SpecifierSet(self.new_range)
+        for specifier in (self.new_range, self.new_version):
+            if specifier is not None:
+                SpecifierSet(specifier)
         if self.legacy_floor is not None:
             Version(self.legacy_floor)
         if self.legacy_newest is not None:
@@ -1690,9 +1696,12 @@ RUN_MODES: frozenset[RunMode] = frozenset(get_args(RunMode))
 FIX_MODES: frozenset[RunMode] = frozenset({"plan", "apply"})
 
 # SCAN_VOCABULARY.md's repository status: the new distribution cannot install on a Python the
-# project declares, or the legacy pin is outside the pack's range, so the run reports findings
-# and proposes no migration.
-BlockedReason = Literal["runtime_unsupported", "legacy_version_unsupported"]
+# project declares, the legacy pin is outside the pack's range, or a declaration of the new
+# distribution admits no release the pack writes, so the run reports findings and proposes no
+# migration.
+BlockedReason = Literal[
+    "runtime_unsupported", "legacy_version_unsupported", "new_version_unsupported"
+]
 
 # `SkipReason` plus `obelize.scan.parse.ReadRefusal`, written out because that module imports
 # this one; tests/unit/test_models.py asserts the union.

@@ -56,7 +56,10 @@ union of the walker's seven and these three, which share `unreadable`: nine
 values.
 
 **D6. `max_file_bytes` is a limit on the `lstat`, and the prefilter runs before
-the parser.** An oversized file is never read, and its row names both numbers.
+the parser.** An oversized file is never read whole, and its row names both numbers. The one
+exception is the search for a version in `scan/installed.py` ([ADR-056](ADR-056-newest-legacy-release.md)),
+which reads such a file in windows through `fsutil.windows`, up to 32 MiB: the limit bounds what a
+scan holds and parses, and a window is held, never the file.
 The prefilter (`parse.candidate`, also asked of F-2's excluded files and of
 manifests) runs on raw bytes; a file it eliminates was looked at and owes the
 report nothing.

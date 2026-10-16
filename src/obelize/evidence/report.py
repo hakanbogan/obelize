@@ -926,6 +926,13 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
             f"{package} does not install on, so this migration reports its findings and plans "
             f"no change. To migrate, raise the minimum in {path} to {needed} and run again."
         )
+    if blocked.reason == "new_version_unsupported":
+        path = code(blocked.path)
+        return (
+            f"{path} declares {package} {code(blocked.declared or '')}, which admits no release "
+            f"this migration writes ({needed}), so it reports its findings and plans no change. "
+            f"To migrate, raise it to {needed} in {path} and run again."
+        )
     if not blocked.path:
         return (
             f"No manifest declares {package}, so the version in use is not known and this "
@@ -948,6 +955,14 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
             f"release of {package}, but {code(blocked.evidence)} suggests another release is in "
             f"use, so it reports its findings and plans no change. To migrate, pin {package} to "
             f"{needed} in {path} and run again."
+        )
+    if blocked.unlisted:
+        return (
+            f"{path} declares {package} {declared}, which this migration would take as the newest "
+            f"release of {package}, but obelize lists every file only at the top of a git "
+            f"repository and this run was not at one, so a file that names another release may "
+            f"be unseen. It reports its findings and plans no change. To migrate, run it from "
+            f"the top of the git repository, or pin {package} to {needed} in {path} and run again."
         )
     return (
         f"{path} declares {package} {declared}, which allows versions this migration does not "

@@ -2,3 +2,6 @@
 # to replace and nothing that would still point at the same file afterwards.
 google-generativeai @ https://example.invalid/google_generativeai-0.8.6-py3-none-any.whl
 requests>=2.31
+google-generativeai==0.8.6 \
+    --hash=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+-e git+https://example.invalid/google-generativeai.git#egg=google-generativeai

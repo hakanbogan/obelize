@@ -6,6 +6,7 @@ dot-directory and an ignored file only there.
 
 from __future__ import annotations
 
+import errno
 import subprocess
 import time
 import tomllib
@@ -15,6 +16,7 @@ from pathlib import Path
 import pytest
 from pdf_repo import MAIN, SPEC, git_repo
 
+from obelize import fsutil
 from obelize.models import Config, Finding, ScanSpec
 from obelize.scan import installed, manifests, runner
 from obelize.scan.walker import Skipped
@@ -108,8 +110,8 @@ HASHED = "pypdf2==1.26.0 \\\n    --hash=sha256:aaaa\n"
         ("requirements-lock.txt", "PYPDF2==1.26.0 \\\n"),
         ("requirements.txt", "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"),
         ("requirements.txt", "PyPDF2\nsix\npypdf2==1.26.0 \\\n"),
-        ("pyproject.toml", '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n'),
-        ("pyproject.toml", '[tool.isort]\nknown_third_party = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.uv]\nconstraint-dependencies = ["PyPDF2<3"]\n'),
+        ("pyproject.toml", '[tool.uv.sources]\nPyPDF2 = { git = "https://host/repo" }\n'),
         ("setup.cfg", "[options.extras_require]\npdf = \n  PyPDF2 @ ./PyPDF2-1.26.0.tar.gz\n"),
     ],
     ids=[
@@ -118,8 +120,8 @@ HASHED = "pypdf2==1.26.0 \\\n    --hash=sha256:aaaa\n"
         "uppercase-continued",
         "editable-egg",
         "continued-after-a-row",
-        "poetry-table",
-        "tool-section",
+        "uv-constraints",
+        "uv-sources",
         "setup-cfg-path",
     ],
 )
@@ -130,14 +132,151 @@ def test_a_manifest_that_names_the_distribution_where_no_row_was_read_decides_no
     assert contrary(root) == name
 
 
+def test_a_dependency_given_as_its_own_table_has_its_row_at_the_header(tmp_path: Path) -> None:
+    """Its version line names nothing, and the row has no pin, so it never installs the newest."""
+    table = '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n'
+    assert contrary(git_repo(tmp_path, {**REQUIRED, "pyproject.toml": table})) == ""
+
+
 def test_a_second_mention_with_no_row_is_found_beside_a_line_that_has_one(tmp_path: Path) -> None:
     one = 'dependencies = ["PyPDF2"]\n'
-    other = '\n[tool.isort]\nknown_third_party = ["PyPDF2"]\n'
+    other = '\n[tool.uv]\nconstraint-dependencies = ["PyPDF2"]\n'
     head = "[project]\nname = 'x'\n"
     both = git_repo(tmp_path / "a", {"pyproject.toml": head + one + other})
     assert contrary(both) == "pyproject.toml"
     alone = git_repo(tmp_path / "b", {"pyproject.toml": head + one})
     assert contrary(alone) == ""
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("pyproject.toml", '[tool.isort]\nknown_third_party = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.ruff.lint.isort]\nknown-third-party = ["PyPDF2"]\n'),
+        (
+            "pyproject.toml",
+            '[[tool.mypy.overrides]]\nmodule = ["PyPDF2.*"]\nignore_missing_imports = true\n',
+        ),
+        (
+            "pyproject.toml",
+            '[tool.pytest.ini_options]\nfilterwarnings = ["ignore::PyPDF2.DeprecationWarning"]\n',
+        ),
+        (
+            "pyproject.toml",
+            '[project]\nname = "x"\ndescription = "Splits PyPDF2 files"\nkeywords = ["PyPDF2"]\n',
+        ),
+        ("pyproject.toml", '[project.urls]\nUpstream = "https://github.com/py-pdf/PyPDF2"\n'),
+        ("pyproject.toml", '[tool.poetry]\nname = "x"\ndescription = "Wraps PyPDF2"\n'),
+        ("pyproject.toml", '[build-system]\nrequires = ["PyPDF2", "setuptools"]\n'),
+        ("pyproject.toml", 'tool = { isort = { known_third_party = ["PyPDF2"] } }\n'),
+        ("Pipfile", '[scripts]\nsplit = "python -m PyPDF2"\n'),
+        ("Pipfile", '[requires]\npython_version = "3.12"\n[pipenv]\nnote = "PyPDF2"\n'),
+    ],
+    ids=[
+        "isort",
+        "ruff-isort",
+        "mypy-override",
+        "pytest-filter",
+        "project-text",
+        "project-urls",
+        "poetry-text",
+        "build-requires",
+        "inline-table-of-a-tool",
+        "pipfile-scripts",
+        "pipfile-other-table",
+    ],
+)
+def test_a_name_in_what_a_tool_that_installs_nothing_holds_is_not_evidence(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    """These name the distribution in many repositories that declare it in a manifest."""
+    root = git_repo(tmp_path, {**REQUIRED, name: body})
+    assert contrary(root) == ""
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("pyproject.toml", '[project]\ndependencies = ["PyPDF2>=3", "pypdf2[crypto]"]\n'),
+        ("pyproject.toml", '[project.optional-dependencies]\npdf = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[dependency-groups]\ndev = ["PyPDF2", {include-group = "test"}]\n'),
+        ("pyproject.toml", '[tool.poetry.dependencies]\nPyPDF2 = "^3"\n'),
+        (
+            "pyproject.toml",
+            '[tool.poetry.dependencies]\nPyPDF2 = { version = "^3", extras = ["x"] }\n',
+        ),
+        ("pyproject.toml", '[tool.poetry.group.dev.dependencies]\nPyPDF2 = "^3"\n'),
+        ("pyproject.toml", '[tool.poetry.dependencies.PyPDF2]\nversion = "^3"\n'),
+        ("pyproject.toml", '[tool.uv]\ndev-dependencies = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.pdm.dev-dependencies]\ntest = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.hatch.envs.default]\ndependencies = ["PyPDF2"]\n'),
+        ("Pipfile", '[packages]\nPyPDF2 = "*"\n[dev-packages]\npypdf2 = ">=3"\n'),
+    ],
+    ids=[
+        "project",
+        "optional",
+        "group",
+        "poetry",
+        "poetry-inline",
+        "poetry-group",
+        "poetry-table",
+        "uv-dev",
+        "pdm-dev",
+        "hatch-env",
+        "pipfile",
+    ],
+)
+def test_a_declaration_the_reader_reads_names_nothing_it_missed(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    """Each name is a row, so there is no more of them than rows and nothing is left unread."""
+    root = git_repo(tmp_path, {"requirements.txt": "six\n", name: body})
+    assert contrary(root) == ""
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("pyproject.toml", '[tool.uv]\noverride-dependencies = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.uv]\nupgrade-package = ["PyPDF2"]\n'),
+        ("pyproject.toml", '[tool.pdm.resolution.overrides]\nPyPDF2 = "<3"\n'),
+        ("pyproject.toml", '[tool.hatch.envs.x]\nscripts = { run = "pip install -U PyPDF2" }\n'),
+        (
+            "pyproject.toml",
+            '[tool.pixi.pypi-dependencies]\nPyPDF2 = { git = "https://host/repo" }\n',
+        ),
+        ("pyproject.toml", '[tool.rye]\ndev-dependencies = ["PyPDF2 @ git+https://host/repo"]\n'),
+        (
+            "pyproject.toml",
+            '[tool.poetry.dependencies]\nPyPDF2 = { git = "https://host/PyPDF2.git" }\n',
+        ),
+        (
+            "pyproject.toml",
+            '[tool.poetry.dependencies]\nPyPDF2 = { path = "../PyPDF2-1.26.0.tar.gz" }\n',
+        ),
+        ("pyproject.toml", '[tool.poetry.extras]\npdf = ["PyPDF2"]\n'),
+        ("Pipfile", '[packages]\nPyPDF2 = { git = "https://host/PyPDF2.git" }\n'),
+        ("Pipfile", '[packages]\nflask = "*"\n[docs]\nPyPDF2 = "==1.26.0"\n'),
+    ],
+    ids=[
+        "uv-override",
+        "uv-upgrade-package",
+        "pdm-override",
+        "hatch-script",
+        "pixi-git",
+        "rye-git",
+        "poetry-git",
+        "poetry-path",
+        "poetry-extras",
+        "pipfile-git",
+        "pipfile-category",
+    ],
+)
+def test_a_name_where_a_dependency_can_be_declared_and_no_row_was_read_is_evidence(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    root = git_repo(tmp_path, {"requirements.txt": "PyPDF2\n", name: body})
+    assert contrary(root) == name
 
 
 def test_a_comment_names_nothing_and_a_longer_name_is_another_distribution(tmp_path: Path) -> None:
@@ -318,7 +457,70 @@ def test_a_resolver_file_nobody_could_read_is_skipped_by_the_settings_check(
     assert installed._settings(tree.walk, tree.contents) == "pyproject.toml"
 
 
-# What is listed: a lock, a constraints file, an installer's settings.
+# A manifest the user's `exclude` removed is read for no row, yet what it tells pip counts.
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("scripts/requirements-x.txt", "--index-url https://host/simple\n"),
+        ("scripts/requirements-x.txt", "PyPDF2\n-e git+https://host/repo#egg=thing\n"),
+        ("scripts/pyproject.toml", '[tool.uv]\nresolution = "lowest"\n'),
+        ("scripts/pyproject.toml", "[project\n"),
+        ("scripts/Pipfile", '[[source]]\nurl = "https://host/simple"\nname = "private"\n'),
+    ],
+    ids=["index-url", "editable-url", "uv-resolution", "pyproject-not-toml", "pipfile-private"],
+)
+def test_an_option_or_setting_in_an_excluded_manifest_is_evidence(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, name: body})
+    assert contrary(root, config=Config(exclude=("scripts/**",))) == name
+    assert contrary(root, config=Config(exclude=("elsewhere/**",))) == name
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        (
+            "scripts/requirements-x.txt",
+            "-r ../requirements.txt\n--extra-index-url https://host/s\n",
+        ),
+        ("scripts/requirements-x.txt", "PyPDF2>=3\nsix\n"),
+        ("scripts/requirements-x.txt", "PyPDF2\n"),
+        ("scripts/requirements-x.in", "PyPDF2\n"),
+        ("scripts/requirements-x.txt", "-i https://host/simple\n".encode("utf-16")),
+        ("scripts/pyproject.toml", '[project]\ndependencies = ["PyPDF2"]\n'),
+        ("vendor/requirements.txt", "--index-url https://host/simple\n"),
+        ("scripts/notes.txt", "--index-url https://host/simple\n"),
+    ],
+    ids=[
+        "harmless-options",
+        "newer-release",
+        "bare-name",
+        "bare-name-in-an-input",
+        "utf-16",
+        "declaration",
+        "always-excluded",
+        "not-a-manifest",
+    ],
+)
+def test_an_excluded_manifest_is_judged_by_its_options_and_settings_alone(
+    tmp_path: Path, name: str, body: str | bytes
+) -> None:
+    """What it names is for the search of every listed file, and no row was read from it."""
+    root = git_repo(tmp_path, {**REQUIRED, "requirements-b.txt": "six\n", name: body})
+    assert contrary(root, config=Config(exclude=("scripts/**",))) == ""
+
+
+def test_an_excluded_manifest_nobody_can_read_is_not_evidence(tmp_path: Path) -> None:
+    files = {**REQUIRED, "scripts/requirements-big.txt": "-i https://host/simple\n" + "x" * 400}
+    root = git_repo(tmp_path, files)
+    config = Config(exclude=("scripts/**",), max_file_bytes=300)
+    assert contrary(root, config=config) == ""
+
+
+# What is listed: a lock, an installer's settings; and the files read like manifests.
 
 
 @pytest.mark.parametrize(
@@ -338,18 +540,73 @@ def test_a_resolver_file_nobody_could_read_is_skipped_by_the_settings_check(
         "uv.toml",
         "requirements.lock",
         "requirements-dev.lock",
-        "constraints.txt",
-        "constraints-3.12.txt",
-        "requirements.in",
-        "dev-requirements.in",
-        "dev-requirements.txt",
-        "pip-requirements.txt",
         "sub/poetry.lock",
     ],
 )
-def test_a_lock_or_constraints_file_in_the_listing_is_evidence(tmp_path: Path, name: str) -> None:
+def test_a_lock_in_the_listing_is_evidence(tmp_path: Path, name: str) -> None:
     root = git_repo(tmp_path, {**REQUIRED, name: "x\n"})
     assert contrary(root) == name
+
+
+READ = [
+    "dev-requirements.txt",
+    "pip-requirements.txt",
+    "requirements.in",
+    "dev-requirements.in",
+    "constraints.txt",
+    "constraints-3.12.txt",
+]
+
+
+@pytest.mark.parametrize("name", READ)
+def test_a_requirements_constraints_or_input_file_is_judged_by_what_it_says(
+    tmp_path: Path, name: str
+) -> None:
+    """Listed, it is not evidence for being there: only a release it rules the newest out of is."""
+    quiet = git_repo(tmp_path / "quiet", {**REQUIRED, name: "six\nflask>=2\n"})
+    assert contrary(quiet) == ""
+    newer = git_repo(tmp_path / "newer", {**REQUIRED, name: "PyPDF2>=3\n"})
+    assert contrary(newer) == ""
+    older = git_repo(tmp_path / "older", {**REQUIRED, name: "PyPDF2<3\n"})
+    assert contrary(older) == name
+
+
+@pytest.mark.parametrize("name", ["requirements.in", "constraints.txt"])
+def test_a_bare_name_in_an_input_or_constraints_file_is_not_read_so_it_stays_evidence(
+    tmp_path: Path, name: str
+) -> None:
+    assert contrary(git_repo(tmp_path, {**REQUIRED, name: "PyPDF2\n"})) == name
+
+
+def test_an_option_in_a_constraints_file_is_judged_like_one_in_a_requirements_file(
+    tmp_path: Path,
+) -> None:
+    index = {**REQUIRED, "constraints.txt": "-i https://host/simple\n"}
+    assert contrary(git_repo(tmp_path / "a", index)) == "constraints.txt"
+    files = {**REQUIRED, "requirements.in": "-c constraints.txt\n", "constraints.txt": "six\n"}
+    assert contrary(git_repo(tmp_path / "b", files)) == ""
+
+
+@pytest.mark.parametrize(
+    "name",
+    [".ci/constraints.txt", "vendor/requirements.in", "build/constraints-3.12.txt"],
+)
+def test_a_constraints_file_or_input_in_a_directory_the_scan_leaves_out_is_evidence(
+    tmp_path: Path, name: str
+) -> None:
+    """Nothing reads it, and a `-c` to it from anywhere can hold a release back."""
+    root = git_repo(tmp_path, {**REQUIRED, name: "six\n"})
+    assert contrary(root) == name
+
+
+@posix_only("a symbolic link is a POSIX file; Windows is tested through the junction refusal")
+@pytest.mark.parametrize("name", ["constraints.txt", "requirements.in"])
+def test_a_constraints_file_or_input_that_is_a_link_is_evidence(tmp_path: Path, name: str) -> None:
+    root = git_repo(tmp_path / "repo", REQUIRED)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("six\n", encoding="utf-8")
+    link(root / name, outside)
+    assert contrary(root, listed=(name,)) == name
 
 
 @pytest.mark.parametrize(
@@ -459,11 +716,88 @@ def test_a_binary_file_is_searched_without_trouble(tmp_path: Path) -> None:
     assert contrary(root) == ""
 
 
-def test_a_file_over_the_size_limit_is_not_read_and_is_not_evidence(tmp_path: Path) -> None:
+def test_a_file_over_the_size_limit_is_searched_without_being_held_whole(tmp_path: Path) -> None:
     files = {**REQUIRED, "notes.txt": "pip install PyPDF2==1.26.0\n" + "x" * 400}
     root = git_repo(tmp_path, files)
-    assert contrary(root, config=Config(max_file_bytes=200)) == ""
+    assert contrary(root, config=Config(max_file_bytes=200)) == "notes.txt"
     assert contrary(root) == "notes.txt"
+
+
+@pytest.fixture
+def small_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(installed, "_WINDOW", 32)
+    monkeypatch.setattr(installed, "_OVERLAP", 16)
+
+
+def searched(tmp_path: Path, body: str) -> bool:
+    """Whether `_searched` takes a file that holds `body` as evidence against 3.0.1."""
+    path = tmp_path / "notes.txt"
+    path.write_text(body, encoding="utf-8", newline="\n")
+    return installed._searched(path, installed._mention("PyPDF2"), "3.0.1")
+
+
+@pytest.mark.usefixtures("small_windows")
+@pytest.mark.parametrize("tail", ["\n" + "x" * 80, ""], ids=["inside", "at-the-end"])
+def test_a_mention_across_the_edge_of_a_window_is_found_at_every_offset(
+    tmp_path: Path, tail: str
+) -> None:
+    for offset in range(70):
+        assert searched(tmp_path, "x" * offset + "\nPyPDF2==1.26.0" + tail), offset
+
+
+@pytest.mark.usefixtures("small_windows")
+@pytest.mark.parametrize(
+    "text",
+    ["PyPDF2==3.0.1", "PyPDF2<=3.0.1", "PyPDF2-3.0.1", "mypypdf2==1.26.0", "xPyPDF2-1.26.0"],
+)
+def test_a_mention_across_the_edge_of_a_window_is_never_read_as_another_release(
+    tmp_path: Path, text: str
+) -> None:
+    """Cut, `PyPDF2==3.0.1` reads `==3.0`, and a window that starts on `PyPDF2` of `mypypdf2` has
+    lost the letter before it."""
+    for offset in range(70):
+        assert not searched(tmp_path, "x" * offset + "\n" + text + "\n" + "x" * 80), offset
+        assert not searched(tmp_path, "x" * offset + "\n" + text), offset
+    assert not searched(tmp_path, (text + "\n") * 40)
+
+
+@pytest.mark.usefixtures("small_windows")
+@pytest.mark.parametrize(
+    "body",
+    [
+        "x" * 100,
+        "x" * 100 + "\nPyPDF2>=3\n",
+        "PyPDF2 reads PDFs" + "x" * 100,
+        "PyPDF2\n" * 20,
+        "PyPDF2==3.0.1\n" * 20,
+    ],
+)
+def test_a_file_over_the_size_limit_that_names_no_other_release_is_not_evidence(
+    tmp_path: Path, body: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, "notes.txt": body})
+    assert contrary(root, config=Config(max_file_bytes=10)) == ""
+
+
+def test_a_file_over_the_search_limit_is_not_searched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, "notes.txt": "PyPDF2==1.26.0\n" + "x" * 300})
+    config = Config(max_file_bytes=100)
+    assert contrary(root, config=config) == "notes.txt"
+    monkeypatch.setattr(installed, "_LIMIT", 200)
+    assert contrary(root, config=config) == ""
+
+
+def test_a_file_over_the_size_limit_that_cannot_be_opened_is_not_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(*_arguments: object) -> object:
+        raise PermissionError(errno.EACCES, "denied")
+
+    root = git_repo(tmp_path, {**REQUIRED, "notes.txt": "PyPDF2==1.26.0\n" + "x" * 300})
+    monkeypatch.setattr(fsutil, "windows", refuse)
+    assert contrary(root, config=Config(max_file_bytes=100)) == ""
 
 
 def test_a_listed_name_that_is_gone_or_is_a_directory_is_not_opened(tmp_path: Path) -> None:
@@ -489,6 +823,30 @@ def test_a_fifo_and_a_symlink_in_the_listing_are_never_opened(tmp_path: Path) ->
 def test_an_ignored_lock_beside_the_root_is_evidence(tmp_path: Path) -> None:
     root = git_repo(tmp_path, {**REQUIRED, "poetry.lock": "x\n"}, "poetry.lock\n")
     assert contrary(root) == "poetry.lock"
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["constraints.txt", "requirements.in", "dev-requirements.txt", "requirements-dev.txt"],
+)
+def test_an_ignored_requirements_constraints_or_input_file_beside_the_root_is_evidence(
+    tmp_path: Path, name: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, name: "x\n"}, f"{name}\n")
+    assert contrary(root) == name
+
+
+def test_an_ignored_requirements_file_beside_a_manifest_that_declares_is_evidence(
+    tmp_path: Path,
+) -> None:
+    files = {"requirements.txt": "six\n", "app/requirements.txt": "PyPDF2\n"}
+    ignored = {**files, "app/pip-requirements.txt": "x\n"}
+    root = git_repo(tmp_path, ignored, "pip-requirements.txt\n")
+    assert contrary(root) == "app/pip-requirements.txt"
+
+
+def test_a_listed_constraints_file_is_read_and_not_looked_for_on_disk(tmp_path: Path) -> None:
+    assert contrary(git_repo(tmp_path, {**REQUIRED, "constraints.txt": "six\n"})) == ""
 
 
 def test_an_ignored_lock_beside_a_manifest_that_declares_is_evidence(tmp_path: Path) -> None:
@@ -551,6 +909,38 @@ def test_an_ignored_environment_that_holds_the_newest_or_nothing_of_ours_is_not_
 def test_an_environment_that_cannot_be_listed_is_nothing(tmp_path: Path) -> None:
     root = git_repo(tmp_path, {**REQUIRED, ".venv": "a file, not a directory\n"}, ".venv\n")
     assert installed._names(root / ".venv") == []
+    assert contrary(root) == ""
+
+
+@pytest.mark.parametrize(
+    ("beside", "environment"),
+    [
+        ("other/app.py", "other/.venv"),
+        ("services/api/src/app.py", "services/api/src/venv"),
+        ("docs/conf.py", "docs/env"),
+    ],
+)
+def test_an_ignored_environment_beside_any_listed_file_is_evidence(
+    tmp_path: Path, beside: str, environment: str
+) -> None:
+    where = f"{environment}/lib/python3.9/site-packages/PyPDF2-1.26.0.dist-info"
+    files = {**REQUIRED, beside: "x = 1\n", f"{where}/METADATA": "x\n"}
+    root = git_repo(tmp_path, files, ".venv/\nvenv/\nenv/\n")
+    assert contrary(root) == where
+
+
+def test_an_ignored_environment_is_not_looked_for_where_nothing_is_listed(tmp_path: Path) -> None:
+    """A directory that holds no listed file is not probed: the cost is a stat per directory."""
+    where = "other/.venv/lib/python3.9/site-packages/PyPDF2-1.26.0.dist-info"
+    root = git_repo(tmp_path, {**REQUIRED, f"{where}/METADATA": "x\n"}, ".venv/\n")
+    assert contrary(root) == ""
+
+
+def test_an_ignored_environment_elsewhere_is_judged_like_one_at_the_root(tmp_path: Path) -> None:
+    quiet = "other/.venv/lib/python3.9/site-packages/PyPDF2-3.0.1.dist-info"
+    root = git_repo(
+        tmp_path, {**REQUIRED, "other/app.py": "x\n", f"{quiet}/METADATA": "x\n"}, ".venv/\n"
+    )
     assert contrary(root) == ""
 
 

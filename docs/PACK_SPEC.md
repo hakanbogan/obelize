@@ -45,7 +45,7 @@ Breaking one rejects the pack.
 | `source` | mapping | yes | See [Source provenance](#source-provenance). |
 | `from` | mapping | yes | `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. |
 | `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required): the PEP 440 set of Pythons the new distribution installs on. A repository declaring support for one outside it is blocked (`runtime_unsupported`). |
-| `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest declares its distribution, the legacy pin stays), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
+| `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest of its app declares its distribution, the legacy pin stays: a manifest in the file's directory or above it, and a `requirements/` directory counts for the one it is in; a constraints file declares nothing), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
 | `changes` | list | yes | See [Change entries](#change-entries). |
 | `layout` | mapping | no | `line_length` (40-320, default `100`). See [Layout](#layout). |
 | `verification` | mapping | no | `suggestions`: displayed, never run. |
@@ -107,10 +107,16 @@ from:
 ```
 
 When `from.version` has a floor, a repository that declares the legacy distribution with no version,
-or one below the floor, is blocked (`legacy_version_unsupported`): the rules were measured above it.
+one below the floor, or a local build of a release (`==3.0.1+corp`), is blocked
+(`legacy_version_unsupported`): the rules were measured above it, on the public releases.
 A pack whose distribution has a last release inside its range can name it, and a declaration that
 installs that release is then taken as it, unless the repository shows another one
 ([ADR-056](adr/ADR-056-newest-legacy-release.md)).
+
+A pack whose two sides are two distributions also stops a repository that declares the new one so
+that it admits no release `to.version` allows (`pypdf==3.0.0`, `pypdf<6`): the rewrite would leave
+it on code whose names that release lacks. That block is `new_version_unsupported`. A declaration
+nobody can read is not judged, and `to.version` is a gate like the floor: `spec_digest` ignores it.
 
 - `newest` is a final release in PEP 440's normal spelling (`3.0.1`, not `3.00.1` or `v3.0.1`), which
   `from.version` admits. It is the pack's claim about what an unversioned install resolves to, so a
@@ -274,10 +280,11 @@ decides whether two names are one distribution. `from_name` and `to_name` may be
 a pack is **coupled**: while any row of the pack is withheld, no file is written
 and the pin stays (`repo_not_fully_migrated`,
 [ADR-053](adr/ADR-053-shared-module-migrations.md) D6). A declaration whose rewrite
-would drop or duplicate something (extras, a direct URL, a non-version table
+would drop or duplicate something (extras, a direct URL, a hash, a requirement that goes over
+several lines, an editable requirement, a local archive, a non-version table
 value, a duplicated key or declaration) is `manifest_pin_shape_unsupported` and left alone. For a coupled pack the scan raises it too, once
-anything migrated, for a declaration with no pin the rule can write (extras, a URL, a non-version
-value), so the whole pack is withheld ([ADR-053](adr/ADR-053-shared-module-migrations.md) D12).
+anything migrated, for a declaration with no pin the rule can write (extras, a URL, a hash, an
+editable requirement, an archive, a non-version value), so the whole pack is withheld ([ADR-053](adr/ADR-053-shared-module-migrations.md) D12).
 
 ### Parameter constraints fixed by the Phase 0 spikes
 

@@ -542,6 +542,12 @@ STANDS_IN: dict[str, dict[str, str | bytes]] = {
     "poetry": {"pyproject.toml": '[tool.poetry.dependencies]\nPyPDF2 = "*"\n'},
     "pipfile": {"Pipfile": '[packages]\nPyPDF2 = "*"\n'},
     "setup-py": {"setup.py": 'from setuptools import setup\nsetup(install_requires=["PyPDF2"])\n'},
+    "requirements-and-input-files-that-say-nothing-of-it": {
+        "requirements.txt": "PyPDF2\n",
+        "dev-requirements.txt": "pytest\n",
+        "requirements.in": "flask\n",
+        "constraints.txt": "flask==2\nPyPDF2>=3\n",
+    },
     "options-that-do-not-move-it": {
         "requirements.txt": "-r requirements-b.txt\n--extra-index-url https://x/simple\nPyPDF2\n",
         "requirements-b.txt": "six\n",
@@ -554,11 +560,6 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
         "Pipfile.lock\n",
         "Pipfile.lock",
     ),
-    "constraints-file": (
-        {"requirements.txt": "-c constraints.txt\nPyPDF2\n", "constraints.txt": "PyPDF2<3\n"},
-        "",
-        "requirements.txt",
-    ),
     "include-of-an-unread-file": (
         {"requirements.txt": "-r base.txt\nPyPDF2\n", "base.txt": "PyPDF2<3\n"},
         "",
@@ -568,32 +569,6 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
         {"requirements.txt": "-i https://private.example/simple\nPyPDF2\n"},
         "",
         "requirements.txt",
-    ),
-    "hashed-lowercase-export": (
-        {"requirements.txt": "PyPDF2\n", "requirements-lock.txt": HASHED},
-        "",
-        "requirements-lock.txt",
-    ),
-    "editable-egg": (
-        {"requirements.txt": "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"},
-        "",
-        "requirements.txt",
-    ),
-    "wheel-url": (
-        {
-            "requirements.txt": "PyPDF2\n",
-            "requirements-extra.txt": "https://host/PyPDF2-1.26.0-py3-none-any.whl\n",
-        },
-        "",
-        "requirements-extra.txt",
-    ),
-    "poetry-table": (
-        {
-            "requirements.txt": "PyPDF2\n",
-            "pyproject.toml": '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n',
-        },
-        "",
-        "pyproject.toml",
     ),
     "exclude-newer": (
         {
@@ -656,6 +631,42 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
 }
 
 
+# Declarations the scan reads but cannot honour: the row itself blocks, with no evidence to name.
+UNHONOURED: dict[str, tuple[dict[str, str | bytes], str, str | None]] = {
+    "hashed-lowercase-export": (
+        {"requirements.txt": "PyPDF2\n", "requirements-lock.txt": HASHED},
+        "requirements-lock.txt",
+        "==1.26.0",
+    ),
+    "editable-egg": (
+        {"requirements.txt": "PyPDF2\n-e git+https://host/repo#egg=PyPDF2\n"},
+        "requirements.txt",
+        None,
+    ),
+    "wheel-url": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "requirements-extra.txt": "https://host/PyPDF2-1.26.0-py3-none-any.whl\n",
+        },
+        "requirements-extra.txt",
+        None,
+    ),
+    "constraints-file": (
+        {"requirements.txt": "-c constraints.txt\nPyPDF2\n", "constraints.txt": "PyPDF2<3\n"},
+        "constraints.txt",
+        "<3",
+    ),
+    "own-table": (
+        {
+            "requirements.txt": "PyPDF2\n",
+            "pyproject.toml": '[tool.poetry.dependencies.PyPDF2]\nversion = "^1.26"\n',
+        },
+        "pyproject.toml",
+        "^1.26",
+    ),
+}
+
+
 def gated(root: Path, spec: Any = PDF, config: Config | None = None) -> runner.Scan:
     return runner.scan(root, config or Config(), spec, jobs=1)
 
@@ -712,6 +723,17 @@ def test_what_holds_the_newest_release_back_is_not_what_blocks_without_it(
     assert [row.evidence for row in scan.blocked] == [""]
 
 
+@pytest.mark.parametrize("name", UNHONOURED)
+def test_a_declaration_the_gate_cannot_honour_blocks_at_its_own_line(
+    tmp_path: Path, name: str
+) -> None:
+    files, path, declared = UNHONOURED[name]
+    scan = gated(repository(tmp_path, files))
+    assert [(row.reason, row.path, row.declared, row.evidence) for row in scan.blocked] == [
+        ("legacy_version_unsupported", path, declared, "")
+    ]
+
+
 def test_a_requirement_built_around_its_string_has_no_pin_so_it_is_not_taken(
     tmp_path: Path,
 ) -> None:
@@ -734,6 +756,33 @@ def test_a_pin_that_already_reaches_the_floor_takes_no_assumption(tmp_path: Path
         assert (scan.blocked, scan.assumed) == ((), ()), pin
 
 
+def test_the_machine_that_scans_decides_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No `PIP_*` variable and no user `pip.conf` is read, so a finding is the same on every
+    machine that scans the same files (ADR-056)."""
+    root = repository(tmp_path / "repo", {"requirements.txt": "PyPDF2\n"})
+    plain = gated(root)
+    home = tmp_path / "home"
+    (home / ".config" / "pip").mkdir(parents=True)
+    conf = home / ".config" / "pip" / "pip.conf"
+    conf.write_text("[global]\nindex-url = https://host/simple\nconstraint = c.txt\n", "utf-8")
+    for key, value in {
+        "PIP_INDEX_URL": "https://host/simple",
+        "PIP_CONSTRAINT": str(tmp_path / "c.txt"),
+        "PIP_FIND_LINKS": str(tmp_path),
+        "PIP_NO_INDEX": "1",
+        "PIP_CONFIG_FILE": str(conf),
+        "HOME": str(home),
+        "USERPROFILE": str(home),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+    }.items():
+        monkeypatch.setenv(key, value)
+    scan = gated(root)
+    assert (scan.blocked, scan.assumed) == ((), NEWEST)
+    assert scan == plain
+
+
 def test_a_second_declaration_below_the_floor_still_blocks_and_names_no_evidence(
     tmp_path: Path,
 ) -> None:
@@ -743,6 +792,28 @@ def test_a_second_declaration_below_the_floor_still_blocks_and_names_no_evidence
         ("requirements-old.txt", "<3", "")
     ]
     assert scan.assumed == ()
+
+
+@pytest.mark.parametrize("pin", ["pypdf==3.0.0", "pypdf<6", "pypdf~=3.0", "pypdf>3,<6.19"])
+def test_a_pin_of_pypdf_that_admits_no_release_the_pack_writes_blocks_at_its_own_line(
+    tmp_path: Path, pin: str
+) -> None:
+    """Whatever PyPDF2 says: the other pin would resolve, to a release without the new names."""
+    for index, legacy in enumerate(["PyPDF2>=3", "PyPDF2"]):
+        files = {"requirements.txt": f"{legacy}\n", "requirements-dev.txt": f"{pin}\n"}
+        scan = gated(repository(tmp_path / str(index), files))
+        assert [(r.reason, r.package, r.path, r.needed) for r in scan.blocked] == [
+            ("new_version_unsupported", "pypdf", "requirements-dev.txt", ">=6.19")
+        ]
+        assert scan.assumed == ()
+
+
+@pytest.mark.parametrize("pin", ["pypdf>=6.19", "pypdf>=3", "pypdf", "pypdf==6.19.0", "pypdf<7"])
+def test_a_pin_of_pypdf_that_admits_a_release_the_pack_writes_blocks_nothing(
+    tmp_path: Path, pin: str
+) -> None:
+    files = {"requirements.txt": "PyPDF2>=3\n", "requirements-dev.txt": f"{pin}\n"}
+    assert gated(repository(tmp_path, files)).blocked == ()
 
 
 def test_a_marker_or_a_pre_release_is_never_taken_as_the_newest_release(tmp_path: Path) -> None:
@@ -768,6 +839,22 @@ def test_a_directory_that_is_not_a_repository_is_never_assumed(tmp_path: Path) -
         ("legacy_version_unsupported", "requirements.txt", "")
     ]
     assert scan.assumed == ()
+    assert scan.blocked[0].unlisted is True
+
+
+def test_a_directory_below_the_top_of_a_repository_is_unlisted_and_one_at_the_top_is_not(
+    tmp_path: Path,
+) -> None:
+    """The block says what to do only where the missing listing is what stopped the inference."""
+    top = repository(tmp_path / "top", {"requirements.txt": "PyPDF2<3\n"})
+    assert gated(top).blocked[0].unlisted is False
+    below = git_repo(
+        tmp_path / "top" / "sub", {"main.py": MAIN, "requirements.txt": "PyPDF2\n"}, init=False
+    )
+    scan = gated(below)
+    assert (scan.source, scan.blocked[0].unlisted) == ("walk", True)
+    spec = PDF.model_copy(update={"legacy_newest": None})
+    assert gated(below, spec).blocked[0].unlisted is False
 
 
 def test_a_library_nothing_uses_is_not_blocked_and_nothing_is_assumed(tmp_path: Path) -> None:
@@ -781,14 +868,18 @@ def test_a_library_declared_nowhere_is_still_blocked_with_nothing_assumed(tmp_pa
     assert scan.assumed == ()
 
 
+FLOORS: dict[str, dict[str, str | bytes]] = {
+    "pyproject": {"pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.7"\n'},
+    "pipfile": {"Pipfile": '[requires]\npython_version = "3.7"\n'},
+    "setup-py": {"setup.py": 'from setuptools import setup\nsetup(python_requires=">=3.6")\n'},
+}
+
+
+@pytest.mark.parametrize("name", FLOORS)
 def test_a_python_the_new_distribution_does_not_install_on_is_the_block_not_the_newest_release(
-    tmp_path: Path,
+    tmp_path: Path, name: str
 ) -> None:
-    files = {
-        "requirements.txt": "PyPDF2\n",
-        "pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.7"\n',
-    }
-    scan = gated(repository(tmp_path, files))
+    scan = gated(repository(tmp_path, {"requirements.txt": "PyPDF2\n", **FLOORS[name]}))
     assert [(row.reason, row.evidence) for row in scan.blocked] == [("runtime_unsupported", "")]
     assert scan.assumed == ()
 

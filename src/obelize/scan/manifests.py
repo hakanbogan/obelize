@@ -9,12 +9,18 @@ from __future__ import annotations
 import ast
 import fnmatch
 import re
-from dataclasses import dataclass, replace
+from dataclasses import astuple, dataclass, replace
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Final, Literal
 
 import libcst as cst
-from libcst.metadata import MetadataWrapper, ParentNodeProvider, PositionProvider
+from libcst.metadata import (
+    Assignment,
+    MetadataWrapper,
+    ParentNodeProvider,
+    PositionProvider,
+    ScopeProvider,
+)
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
@@ -52,8 +58,8 @@ TRANSITIVE_BAIL: Final[BailCode] = "transitive_dependency_in_use"
 # The fields of a statement, handler or `case` that hold statements.
 _BODIES: Final = ("body", "orelse", "finalbody", "handlers", "cases")
 
-# Only `setup_py` is Python.
-Layout = Literal["requirements", "toml", "cfg", "setup_py"]
+# Only `setup_py` is Python. `unwritten` files are read for their declarations, which carry no pin.
+Layout = Literal["requirements", "unwritten", "toml", "cfg", "setup_py"]
 
 # Exact basenames. No lockfiles, deliberately: a line edit would break their hashes.
 NAMES: Final[dict[str, Layout]] = {
@@ -63,10 +69,18 @@ NAMES: Final[dict[str, Layout]] = {
     "setup.py": "setup_py",
 }
 
-REQUIREMENTS_GLOB: Final = "requirements*.txt"
+REQUIREMENTS_GLOB: Final = "*requirement*.txt"
 
-# Files nothing here reads that can still decide which release a requirement installs: a lock, a
-# constraints file, the installer's own settings. Python-free `*.lock` files are not among them.
+# Read, never written: a constraints file and a pip-tools input. The compiled file beside an input
+# is what installs, so an edit there alone would be undone by the next compile.
+_CONSTRAINTS: Final = "*constraints*.txt"
+UNWRITTEN_GLOBS: Final = (_CONSTRAINTS, "*requirements*.in")
+
+# Layouts pip reads: a line may be an option, and a comment needs a blank before its `#`.
+PIP: Final[frozenset[Layout]] = frozenset({"requirements", "unwritten"})
+
+# Files nothing here reads that can still decide which release a requirement installs: a lock, the
+# installer's own settings. Python-free `*.lock` files are not among them.
 LOCKS: Final[frozenset[str]] = frozenset(
     {
         "Pipfile.lock",
@@ -82,13 +96,7 @@ LOCKS: Final[frozenset[str]] = frozenset(
         "uv.toml",
     }
 )
-LOCK_GLOBS: Final = (
-    "pylock.*.toml",
-    "requirements*.lock",
-    "*constraints*.txt",
-    "*requirements*.in",
-    "*requirements*.txt",
-)
+LOCK_GLOBS: Final = ("pylock.*.toml", "requirements*.lock")
 
 # `requirements/*.txt`, which the glob misses; a pin missed there reads as nothing to do.
 REQUIREMENTS_DIRECTORY: Final = "requirements"
@@ -113,14 +121,30 @@ _LIVE_MENTION: Final[ConfidenceReason] = "mock_patch_target"
 # Stripped before a column is taken; a BOM is not whitespace to `str.strip`.
 _BLANK: Final = " \t﻿"
 
+# How pip reads a requirements line: a `#` starts a comment only at the start or after a blank (so
+# a `#egg=` fragment is part of the line), and a token that starts with `-` begins the options.
+PIP_COMMENT: Final = re.compile(r"(?:^|\s)#.*")
+_PIP_OPTION: Final = re.compile(r"\s-")
+_EDITABLE: Final = re.compile(r"(?:-e|--editable)(?:\s+|=)")
+# The name of a requirement PEP 508 refuses: an `#egg=` fragment, or an archive's file name.
+_EGG: Final = re.compile(r"[#&]egg=(?P<name>[A-Za-z0-9][\w.-]*)")
+_ARCHIVE: Final = re.compile(
+    r"(?P<name>[A-Za-z0-9](?:[\w.]|-(?!\d))*)-\d.*\.(?:whl|tar\.gz|tgz|zip)$"
+)
+# The name a line starts with when PEP 508 refuses the rest (`PyPDF2~=1`, `PyPDF2==1.*.*`).
+_LEADING: Final = re.compile(
+    r"\s*(?P<name>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)(?=[\s\[(;<>=!~@,]|$)"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class Declaration:
     """One declared dependency: canonical `name`; `raw` as written, from `column` to `end`.
 
-    `pin` spans the version, or is `None` for extras, a URL or a non-string value a rewrite cannot
-    carry; the rule refuses such a row and the scan still reports it. `spec` is the version as
-    declared (a PEP 508 set, or Poetry's or Pipenv's string), `None` when it cannot be read.
+    `pin` spans the version, or is `None` for extras, a URL, a hash, an editable requirement, a file
+    no rule writes or a non-string value a rewrite cannot carry; the rule refuses such a row and the
+    scan still reports it. `spec` is the version as declared (a PEP 508 set, or Poetry's or
+    Pipenv's string), `None` when it cannot be read.
     """
 
     path: str
@@ -164,6 +188,8 @@ def layout(path: str) -> Layout | None:
     if name in NAMES:
         return NAMES[name]
     # `fnmatchcase`: `fnmatch` folds case on Windows only, and the answer must not vary by OS.
+    if any(fnmatch.fnmatchcase(name, glob) for glob in UNWRITTEN_GLOBS):
+        return "unwritten"
     if not fnmatch.fnmatchcase(name, "*.txt"):
         return None
     if fnmatch.fnmatchcase(name, REQUIREMENTS_GLOB):
@@ -200,7 +226,12 @@ def declarations(path: str, data: bytes) -> tuple[Declaration, ...]:
     if found == "setup_py":
         return tuple(_from_setup_py(path, data))
     lines = data.decode("utf-8", "surrogateescape").split("\n")
-    readers = {"requirements": _from_requirements, "toml": _from_toml, "cfg": _from_cfg}
+    readers = {
+        "requirements": _from_requirements,
+        "unwritten": _from_unwritten,
+        "toml": _from_toml,
+        "cfg": _from_cfg,
+    }
     return tuple(readers[found](path, lines))
 
 
@@ -318,19 +349,29 @@ def _by_position(row: Finding) -> tuple[str, int, int, str, str]:
 
 
 def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> ManifestPlan:
-    """Grade every declaration against the pin-edit rule and the state of the code."""
+    """Grade every declaration against the pin-edit rule and the state of the code.
+
+    A file imports a module only the legacy distribution installed with a declaration of its
+    distribution in the manifests of its own app: its directory, or one above it, up to the root. A
+    constraints file does not declare: it bounds a version and installs nothing.
+    """
     legacy = canonicalize_name(spec.legacy_distribution)
     new = canonicalize_name(spec.new_distribution)
     declares: dict[str, set[str]] = {}
+    owners: dict[str, set[PurePosixPath]] = {}
     for declaration in found:
         declares.setdefault(declaration.path, set()).add(declaration.name)
-    everywhere = {declaration.name for declaration in found}
+        if not fnmatch.fnmatchcase(PurePosixPath(declaration.path).name, _CONSTRAINTS):
+            owners.setdefault(declaration.name, set()).add(_owner(declaration.path))
     needed = tuple(
         sorted(
             {
                 path
                 for path, distribution in migration.transitive
-                if canonicalize_name(distribution) not in everywhere
+                if not any(
+                    parent in owners.get(canonicalize_name(distribution), ())
+                    for parent in PurePosixPath(path).parents
+                )
             }
         )
     )
@@ -348,6 +389,12 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
         excluded=migration.excluded,
         transitive=needed,
     )
+
+
+def _owner(path: str) -> PurePosixPath:
+    """The directory a manifest declares for: its own, or the parent of a `requirements/` one."""
+    parent = PurePosixPath(path).parent
+    return parent.parent if parent.name == REQUIREMENTS_DIRECTORY else parent
 
 
 def _legacy(
@@ -470,12 +517,21 @@ def _caret_or_tilde(text: str) -> str | None:
 
 
 def lowest(declared: str | None) -> Version | None:
-    """The lowest version `declared` admits, or `None` when it names no floor or cannot be read."""
+    """The lowest version `declared` admits, or `None` when it names no floor, cannot be read, or
+    names a local build (`==3.0.1+corp`): that is not the release the floor was measured on."""
     found = None if declared is None else alternatives(declared)
     if found is None:
         return None
     floors = [bounds(part)[0] for part in found]
-    return None if None in floors else min(floor for floor in floors if floor is not None)
+    if None in floors or any(floor is not None and floor.local for floor in floors):
+        return None
+    return min(floor for floor in floors if floor is not None)
+
+
+def _requirement(path: str, line: int, column: int, text: str) -> Declaration | None:
+    """A requirement string, or the name it starts with where PEP 508 refuses the rest: a version
+    nobody can read is a row the gate cannot judge, not one it may skip."""
+    return _declare(path, line, column, text) or _unreadable(path, line, column, text)
 
 
 def _declare(path: str, line: int, column: int, text: str) -> Declaration | None:
@@ -544,15 +600,95 @@ def _quoted(body: str, start: int) -> Iterator[tuple[int, str]]:
             index += 1
 
 
-def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
-    """One PEP 508 requirement per line; `pip` options start with `-`, so PEP 508 rejects them."""
+def _joined(lines: list[str]) -> Iterator[tuple[int, str, bool]]:
+    """pip's logical lines: the number of the first, its text, and whether it spans several.
+
+    A line ending in a backslash goes on with the next, but a comment line never does.
+    """
+    first = 0
+    parts: list[str] = []
     for number, line in enumerate(lines, 1):
-        body, column = _span(uncommented(line))
+        text = line.rstrip("\r")
+        goes_on = text.endswith("\\") and not text.lstrip(_BLANK).startswith("#")
+        if not parts:
+            first = number
+        parts.append(text[:-1] if goes_on else text)
+        if not goes_on:
+            yield first, "".join(parts), len(parts) > 1
+            parts = []
+    if parts:
+        yield first, "".join(parts), True
+
+
+def _archive(path: str, line: int, column: int, text: str) -> Declaration | None:
+    """A requirement pip takes and PEP 508 does not, known by its name only: the `#egg=` of a VCS
+    URL, or the file name of an archive; no version is read from either."""
+    head = re.split("[#?]", text, maxsplit=1)[0]
+    found = _EGG.search(text) or _ARCHIVE.match(head, head.rfind("/") + 1)
+    return None if found is None else _named(path, line, column, found)
+
+
+def _unreadable(path: str, line: int, column: int, text: str) -> Declaration | None:
+    """A requirement PEP 508 refuses, known by the name it starts with; no version is read."""
+    found = _LEADING.match(text)
+    return None if found is None else _named(path, line, column, found)
+
+
+def _named(path: str, line: int, column: int, found: re.Match[str]) -> Declaration:
+    start, end = found.span("name")
+    return Declaration(
+        path=path,
+        line=line,
+        column=column + start,
+        name=canonicalize_name(found["name"]),
+        raw=found["name"],
+        end=column + end,
+        pin=None,
+        spec=None,
+    )
+
+
+def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
+    """One requirement per logical line, as pip reads it.
+
+    The options after a requirement (`--hash`) are cut before it is read. A requirement that
+    carries a hash, spans lines or is editable gets no pin: a hash belongs to its release, and a
+    copy of a continued line would split it.
+    """
+    for number, text, joined in _joined(lines):
+        body, column = _span(PIP_COMMENT.sub("", text))
         if not body:
             continue
-        declaration = _declare(path, number, column, body)
-        if declaration is not None:
-            yield declaration
+        editable = _EDITABLE.match(body)
+        if editable:
+            body, column = body[editable.end() :], column + editable.end()
+        elif body.startswith("-"):
+            continue
+        cut = _PIP_OPTION.search(body)
+        written = body[: cut.start()] if cut else body
+        declaration = (
+            _declare(path, number, column, written)
+            or _archive(path, number, column, written)
+            or _unreadable(path, number, column, written)
+        )
+        if declaration is None:
+            continue
+        if editable or joined or "--hash" in body[len(written) :]:
+            declaration = replace(
+                declaration, pin=None, spec=None if editable else declaration.spec
+            )
+        yield declaration
+
+
+def _from_unwritten(path: str, lines: list[str]) -> Iterator[Declaration]:
+    """A constraints file or a pip-tools input, whose declarations are read and never edited.
+
+    A bare name constrains nothing, and the compiled file beside it names the release, so it is
+    not a declaration.
+    """
+    for declaration in _from_requirements(path, lines):
+        if declaration.spec != "":
+            yield replace(declaration, pin=None)
 
 
 def _table(text: str) -> tuple[str, ...]:
@@ -573,36 +709,79 @@ def _is_dependency_table(table: tuple[str, ...]) -> bool:
 
 
 def _is_dependency_array(table: tuple[str, ...], key: str) -> bool:
-    """PEP 621/735 requirement arrays; not `[build-system] requires`, which installs never read."""
+    """Requirement arrays: PEP 621/735, uv's dev group, every PDM group and a Hatch environment's;
+    not `[build-system] requires`, which installs never read."""
     if table == ("project",):
         return key == "dependencies"
-    return table in {("dependency-groups",), ("project", "optional-dependencies")}
+    if table == ("tool", "uv"):
+        return key == "dev-dependencies"
+    if len(table) == 4 and table[:3] == ("tool", "hatch", "envs"):
+        return key in {"dependencies", "extra-dependencies"}
+    return table in {
+        ("dependency-groups",),
+        ("project", "optional-dependencies"),
+        ("tool", "pdm", "dev-dependencies"),
+    }
 
 
 def _value_pin(body: str, after: int) -> tuple[int, int] | None:
-    """The span inside a TOML value that is exactly one quoted string, else `None`.
+    """The span inside a TOML value that is exactly one quoted string, or an inline table holding
+    nothing but a quoted `version`; else `None`.
 
     Also refuses an unclosed quote (invalid TOML); an inner quote (triple-quoted, escaped) is fine.
     """
     rest = body[after:]
     value = rest.strip()
+    start = after + len(rest) - len(rest.lstrip())
+    only = _ONLY_VERSION.fullmatch(value)
+    if only:
+        return (start + only.start("version"), start + only.end("version"))
     quote = value[:1]
     if len(value) < 2 or quote not in "\"'" or value[-1] != quote:
         return None
-    start = after + rest.index(quote) + 1
-    return (start, start + len(value) - 2)
+    return (start + 1, start + len(value) - 1)
 
 
+# Any other key beside the version (extras, a marker, a source) would be carried to a distribution
+# that may not have it, so such a table is no pin.
+_ONLY_VERSION: Final = re.compile(r"""\{\s*version\s*=\s*(["'])(?P<version>[^"']*)\1\s*,?\s*\}""")
 _INLINE_VERSION: Final = re.compile(r"""^\{.*?\bversion\s*=\s*(["'])(.*?)\1""")
 
 
 def _inline_version(body: str, after: int) -> str | None:
     """The `version` of a one-line inline table (`{ version = "^3", extras = [...] }`), else `None`.
 
-    Read, not edited: the table has no pin the rule could replace.
+    Read, not edited: with other keys beside it the table has no pin the rule could replace.
     """
     found = _INLINE_VERSION.match(body[after:].strip())
     return None if found is None else found.group(2)
+
+
+def _version_below(lines: list[str], start: int) -> str | None:
+    """The `version` string in the table whose body starts at `lines[start]`, else `None`."""
+    for line in lines[start:]:
+        body = uncommented(line)
+        text, column = _span(body)
+        if text.startswith("["):
+            break
+        key, equals, _ = text.partition("=")
+        if equals and key.strip() == "version":
+            pin = _value_pin(body, column + len(key) + 1)
+            return None if pin is None else body[pin[0] : pin[1]]
+    return None
+
+
+def _headed(
+    path: str, number: int, column: int, name: str, lines: list[str]
+) -> Iterator[Declaration]:
+    """A dependency given as its own table, `[tool.poetry.dependencies.name]`.
+
+    No pin: the name is on the header and the version on another line, and an edit has one line to
+    a declaration, so the rule refuses the row and the repository is held.
+    """
+    declaration = _declare(path, number, column, name)
+    if declaration is not None:
+        yield replace(declaration, pin=None, spec=_version_below(lines, number))
 
 
 def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
@@ -622,6 +801,8 @@ def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
         text, column = _span(body)
         if text.startswith("["):
             table = _table(text)
+            if _is_dependency_table(table[:-1]):
+                yield from _headed(path, number, column + text.rfind(table[-1]), table[-1], lines)
             continue
         cut = text.find("=")
         if cut < 0:
@@ -649,7 +830,7 @@ def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
 
 def _array(path: str, number: int, body: str, start: int) -> Iterator[Declaration]:
     for column, text in _quoted(body, start):
-        declaration = _declare(path, number, column, text)
+        declaration = _requirement(path, number, column, text)
         if declaration is not None:
             yield declaration
 
@@ -676,7 +857,7 @@ def _from_cfg(path: str, lines: list[str]) -> Iterator[Declaration]:
             continue
         if line[:1] in " \t":
             if _is_dependency_key(section, key):
-                declaration = _declare(path, number, column, text)
+                declaration = _requirement(path, number, column, text)
                 if declaration is not None:
                     yield declaration
             continue
@@ -690,26 +871,35 @@ def _from_cfg(path: str, lines: list[str]) -> Iterator[Declaration]:
         key = text[:cut].strip()
         value, offset = _span(text[cut + 1 :])
         if value and _is_dependency_key(section, key):
-            declaration = _declare(path, number, column + cut + 1 + offset, value)
+            declaration = _requirement(path, number, column + cut + 1 + offset, value)
             if declaration is not None:
                 yield declaration
 
 
 class _Requirements(cst.CSTVisitor):
-    """Literals under a `setup()` requirement keyword, except dict keys (an extra's name)."""
+    """Literals under a `setup()` requirement keyword, except dict keys (an extra's name), and the
+    names standing there for a whole list."""
 
-    def __init__(self) -> None:
+    def __init__(self, depth: int = 0) -> None:
         self.strings: list[cst.SimpleString] = []
-        self._depth = 0
+        self.names: list[cst.Name] = []
+        self._depth = depth
         self._keys = 0
 
     def visit_Arg(self, node: cst.Arg) -> None:
         if self.wanted(node):
             self._depth += 1
+            self._name(node.value)
 
     def leave_Arg(self, node: cst.Arg) -> None:
         if self.wanted(node):
             self._depth -= 1
+
+    def visit_Element(self, node: cst.Element) -> None:
+        self._name(node.value)
+
+    def visit_DictElement(self, node: cst.DictElement) -> None:
+        self._name(node.value)
 
     def visit_DictElement_key(self, node: cst.DictElement) -> None:
         self._keys += 1
@@ -720,6 +910,10 @@ class _Requirements(cst.CSTVisitor):
     def visit_SimpleString(self, node: cst.SimpleString) -> None:
         if self._depth and not self._keys:
             self.strings.append(node)
+
+    def _name(self, value: cst.BaseExpression) -> None:
+        if self._depth and not self._keys and isinstance(value, cst.Name):
+            self.names.append(value)
 
     @staticmethod
     def wanted(node: cst.Arg) -> bool:
@@ -747,8 +941,46 @@ def _whole(node: cst.CSTNode, parents: Mapping[cst.CSTNode, cst.CSTNode]) -> boo
     return True
 
 
+def _stood_for(
+    names: Sequence[cst.Name], wrapper: MetadataWrapper, parents: Mapping[cst.CSTNode, cst.CSTNode]
+) -> list[cst.SimpleString]:
+    """The strings of the list, tuple or dict literal each name stands for: the one assignment that
+    binds it, and those of the names inside it in turn. A name bound twice, by an import, a
+    parameter or anything but `NAME = [...]` is not followed."""
+    if not names:
+        return []
+    scopes = wrapper.resolve(ScopeProvider)
+    pending = list(names)
+    followed: set[cst.CSTNode] = set()
+    strings: list[cst.SimpleString] = []
+    while pending:
+        name = pending.pop()
+        scope = scopes[name]
+        if scope is None:  # pragma: no cover - every node is in some scope
+            continue
+        bound = scope[name.value]
+        if len(bound) != 1:
+            continue
+        (only,) = bound
+        target = parents[only.node] if isinstance(only, Assignment) else None
+        assign = parents[target] if isinstance(target, cst.AssignTarget) else None
+        if (
+            isinstance(assign, cst.Assign)
+            and len(assign.targets) == 1
+            and isinstance(assign.value, (cst.List, cst.Tuple, cst.Dict))
+            and assign.value not in followed
+        ):
+            followed.add(assign.value)
+            inside = _Requirements(depth=1)
+            assign.value.visit(inside)
+            strings.extend(inside.strings)
+            pending.extend(inside.names)
+    return strings
+
+
 def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
-    """`setup.py`: only literals under requirement keywords declare; unparsable yields nothing."""
+    """`setup.py`: only literals under requirement keywords declare, or in the one list literal a
+    name there stands for; unparsable yields nothing."""
     module = parse.gates(path, data).module
     if module is None:
         return
@@ -758,16 +990,21 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
     try:
         positions = wrapper.resolve(PositionProvider)
         module.visit(collector)
-        parents = wrapper.resolve(ParentNodeProvider) if collector.strings else {}
+        parents = (
+            wrapper.resolve(ParentNodeProvider) if collector.strings or collector.names else {}
+        )
+        strings = [*collector.strings, *_stood_for(collector.names, wrapper, parents)]
     except (RecursionError, MemoryError):  # parsed, but too deep to walk: declares nothing
         return
     lines = data.decode("utf-8", "surrogateescape").split("\n")
-    for node in collector.strings:
+    for node in sorted(strings, key=lambda node: astuple(positions[node].start)):
         text = node.evaluated_value
         if not isinstance(text, str):
             continue
         at = positions[node].start
-        declaration = _declare(path, at.line, at.column + len(node.prefix) + len(node.quote), text)
+        declaration = _requirement(
+            path, at.line, at.column + len(node.prefix) + len(node.quote), text
+        )
         if declaration is None:
             continue
         # Spans are source columns only when the literal's bytes are its value (an escape, and a
@@ -787,11 +1024,14 @@ __all__ = [
     "LOCKS",
     "LOCK_GLOBS",
     "NAMES",
+    "PIP",
+    "PIP_COMMENT",
     "REASON",
     "REQUIREMENTS_DIRECTORY",
     "REQUIREMENTS_GLOB",
     "SETUP_KEYWORDS",
     "TRANSITIVE_BAIL",
+    "UNWRITTEN_GLOBS",
     "Declaration",
     "Layout",
     "Migration",

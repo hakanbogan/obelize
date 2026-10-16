@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import errno
 import hashlib
+import itertools
 import os
 import shutil
 import stat
@@ -246,6 +247,40 @@ def test_reading_a_name_that_is_a_symlink_refuses_rather_than_follows(tree: Path
     with pytest.raises(OSError, match="symbolic link") as raised:
         fsutil.read(tree / "link.py")
     assert raised.value.errno == errno.ELOOP
+
+
+@pytest.mark.parametrize(
+    ("size", "overlap", "length"),
+    [(8, 3, 0), (8, 3, 5), (8, 3, 8), (8, 3, 9), (8, 3, 20), (8, 3, 21)],
+)
+def test_windows_repeat_the_overlap_and_hold_every_byte_once_between_them(
+    tree: Path, size: int, overlap: int, length: int
+) -> None:
+    data = bytes(range(length))
+    (tree / "big.bin").write_bytes(data)
+    found = list(fsutil.windows(tree / "big.bin", size, overlap, 100))
+    assert all(0 < len(window) <= size for window in found)
+    assert all(before[-overlap:] == after[:overlap] for before, after in itertools.pairwise(found))
+    assert (
+        b"".join(window if not at else window[overlap:] for at, window in enumerate(found)) == data
+    )
+
+
+def test_a_file_over_the_limit_has_no_windows_and_one_at_it_has_them(tree: Path) -> None:
+    (tree / "big.bin").write_bytes(bytes(10))
+    assert list(fsutil.windows(tree / "big.bin", 8, 3, 9)) == []
+    assert list(fsutil.windows(tree / "big.bin", 8, 3, 10)) != []
+
+
+def test_windows_are_read_through_the_same_open_as_a_read(tree: Path) -> None:
+    secret = tree.parent / "secret.py"
+    secret.write_text("SECRET = True\n", encoding="utf-8", newline="\n")
+    (tree / "link.py").symlink_to(secret)
+    with pytest.raises(OSError, match="symbolic link") as raised:
+        list(fsutil.windows(tree / "link.py", 8, 3, 100))
+    assert raised.value.errno == errno.ELOOP
+    with pytest.raises(FileNotFoundError):
+        list(fsutil.windows(tree / "missing.py", 8, 3, 100))
 
 
 def test_a_write_replaces_the_bytes_and_leaves_no_temporary(tree: Path) -> None:

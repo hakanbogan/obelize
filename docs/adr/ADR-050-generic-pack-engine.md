@@ -60,6 +60,12 @@ A pack that names the newest release of the legacy distribution (`from.newest`, 
 declaration through that fails the floor but installs that release, a requirement with no version
 for one, unless the repository shows another release. A pack that names none is gated as above.
 
+A pack with two distributions also gates the new side: a manifest that pins the new distribution so
+that it admits no release `to.version` allows (`pypdf==3.0.0`, `pypdf<6`) blocks the run
+(`new_version_unsupported`), since the migration would leave it on a release that lacks the names
+the rewrite writes. `ScanSpec.new_version` carries `to.version`, and `spec_digest` leaves it out
+like the other gates.
+
 ## Consequences
 
 - The Gemini pack's sha256 changes; no scan, plan or oracle row does.

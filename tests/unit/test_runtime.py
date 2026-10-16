@@ -58,6 +58,11 @@ DECLARATIONS = [
     ("3.12", False),
     (">=3.10 <4", False),
     (">= 3.10", False),
+    # A release the declaration names is asked about too, though the grid has no such patch.
+    ("==3.9.18", True),
+    ("==3.10.2", False),
+    ("==3.9.18 || ==3.11.4", True),
+    ("3.9.18", True),
 ]
 
 
@@ -124,9 +129,193 @@ def test_setup_cfg_is_read_with_the_parser_setuptools_reads_it_with(tmp_path: Pa
     assert found == runtime.Declared(path="setup.cfg", declared=">=3.8")
 
 
+@pytest.mark.parametrize(
+    ("requires", "declared", "blocked"),
+    [
+        ('python_version = "3.9"', "==3.9.*", True),
+        ('python_version = "3.10"', "==3.10.*", False),
+        ('python_version = "3"', "==3.*", True),
+        ('python_full_version = "3.9.18"', "==3.9.18", True),
+        ('python_full_version = "3.12.1"', "==3.12.1", False),
+        ('python_version = "3.9"\npython_full_version = "3.12.1"', "==3.12.1", False),
+        ('python_version = " 3.9"', "== 3.9.*", True),
+    ],
+    ids=["minor", "newer-minor", "major", "full", "newer-full", "both", "padded"],
+)
+def test_a_pipfile_requires_is_the_python_the_environment_is_built_from(
+    tmp_path: Path, requires: str, declared: str, blocked: bool
+) -> None:
+    _write(tmp_path, "Pipfile", f'[packages]\nacme-sdk = "*"\n\n[requires]\n{requires}\n')
+    found = runtime.declaration("Pipfile", parse.disk(tmp_path, _config()))
+    assert found == runtime.Declared(path="Pipfile", declared=declared)
+    assert runtime._admits_unsupported(declared, SPEC) is blocked
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        '[packages]\nacme-sdk = "*"\n',
+        "requires = 3\n",
+        "[requires]\n",
+        "[requires]\npython_version = 3.9\n",
+        '[requires]\npython_full_version = 3\npython_version = ["3.9"]\n',
+    ],
+    ids=["no-table", "not-a-table", "no-key", "number", "wrong-types"],
+)
+def test_a_pipfile_that_says_no_python_declares_none(tmp_path: Path, document: str) -> None:
+    _write(tmp_path, "Pipfile", document)
+    assert runtime.declaration("Pipfile", parse.disk(tmp_path, _config())) is None
+
+
+def test_a_pipfile_below_the_floor_blocks_the_run(tmp_path: Path) -> None:
+    _write(tmp_path, "Pipfile", '[requires]\npython_version = "3.7"\n')
+    floor = runtime.detect(("Pipfile",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor.blocked == runtime.Blocked(
+        reason="runtime_unsupported",
+        package=SPEC.new_distribution,
+        path="Pipfile",
+        declared="==3.7.*",
+        needed=">=3.10",
+    )
+    assert floor.declared == runtime.Declared(path="Pipfile", declared="==3.7.*")
+
+
+def test_a_pipfile_in_a_package_does_not_hide_the_root_pyproject(tmp_path: Path) -> None:
+    """Depth, then path, across every file that declares a floor."""
+    _write(tmp_path, "pyproject.toml", '[project]\nrequires-python = ">=3.9"\n')
+    _write(tmp_path, "app/Pipfile", '[requires]\npython_version = "3.8"\n')
+    found = runtime.detect(("app/Pipfile", "pyproject.toml"), parse.disk(tmp_path, _config()), SPEC)
+    assert found.blocked is not None
+    assert found.blocked.path == "pyproject.toml"
+
+
+@pytest.mark.parametrize(
+    ("source", "declared"),
+    [
+        ('setup(name="x", python_requires=">=3.6")', ">=3.6"),
+        ('setuptools.setup(python_requires=">=3.6, !=3.7.*")', ">=3.6, !=3.7.*"),
+        ("setup(python_requires='>=3.6')", ">=3.6"),
+        ('setup(python_requires=">=3.6" ",<4")', ">=3.6,<4"),
+        ('setup(**dict(python_requires=">=3.6"))', ">=3.6"),
+        (
+            'if PY3:\n    setup(python_requires=">=3.6")\nelse:\n    setup(python_requires="3.9")',
+            ">=3.6",
+        ),
+        (
+            'def build():\n    setup(python_requires=">=3.6")\nsetup(python_requires=">=3.9")',
+            ">=3.6",
+        ),
+        ('setup(python_requires=">=3.9")\nsetup(python_requires=">=3.6")', ">=3.9"),
+        ('# coding: latin-1\nsetup(name="caf\xe9", python_requires=">=3.6")', ">=3.6"),
+    ],
+    ids=[
+        "keyword",
+        "attribute-call",
+        "single-quoted",
+        "adjacent-literals",
+        "dict-call",
+        "first-of-two-branches",
+        "first-in-the-file-not-the-first-found",
+        "two-calls",
+        "encoding-line",
+    ],
+)
+def test_a_setup_py_python_requires_literal_is_read(
+    tmp_path: Path, source: str, declared: str
+) -> None:
+    (tmp_path / "setup.py").write_bytes(f"{source}\n".encode("latin-1"))
+    found = runtime.declaration("setup.py", parse.disk(tmp_path, _config()))
+    assert found == runtime.Declared(path="setup.py", declared=declared)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "setup(python_requires=PYTHON_REQUIRES)",
+        'setup(python_requires=">=" + MINIMUM)',
+        'setup(python_requires=f">={MINIMUM}")',
+        'setup(python_requires=">=%s" % MINIMUM)',
+        'setup(python_requires=">=3.6".format())',
+        "setup(python_requires=read_minimum())",
+        "setup(python_requires=None)",
+        "setup(python_requires=3.6)",
+        'setup(**{"python_requires": ">=3.6"})',
+        'setup(**kwargs, name=">=3.6")',
+        'setup(python_version=">=3.6", name="python_requires")',
+        'PYTHON_REQUIRES = ">=3.6"\nsetup(install_requires=[PYTHON_REQUIRES])',
+        'print "python_requires=>=3.6"',
+        "setup(python_requires='>=3.6'",
+        "",
+    ],
+    ids=[
+        "name",
+        "concatenation",
+        "f-string",
+        "percent-format",
+        "call-on-the-literal",
+        "call",
+        "none",
+        "number",
+        "dict-key",
+        "unpacked",
+        "other-keyword",
+        "another-keyword",
+        "python-2",
+        "unclosed",
+        "empty",
+    ],
+)
+def test_a_setup_py_python_requires_that_is_not_a_literal_is_a_guess_and_declares_nothing(
+    tmp_path: Path, source: str
+) -> None:
+    _write(tmp_path, "setup.py", f"from setuptools import setup\n{source}\n")
+    assert runtime.declaration("setup.py", parse.disk(tmp_path, _config())) is None
+
+
+def test_a_setup_py_that_is_not_python_declares_nothing_and_is_not_reported(tmp_path: Path) -> None:
+    """The code pass reports a file `compile()` refuses, and a Python 2 `setup.py` is common."""
+    (tmp_path / "setup.py").write_bytes(b'setup(python_requires=">=3.6")\0\xff')
+    floor = runtime.detect(("setup.py",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor == runtime.Floor(None, None, ())
+
+
+def test_a_setup_py_below_the_floor_blocks_the_run(tmp_path: Path) -> None:
+    _write(tmp_path, "setup.py", 'setup(python_requires=">=3.6")\n')
+    floor = runtime.detect(("setup.py",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor.blocked == runtime.Blocked(
+        reason="runtime_unsupported",
+        package=SPEC.new_distribution,
+        path="setup.py",
+        declared=">=3.6",
+        needed=">=3.10",
+    )
+
+
+def test_a_setup_py_literal_that_is_no_specifier_is_reported_and_blocks_nothing(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "setup.py", 'setup(python_requires="3.x or later")\n')
+    floor = runtime.detect(("setup.py",), parse.disk(tmp_path, _config()), SPEC)
+    assert floor.blocked is None
+    assert floor.limitations == (
+        parse.Limitation(path="setup.py", code="input_does_not_parse", detail=runtime.UNREAD),
+    )
+
+
+def test_the_first_file_that_blocks_is_named_whichever_layout_declares_the_floor(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "setup.py", 'setup(python_requires=">=3.6")\n')
+    _write(tmp_path, "setup.cfg", "[options]\npython_requires = >=3.7\n")
+    _write(tmp_path, "Pipfile", '[requires]\npython_version = "3.8"\n')
+    names = ("setup.py", "setup.cfg", "Pipfile")
+    found = runtime.detect(names, parse.disk(tmp_path, _config()), SPEC)
+    assert found.blocked is not None
+    assert found.blocked.path == "Pipfile"
+
+
 NOTHING_TO_READ = [
     ("requirements.txt", "acme-sdk==1.0.0\n", "a layout with no such key"),
-    ("setup.py", "from setuptools import setup\nsetup(python_requires='>=3.9')\n", "code"),
     ("pyproject.toml", '[project]\nname = "x"\n', "a document that declares none"),
     ("pyproject.toml", "[project]\nrequires-python = 310\n", "a value of the wrong type"),
     ("setup.cfg", "[options]\nname = x\n", "a section with no such key"),
@@ -140,7 +329,6 @@ NOTHING_TO_READ = [
 def test_a_manifest_that_declares_no_floor_declares_nothing(
     tmp_path: Path, name: str, text: str, why: str
 ) -> None:
-    """`setup.py` is not read: a computed `python_requires=` is the guess this module refuses."""
     _write(tmp_path, name, text)
     assert runtime.declaration(name, parse.disk(tmp_path, _config())) is None, why
 
@@ -164,6 +352,16 @@ UNPARSED = [
     ("pyproject.toml", b'\xef\xbb\xbf[project]\nrequires-python = ">=3.9"\n', NOT_TOML),
     ("setup.cfg", b"= not ini\n", NOT_CFG),
     ("setup.cfg", b"[options]\npython_requires = >=\xff3.9\n", NOT_CFG),
+    ("Pipfile", b"[requires\n", NOT_TOML),
+    pytest.param(
+        "Pipfile",
+        b'[requires]\npython_version = "3.9"\nx = { a = "x", }\n',
+        NOT_TOML,
+        marks=BEFORE_3_15,
+    ),
+    ("Pipfile", b'[requires]\npython_version = "3.\xff"\n', NOT_TOML),
+    ("pyproject.toml", b"x = " + b"[" * 5000 + b"]" * 5000, NOT_TOML),
+    ("Pipfile", b"x = " + b"[" * 5000 + b"]" * 5000, NOT_TOML),
 ]
 
 
@@ -178,7 +376,19 @@ def test_a_manifest_in_toml_1_1_is_read_where_tomllib_reads_it(tmp_path: Path) -
 @pytest.mark.parametrize(
     ("name", "data", "detail"),
     UNPARSED,
-    ids=["toml-unclosed", "toml-1.1", "toml-not-utf8", "toml-bom", "cfg-not-ini", "cfg-not-utf8"],
+    ids=[
+        "toml-unclosed",
+        "toml-1.1",
+        "toml-not-utf8",
+        "toml-bom",
+        "cfg-not-ini",
+        "cfg-not-utf8",
+        "pipfile-unclosed",
+        "pipfile-toml-1.1",
+        "pipfile-not-utf8",
+        "toml-too-deep",
+        "pipfile-too-deep",
+    ],
 )
 def test_a_manifest_that_does_not_parse_is_reported_rather_than_ignored(
     tmp_path: Path, name: str, data: bytes, detail: str
@@ -188,16 +398,6 @@ def test_a_manifest_that_does_not_parse_is_reported_rather_than_ignored(
     assert floor.declared is None
     assert floor.limitations == (
         parse.Limitation(path=name, code="input_does_not_parse", detail=detail),
-    )
-
-
-def test_a_manifest_this_module_reads_no_floor_from_is_not_reported_when_it_does_not_parse(
-    tmp_path: Path,
-) -> None:
-    """No Python requirement is read from a Pipfile, so its parse failure answers no question."""
-    (tmp_path / "Pipfile").write_bytes(b'[packages]\nx = { version = "*", }\n')
-    assert runtime.detect(("Pipfile",), parse.disk(tmp_path, _config()), SPEC) == runtime.Floor(
-        None, None, ()
     )
 
 
@@ -281,8 +481,10 @@ def test_a_legacy_pin_at_or_above_the_floor_blocks_nothing(pinned: str) -> None:
     assert runtime.legacy(_pins(("requirements.txt", pinned)), OLD, used=True) is None
 
 
-@pytest.mark.parametrize("pinned", ["", "*", "<3", ">=1", "==1.9", "!=2.0", "^1.0", None])
-def test_a_legacy_pin_that_admits_a_version_below_the_floor_blocks_the_run(
+@pytest.mark.parametrize(
+    "pinned", ["", "*", "<3", ">=1", "==1.9", "!=2.0", "^1.0", "==2.4.1+corp", None]
+)
+def test_a_legacy_pin_that_admits_a_version_below_the_floor_or_is_a_local_build_blocks_the_run(
     pinned: str | None,
 ) -> None:
     found = runtime.legacy(_pins(("requirements.txt", pinned)), OLD, used=True)
@@ -292,6 +494,17 @@ def test_a_legacy_pin_that_admits_a_version_below_the_floor_blocks_the_run(
         path="requirements.txt",
         declared=pinned,
         needed=">=2",
+    )
+
+
+def test_a_requirement_line_nobody_can_read_blocks_though_another_declaration_passes() -> None:
+    """The old line sat in a file of its own, and the gate asked only the line it could read."""
+    rows = [
+        *manifests.declarations("requirements.txt", b"acme-old>=2\n"),
+        *manifests.declarations("dev/requirements.txt", b"acme-old~=1\n"),
+    ]
+    assert runtime.legacy(rows, OLD, used=True) == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "dev/requirements.txt", None, ">=2"
     )
 
 
@@ -353,6 +566,7 @@ def test_a_python_requirement_of_a_form_nobody_reads_is_reported_not_ignored(
 
 
 NEWEST = OLD.model_copy(update={"legacy_newest": "2.4.1"})
+TARGET = OLD.model_copy(update={"new_version": ">=5.1"})
 
 
 def _plain(
@@ -422,10 +636,39 @@ def test_a_declaration_that_does_not_install_the_newest_release_blocks_as_before
     assert found.evidence == ""
 
 
-def test_with_no_newest_release_the_gate_is_what_it_was() -> None:
-    """The newest release is the caller's to pass, and a call that passes none blocks."""
+def test_with_no_newest_release_offered_the_gate_is_what_it_was_and_says_one_was_withheld() -> None:
+    """The newest release is the caller's to pass, and a call that passes none blocks: for a
+    declaration that would have installed it, the block says the release was not offered."""
     assert runtime.legacy([_plain("")], NEWEST, used=True) == runtime.Blocked(
-        "legacy_version_unsupported", "acme-old", "requirements.txt", "", ">=2"
+        "legacy_version_unsupported", "acme-old", "requirements.txt", "", ">=2", unlisted=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("spec", "row"),
+    [
+        (OLD, _plain("")),
+        (NEWEST, _plain("<2.4")),
+        (NEWEST, _plain("", pin=None)),
+        (NEWEST, _plain("", marked=True)),
+    ],
+    ids=["the-pack-names-none", "rules-it-out", "no-pin", "marker"],
+)
+def test_a_block_is_unlisted_only_where_the_newest_release_would_have_passed_it(
+    spec: ScanSpec, row: manifests.Declaration
+) -> None:
+    found = runtime.legacy([row], spec, used=True)
+    assert found is not None
+    assert found.unlisted is False
+    assert runtime.legacy([row], spec, used=True, newest=spec.legacy_newest) == found
+
+
+def test_a_block_with_evidence_or_with_nothing_declared_is_not_unlisted() -> None:
+    held = runtime.legacy([_plain("")], NEWEST, used=True, newest="2.4.1", contrary="poetry.lock")
+    assert held is not None
+    assert held.unlisted is False
+    assert runtime.legacy([], NEWEST, used=True) == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "", None, ">=2"
     )
 
 
@@ -488,3 +731,113 @@ def test_a_run_infers_nothing_where_the_pack_or_the_declaration_gives_nothing_to
     spec: ScanSpec, rows: list[manifests.Declaration]
 ) -> None:
     assert runtime.inferred(rows, spec) is False
+
+
+def _new(spec: str | None, path: str = "requirements.txt") -> manifests.Declaration:
+    return replace(_pins((path, spec))[0], name="acme-new")
+
+
+@pytest.mark.parametrize(
+    "pinned",
+    [
+        "==3.0.0",
+        "<5",
+        "<5.1",
+        "<=5.0.9",
+        "~=3.0",
+        "==3.*",
+        ">1,<5",
+        "^3.0",
+        "<4 || ==4.*",
+        "!=5.2,<5.1",
+        ">=5,<5.2,!=5.1.*",
+    ],
+)
+def test_a_pin_of_the_new_distribution_that_admits_no_release_the_pack_writes_blocks(
+    pinned: str,
+) -> None:
+    found = runtime.legacy([_plain(">=2"), _new(pinned, "dev/requirements.txt")], TARGET, used=True)
+    assert found == runtime.Blocked(
+        "new_version_unsupported", "acme-new", "dev/requirements.txt", pinned, ">=5.1"
+    )
+
+
+@pytest.mark.parametrize(
+    "pinned",
+    [
+        "",
+        "*",
+        ">=3",
+        "==5.1",
+        "==5.2.1",
+        "<=5.1",
+        "<6",
+        ">5.1",
+        "==5.*",
+        "~=5.1",
+        "^5.0",
+        ">=5.1,!=5.1",
+        ">=5,!=5.1.*",
+        "!=5.1.*",
+        ">=5.1,!=5.1.*",
+        "!=5.1.*,!=5.2.*,<6",
+        ">5.1.3,<5.1.4",
+        "<4 || >=5",
+        "===5.2",
+        "not a specifier",
+        None,
+    ],
+)
+def test_a_pin_of_the_new_distribution_that_admits_one_or_cannot_be_read_blocks_nothing(
+    pinned: str | None,
+) -> None:
+    assert runtime.legacy([_plain(">=2"), _new(pinned)], TARGET, used=True) is None
+
+
+def test_a_pin_of_the_new_distribution_is_asked_after_the_legacy_ones_and_one_row_at_a_time() -> (
+    None
+):
+    both = [_new("<5", "a.txt"), _plain("<2", "b.txt")]
+    found = runtime.legacy(both, TARGET, used=True)
+    assert found is not None
+    assert (found.reason, found.path) == ("legacy_version_unsupported", "b.txt")
+    rows = [_plain(">=2"), _new(">=5.1", "a.txt"), _new("<5", "z.txt"), _new("==4.0", "b/c.txt")]
+    found = runtime.legacy(rows, TARGET, used=True)
+    assert found is not None
+    assert (found.reason, found.path) == ("new_version_unsupported", "z.txt")
+
+
+def test_a_pin_of_the_new_distribution_blocks_a_pack_with_no_floor_too() -> None:
+    open_range = TARGET.model_copy(update={"legacy_floor": None})
+    found = runtime.legacy([_new("<5")], open_range, used=True)
+    assert found is not None
+    assert found.reason == "new_version_unsupported"
+
+
+def test_a_pin_of_the_new_distribution_blocks_nothing_where_nothing_would_migrate() -> None:
+    assert runtime.legacy([_plain(">=2"), _new("<5")], TARGET, used=False) is None
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        OLD,
+        TARGET.model_copy(update={"new_distribution": "acme-old"}),
+    ],
+    ids=["a-pack-that-names-no-target", "one-distribution-for-both-sides"],
+)
+def test_a_pin_of_the_new_distribution_is_no_gate_without_a_target_or_a_second_distribution(
+    spec: ScanSpec,
+) -> None:
+    assert runtime.legacy([_plain(">=2"), _new("<5")], spec, used=True) is None
+
+
+def test_a_pin_of_a_version_python_cannot_name_is_not_judged() -> None:
+    """`===` takes any string, so there is no version to place against the pack's."""
+    assert runtime.legacy([_plain(">=2"), _new("===weird")], TARGET, used=True) is None
+
+
+def test_a_pack_with_no_upper_bound_to_reach_is_met_at_zero() -> None:
+    below = TARGET.model_copy(update={"new_version": "<2"})
+    assert runtime.legacy([_plain(">=2"), _new("<3")], below, used=True) is None
+    assert runtime.legacy([_plain(">=2"), _new(">=3")], below, used=True) is not None

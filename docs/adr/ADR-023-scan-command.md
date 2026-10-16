@@ -50,17 +50,22 @@ completed, and prints nothing. So in `scan` mode every record carries
 
 The floor comes from a manifest, never the parser, since libcst's native parser
 ignores `PartialParserConfig(python_version=...)` (C-37): `scan/runtime.py`
-reads PEP 621's `requires-python`, `setup.cfg`'s `python_requires` and
-`tool.poetry.dependencies.python` (translating `^` and `~`), and not
-`setup.py`, which is code. A run is blocked (`runtime_unsupported`) when the declaration
+reads PEP 621's `requires-python`, `setup.cfg`'s `python_requires`,
+`tool.poetry.dependencies.python` (translating `^` and `~`) and a `Pipfile`'s `[requires]`
+(`python_version = "3.9"` as `==3.9.*`, `python_full_version = "3.9.18"` as `==3.9.18`), and
+the `python_requires=` of `setup.py` where it is a string literal: one built from a variable is a
+guess and reads as no floor, and a `setup.py` that does not parse says nothing here, since the code
+pass reports it. A run is blocked (`runtime_unsupported`) when the declaration
 admits any Python the pack's `to.requires_python` excludes, asked of 2.7 and 3.0 to 3.29 one by
-one: `>=3.9` against `>=3.10` blocks, because pip then installs an older, different API surface
-(C-15). A declaration that cannot be parsed blocks nothing. A pack whose `from.version` has a
+one and of any release the declaration names itself (`==3.9.18`): `>=3.9` against `>=3.10` blocks,
+because pip then installs an older, different API surface (C-15). A declaration that cannot be parsed blocks nothing. A pack whose `from.version` has a
 floor adds `legacy_version_unsupported`: any manifest declaring the legacy distribution with no
 version, or one admitting a version below that floor, and any repository that uses the library
 and declares it nowhere, is blocked too, since the pack's rules were measured above it. A pack that
 names its newest release takes a declaration that installs it as that release, unless the repository
-shows another (ADR-056). A blocked run still grades and reports every finding, but plans no
+shows another (ADR-056). A pack with two distributions adds `new_version_unsupported`: a manifest
+that pins the new distribution so that it admits no release the pack writes (`pypdf==3.0.0`) blocks
+the run too (ADR-050 D5). A blocked run still grades and reports every finding, but plans no
 change and asks a configured model nothing, so `fix --apply` over it writes
 nothing and exits `4`.
 
@@ -119,8 +124,8 @@ code is a breaking change, so the two may not disagree.
   run folder off; one could be added later without breaking anything.
 - Importing `obelize.cli` pulls in none of libcst, pydantic, pyyaml or
   pathspec; a subprocess test asserts it.
-- Open under D6: a floor declared only in `setup.py` (`python_requires=">=3.8"`
-  in one of eighty repositories measured, ADR-024) reads as no floor. Reading a
-  literal there is the narrowest fix and is a decision about reading code.
+- A floor declared only in `setup.py` (`python_requires=">=3.8"` in one of eighty
+  repositories measured, ADR-024) is read where it is a string literal, which was
+  the narrowest fix; one built from a variable still reads as no floor.
 - Open under D6: a project declaring `>=3.9` that no longer tests on 3.9 is
   blocked; if that is disputed, the answer is a flag, not a quieter rule.

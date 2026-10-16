@@ -341,7 +341,7 @@ class Match(_Closed):
     symbols: tuple[QualifiedName, ...] = ()
     prefilter_tokens: tuple[PrefilterToken, ...]
     # Module the legacy distribution installed and the new one does not -> its distribution. While a
-    # file imports one that no manifest declares, the legacy pin stays.
+    # file imports one that no manifest of its app declares, the legacy pin stays.
     transitive: dict[QualifiedName, DistributionName] = Field(default_factory=dict)
     # The module is the new SDK's too, so `import M` is no finding and only `symbols` are legacy.
     shared: StrictBool = False

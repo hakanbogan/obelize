@@ -5,11 +5,14 @@ from __future__ import annotations
 import ast
 import ntpath
 import os
+import time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from acme import SPEC
+from libcst.metadata import MetadataWrapper, ScopeProvider
+from packaging.version import Version
 
 from obelize.impact import planner
 from obelize.models import Config, ImpactPlan, ManifestPlan, ProvidedModule
@@ -57,6 +60,9 @@ def planned(source: str, path: str) -> ImpactPlan:
         ("requirements.txt", "requirements"),
         ("requirements-dev.txt", "requirements"),
         ("requirements_test.txt", "requirements"),
+        ("dev-requirements.txt", "requirements"),
+        ("requirement.txt", "requirements"),
+        ("docs/pip_requirements.txt", "requirements"),
         ("deploy/requirements.txt", "requirements"),
         ("requirements/base.txt", "requirements"),
         ("requirements/dev.txt", "requirements"),
@@ -65,8 +71,15 @@ def planned(source: str, path: str) -> ImpactPlan:
         ("Pipfile", "toml"),
         ("setup.cfg", "cfg"),
         ("setup.py", "setup_py"),
-        ("constraints.txt", None),
+        ("constraints.txt", "unwritten"),
+        ("constraints-3.12.txt", "unwritten"),
+        ("constraints/prod-constraints.txt", "unwritten"),
+        ("requirements/constraints.txt", "unwritten"),
+        ("requirements-constraints.txt", "unwritten"),
+        ("requirements.in", "unwritten"),
+        ("dev-requirements.in", "unwritten"),
         ("docs/notes.txt", None),
+        ("base.in", None),
         ("requirements/README.md", None),
         ("poetry.lock", None),
         ("Pipfile.lock", None),
@@ -77,7 +90,8 @@ def planned(source: str, path: str) -> ImpactPlan:
 def test_a_manifest_is_chosen_by_name_and_the_set_is_closed(
     path: str, expected: str | None
 ) -> None:
-    """Lock files are generated and hashed, so never edited; `constraints.txt` declares nothing."""
+    """Lock files are generated and hashed, so never edited; a constraints file and a pip-tools
+    input are read and never written, which `unwritten` says."""
     assert manifests.layout(path) == expected
     assert manifests.is_manifest(path) is (expected is not None)
 
@@ -94,17 +108,175 @@ def test_a_manifest_name_keeps_its_case_where_the_system_folds_it(
 
 
 def test_a_requirements_file_declares_one_dependency_a_line() -> None:
-    """And the three shapes that are not one: a comment, an option, and noise."""
+    """And the three shapes that are not one: a comment, an option, and a line with no name."""
     text = """
 # acme-sdk==1.0
 acme-sdk==1.0  # the real one
 -e .
 --index-url https://example.invalid/simple/acme-sdk/
-this is not a requirement
+*** not a requirement
 
 requests>=2.31
 """
     assert declared(text) == [(2, 0, "acme-sdk"), (7, 0, "requests")]
+
+
+def read(text: str) -> list[manifests.Declaration]:
+    return list(manifests.declarations("requirements.txt", text.lstrip("\n").encode("utf-8")))
+
+
+@pytest.mark.parametrize(
+    ("text", "pin", "spec"),
+    [
+        ("acme-sdk==1.0 --hash=sha256:aaaa\n", None, "==1.0"),
+        ("acme-sdk==1.0 \\\n    --hash=sha256:aaaa \\\n    --hash=sha256:bbbb\n", None, "==1.0"),
+        ("acme-sdk==1.0 \\\r\n    --hash=sha256:aaaa\r\n", None, "==1.0"),
+        ("acme-sdk \\\n    >=1.0\n", None, ">=1.0"),
+        ("acme-sdk==1.0 \\", None, "==1.0"),
+        ("acme-sdk==1.0 --config-settings x=y\n", (8, 13), "==1.0"),
+        ("acme-sdk>=1.0 ; python_version < '3.12' --global-option=-q\n", (8, 13), ">=1.0"),
+        ("# a note \\\nacme-sdk==1.0\n", (8, 13), "==1.0"),
+    ],
+    ids=[
+        "inline-hash",
+        "hashes-on-continued-lines",
+        "crlf",
+        "requirement-split-over-lines",
+        "file-ends-in-a-backslash",
+        "option-without-a-hash",
+        "marker-and-option",
+        "comment-does-not-continue",
+    ],
+)
+def test_a_requirement_is_read_as_pip_joins_and_cuts_its_line(
+    text: str, pin: tuple[int, int] | None, spec: str
+) -> None:
+    """A hash is tied to the version and a line that goes on cannot be copied: neither has a pin."""
+    (found,) = read(text)
+    line = 2 if text.startswith("#") else 1
+    assert (found.name, found.line, found.column, found.pin, found.spec) == (
+        "acme-sdk",
+        line,
+        0,
+        pin,
+        spec,
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "written"),
+    [
+        ("-e git+https://example.invalid/repo.git#egg=Acme_SDK\n", "Acme_SDK"),
+        ("--editable git+https://example.invalid/r.git#egg=acme-sdk&subdirectory=x\n", "acme-sdk"),
+        ("-e acme-sdk\n", "acme-sdk"),
+        ("--editable=acme-sdk[extra]\n", "acme-sdk"),
+        ("git+https://example.invalid/repo.git#egg=acme-sdk[extra]\n", "acme-sdk"),
+        ("./acme_sdk-1.0-py3-none-any.whl\n", "acme_sdk"),
+        ("./acme-sdk-1.0.whl\n", "acme-sdk"),
+        ("dist/acme-sdk-1.0.tar.gz\n", "acme-sdk"),
+        ("https://example.invalid/a-1/acme-sdk-1.0.zip#sha256=ab\n", "acme-sdk"),
+        ("https://example.invalid/acme-sdk-1.0.tgz?raw=1\n", "acme-sdk"),
+    ],
+)
+def test_a_requirement_pip_takes_and_pep_508_refuses_is_known_by_its_name_alone(
+    text: str, written: str
+) -> None:
+    """An `#egg=` or an archive's file name says which distribution; no version is read from it."""
+    (found,) = read(text)
+    assert (found.name, found.line, found.raw) == ("acme-sdk", 1, written)
+    assert text[found.column : found.end] == written
+    assert (found.pin, found.spec) == (None, None)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "-e .\n",
+        "-e ./local/acme-sdk\n",
+        "-eacme-sdk\n",
+        "./notes.whl.txt\n",
+        "dist/acme-sdk.zip\n",
+        "https://example.invalid/acme\n",
+        "acme-sdk.==1.0\n",
+        "acme-sdk+extra\n",
+        "-r base.txt\n",
+    ],
+)
+def test_a_line_that_names_no_distribution_declares_nothing(text: str) -> None:
+    assert read(text) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "raw"),
+    [
+        ("acme-sdk==1.0#not-a-comment", "acme-sdk"),
+        ("acme-sdk==", "acme-sdk"),
+        ("acme-sdk~=1", "acme-sdk"),
+        ("acme-sdk==1.*.*", "acme-sdk"),
+        ("acme-sdk>=1.*", "acme-sdk"),
+        ("acme-sdk=1.0", "acme-sdk"),
+        ("acme-sdk 1.0", "acme-sdk"),
+        ("Acme_SDK[x] ~= 1", "Acme_SDK"),
+        ("  acme-sdk ~=1", "acme-sdk"),
+        ("acme-sdk;python_version<'3'~=1", "acme-sdk"),
+    ],
+)
+def test_a_requirement_whose_version_nobody_can_read_is_still_a_row_with_no_pin_or_version(
+    text: str, raw: str
+) -> None:
+    """The gate asks every row, so a line it skipped could hide a pin the floor would refuse."""
+    (found,) = read(text + "\n")
+    assert (found.name, found.raw, found.pin, found.spec) == ("acme-sdk", raw, None, None)
+    assert text[found.column : found.end] == raw
+
+
+@pytest.mark.parametrize(
+    ("path", "text"),
+    [
+        ("pyproject.toml", '[project]\ndependencies = [\n  "acme-sdk~=1",\n]\n'),
+        ("pyproject.toml", '[dependency-groups]\ndev = ["acme-sdk==1.*.*"]\n'),
+        ("setup.cfg", "[options]\ninstall_requires =\n    acme-sdk~=1\n"),
+        ("setup.cfg", "[options]\nsetup_requires = acme-sdk~=1\n"),
+        ("setup.py", 'setup(install_requires=["acme-sdk~=1"])\n'),
+    ],
+)
+def test_a_requirement_nobody_can_read_is_a_row_in_every_layout(path: str, text: str) -> None:
+    (found,) = manifests.declarations(path, text.encode())
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, None)
+    assert found.raw == "acme-sdk"
+
+
+def test_a_line_of_prose_holds_a_row_named_for_its_first_word() -> None:
+    """Harmless unless that word is a distribution the pack asks about, which is the point."""
+    assert declared("acme-sdk is great\nthis is not a requirement\n") == [
+        (1, 0, "acme-sdk"),
+        (2, 0, "this"),
+    ]
+
+
+def test_an_editable_requirement_names_the_distribution_and_nothing_else() -> None:
+    (found,) = read("-e acme-sdk==1.0\n")
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, None)
+
+
+def test_an_archive_name_is_cut_at_the_first_dash_before_a_digit() -> None:
+    names = [row.name for row in read("./py-3d-1.0.whl\n./acme_sdk-extras-1.0.tar.gz\n")]
+    assert names == ["py", "acme-sdk-extras"]
+
+
+def test_a_very_long_line_is_read_in_linear_time() -> None:
+    """None of the patterns that read a line backtracks over a name, a path or a run of blanks."""
+    lines = [
+        "a-" * 300_000,
+        "a-1" * 200_000,
+        "#egg=" * 100_000,
+        " " * 500_000 + "#",
+        "a -" * 200_000,
+    ]
+    began = time.monotonic()
+    for line in lines:
+        read(line + "\n")
+    assert time.monotonic() - began < 5
 
 
 def test_a_name_is_matched_after_canonicalisation() -> None:
@@ -195,6 +367,182 @@ acme-sdk = "^1.0"
     assert declared(text, "pyproject.toml") == [(2, 0, "acme-sdk")]
 
 
+@pytest.mark.parametrize(
+    ("table", "key"),
+    [
+        ("tool.uv", "dev-dependencies"),
+        ("tool.pdm.dev-dependencies", "lint"),
+        ("tool.hatch.envs.default", "dependencies"),
+        ("tool.hatch.envs.default", "extra-dependencies"),
+    ],
+)
+def test_the_arrays_uv_pdm_and_hatch_keep_requirements_in_are_read(table: str, key: str) -> None:
+    """The decoys: a commented pin, and the same key in a table of the same tool that is no list."""
+    text = f"""
+[{table}]
+{key} = [
+  # "acme-sdk==1.0"
+  "acme-sdk==1.0",
+]
+
+[{table}.sources]
+{key} = ["acme-sdk==1.0"]
+"""
+    assert declared(text, "pyproject.toml") == [(4, 3, "acme-sdk")]
+
+
+def test_only_the_keys_uv_and_hatch_install_from_are_read() -> None:
+    text = """
+[tool.uv]
+dev-dependencies = ["acme-sdk==1.0"]
+constraint-dependencies = ["acme-sdk==1.0"]
+
+[tool.hatch.envs.default]
+extra-dependencies = ["acme-sdk==1.0"]
+scripts = ["acme-sdk==1.0"]
+
+[tool.hatch.envs.default.scripts]
+lock = "pip install acme-sdk==1.0"
+"""
+    assert declared(text, "pyproject.toml") == [(2, 21, "acme-sdk"), (6, 23, "acme-sdk")]
+
+
+def test_every_group_of_a_pdm_table_is_read() -> None:
+    text = """
+[tool.pdm.dev-dependencies]
+test = ["acme-sdk==1.0"]
+lint = ["acme-sdk==1.0"]
+"""
+    assert declared(text, "pyproject.toml") == [(2, 9, "acme-sdk"), (3, 9, "acme-sdk")]
+
+
+@pytest.mark.parametrize(
+    ("header", "name"),
+    [
+        ("[tool.poetry.dependencies.acme-sdk]", 26),
+        ("[tool.poetry.dev-dependencies.acme-sdk]", 30),
+        ("[tool.poetry.group.test.dependencies.acme-sdk]", 37),
+        ('[tool.poetry.dependencies."acme-sdk"]', 27),
+        ("[ tool.poetry.dependencies.acme-sdk ] # why", 27),
+        ("[packages.acme-sdk]", 10),
+        ("[dev-packages.acme-sdk]", 14),
+    ],
+)
+def test_a_dependency_given_as_its_own_table_is_named_by_its_header_and_read_only(
+    header: str, name: int
+) -> None:
+    """The version is a key below the header, and the name and the version are on two lines, so
+    the declaration has no pin to write."""
+    text = f"""
+{header}
+python = "^3.9"
+version = "^1.0"
+extras = ["grpc"]
+
+[tool.poetry]
+version = "2.0"
+"""
+    (found,) = manifests.declarations("pyproject.toml", text.lstrip("\n").encode())
+    assert (found.line, found.column, found.name, found.pin, found.spec) == (
+        1,
+        name,
+        "acme-sdk",
+        None,
+        "^1.0",
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "spec"),
+    [
+        ('version = "^1.0"\n', "^1.0"),
+        ("version='>=1,<2'\n", ">=1,<2"),
+        ("  version  =  '1.0'  # the old one\n", "1.0"),
+        ('git = "https://example.invalid/acme.git"\n', None),
+        ("extras = [\n  'grpc',\n]\n", None),
+        ("version = 1\n", None),
+        ('version = "1.0\n', None),
+        ("version\n", None),
+        ("\n[tool.poetry]\nversion = '1.0'\n", None),
+        ('version = "1.0"\nversion = "2.0"\n', "1.0"),
+        ("", None),
+    ],
+    ids=[
+        "plain",
+        "single-quoted",
+        "spaced-and-commented",
+        "git",
+        "no-version-key",
+        "not-a-string",
+        "unclosed-quote",
+        "no-equals",
+        "version-of-the-next-table",
+        "first-version-wins",
+        "empty-table",
+    ],
+)
+def test_the_version_of_a_dependency_table_is_the_string_under_its_own_header(
+    body: str, spec: str | None
+) -> None:
+    text = f"[tool.poetry.dependencies.acme-sdk]\n{body}"
+    (found,) = manifests.declarations("pyproject.toml", text.encode())
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, spec)
+
+
+@pytest.mark.parametrize(
+    ("value", "version"),
+    [
+        ('{version = "^1.0"}', "^1.0"),
+        ("{ version='>=1,<2' }", ">=1,<2"),
+        ('{version = "==1.0",}', "==1.0"),
+        ('  {version = ""}  # unpinned', ""),
+    ],
+)
+@pytest.mark.parametrize("path", ["pyproject.toml", "Pipfile"])
+def test_an_inline_table_holding_only_a_version_has_its_pin_inside_the_quotes(
+    path: str, value: str, version: str
+) -> None:
+    table = "packages" if path == "Pipfile" else "tool.poetry.dependencies"
+    text = f"[{table}]\nacme-sdk = {value}\n"
+    (found,) = manifests.declarations(path, text.encode())
+    assert found.pin is not None
+    assert (text.splitlines()[1][found.pin[0] : found.pin[1]], found.spec) == (version, version)
+
+
+@pytest.mark.parametrize(
+    ("value", "spec"),
+    [
+        ('{version = "^1.0", extras = ["x"]}', "^1.0"),
+        ('{version = "^1.0", python = ">=3.9"}', "^1.0"),
+        ('{extras = ["x"], version = "^1.0"}', "^1.0"),
+        ('{version = "^1.0", markers = "a == \'b\'"}', "^1.0"),
+        ("{version = '^1.0'", "^1.0"),
+        ("{version = 1}", None),
+        ('{git = "https://example.invalid/x"}', None),
+        ("{}", None),
+    ],
+)
+def test_an_inline_table_with_another_key_beside_the_version_has_no_pin(
+    value: str, spec: str | None
+) -> None:
+    """The other keys would be carried to a distribution that may not have them."""
+    (found,) = manifests.declarations(
+        "pyproject.toml", f"[tool.poetry.dependencies]\nacme-sdk = {value}\n".encode()
+    )
+    assert (found.pin, found.spec) == (None, spec)
+
+
+def test_a_dependency_table_with_a_name_pep_508_refuses_declares_nothing() -> None:
+    text = """
+[tool.poetry.dependencies."not a name"]
+version = "1.0"
+
+[tool.poetry.dependencies.""]
+version = "1.0"
+"""
+    assert declared(text, "pyproject.toml") == []
+
+
 def test_a_table_that_is_not_a_dependency_location_declares_nothing() -> None:
     text = """
 [[source]]
@@ -257,7 +605,8 @@ dependencies = ["acme-sdk==1.0
 
 
 def test_a_setup_cfg_value_continues_on_indented_lines() -> None:
-    """Only a leading `#` comments in setup.cfg; setuptools keeps an inline one in the value."""
+    """Only a leading `#` comments in setup.cfg; setuptools keeps an inline one in the value, so
+    the line is no requirement it reads, and is known by its name alone."""
     text = """
 [metadata]
 name = app
@@ -276,7 +625,11 @@ install_requires =
 dev =
     pytest>=8.3
 """
-    assert declared(text, "setup.cfg") == [(10, 4, "acme-sdk"), (16, 4, "pytest")]
+    assert declared(text, "setup.cfg") == [
+        (10, 4, "acme-sdk"),
+        (11, 4, "requests"),
+        (16, 4, "pytest"),
+    ]
 
 
 def test_a_setup_cfg_value_may_sit_on_the_key_s_own_line() -> None:
@@ -390,6 +743,201 @@ def test_a_setup_py_libcst_cannot_walk_declares_nothing(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(manifests, "MetadataWrapper", TooDeep)
     assert manifests.declarations("setup.py", b'setup(install_requires=["acme-sdk==1"])\n') == ()
+
+
+def setup_py(text: str) -> list[tuple[int, int, str, bool]]:
+    """Line, column, name and whether the declaration has a pin, of each one a `setup.py` makes."""
+    found = manifests.declarations("setup.py", text.lstrip("\n").encode())
+    return [(row.line, row.column, row.name, row.pin is not None) for row in found]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        "install_requires=REQS",
+        "setup_requires=REQS",
+        "tests_require=REQS",
+        'extras_require={"dev": REQS}',
+        "install_requires=(REQS, [])",
+        "install_requires=[REQS]",
+    ],
+)
+def test_a_name_standing_for_a_requirements_list_is_read_where_the_list_is_assigned(
+    arguments: str,
+) -> None:
+    text = f"""
+from setuptools import setup
+
+REQS = [
+    "acme-sdk==1.0",  # not this one: "acme-sdk==2.0"
+    "requests>=2.31",
+]
+
+setup({arguments})
+"""
+    assert setup_py(text) == [(4, 5, "acme-sdk", True), (5, 5, "requests", True)]
+
+
+def test_a_tuple_a_name_stands_for_is_read_and_a_list_used_twice_is_declared_once() -> None:
+    text = """
+REQS = ("acme-sdk==1.0",)
+setup(install_requires=REQS, tests_require=REQS, extras_require={"a": REQS, "b": REQS})
+"""
+    assert setup_py(text) == [(1, 9, "acme-sdk", True)]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    ['EXTRAS = {"ai": ["acme-sdk==1.0"]}', 'AI = ["acme-sdk==1.0"]\nEXTRAS = {"ai": AI}'],
+    ids=["dict", "dict-of-a-name"],
+)
+def test_a_dict_a_name_stands_for_is_read_and_so_are_the_names_in_it(binding: str) -> None:
+    found = setup_py(f"{binding}\nsetup(extras_require=EXTRAS)\n")
+    assert [(name, pin) for _, _, name, pin in found] == [("acme-sdk", True)]
+
+
+def test_names_that_stand_for_each_other_are_followed_once() -> None:
+    text = "A = [B]\nB = [A, 'acme-sdk==1.0']\nsetup(install_requires=A)\n"
+    assert [(line, name) for line, _, name, _ in setup_py(text)] == [(2, "acme-sdk")]
+
+
+def test_the_declarations_of_a_setup_py_come_in_the_order_of_the_file() -> None:
+    text = """
+setup(
+    install_requires=["acme-sdk==1.0", TESTS],
+    extras_require={"dev": DEV},
+)
+DEV = ["httpx>=0.27"]
+TESTS = ["requests>=2.31"]
+"""
+    assert [(line, name) for line, _, name, _ in setup_py(text)] == [
+        (2, "acme-sdk"),
+        (5, "httpx"),
+        (6, "requests"),
+    ]
+
+
+def test_a_name_in_a_function_is_followed_to_the_assignment_beside_it() -> None:
+    text = """
+def main():
+    reqs = ["acme-sdk==1.0"]
+    setup(install_requires=reqs)
+"""
+    assert setup_py(text) == [(2, 13, "acme-sdk", True)]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        'REQS = ["acme-sdk==1.0"]\nREQS += ["httpx"]',
+        'REQS = ["acme-sdk==1.0"]\nREQS = ["acme-sdk==2.0"]',
+        'if PY2:\n    REQS = ["acme-sdk==1.0"]\nelse:\n    REQS = ["acme-sdk==2.0"]',
+        'REQS = ["acme-sdk==1.0"]\ndef widen():\n    global REQS\n    REQS = []',
+        'REQS: list[str] = ["acme-sdk==1.0"]',
+        'REQS = OTHER = ["acme-sdk==1.0"]',
+        '(REQS, OTHER) = (["acme-sdk==1.0"], 1)',
+        'REQS = ["acme-sdk==1.0"] + OTHER',
+        'REQS = list(["acme-sdk==1.0"])',
+        'REQS = {"acme-sdk==1.0"}',
+        'REQS = [name for name in ["acme-sdk==1.0"]]',
+        "from reqs import REQS",
+        "import REQS",
+        "def REQS():\n    return ['acme-sdk==1.0']",
+        "for REQS in [['acme-sdk==1.0']]:\n    pass",
+        'with open("reqs.txt") as REQS:\n    pass',
+    ],
+    ids=[
+        "augmented",
+        "assigned-twice",
+        "assigned-in-two-branches",
+        "assigned-by-a-function",
+        "annotated",
+        "chained",
+        "unpacked",
+        "added-to-another",
+        "built-by-a-call",
+        "a-set",
+        "a-comprehension",
+        "imported-from",
+        "imported",
+        "a-function",
+        "a-loop-target",
+        "a-with-target",
+    ],
+)
+def test_a_name_that_is_not_bound_once_to_a_list_or_tuple_literal_is_not_followed(
+    binding: str,
+) -> None:
+    assert setup_py(f"{binding}\nsetup(install_requires=REQS)\n") == []
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "install_requires=sorted(REQS)",
+        "install_requires=[*REQS]",
+        "install_requires=REQS.copy()",
+        "install_requires=[r for r in REQS]",
+        "python_requires=REQS",
+        "name=REQS",
+        "install_requires=OTHER",
+        "extras_require={REQS: []}",
+    ],
+)
+def test_a_name_is_followed_only_where_it_is_a_whole_requirements_value(use: str) -> None:
+    text = f'REQS = ["acme-sdk==1.0"]\nOTHER = 1\nsetup({use})\n'
+    assert setup_py(text) == []
+
+
+def test_a_name_in_a_parameter_or_the_module_with_no_binding_is_not_followed() -> None:
+    text = """
+def build(reqs):
+    setup(install_requires=reqs)
+
+setup(install_requires=MISSING, tests_require=None)
+"""
+    assert setup_py(text) == []
+
+
+@pytest.mark.parametrize(
+    ("assigned", "pinned"),
+    [
+        ('["acme-sdk==1.0"]', True),
+        ('["acme-sdk" ">=1.0"]', False),
+        ('["acme-sdk" + VERSION]', False),
+        ('["acme-sdk>=1".format()]', False),
+        ('[read("acme-sdk")]', False),
+    ],
+)
+def test_a_requirement_built_around_its_string_in_the_assigned_list_has_no_pin(
+    assigned: str, pinned: bool
+) -> None:
+    found = setup_py(f"REQS = {assigned}\nsetup(install_requires=REQS)\n")
+    assert [(name, pin) for _, _, name, pin in found] == [("acme-sdk", pinned)]
+
+
+def test_a_requirement_in_an_assigned_list_whose_line_libcst_counts_differently_has_no_pin() -> (
+    None
+):
+    data = b'\xef\xbb\xbfREQS = ["acme-sdk==1"]\nsetup(install_requires=REQS)\n'
+    (found,) = manifests.declarations("setup.py", data)
+    assert (found.name, found.pin) == ("acme-sdk", None)
+
+
+def test_a_setup_py_libcst_cannot_resolve_scopes_for_declares_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The scope pass walks the tree again after the metadata pass and can overrun the stack."""
+
+    class TooDeep(MetadataWrapper):
+        def resolve(self, provider: Any) -> Any:
+            if provider is ScopeProvider:
+                raise RecursionError
+            return super().resolve(provider)
+
+    monkeypatch.setattr(manifests, "MetadataWrapper", TooDeep)
+    data = b'REQS = ["acme-sdk==1"]\nsetup(install_requires=REQS)\n'
+    assert manifests.declarations("setup.py", data) == ()
 
 
 def test_a_setup_py_that_does_not_parse_declares_nothing() -> None:
@@ -583,11 +1131,83 @@ def test_a_module_only_the_legacy_distribution_installed_keeps_the_pin() -> None
 
 
 def test_a_distribution_a_manifest_declares_keeps_nothing() -> None:
-    """Declared anywhere in the repository, it survives the legacy pin."""
+    """Declared in a manifest of the app, it survives the legacy pin."""
     migration = manifests.Migration(migrated=("app.py",), transitive=(("retry.py", "acme-wire"),))
     found = (pin(), pin(name="acme-wire", path="requirements/dev.txt"))
     assert graded(found, migration) == [("requirements.txt", 1, LEGACY, "eligible", None)]
     assert manifests.plan(found, migration, SPEC).transitive == ()
+
+
+@pytest.mark.parametrize(
+    ("declared_in", "importer", "needed"),
+    [
+        ("requirements.txt", "app2/b.py", False),
+        ("requirements.txt", "b.py", False),
+        ("app1/requirements.txt", "app1/b.py", False),
+        ("app1/requirements.txt", "app1/pkg/sub/b.py", False),
+        ("app1/requirements.txt", "app2/b.py", True),
+        ("app1/requirements.txt", "app10/b.py", True),
+        ("app1/requirements.txt", "b.py", True),
+        ("app1/sub/requirements.txt", "app1/b.py", True),
+        ("requirements/base.txt", "app2/b.py", False),
+        ("app1/requirements/base.txt", "app1/b.py", False),
+        ("app1/requirements/base.txt", "app2/b.py", True),
+        ("requirements.in", "b.py", False),
+        ("constraints.txt", "b.py", True),
+        ("requirements/constraints-3.12.txt", "b.py", True),
+        ("app1/requirements-constraints.txt", "app1/b.py", True),
+    ],
+)
+def test_a_module_only_the_legacy_distribution_installed_is_declared_by_the_manifests_of_its_app(
+    declared_in: str, importer: str, needed: bool
+) -> None:
+    """The root's manifests serve every app, an app's serve its own directory and what is below,
+    and a `requirements/` directory serves the one it is in."""
+    migration = manifests.Migration(migrated=("app.py",), transitive=((importer, "acme-wire"),))
+    found = (pin(), pin(name="acme-wire", path=declared_in))
+    assert manifests.plan(found, migration, SPEC).transitive == ((importer,) if needed else ())
+
+
+def test_one_app_that_lacks_a_distribution_holds_the_pin_of_every_app(tmp_path: Path) -> None:
+    """What app1 declares no longer counts as declared for app2."""
+    files = {
+        "app1/main.py": MIGRATES,
+        "app1/requirements.txt": "acme-sdk==0.1.0\nacme-wire\n",
+        "app2/retry.py": "import acme.wire\n",
+        "app2/requirements.txt": "acme-sdk==0.1.0\n",
+    }
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(exist_ok=True)
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    scanned = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert scanned.manifests.transitive == ("app2/retry.py",)
+    held = {(row.path, row.bail) for row in scanned.manifests.findings if row.bail}
+    assert held == {
+        ("app1/requirements.txt", "transitive_dependency_in_use"),
+        ("app2/requirements.txt", "transitive_dependency_in_use"),
+    }
+    (tmp_path / "app2" / "requirements.txt").write_text("acme-sdk==0.1.0\nacme-wire\n", "utf-8")
+    declared = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert declared.manifests.transitive == ()
+    assert not any(row.bail for row in declared.manifests.findings)
+
+
+def test_a_constraints_file_declares_nothing_a_pin_of_the_legacy_distribution_must_keep(
+    tmp_path: Path,
+) -> None:
+    """`acme-wire<3` bounds a version and installs nothing, so the old pin's modules must stay."""
+    files = {
+        "main.py": MIGRATES,
+        "retry.py": "import acme.wire\n",
+        "requirements.txt": "acme-sdk==0.1.0\n",
+        "constraints.txt": "acme-wire<3\n",
+    }
+    for name, text in files.items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    scanned = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert scanned.manifests.transitive == ("retry.py",)
+    held = {(row.path, row.bail) for row in scanned.manifests.findings if row.bail}
+    assert ("requirements.txt", "transitive_dependency_in_use") in held
 
 
 def test_an_import_of_the_legacy_distribution_is_the_reason_given_first() -> None:
@@ -825,6 +1445,26 @@ def test_poetry_ends_a_caret_at_the_first_non_zero_part_and_a_tilde_at_the_minor
 
 
 @pytest.mark.parametrize(
+    ("declared", "floor"),
+    [
+        (">=1.2", "1.2"),
+        ("==1.2.3", "1.2.3"),
+        ("^1.2 || ^2.0", "1.2"),
+        ("<3", None),
+        ("^1 || <3", None),
+        ("not a version", None),
+        ("==1.2.3+corp", None),
+        ("===1.2.3+corp", None),
+        (">=1 || ==2.0+corp", None),
+    ],
+)
+def test_a_local_build_names_no_floor_since_it_is_not_the_release_a_floor_is_measured_on(
+    declared: str, floor: str | None
+) -> None:
+    assert manifests.lowest(declared) == (None if floor is None else Version(floor))
+
+
+@pytest.mark.parametrize(
     ("requirement", "pinned"),
     [
         ('["acme-sdk"]', True),
@@ -907,16 +1547,9 @@ def test_a_declaration_is_unmarked_unless_one_is_said() -> None:
         "pylock.dev.toml",
         "requirements.lock",
         "requirements-dev.lock",
-        "constraints.txt",
-        "constraints/prod-constraints.txt",
-        "requirements.in",
-        "dev-requirements.in",
-        "dev-requirements.txt",
-        "test_requirements.txt",
-        "docs/pip-requirements.txt",
     ],
 )
-def test_a_lock_or_constraints_file_nothing_reads_can_still_decide_the_release(path: str) -> None:
+def test_a_lock_nothing_reads_can_still_decide_the_release(path: str) -> None:
     assert manifests.is_lock(path) is True
     assert manifests.is_manifest(path) is False
 
@@ -927,6 +1560,9 @@ def test_a_lock_or_constraints_file_nothing_reads_can_still_decide_the_release(p
         "requirements.txt",
         "requirements-dev.txt",
         "requirements/base.txt",
+        "dev-requirements.txt",
+        "constraints.txt",
+        "requirements.in",
         "pyproject.toml",
         "Pipfile",
         "setup.cfg",
@@ -943,6 +1579,34 @@ def test_a_lock_or_constraints_file_nothing_reads_can_still_decide_the_release(p
 )
 def test_a_manifest_this_reads_and_a_file_that_is_no_lock_of_python_is_not_one(path: str) -> None:
     assert manifests.is_lock(path) is False
+
+
+@pytest.mark.parametrize(
+    ("path", "text"),
+    [
+        ("constraints.txt", "acme-sdk==1.0\n"),
+        ("constraints-3.12.txt", "acme-sdk==1.0\n"),
+        ("requirements.in", "acme-sdk==1.0  # pinned\n"),
+        ("dev-requirements.in", "-c constraints.txt\nacme-sdk==1.0\n"),
+    ],
+)
+def test_a_constraints_file_and_a_pip_tools_input_are_read_and_have_no_pin(
+    path: str, text: str
+) -> None:
+    """The compiled file is what installs, so a rule that edited the input would be undone."""
+    (found,) = manifests.declarations(path, text.encode())
+    assert (found.name, found.pin, found.spec) == ("acme-sdk", None, "==1.0")
+
+
+def test_a_bare_name_in_such_a_file_constrains_nothing_and_declares_nothing() -> None:
+    text = (
+        "acme-sdk\nacme-sdk[x] ; python_version > '3'\nhttpx<1\n-e git+https://h/r#egg=acme-sdk\n"
+    )
+    found = manifests.declarations("requirements.in", text.encode())
+    assert [(row.line, row.name, row.spec) for row in found] == [
+        (3, "httpx", "<1"),
+        (4, "acme-sdk", None),
+    ]
 
 
 def test_the_lock_set_is_what_the_module_lists() -> None:

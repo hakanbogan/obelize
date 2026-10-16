@@ -5,9 +5,14 @@ decides: a lock, a constraints file, an index setting, a version written outside
 environment kept in the repository, code that uses what that release removed. `contrary` names the
 first path that says another release is in use. Every check fails closed (a manifest it cannot
 read is evidence, and so is a name no report can spell, which hides what is under it), but one: a
-listed file over `max_file_bytes` or unreadable is not searched for a version, since no read of a
-scan goes past that limit. Files are opened through `parse.contents` only, after the walk's own
-refusal check.
+listed file that cannot be read, or is over `_LIMIT`, is not searched for a version. One over
+`max_file_bytes` is searched in windows and never held whole, since that limit bounds what a scan
+holds. Files are opened through `parse.contents`, or `fsutil.windows` for those, only after the
+walk's own refusal check.
+
+Nothing outside the repository is read, on purpose: no `PIP_*` variable, no `pip.conf` in the home
+directory, no index. The machine that scans is not the one that installs, and a finding is the same
+on every machine that scans the same files.
 """
 
 from __future__ import annotations
@@ -39,7 +44,6 @@ _FILES: Final = frozenset({"-r", "--requirement", "-c", "--constraint"})
 _HARMLESS: Final = frozenset({"--extra-index-url", "--trusted-host"})
 _EDITABLE: Final = frozenset({"-e", "--editable"})
 _OPTION: Final = re.compile(r"(?P<flag>--?[A-Za-z][\w-]*)(?:[=\s]+(?P<argument>.*))?$")
-_PIP_COMMENT: Final = re.compile(r"(?:^|\s)#.*")
 
 # One line only, and a version starts with a digit: a markdown quote or an `<https://...>` link
 # after the name is prose, not a release.
@@ -47,6 +51,25 @@ _OPERATOR: Final = r"(?:===|==|~=|!=|<=|>=|<|>)"
 _CLAUSE: Final = rf"{_OPERATOR}[ \t]*\d[\w.*+!]*"
 
 _RESOLVER_FILES: Final = ("pyproject.toml", "Pipfile")
+# Where a key or a string of such a file can be a dependency: PEP 621's and 735's and the dependency
+# managers' own tables (a key there can be a distribution no row carries: a source, an override).
+# Not what a tool that reads source holds (isort, Ruff, mypy) or a project's own text. In a Pipfile
+# every table is one, a category of its own (`[docs]`) too, but these.
+_DEPENDING: Final = (
+    ("project", "dependencies"),
+    ("project", "optional-dependencies"),
+    ("dependency-groups",),
+    ("tool", "uv"),
+    ("tool", "poetry", "dependencies"),
+    ("tool", "poetry", "dev-dependencies"),
+    ("tool", "poetry", "group"),
+    ("tool", "poetry", "extras"),
+    ("tool", "pdm"),
+    ("tool", "hatch"),
+    ("tool", "pixi"),
+    ("tool", "rye"),
+)
+_PIPFILE_OTHER: Final = frozenset({"source", "requires", "scripts", "pipenv"})
 _PYPI: Final = "https://pypi.org/simple"
 # Settings that hold a release back, take it from elsewhere or pick the lowest one.
 _SETTINGS: Final = (
@@ -61,6 +84,13 @@ _SETTINGS: Final = (
 )
 
 _UTF_16: Final = (b"\xff\xfe", b"\xfe\xff")
+
+# A file over `max_file_bytes` is searched for a version in windows of this size, which repeat this
+# much of the one before so that a mention is whole in one of them, up to this size: past it a file
+# is not searched. A window reads only the mentions that start in it up to this far from its end.
+_WINDOW: Final = 1 << 20
+_OVERLAP: Final = 1 << 12
+_LIMIT: Final = 32 << 20
 
 # A virtual environment kept in the repository, and where one holds the installed distributions.
 _ENVIRONMENTS: Final = (".venv", "venv", "env")
@@ -88,16 +118,27 @@ def contrary(
         or _settings(walk, contents)
         or _hidden(walk)
         or _mentioned(root, walk, contents, spelled, newest)
-        or _on_disk(root, rows, spelled, newest)
+        or _on_disk(root, walk, rows, spelled, newest)
     )
 
 
 def _hidden(walk: Walk) -> str:
     """A listed file that can pin or constrain a release, or a name no report can spell, under
-    which anything may be."""
-    return next((path for path in walk.listed if manifests.is_lock(path)), "") or next(
-        (row.path for row in walk.skipped if row.reason == "unusable_name"), ""
-    )
+    which anything may be.
+
+    A constraints file or a pip-tools input is one where no manifest was read from it: a link, or
+    a file in a directory the scan leaves out (`.ci/`, `vendor/`).
+    """
+    read = {*walk.manifests, *walk.excluded_manifests}
+    return next(
+        (
+            path
+            for path in walk.listed
+            if manifests.is_lock(path)
+            or (manifests.layout(path) == "unwritten" and path not in read)
+        ),
+        "",
+    ) or next((row.path for row in walk.skipped if row.reason == "unusable_name"), "")
 
 
 def _removed(findings: Sequence[Finding], spec: ScanSpec) -> str:
@@ -118,22 +159,68 @@ def _unread(
     walk: Walk, contents: parse.Contents, rows: Sequence[manifests.Declaration], spelled: str
 ) -> str:
     """A manifest that cannot be read whole, names the distribution where no row was read, or has
-    a pip option that can change where a release comes from."""
+    a pip option that can change where a release comes from.
+
+    A manifest the user excluded is judged by its options alone: no row was read from it, and a
+    version it names is judged with every listed file.
+    """
     named = re.compile(rf"(?<![\w-]){spelled}(?!\w|-[a-z])", re.IGNORECASE)
-    for path in walk.manifests:
+    for path in (*walk.manifests, *walk.excluded_manifests):
         data, _refused = contents(path)
+        whole = path in walk.manifests
         # A NUL byte is UTF-16 (`pip freeze` on Windows): every line would read as nothing.
         if data is None or b"\0" in data:
-            return path
-        pip = manifests.layout(path) == "requirements"
+            if whole:
+                return path
+            continue
+        if manifests.layout(path) == "toml":
+            # Counted, not placed by line: a row stands for one name, so more names than rows leave
+            # one unread. A file `_settings` cannot parse has no name to count.
+            counted = _names_in(data, named, posixpath.basename(path) == "Pipfile")
+            if whole and counted > sum(row.path == path for row in rows):
+                return path
+            continue
+        pip = manifests.layout(path) in manifests.PIP
         read = {row.line for row in rows if row.path == path}
         for number, line in enumerate(data.decode("utf-8", "surrogateescape").split("\n"), 1):
-            body = _PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)
-            if named.search(body) and number not in read:
+            body = manifests.PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)
+            if whole and named.search(body) and number not in read:
                 return path
             if pip and body.lstrip().startswith("-") and not _harmless(path, body.strip(), walk):
                 return path
     return ""
+
+
+def _names_in(data: bytes, named: re.Pattern[str], pipfile: bool) -> int:
+    """How many keys and strings of a TOML file, where a dependency can be declared, name the
+    distribution; none where it is not TOML this Python reads."""
+    try:
+        document = tomllib.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError, RecursionError):
+        return 0
+    found = 0
+    pending: list[tuple[Any, tuple[str, ...]]] = [(document, ())]
+    while pending:
+        node, path = pending.pop()
+        if isinstance(node, dict):
+            for key, value in node.items():
+                pending.append((value, (*path, key)))
+                found += _counts((*path, key), key, named, pipfile)
+        elif isinstance(node, list):
+            pending.extend((item, path) for item in node)
+        elif isinstance(node, str):
+            found += _counts(path, node, named, pipfile)
+    return found
+
+
+def _counts(path: tuple[str, ...], text: str, named: re.Pattern[str], pipfile: bool) -> bool:
+    """Whether `text`, a key or a string at `path`, is a name where a dependency can be declared."""
+    place = (
+        path[0] not in _PIPFILE_OTHER
+        if pipfile
+        else any(path[: len(place)] == place for place in _DEPENDING)
+    )
+    return place and bool(named.search(text))
 
 
 def _harmless(path: str, option: str, walk: Walk) -> bool:
@@ -153,7 +240,7 @@ def _harmless(path: str, option: str, walk: Walk) -> bool:
 def _settings(walk: Walk, contents: parse.Contents) -> str:
     """A resolver setting in `pyproject.toml` or `Pipfile` that can hold a release back or take it
     from another index; a file that is not TOML this Python reads cannot say."""
-    for path in walk.manifests:
+    for path in (*walk.manifests, *walk.excluded_manifests):
         base = posixpath.basename(path)
         data, _refused = contents(path)
         if base not in _RESOLVER_FILES or data is None:
@@ -195,14 +282,7 @@ def _index(source: Any) -> str:
 def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, newest: str) -> str:
     """A version of the distribution written anywhere, in a file or in a file's name, that rules
     the newest release out: `PyPDF2==1.26.0`, `PyPDF2-1.26.0.dist-info`."""
-    mention = re.compile(
-        (
-            rf"(?<![\w-]){spelled}(?:\[[^\]\n]{{0,100}}\])?[ \t]*"
-            rf"(?P<spec>{_CLAUSE}(?:[ \t]*,[ \t]*{_CLAUSE})*)"
-            rf"|(?<![\w-]){spelled}-(?P<release>\d+(?:\.\d+)*)"
-        ).encode(),
-        re.IGNORECASE,
-    )
+    mention = _mention(spelled)
     vetted = {*walk.files, *walk.manifests}
     for path in walk.listed:
         if _rules_out(os.fsencode(path), mention, newest):
@@ -211,17 +291,58 @@ def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, n
         # named in the listing would block the read.
         if path not in vetted and fsutil.refusal(root, root / path) is not None:
             continue
-        data, _refused = contents(path)
-        if data is not None and data[:2] in _UTF_16:  # a PowerShell `pip freeze > freeze.txt`
+        data, refused = contents(path)
+        if data is None:
+            too_large = any(row.code == "file_too_large" for row in refused)
+            if too_large and _searched(root / path, mention, newest):
+                return path
+            continue
+        if data[:2] in _UTF_16:  # a PowerShell `pip freeze > freeze.txt`
             data = data.decode("utf-16", "ignore").encode()
-        if data is not None and _rules_out(data, mention, newest):
+        if _rules_out(data, mention, newest):
             return path
     return ""
 
 
-def _rules_out(data: bytes, mention: re.Pattern[bytes], newest: str) -> bool:
-    """Whether `data` writes a release of the distribution that is not, or may not be, `newest`."""
-    for found in mention.finditer(data):
+def _mention(spelled: str) -> re.Pattern[bytes]:
+    return re.compile(
+        (
+            rf"(?<![\w-]){spelled}(?:\[[^\]\n]{{0,100}}\])?[ \t]*"
+            rf"(?P<spec>{_CLAUSE}(?:[ \t]*,[ \t]*{_CLAUSE})*)"
+            rf"|(?<![\w-]){spelled}-(?P<release>\d+(?:\.\d+)*)"
+        ).encode(),
+        re.IGNORECASE,
+    )
+
+
+def _searched(path: Path, mention: re.Pattern[bytes], newest: str) -> bool:
+    """`_rules_out` over a file too large to hold, a window at a time; a UTF-16 one is read as
+    bytes, which finds nothing.
+
+    A mention is read by the window it starts in, up to `_OVERLAP` from its end, where it lies whole
+    (the last window reads the rest): cut by an edge it would read as another release, and the next
+    window starts on a byte that may be part of a name.
+    """
+    try:
+        window = b""
+        for at, window in enumerate(fsutil.windows(path, _WINDOW, _OVERLAP, _LIMIT)):
+            if _rules_out(window, mention, newest, min(at, 1), len(window) - _OVERLAP):
+                return True
+        return _rules_out(window, mention, newest, max(len(window) - _OVERLAP + 1, 0))
+    except OSError:  # gone or unreadable since it was listed, as `parse.contents` finds
+        return False
+
+
+def _rules_out(
+    data: bytes, mention: re.Pattern[bytes], newest: str, start: int = 0, stop: int | None = None
+) -> bool:
+    """Whether `data` writes a release of the distribution that is not, or may not be, `newest`.
+
+    Only a mention that starts from `start` on, and at or before `stop`, is read.
+    """
+    for found in mention.finditer(data, start):
+        if stop is not None and found.start() > stop:
+            return False
         try:
             if found["spec"] is None:
                 if Version(found["release"].decode()) != Version(newest):
@@ -233,18 +354,29 @@ def _rules_out(data: bytes, mention: re.Pattern[bytes], newest: str) -> bool:
     return False
 
 
-def _on_disk(root: Path, rows: Sequence[manifests.Declaration], spelled: str, newest: str) -> str:
-    """What the listing may not show, because git ignores it: a lock or constraints file beside the
-    repository root or a declaring manifest, and an environment kept there with another release."""
+def _on_disk(
+    root: Path, walk: Walk, rows: Sequence[manifests.Declaration], spelled: str, newest: str
+) -> str:
+    """What the listing may not show, because git ignores it: a lock, or a requirements,
+    constraints or pip-tools input file, beside the repository root or a declaring manifest, and
+    an environment kept in the root or beside any listed file, with another release."""
     installed = re.compile(
         rf"{spelled}-(?P<release>\d+(?:\.\d+)*)(?:-py[\d.]+)?\.(?:dist|egg)-info", re.IGNORECASE
     )
+    listed = set(walk.listed)
     for directory in sorted({"", *(posixpath.dirname(row.path) for row in rows)}):
         for name in _names(root / directory):
-            if manifests.is_lock(posixpath.join(directory, name)):
-                return posixpath.join(directory, name)
+            path = posixpath.join(directory, name)
+            if path not in listed and (
+                manifests.is_lock(path) or manifests.layout(path) in manifests.PIP
+            ):
+                return path
+    # `lexists` first: nearly every directory holds none of the three, and a listing costs more.
+    for directory in sorted({"", *map(posixpath.dirname, listed)}):
         for environment in _ENVIRONMENTS:
             here = posixpath.join(directory, environment)
+            if not os.path.lexists(root / here):
+                continue
             for packages in _site_packages(root / here):
                 for name in _names(root / here / packages):
                     found = installed.fullmatch(name)

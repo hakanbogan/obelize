@@ -75,7 +75,9 @@ release can change the JSON ([CHANGELOG.md](../CHANGELOG.md#stability)).
 `.obelize/` and every `include` and `exclude` pattern are relative to it, and every dependency
 manifest below it is read. Run once at the top to migrate everything in one run, or once per package
 with `--repo` to keep one package's run folder and one `undo` apart. A pack that moves a whole
-repository (`openai`) moves the whole root or none of it.
+repository (`openai`) moves the whole root or none of it. A module only the legacy distribution
+installed counts as declared for a file where a manifest in its directory or above it declares it, so
+one app's declaration does not cover another app.
 
 ## `obelize fix`
 
@@ -179,9 +181,9 @@ a module the other migrates, or they name one distribution. Otherwise the packs 
 each over what the ones before it wrote, in memory, and the run has one gate, one write, one
 verification and one `undo`. Each pack keeps the file and manifest rules of a single run, so one can
 leave a file untouched while another writes it, and a pack the repository rules out (a declared
-Python it cannot install on, a legacy pin it was not measured on) is withheld alone, for that
-reason. An edit's `rule_id` is `<pack id>:<rule id>`, and its `line` is in the file as its pack saw
-it.
+Python it cannot install on, a legacy pin it was not measured on, a pin of the new library below
+the releases it writes) is withheld alone, for that reason. An edit's `rule_id` is
+`<pack id>:<rule id>`, and its `line` is in the file as its pack saw it.
 
 A pack whose new library is the same distribution as the old one (`openai/openai-0-to-1`: `openai`
 0.x and 1.x are one install) is all or nothing inside its own turn, and its tests can run against
@@ -193,7 +195,7 @@ while any row of the pack is withheld, whatever the reason, it writes no file an
 each row of another file it would have written reads `repo_not_fully_migrated`, and an apply exits `4`. `scan` still
 grades each file on its own, so it can show `eligible` rows that `fix` then withholds. A declaration
 of `openai` that already admits only 1.109.1 or later is left as written. One that cannot be rewritten
-in place, with extras or a URL, holds every file too: `scan` marks it `manifest_pin_shape_unsupported`.
+in place, with extras, a URL, a hash or an editable requirement, holds every file too: `scan` marks it `manifest_pin_shape_unsupported`.
 
 A model is never asked about such a pack: a proposal is one row, and the pack writes a whole
 repository or none. `--model openai_compat`, `--accept-model` while a model is configured, and `--show-context` exit `2`

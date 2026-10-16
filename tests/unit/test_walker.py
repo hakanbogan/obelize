@@ -475,6 +475,36 @@ def test_a_manifest_the_user_excluded_is_not_read(tmp_path: Path) -> None:
     assert result.excluded == ("scripts/old.py",)
 
 
+def test_a_manifest_the_user_excluded_is_still_named_for_what_it_says_about_the_install(
+    tmp_path: Path,
+) -> None:
+    """Not `vendor/`, which is always excluded; nor a file that is no manifest."""
+    _manifests(tmp_path)
+    (tmp_path / "scripts" / "setup.py").write_text("setup()\n", encoding="utf-8")
+    (tmp_path / "scripts" / "notes.txt").write_text("not a manifest\n", encoding="utf-8")
+    for config in (
+        Config(exclude=("scripts/**",)),
+        Config(include="**/*", exclude=("scripts/**",)),
+    ):
+        result = walk(tmp_path, config)
+        assert result.excluded_manifests == ("scripts/requirements.txt", "scripts/setup.py")
+        assert not set(result.excluded_manifests) & set(result.manifests)
+        assert set(result.excluded_manifests) <= set(result.listed)
+    assert walk(tmp_path, Config()).excluded_manifests == ()
+
+
+def test_an_excluded_manifest_goes_through_the_path_guard_like_any_other_file(
+    tmp_path: Path,
+) -> None:
+    _manifests(tmp_path)
+    (tmp_path / "scripts" / "requirements-linked.txt").symlink_to(tmp_path / "requirements.txt")
+    result = walk(tmp_path, Config(exclude=("scripts/**",)))
+    assert result.excluded_manifests == ("scripts/requirements.txt",)
+    assert ("scripts/requirements-linked.txt", "symlink") in {
+        (row.path, row.reason) for row in result.skipped
+    }
+
+
 def test_a_manifest_goes_through_the_path_guard_like_any_other_file(tmp_path: Path) -> None:
     """A symlink is never followed, whatever its name."""
     _manifests(tmp_path)

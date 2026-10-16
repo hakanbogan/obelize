@@ -95,13 +95,50 @@ def test_a_replacement_that_would_declare_the_new_distribution_twice_is_refused(
     [
         ("extras", "acme-sdk[grpc]==1.2.3\n"),
         ("a direct url", "acme-sdk @ https://example.invalid/acme_sdk-1.2.3.whl\n"),
+        ("a hash", "acme-sdk==1.2.3 --hash=sha256:aaaa\n"),
+        ("a hash on the next line", "acme-sdk==1.2.3 \\\n    --hash=sha256:aaaa\n"),
+        ("an editable requirement", "-e git+https://example.invalid/acme.git#egg=acme-sdk\n"),
+        ("a local archive", "./acme_sdk-1.2.3-py3-none-any.whl\n"),
     ],
 )
 def test_a_requirement_that_says_more_than_a_pin_is_refused(what: str, line: str) -> None:
-    """An extra lives in the old distribution's namespace and a URL names its file."""
+    """An extra lives in the old distribution's namespace, a URL or an archive names its file, and
+    a hash belongs to the version it was made for."""
     produced, edits = acme.declared("requirements.txt", line, CLEAR)
     assert produced == line, what
     assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")], what
+
+
+@pytest.mark.parametrize("name", ["requirements.in", "dev-requirements.in", "constraints.txt"])
+def test_a_constraints_file_and_a_pip_tools_input_are_graded_and_never_written(name: str) -> None:
+    """A rule that edited an input would be undone by the next compile, so the row is refused."""
+    source = "acme-sdk==1.2.3\n"
+    produced, edits = acme.declared(name, source, CLEAR)
+    assert produced == source
+    assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")]
+    produced, edits = acme.declared(name, source, BLOCKED)
+    assert produced == source
+    assert reported(edits) == [
+        (1, "needs_review", "manifest_pin_shape_unsupported"),
+        (1, "needs_review", "repo_not_fully_migrated"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "name", ["dev-requirements.txt", "requirement.txt", "pip_requirements.txt"]
+)
+def test_a_requirements_file_by_another_name_is_rewritten_like_the_usual_one(name: str) -> None:
+    produced, edits = acme.declared(name, "acme-sdk==1.2.3\n", CLEAR)
+    assert produced == "acme-client>=2\n"
+    assert reported(edits) == [(1, "auto", None)]
+
+
+def test_an_option_that_is_not_a_hash_stays_on_the_rewritten_line() -> None:
+    produced, edits = acme.declared(
+        "requirements.txt", "acme-sdk==1.2.3 --config-settings x=y\n", CLEAR
+    )
+    assert produced == "acme-client>=2 --config-settings x=y\n"
+    assert reported(edits) == [(1, "auto", None)]
 
 
 def test_a_table_value_that_is_not_a_version_string_is_refused() -> None:
@@ -111,10 +148,104 @@ def test_a_table_value_that_is_not_a_version_string_is_refused() -> None:
     assert reported(edits) == [(2, "needs_review", "manifest_pin_shape_unsupported")]
 
 
+@pytest.mark.parametrize(
+    ("path", "table", "old"),
+    [
+        ("pyproject.toml", "tool.poetry.dependencies", "^1.2"),
+        ("Pipfile", "packages", "==1.2.3"),
+    ],
+)
+def test_an_inline_table_holding_only_a_version_is_rewritten_inside_its_quotes(
+    path: str, table: str, old: str
+) -> None:
+    source = f'[{table}]\nacme-sdk = {{version = "{old}"}}\n'
+    produced, edits = acme.declared(path, source, CLEAR)
+    assert produced == f'[{table}]\nacme-client = {{version = ">=2"}}\n'
+    assert reported(edits) == [(2, "auto", None)]
+    produced, _edits = acme.declared(path, source, BLOCKED)
+    assert produced == source + 'acme-client = {version = ">=2"}\n'
+
+
 def test_a_table_value_that_is_a_version_string_is_not() -> None:
     source = '[packages]\nacme-sdk = "==1.2.3"\n'
     produced, _edits = acme.declared("Pipfile", source, CLEAR)
     assert produced == '[packages]\nacme-client = ">=2"\n'
+
+
+@pytest.mark.parametrize(
+    ("table", "key"),
+    [
+        ("tool.uv", "dev-dependencies"),
+        ("tool.pdm.dev-dependencies", "lint"),
+        ("tool.hatch.envs.default", "extra-dependencies"),
+    ],
+)
+def test_the_arrays_uv_pdm_and_hatch_are_written_like_any_other_array(table: str, key: str) -> None:
+    source = f'[{table}]\n{key} = [\n  "acme-sdk==1.2.3",\n  "httpx>=0.27",\n]\n'
+    produced, edits = acme.declared("pyproject.toml", source, CLEAR)
+    assert produced == f'[{table}]\n{key} = [\n  "acme-client>=2",\n  "httpx>=0.27",\n]\n'
+    assert reported(edits) == [(3, "auto", None)]
+    produced, _edits = acme.declared("pyproject.toml", source, BLOCKED)
+    assert produced == source.replace(
+        '  "acme-sdk==1.2.3",\n', '  "acme-sdk==1.2.3",\n  "acme-client>=2",\n'
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "edits"),
+    [
+        (CLEAR, [(1, "needs_review", "manifest_pin_shape_unsupported")]),
+        (
+            BLOCKED,
+            [
+                (1, "needs_review", "manifest_pin_shape_unsupported"),
+                (1, "needs_review", "repo_not_fully_migrated"),
+            ],
+        ),
+    ],
+    ids=["clear", "blocked"],
+)
+def test_a_dependency_given_as_its_own_table_is_refused_and_left_as_it_was(
+    state: Migration, edits: list[tuple[int, str, str]]
+) -> None:
+    """The name is on the header and the version two lines below: no one edit has both."""
+    source = '[tool.poetry.dependencies.acme-sdk]\npython = "^3.9"\nversion = "1.2.3"\n'
+    produced, found = acme.declared("pyproject.toml", source, state)
+    assert produced == source
+    assert reported(found) == edits
+
+
+def test_an_assigned_list_a_setup_py_passes_on_is_rewritten_where_it_is_assigned() -> None:
+    source = (
+        "REQS = [\n    'acme-sdk==1.2.3',\n    'httpx>=0.27',\n]\n\nsetup(install_requires=REQS)\n"
+    )
+    produced, edits = acme.declared("setup.py", source, CLEAR)
+    assert produced == source.replace("'acme-sdk==1.2.3'", "'acme-client>=2'")
+    assert reported(edits) == [(2, "auto", None)]
+    produced, edits = acme.declared("setup.py", source, BLOCKED)
+    assert produced == source.replace(
+        "    'acme-sdk==1.2.3',\n", "    'acme-sdk==1.2.3',\n    'acme-client>=2',\n"
+    )
+
+
+def test_an_assigned_list_with_its_requirement_on_the_line_of_its_name_is_not_copied() -> None:
+    source = "REQS = ['acme-sdk==1.2.3']\nsetup(install_requires=REQS)\n"
+    produced, edits = acme.declared("setup.py", source, CLEAR)
+    assert produced == "REQS = ['acme-client>=2']\nsetup(install_requires=REQS)\n"
+    produced, edits = acme.declared("setup.py", source, BLOCKED)
+    assert produced == source
+    assert reported(edits) == [
+        (1, "needs_review", "manifest_pin_shape_unsupported"),
+        (1, "needs_review", "repo_not_fully_migrated"),
+    ]
+
+
+def test_an_assigned_list_with_a_requirement_built_from_two_strings_is_refused() -> None:
+    """The refusal of a requirement built around its literal holds where the list is assigned."""
+    source = 'REQS = ["acme-sdk" ">=1"]\nsetup(install_requires=REQS)\n'
+    produced, edits = acme.declared("setup.py", source, CLEAR)
+    assert produced == source
+    assert reported(edits) == [(1, "needs_review", "manifest_pin_shape_unsupported")]
 
 
 def test_a_setup_py_literal_whose_bytes_are_not_its_value_is_refused() -> None:

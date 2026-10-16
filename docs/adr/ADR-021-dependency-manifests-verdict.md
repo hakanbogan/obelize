@@ -77,8 +77,10 @@ no `RUNG`, and `tests/oracle/` lists `manifest_code_mismatch` as unranked.
 6: like `file_not_fully_migrated` they name no concrete defect, so they never
 displace one that does. The latter withholds the pin while nothing imports the
 legacy distribution but an in-scope file imports a module only it installed
-(the pack's `match.transitive`) and no manifest declares that module's
-distribution.
+(the pack's `match.transitive`) and no manifest of that file's app declares that module's
+distribution: one in its directory or above it, a `requirements/` directory counting for the
+directory it is in. Another app's manifest does not cover it, and a constraints file does not
+declare: it bounds a version and installs nothing.
 
 ### D8. Lines, not a parse-and-serialise round trip — except for `setup.py`
 
@@ -87,16 +89,29 @@ name is written at, so the scan's address is the edit's. The dependency budget
 ([ADR-005](ADR-005-tech-stack.md)) has no TOML writer, and a round trip would
 reformat the file. `setup.py` is parsed with libcst: a declaration is a string
 literal inside `install_requires`, `setup_requires`, `tests_require` or
-`extras_require`, and any other string is not one. A literal Python cannot evaluate (an invalid `\U` escape, a NUL)
+`extras_require`, and any other string is not one. A name there (`install_requires=REQS`, a list
+element, an `extras_require` value) stands for the list, tuple or dict literal assigned to it
+(`EXTRAS = {"ai": [...]}`), where one assignment binds the name, and the strings of that literal
+are the declarations, edited where they are written; the names in it stand for theirs in turn. A
+name bound twice, by an import, a parameter or an augmented assignment, or one given to a call
+(`sorted(REQS)`), is not followed. A literal Python cannot evaluate (an invalid `\U` escape, a NUL)
 declares nothing, and the rest of the file is read.
 
 ### D9. The comment rule is per layout, because the layouts do not agree
 
-- `requirements*.txt` and TOML: a `#` outside a quoted string starts a comment.
+- Requirements files: a `#` at the start of a line or after a blank starts a comment, as pip reads
+  it, so a `#egg=` fragment is part of its line. A line ending in a backslash goes on with the
+  next (a comment line never does), and the options after a requirement (`--hash`) are cut
+  before it is read. TOML: a `#` outside a quoted string.
 - `setup.cfg`: a comment only when `#` begins the line, as `configparser` and
-  setuptools read it; a requirement with a trailing comment is invalid and is
-  not read.
+  setuptools read it; a requirement with a trailing comment is invalid, so it is known by its
+  name alone (below).
 - `setup.py`: no comment rule; D8 excludes every other string.
+
+A requirement string PEP 508 refuses (`PyPDF2~=1`, `PyPDF2==1.*.*`, `PyPDF2 1.26`) is still a row,
+for the name it starts with, with no pin and no version: the legacy version gate asks every row, and
+a line it skipped could hide a pin below the floor. A line that starts with no name (`-e .`, a URL)
+is no row, and neither is a Poetry or Pipenv table key that is no name.
 
 A name is compared after `packaging.utils.canonicalize_name`, never as a
 substring.
@@ -104,8 +119,21 @@ substring.
 ### D10. A lockfile is not a manifest in v0
 
 v0 reads the five hand-written layouts plus the `requirements/<name>.txt`
-directory form. A lockfile is generated, and a line edit would break its
-hashes; `constraints.txt` declares no dependency.
+directory form, and a requirements file is any `*requirement*.txt`. A constraints file and a
+pip-tools input (`*requirements*.in`) are read for their declarations and never written: the
+compiled file beside an input is what installs, and a declaration there has no pin, so the rule
+refuses it with `manifest_pin_shape_unsupported`. A lockfile is generated, and a line edit would
+break its hashes.
+
+In `pyproject.toml` the arrays read are PEP 621's and PEP 735's, `[tool.uv] dev-dependencies`, every
+group of `[tool.pdm.dev-dependencies]` and a Hatch environment's `dependencies` and
+`extra-dependencies`; the tables are Poetry's and Pipenv's, whose value is a version string or an
+inline table. A table that holds nothing but a `version` has its pin inside the quotes of that
+string; with another key beside it (extras, a marker, a source) it has none, since those keys would
+be carried to a distribution that may not have them, and the rule refuses it. A dependency given
+as a table of its own (`[tool.poetry.dependencies.<name>]`) is named by its header and read for its
+`version`, and never written: the name is on one line and the version on another, and an edit has
+one line to a declaration, so the rule refuses it with `manifest_pin_shape_unsupported`.
 
 ### D11. An unread file is a limitation and not a blocker
 
