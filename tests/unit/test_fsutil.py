@@ -25,6 +25,7 @@ from obelize.fsutil import refusal
 from obelize.models import PATH_REFUSALS, SKIP_REASONS
 from obelize.native import files
 from platforms import AS_ROOT, MODE_BITS, deny, junction, link, posix_only, windows_only
+from support import write_tree
 
 
 def _build(root: Path) -> None:
@@ -236,10 +237,7 @@ def test_every_refusal_this_module_can_return_is_a_published_skip_reason(root: P
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    (tmp_path / "pkg").mkdir()
-    (tmp_path / "app.py").write_text("VALUE = 1\n", encoding="utf-8", newline="\n")
-    (tmp_path / "pkg" / "mod.py").write_text("INNER = 1\n", encoding="utf-8", newline="\n")
-    return tmp_path
+    return write_tree(tmp_path, {"app.py": "VALUE = 1\n", "pkg/mod.py": "INNER = 1\n"})
 
 
 def temporaries(root: Path) -> list[str]:

@@ -38,6 +38,7 @@ from obelize.packs import loader
 from obelize.scan import runner, runtime
 from obelize.transforms.kinds.flag_only import Guide
 from platforms import posix_only
+from support import write_tree
 
 BUNDLED = "gemini/google-generativeai-to-google-genai"
 
@@ -77,23 +78,15 @@ def _record(root: Path, scan: runner.Scan) -> RunRecord:
     )
 
 
-def _tree(root: Path, files: dict[str, str]) -> Path:
-    for name, text in files.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-    return root
-
-
 @pytest.fixture
 def quiet(tmp_path: Path) -> Path:
-    return _tree(tmp_path / "quiet", {"plain.py": PLAIN})
+    return write_tree(tmp_path / "quiet", {"plain.py": PLAIN})
 
 
 @pytest.fixture
 def loud(tmp_path: Path) -> Path:
     """Every section at once: findings, a bail, both of F-2's manifest lists, a parse error."""
-    return _tree(
+    return write_tree(
         tmp_path / "loud",
         {
             ".obelize.yml": 'exclude:\n  - "scripts/**"\n',
@@ -108,7 +101,7 @@ def loud(tmp_path: Path) -> Path:
 @pytest.fixture
 def pinned(tmp_path: Path) -> Path:
     """A legacy pin nothing imports: a manifest row with neither of F-2's lists behind it."""
-    return _tree(tmp_path / "pinned", {"plain.py": PLAIN, "requirements.txt": MANIFEST})
+    return write_tree(tmp_path / "pinned", {"plain.py": PLAIN, "requirements.txt": MANIFEST})
 
 
 def test_the_summary_names_the_pack_the_counts_and_where_the_evidence_went(loud: Path) -> None:
@@ -161,7 +154,7 @@ def test_a_refusal_is_counted_in_the_summary_and_detailed_in_the_report(loud: Pa
 
 
 def test_the_blocked_repository_says_so_before_anything_else(tmp_path: Path) -> None:
-    root = _tree(
+    root = write_tree(
         tmp_path / "old",
         {"pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.9"\n', "app.py": LEGACY},
     )
@@ -653,7 +646,7 @@ def test_a_dry_run_shows_no_phase_it_did_not_attempt(quiet: Path) -> None:
 def test_an_eligible_row_gives_no_confidence_code_and_a_withheld_one_its_reason(
     tmp_path: Path, loud: Path
 ) -> None:
-    ready = _tree(tmp_path / "ready", {"app.py": LEGACY})
+    ready = write_tree(tmp_path / "ready", {"app.py": LEGACY})
     rows = [line for line in report.terminal(_scan(ready), "p", None) if line.startswith("    ")]
     assert rows
     assert [line for line in rows if not line.endswith("eligible")] == []
@@ -665,7 +658,7 @@ def test_an_eligible_row_gives_no_confidence_code_and_a_withheld_one_its_reason(
 def test_a_name_that_would_break_the_report_is_skipped_and_cannot_end_a_cell(
     tmp_path: Path,
 ) -> None:
-    root = _tree(tmp_path / "odd", {"ok.py": LEGACY, "p|q.py": LEGACY, "a`b.py": LEGACY})
+    root = write_tree(tmp_path / "odd", {"ok.py": LEGACY, "p|q.py": LEGACY, "a`b.py": LEGACY})
     scan = _scan(root)
     text = report.document(_record(root, scan), scan)
     rows = [line for line in text.splitlines() if "`unusable_name`" in line]

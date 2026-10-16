@@ -22,6 +22,7 @@ from obelize.native import processes
 from obelize.packs import loader
 from obelize.scan import analysis, parse, reach, runner
 from platforms import AS_ROOT, deny, posix_only
+from support import write_tree
 
 # Survives the prefilter and yields findings, a binding and a receiver record.
 LEGACY = """\
@@ -56,15 +57,7 @@ MENTION = "# acme.sdk was the old import path.\nVALUE = 1\n"
 BROKEN = "import acme.sdk\n\ndef f(:\n    pass\n"
 
 
-def tree(root: Path, files: dict[str, str]) -> Path:
-    """Write the files; `tmp_path` is not a git checkout, so the walker's fallback lists them."""
-    for name, body in files.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(body, encoding="utf-8", newline="\n")
-    return root
-
-
+# `tmp_path` is not a git checkout, so the walker's fallback lists the files `write_tree` makes.
 def scanned(root: Path, config: Config | None = None, jobs: int | None = None) -> runner.Scan:
     return runner.scan(root, config or Config(), SPEC, jobs=jobs)
 
@@ -75,7 +68,7 @@ def at(scan: runner.Scan, path: str) -> runner.FileResult:
 
 def test_every_selected_file_is_a_result_whatever_became_of_it(tmp_path: Path) -> None:
     """Unread and eliminated files count too, or "no findings" hides how many were looked at."""
-    root = tree(tmp_path, {"app.py": LEGACY, "plain.py": PLAIN, "big.py": PLAIN * 40})
+    root = write_tree(tmp_path, {"app.py": LEGACY, "plain.py": PLAIN, "big.py": PLAIN * 40})
     scan = scanned(root, Config(max_file_bytes=200))
 
     assert [result.path for result in scan.results] == ["app.py", "big.py", "plain.py"]
@@ -87,7 +80,7 @@ def test_every_selected_file_is_a_result_whatever_became_of_it(tmp_path: Path) -
 
 
 def test_a_file_that_was_never_read_has_no_hash_and_one_row(tmp_path: Path) -> None:
-    root = tree(tmp_path, {"big.py": LEGACY * 20})
+    root = write_tree(tmp_path, {"big.py": LEGACY * 20})
     scan = scanned(root, Config(max_file_bytes=100))
 
     result = at(scan, "big.py")
@@ -98,7 +91,7 @@ def test_a_file_that_was_never_read_has_no_hash_and_one_row(tmp_path: Path) -> N
 
 def test_a_file_the_prefilter_eliminated_is_hashed_and_says_nothing(tmp_path: Path) -> None:
     """Unlike a refusal, elimination reads the bytes, so the digest is real."""
-    root = tree(tmp_path, {"plain.py": PLAIN})
+    root = write_tree(tmp_path, {"plain.py": PLAIN})
     result = at(scanned(root), "plain.py")
 
     assert len(result.sha256) == 64
@@ -108,7 +101,7 @@ def test_a_file_the_prefilter_eliminated_is_hashed_and_says_nothing(tmp_path: Pa
 def test_the_runner_reads_a_file_exactly_as_the_reader_would(tmp_path: Path) -> None:
     """Parent reads and prefilters, worker gates and parses: the halves must equal `parse.read`."""
     files = {"app.py": LEGACY, "plain.py": PLAIN, "big.py": PLAIN * 40}
-    root = tree(tmp_path, files)
+    root = write_tree(tmp_path, files)
     config = Config(max_file_bytes=200)
 
     for name in sorted(files):
@@ -122,14 +115,14 @@ def test_the_runner_reads_a_file_exactly_as_the_reader_would(tmp_path: Path) -> 
 
 def test_the_same_refusal_is_reported_once(tmp_path: Path) -> None:
     """`setup.py` is both source and manifest, so two passes refuse it for one reason (ADR-021)."""
-    root = tree(tmp_path, {"setup.py": LEGACY * 20})
+    root = write_tree(tmp_path, {"setup.py": LEGACY * 20})
     scan = scanned(root, Config(max_file_bytes=100))
 
     assert [(row.path, row.code) for row in scan.limitations] == [("setup.py", "file_too_large")]
 
 
 def test_a_manifest_whose_python_floor_does_not_parse_is_a_limitation(tmp_path: Path) -> None:
-    root = tree(tmp_path, {"pyproject.toml": "[project\n", "app.py": LEGACY})
+    root = write_tree(tmp_path, {"pyproject.toml": "[project\n", "app.py": LEGACY})
     scan = scanned(root)
     assert scan.blocked == ()
     assert [(row.path, row.code) for row in scan.limitations] == [
@@ -138,7 +131,7 @@ def test_a_manifest_whose_python_floor_does_not_parse_is_a_limitation(tmp_path: 
 
 
 def test_a_legacy_pin_below_the_packs_floor_blocks_the_scan(tmp_path: Path) -> None:
-    root = tree(tmp_path, {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
+    root = write_tree(tmp_path, {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
     (root / "requirements.txt").write_text("acme-old>=1\n", encoding="utf-8")
     scan = runner.scan(root, Config(), acme.OLD_SPEC, jobs=1)
     assert [(row.reason, row.path, row.declared) for row in scan.blocked] == [
@@ -149,23 +142,23 @@ def test_a_legacy_pin_below_the_packs_floor_blocks_the_scan(tmp_path: Path) -> N
 def test_a_pin_inside_the_range_and_a_repository_that_never_uses_the_library_are_not_blocked(
     tmp_path: Path,
 ) -> None:
-    used = tree(tmp_path / "used", {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
+    used = write_tree(tmp_path / "used", {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
     (used / "requirements.txt").write_text("acme-old>=2,<3\n", encoding="utf-8")
     assert runner.scan(used, Config(), acme.OLD_SPEC, jobs=1).blocked == ()
 
-    unused = tree(tmp_path / "unused", {"app.py": "import os\n"})
+    unused = write_tree(tmp_path / "unused", {"app.py": "import os\n"})
     assert runner.scan(unused, Config(), acme.OLD_SPEC, jobs=1).blocked == ()
 
 
 def test_a_library_used_with_no_declaration_blocks_the_scan(tmp_path: Path) -> None:
-    root = tree(tmp_path, {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
+    root = write_tree(tmp_path, {"app.py": "import acme.old\n\nacme.old.Reader(1)\n"})
     scan = runner.scan(root, Config(), acme.OLD_SPEC, jobs=1)
     assert [row.path for row in scan.blocked] == [""]
 
 
 def test_the_manifest_pass_reduces_over_the_files(tmp_path: Path) -> None:
     """F-2's two edits, from a repository where exactly one file migrates."""
-    root = tree(tmp_path, {"app.py": LEGACY, "requirements.txt": MANIFEST})
+    root = write_tree(tmp_path, {"app.py": LEGACY, "requirements.txt": MANIFEST})
     scan = scanned(root)
 
     assert [
@@ -178,7 +171,7 @@ def test_the_manifest_pass_reduces_over_the_files(tmp_path: Path) -> None:
 def test_the_counts_are_the_four_statuses_and_not_four_copies_of_one(tmp_path: Path) -> None:
     """Distinct counts expose a transposition (`ScanCounts` checks only the sum): four resolved
     usages, an import and call F-1 withholds together, one prose mention, one first-gate refusal."""
-    root = tree(
+    root = write_tree(
         tmp_path,
         {"clean.py": LEGACY, "no_client.py": NO_CLIENT, "mention.py": MENTION, "broken.py": BROKEN},
     )
@@ -198,7 +191,7 @@ def test_the_counts_are_the_four_statuses_and_not_four_copies_of_one(tmp_path: P
 def test_the_findings_are_in_document_order_across_the_whole_repository(tmp_path: Path) -> None:
     """`Pipfile` sorts first but its pass runs last, and `FindingsDocument` refuses unsorted rows,
     so the scan must sort, not concatenate."""
-    root = tree(tmp_path, {"zz_app.py": LEGACY, "Pipfile": f"[packages]\n{MANIFEST}"})
+    root = write_tree(tmp_path, {"zz_app.py": LEGACY, "Pipfile": f"[packages]\n{MANIFEST}"})
     findings = scanned(root).findings
 
     assert [row.sort_key for row in findings] == sorted(row.sort_key for row in findings)
@@ -206,7 +199,7 @@ def test_the_findings_are_in_document_order_across_the_whole_repository(tmp_path
 
 
 def test_the_refusals_are_sorted_and_not_in_the_order_the_passes_ran(tmp_path: Path) -> None:
-    root = tree(tmp_path, {"zz_app.py": LEGACY * 20, "Pipfile": MANIFEST * 40})
+    root = write_tree(tmp_path, {"zz_app.py": LEGACY * 20, "Pipfile": MANIFEST * 40})
     scan = scanned(root, Config(max_file_bytes=100))
 
     assert [row.path for row in scan.limitations] == ["Pipfile", "zz_app.py"]
@@ -214,7 +207,7 @@ def test_the_refusals_are_sorted_and_not_in_the_order_the_passes_ran(tmp_path: P
 
 def test_the_receivers_are_paired_with_the_file_they_came_from(tmp_path: Path) -> None:
     """A `Binding` does not carry `escape_lines`; the record behind it does."""
-    root = tree(tmp_path, {"pkg/app.py": LEGACY})
+    root = write_tree(tmp_path, {"pkg/app.py": LEGACY})
     scan = scanned(root)
 
     assert [(path, receiver.kind, receiver.name) for path, receiver in scan.receivers] == [
@@ -267,13 +260,13 @@ def test_a_run_with_fewer_than_one_process_is_refused(jobs: int) -> None:
 
 
 def test_one_job_is_the_in_process_path(tmp_path: Path) -> None:
-    root = tree(tmp_path, {"app.py": LEGACY})
+    root = write_tree(tmp_path, {"app.py": LEGACY})
     assert scanned(root, jobs=1).workers == 1
 
 
 def test_a_number_that_was_typed_is_taken_as_typed(tmp_path: Path) -> None:
     """Two files is far below the crossover, but the threshold only guards the default."""
-    root = tree(tmp_path, {"app.py": LEGACY, "other.py": LEGACY})
+    root = write_tree(tmp_path, {"app.py": LEGACY, "other.py": LEGACY})
     pooled = scanned(root, jobs=2)
 
     assert pooled.workers == 2
@@ -284,7 +277,7 @@ def test_a_number_that_was_typed_is_taken_as_typed(tmp_path: Path) -> None:
 def test_the_default_starts_processes_only_at_the_crossover(tmp_path: Path, delta: int) -> None:
     """Under three cores both answers are one worker, by design (ADR-022 D5)."""
     count = runner.POOL_THRESHOLD + delta
-    root = tree(tmp_path, {f"module_{index:04d}.py": LEGACY for index in range(count)})
+    root = write_tree(tmp_path, {f"module_{index:04d}.py": LEGACY for index in range(count)})
     scan = scanned(root)
 
     assert scan.counts.files_selected == count
@@ -294,7 +287,7 @@ def test_the_default_starts_processes_only_at_the_crossover(tmp_path: Path, delt
 def test_the_boundary_carries_nothing_but_plain_data(tmp_path: Path) -> None:
     """The pool pickles; a JSON trip proves plain data: a `cst.Module` fails to serialise, and a
     tuple back as a list breaks `Receiver` equality."""
-    root = tree(tmp_path, {"app.py": LEGACY, "plain.py": PLAIN})
+    root = write_tree(tmp_path, {"app.py": LEGACY, "plain.py": PLAIN})
     for result in scanned(root).results:
         row = runner.payload(result)
         assert sorted(row) == ["limitations", "parsed", "path", "plan", "receivers", "sha256"]
@@ -303,7 +296,7 @@ def test_the_boundary_carries_nothing_but_plain_data(tmp_path: Path) -> None:
 
 def test_the_worker_produces_what_the_parent_would_have(tmp_path: Path) -> None:
     """In-process, since pool children go unmeasured; `test_scan_determinism.py` covers the pool."""
-    root = tree(tmp_path, {"app.py": LEGACY})
+    root = write_tree(tmp_path, {"app.py": LEGACY})
     data = (root / "app.py").read_bytes()
     candidate = runner.Candidate(path="app.py", sha256="0" * 64, data=data)
 
@@ -351,7 +344,7 @@ def test_an_unexpected_error_on_one_file_is_that_files_refusal_and_not_the_runs(
 ) -> None:
     """The row says which class, never the message, which can quote the file or a path."""
     _raise_on(monkeypatch, "bad.py", KeyError("/home/me/bad.py: sk-123"))
-    scan = scanned(tree(tmp_path, {"bad.py": LEGACY, "good.py": LEGACY}))
+    scan = scanned(write_tree(tmp_path, {"bad.py": LEGACY, "good.py": LEGACY}))
 
     assert (at(scan, "bad.py").parsed, at(scan, "good.py").parsed) == (False, True)
     assert [(row.kind, row.scan_status, row.bail) for row in at(scan, "bad.py").plan.findings] == [
@@ -370,11 +363,11 @@ def test_a_file_obelize_raised_on_holds_the_pin_as_an_unparsable_one_does(
 ) -> None:
     """It may import the legacy SDK, so the dependency line stays: removing it could break it."""
     files = {"app.py": LEGACY, "requirements.txt": MANIFEST}
-    refused = scanned(tree(tmp_path / "unparsable", {**files, "app.py": BROKEN}))
+    refused = scanned(write_tree(tmp_path / "unparsable", {**files, "app.py": BROKEN}))
     assert [row.scan_status for row in refused.manifests.findings] == ["needs_review"]
 
     _raise_on(monkeypatch, "app.py", RuntimeError())
-    raised = scanned(tree(tmp_path / "raised", files))
+    raised = scanned(write_tree(tmp_path / "raised", files))
     assert [(row.scan_status, row.bail) for row in raised.manifests.findings] == [
         (row.scan_status, row.bail) for row in refused.manifests.findings
     ]
@@ -482,7 +475,7 @@ def test_a_module_constant_another_module_imports_is_withheld(
     files = {holder: HOLDER, "pkg/app.py": reader}
     if holder != "pkg/__init__.py":
         files.setdefault("pkg/__init__.py", "")
-    result = scanned(tree(tmp_path, files))
+    result = scanned(write_tree(tmp_path, files))
     assert binding(result, holder) == ("needs_review", "model_object_read_elsewhere")
     rows = [row for row in result.findings if row.path == holder]
     assert {(row.line, row.bail) for row in rows if row.line in (5, 9)} == {
@@ -494,7 +487,7 @@ def test_a_module_constant_another_module_imports_is_withheld(
 
 def test_an_instance_attribute_another_module_reads_is_withheld(tmp_path: Path) -> None:
     reader = "from desk import Desk\n\nprint(Desk().model.run('x'))\n"
-    result = scanned(tree(tmp_path, {"desk.py": DESK, "app.py": reader}))
+    result = scanned(write_tree(tmp_path, {"desk.py": DESK, "app.py": reader}))
     assert binding(result, "desk.py") == ("needs_review", "model_object_read_elsewhere")
 
 
@@ -511,18 +504,18 @@ def test_an_instance_attribute_another_module_reads_is_withheld(tmp_path: Path) 
 def test_a_module_that_does_not_reach_the_model_changes_nothing(
     tmp_path: Path, reader: str
 ) -> None:
-    result = scanned(tree(tmp_path, {"llm.py": HOLDER, "app.py": reader}))
+    result = scanned(write_tree(tmp_path, {"llm.py": HOLDER, "app.py": reader}))
     assert binding(result, "llm.py") == ("eligible", None)
 
 
 def test_an_instance_attribute_nobody_else_reads_changes_nothing(tmp_path: Path) -> None:
     reader = "from desk import Desk\n\nprint(Desk().go('x'))\n"
-    result = scanned(tree(tmp_path, {"desk.py": DESK, "app.py": reader}))
+    result = scanned(write_tree(tmp_path, {"desk.py": DESK, "app.py": reader}))
     assert binding(result, "desk.py") == ("eligible", None)
 
 
 def test_an_instance_attribute_read_off_something_else_changes_nothing(tmp_path: Path) -> None:
-    result = scanned(tree(tmp_path, {"desk.py": DESK, "app.py": "print(other.model)\n"}))
+    result = scanned(write_tree(tmp_path, {"desk.py": DESK, "app.py": "print(other.model)\n"}))
     assert binding(result, "desk.py") == ("eligible", None)
 
 
@@ -533,21 +526,21 @@ def test_a_function_s_own_model_is_not_another_module_s(tmp_path: Path) -> None:
         "def go(p):\n    model = sdk.Model('m')\n    return model.run(p).words\n"
     )
     result = scanned(
-        tree(tmp_path, {"llm.py": holder, "app.py": "import llm\n\nprint(llm.model)\n"})
+        write_tree(tmp_path, {"llm.py": holder, "app.py": "import llm\n\nprint(llm.model)\n"})
     )
     assert binding(result, "llm.py") == ("eligible", None)
 
 
 def test_a_group_already_withheld_keeps_its_own_code(tmp_path: Path) -> None:
     holder = HOLDER + "\nREGISTRY = [M]\n"
-    result = scanned(tree(tmp_path, {"llm.py": holder, "app.py": "from llm import M\n"}))
+    result = scanned(write_tree(tmp_path, {"llm.py": holder, "app.py": "from llm import M\n"}))
     assert binding(result, "llm.py") == ("needs_review", "model_object_escapes")
 
 
 def test_a_file_already_withheld_for_another_group_names_this_one_too(tmp_path: Path) -> None:
     """File atomicity is recomputed with the new bail, so `caused_by` names both causes."""
     holder = HOLDER + "\nA = sdk.Model('a')\nREGISTRY = [A]\n"
-    result = scanned(tree(tmp_path, {"llm.py": holder, "app.py": "from llm import M\n"}))
+    result = scanned(write_tree(tmp_path, {"llm.py": holder, "app.py": "from llm import M\n"}))
     rows = {row.line: (row.bail, row.caused_by) for row in result.findings if row.path == "llm.py"}
     assert rows[5] == ("model_object_read_elsewhere", None)
     assert rows[1] == (
@@ -572,7 +565,7 @@ def test_a_module_that_names_neither_the_model_nor_its_module_is_not_parsed(
     reader = "from llm import M\n"
     files = {"llm.py": HOLDER, "app.py": reader, "plain.py": "print('hello')\n"}
     # Its name without its module, and its module without its name.
-    scanned(tree(tmp_path, {**files, "same.py": "M = 1\n", "twin.py": "import llm\n"}))
+    scanned(write_tree(tmp_path, {**files, "same.py": "M = 1\n", "twin.py": "import llm\n"}))
     # The depth check parses the one candidate; this pass, only the reader.
     assert parsed == [HOLDER.encode(), reader.encode()]
 
@@ -580,7 +573,7 @@ def test_a_module_that_names_neither_the_model_nor_its_module_is_not_parsed(
 @pytest.mark.skipif(AS_ROOT, reason="root reads a file it may not")
 def test_a_module_that_cannot_be_read_is_not_a_reader(tmp_path: Path) -> None:
     """What it imports is unknown."""
-    root = tree(tmp_path, {"llm.py": HOLDER, "app.py": "from llm import M\n"})
+    root = write_tree(tmp_path, {"llm.py": HOLDER, "app.py": "from llm import M\n"})
     with deny(root / "app.py"):
         result = scanned(root)
     assert binding(result, "llm.py") == ("eligible", None)
@@ -588,14 +581,16 @@ def test_a_module_that_cannot_be_read_is_not_a_reader(tmp_path: Path) -> None:
 
 def test_a_module_that_is_gone_when_the_readers_are_gathered_is_left_out(tmp_path: Path) -> None:
     """Windows stops a denied module at the walk, so the failed read is shown by a missing one."""
-    root = tree(tmp_path, {"llm.py": HOLDER})
+    root = write_tree(tmp_path, {"llm.py": HOLDER})
     trees = reach._trees(parse.disk(root, Config()), ["gone.py", "llm.py"], {"M"}, {"sdk"})
     assert list(trees) == ["llm.py"]
 
 
 def test_a_module_that_does_not_parse_is_not_a_reader(tmp_path: Path) -> None:
     """Python cannot import it either."""
-    result = scanned(tree(tmp_path, {"llm.py": HOLDER, "app.py": "from llm import M\ndef (:\n"}))
+    result = scanned(
+        write_tree(tmp_path, {"llm.py": HOLDER, "app.py": "from llm import M\ndef (:\n"})
+    )
     assert binding(result, "llm.py") == ("eligible", None)
 
 

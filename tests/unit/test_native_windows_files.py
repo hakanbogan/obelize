@@ -20,6 +20,7 @@ from obelize import fsutil
 from obelize.evidence.folder import RunFolder
 from obelize.native import _win32, files
 from platforms import held, junction, link, windows_only
+from support import write_tree
 
 pytestmark = windows_only("NT calls; `test_native_win32.py` checks what they pass on any system")
 
@@ -29,11 +30,7 @@ CLOUD = 0x9000601A
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    root = tmp_path / "repo"
-    (root / "pkg").mkdir(parents=True)
-    (root / "app.py").write_bytes(b"VALUE = 1\n")
-    (root / "pkg" / "mod.py").write_bytes(b"INNER = 1\n")
-    return root
+    return write_tree(tmp_path / "repo", {"app.py": b"VALUE = 1\n", "pkg/mod.py": b"INNER = 1\n"})
 
 
 @pytest.fixture

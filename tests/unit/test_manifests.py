@@ -17,6 +17,7 @@ from packaging.version import Version
 from obelize.impact import planner
 from obelize.models import Config, ImpactPlan, ManifestPlan, ProvidedModule
 from obelize.scan import analysis, manifests, parse, runner
+from support import write_tree
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -1176,9 +1177,7 @@ def test_one_app_that_lacks_a_distribution_holds_the_pin_of_every_app(tmp_path: 
         "app2/retry.py": "import acme.wire\n",
         "app2/requirements.txt": "acme-sdk==0.1.0\n",
     }
-    for name, text in files.items():
-        (tmp_path / name).parent.mkdir(exist_ok=True)
-        (tmp_path / name).write_text(text, encoding="utf-8")
+    write_tree(tmp_path, files)
     scanned = runner.scan(tmp_path, Config(), SPEC, jobs=1)
     assert scanned.manifests.transitive == ("app2/retry.py",)
     held = {(row.path, row.bail) for row in scanned.manifests.findings if row.bail}
@@ -1202,8 +1201,7 @@ def test_a_constraints_file_declares_nothing_a_pin_of_the_legacy_distribution_mu
         "requirements.txt": "acme-sdk==0.1.0\n",
         "constraints.txt": "acme-wire<3\n",
     }
-    for name, text in files.items():
-        (tmp_path / name).write_text(text, encoding="utf-8")
+    write_tree(tmp_path, files)
     scanned = runner.scan(tmp_path, Config(), SPEC, jobs=1)
     assert scanned.manifests.transitive == ("retry.py",)
     held = {(row.path, row.bail) for row in scanned.manifests.findings if row.bail}

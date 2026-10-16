@@ -12,6 +12,7 @@ import pytest
 from obelize.models import Config, Edit
 from obelize.scan import parse, runner
 from obelize.transforms import base, codemod, registry
+from support import write_tree
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -641,8 +642,7 @@ def test_a_file_this_run_does_not_write_is_not_parsed_a_second_time(
 ) -> None:
     """`parse.gates` is the costliest per-file step, and unchanged bytes already passed it."""
     files = {"writes.py": CLEAN, "quiet.py": '"""Mentions acme.sdk in prose."""\n'}
-    for name, text in files.items():
-        (tmp_path / name).write_text(text, encoding="utf-8", newline="\n")
+    write_tree(tmp_path, files)
     scan = runner.scan(tmp_path, Config(), acme.SPEC, jobs=1)
     sources = {name: text.encode("utf-8") for name, text in files.items()}
 
@@ -665,8 +665,7 @@ def test_a_file_with_only_mentions_is_not_parsed_for_the_rules(
     """No rule has a row to claim in it; the file is kept as it was and still in the run."""
     quiet = '"""Mentions acme.sdk in prose."""\n'
     files = {"writes.py": CLEAN, "quiet.py": quiet, "plain.py": "x = 1\n"}
-    for name, text in files.items():
-        (tmp_path / name).write_text(text, encoding="utf-8", newline="\n")
+    write_tree(tmp_path, files)
     scan = runner.scan(tmp_path, Config(), acme.SPEC, jobs=1)
     sources = {name: text.encode("utf-8") for name, text in files.items()}
 
