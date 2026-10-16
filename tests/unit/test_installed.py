@@ -705,13 +705,36 @@ def small_windows(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(installed, "_OVERLAP", 16)
 
 
+def searched(tmp_path: Path, body: str) -> bool:
+    """Whether `_searched` takes a file that holds `body` as evidence against 3.0.1."""
+    path = tmp_path / "notes.txt"
+    path.write_text(body, encoding="utf-8", newline="\n")
+    return installed._searched(path, installed._mention("PyPDF2"), "3.0.1")
+
+
 @pytest.mark.usefixtures("small_windows")
-def test_a_mention_across_the_edge_of_a_window_is_found_at_every_offset(tmp_path: Path) -> None:
-    config = Config(max_file_bytes=10)
+@pytest.mark.parametrize("tail", ["\n" + "x" * 80, ""], ids=["inside", "at-the-end"])
+def test_a_mention_across_the_edge_of_a_window_is_found_at_every_offset(
+    tmp_path: Path, tail: str
+) -> None:
     for offset in range(70):
-        body = "x" * offset + "\nPyPDF2==1.26.0\n" + "x" * 80
-        root = git_repo(tmp_path / str(offset), {**REQUIRED, "notes.txt": body})
-        assert contrary(root, config=config) == "notes.txt", offset
+        assert searched(tmp_path, "x" * offset + "\nPyPDF2==1.26.0" + tail), offset
+
+
+@pytest.mark.usefixtures("small_windows")
+@pytest.mark.parametrize(
+    "text",
+    ["PyPDF2==3.0.1", "PyPDF2<=3.0.1", "PyPDF2-3.0.1", "mypypdf2==1.26.0", "xPyPDF2-1.26.0"],
+)
+def test_a_mention_across_the_edge_of_a_window_is_never_read_as_another_release(
+    tmp_path: Path, text: str
+) -> None:
+    """Cut, `PyPDF2==3.0.1` reads `==3.0`, and a window that starts on `PyPDF2` of `mypypdf2` has
+    lost the letter before it."""
+    for offset in range(70):
+        assert not searched(tmp_path, "x" * offset + "\n" + text + "\n" + "x" * 80), offset
+        assert not searched(tmp_path, "x" * offset + "\n" + text), offset
+    assert not searched(tmp_path, (text + "\n") * 40)
 
 
 @pytest.mark.usefixtures("small_windows")
@@ -722,6 +745,7 @@ def test_a_mention_across_the_edge_of_a_window_is_found_at_every_offset(tmp_path
         "x" * 100 + "\nPyPDF2>=3\n",
         "PyPDF2 reads PDFs" + "x" * 100,
         "PyPDF2\n" * 20,
+        "PyPDF2==3.0.1\n" * 20,
     ],
 )
 def test_a_file_over_the_size_limit_that_names_no_other_release_is_not_evidence(

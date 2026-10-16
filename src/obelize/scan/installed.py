@@ -87,8 +87,7 @@ _UTF_16: Final = (b"\xff\xfe", b"\xfe\xff")
 
 # A file over `max_file_bytes` is searched for a version in windows of this size, which repeat this
 # much of the one before so that a mention is whole in one of them, up to this size: past it a file
-# is not searched. A window cut through a mention can only read it as another release, which is
-# evidence: fail closed.
+# is not searched. A window reads only the mentions that start in it up to this far from its end.
 _WINDOW: Final = 1 << 20
 _OVERLAP: Final = 1 << 12
 _LIMIT: Final = 32 << 20
@@ -266,14 +265,7 @@ def _index(source: Any) -> str:
 def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, newest: str) -> str:
     """A version of the distribution written anywhere, in a file or in a file's name, that rules
     the newest release out: `PyPDF2==1.26.0`, `PyPDF2-1.26.0.dist-info`."""
-    mention = re.compile(
-        (
-            rf"(?<![\w-]){spelled}(?:\[[^\]\n]{{0,100}}\])?[ \t]*"
-            rf"(?P<spec>{_CLAUSE}(?:[ \t]*,[ \t]*{_CLAUSE})*)"
-            rf"|(?<![\w-]){spelled}-(?P<release>\d+(?:\.\d+)*)"
-        ).encode(),
-        re.IGNORECASE,
-    )
+    mention = _mention(spelled)
     vetted = {*walk.files, *walk.manifests}
     for path in walk.listed:
         if _rules_out(os.fsencode(path), mention, newest):
@@ -295,19 +287,45 @@ def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, n
     return ""
 
 
+def _mention(spelled: str) -> re.Pattern[bytes]:
+    return re.compile(
+        (
+            rf"(?<![\w-]){spelled}(?:\[[^\]\n]{{0,100}}\])?[ \t]*"
+            rf"(?P<spec>{_CLAUSE}(?:[ \t]*,[ \t]*{_CLAUSE})*)"
+            rf"|(?<![\w-]){spelled}-(?P<release>\d+(?:\.\d+)*)"
+        ).encode(),
+        re.IGNORECASE,
+    )
+
+
 def _searched(path: Path, mention: re.Pattern[bytes], newest: str) -> bool:
     """`_rules_out` over a file too large to hold, a window at a time; a UTF-16 one is read as
-    bytes, which finds nothing."""
+    bytes, which finds nothing.
+
+    A mention is read by the window it starts in, up to `_OVERLAP` from its end, where it lies whole
+    (the last window reads the rest): cut by an edge it would read as another release, and the next
+    window starts on a byte that may be part of a name.
+    """
     try:
-        windows = fsutil.windows(path, _WINDOW, _OVERLAP, _LIMIT)
-        return any(_rules_out(window, mention, newest) for window in windows)
+        window = b""
+        for at, window in enumerate(fsutil.windows(path, _WINDOW, _OVERLAP, _LIMIT)):
+            if _rules_out(window, mention, newest, min(at, 1), len(window) - _OVERLAP):
+                return True
+        return _rules_out(window, mention, newest, max(len(window) - _OVERLAP + 1, 0))
     except OSError:  # gone or unreadable since it was listed, as `parse.contents` finds
         return False
 
 
-def _rules_out(data: bytes, mention: re.Pattern[bytes], newest: str) -> bool:
-    """Whether `data` writes a release of the distribution that is not, or may not be, `newest`."""
-    for found in mention.finditer(data):
+def _rules_out(
+    data: bytes, mention: re.Pattern[bytes], newest: str, start: int = 0, stop: int | None = None
+) -> bool:
+    """Whether `data` writes a release of the distribution that is not, or may not be, `newest`.
+
+    Only a mention that starts from `start` on, and at or before `stop`, is read.
+    """
+    for found in mention.finditer(data, start):
+        if stop is not None and found.start() > stop:
+            return False
         try:
             if found["spec"] is None:
                 if Version(found["release"].decode()) != Version(newest):

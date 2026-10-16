@@ -85,8 +85,8 @@ searched for a version.
    `dist-info`). A UTF-16 file is read after its byte-order mark. A file over `max_file_bytes` is
    searched too, in windows of 1 MiB that repeat the last 4 KiB of the one before, so that no more
    than a window is held and a mention is whole in one of them; a UTF-16 one is read as bytes, and a
-   file over 32 MiB is not searched. A mention cut by a window's edge reads as another release, which
-   is evidence.
+   file over 32 MiB is not searched. A mention is read by the window it starts in, where it lies
+   whole, so an edge never cuts one into another release.
 6. What git ignores, found with `scandir` and never read: a lock, a constraints file or a
    `*requirements*.in` beside the repository root or a manifest that declares the distribution, and
    a `.venv`, `venv` or `env` in the root or beside any listed file, found with one `lstat` per
