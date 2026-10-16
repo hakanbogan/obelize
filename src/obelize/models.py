@@ -734,7 +734,8 @@ DisplayText = Annotated[
 ]
 
 
-def _sorted_unique(values: Sequence[Any], field: str) -> None:
+def sorted_unique(values: Sequence[Any], field: str) -> None:
+    """An unordered field has exactly one spelling."""
     if list(values) != sorted(set(values)):
         raise ValueError(f"{field} must be sorted and de-duplicated, got {list(values)}")
 
@@ -753,7 +754,7 @@ def _check_caused_by(bail: str | None, caused_by: tuple[BailCode, ...] | None, f
         )
     if ATOMICITY_BAIL in caused_by:
         raise ValueError(f"caused_by must not name {ATOMICITY_BAIL!r} itself")
-    _sorted_unique(caused_by, "caused_by")
+    sorted_unique(caused_by, "caused_by")
 
 
 def _identifier(value: str, segments: int | None = None) -> bool:
@@ -945,7 +946,7 @@ class Edit(_Frozen):
                     "a model proposal exists only where the deterministic rules refused, and the "
                     "report has to say what they refused"
                 )
-        _sorted_unique(self.warnings, "warnings")
+        sorted_unique(self.warnings, "warnings")
         return self
 
 
@@ -1001,7 +1002,7 @@ class ReceiverMethods(_Frozen):
             raise ValueError(f"receiver must be a qualified name, got {self.receiver!r}")
         if not self.methods:
             raise ValueError(f"{self.receiver} supports no methods; drop the entry instead")
-        _sorted_unique(self.methods, "methods")
+        sorted_unique(self.methods, "methods")
         return self
 
 
@@ -1139,12 +1140,12 @@ class ScanSpec(_Frozen):
             ("legacy_since", self.legacy_since),
             ("new_names", self.new_names),
         ):
-            _sorted_unique(values, field)
+            sorted_unique(values, field)
             bad = [value for value in values if not QUALIFIED_NAME.fullmatch(value)]
             if bad:
                 raise ValueError(f"{field} takes qualified names, got {bad}")
-        _sorted_unique(self.prefilter_tokens, "prefilter_tokens")
-        _sorted_unique(self.flag_only_patterns, "flag_only_patterns")
+        sorted_unique(self.prefilter_tokens, "prefilter_tokens")
+        sorted_unique(self.flag_only_patterns, "flag_only_patterns")
         for field, value in (
             ("legacy_distribution", self.legacy_distribution),
             ("new_distribution", self.new_distribution),
@@ -1167,8 +1168,8 @@ class ScanSpec(_Frozen):
         if self.legacy_newest is not None:
             Version(self.legacy_newest)
         receivers = tuple(entry.receiver for entry in self.supported_methods)
-        _sorted_unique(receivers, "supported_methods")
-        _sorted_unique(tuple(entry.method for entry in self.method_returns), "method_returns")
+        sorted_unique(receivers, "supported_methods")
+        sorted_unique(tuple(entry.method for entry in self.method_returns), "method_returns")
         for entry in self.method_returns:
             owner, _, method = entry.method.rpartition(".")
             if method not in self.methods_for(owner):
@@ -1279,9 +1280,9 @@ class ManifestPlan(_Frozen):
         keys = [row.sort_key for row in self.findings]
         if keys != sorted(keys):
             raise ValueError("findings are written in document order; sort before emitting")
-        _sorted_unique(self.blocking, "blocking")
-        _sorted_unique(self.excluded, "excluded")
-        _sorted_unique(self.transitive, "transitive")
+        sorted_unique(self.blocking, "blocking")
+        sorted_unique(self.excluded, "excluded")
+        sorted_unique(self.transitive, "transitive")
         for code, named, claim in (
             (REPO_ATOMICITY_BAIL, self.blocking, "still imports the legacy distribution"),
             (
@@ -1451,7 +1452,7 @@ class FindingsDocument(_Frozen):
 
     @model_validator(mode="after")
     def _check(self) -> FindingsDocument:
-        _sorted_unique(tuple(pack.id for pack in self.packs), "packs")
+        sorted_unique(tuple(pack.id for pack in self.packs), "packs")
         keys = [finding.sort_key for finding in self.findings]
         if keys != sorted(keys):
             raise ValueError("findings are written in document order; sort before emitting")
@@ -1699,8 +1700,8 @@ class FileEdit(_Frozen):
             )
         if any(number < 1 for number in self.proposals):
             raise ValueError(f"proposals are numbered from 1, got {list(self.proposals)}")
-        _sorted_unique(self.rules, "rules")
-        _sorted_unique(self.proposals, "proposals")
+        sorted_unique(self.rules, "rules")
+        sorted_unique(self.proposals, "proposals")
         return self
 
 
@@ -1716,7 +1717,7 @@ class PlanDocument(_Frozen):
 
     @model_validator(mode="after")
     def _check(self) -> PlanDocument:
-        _sorted_unique(tuple(pack.id for pack in self.packs), "packs")
+        sorted_unique(tuple(pack.id for pack in self.packs), "packs")
         paths = [row.path for row in self.files]
         if paths != sorted(paths):
             raise ValueError("the files a run would write are written in path order")
@@ -2123,7 +2124,7 @@ class RunRecord(_Frozen):
         return self
 
     def _check_order(self) -> None:
-        _sorted_unique(tuple(pack.id for pack in self.packs), "packs")
+        sorted_unique(tuple(pack.id for pack in self.packs), "packs")
         keys = [(row.path, row.line) for row in self.withheld]
         if keys != sorted(keys):
             raise ValueError("withheld rows follow the findings, which are in document order")
@@ -2419,5 +2420,6 @@ __all__ = [
     "bounds",
     "printable",
     "schema_hint",
+    "sorted_unique",
     "terminal_unsafe",
 ]

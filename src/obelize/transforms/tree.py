@@ -234,12 +234,4 @@ def within(name: str, modules: frozenset[str]) -> bool:
     return any(name == module or name.startswith(f"{module}.") for module in modules)
 
 
-def literal_string(node: cst.BaseExpression) -> str | None:
-    """The string a node *is*; `None` for anything else, f-strings and concatenations included."""
-    if not isinstance(node, cst.SimpleString):
-        return None
-    value = node.evaluated_value
-    return value if isinstance(value, str) else None
-
-
-__all__ = ["Position", "Tree", "literal_string"]
+__all__ = ["Position", "Tree"]

@@ -416,7 +416,7 @@ class _Pass:
         for source in self._nodes.lazy_from:
             if source.module is None or source.relative:
                 continue
-            module = _dotted(source.module)
+            module = dotted_name(source.module)
             if self._under_legacy(module) or isinstance(source.names, cst.ImportStar):
                 names = [module]
             else:
@@ -455,7 +455,7 @@ class _Pass:
         if statement.module is None or statement.relative:
             # Never legacy: `from . import x` has no module, and `.acme` only looks top-level.
             return
-        module = _dotted(statement.module)
+        module = dotted_name(statement.module)
         if isinstance(statement.names, cst.ImportStar):
             if self._under_legacy(module) or self._bare(module):
                 self._star = True
@@ -523,17 +523,17 @@ class _Pass:
                 continue
             first = call.args[0].value
             if names & _BY_NAME:
-                text = _string(first)
+                text = literal_string(first)
                 if text is not None and text.startswith(".") and len(call.args) > 1:
                     # `import_module(".error", "openai")` is relative to its package.
-                    package = _string(call.args[1].value)
+                    package = literal_string(call.args[1].value)
                     text = None if package is None else package + text
                 if text is not None and self._fetches(text):
                     self._claimed.add(id(first))
                     self._add(call, "dynamic", "dynamic_access", text, bail=_FLAGGED)
             elif _GETATTR in names and len(call.args) > 1:
                 module = self._legacy(first)
-                attribute = _string(call.args[1].value)
+                attribute = literal_string(call.args[1].value)
                 if (
                     module
                     and attribute is not None
@@ -551,7 +551,7 @@ class _Pass:
                     )
         for call in self._nodes.calls:
             for key in self._stores(call, _SYS_MODULES):
-                text = _string(key)
+                text = literal_string(key)
                 if text is not None and self._fetches(text):
                     self._claimed.add(id(key))
                     self._add(key, "dynamic", "dynamic_access", text, bail=_FLAGGED)
@@ -564,7 +564,7 @@ class _Pass:
                 index = element.slice
                 if not isinstance(index, cst.Index):  # pragma: no cover - a slice, not a key
                     continue
-                text = _string(index.value)
+                text = literal_string(index.value)
                 if text is not None and self._fetches(text):
                     self._claimed.add(id(index.value))
                     self._add(subscript, "dynamic", "dynamic_access", text, bail=_FLAGGED)
@@ -615,7 +615,7 @@ class _Pass:
                     if isinstance(element.slice, cst.Index)
                 )
         for key in keys:
-            text = _string(key)
+            text = literal_string(key)
             if text is not None and text in self._spec.flag_only_variables:
                 self._add(key, "dynamic", "dynamic_access", text, bail=_FLAGGED)
 
@@ -638,7 +638,10 @@ class _Pass:
         ]
 
     def _is(self, node: cst.BaseExpression, name: str) -> bool:
-        return name in {n.name for n in qualified_names(self._qnp, node)} or _string(node) == name
+        return (
+            name in {n.name for n in qualified_names(self._qnp, node)}
+            or literal_string(node) == name
+        )
 
     def _resolved(self) -> None:
         """Every node resolving to a legacy name, once per site.
@@ -728,7 +731,7 @@ class _Pass:
             owners = [module for argument in call.args if (module := self._owner(argument.value))]
             for argument in call.args:
                 node = argument.value
-                text = _string(node)
+                text = literal_string(node)
                 if text is None or id(node) in self._claimed or self._legacy(node):
                     continue
                 candidates = [text, *(f"{module}.{text}" for module in owners)]
@@ -753,7 +756,7 @@ class _Pass:
         """The shared module `node` is written to end in and resolves to none (`app.llm.openai`)."""
         if not self._spec.shared or self._reaches(node):
             return None
-        dotted = _dotted(node)
+        dotted = dotted_name(node)
         return next((m for m in self._spec.legacy_modules if dotted.endswith(f".{m}")), None)
 
     def _quoted_annotations(self) -> None:
@@ -764,7 +767,7 @@ class _Pass:
         if not self._spec.shared:
             return
         for string in self._nodes.strings:
-            text = _string(string)
+            text = literal_string(string)
             if text is None or not self._reaches(string) or not self._annotated(string):
                 continue
             for match in self._mention.finditer(text):
@@ -1149,12 +1152,12 @@ class _Pass:
             )
 
 
-def _dotted(node: cst.BaseExpression) -> str:
+def dotted_name(node: cst.BaseExpression) -> str:
     """The dotted name of an `Attribute`/`Name` chain, or "" for any other expression."""
     if isinstance(node, cst.Name):
         return node.value
     if isinstance(node, cst.Attribute):
-        prefix = _dotted(node.value)
+        prefix = dotted_name(node.value)
         return f"{prefix}.{node.attr.value}" if prefix else ""
     return ""
 
@@ -1178,8 +1181,8 @@ def _stored(parent: cst.CSTNode | None, node: cst.CSTNode) -> bool:
     )
 
 
-def _string(node: cst.CSTNode) -> str | None:
-    """The value of a plain string literal, or `None` if it is not one."""
+def literal_string(node: cst.CSTNode) -> str | None:
+    """The string a node *is*; `None` for anything else, f-strings and concatenations included."""
     if not isinstance(node, cst.SimpleString):
         return None
     value = node.evaluated_value
@@ -1313,4 +1316,4 @@ def _method_owners(spec: ScanSpec) -> dict[str, str]:
     return owners
 
 
-__all__ = ["BAILS", "RUNG", "Analysis", "Receiver", "analyse"]
+__all__ = ["BAILS", "RUNG", "Analysis", "Receiver", "analyse", "dotted_name", "literal_string"]

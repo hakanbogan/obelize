@@ -154,6 +154,14 @@ def read(absolute: Path, limit: int = -1) -> bytes:
         return handle.read(limit)
 
 
+def digest(path: Path) -> str | None:
+    """The sha256 at this path now, or `None` if nothing readable is there."""
+    try:
+        return sha256(read(path))
+    except OSError:
+        return None
+
+
 def windows(absolute: Path, size: int, overlap: int, limit: int) -> Iterator[bytes]:
     """A file `read` is not meant for, in windows of `size` bytes that repeat the last `overlap` of
     the one before: no more is held, and a string up to `overlap` long lies whole in some window.
@@ -361,6 +369,7 @@ __all__ = [
     "WriteRefusal",
     "Written",
     "apply",
+    "digest",
     "gate",
     "linked",
     "read",

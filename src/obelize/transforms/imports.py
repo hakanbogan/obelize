@@ -190,15 +190,6 @@ def dotted(path: str) -> cst.Attribute | cst.Name:
     return node
 
 
-def dotted_name(node: cst.BaseExpression) -> str:
-    """The dotted path an import statement's `Attribute`/`Name` chain spells."""
-    if isinstance(node, cst.Name):
-        return node.value
-    if isinstance(node, cst.Attribute):
-        return f"{dotted_name(node.value)}.{node.attr.value}"
-    return ""  # pragma: no cover - an import target is always a dotted name
-
-
 def _bare(node: cst.BaseSmallStatement) -> cst.BaseSmallStatement:
     """One statement per line, so a semicolon carried over from the source goes."""
     return node.with_changes(semicolon=cst.MaybeSentinel.DEFAULT)

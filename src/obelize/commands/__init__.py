@@ -5,6 +5,7 @@ Kept out of cli.py for its startup budget. They return values and never print or
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -26,4 +27,9 @@ def reports(directory: Path) -> dict[str, bytes]:
     return {path.name: path.read_bytes() for path in sorted(directory.iterdir())}
 
 
-__all__ = ["CommandError", "reports"]
+def elapsed_ms(since: float) -> int:
+    """The whole milliseconds since a `time.monotonic()` reading."""
+    return int((time.monotonic() - since) * 1000)
+
+
+__all__ = ["CommandError", "elapsed_ms", "reports"]

@@ -39,6 +39,7 @@ from obelize.models import (
     WarningCode,
     bounds,
     schema_hint,
+    sorted_unique,
     terminal_unsafe,
 )
 
@@ -265,12 +266,6 @@ def _literal_prefix(value: str) -> str:
 LiteralPrefix = Annotated[str, AfterValidator(_literal_prefix)]
 
 
-def _sorted_set(values: tuple[str, ...], field: str) -> None:
-    """An unordered field has exactly one spelling."""
-    if list(values) != sorted(set(values)):
-        raise ValueError(f"{field} must be sorted and de-duplicated, got {list(values)}")
-
-
 def _ordered_unique(values: tuple[str, ...], field: str) -> None:
     """For fields whose order is data (signatures, printed lists): refuse repeats, never sort."""
     duplicates = sorted({value for value in values if list(values).count(value) > 1})
@@ -314,8 +309,8 @@ class Legacy(VersionRange):
 
     @model_validator(mode="after")
     def _check(self) -> Legacy:
-        _sorted_set(self.lacks, "lacks")
-        _sorted_set(self.since, "since")
+        sorted_unique(self.lacks, "lacks")
+        sorted_unique(self.since, "since")
         if self.since and self.newest is not None:
             raise ValueError("since and newest each stand for an unversioned declaration: set one")
         if self.newest is None:
@@ -353,7 +348,7 @@ class Target(VersionRange):
 
     @model_validator(mode="after")
     def _check(self) -> Target:
-        _sorted_set(self.introduces, "introduces")
+        sorted_unique(self.introduces, "introduces")
         return self
 
 
@@ -377,9 +372,9 @@ class Match(_Closed):
             raise ValueError("a shared module has no legacy surface until symbols names it")
         if not self.prefilter_tokens:
             raise ValueError("without a prefilter token every file in the repository is parsed")
-        _sorted_set(self.imports, "imports")
-        _sorted_set(self.symbols, "symbols")
-        _sorted_set(self.prefilter_tokens, "prefilter_tokens")
+        sorted_unique(self.imports, "imports")
+        sorted_unique(self.symbols, "symbols")
+        sorted_unique(self.prefilter_tokens, "prefilter_tokens")
         for symbol in self.symbols:
             if not under_any(symbol, self.imports):
                 raise ValueError(
@@ -461,7 +456,7 @@ class ConfigureToClientParams(_Closed):
     def _check(self) -> ConfigureToClientParams:
         if not self.allowed_kwargs:
             raise ValueError("allowed_kwargs is empty, so every call with a keyword is refused")
-        _sorted_set(self.allowed_kwargs, "allowed_kwargs")
+        sorted_unique(self.allowed_kwargs, "allowed_kwargs")
         if self.client_name == self.client_name_fallback:
             raise ValueError(
                 f"client_name and client_name_fallback are both {self.client_name!r}, so the "
@@ -536,7 +531,7 @@ class SafetySettings(_Closed):
         ):
             if not members:
                 raise ValueError(f"{field} is empty; no enum member could be recognised")
-            _sorted_set(members, field)
+            sorted_unique(members, field)
             emitted = FORBIDDEN_SAFETY_VALUES.intersection(members)
             if emitted:
                 raise ValueError(
@@ -576,7 +571,7 @@ class ChatHistory(_Closed):
     def _check(self) -> ChatHistory:
         if not self.roles:
             raise ValueError("roles is empty; every history entry would be refused")
-        _sorted_set(self.roles, "roles")
+        sorted_unique(self.roles, "roles")
         if self.role_key == self.parts_key:
             raise ValueError("role_key and parts_key are two keys of one entry, not one")
         return self
@@ -615,8 +610,8 @@ class MethodRewrite(_Closed):
     def _check(self) -> MethodRewrite:
         # Legacy parameter order: not sorted.
         _ordered_unique(self.positional_to_kw, "positional_to_kw")
-        _sorted_set(self.semantic_kwargs, "semantic_kwargs")
-        _sorted_set(self.afc_kwargs, "afc_kwargs")
+        sorted_unique(self.semantic_kwargs, "semantic_kwargs")
+        sorted_unique(self.afc_kwargs, "afc_kwargs")
         if self.semantic_kwargs and self.config_kwarg is not None:
             raise ValueError(
                 "semantic_kwargs names constructor keywords that may not be dropped, and a call "
@@ -724,11 +719,11 @@ class GenerativeModelCallsParams(_Closed):
         for receiver, names in self.methods.items():
             if not names:
                 raise ValueError(f"methods[{receiver!r}] is empty; drop the entry instead")
-            _sorted_set(names, f"methods[{receiver!r}]")
+            sorted_unique(names, f"methods[{receiver!r}]")
         self._check_receivers_can_be_held()
         if not self.generation_config_keys:
             raise ValueError("generation_config_keys is empty; every config would be unknown")
-        _sorted_set(self.generation_config_keys, "generation_config_keys")
+        sorted_unique(self.generation_config_keys, "generation_config_keys")
         forbidden = FORBIDDEN_CONFIG_KEYS.intersection(self.generation_config_keys)
         if forbidden:
             raise ValueError(
@@ -751,8 +746,8 @@ class GenerativeModelCallsParams(_Closed):
         _ordered_unique(self.ctor_order, "ctor_order")
         if not self.ctor_order:
             raise ValueError("ctor_order is the legacy signature; a constructor has parameters")
-        _sorted_set(self.ctor_config_fields, "ctor_config_fields")
-        _sorted_set(self.ctor_afc_kwargs, "ctor_afc_kwargs")
+        sorted_unique(self.ctor_config_fields, "ctor_config_fields")
+        sorted_unique(self.ctor_afc_kwargs, "ctor_afc_kwargs")
         placed: list[tuple[str, tuple[str, ...]]] = [
             ("ctor_model_kwarg", (self.ctor_model_kwarg,)),
             ("legacy_config_kwarg", (self.legacy_config_kwarg,)),
@@ -789,7 +784,7 @@ class GenerativeModelCallsParams(_Closed):
                 )
 
     def _check_the_configuration_class_has_one_claimant(self) -> None:
-        _sorted_set(self.legacy_config_aliases, "legacy_config_aliases")
+        sorted_unique(self.legacy_config_aliases, "legacy_config_aliases")
         if self.legacy_config_symbol in self.legacy_config_aliases:
             raise ValueError(
                 f"legacy_config_symbol {self.legacy_config_symbol!r} is also in "
@@ -797,7 +792,7 @@ class GenerativeModelCallsParams(_Closed):
             )
 
     def _check_the_response_shape_is_stated_from_both_ends(self) -> None:
-        _sorted_set(self.response_attrs_now_none, "response_attrs_now_none")
+        sorted_unique(self.response_attrs_now_none, "response_attrs_now_none")
         if bool(self.response_attrs_now_none) != bool(self.response_legacy_error):
             raise ValueError(
                 "response_attrs_now_none and response_legacy_error are one fact: an attribute "
@@ -901,14 +896,14 @@ class RewriteCallParams(_Closed):
     def _check(self) -> RewriteCallParams:
         # Legacy parameter order: the one sequence here that must not be sorted.
         _ordered_unique(self.positional_to_kw, "positional_to_kw")
-        _sorted_set(self.keywords, "keywords")
-        _sorted_set(self.positive_numbers, "positive_numbers")
-        _sorted_set(self.config_kwargs, "config_kwargs")
-        _sorted_set(self.result_access_flags, "result_access_flags")
-        _sorted_set(self.result_attribute_flags, "result_attribute_flags")
-        _sorted_set(self.result_paths, "result_paths")
-        _sorted_set(self.legacy_error_modules, "legacy_error_modules")
-        _sorted_set(self.warnings, "warnings")
+        sorted_unique(self.keywords, "keywords")
+        sorted_unique(self.positive_numbers, "positive_numbers")
+        sorted_unique(self.config_kwargs, "config_kwargs")
+        sorted_unique(self.result_access_flags, "result_access_flags")
+        sorted_unique(self.result_attribute_flags, "result_attribute_flags")
+        sorted_unique(self.result_paths, "result_paths")
+        sorted_unique(self.legacy_error_modules, "legacy_error_modules")
+        sorted_unique(self.warnings, "warnings")
         declared = {bool(self.config_class), bool(self.config_kwargs), bool(self.config_kwarg)}
         if len(declared) != 1:
             raise ValueError(
@@ -987,7 +982,7 @@ class RewriteCallParams(_Closed):
                         f"{field}[{parameter!r}] is empty, which refuses every call rather "
                         f"than saying which values carry; drop the entry instead"
                     )
-                _sorted_set(prefixes, f"{field}[{parameter!r}]")
+                sorted_unique(prefixes, f"{field}[{parameter!r}]")
         both = sorted(set(self.dispatch_prefixes) & set(self.literal_prefixes))
         if both:
             raise ValueError(
@@ -1119,7 +1114,7 @@ class RenameSymbolParams(_Closed):
     def _check(self) -> RenameSymbolParams:
         if not self.symbols:
             raise ValueError("a rename_symbol rule must name a symbol")
-        _sorted_set(self.now_caught_by, "now_caught_by")
+        sorted_unique(self.now_caught_by, "now_caught_by")
         landed: dict[str, str] = {}
         for key, new in self.symbols.items():
             if key.count(".") < 2:
@@ -1163,10 +1158,10 @@ class FlagOnlyParams(_Closed):
     def _check(self) -> FlagOnlyParams:
         if not (self.symbols or self.patterns or self.attributes):
             raise ValueError("a flag_only rule must name a symbol, a pattern or an attribute")
-        _sorted_set(self.symbols, "symbols")
-        _sorted_set(self.patterns, "patterns")
-        _sorted_set(self.attributes, "attributes")
-        _sorted_set(self.variables, "variables")
+        sorted_unique(self.symbols, "symbols")
+        sorted_unique(self.patterns, "patterns")
+        sorted_unique(self.attributes, "attributes")
+        sorted_unique(self.variables, "variables")
         if bool(self.variables) != ("environment_write" in self.patterns):
             raise ValueError("variables and the environment_write pattern are named together")
         for attribute in self.attributes:
@@ -1216,7 +1211,7 @@ class _ChangeBase(_Closed):
     def _check_base(self) -> _ChangeBase:
         if not self.fixtures:
             raise ValueError("every change must name at least one fixture")
-        _sorted_set(self.fixtures, "fixtures")
+        sorted_unique(self.fixtures, "fixtures")
         return self
 
 

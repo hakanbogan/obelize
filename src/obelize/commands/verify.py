@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 from obelize import fsutil
-from obelize.commands import CommandError, reports
+from obelize.commands import CommandError, elapsed_ms, reports
 from obelize.evidence import report, run_dir
 from obelize.models import VerifyResult
 from obelize.verify import runner as verifier
@@ -73,7 +73,7 @@ def run(request: Request) -> Outcome:
         verified = run_dir.verification(result, after_junit=reports(junit))
 
     code = _expected(verified.record)
-    record = run_dir.reverified(loaded.record, verified, exit_code=code, ms=_ms(began))
+    record = run_dir.reverified(loaded.record, verified, exit_code=code, ms=elapsed_ms(began))
     try:
         run_dir.rewrite(loaded, record, verified, _note(loaded, record))
     except run_dir.EvidenceError as error:
@@ -85,7 +85,7 @@ def _stale(request: Request, record: RunRecord) -> VerifyResult | None:
     """`inconclusive` / `tree_changed`, or `None` when every file the run wrote is unchanged."""
     for row in record.file_edits:
         # The name first: read by path, Windows opens `aux.py` as a device.
-        if fsutil.unusable(row.path) or _digest(request.root / row.path) != row.after_sha256:
+        if fsutil.unusable(row.path) or fsutil.digest(request.root / row.path) != row.after_sha256:
             return VerifyResult(status="inconclusive", reason="tree_changed")
     return None
 
@@ -158,18 +158,6 @@ def _note(loaded: run_dir.Loaded, record: RunRecord) -> str | None:
     except OSError:
         return None
     return report.superseded(document, record, run_dir.instant(run_dir.now()))
-
-
-def _digest(path: Path) -> str | None:
-    """The sha256 at this path now, or `None` if nothing is there."""
-    try:
-        return fsutil.sha256(fsutil.read(path))
-    except OSError:
-        return None
-
-
-def _ms(since: float) -> int:
-    return int((time.monotonic() - since) * 1000)
 
 
 __all__ = ["Outcome", "Request", "run"]

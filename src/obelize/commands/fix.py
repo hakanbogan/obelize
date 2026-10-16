@@ -15,7 +15,7 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 from obelize import __version__, fsutil, gitutil
-from obelize.commands import CommandError, reports
+from obelize.commands import CommandError, elapsed_ms, reports
 from obelize.config import with_fixture_dirs
 from obelize.evidence import report, run_dir
 from obelize.models import FindingsDocument, ManifestPlan, ModelConfig, VerifyPhase, VerifyResult
@@ -131,20 +131,20 @@ def run(request: Request) -> Outcome:
     started = run_dir.now()
     began = time.monotonic()
     chosen = select(request.root, request.config, request.packs, named=request.named, jobs=None)
-    scan_ms = _ms(began)
+    scan_ms = elapsed_ms(began)
 
     planning = time.monotonic()
     passes = _fold(request, chosen)
     driven = codemod.chained([(one.loaded.pack.id, one.run) for one in passes])
     scan = scanner.merged([one.scan for one in passes], chosen.tree)
-    plan_ms = _ms(planning)
+    plan_ms = elapsed_ms(planning)
 
     gating = time.monotonic()
     ruled = _changes(driven)
     # A run that writes nothing leaves a dirty tree alone; a model's proposal could write.
     asked = request.apply and bool(ruled or request.model.provider != "none")
     stopped = _gate(request, ruled) if asked else None
-    gate_ms = _ms(gating)
+    gate_ms = elapsed_ms(gating)
 
     notes: tuple[str, ...] = ()
     if not passes:
@@ -182,7 +182,7 @@ def run(request: Request) -> Outcome:
         guide for one in passes for guide in flag_only.guides(one.loaded.pack, one.run.findings)
     )
     plan = run_dir.planned(driven, loaded, None if model.session is None else model.session.numbers)
-    plan_ms += _ms(replanning)
+    plan_ms += elapsed_ms(replanning)
 
     # Before the write, or `git_dirty` would report obelize's own migration.
     state = gitutil.state(request.root)
@@ -191,7 +191,7 @@ def run(request: Request) -> Outcome:
         # A file only a model proposed was not in the first gate; refuse it before a command starts.
         gating = time.monotonic()
         stopped = _gate(request, writable)
-        gate_ms += _ms(gating)
+        gate_ms += elapsed_ms(gating)
     run_id = run_dir.new_id(started)
     journaled = _journaled(request, run_id, plan)
     phases = _phases(request, writable, stopped, gate_ms)
@@ -216,7 +216,7 @@ def run(request: Request) -> Outcome:
         exit_code=code,
         started=started,
         finished=run_dir.now(),
-        total_ms=_ms(began),
+        total_ms=elapsed_ms(began),
         scan_ms=scan_ms,
         plan_ms=plan_ms,
         apply_ms=phases.apply_ms,
@@ -454,7 +454,7 @@ def _consulted(
         pack=passes[0].loaded.pack,
         environ=request.environ,
     )
-    return _Model(proposals.folded(driven, session), session, _ms(consulting))
+    return _Model(proposals.folded(driven, session), session, elapsed_ms(consulting))
 
 
 def _writable(
@@ -564,7 +564,7 @@ def _checked(
             )
         )
         gated = verdicts.gate(baseline)
-        verify_ms = _ms(verifying)
+        verify_ms = elapsed_ms(verifying)
 
         applied, write_ms = _write(request, changes)
         produced = {run_dir.BASELINE: reports(before), run_dir.PHASE_AFTER: reports(after)}
@@ -581,7 +581,7 @@ def _checked(
         result = _after_the_patch(request, applied, commands, baseline, after)
         produced[run_dir.PHASE_AFTER] = reports(after)
         return _Phases(
-            applied, _record(result, produced), gate_ms + write_ms, verify_ms + _ms(resuming)
+            applied, _record(result, produced), gate_ms + write_ms, verify_ms + elapsed_ms(resuming)
         )
 
 
@@ -626,7 +626,7 @@ def _write(request: Request, changes: Sequence[Change]) -> tuple[Apply, int]:
     """The write itself, timed; `fsutil.apply` asks both gates again."""
     writing = time.monotonic()
     applied = fsutil.apply(request.root, list(changes), allow_dirty=request.config.allow_dirty)
-    return applied, _ms(writing)
+    return applied, elapsed_ms(writing)
 
 
 def _record(result: VerifyResult, produced: Mapping[str, dict[str, bytes]]) -> run_dir.Verified:
@@ -660,10 +660,6 @@ def _exit(phases: _Phases, *, outstanding: bool, idle: bool) -> ExitCode:
     if phases.applied is not None and ((not phases.applied.written and not idle) or outstanding):
         return 4
     return 0
-
-
-def _ms(since: float) -> int:
-    return int((time.monotonic() - since) * 1000)
 
 
 __all__ = ["Outcome", "Request", "context", "run"]
