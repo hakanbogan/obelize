@@ -80,6 +80,24 @@ def behaviour() -> list[str]:
             and _positional(sdk.Audio.transcribe, 2) == ["model", "file"]
             and _positional(sdk.Audio.translate, 2) == ["model", "file"]
         ),
+        "engine and request_timeout are read by the engine resources and no other": [
+            issubclass(resource, sdk.api_resources.abstract.engine_api_resource.EngineAPIResource)
+            for resource in (
+                sdk.ChatCompletion,
+                sdk.Completion,
+                sdk.Embedding,
+                sdk.Image,
+                sdk.Moderation,
+                sdk.Audio,
+            )
+        ]
+        == [True, True, True, False, False, False],
+        "an engine is the route of its call and a falsy request_timeout is 600 seconds": (
+            sdk.ChatCompletion.class_url("x") == "/engines/x/chat/completions"
+            and sdk.Completion.class_url("x") == "/engines/x/completions"
+            and sdk.Embedding.class_url("x") == "/engines/x/embeddings"
+            and sdk.api_requestor.TIMEOUT_SECS == 600
+        ),
         "an image is created from keywords alone": (
             _positional(sdk.Image.create, 1) == ["api_key"]
             and bool(sdk.Image.create.__code__.co_flags & inspect.CO_VARKEYWORDS)

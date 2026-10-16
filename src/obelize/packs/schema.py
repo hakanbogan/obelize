@@ -843,9 +843,15 @@ class RewriteCallParams(_Closed):
     # `module` spells `new_call` after the root the author wrote and asks for no client.
     root: RewriteRoot = "client"
     arg_map: dict[PlainName, PlainName] = Field(default_factory=dict)
+    # Another keyword the legacy call took for a parameter below: the alias, then the parameter.
+    # Both given is `unsupported_kwarg`: which of the two the legacy call meant is not the pack's.
+    aliases: dict[PlainName, PlainName] = Field(default_factory=dict)
     positional_to_kw: tuple[PlainName, ...] = ()
     # Legacy parameters carried when written as keywords, so a positional one is still refused.
     keywords: tuple[PlainName, ...] = ()
+    # Parameters carried only as a number written out above zero: the legacy call took any other
+    # value for none and used its own default, where the new one takes it as it is.
+    positive_numbers: tuple[PlainName, ...] = ()
     config_class: QualifiedName | None = None
     config_kwargs: tuple[PlainName, ...] = ()
     config_kwarg: PlainName | None = None
@@ -870,6 +876,7 @@ class RewriteCallParams(_Closed):
         # Legacy parameter order: the one sequence here that must not be sorted.
         _ordered_unique(self.positional_to_kw, "positional_to_kw")
         _sorted_set(self.keywords, "keywords")
+        _sorted_set(self.positive_numbers, "positive_numbers")
         _sorted_set(self.config_kwargs, "config_kwargs")
         _sorted_set(self.result_access_flags, "result_access_flags")
         _sorted_set(self.result_attribute_flags, "result_attribute_flags")
@@ -886,9 +893,11 @@ class RewriteCallParams(_Closed):
         self._check_the_result_is_read_one_way()
         self._check_no_parameter_has_two_destinations()
         self._check_every_renamed_parameter_is_one_the_rule_reads()
+        self._check_every_alias_stands_for_a_parameter_the_rule_reads()
         self._check_no_two_parameters_land_on_one_keyword()
         self._check_every_dispatching_parameter_is_one_the_rule_reads()
         self._check_every_mapped_parameter_is_one_the_rule_reads()
+        self._check_every_numeric_parameter_is_one_the_rule_reads()
         self._check_every_conditional_warning_is_one_the_rule_can_withhold()
         return self
 
@@ -965,6 +974,38 @@ class RewriteCallParams(_Closed):
                     f"value_maps[{parameter!r}] is empty, which refuses every call rather than "
                     f"saying which values carry; drop the entry instead"
                 )
+
+    def _check_every_alias_stands_for_a_parameter_the_rule_reads(self) -> None:
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.aliases.values()) - known)
+        if unknown:
+            raise ValueError(
+                f"aliases stand for {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not name; the rule reads an argument by its legacy name, so "
+                f"the alias would carry nothing"
+            )
+        named = sorted(set(self.aliases) & known)
+        if named:
+            raise ValueError(
+                f"{named} is an alias and a parameter the rule reads too; a keyword is one "
+                f"parameter or another name for it"
+            )
+
+    def _check_every_numeric_parameter_is_one_the_rule_reads(self) -> None:
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.positive_numbers) - known)
+        if unknown:
+            raise ValueError(
+                f"positive_numbers names {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
+                f"list is never consulted"
+            )
+        both = sorted(set(self.positive_numbers) & set(self.value_maps))
+        if both:
+            raise ValueError(
+                f"{both} is in positive_numbers and has a value_maps table; the one carries a "
+                f"number and the other a string, so no value could pass"
+            )
 
     def _check_every_conditional_warning_is_one_the_rule_can_withhold(self) -> None:
         both = sorted(set(self.warnings) & set(self.warnings_unless))

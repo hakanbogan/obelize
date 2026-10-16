@@ -110,11 +110,29 @@ A call reached through `from openai import ChatCompletion` has no root to keep a
 `positional_to_kw`, which lists the legacy positional order. A positional argument beyond
 `positional_to_kw` is still `positional_arg_ambiguous`, and a keyword in neither list, or a `**`
 splat, is `unsupported_kwarg`. The openai pack lists the request-body parameters 0.28.1 sent untouched
-and every measured release still takes, and leaves out what 0.28.1 read itself (D1): `engine`,
-`api_key`, `request_timeout`, `stream` and `timeout`, which 0.28.1 popped as a retry deadline and
-never sent, where the new methods send it as the HTTP timeout, and `encoding_format`, which 0.28.1
-asked base64 for and decoded itself. A name outside the list is refused, so a name nobody measured
-never carries.
+and every measured release still takes, and leaves out what 0.28.1 read itself (D1): `api_key`,
+`stream` and `timeout`, which 0.28.1 popped as a retry deadline and never sent, where the new methods
+send it as the HTTP timeout, `deployment_id`, and `encoding_format`, which 0.28.1 asked base64 for and
+decoded itself. A name outside the list is refused, so a name nobody measured never carries.
+
+Two more names that 0.28.1 read itself mean one thing on the new side, and the three calls that take
+them (chat, completion, embedding: the resources built on `EngineAPIResource`) carry them under the
+new names:
+
+- `engine=` is an `aliases` entry for `model`. 0.28.1 sent it as the route of the call,
+  `/engines/<name>/chat/completions`, with no model in the body, where the new method sends the model
+  in the body of `/chat/completions`; its check "Must provide an 'engine' or 'model'" takes either
+  as the one parameter. Both given is `unsupported_kwarg`: 0.28.1 sent both and which one the API read
+  is not measured. Measured on a local server on 0.28.1 and on 1.109.1 and 3.26.0, with the mock
+  reading the route's engine as the model; the API's own reading of the legacy route is not
+  measured, as no measurement calls it. `deployment_id` stays refused, since it selects an Azure
+  deployment.
+- `request_timeout=` is `arg_map`ped to `timeout` and listed in `positive_numbers`, so only a number
+  written out above zero carries. 0.28.1 took any falsy value for its own 600 seconds, where
+  `timeout=0` fails every request on the new side, and read a tuple as a connect and a read time. The
+  new client applies a timeout to each attempt and retries a timed-out request twice (measured: 0.5
+  seconds against a slow server, 0.28.1 one request and an error after 0.5 seconds, 1.109.1 and 3.26.0
+  three requests and an error after 2.9), so one limitation of the pack says so.
 
 ### D5. A result is read only along listed paths
 
@@ -163,7 +181,7 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 | Surface | Why it is refused |
 |---|---|
 | `acreate` | The new module client has no async form: `AsyncOpenAI` is a client the file must build and close. |
-| `stream=True`, `engine`, `deployment_id`, `request_timeout`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. |
+| `stream=True`, `deployment_id`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. `engine` and `request_timeout` are carried as `model` and `timeout` when they can be (D4). |
 | A result read with `.get`, by a key off the path, looped over, passed on or returned | D5, D18. |
 | The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. `api_base` has a counterpart and is rewritten (ADR-055). |
 | `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |

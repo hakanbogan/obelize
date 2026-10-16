@@ -1102,6 +1102,40 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: d["changes"][1]["params"]["arg_map"].update({"body": "kind"}),
     ),
     Case(
+        name="an_alias_for_a_parameter_no_list_names",
+        defect="another name for a parameter the rule never reads, so it would carry nothing",
+        path=f"{EXTRA}.params",
+        says="aliases stand for ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"aliases": {"label": "flavour"}}),
+    ),
+    Case(
+        name="an_alias_that_is_also_a_parameter",
+        defect="a keyword that is a parameter and another name for one",
+        path=f"{EXTRA}.params",
+        says="['body'] is an alias and a parameter the rule reads too",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"aliases": {"body": "kind"}}),
+    ),
+    Case(
+        name="a_number_only_parameter_no_list_names",
+        defect="a list of numbers the rule would never consult",
+        path=f"{EXTRA}.params",
+        says="positive_numbers names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"positive_numbers": ["flavour"]}),
+    ),
+    Case(
+        name="a_number_only_parameter_with_a_value_map",
+        defect="a parameter that must be a number and a string in a table, so no value passes",
+        path=f"{EXTRA}.params",
+        says="['kind'] is in positive_numbers and has a value_maps table",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            {"positive_numbers": ["kind"], "value_maps": {"kind": {"a": "A"}}}
+        ),
+    ),
+    Case(
         name="a_dispatch_prefix_on_a_parameter_no_list_names",
         defect="a prefix list the rule would never consult",
         path=f"{EXTRA}.params",

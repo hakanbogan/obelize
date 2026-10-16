@@ -48,6 +48,9 @@ class Handler(BaseHTTPRequestHandler):
             form(content_type, raw) if content_type.startswith("multipart/") else json.loads(raw)
         )
         usage = {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
+        # 0.28.1 sent `engine=` in the route with no model: the mock takes the engine for the model.
+        if match := re.match(r"/v1/engines/([^/]+)/", self.path):
+            body.setdefault("model", match[1])
         answer: dict[str, Any]
         if self.path.endswith("/audio/transcriptions") or self.path.endswith("/audio/translations"):
             answer = {"text": f"{self.path.rsplit('/', 1)[1]} {sorted(body.items())}"}

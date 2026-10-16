@@ -167,8 +167,14 @@ the legacy parameter order and the new call's own arguments; `keywords` names
 more of the new call's arguments, carried only **when written as keywords**, so
 a positional argument beyond `positional_to_kw` is still
 `positional_arg_ambiguous`; `config_kwargs` go into `config_class`, passed as
-`config_kwarg`. Any other keyword, and a `**` splat, is `unsupported_kwarg`. The
-schema checks that no parameter is in two lists, every `arg_map` key is in one, no two parameters map to one keyword (the configuration object's own keyword, `config_kwarg`, counts: `arg_map` may not rename a parameter onto it), `keywords`, `config_kwargs` and `result_paths` are sorted and de-duplicated, and every `dispatch_prefixes` and `value_maps` key is read by the rule; `warnings` is sorted and holds codes of [the warning table](SCAN_VOCABULARY.md), and `warnings_unless` keys are such codes, not also in `warnings`, with a parameter the rule reads. A list of `keywords` is an allowlist of what a measurement showed
+`config_kwarg`. Any other keyword, and a `**` splat, is `unsupported_kwarg`. `aliases`
+names other keywords the legacy call took for a parameter of those lists (`engine: model`): a call
+that passes one is read as the parameter, renamed and checked as it is, and a call that passes both
+is `unsupported_kwarg`, since which one the legacy call meant is not the pack's to say.
+`positive_numbers` names parameters carried only as a number written out above zero (`request_timeout`,
+which the legacy call took for none when falsy and replaced with its own default): any other value,
+a name or `None` included, is `unsupported_kwarg`. The
+schema checks that no parameter is in two lists, every `arg_map` key is in one, no two parameters map to one keyword (the configuration object's own keyword, `config_kwarg`, counts: `arg_map` may not rename a parameter onto it), `keywords`, `config_kwargs`, `positive_numbers` and `result_paths` are sorted and de-duplicated, every `aliases` value is a parameter of those lists and no alias is one, and every `dispatch_prefixes`, `value_maps` and `positive_numbers` name is read by the rule (`positive_numbers` and `value_maps` share none); `warnings` is sorted and holds codes of [the warning table](SCAN_VOCABULARY.md), and `warnings_unless` keys are such codes, not also in `warnings`, with a parameter the rule reads. A list of `keywords` is an allowlist of what a measurement showed
 the new call takes with the meaning the old one gave it, never a list of what
 the old one accepted: 0.28.1's `create` sent an unknown keyword as the request
 body and read others itself, and a name nobody measured must not carry.

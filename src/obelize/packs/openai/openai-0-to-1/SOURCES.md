@@ -103,10 +103,31 @@ The limitations that rest on the SDK's own text and not on a fixture:
   `create` read `api_key`, `api_base`, `api_type`, `api_version`,
   `organization`, `request_id`, `engine`, `deployment_id`, `headers`,
   `request_timeout`, `stream` and `timeout` itself and sent everything else as
-  the request body, so each of those is refused and `keywords` lists the body
-  parameters that the call carried and every measured release still takes.
-  `timeout` is refused too: 0.28.1 popped it as a retry deadline and never sent
+  the request body, so `keywords` lists the body parameters that the call carried
+  and every measured release still takes, and `engine` and `request_timeout` are
+  carried as `model` and `timeout` (the next two items); the others are refused.
+  `timeout` is refused: 0.28.1 popped it as a retry deadline and never sent
   it, where the new methods send it as the HTTP timeout.
+- Measured: `engine` is read by `ChatCompletion`, `Completion` and `Embedding` only (the
+  resources built on `EngineAPIResource`; `Image`, `Moderation` and `Audio` send it in the body).
+  On 0.28.1's public API type it is the route, `/v1/engines/<name>/chat/completions`, and the body
+  carries no `model`, where `model=<name>` goes to `/v1/chat/completions` with the name in the body;
+  the same holds for `/completions` and `/embeddings`. Both are accepted as the one parameter
+  ("Must provide an 'engine' or 'model' parameter"), and the new methods send `model` in the body
+  on 1.109.1 and 3.26.0 (a local server recorded the requests). With `api_type` set to `azure`
+  `engine` is the deployment of `/openai/deployments/<name>/...`, which the new Azure client builds
+  from `model` on the same route. Given with a `model`, 0.28.1 sent both (`model` in the body) and
+  which one the service reads is not measured, so the pair is refused. Not measured: whether the
+  API still serves the `/engines/` route, or reads its name as the model; the fixture's mock does,
+  which is the assumption the rewrite rests on. `deployment_id` is the Azure spelling and stays
+  refused.
+- Measured: `request_timeout` is read by the same three resources and used as the `requests`
+  timeout: `0.5` raised `Timeout` after 0.5 s from one request, a falsy value (`0`, `None`) fell back
+  to the 600 seconds of `api_requestor.TIMEOUT_SECS`, and a tuple was a connect and a read time. The
+  new methods' `timeout` is a number of seconds or an `httpx.Timeout`: `timeout=0.5` against the same
+  server raised `APITimeoutError` after 2.9 s from three requests (the client retries a timeout
+  twice, as it does a 408, 409, 429 or 5xx), `timeout=0` raised `APIConnectionError` before any
+  request, and `None` waited. So only a number written out above zero is carried, as `timeout`.
 - Measured: `Embedding.create` on 0.28.1 asked for base64 itself and decoded it
   with numpy, which 0.28.1 does not install; `encoding_format` is therefore not
   carried.

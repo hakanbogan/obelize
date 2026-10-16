@@ -1020,6 +1020,17 @@
       "additionalProperties": false,
       "description": "One legacy free function and the client call it becomes; unlisted parameters are refused.",
       "properties": {
+        "aliases": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "title": "Aliases",
+          "type": "object"
+        },
         "arg_map": {
           "additionalProperties": false,
           "patternProperties": {
@@ -1113,6 +1124,15 @@
             "type": "string"
           },
           "title": "Positional To Kw",
+          "type": "array"
+        },
+        "positive_numbers": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Positive Numbers",
           "type": "array"
         },
         "result_access_flags": {

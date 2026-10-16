@@ -1,10 +1,10 @@
 """`rewrite_call`: a legacy free function becomes a call on the client, one rule per pack change.
 
 Only `positional_to_kw` (the new call's own arguments, in legacy order), `keywords` (the same, when
-written as keywords) and `config_kwargs` (the configuration object) carry; any other keyword is
-refused, never passed to a method that lacks it. Rooted on the `module`, the call stays on the name
-the author wrote and no client is needed. A read of the result by a string key along a listed
-`result_paths` becomes the attribute read of the same name.
+written as keywords), `config_kwargs` (the configuration object) and an alias of one of them carry;
+any other keyword is refused, never passed to a method that lacks it. Rooted on the `module`, the
+call stays on the name the author wrote and no client is needed. A read of the result by a string
+key along a listed `result_paths` becomes the attribute read of the same name.
 """
 
 from __future__ import annotations
@@ -261,9 +261,15 @@ class RewriteCall:
                 name = positional[index]
                 index += 1
             else:
-                name = argument.keyword.value
+                name = self._params.aliases.get(argument.keyword.value, argument.keyword.value)
             if name in given:
-                raise BailError("positional_arg_ambiguous")
+                # Two names for one parameter is no `TypeError` for the legacy call, unlike two
+                # values for one name.
+                raise BailError(
+                    "unsupported_kwarg"
+                    if name in self._params.aliases.values()
+                    else "positional_arg_ambiguous"
+                )
             landed = self._params.arg_map.get(name, name)
             value = self._spelled(name, argument.value)
             if name in self._params.config_kwargs:
@@ -281,8 +287,10 @@ class RewriteCall:
         The table holds what the legacy lookup took, so any other value (a name, an enum member, a
         number, an unknown string) is refused rather than sent on as it is. A literal `None` is not
         looked up by the legacy call, which tests the value for truth first, and the new field takes
-        it.
+        it. A `positive_numbers` argument is refused unless it is a number written out above zero.
         """
+        if name in self._params.positive_numbers and not _positive(value):
+            raise BailError("unsupported_kwarg")
         table = self._params.value_maps.get(name)
         if table is None or (isinstance(value, cst.Name) and value.value == "None"):
             return value
@@ -356,6 +364,10 @@ class RewriteCall:
 def _tokens(path: str) -> tuple[str, ...]:
     """`choices[].message` as `("choices", "[]", "message")`."""
     return tuple(re.findall(r"\[\]|\w+", path))
+
+
+def _positive(node: cst.BaseExpression) -> bool:
+    return isinstance(node, cst.Integer | cst.Float) and node.evaluated_value > 0
 
 
 def _integer(node: cst.BaseExpression) -> bool:

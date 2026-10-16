@@ -552,6 +552,14 @@ KEYWORD_DEFECTS = [
         "['depth'] is in keywords and also in positional_to_kw or config_kwargs",
     ),
     ({"arg_map": {"weight": "mass"}}, "arg_map renames ['weight']"),
+    ({"aliases": {"flavour": "weight"}}, "aliases stand for ['weight']"),
+    ({"aliases": {"body": "kind"}}, "['body'] is an alias and a parameter the rule reads too"),
+    ({"positive_numbers": ["weight"]}, "positive_numbers names ['weight']"),
+    ({"positive_numbers": ["depth", "body"]}, "positive_numbers must be sorted and de-duplicated"),
+    (
+        {"positive_numbers": ["kind"], "value_maps": {"kind": {"a": "A"}}},
+        "['kind'] is in positive_numbers and has a value_maps table",
+    ),
     ({"dispatch_prefixes": {"flavour": ["kinds/"]}}, "dispatch_prefixes names ['flavour']"),
     (
         {"arg_map": {"body": "kind"}},
@@ -591,6 +599,18 @@ def test_a_keyword_may_be_renamed_and_may_dispatch_like_any_parameter_the_rule_r
     params = rewrite_params(build(document), 1)
     assert params.arg_map == {"body": "text", "depth": "levels", "kind": "flavour"}
     assert params.dispatch_prefixes == {"body": ("a/",), "kind": ("kinds/",)}
+
+
+def test_an_alias_and_a_number_only_parameter_are_names_the_rule_reads() -> None:
+    document = with_change(
+        builder.MODULE_CALL,
+        aliases={"label": "kind", "span": "depth"},
+        arg_map={"body": "text", "depth": "levels"},
+        positive_numbers=["depth"],
+    )
+    params = rewrite_params(build(document), 1)
+    assert params.aliases == {"label": "kind", "span": "depth"}
+    assert params.positive_numbers == ("depth",)
 
 
 NEW_CALLS = [
