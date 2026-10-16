@@ -90,11 +90,12 @@ name is written at, so the scan's address is the edit's. The dependency budget
 reformat the file. `setup.py` is parsed with libcst: a declaration is a string
 literal inside `install_requires`, `setup_requires`, `tests_require` or
 `extras_require`, and any other string is not one. A name there (`install_requires=REQS`, a list
-element, an `extras_require` value) stands for the list or tuple literal assigned to it, where
-one assignment binds the name, and the strings of that literal are the declarations, edited where
-they are written. A name bound twice, by an import, a parameter or an augmented assignment, or one
-given to a call (`sorted(REQS)`), is not followed. A literal Python cannot evaluate (an invalid
-`\U` escape, a NUL) declares nothing, and the rest of the file is read.
+element, an `extras_require` value) stands for the list, tuple or dict literal assigned to it
+(`EXTRAS = {"ai": [...]}`), where one assignment binds the name, and the strings of that literal
+are the declarations, edited where they are written; the names in it stand for theirs in turn. A
+name bound twice, by an import, a parameter or an augmented assignment, or one given to a call
+(`sorted(REQS)`), is not followed. A literal Python cannot evaluate (an invalid `\U` escape, a NUL)
+declares nothing, and the rest of the file is read.
 
 ### D9. The comment rule is per layout, because the layouts do not agree
 

@@ -786,6 +786,21 @@ setup(install_requires=REQS, tests_require=REQS, extras_require={"a": REQS, "b":
     assert setup_py(text) == [(1, 9, "acme-sdk", True)]
 
 
+@pytest.mark.parametrize(
+    "binding",
+    ['EXTRAS = {"ai": ["acme-sdk==1.0"]}', 'AI = ["acme-sdk==1.0"]\nEXTRAS = {"ai": AI}'],
+    ids=["dict", "dict-of-a-name"],
+)
+def test_a_dict_a_name_stands_for_is_read_and_so_are_the_names_in_it(binding: str) -> None:
+    found = setup_py(f"{binding}\nsetup(extras_require=EXTRAS)\n")
+    assert [(name, pin) for _, _, name, pin in found] == [("acme-sdk", True)]
+
+
+def test_names_that_stand_for_each_other_are_followed_once() -> None:
+    text = "A = [B]\nB = [A, 'acme-sdk==1.0']\nsetup(install_requires=A)\n"
+    assert [(line, name) for line, _, name, _ in setup_py(text)] == [(2, "acme-sdk")]
+
+
 def test_the_declarations_of_a_setup_py_come_in_the_order_of_the_file() -> None:
     text = """
 setup(

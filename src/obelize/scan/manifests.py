@@ -944,14 +944,17 @@ def _whole(node: cst.CSTNode, parents: Mapping[cst.CSTNode, cst.CSTNode]) -> boo
 def _stood_for(
     names: Sequence[cst.Name], wrapper: MetadataWrapper, parents: Mapping[cst.CSTNode, cst.CSTNode]
 ) -> list[cst.SimpleString]:
-    """The strings of the list or tuple literal each name stands for: the one assignment that
-    binds it. A name bound twice, by an import, a parameter or anything but `NAME = [...]` is not
-    followed."""
+    """The strings of the list, tuple or dict literal each name stands for: the one assignment that
+    binds it, and those of the names inside it in turn. A name bound twice, by an import, a
+    parameter or anything but `NAME = [...]` is not followed."""
     if not names:
         return []
     scopes = wrapper.resolve(ScopeProvider)
-    listed: dict[cst.CSTNode, None] = {}
-    for name in names:
+    pending = list(names)
+    followed: set[cst.CSTNode] = set()
+    strings: list[cst.SimpleString] = []
+    while pending:
+        name = pending.pop()
         scope = scopes[name]
         if scope is None:  # pragma: no cover - every node is in some scope
             continue
@@ -964,14 +967,14 @@ def _stood_for(
         if (
             isinstance(assign, cst.Assign)
             and len(assign.targets) == 1
-            and isinstance(assign.value, (cst.List, cst.Tuple))
+            and isinstance(assign.value, (cst.List, cst.Tuple, cst.Dict))
+            and assign.value not in followed
         ):
-            listed[assign.value] = None
-    strings: list[cst.SimpleString] = []
-    for value in listed:
-        inside = _Requirements(depth=1)
-        value.visit(inside)
-        strings.extend(inside.strings)
+            followed.add(assign.value)
+            inside = _Requirements(depth=1)
+            assign.value.visit(inside)
+            strings.extend(inside.strings)
+            pending.extend(inside.names)
     return strings
 
 
