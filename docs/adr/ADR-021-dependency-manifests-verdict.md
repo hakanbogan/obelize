@@ -219,5 +219,6 @@ is now read as code (`parse.notebook`), in the scan's own process and never by a
 - ADR-005's cache key covers findings only. The manifest pass grades one file's
   pin on every other file's plan and on `.obelize.yml`'s exclusions, so it runs
   after every file is scanned and is not cacheable on that key.
-- A `setup.cfg` requirement with a trailing comment is not reported (D9), which
-  errs toward "no legacy pin"; `COVERAGE.md` and a test pin it.
+- A `setup.cfg` requirement with a trailing comment is invalid for setuptools and is a row for its
+  name with no pin (D9): the scan marks it `manifest_pin_shape_unsupported`, and a coupled pack holds
+  until the line is changed by hand.
