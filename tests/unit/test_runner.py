@@ -606,6 +606,12 @@ STANDS_IN: dict[str, dict[str, str | bytes]] = {
     "upper-bound-only": {"requirements.txt": "PyPDF2<4\n"},
     "two-bounds": {"requirements.txt": "PyPDF2>=2,<4\n"},
     "poetry": {"pyproject.toml": '[tool.poetry.dependencies]\nPyPDF2 = "*"\n'},
+    "an-include-of-a-file-that-says-nothing-of-it": {
+        "requirements.txt": "-r base.pip\n-c pins.pip\nPyPDF2\n",
+        "base.pip": "flask\n-r sub/more.pip\n",
+        "sub/more.pip": "-c ../pins.pip\n",
+        "pins.pip": "flask<3\n",
+    },
     "pipfile": {"Pipfile": '[packages]\nPyPDF2 = "*"\n'},
     "setup-py": {"setup.py": 'from setuptools import setup\nsetup(install_requires=["PyPDF2"])\n'},
     "requirements-and-input-files-that-say-nothing-of-it": {
@@ -626,10 +632,28 @@ HELD_BACK: dict[str, tuple[dict[str, str | bytes], str, str]] = {
         "Pipfile.lock\n",
         "Pipfile.lock",
     ),
-    "include-of-an-unread-file": (
-        {"requirements.txt": "-r base.txt\nPyPDF2\n", "base.txt": "PyPDF2<3\n"},
+    "include-of-a-missing-file": (
+        {"requirements.txt": "-r base.txt\nPyPDF2\n"},
         "",
         "requirements.txt",
+    ),
+    "include-of-a-file-outside-the-repository": (
+        {"requirements.txt": "-r ../base.txt\nPyPDF2\n"},
+        "",
+        "requirements.txt",
+    ),
+    "include-of-a-file-the-scan-leaves-out": (
+        {"requirements.txt": "-r vendor/base.txt\nPyPDF2\n", "vendor/base.txt": "six\n"},
+        "",
+        "requirements.txt",
+    ),
+    "option-of-an-included-file": (
+        {
+            "requirements.txt": "-r base.pip\nPyPDF2\n",
+            "base.pip": "--index-url https://private.example/simple\n",
+        },
+        "",
+        "base.pip",
     ),
     "private-index": (
         {"requirements.txt": "-i https://private.example/simple\nPyPDF2\n"},
@@ -720,6 +744,11 @@ UNHONOURED: dict[str, tuple[dict[str, str | bytes], str, str | None]] = {
     "constraints-file": (
         {"requirements.txt": "-c constraints.txt\nPyPDF2\n", "constraints.txt": "PyPDF2<3\n"},
         "constraints.txt",
+        "<3",
+    ),
+    "included-file": (
+        {"requirements.txt": "-r base.pip\nPyPDF2\n", "base.pip": "PyPDF2<3\n"},
+        "base.pip",
         "<3",
     ),
     "own-table": (

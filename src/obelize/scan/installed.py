@@ -169,6 +169,7 @@ def _unread(
     version it names is judged with every listed file.
     """
     named = re.compile(rf"(?<![\w-]){spelled}(?!\w|-[a-z])", re.IGNORECASE)
+    followed = {path for path, _ in walk.followed}
     for path in (*walk.manifests, *walk.excluded_manifests):
         data, _refused = contents(path)
         whole = path in walk.manifests
@@ -184,7 +185,7 @@ def _unread(
             if whole and counted > sum(row.path == path for row in rows):
                 return path
             continue
-        pip = manifests.layout(path) in manifests.PIP
+        pip = path in followed or manifests.layout(path) in manifests.PIP
         read = {row.line for row in rows if row.path == path}
         for number, line in enumerate(data.decode("utf-8", "surrogateescape").split("\n"), 1):
             body = manifests.PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)

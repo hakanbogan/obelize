@@ -38,7 +38,15 @@ def names(text: str, path: str = "requirements.txt") -> list[str]:
 
 def pin(line: int = 1, name: str = LEGACY, path: str = "requirements.txt") -> manifests.Declaration:
     return manifests.Declaration(
-        path=path, line=line, column=0, name=name, raw=name, end=len(name), pin=None, spec=None
+        path=path,
+        line=line,
+        column=0,
+        name=name,
+        raw=name,
+        end=len(name),
+        pin=None,
+        spec=None,
+        constraint=manifests.constrains(path),
     )
 
 
@@ -1206,6 +1214,23 @@ def test_a_constraints_file_declares_nothing_a_pin_of_the_legacy_distribution_mu
     assert scanned.manifests.transitive == ("retry.py",)
     held = {(row.path, row.bail) for row in scanned.manifests.findings if row.bail}
     assert ("requirements.txt", "transitive_dependency_in_use") in held
+
+
+def test_a_file_named_by_a_c_option_declares_nothing_whatever_its_name_is(tmp_path: Path) -> None:
+    files = {
+        "main.py": MIGRATES,
+        "retry.py": "import acme.wire\n",
+        "requirements.txt": "-c pins.pip\nacme-sdk==0.1.0\n",
+        "pins.pip": "acme-wire<3\n",
+    }
+    write_tree(tmp_path, files)
+    scanned = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert scanned.followed == (("pins.pip", "constrained"),)
+    assert scanned.manifests.transitive == ("retry.py",)
+    write_tree(tmp_path, {"requirements.txt": "-r pins.pip\nacme-sdk==0.1.0\n"})
+    required = runner.scan(tmp_path, Config(), SPEC, jobs=1)
+    assert required.followed == (("pins.pip", "required"),)
+    assert required.manifests.transitive == ()
 
 
 def test_an_import_of_the_legacy_distribution_is_the_reason_given_first() -> None:

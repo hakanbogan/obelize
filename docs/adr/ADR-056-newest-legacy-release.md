@@ -65,7 +65,7 @@ searched for a version or a name.
    an override counts, and `known_third_party` under `[tool.isort]`, a Ruff or mypy list, a
    project's `description` and a URL do not; in a requirements, input or constraints file, a pip
    option that can move the release, which is every option but `-r` or `-c` to a manifest the scan
-   reads, `-e` to a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued
+   reads (one that an include names too, [ADR-021](ADR-021-dependency-manifests-verdict.md) D15), `-e` to a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued
    line is such an option. A line that is read and names a release (`PyPDF2<3` in a constraints file) is judged
    like any declaration, by the floor and by item 5; a file that names nothing about the
    distribution is no evidence for being there. A manifest the user's `exclude` removed is judged
