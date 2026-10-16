@@ -35,6 +35,7 @@ from obelize.packs.schema import (
     ConfigureToClientChange,
     FlagOnlyChange,
     GenerativeModelCallsChange,
+    ManifestDependencyChange,
     PackDocument,
     under_any,
 )
@@ -221,6 +222,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     flagged: set[str] = set()
     patterns: set[FlagOnlyPattern] = set()
     client_symbol = new_client_symbol = None
+    declare_transitive = False
     for change in pack.changes:
         if isinstance(change, ConfigureToClientChange):
             client_symbol = change.params.legacy_symbol
@@ -233,6 +235,8 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
             attributes.update(change.params.attributes)
             flagged.update(change.params.symbols)
             patterns.update(change.params.patterns)
+        elif isinstance(change, ManifestDependencyChange):
+            declare_transitive = change.params.declare_transitive
     floor = bounds(SpecifierSet(pack.from_.version))[0]
     return ScanSpec(
         pack_id=pack.id,
@@ -249,7 +253,11 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         legacy_floor=None if floor is None else str(floor),
         legacy_newest=pack.from_.newest,
         legacy_lacks=pack.from_.lacks,
+        legacy_range=pack.from_.version,
+        legacy_since=pack.from_.since,
         new_version=pack.to.version,
+        new_names=pack.to.introduces,
+        declare_transitive=declare_transitive,
         constructor_symbols=tuple(sorted(constructors)),
         supported_methods=tuple(
             ReceiverMethods(receiver=receiver, methods=methods[receiver])
@@ -301,12 +309,22 @@ def conflict(first: PackDocument, second: PackDocument) -> str | None:
 # them out.
 _IDENTITY: Final[frozenset[str]] = frozenset({"pack_id", "pack_version", "pack_sha256"})
 _GATES: Final[frozenset[str]] = frozenset(
-    {"requires_python", "legacy_floor", "legacy_newest", "legacy_lacks", "new_version"}
+    {
+        "requires_python",
+        "legacy_floor",
+        "legacy_newest",
+        "legacy_lacks",
+        "legacy_range",
+        "legacy_since",
+        "new_version",
+    }
 )
 
 # Read by the scanner but absent from the measured digest of the packs that predate it: left out
 # while unset, so adding the field moved no digest.
-_WHEN_SET: Final[frozenset[str]] = frozenset({"shared", "new_range", "new_client_symbol"})
+_WHEN_SET: Final[frozenset[str]] = frozenset(
+    {"shared", "new_range", "new_client_symbol", "new_names", "declare_transitive"}
+)
 
 
 def spec_digest(spec: ScanSpec) -> str:

@@ -91,6 +91,12 @@ def behaviour() -> list[str]:
         "the kept names are defined": all(
             hasattr(sdk, name) for name in ("OpenAIError", "VERSION", "api_key", "organization")
         ),
+        "the names that prove a release of the range are defined": all(
+            hasattr(sdk, name) for name in ("Audio", "ChatCompletion")
+        ),
+        "no name of the new client is defined": not any(
+            hasattr(sdk, name) for name in ("AsyncOpenAI", "AzureOpenAI", "OpenAI")
+        ),
     }
     for claim, held in checks.items():
         if not held:

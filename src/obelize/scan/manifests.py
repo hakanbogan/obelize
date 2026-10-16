@@ -24,7 +24,7 @@ from libcst.metadata import (
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from obelize.models import (
     REPO_ATOMICITY_BAIL,
@@ -180,6 +180,8 @@ class Migration:
     excluded: tuple[str, ...] = ()
     # (file, distribution) per import of a module only the legacy distribution installed.
     transitive: tuple[tuple[str, str], ...] = ()
+    # Some file uses a name only the new API defines (`ScanSpec.new_names`).
+    modern: bool = False
 
 
 def layout(path: str) -> Layout | None:
@@ -247,12 +249,14 @@ def survey(
     transitive: Iterable[tuple[str, str]] = (),
     *,
     paired: bool = False,
+    modern: bool = False,
 ) -> Migration:
-    """The pin-edit conditions from the per-file plans, plus two lists no plan carries.
+    """The pin-edit conditions from the per-file plans, plus what no plan carries.
 
     A file migrated if any row is eligible; it blocks if a non-eligible row still loads the
     distribution (`IMPORTING` or a mock target). `unanalysed` files block like an import. Where
-    `paired` (see `coupled`) no import marks the old API, so any withheld row blocks.
+    `paired` (see `coupled`) no import marks the old API, so any withheld row blocks. `modern` is
+    whether any file uses a name only the new API defines (`uses_new_names`).
     """
     migrated: set[str] = set()
     blocking: set[str] = set()
@@ -272,6 +276,7 @@ def survey(
         blocking=tuple(sorted(blocking)),
         excluded=tuple(sorted(set(excluded))),
         transitive=tuple(sorted(set(transitive))),
+        modern=modern,
     )
 
 
@@ -309,6 +314,41 @@ def provided(path: str, data: bytes, spec: ScanSpec) -> tuple[tuple[str, str], .
             }
         )
     )
+
+
+def uses_new_names(data: bytes, spec: ScanSpec) -> bool:
+    """Whether a file uses a name only the new API defines, as written or through an alias.
+
+    Read from the imports and the attributes of what they bind, so a local variable of the same name
+    is not one. An unparsable file yields nothing; the scan reports it elsewhere.
+    """
+    if not any(name.rpartition(".")[2].encode() in data for name in spec.new_names):
+        return False
+    try:
+        tree = ast.parse(data)
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
+        return False
+    bound: dict[str, str] = {}
+    used: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                top = alias.name.partition(".")[0]
+                bound[alias.asname or top] = alias.name if alias.asname else top
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for alias in node.names:
+                bound[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+                used.add(f"{node.module}.{alias.name}")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute):
+            parts = [node.attr]
+            value = node.value
+            while isinstance(value, ast.Attribute):
+                parts.append(value.attr)
+                value = value.value
+            if isinstance(value, ast.Name) and value.id in bound:
+                used.add(".".join((bound[value.id], *reversed(parts))))
+    return any(name == new or name.startswith(f"{new}.") for name in used for new in spec.new_names)
 
 
 def declares(found: Iterable[Declaration], spec: ScanSpec) -> bool:
@@ -363,32 +403,62 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
         declares.setdefault(declaration.path, set()).add(declaration.name)
         if not fnmatch.fnmatchcase(PurePosixPath(declaration.path).name, _CONSTRAINTS):
             owners.setdefault(declaration.name, set()).add(_owner(declaration.path))
-    needed = tuple(
-        sorted(
-            {
-                path
-                for path, distribution in migration.transitive
-                if not any(
-                    parent in owners.get(canonicalize_name(distribution), ())
-                    for parent in PurePosixPath(path).parents
-                )
-            }
-        )
+    undeclared = sorted(
+        {
+            (path, canonicalize_name(distribution))
+            for path, distribution in migration.transitive
+            if not any(
+                parent in owners.get(canonicalize_name(distribution), ())
+                for parent in PurePosixPath(path).parents
+            )
+        }
     )
+    needed = tuple(sorted({path for path, _ in undeclared}))
+    placed = _placed(found, undeclared, spec) if spec.declare_transitive and needed else None
     rows: list[Finding] = []
     for declaration in found:
         beside = declares[declaration.path]
         if declaration.name == legacy:
             if not _arrived(declaration, spec):
-                rows.extend(_legacy(declaration, migration, spec, new in beside, needed))
+                rows.extend(_legacy(declaration, migration, spec, new in beside, needed, placed))
         elif declaration.name == new and migration.blocking and legacy not in beside:
             rows.append(_row(declaration, spec.new_distribution, "manifest_code_mismatch"))
     return ManifestPlan(
         findings=tuple(sorted(rows, key=lambda row: row.sort_key)),
         blocking=migration.blocking,
         excluded=migration.excluded,
-        transitive=needed,
+        transitive=() if placed is not None and not migration.blocking else needed,
     )
+
+
+def _placed(
+    found: Sequence[Declaration], undeclared: Sequence[tuple[str, str]], spec: ScanSpec
+) -> dict[tuple[str, int, int], tuple[str, ...]] | None:
+    """The distributions to declare below each legacy requirement, or `None` where one has no
+    requirement to go below.
+
+    Each goes below the legacy requirement nearest the file that imports it, in a requirements
+    file whose line can be copied: any other layout keeps the pin waiting, since a declaration
+    written into a table or a `setup.py` list is not a line of its own.
+    """
+    legacy = canonicalize_name(spec.legacy_distribution)
+    hosts = [
+        row
+        for row in found
+        if row.name == legacy
+        and row.pin is not None
+        and layout(row.path) == "requirements"
+        and not _arrived(row, spec)
+    ]
+    placed: dict[tuple[str, int, int], set[str]] = {}
+    for path, distribution in undeclared:
+        parents = PurePosixPath(path).parents
+        near = [row for row in hosts if _owner(row.path) in parents]
+        if not near:
+            return None
+        host = min(near, key=lambda row: (-len(_owner(row.path).parts), row.path, row.line))
+        placed.setdefault((host.path, host.line, host.column), set()).add(distribution)
+    return {key: tuple(sorted(names)) for key, names in placed.items()}
 
 
 def _owner(path: str) -> PurePosixPath:
@@ -403,19 +473,23 @@ def _legacy(
     spec: ScanSpec,
     new_declared: bool,
     needed: Sequence[str],
+    placed: Mapping[tuple[str, int, int], tuple[str, ...]] | None = None,
 ) -> Iterator[Finding]:
     """The two pin edits on one legacy declaration, in its four states.
 
     Adding the new distribution is `auto` once anything migrated (a partial migration needs both);
-    removing the legacy pin waits while any file imports it or needs a module only it installs.
-    Both clear: one rewrite. Nothing migrated or importing: `not_a_usage` context, never an edit.
+    removing the legacy pin waits while any file imports it or needs a module only it installs,
+    unless `placed` declares those below it. Both clear: one rewrite. Nothing migrated or importing:
+    `not_a_usage` context, never an edit.
     """
     if not migration.migrated:
         code = (
             REPO_ATOMICITY_BAIL
             if migration.blocking
             else None
-            if needed or migration.excluded or coupled(spec)
+            if needed
+            or migration.excluded
+            or (coupled(spec) and not (migration.modern and _legacy_only(declaration, spec)))
             else "manifest_code_mismatch"
         )
         yield _row(declaration, spec.legacy_distribution, code, absent=code is None)
@@ -423,14 +497,34 @@ def _legacy(
     if spec.new_range is not None and declaration.pin is None:
         yield _row(declaration, spec.legacy_distribution, SHAPE_BAIL)
         return
-    if not migration.blocking and not needed:
-        # Both halves are clear, so they are one rewrite of one line.
+    if not migration.blocking and (not needed or placed is not None):
+        # Both halves are clear, so they are one rewrite of one line, and what only the legacy
+        # distribution installed is declared below it.
         yield _row(declaration, spec.legacy_distribution, None)
+        for name in (placed or {}).get(
+            (declaration.path, declaration.line, declaration.column), ()
+        ):
+            yield _row(declaration, name, None)
         return
     if not new_declared:
         yield _row(declaration, spec.new_distribution, None)
     code = REPO_ATOMICITY_BAIL if migration.blocking else TRANSITIVE_BAIL
     yield _row(declaration, spec.legacy_distribution, code)
+
+
+def _legacy_only(declaration: Declaration, spec: ScanSpec) -> bool:
+    """Whether a declaration admits some release of the legacy range and none above it, so code
+    that uses a name only the new API defines cannot run on what it installs. One nobody can read
+    is not judged."""
+    found = None if declaration.spec is None else alternatives(declaration.spec)
+    legacy = SpecifierSet(spec.legacy_range)
+    ceiling = bounds(legacy)[1]
+    return (
+        found is not None
+        and ceiling is not None
+        and meets(found, legacy)
+        and not meets(found, SpecifierSet(f">={ceiling}"))
+    )
 
 
 def _arrived(declaration: Declaration, spec: ScanSpec) -> bool:
@@ -526,6 +620,36 @@ def lowest(declared: str | None) -> Version | None:
     if None in floors or any(floor is not None and floor.local for floor in floors):
         return None
     return min(floor for floor in floors if floor is not None)
+
+
+def meets(found: Iterable[SpecifierSet], target: SpecifierSet) -> bool:
+    """Whether some release is in `target` and in one of `found`.
+
+    The two sets meet where some version is in both. One is found at a version either names, just
+    above one, the release after one (where `!=6.19.*` ends) or at 0, since a range of PEP 440
+    specifiers starts at one of them.
+    """
+    for part in found:
+        both = part & target
+        try:
+            named = {Version(item.version.removesuffix(".*")) for item in both}
+        except InvalidVersion:  # `===` takes any string
+            return True
+        probes = {
+            Version("0"),
+            *named,
+            *(Version(f"{version.base_version}.0.1") for version in named),
+            *map(_after, named),
+        }
+        if any(both.contains(version, prereleases=True) for version in probes):
+            return True
+    return False
+
+
+def _after(version: Version) -> Version:
+    """The release after `version` at its own depth: where `!=6.19.*` ends, at 6.20."""
+    *head, last = version.release
+    return Version(".".join(map(str, (*head, last + 1))))
 
 
 def _requirement(path: str, line: int, column: int, text: str) -> Declaration | None:

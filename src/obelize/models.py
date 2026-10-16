@@ -1097,14 +1097,23 @@ class ScanSpec(_Frozen):
     # Modules that came with the legacy pin, which the manifest pin check inspects before the
     # pin may go.
     transitive_modules: tuple[ProvidedModule, ...] = ()
+    # Whether the pin moves by declaring those modules' distributions in a requirements file,
+    # where `transitive_dependency_in_use` would keep it.
+    declare_transitive: bool = False
+    # Names only the new API defines, where one distribution holds both: code that uses one beside
+    # a pin that admits only the legacy range is a manifest row.
+    new_names: tuple[str, ...] = ()
     # What the repository must declare for a run to propose anything: the PEP 440 set of Pythons
     # the new distribution installs on, and the lowest legacy version the pack's rules were
     # measured on. Neither changes a finding, so `spec_digest` leaves them out. Nor do the newest
-    # legacy release (what a declaration naming no version installs) and the names it lacks.
+    # legacy release (what a declaration naming no version installs) and the names it lacks, or
+    # the legacy range and the names only it defines (what code that uses one is taken to prove).
     requires_python: str
     legacy_floor: str | None = None
     legacy_newest: str | None = None
     legacy_lacks: tuple[str, ...] = ()
+    legacy_range: str = ""
+    legacy_since: tuple[str, ...] = ()
     # The releases the pack writes (`to.version`): a declaration of the new distribution that admits
     # none of them stops the run. Also a gate, so `spec_digest` leaves it out.
     new_version: str | None = None
@@ -1122,6 +1131,8 @@ class ScanSpec(_Frozen):
             ("removed_attributes", self.removed_attributes),
             ("flag_only_symbols", self.flag_only_symbols),
             ("legacy_lacks", self.legacy_lacks),
+            ("legacy_since", self.legacy_since),
+            ("new_names", self.new_names),
         ):
             _sorted_unique(values, field)
             bad = [value for value in values if not QUALIFIED_NAME.fullmatch(value)]
@@ -1142,6 +1153,7 @@ class ScanSpec(_Frozen):
             if symbol is not None and not QUALIFIED_NAME.fullmatch(symbol):
                 raise ValueError(f"{field} must be a qualified name, got {symbol!r}")
         SpecifierSet(self.requires_python)
+        SpecifierSet(self.legacy_range)
         for specifier in (self.new_range, self.new_version):
             if specifier is not None:
                 SpecifierSet(specifier)

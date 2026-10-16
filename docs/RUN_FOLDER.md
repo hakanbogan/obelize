@@ -130,7 +130,7 @@ report is empty. Neither is ever absent.
 | `sha256` | string | 64 lowercase hex characters, matching `packs/<id>/pack.sha256` and the copy in `pack.yaml`. |
 | `source` | string | `bundled` or `file`. No path: it could be absolute and outside the repository. |
 | `blocked` | string or null | `runtime_unsupported` when the project declares a Python the new distribution does not install on (read from `pyproject.toml`, `setup.cfg`, Poetry's key, a `Pipfile`'s `[requires]` or a string `python_requires=` in `setup.py`), `legacy_version_unsupported` when the legacy distribution is pinned below the pack's floor, unpinned, or undeclared while the code uses it, or `new_version_unsupported` when a manifest pins the new distribution so that it admits no release the pack writes (`pypdf==3.0.0`): this pack reports its findings, its rows are withheld for that reason, and it proposes no migration. An unparsable declaration leaves it unblocked. A pack that names its newest legacy release does not block on an unpinned declaration unless the repository shows another release: code or text that names a class or module that release lacks is one ([ADR-056](adr/ADR-056-newest-legacy-release.md)). The message of a `legacy_version_unsupported` block adds that a pin moves the release and not the code, so a call to a name the pinned release removed is ported first. |
-| `assumed` | string or null | The release the pack took for a legacy declaration that names no version, or one below the pack's floor that admits it: the pack's `from.newest`, such as `3.0.1`. `null` when nothing was assumed: a declaration that already reaches the floor (`PyPDF2>=3`) is not, and neither is any run of a pack that names no newest release. The terminal and `REPORT.md` say so too. |
+| `assumed` | string or null | What the pack took a legacy declaration for where it names no version, or one below the pack's floor that admits it: the pack's `from.newest`, such as `3.0.1`, or, for a pack that names `from.since`, the range `from.version`, such as `>=0.27.0,<1`, where the code uses a name only that range defines. `null` when nothing was assumed: a declaration that already reaches the floor (`PyPDF2>=3`) is not, and neither is any run of a pack that names neither field. The terminal and `REPORT.md` say so too. |
 
 When several packs ran, each ran over what the ones before it wrote, in id order, so an edit's `line`
 is in the file as its own pack saw it, and a `rule_id` is `<pack id>:<rule id>`.
@@ -357,6 +357,8 @@ A file the scan already refused has no row here, since no rule claimed it; so
 the table shows. It also holds what each pack says about the
 findings it flagged (Guidance) and what each pack does not handle (Limitations), read from the
 packs the run loaded: no field of `findings.json`, `plan.json` or `run.json` carries them. Under
+Limitations it also names the files that use the legacy API and that no rule writes, a notebook
+with the cells that do and a stub with none, which no field carries either. Under
 Dependency manifests it names the lock files beside a manifest pin that was written or would be, or
 above it, since obelize does not edit them; that is not recorded in a field either.
 

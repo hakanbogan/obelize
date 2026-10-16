@@ -63,7 +63,8 @@ floor adds `legacy_version_unsupported`: any manifest declaring the legacy distr
 version, or one admitting a version below that floor, and any repository that uses the library
 and declares it nowhere, is blocked too, since the pack's rules were measured above it. A pack that
 names its newest release takes a declaration that installs it as that release, unless the repository
-shows another (ADR-056). A pack with two distributions adds `new_version_unsupported`: a manifest
+shows another (ADR-056), and one that names what only its old range defines does so beside code that
+uses one (ADR-056 D5). A pack with two distributions adds `new_version_unsupported`: a manifest
 that pins the new distribution so that it admits no release the pack writes (`pypdf==3.0.0`) blocks
 the run too (ADR-050 D5). A blocked run still grades and reports every finding, but plans no
 change and asks a configured model nothing, so `fix --apply` over it writes

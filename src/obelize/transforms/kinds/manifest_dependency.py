@@ -2,7 +2,9 @@
 
 Writes the pin edits as `scan/manifests.py` graded them repository-wide, one edit per row: a
 legacy row is replaced in place; a new-distribution row is inserted below the legacy line, which
-stays because something still imports it.
+stays because something still imports it. A pack that declares what the legacy distribution
+installed gets a row for each such distribution too, which is written below the legacy line as a
+bare name.
 """
 
 from __future__ import annotations
@@ -45,10 +47,14 @@ class ManifestDependency:
         # The pack's spelling: PEP 503 folding is for comparison, not for a file people read.
         self._written = change.params.to_name
         self._spec = change.params.to_spec
+        self._declares = change.params.declare_transitive
 
     def claims(self, finding: Finding) -> bool:
-        """Every manifest row about either side of this rule's migration."""
-        return finding.kind == "manifest" and _named(finding) in {self._legacy, self._new}
+        """Every manifest row about either side of this rule's migration, and about what it
+        declares for them: the plan holds no other."""
+        return finding.kind == "manifest" and (
+            self._declares or _named(finding) in {self._legacy, self._new}
+        )
 
     def apply(self, context: ManifestContext) -> tuple[Edit, ...]:
         """One edit per claimed row, in reader order; a `not_a_usage` row is context, not edited."""
@@ -91,6 +97,9 @@ class ManifestDependency:
         if declaration is None or declaration.pin is None:
             raise BailError(SHAPE)
         line = context.line(declaration.line)
+        if _named(finding) not in {self._legacy, self._new}:
+            context.rewrites.after(declaration.line, _bare(line, finding.symbol or ""))
+            return
         if _named(finding) == self._legacy:
             if self._new != self._legacy and any(o.name == self._new for o in context.declarations):
                 raise BailError(SHAPE)
@@ -129,6 +138,11 @@ class ManifestDependency:
             + self._spec
             + line[pin[1] :]
         )
+
+
+def _bare(line: str, name: str) -> str:
+    """A line that declares `name` and nothing else, indented and ended as `line` is."""
+    return line[: len(line) - len(line.lstrip())] + name + ("\r" if line.endswith("\r") else "")
 
 
 def _named(finding: Finding) -> str:

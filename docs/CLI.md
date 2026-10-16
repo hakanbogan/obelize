@@ -145,9 +145,10 @@ named. `REPORT.md` says the same under Dependency manifests, for a dry run too.
 many, the most common reasons with a sentence on what to change for each (the last column of
 [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md#4-bail-codes-editreason)), up to five of the rows that cause them (`path:line symbol code`,
 with `and N more in REPORT.md` after them), the files that hold the pin without a row (a notebook
-is read but not analysed; list it under `exclude` to migrate the rest), and a link to what each
-code means. A pack whose one distribution holds both APIs adds a line saying the whole repository
-moves or none of it.
+that calls the legacy API, which obelize reads and never writes, or a file it does not analyse;
+migrate them by hand, or list a notebook under `exclude` to migrate the rest), and a link to what
+each code means. A pack whose one distribution holds both APIs adds a line saying the whole
+repository moves or none of it.
 
 **A warning on an edit that is written** (or would be, in a dry run) is printed as
 `Check <file>:<line>: <code>: <what to look at>`. After `--apply` the line is the one before the
@@ -172,7 +173,8 @@ how many seconds each is stopped. It never names a command, which can carry a cr
 ### Several packs in one run
 
 `scan` and `fix` read the repository once and scan it with every pack they try. A pack runs when
-`--pack` names it, or, without `--pack`, when it has a finding that is not `not_a_usage`; a run
+`--pack` names it, or, without `--pack`, when it has a finding that is not `not_a_usage` or a file
+that uses its legacy API and that no rule writes (a notebook, a stub); a run
 that chooses none prints `No pack applies. Checked: <ids>.`, writes a run folder with `packs: []`
 and exits `0`.
 

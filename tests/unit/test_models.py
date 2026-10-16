@@ -664,6 +664,9 @@ def test_the_scan_spec_answers_what_a_receiver_supports() -> None:
         ({"legacy_lacks": ("b.Old", "a.Old")}, "sorted and de-duplicated"),
         ({"legacy_lacks": ("a.Old", "a.Old")}, "sorted and de-duplicated"),
         ({"legacy_lacks": ("not a name",)}, "qualified names"),
+        ({"legacy_since": ("b.Old", "a.Old")}, "sorted and de-duplicated"),
+        ({"legacy_since": ("not a name",)}, "qualified names"),
+        ({"legacy_range": "latest"}, "Invalid specifier"),
     ],
 )
 def test_the_scan_spec_refuses_a_projection_that_cannot_be_scanned(
@@ -680,6 +683,9 @@ def test_the_scan_spec_carries_the_newest_legacy_release_and_what_it_lacks_or_ne
     named = spec(legacy_floor="0.9", legacy_newest="0.9.4", legacy_lacks=("a.Old", "b.Old"))
     assert (named.legacy_newest, named.legacy_lacks) == ("0.9.4", ("a.Old", "b.Old"))
     assert (plain.new_version, spec(new_version=">=1.5").new_version) == (None, ">=1.5")
+    assert (plain.legacy_range, plain.legacy_since) == ("", ())
+    ranged = spec(legacy_range=">=0.9,<1", legacy_since=("a.Old", "b.Old"))
+    assert (ranged.legacy_range, ranged.legacy_since) == (">=0.9,<1", ("a.Old", "b.Old"))
 
 
 def test_two_entries_for_one_receiver_is_a_projection_bug() -> None:

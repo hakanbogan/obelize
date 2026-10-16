@@ -835,8 +835,8 @@ def test_files_that_hold_the_pin_without_a_row_are_named_apart() -> None:
     record = _withheld(("a.py", 1, "acme.sdk", "local_import", None))
     held = ManifestPlan(blocking=("a.py", "analysis.ipynb"), transitive=("retry.py",))
     text = "\n".join(report._left(record, held, ".obelize/runs/x"))
-    assert "Not analysed, so they hold the pin: analysis.ipynb." in text
-    assert "a.py." not in text.split("Not analysed")[1]
+    assert "Not migrated by obelize, so they hold the pin: analysis.ipynb." in text
+    assert "a.py." not in text.split("Not migrated")[1]
     assert "declares: retry.py." in text
 
 
@@ -844,7 +844,7 @@ def test_a_file_importing_a_module_only_the_old_distribution_installed_is_not_un
     record = _withheld(("a.py", 1, "acme.sdk", "local_import", None))
     held = ManifestPlan(blocking=("net.py",), transitive=("net.py",))
     text = "\n".join(report._left(record, held, ".obelize/runs/x"))
-    assert "Not analysed" not in text
+    assert "Not migrated" not in text
     assert "declares: net.py." in text
 
 

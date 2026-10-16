@@ -19,11 +19,11 @@ from typing import Any, Final
 
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
-from packaging.version import InvalidVersion, Version
+from packaging.version import Version
 
-from obelize.models import BlockedReason, ScanSpec, terminal_unsafe
+from obelize.models import BlockedReason, Finding, ScanSpec, terminal_unsafe
 from obelize.scan import parse
-from obelize.scan.manifests import Declaration, alternatives, coupled, lowest
+from obelize.scan.manifests import Declaration, alternatives, coupled, lowest, meets
 
 # Each one is asked, not one comparison: `>=3.7,!=3.9.*` admits 3.8 but not 3.9. Each minor is asked
 # at its last patch too, since `>=3.8.1` admits 3.8 only from its first patch on.
@@ -61,6 +61,9 @@ class Blocked:
     # The declaration would have installed the newest release, but the caller offered none, since
     # git did not list the repository: a file that names another release may be out of sight.
     unlisted: bool = False
+    # The range of releases the code stands for, where `evidence` stops a declaration being taken
+    # for it; the newest release is a pack's own claim and needs no saying.
+    taken: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +118,7 @@ def legacy(
     found: Sequence[Declaration],
     spec: ScanSpec,
     used: bool,
-    newest: str | None = None,
+    taken: str | None = None,
     contrary: str = "",
 ) -> Blocked | None:
     """The first legacy declaration that pins no version at or above the pack's floor, else the
@@ -123,16 +126,16 @@ def legacy(
 
     `used` is whether any source row is an edit candidate: a repository that never imports the
     legacy module is not blocked, by a pin below the floor or by one it does not declare. With
-    `newest`, a declaration that installs it passes too (`installs`), unless `contrary` names the
-    path that says another release is in use, which is then the block's evidence.
+    `taken`, which `taken_for` chose, a declaration that stands for it passes too, unless `contrary`
+    names the path that says another release is in use, which is then the block's evidence.
     """
     if not used:
         return None
-    return _legacy(found, spec, newest, contrary) or _new(found, spec)
+    return _legacy(found, spec, taken, contrary) or _new(found, spec)
 
 
 def _legacy(
-    found: Sequence[Declaration], spec: ScanSpec, newest: str | None, contrary: str
+    found: Sequence[Declaration], spec: ScanSpec, taken: str | None, contrary: str
 ) -> Blocked | None:
     if spec.legacy_floor is None:
         return None
@@ -142,7 +145,7 @@ def _legacy(
     for row in rows:
         admitted = lowest(row.spec)
         if (admitted is None or admitted < floor) and not (
-            newest and not contrary and installs(row, newest)
+            taken and not contrary and _stands_for(row, spec)
         ):
             return Blocked(
                 "legacy_version_unsupported",
@@ -151,9 +154,10 @@ def _legacy(
                 _shown(row.spec),
                 needed,
                 contrary,
-                unlisted=newest is None
+                unlisted=taken is None
                 and spec.legacy_newest is not None
                 and installs(row, spec.legacy_newest),
+                taken=spec.legacy_range if contrary and spec.legacy_newest is None else "",
             )
     if not rows:
         return Blocked("legacy_version_unsupported", spec.legacy_distribution, "", None, needed)
@@ -189,63 +193,84 @@ def _new(found: Sequence[Declaration], spec: ScanSpec) -> Blocked | None:
 
 def _reaches(declared: str | None, needed: str) -> bool:
     """Whether `declared` admits a release `needed` does. One nobody can read admits what it may:
-    a block on a string nobody parsed would be a guess.
-
-    The two sets meet where some version is in both. One is found at a version either names, just
-    above one, the release after one (where `!=6.19.*` ends) or at 0, since a range of PEP 440
-    specifiers starts at one of them.
-    """
+    a block on a string nobody parsed would be a guess."""
     found = None if declared is None else alternatives(declared)
-    if found is None:
-        return True
-    target = SpecifierSet(needed)
-    for part in found:
-        both = part & target
-        try:
-            named = {Version(item.version.removesuffix(".*")) for item in both}
-        except InvalidVersion:  # `===` takes any string
-            return True
-        probes = {
-            Version("0"),
-            *named,
-            *(Version(f"{version.base_version}.0.1") for version in named),
-            *map(_after, named),
-        }
-        if any(both.contains(version, prereleases=True) for version in probes):
-            return True
-    return False
+    return True if found is None else meets(found, SpecifierSet(needed))
 
 
-def _after(version: Version) -> Version:
-    """The release after `version` at its own depth: where `!=6.19.*` ends, at 6.20."""
-    *head, last = version.release
-    return Version(".".join(map(str, (*head, last + 1))))
+def _plain(row: Declaration) -> tuple[SpecifierSet, ...] | None:
+    """What a plain requirement admits, as the alternatives of its pin, or `None`: its pin span is
+    the whole requirement, no marker may switch it off, and no pre-release is allowed to be picked
+    instead."""
+    if row.pin is None or row.marked or row.spec is None:
+        return None
+    found = alternatives(row.spec)
+    return None if found is None or any(part.prereleases for part in found) else found
 
 
 def installs(row: Declaration, newest: str) -> bool:
-    """Whether a plain requirement installs `newest`: its pin span is the whole requirement, no
-    marker may switch it off, and no pre-release is allowed to be picked instead."""
-    if row.pin is None or row.marked or row.spec is None:
-        return False
-    found = alternatives(row.spec)
-    return (
-        found is not None
-        and not any(part.prereleases for part in found)
-        and any(part.contains(newest) for part in found)
-    )
+    """Whether a plain requirement installs `newest`."""
+    found = _plain(row)
+    return found is not None and any(part.contains(newest) for part in found)
+
+
+def within(row: Declaration, spec: ScanSpec) -> bool:
+    """Whether a plain requirement may install a release `from.version` admits."""
+    found = _plain(row)
+    return found is not None and meets(found, SpecifierSet(spec.legacy_range))
+
+
+def _stands_for(row: Declaration, spec: ScanSpec) -> bool:
+    """Whether a declaration is the release `taken_for` chose, whichever way that is."""
+    if spec.legacy_newest is not None:
+        return installs(row, spec.legacy_newest)
+    return within(row, spec)
+
+
+def _below(found: Sequence[Declaration], spec: ScanSpec) -> list[Declaration]:
+    """The legacy declarations whose lowest admitted release is under the pack's floor."""
+    if spec.legacy_floor is None:
+        return []
+    floor = Version(spec.legacy_floor)
+    name = canonicalize_name(spec.legacy_distribution)
+    return [
+        row
+        for row in found
+        if row.name == name and ((admitted := lowest(row.spec)) is None or admitted < floor)
+    ]
 
 
 def inferred(found: Sequence[Declaration], spec: ScanSpec) -> bool:
     """Whether a legacy declaration passes `legacy` only because it installs the newest release."""
-    if spec.legacy_floor is None or spec.legacy_newest is None:
-        return False
-    floor = Version(spec.legacy_floor)
-    name = canonicalize_name(spec.legacy_distribution)
-    return any(
-        row.name == name
-        and ((admitted := lowest(row.spec)) is None or admitted < floor)
-        and installs(row, spec.legacy_newest)
-        for row in found
+    return spec.legacy_newest is not None and any(
+        installs(row, spec.legacy_newest) for row in _below(found, spec)
+    )
+
+
+def taken_for(
+    found: Sequence[Declaration], findings: Sequence[Finding], spec: ScanSpec
+) -> str | None:
+    """What `legacy` may take a declaration for instead of stopping on it, or `None`: the pack's
+    newest release where a declaration installs it, else the range of `from.version` where one may
+    install a release of it beside code that uses a name `from.since` lists, which no older or
+    newer release defines."""
+    if inferred(found, spec):
+        return spec.legacy_newest
+    uses = any(_uses(row, spec.legacy_since) for row in findings)
+    return (
+        spec.legacy_range
+        if uses and any(within(row, spec) for row in _below(found, spec))
+        else None
+    )
+
+
+def _uses(finding: Finding, names: Sequence[str]) -> bool:
+    """Whether code, not a manifest or a mention, uses one of `names` or something under it."""
+    symbol = finding.symbol or ""
+    return (
+        finding.kind != "manifest"
+        and finding.scan_status != "not_a_usage"
+        and any(symbol == name or symbol.startswith(f"{name}.") for name in names)
     )
 
 
@@ -386,4 +411,6 @@ __all__ = [
     "inferred",
     "installs",
     "legacy",
+    "taken_for",
+    "within",
 ]

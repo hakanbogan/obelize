@@ -768,6 +768,21 @@ def test_a_pin_that_names_one_distribution_twice_is_a_migration_only_if_the_rang
             build(document)
 
 
+def test_a_pin_rule_declares_what_the_legacy_distribution_installed_only_if_one_is_listed() -> None:
+    document = with_change(builder.MANIFEST_CHANGE, declare_transitive=True)
+    with pytest.raises(ValidationError, match="and this pack lists none"):
+        build(document)
+    document["match"]["transitive"] = {"demo_wire": "demo-wire"}
+    built = build(document)
+    change = built.changes[1]
+    assert isinstance(change, schema.ManifestDependencyChange)
+    assert change.params.declare_transitive is True
+    assert loader.to_scan_spec(_loaded(built)).declare_transitive is True
+    plain = with_change(builder.MANIFEST_CHANGE)
+    assert loader.to_scan_spec(_loaded(build(plain))).declare_transitive is False
+    assert loader.to_scan_spec(_loaded(build(minimal()))).declare_transitive is False
+
+
 def test_a_pin_on_one_distribution_must_still_name_that_distribution() -> None:
     """Two sides of one distribution do not make any other name this migration."""
     for field in ("from_name", "to_name"):
@@ -1080,7 +1095,11 @@ PROJECTED = {
     "legacy_floor",
     "legacy_newest",
     "legacy_lacks",
+    "legacy_range",
+    "legacy_since",
     "new_version",
+    "new_names",
+    "declare_transitive",
     "shared",
     "new_range",
 }
@@ -1174,6 +1193,78 @@ def test_what_the_newest_release_lacks_needs_it_and_is_sorted_and_flagged() -> N
         build(newest(lacks=["demo_legacy.configure"]))
 
 
+def since(**fields: Any) -> dict[str, Any]:
+    """A pack whose source range has a floor and names what only that range defines."""
+    document = minimal()
+    document["from"].update(version=">=1,<4", since=["demo_legacy.Thing"])
+    document["from"].update(fields)
+    return document
+
+
+def test_a_source_range_may_name_what_only_it_defines() -> None:
+    built = build(since())
+    assert built.from_.since == ("demo_legacy.Thing",)
+    spec = loader.to_scan_spec(_loaded(built))
+    assert (spec.legacy_floor, spec.legacy_range, spec.legacy_since) == (
+        "1",
+        ">=1,<4",
+        ("demo_legacy.Thing",),
+    )
+    plain = loader.to_scan_spec(_loaded(build(minimal())))
+    assert (plain.legacy_range, plain.legacy_since) == ("<1", ())
+
+
+def test_what_only_the_source_range_defines_needs_a_floor_and_no_newest_and_is_looked_for() -> None:
+    with pytest.raises(ValidationError, match="must have a floor"):
+        build(since(version="<4"))
+    with pytest.raises(ValidationError, match="since and newest each stand for"):
+        build(since(newest="3.0.1"))
+    with pytest.raises(ValidationError, match="sorted and de-duplicated"):
+        build(since(since=["demo_legacy.b", "demo_legacy.a"]))
+    with pytest.raises(ValidationError, match=r"which is under nothing in match\.imports"):
+        build(since(since=["elsewhere.Thing"]))
+    shared_document = shared()
+    shared_document["from"].update(version=">=1,<4", since=["demo_legacy.Thing"])
+    with pytest.raises(ValidationError, match=r"which is under nothing in match\.symbols"):
+        build(shared_document)
+    shared_document["match"]["symbols"] = ["demo_legacy.Thing", "demo_legacy.configure"]
+    assert build(shared_document).from_.since == ("demo_legacy.Thing",)
+
+
+def introduces(**fields: Any) -> dict[str, Any]:
+    """One distribution on both sides, over the module they share, and what only the new defines."""
+    document = shared()
+    document["to"].update(package="demo-legacy", introduces=["demo_legacy.Client"])
+    document["to"].update(fields)
+    return document
+
+
+def test_a_target_may_name_what_only_it_defines_where_one_module_holds_both_sides() -> None:
+    built = build(introduces())
+    assert built.to.introduces == ("demo_legacy.Client",)
+    assert loader.to_scan_spec(_loaded(built)).new_names == ("demo_legacy.Client",)
+    assert loader.to_scan_spec(_loaded(build(minimal()))).new_names == ()
+
+
+def test_what_only_the_target_defines_needs_one_shared_module_and_names_no_legacy_name() -> None:
+    document = introduces()
+    document["to"]["package"] = "demo-modern"
+    with pytest.raises(ValidationError, match="this pack migrates between two"):
+        build(document)
+    document = introduces()
+    document["match"].update(shared=False, symbols=[])
+    with pytest.raises(ValidationError, match=r"match\.shared says this module is not"):
+        build(document)
+    with pytest.raises(ValidationError, match="sorted and de-duplicated"):
+        build(introduces(introduces=["demo_legacy.b", "demo_legacy.a"]))
+    with pytest.raises(ValidationError, match=r"which is not under a module of match\.imports"):
+        build(introduces(introduces=["elsewhere.Client"]))
+    with pytest.raises(ValidationError, match=r"or is a legacy name in match\.symbols"):
+        build(introduces(introduces=["demo_legacy.configure"]))
+    with pytest.raises(ValidationError, match=r"or is a legacy name in match\.symbols"):
+        build(introduces(introduces=["demo_legacy.configure.deeper"]))
+
+
 def test_only_the_source_side_names_a_newest_release() -> None:
     document = minimal()
     document["to"]["newest"] = "1.0.0"
@@ -1222,6 +1313,8 @@ def test_the_projection_digest_ignores_the_pack_identity_and_the_gates_and_nothi
         "legacy_floor": "0.1",
         "legacy_newest": "9.9",
         "legacy_lacks": ("demo.other",),
+        "legacy_range": ">=0.1,<9",
+        "legacy_since": ("demo.other",),
         "new_version": ">=9.9",
     }
     exercised: set[str] = set()

@@ -979,9 +979,10 @@ def test_only_the_pack_that_names_a_newest_release_takes_one() -> None:
 
 
 def test_a_library_with_no_newest_release_is_blocked_as_before(tmp_path: Path) -> None:
-    """openai's newest release (3.x) is outside the range its pack migrates from."""
+    """openai's newest release (3.x) is outside the range its pack migrates from, and a name that
+    older releases define too proves no release in that range (`from.since`)."""
     spec = loader.to_scan_spec(loader.load("openai/openai-0-to-1"))
-    code = "import openai\n\nopenai.api_key = 'k'\nopenai.ChatCompletion.create(model='m')\n"
+    code = "import openai\n\nopenai.api_key = 'k'\nopenai.Embedding.create(model='m')\n"
     root = git_repo(tmp_path, {"app.py": code, "requirements.txt": "openai\n"})
     scan = gated(root, spec)
     assert [(row.reason, row.package, row.evidence) for row in scan.blocked] == [

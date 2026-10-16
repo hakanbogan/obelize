@@ -153,6 +153,7 @@ def terminal(
         lines.extend([LEGEND, ""])
     lines.append(_headline(scan.counts, SPLIT))
     lines.extend(_repository(scan.manifests))
+    lines.extend(_unwritten(scan.unwritten, _bare))
     lines.extend(_guidance(guides))
     if scan.limitations or scan.skipped:
         lines.append(
@@ -199,13 +200,14 @@ def fixed(
     held: ManifestPlan,
     guides: Sequence[Guide] = (),
     locks: Sequence[str] = (),
+    unwritten: Sequence[tuple[str, tuple[int, ...]]] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
     `repo` is `--repo` as typed and `packs` the `--pack` values, so the closing `Next:` command
     runs where the user is, on what the user chose. `held` is the pin check, which names the
     files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
-    or above it.
+    or above it; `unwritten` are the files that use the legacy API and that no rule writes.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -224,6 +226,7 @@ def fixed(
     lines.extend(_check(plan, written if applying else {row.path for row in plan.files}, applying))
     lines.extend(_left(record, held, evidence))
     lines.append("")
+    lines.extend(_unwritten(unwritten, _bare))
     lines.append(_headline(record.counts, FIX_SPLIT))
     for refusal in record.refused:
         subject = f"{refusal.path}: " if refusal.path else ""
@@ -289,8 +292,8 @@ def _left(record: RunRecord, held: ManifestPlan, evidence: str) -> list[str]:
     unread = [path for path in held.blocking if path not in named | set(held.transitive)]
     if unread:
         lines.append(
-            f"  Not analysed, so they hold the pin: {', '.join(unread)}. List a notebook "
-            f"under exclude in .obelize.yml to migrate the rest."
+            f"  Not migrated by obelize, so they hold the pin: {', '.join(unread)}. Migrate them "
+            f"by hand, or list a notebook under exclude in .obelize.yml to migrate the rest."
         )
     if held.transitive:
         lines.append(
@@ -606,7 +609,7 @@ def document(
         lines.extend(_verification_section(record.verify, packs))
     if record.model is not None:
         lines.extend(_model_section(record.model, proposals))
-    lines.extend(_limitations_section(record, packs))
+    lines.extend(_limitations_section(record, packs, scan.unwritten))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -890,7 +893,11 @@ def _model_section(model: RunModel, proposals: Sequence[ProposalRecord]) -> list
     return [*lines, ""]
 
 
-def _limitations_section(record: RunRecord, packs: Sequence[PackDocument]) -> list[str]:
+def _limitations_section(
+    record: RunRecord,
+    packs: Sequence[PackDocument],
+    unwritten: Sequence[tuple[str, tuple[int, ...]]] = (),
+) -> list[str]:
     if not record.limitations:
         lines = ["## Limitations", "", "Every selected path was read.", ""]
     else:
@@ -900,6 +907,7 @@ def _limitations_section(record: RunRecord, packs: Sequence[PackDocument]) -> li
                 f"| {f'`{row.path}`' if row.path else '--'} | `{row.code}` | {_prose(row.detail)} |"
             )
         lines.append("")
+    lines.extend(_unwritten(unwritten, _code))
     for pack in packs:
         lines.extend(
             [f"What `{pack.id}` says it does not handle (its guide: {pack.source.url}):", ""]
@@ -960,11 +968,16 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
         )
     declared = code(blocked.declared) if blocked.declared else "with no version"
     if blocked.evidence:
+        took = (
+            f"a release in {code(blocked.taken)}"
+            if blocked.taken
+            else f"the newest release of {package}"
+        )
         return (
-            f"{path} declares {package} {declared}, which this migration would take as the newest "
-            f"release of {package}, but {code(blocked.evidence)} suggests another release is in "
-            f"use, so it reports its findings and plans no change. To migrate, pin {package} to "
-            f"{needed} in {path} and run again."
+            f"{path} declares {package} {declared}, which this migration would take as {took}, "
+            f"but {code(blocked.evidence)} suggests another release is in use, so it reports its "
+            f"findings and plans no change. To migrate, pin {package} to {needed} in {path} and "
+            f"run again."
         )
     if blocked.unlisted:
         return (
@@ -982,14 +995,44 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
 
 
 def _assumed(assumed: Sequence[tuple[str, str]], code: Callable[[str], str]) -> list[str]:
-    """What was taken for a version nobody wrote down, said where the plan is."""
+    """What was taken for a version nobody wrote down, said where the plan is.
+
+    A release is the pack's newest; a range, which starts with an operator, is what the code
+    that uses a name only those releases define stands for.
+    """
     lines = [
-        f"{code(package)} is declared with no version that rules out {code(release)}, so this "
-        f"migration takes it as {code(release)}, its newest release. A repository that installs "
-        f"an older one needs that pinned in a manifest obelize reads."
+        (
+            f"{code(package)} is declared with no version that rules out {code(release)}, so this "
+            f"migration takes it as {code(release)}, its newest release. A repository that "
+            f"installs an older one needs that pinned in a manifest obelize reads."
+            if release[:1].isdigit()
+            else f"{code(package)} is declared with no version that rules out a release in "
+            f"{code(release)}, and the code uses a name only those releases define, so this "
+            f"migration takes it as one of them. A repository that installs another needs that "
+            f"pinned in a manifest obelize reads."
+        )
         for package, release in assumed
     ]
     return [*lines, ""] if lines else []
+
+
+def _unwritten(
+    unwritten: Sequence[tuple[str, tuple[int, ...]]], code: Callable[[str], str]
+) -> list[str]:
+    """The files that use the legacy API and that obelize does not write, and the cells."""
+    named = [
+        code(path)
+        + (f" (cell{'s' if len(cells) > 1 else ''} {', '.join(map(str, cells))})" if cells else "")
+        for path, cells in unwritten
+    ]
+    if not named:
+        return []
+    return [
+        f"These files use the legacy API and obelize does not write them: {', '.join(named)}. A "
+        f"notebook's code cells are read and never rewritten, and a file that is no code it can "
+        f"read is not analysed. Migrate them by hand.",
+        "",
+    ]
 
 
 def _headline(counts: ScanCounts | RunCounts, names: tuple[tuple[str, str], ...]) -> str:

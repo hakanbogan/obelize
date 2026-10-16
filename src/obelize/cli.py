@@ -352,6 +352,7 @@ def fix(
             outcome.manifest_plan,
             outcome.guides,
             outcome.locks,
+            outcome.unwritten,
         ),
     )
     raise typer.Exit(outcome.exit_code)

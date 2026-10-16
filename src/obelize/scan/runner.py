@@ -96,8 +96,15 @@ class Scan:
     # No plan carries either, so the manifest pin check is asked again after a run.
     unanalysed: tuple[str, ...] = ()
     transitive: tuple[tuple[str, str], ...] = ()
+    # Whether any file uses a name only the new API defines, which no plan carries either.
+    modern: bool = False
+    # Files that use the legacy API and that no rule writes, with the cells of a notebook that do,
+    # counted from 1: a notebook is read and never rewritten, and a stub or a notebook that is no
+    # code is not analysed, so its bytes name the API and no cell.
+    unwritten: tuple[tuple[str, tuple[int, ...]], ...] = ()
     # (distribution, release) taken where nothing in the repository says which release is in use:
-    # the pack's newest, for a declaration that names no version that rules it out.
+    # the pack's newest, for a declaration that names no version that rules it out, or, as the
+    # range `from.version` states, where the code uses a name only those releases define.
     assumed: tuple[tuple[str, str], ...] = ()
 
     @property
@@ -109,8 +116,9 @@ class Scan:
 
 
 def applies(scan: Scan) -> bool:
-    """Whether the pack has anything to say here: a row that is not prose or context."""
-    return any(row.scan_status != "not_a_usage" for row in scan.findings)
+    """Whether the pack has anything to say here: a row that is not prose or context, or a file it
+    cannot rewrite that uses the legacy API."""
+    return bool(scan.unwritten) or any(row.scan_status != "not_a_usage" for row in scan.findings)
 
 
 def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
@@ -155,6 +163,8 @@ def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
         workers=max(scan.workers for scan in scans),
         unanalysed=tuple(sorted({row for scan in scans for row in scan.unanalysed})),
         transitive=tuple(sorted({row for scan in scans for row in scan.transitive})),
+        modern=any(scan.modern for scan in scans),
+        unwritten=tuple(sorted({row for scan in scans for row in scan.unwritten})),
         assumed=tuple(sorted({row for scan in scans for row in scan.assumed})),
     )
 
@@ -313,10 +323,23 @@ def scan(
     readings = [manifests.read(name, tree.contents) for name in selection.manifests]
     hits, refused = manifests.prefiltered(selection.excluded, spec, tree.contents)
     # Un-included files block the removal only under the default `include`, which silently skips
-    # notebooks; under a narrower one they are the user's choice and reported as excluded.
+    # notebooks, and a notebook is read for the legacy API all the same; under a narrower one they
+    # are the user's choice and reported as excluded.
     unread, unreadable = manifests.prefiltered(selection.unincluded, spec, tree.contents)
-    unanalysed = unread if config.include == DEFAULT_INCLUDE else ()
-    hits = tuple(sorted({*hits, *unread})) if not unanalysed else hits
+    default = config.include == DEFAULT_INCLUDE
+    notebooks, unparsed = _notebooks(tree, unread, spec) if default else ({}, [])
+    unanalysed = tuple(path for path in unread if notebooks.get(path, True)) if default else ()
+    hits = hits if default else tuple(sorted({*hits, *unread}))
+    unwritten = tuple(
+        sorted(
+            [(path, cells) for path, cells in notebooks.items() if cells]
+            + [
+                (path, ())
+                for path in unanalysed
+                if path not in notebooks and _names_the_api(tree, path, spec)
+            ]
+        )
+    )
     declared = tuple(row for reading in readings for row in reading.declarations)
     # Without code to migrate or a pin to judge, the pack has no use for them.
     transitive = (
@@ -324,12 +347,15 @@ def scan(
         if candidates or manifests.declares(declared, spec)
         else []
     )
+    # Only a pin can be at odds with it, and reading it parses every file that names the library.
+    modern = bool(spec.new_names) and manifests.declares(declared, spec) and _modern(tree, spec)
     migration = manifests.survey(
         [result.plan for result in files],
         hits,
         unanalysed,
         transitive,
         paired=manifests.coupled(spec),
+        modern=modern,
     )
     declarations = manifests.plan(declared, migration, spec)
     floor = runtime.detect(selection.manifests, tree.contents, spec)
@@ -344,21 +370,20 @@ def scan(
     limitations.extend(row for reading in readings for row in reading.limitations)
     limitations.extend(refused)
     limitations.extend(unreadable)
+    limitations.extend(unparsed)
     limitations.extend(floor.limitations)
     used = any(row.kind != "manifest" and row.scan_status != "not_a_usage" for row in findings)
-    # The newest release is taken only where git names every file: elsewhere a pin could be in a
-    # file the walk never lists (it skips a dot-directory).
-    newest = (
-        spec.legacy_newest
-        if used and selection.source == "git" and runtime.inferred(declared, spec)
-        else None
+    # A release is taken only where git names every file: elsewhere a pin could be in a file the
+    # walk never lists (it skips a dot-directory).
+    taken = (
+        runtime.taken_for(declared, findings, spec) if used and selection.source == "git" else None
     )
-    blocked = floor.blocked or runtime.legacy(declared, spec, used, newest)
+    blocked = floor.blocked or runtime.legacy(declared, spec, used, taken)
     assumed: tuple[tuple[str, str], ...] = ()
-    if newest and blocked is None:
+    if taken and blocked is None:
         because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
-        blocked = runtime.legacy(declared, spec, used, newest, because) if because else None
-        assumed = () if because else ((spec.legacy_distribution, newest),)
+        blocked = runtime.legacy(declared, spec, used, taken, because) if because else None
+        assumed = () if because else ((spec.legacy_distribution, taken),)
     return Scan(
         source=selection.source,
         results=files,
@@ -372,6 +397,8 @@ def scan(
         workers=workers,
         unanalysed=unanalysed,
         transitive=migration.transitive,
+        modern=modern,
+        unwritten=unwritten,
         assumed=assumed,
     )
 
@@ -405,6 +432,62 @@ def _imports(tree: Tree, files: Sequence[str], spec: ScanSpec) -> list[tuple[str
         if (data := tree.entries[path].data) is not None
         for row in manifests.provided(path, data, spec)
     ]
+
+
+def _notebooks(
+    tree: Tree, paths: Sequence[str], spec: ScanSpec
+) -> tuple[dict[str, tuple[int, ...]], list[parse.Limitation]]:
+    """The cells of each notebook among `paths` that use the legacy API, read as the code they are
+    and never written, and a limitation for each that cannot be read as code (which stays out of the
+    first, so the caller holds the pin for it as before)."""
+    found: dict[str, tuple[int, ...]] = {}
+    refused: list[parse.Limitation] = []
+    for path in paths:
+        data, _refusals = tree.contents(path)
+        if not path.endswith(".ipynb") or data is None:
+            continue
+        outcome = _cells(path, data, spec)
+        if isinstance(outcome, parse.Limitation):
+            refused.append(outcome)
+        else:
+            found[path] = outcome
+    return found, refused
+
+
+def _cells(path: str, data: bytes, spec: ScanSpec) -> tuple[int, ...] | parse.Limitation:
+    """The cells of one notebook that use the legacy API, or why it is no code."""
+    book = parse.notebook(data)
+    if book is None:
+        return parse.Limitation(path=path, code="input_does_not_parse", detail=parse.NOTEBOOK)
+    try:
+        read = parse.gates(path, book.source, notebook=True)
+        if read.status != "parsed":
+            row = read.limitations[0]
+            cell = book.cell(read.findings[0].line)
+            return parse.Limitation(
+                path=path, code=row.code, detail=f"In cell {cell}. {row.detail}"
+            )
+        used = analysis.analyse(read, spec).findings
+    except Exception as error:
+        return parse.crashed(path, book.source, error).limitations[0]
+    return tuple(sorted({book.cell(row.line) for row in used if row.scan_status != "not_a_usage"}))
+
+
+def _names_the_api(tree: Tree, path: str, spec: ScanSpec) -> bool:
+    """Whether a file's bytes spell a name of the legacy API: a symbol where the module is the new
+    API's too, else the module."""
+    data, _refusals = tree.contents(path)
+    names = spec.symbols if spec.shared else spec.legacy_modules
+    return data is not None and any(name.encode() in data for name in names)
+
+
+def _modern(tree: Tree, spec: ScanSpec) -> bool:
+    """Whether any file kept uses a name only the new API defines."""
+    return any(
+        manifests.uses_new_names(data, spec)
+        for path in tree.walk.files
+        if (data := tree.entries[path].data) is not None
+    )
 
 
 def _pooled(candidates: Sequence[Candidate], spec: ScanSpec, workers: int) -> list[FileResult]:

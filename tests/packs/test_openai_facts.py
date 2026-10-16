@@ -158,6 +158,28 @@ def test_a_legacy_resource_is_a_stub_that_raises_when_it_is_called(name: str) ->
     assert type(raised.value).__name__ == "APIRemovedInV1"
 
 
+@pytest.mark.parametrize("symbol", PACK.from_.since)
+def test_a_name_that_proves_a_legacy_release_is_defined_by_it_and_is_a_stub_on_the_new_ones(
+    symbol: str,
+) -> None:
+    """`from.since` says no release below 0.27.0 defines the name (`SOURCES.md`) and that the new
+    releases dropped it; the first half is a measurement of past releases, the second is checked."""
+    name = symbol.removeprefix("openai.")
+    assert SNAPSHOT["top"][name] == "class"
+    assert type(getattr(openai, name)).__name__ == "APIRemovedInV1Proxy"
+
+
+@pytest.mark.parametrize("symbol", PACK.to.introduces)
+def test_a_name_the_new_side_introduces_is_defined_by_it_and_was_not_by_the_old_release(
+    symbol: str,
+) -> None:
+    """`to.introduces` says no release of 0.27.0 to 0.28.1 defines the name (`SOURCES.md`): code
+    that uses one cannot run on a pin that admits only those."""
+    name = symbol.removeprefix("openai.")
+    assert name not in SNAPSHOT["top"]
+    assert inspect.isclass(getattr(openai, name))
+
+
 @pytest.mark.parametrize(
     "name", sorted(name for name in SNAPSHOT["top"] if _legacy(name) and name.islower())
 )

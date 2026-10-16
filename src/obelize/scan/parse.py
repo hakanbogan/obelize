@@ -7,6 +7,7 @@ refuses a leading BOM; `read_text(errors="replace")` destroys non-ASCII.
 from __future__ import annotations
 
 import ast
+import json
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +56,13 @@ _DEEP: Final = (
     f"Refused by obelize: nested more than {MAX_DEPTH} levels deep (a long chain of operands, an "
     "`elif` ladder, a dotted name, brackets inside brackets), more than its tree walkers can "
     "follow."
+)
+
+# What the report says of a notebook that is not a list of cells whose sources are text.
+NOTEBOOK: Final = (
+    "Not a notebook obelize can read as code: its JSON is invalid, it holds no list of cells, or "
+    "a cell's source is not text. It is not analysed, so it holds the pin where it names the "
+    "library."
 )
 
 # One report sentence per ReadRefusal; a test pins the key set.
@@ -130,6 +138,77 @@ class Read:
             )
 
 
+# Cell magics whose body is a shell script or markup, never Python.
+_FOREIGN: Final = frozenset(
+    {
+        "%%bash",
+        "%%sh",
+        "%%script",
+        "%%html",
+        "%%markdown",
+        "%%latex",
+        "%%javascript",
+        "%%js",
+        "%%svg",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Notebook:
+    """A notebook's code cells as the one module they run as, and where each starts."""
+
+    source: bytes
+    # The line of `source` each code cell starts on, and its place among all the notebook's cells,
+    # counted from 1 as a person counts them.
+    cells: tuple[tuple[int, int], ...]
+
+    def cell(self, line: int) -> int:
+        """The place of the cell that `line` of `source` is in."""
+        return next(place for first, place in reversed(self.cells) if first <= line)
+
+
+def notebook(data: bytes) -> Notebook | None:
+    """A notebook's code cells as one module, or `None` where it is not a list of cells whose
+    sources are text.
+
+    A line magic (`%matplotlib inline`, `!pip install openai`) is no Python and becomes a `pass`
+    where it stood, so the lines and the indent around it stay. The body of a cell magic is Python
+    (`%%time`, `%%capture`) unless the magic is known to run something else (`_FOREIGN`): any other
+    body that is not Python is a notebook that does not compile, which holds the pin.
+    """
+    try:
+        document = json.loads(data)
+    except (ValueError, RecursionError):
+        return None
+    cells = document.get("cells") if isinstance(document, dict) else None
+    if not isinstance(cells, list):
+        return None
+    lines: list[str] = []
+    starts: list[tuple[int, int]] = []
+    for place, cell in enumerate(cells, 1):
+        if not isinstance(cell, dict):
+            return None
+        if cell.get("cell_type") != "code":
+            continue
+        source = cell.get("source", "")
+        if isinstance(source, list) and all(isinstance(part, str) for part in source):
+            source = "".join(source)
+        if not isinstance(source, str):
+            return None
+        if source.startswith("%%") and source.split(maxsplit=1)[0] in _FOREIGN:
+            continue
+        starts.append((len(lines) + 1, place))
+        lines.extend(_magic(line) for line in source.split("\n"))
+    return Notebook(("\n".join(lines) + "\n").encode(), tuple(starts))
+
+
+def _magic(line: str) -> str:
+    """`line`, or a `pass` at its indent where it is an IPython line magic or a shell escape."""
+    body = line.lstrip()
+    return line[: len(line) - len(body)] + "pass" if body.startswith(("!", "%")) else line
+
+
 def candidate(data: bytes, tokens: tuple[str, ...]) -> bool:
     """Whether the raw bytes hold a prefilter token; tokens are ASCII, so nothing is decoded.
 
@@ -138,7 +217,7 @@ def candidate(data: bytes, tokens: tuple[str, ...]) -> bool:
     return any(token.encode("ascii") in data for token in tokens)
 
 
-def gates(path: str, data: bytes) -> Read:
+def gates(path: str, data: bytes, *, notebook: bool = False) -> Read:
     """Gate bytes, in order: `compile()` accepts, the nesting is within `MAX_DEPTH`, libcst parses,
     the bytes round-trip.
 
@@ -147,11 +226,13 @@ def gates(path: str, data: bytes) -> Read:
     it accepts. `compile()` refuses some libcst trees (a late `__future__` import, module-level
     `return`) and a failure of any is one never-edited `parse_error` finding. Round-trip is last:
     its failure (a lost bare-CR terminator, which compiles) leaves the file analysed but never
-    written. `path` must be repo-relative: it lands in the exception's `.filename`.
+    written. `path` must be repo-relative: it lands in the exception's `.filename`. A notebook's
+    cells may `await` at their top level, which a module may not.
     """
+    flags = ast.PyCF_ALLOW_TOP_LEVEL_AWAIT if notebook else 0
     try:
         # `dont_inherit`: this module's `from __future__ import annotations` is not the file's.
-        compile(data, path, "exec", dont_inherit=True)
+        compile(data, path, "exec", flags, dont_inherit=True)
     except cheap.COMPILE_REFUSALS as error:
         return does_not_parse(path, data, "compile", error)
     if (deep := _past_limit(data)) is not None:
@@ -366,11 +447,13 @@ __all__ = [
     "CRASH_BAIL",
     "MAX_DEPTH",
     "MESSAGE_LIMIT",
+    "NOTEBOOK",
     "PARSE_BAIL",
     "READ_REFUSALS",
     "ROUNDTRIP_BAIL",
     "Gate",
     "Limitation",
+    "Notebook",
     "Read",
     "ReadRefusal",
     "ReadStatus",
@@ -380,5 +463,6 @@ __all__ = [
     "does_not_parse",
     "gates",
     "limitation",
+    "notebook",
     "read",
 ]

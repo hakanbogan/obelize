@@ -191,6 +191,26 @@ def test_the_manifest_answer_key_is_what_the_rule_writes(bundled: loader.LoadedP
     assert manifest_rules.finish(context) == key.read_bytes()
 
 
+def test_the_transitive_answer_key_is_what_the_rule_writes(bundled: loader.LoadedPack) -> None:
+    """A pack that declares what its legacy distribution installed: two imports no manifest of the
+    app declares are written below the pin as it moves."""
+    spec = loader.to_scan_spec(bundled)
+    if not spec.declare_transitive:
+        pytest.skip("this pack's pin waits for a manifest to declare what the code imports")
+    fixture = pack_dir(bundled) / "fixtures" / "positive" / "requirements_transitive.before.txt"
+    # At the root, where `app.py` is: a manifest declares for the files at or below its directory.
+    name, data = "requirements.txt", fixture.read_bytes()
+    migration = manifests.Migration(
+        migrated=("app.py",), transitive=(("app.py", "requests"), ("app.py", "tqdm"))
+    )
+    plan = manifests.plan(manifests.declarations(name, data), migration, spec)
+    context = manifest_rules.ManifestContext.build(name, data, plan)
+    edits = [row for rule in registry.manifest_rules(bundled.pack) for row in rule.apply(context)]
+    assert [row.status for row in edits] == ["auto", "auto", "auto"]
+    key = pack_dir(bundled) / "fixtures" / "positive" / "requirements_transitive.after.txt"
+    assert manifest_rules.finish(context) == key.read_bytes()
+
+
 def test_applying_the_pack_twice_produces_what_applying_it_once_did(
     bundled: loader.LoadedPack, tmp_path: Path, migratable: dict[str, tuple[bool, bytes]]
 ) -> None:

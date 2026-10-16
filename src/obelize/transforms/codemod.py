@@ -559,6 +559,7 @@ def _manifest_plan(
         scan.unanalysed,
         scan.transitive,
         paired=manifests.coupled(spec),
+        modern=scan.modern,
     )
     declared = [
         declaration

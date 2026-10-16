@@ -472,7 +472,7 @@
     },
     "Legacy": {
       "additionalProperties": false,
-      "description": "The old side, which may also name the newest release of its distribution.\n\n`newest` is what an unversioned declaration installs, so it stands for a version nothing in the\nrepository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names\nwhat that release no longer defines, which the code may still use.",
+      "description": "The old side, which may also say which release an unversioned declaration stands for.\n\n`newest` is what an unversioned declaration installs, so it stands for a version nothing in the\nrepository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names\nwhat that release no longer defines, which the code may still use. `since` is the other way,\nfor a distribution whose newest release is on the new side: the names no release below the\nfloor of `version` defines, so code that uses one was written for a release `version` admits.",
       "properties": {
         "lacks": {
           "default": [],
@@ -499,6 +499,15 @@
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "Package",
           "type": "string"
+        },
+        "since": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Since",
+          "type": "array"
         },
         "version": {
           "title": "Version",
@@ -556,8 +565,13 @@
     },
     "ManifestDependencyParams": {
       "additionalProperties": false,
-      "description": "The pin edit; both names may be one distribution, whose major version is the migration.",
+      "description": "The pin edit; both names may be one distribution, whose major version is the migration.\n\n`declare_transitive` lets the pin move while a file imports a module only the legacy\ndistribution installed (`match.transitive`) and no manifest of its app declares it: each such\ndistribution is declared, unpinned, on a line below the legacy requirement.",
       "properties": {
+        "declare_transitive": {
+          "default": false,
+          "title": "Declare Transitive",
+          "type": "boolean"
+        },
         "from_name": {
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "From Name",
@@ -1324,8 +1338,17 @@
     },
     "Target": {
       "additionalProperties": false,
-      "description": "The new side, which also says which Pythons it installs on.",
+      "description": "The new side, which also says which Pythons it installs on.\n\n`introduces` names what no release of `from.version` defines, where one module holds both\nsides: code that uses one cannot run on a pin that admits only the old releases.",
       "properties": {
+        "introduces": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Introduces",
+          "type": "array"
+        },
         "package": {
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "Package",

@@ -9,7 +9,8 @@ Accepted.
 A pack may name the newest release of the distribution it migrates from. A declaration that names no
 version, or one whose range reaches below the floor but admits that release, is then taken as that
 release, unless the repository shows another one. This widens the legacy version gate of ADR-050 D5 for the one pack that names it,
-`py-pdf/pypdf2-to-pypdf`, and for nothing else.
+`py-pdf/pypdf2-to-pypdf`, and for nothing else. A pack whose newest release is on the new side
+cannot name one, and D5 gives it the other way in: code that uses a name only the old range defines.
 
 The gate stops a repository that declares the legacy distribution with no version, or with no lower
 bound, because the pack's rules were measured above the floor. For PyPDF2 that stopped the
@@ -117,11 +118,10 @@ not the code.
 ### D3. One consumer is enough
 
 ADR-050 widens the format only for a field a second, real migration needs. That migration is PyPDF2
-(ADR-051), and the field is for it: it is the only pack whose newest release is inside the range its
+(ADR-051), and `newest` is for it: it is the only pack whose newest release is inside the range its
 rules were measured on. openai's newest release is outside `>=0.27.0,<1`, and the Gemini pack's
-`from` has no floor, so neither names a `newest` and neither changes: the packs' scans, findings and
-digests are what they were, and a test runs both through the same gate to show it. A pack that cannot
-name an index's last release gets no inference, which is the right default.
+`from` has no floor, so neither names a `newest`: a pack that cannot name an index's last release
+gets no inference from it, which is the right default. D5 is what openai fills instead.
 
 ### D4. Checked weekly
 
@@ -131,6 +131,58 @@ release list for PyPDF2 and fails when a final release that is not yanked is new
 declaration that installs something else for the release the rules were measured on. The step reads
 the number from the pack, and a test holds the set of packs that name a `newest` to the one the step
 checks, so a second pack cannot name one without a check.
+
+### D5. Code that uses a name only the old range defines
+
+`from.since` lists qualified names that no release below the floor of `from.version` defines, and
+that the new releases dropped. `openai.ChatCompletion` and `openai.Audio` first exist in 0.27.0
+(0.26.5 lacks both, and 0.27.0 and 0.28.1 define them), and 1.0 turned them into stubs that raise,
+so code that calls one was written for a release in `>=0.27.0,<1`, whichever release a bare
+`openai` would install today. The scan takes the range for the declaration, as D2 takes the newest
+release, when all of these hold:
+
+- the pack names `since`, which needs a floor and refuses `newest`: one pack stands for a declaration
+  one way, so a run never takes two things;
+- some finding that is not a manifest row or a mention uses a name in `since`, or one under it
+  (`openai.ChatCompletion.create`);
+- a legacy declaration is below the floor, is a plain requirement by D2's test (no extras, URL,
+  hash or marker, no pre-release), and admits some release of `from.version`. `openai`, `openai<1`
+  and `openai>=0.20` do. `openai==0.18.0`, `openai<0.27` and `openai>=0.10,<0.27` admit none, and stay
+  blocked, as does an undeclared distribution: a code-only rewrite would leave an unseen pin beside
+  new-API code;
+- the repository is the top of a git repository, as D2 requires;
+- `installed.contrary` finds nothing, by D2's six checks with one change: where it asks whether a
+  written release is the one taken, it asks whether the release is in `from.version`, and whether
+  a requirement written anywhere admits some release in it. `openai==0.28.1` in a Dockerfile, and
+  an `openai-0.28.1.dist-info` in a committed environment, are no evidence. `openai>=1`,
+  `openai==0.18.0` and `openai-1.45.0.dist-info` are, and so is a requirement nobody can read.
+
+The run says what it took: `Scan.assumed` holds the distribution and `from.version` where it holds
+a release for D2, `packs[].assumed` in `run.json` is that range, and the terminal and `REPORT.md`
+say that the declaration names no version that rules a release in it out and that the code uses a
+name only those releases define. A block that D2's evidence causes says which range it would have
+taken (`Blocked.taken`).
+
+`since` is the pack's claim about releases that are all published and cannot change, so no weekly
+check reads an index for it. The measurement is kept in the pack's `SOURCES.md` and, for the old
+release, in `tests/packs/openai_legacy_check.py`.
+
+### D6. A pin that admits only the old releases, beside code that needs the new one
+
+Where one distribution holds both APIs, a legacy pin over code that never imports it could not be
+told from a pin the code still runs on (ADR-021 D4), so it was context only and a run over
+`openai==0.28.1` beside `from openai import OpenAI` said "No pack applies", which reads as healthy.
+`to.introduces` lists qualified names no release of `from.version` defines (`openai.OpenAI`,
+`openai.AsyncOpenAI`, `openai.AzureOpenAI`: 0.26.5, 0.27.0 and 0.28.1 measured). A file that uses
+one, as written or through an alias of the module (`import openai as oa; oa.OpenAI`), found from its
+imports and the attributes of what they bind and not from a name alone, makes a legacy declaration
+that admits some release of `from.version` and none above it (`openai==0.28.1`, `openai<1`) a
+`manifest_code_mismatch`, a row left for review, when nothing migrated and nothing holds the pin. A
+declaration that admits a release of the new API (`openai`, `openai>=0.27`), one nobody can read and
+one the code still migrates around are not judged this way. The schema allows the field only for a
+pack whose two sides are one distribution and whose module is shared, and refuses a name that
+`match.symbols` lists as legacy or that no module of `match.imports` holds. `ScanSpec.new_names`
+carries it, and `spec_digest` includes it once set, since it adds rows.
 
 ## Consequences
 
@@ -142,7 +194,9 @@ checks, so a second pack cannot name one without a check.
   declaration passes through `newest`, a file over `max_file_bytes` up to 32 MiB of it in windows.
   Elsewhere the walk still opens nothing it did not.
 - `run.json` gains `packs[].assumed`; the formats stay unstable through 0.x ([ADR-048](ADR-048-accepted-gaps-in-0-1-0.md)).
-  The pypdf pack is 0.3.0: a pack field it now fills is a minor bump.
+  The pypdf pack is 0.3.0: a pack field it now fills is a minor bump. `from.since` is a gate too:
+  `ScanSpec.legacy_since` and `legacy_range` are left out of `spec_digest` like `legacy_newest`.
+  The openai pack is 0.3.0 for `since` and `introduces`.
 - The inference is a claim about an install nobody ran. It cannot see the environment outside the
   repository, a release another package requires, a submodule's files, a gitignored file the last
   check does not look for, a Python declared only in a `Pipfile` or `setup.py`, or an index the

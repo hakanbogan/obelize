@@ -47,6 +47,16 @@ could not use, so the rules mean the same on 0.27.0. `ChatCompletion` does not e
 which is the floor. The weekly job runs the `.before.py` fixtures on 0.27.0 and requires the
 results to equal 0.28.1's.
 
+`from.since` rests on a fourth: `openai.ChatCompletion` and `openai.Audio` are not defined by 0.26.5,
+the last release before 0.27.0, and are defined by 0.27.0 and 0.28.1 (`hasattr` on the installed
+module, CPython 3.12, `uv run --isolated --no-project --with openai==<release>`, no call to the
+API). 1.109.1 and 3.26.0 define both as stubs that raise (`tests/packs/test_openai_facts.py`). Code
+that calls one therefore ran on a release in `>=0.27.0,<1`, whichever release a bare `openai`
+resolves to today. `Completion`, `Embedding` and `error` exist below 0.27.0 too, so they prove
+nothing and are not listed. `to.introduces` rests on the same reading of the same three releases:
+none defines `OpenAI`, `AsyncOpenAI` or `AzureOpenAI`, which 1.109.1 and 3.26.0 define as classes.
+The releases are published and cannot change, so no weekly job reads an index for either.
+
 Facts about the old release are held in `tests/packs/openai_legacy_surface.json`
 and compared to the real 0.28.1 weekly by `tests/packs/openai_legacy_check.py`;
 facts about the new one are checked by `tests/packs/test_openai_facts.py` on
@@ -289,3 +299,9 @@ The limitations that rest on the SDK's own text and not on a fixture:
   (`openai>=0.28.1,<3`) is rewritten to `openai>=1.109.1`. A declaration the rule cannot write in
   place, with extras or a URL such as `openai[datalib]==0.28.1`, holds the repository
   (`manifest_pin_shape_unsupported`).
+- `declare_transitive`: 0.28.1 required `requests>=2.20`, `tqdm` and `aiohttp` (above), so an app
+  that imports one of them without declaring it ran on what `openai` installed for it. Moving the
+  pin to 1.109.1 or 3.26.0 takes that away, so each such distribution is written below the openai
+  requirement of a requirements file as its name and nothing else: no version is chosen for it,
+  where the one 0.28.1 asked for is a floor and not the release the app ran. Neither new release
+  installs `requests` or `aiohttp`, and 3.26.0 does not install `tqdm`.

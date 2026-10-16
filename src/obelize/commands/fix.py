@@ -102,6 +102,8 @@ class Outcome:
     manifest_plan: ManifestPlan = field(default_factory=ManifestPlan)
     # Lock files beside a manifest pin that was or would be written, or above it; none is edited.
     locks: tuple[str, ...] = ()
+    # Files that use the legacy API and that no rule writes, and the cells of a notebook that do.
+    unwritten: tuple[tuple[str, tuple[int, ...]], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,6 +268,7 @@ def run(request: Request) -> Outcome:
         guides=guides,
         manifest_plan=driven.manifest_plan,
         locks=locks,
+        unwritten=scan.unwritten,
     )
 
 

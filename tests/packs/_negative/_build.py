@@ -232,6 +232,30 @@ def _newest(**fields: Any) -> Callable[[Document], None]:
     return mutate
 
 
+def _since(**fields: Any) -> Callable[[Document], None]:
+    """A source range with a floor that names what only it defines; `fields` replace keys."""
+
+    def mutate(document: Document) -> None:
+        document["from"].update(version=">=1,<4", since=["demo_legacy.Thing"])
+        document["from"].update(fields)
+
+    return mutate
+
+
+def _introduces(*names: str, one: bool = True, shared: bool = True) -> Callable[[Document], None]:
+    """A target that names what only it defines; by default over the one shared module of one
+    distribution, where that is possible."""
+
+    def mutate(document: Document) -> None:
+        if one:
+            document["to"]["package"] = "demo-legacy"
+        if shared:
+            _shared(document)
+        document["to"]["introduces"] = list(names)
+
+    return mutate
+
+
 def _symbols_without_a_submodule_map(document: Document) -> None:
     for key in ("submodule_map", "alias_fallbacks"):
         document["changes"][1]["params"].pop(key)
@@ -407,6 +431,69 @@ CASES: tuple[Case, ...] = (
         says="which no flag_only change lists in symbols",
         extra=FLAG_CHANGE,
         mutate=_newest(lacks=["demo_legacy.elsewhere"]),
+    ),
+    Case(
+        name="since_with_a_range_that_has_no_floor",
+        defect="names what only the source range defines, for a range with no floor to start it",
+        path="from",
+        says="must have a floor",
+        mutate=_since(version="<4"),
+    ),
+    Case(
+        name="since_beside_a_newest_release",
+        defect="names a newest release and what only the range defines, two ways to take one thing",
+        path="from",
+        says="each stand for an unversioned declaration",
+        mutate=_since(newest="3.0.1"),
+    ),
+    Case(
+        name="since_that_is_not_sorted",
+        defect="a list of names that is not sorted, so one set has two spellings",
+        path="from",
+        says="sorted and de-duplicated",
+        mutate=_since(since=["demo_legacy.b", "demo_legacy.a"]),
+    ),
+    Case(
+        name="since_a_name_the_scan_never_reports",
+        defect="a name outside every module the pack matches, so no finding could prove it",
+        path="",
+        says="which is under nothing in match.imports",
+        mutate=_since(since=["elsewhere.Thing"]),
+    ),
+    Case(
+        name="introduces_across_two_distributions",
+        defect="names what only the new side defines where the pack has two distributions",
+        path="",
+        says="this pack migrates between two",
+        mutate=_introduces("demo_legacy.Client", one=False),
+    ),
+    Case(
+        name="introduces_for_a_module_that_is_not_shared",
+        defect="names what only the new side defines in a module the new side does not keep",
+        path="",
+        says="match.shared says this module is not",
+        mutate=_introduces("demo_legacy.Client", shared=False),
+    ),
+    Case(
+        name="introduces_that_is_not_sorted",
+        defect="a list of names that is not sorted, so one set has two spellings",
+        path="to",
+        says="sorted and de-duplicated",
+        mutate=_introduces("demo_legacy.b", "demo_legacy.a"),
+    ),
+    Case(
+        name="introduces_a_name_outside_the_module",
+        defect="a name outside every module the pack matches, so no import could bind it",
+        path="",
+        says="which is not under a module of match.imports",
+        mutate=_introduces("elsewhere.Client"),
+    ),
+    Case(
+        name="introduces_a_legacy_name",
+        defect="a name the pack also lists as legacy, which cannot be both",
+        path="",
+        says="or is a legacy name in match.symbols",
+        mutate=_introduces("demo_legacy.configure"),
     ),
     Case(
         name="newest_on_the_target",
@@ -762,6 +849,15 @@ CASES: tuple[Case, ...] = (
         says="is not this migration",
         extra=MANIFEST_CHANGE,
         mutate=lambda d: _with(d["changes"][1]["params"], "to_name", "something-else"),
+    ),
+    Case(
+        name="declare_transitive_with_no_module_listed",
+        defect="a dependency rule that declares what the legacy distribution installed, where the "
+        "pack lists none",
+        path="",
+        says="declares what match.transitive lists, and this pack lists none",
+        extra=MANIFEST_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "declare_transitive", True),
     ),
     Case(
         name="method_returns_names_no_such_method",

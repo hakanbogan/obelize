@@ -1295,7 +1295,7 @@ NOTEBOOK = '{"cells": [{"cell_type": "code", "source": ["import acme.sdk as sdk"
 
 
 def test_a_notebook_keeps_the_pin_under_the_default_include(tmp_path: Path) -> None:
-    """Nothing analyses it and its bytes name the distribution."""
+    """It is read as code, and a cell imports the distribution, so it holds the pin."""
     for name, text in (
         ("app.py", MIGRATES),
         ("analysis.ipynb", NOTEBOOK),

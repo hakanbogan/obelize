@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-050 and ADR-053.
+Accepted; amended by ADR-050, ADR-053 and ADR-056.
 
 ## Decision
 
@@ -31,9 +31,9 @@ the removal when a non-eligible row still loads the distribution: `import`,
 `star_import`, `dynamic`, `parse_error` (fail-closed), or a `mock_patch_target`,
 which imports the module when the patch is entered; a prose mention does not.
 A file the default `include` leaves out (a notebook, a stub, a windowed script)
-that matches the byte prefilter blocks as an import does; under a narrowed
-`include`, or when the user's `exclude` matches it, it is named as excluded and
-blocks nothing. Neither is analysed.
+that matches the byte prefilter blocks as an import does, except a notebook that D14
+reads and finds no use of the legacy API in; under a narrowed `include`, or when the user's
+`exclude` matches it, it is named as excluded and blocks nothing, and is not read.
 
 ### D4. Nothing migrated means nothing is added, and the pin is not touched
 
@@ -46,7 +46,7 @@ would edit a manifest for a migration this run did not make. It stays
 user's `exclude` removed names the distribution, a module only it installs is
 imported, or one distribution holds both APIs (a pin of it over new-SDK code is
 `openai==0.28.1` beside 1.x code, which no row here can tell from a pin the code
-still runs on).
+still runs on, unless the pack names what only the new API defines: ADR-056 D6).
 
 ### D5. `manifest_code_mismatch` is both directions, and it is a review item
 
@@ -155,6 +155,64 @@ declaration already names the new distribution. The driver then leaves every fil
 the rule cannot write in place is withheld by this plan, so the driver holds every file
 ([ADR-053](ADR-053-shared-module-migrations.md) D11 and D12). The reasons are in
 [ADR-053](ADR-053-shared-module-migrations.md) D6.
+
+### D13. A pin that waits for a module can declare it
+
+The module the legacy distribution installed for an app that never declared it (`requests` for
+`openai==0.28.1`) held the pin, and with it the whole repository where one distribution holds both
+APIs (D6 of ADR-053), until the user declared it by hand. A pack may set `declare_transitive` on its
+`manifest_dependency` instead (`ScanSpec.declare_transitive`, in `spec_digest` once set, since it
+changes rows). The module is then declared where it came from, as the pin moves:
+
+- A distribution is written once for each file that imports it and has no declaration in its app
+  (D7's reading), below the legacy requirement nearest that file: the one in the deepest directory
+  that is at or above the file, a `requirements/` directory counting for the directory above it.
+  Its row is a manifest row on that requirement's line and column, with the distribution as its
+  symbol, so the plan, `REPORT.md` and the driver need no second kind of row.
+- The line holds the distribution's name, folded as PEP 503 folds it, and nothing else: no version
+  (0.28.1 asked for a floor, `requests>=2.20`, and the release the app ran is not known), no marker,
+  no comment, the indent and the line ending of the requirement it follows. The legacy line itself
+  is written as D2 says.
+- Only a requirements file takes it (`requirements*.txt`, `requirements/*.txt`) and only on a
+  requirement with a pin the rule can write. If any distribution has no such requirement, because
+  the pin is in a `pyproject.toml`, a `setup.cfg`, a `setup.py`, a `Pipfile` or a constraints file,
+  or no requirement is at or above the file, none is declared and every legacy pin waits as before
+  (`transitive_dependency_in_use`), since a pin that moves with a module still undeclared is the
+  half-migrated repository D6 of ADR-053 forbids. Files that still import the legacy distribution
+  keep the pin (`repo_not_fully_migrated`) and nothing is declared.
+- The plan's `transitive` list is empty when the run declares them, since nothing waits.
+
+`undo` restores each manifest from its journalled original, so the inserted lines go with the pin.
+
+### D14. A notebook is read for the legacy API and never written
+
+A notebook that names the library held the pin whether or not it called the old API: five of the
+six such notebooks in the openai frame, in five repositories, did not call it: they installed a
+package from `openai`'s GitHub organization, used the new client, used another library's `openai`
+names, or named a model in an output. Under the default `include`, one that matches the prefilter
+is now read as code (`parse.notebook`), in the scan's own process and never by a rule:
+
+- Its code cells become one module, in order, since a cell sees what the cells before it bound.
+  A line that starts with `!` or `%` is a shell escape or a line magic, no Python, and becomes a
+  `pass` at its indent, so every other line keeps its number. A cell magic that runs a shell or
+  markup (`%%bash`, `%%html`) leaves its cell out; the body of any other (`%%time`, `%%capture`) is
+  code after its first line, and one that is not Python is a notebook that does not compile, which
+  holds the pin. A cell may `await` at its top level, which `compile()` is told to accept for it.
+- The module goes through the gates and the analysis of any source file, and the notebook holds the
+  pin only where a row that is not `not_a_usage` appears. It is the only effect: no row of a notebook
+  is in the findings, the plan or the model's questions, and a notebook is never in `Run.files`,
+  so nothing can write it.
+- `Scan.unwritten` names each file that uses the legacy API and that no rule writes, with the
+  places of the cells of a notebook, counted from 1 among all its cells. The terminal and
+  `REPORT.md` say so, under Limitations in the report, and a pack that has no other row still
+  applies when it has one (`runner.applies`), so a notebook beside a pin that has arrived is no
+  longer "No pack applies".
+- A notebook that is not a list of cells with text sources, or whose cells do not compile, is a
+  `input_does_not_parse` limitation (the cell is named for a refused parse), is not analysed and
+  holds the pin where it names the library, as before. A stub and a `.pyw` are not analysed either;
+  where their bytes spell a symbol of a shared module (its module otherwise), they are named too.
+- Under a narrowed `include`, or where `exclude` takes it, a notebook is the user's choice and is
+  not read.
 
 ## Consequences
 
