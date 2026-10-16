@@ -105,8 +105,7 @@ def test_applying_twice_equals_applying_once(name: str, corpus: dict[str, Any]) 
     """The scan re-runs on the output: idempotence is the whole path's claim, not one rule's."""
     produced, _edits, _unclaimed = outcome(corpus, name)
     read = parse.gates(f"{name}.py", produced)
-    if read.module is None:  # pragma: no cover - every case parses, asserted above
-        pytest.fail("the produced bytes did not parse")
+    assert read.module is not None, "the produced bytes did not parse"
     plan = planner.plan(analysis.analyse(read, SPEC), SPEC)
     active = rule()
     context = base.RuleContext.build(

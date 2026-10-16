@@ -31,7 +31,7 @@ from obelize.verify import cheap
 from obelize.verify import runner as verifier
 from obelize.verify import status as verdicts
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from obelize.fsutil import Apply, Change

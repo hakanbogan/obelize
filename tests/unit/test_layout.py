@@ -177,7 +177,7 @@ def test_no_answer_key_is_wider_than_the_pack_allows(path: Path) -> None:
     data = path.read_bytes()
     try:
         text = data.decode("utf-8-sig")
-    except UnicodeDecodeError:  # pragma: no cover - one fixture, and it is the point
+    except UnicodeDecodeError:  # one fixture, and it is the point
         text = data.decode("latin-1")
     lines = enumerate(text.splitlines(), 1)
     wide = [(number, len(line)) for number, line in lines if len(line) > WIDTH]

@@ -18,7 +18,7 @@ from obelize.impact import planner
 from obelize.models import Config, ImpactPlan, ManifestPlan, ProvidedModule
 from obelize.scan import analysis, manifests, parse, runner
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from pathlib import Path
 
 LEGACY = SPEC.legacy_distribution

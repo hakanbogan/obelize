@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Final
 
 from obelize.models import BailCode, Binding
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from obelize.models import Finding
     from obelize.scan.analysis import Analysis, Receiver
 

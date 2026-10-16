@@ -18,7 +18,7 @@ from obelize.scan.analysis import dotted_name, qualified_names
 from obelize.transforms.base import BailError, RuleContext
 from obelize.transforms.imports import dotted, statement_for
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
     from obelize.models import BailCode, Finding

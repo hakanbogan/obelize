@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from obelize.scan.manifests import declarations
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from obelize.models import Edit, Finding, ManifestPlan
     from obelize.packs.schema import ChangeKind
     from obelize.scan.manifests import Declaration

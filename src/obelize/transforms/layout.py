@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Final
 import libcst as cst
 import libcst.matchers as m
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Sequence
 
 # An empty module to render with; `code_for_node` is exact, so a width is the written bytes'.

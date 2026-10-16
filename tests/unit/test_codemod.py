@@ -13,7 +13,7 @@ from obelize.models import Config, Edit
 from obelize.scan import parse, runner
 from obelize.transforms import base, codemod, registry
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from pathlib import Path
 
     from obelize.models import Finding

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, cast
 import libcst as cst
 from libcst.metadata import MetadataWrapper, ParentNodeProvider, ScopeProvider
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Collection
 
     from libcst.metadata import Scope

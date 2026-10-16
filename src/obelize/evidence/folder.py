@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from obelize import fsutil
 from obelize.native import files
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 

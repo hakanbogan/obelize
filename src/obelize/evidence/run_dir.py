@@ -47,7 +47,7 @@ from obelize.models import (
     Withheld,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from obelize.fsutil import Apply

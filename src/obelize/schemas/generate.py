@@ -24,7 +24,7 @@ from obelize.models import (
 )
 from obelize.packs.schema import PackDocument
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Sequence
 
 HERE = Path(__file__).resolve().parent

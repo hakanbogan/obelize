@@ -130,8 +130,7 @@ def test_no_line_of_a_complete_key_is_wider_than_the_pack_allows(
 def test_applying_twice_equals_applying_once(name: str, corpus: dict[str, Any]) -> None:
     produced, _edits, _unclaimed = outcome(corpus, name)
     read = parse.gates(f"{name}.py", produced)
-    if read.module is None:  # pragma: no cover - every case parses, asserted above
-        pytest.fail("the produced bytes did not parse")
+    assert read.module is not None, "the produced bytes did not parse"
     again, edits, _unclaimed = run(planner.plan(analysis.analyse(read, SPEC), SPEC), produced)
     assert [row for row in edits if row.status == "auto"] == []
     assert again == produced

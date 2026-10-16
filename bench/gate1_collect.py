@@ -445,7 +445,7 @@ def _token_files(checkout: Path) -> list[str]:
     for path in sorted(checkout.rglob("*.py")):
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:  # pragma: no cover - a broken symlink in someone's tree
+        except OSError:  # a broken symlink in someone's tree
             continue
         if TERM in text:
             found.append(str(path.relative_to(checkout)))

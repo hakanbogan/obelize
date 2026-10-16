@@ -38,7 +38,7 @@ from obelize.transforms.base import BailError, RuleContext
 from obelize.transforms.imports import dotted
 from obelize.transforms.tree import Position, Tree
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from obelize.models import Finding, WarningCode
     from obelize.packs.schema import ChangeKind, RewriteCallChange, RewriteCallParams
 

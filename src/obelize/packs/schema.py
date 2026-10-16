@@ -1717,6 +1717,6 @@ def _named(specifiers: SpecifierSet) -> set[Version]:
     for specifier in specifiers:
         try:
             found.add(Version(specifier.version))
-        except InvalidVersion:  # pragma: no cover - `==1.*` and friends
+        except InvalidVersion:  # `==1.*` names no one version
             continue
     return found

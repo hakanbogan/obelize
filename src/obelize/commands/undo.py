@@ -15,7 +15,7 @@ from obelize.commands import CommandError
 from obelize.evidence import run_dir
 from obelize.models import UndoFile, UndoRecord
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from obelize.evidence.folder import RunFolder
     from obelize.models import ExitCode, FileEdit, UndoSkip
 

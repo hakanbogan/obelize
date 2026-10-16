@@ -19,7 +19,7 @@ from obelize.models import (
 )
 from obelize.packs.schema import FlagOnlyChange
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from obelize.models import Finding

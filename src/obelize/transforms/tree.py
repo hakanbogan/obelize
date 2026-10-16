@@ -23,7 +23,7 @@ from libcst.metadata import (
 from obelize.scan.analysis import qualified_names
 from obelize.transforms import layout
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
     from libcst.metadata import ProviderT

@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from obelize.fsutil import WRITE_REFUSALS
@@ -75,6 +77,7 @@ from obelize.models import (
     VerifyPhaseRecord,
     VerifyRecord,
     Withheld,
+    bounds,
 )
 from obelize.native import processes
 
@@ -1697,3 +1700,9 @@ def test_what_python_would_not_name_is_still_refused(kind: str, name: str, scope
         Binding(
             kind=kind, name=name, scope=scope, ctor_line=1, use_lines=(2,), scan_status="eligible"
         )
+
+
+def test_a_specifier_that_names_no_version_bounds_nothing() -> None:
+    """`===` takes any string, so `===foo` is a valid specifier that no `Version` can hold."""
+    assert bounds(SpecifierSet("===foo")) == (None, None)
+    assert bounds(SpecifierSet(">=1,<2,===foo")) == (Version("1"), Version("2"))

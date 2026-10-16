@@ -17,7 +17,7 @@ from libcst.metadata import MetadataWrapper, PositionProvider
 from obelize.models import WITHHELD
 from obelize.verify import redact
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from obelize.models import (

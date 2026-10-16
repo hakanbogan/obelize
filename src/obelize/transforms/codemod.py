@@ -29,7 +29,7 @@ from obelize.scan import manifests, parse, reach
 from obelize.transforms import base, registry
 from obelize.transforms import manifest as manifest_context
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping, Sequence
 
     from libcst.metadata import Scope

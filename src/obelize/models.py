@@ -1059,7 +1059,7 @@ def bounds(specifiers: SpecifierSet) -> tuple[Version | None, Version | None]:
         wildcard = specifier.version.endswith(".*")
         try:
             version = Version(specifier.version.removesuffix(".*"))
-        except InvalidVersion:  # pragma: no cover - a malformed version
+        except InvalidVersion:  # `===foo` names no version
             continue
         if specifier.operator in _LOWER_BOUND_OPERATORS:
             lowers.append(version)
