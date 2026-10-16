@@ -417,7 +417,7 @@ class GenerativeModelCalls:
             plans.append(plan)
             for produced in use.produces:
                 held[produced] = plan.config
-        self._check_the_response_is_still_read_the_old_way(tree, group)
+        read = self._response_reads(tree, group)
         self._check_what_the_constructor_wrote_travels(tree, group, ctor, plans)
         # A module's name stays and is read by no one else, so its class is the new one.
         kept = {
@@ -430,19 +430,26 @@ class GenerativeModelCalls:
             alias = context.imports.require(self._config_module)
             if alias is None:
                 raise BailError(context.imports.refusal(self._config_module))
-        for plan in plans:
-            emitted = self._emit(context, tree, client, ctor, plan, alias)
-            context.rewrites.set(plan.use.call, emitted)
-        self._drop(context, tree, ctor.statement)
+        # A configuration call that stays is copied into each call, without its comments.
+        stays = frozenset(id(held.value) for held in named if not held.local)
+        emitted = [self._emit(context, tree, client, ctor, plan, alias, stays) for plan in plans]
+        for plan, call in zip(plans, emitted, strict=True):
+            context.rewrites.set(plan.use.call, call)
+        self._drop(context, tree, ctor.statement, emitted)
         for found in {id(held.statement): held for held in named if held.local}.values():
-            self._drop(context, tree, found.statement)
+            self._drop(context, tree, found.statement, emitted)
+        for plan, call in zip(plans, emitted, strict=True):
+            context.rewrites.keep_comments(tree.statement_of(plan.use.call), plan.use.call, call)
         if alias is not None:
             for func in kept.values():
                 context.rewrites.set(func, self._config_class(alias))
-        return {
-            group.position: ctor.warnings,
-            **{plan.use.position: plan.warnings for plan in plans},
-        }
+        warned = {group.position: ctor.warnings}
+        for plan in plans:
+            extra: tuple[WarningCode, ...] = (
+                ("response_text_may_be_none",) if plan.use.position in read else ()
+            )
+            warned[plan.use.position] = tuple(sorted({*plan.warnings, *extra}))
+        return warned
 
     def _check_what_the_constructor_wrote_travels(
         self, tree: _Tree, group: _Group, ctor: _Ctor, plans: Sequence[_Plan]
@@ -542,6 +549,8 @@ class GenerativeModelCalls:
             for name in self._params.ctor_order
             if name in self._params.ctor_config_fields and name in given
         ]
+        for _name, value in fields:
+            self._as_written(tree, value)
         names = {name for name, _ in fields}
         source = given.get(self._params.legacy_config_kwarg)
         if source is not None:
@@ -563,6 +572,19 @@ class GenerativeModelCalls:
             safety_source=safety_source,
             names=frozenset(names),
         )
+
+    def _as_written(self, tree: _Tree, node: cst.BaseExpression) -> None:
+        """Refuse a mapping that reaches the config as written unless the new SDK reads it.
+
+        The legacy constructor coerced it (`{"parts": ["hi"]}`); the new config validates it and
+        fails on a bare string part. A name filled with a mapping elsewhere cannot be seen.
+        """
+        shape = self._params.history
+        if tree.filled(node) or (
+            isinstance(node, cst.Dict)
+            and (shape is None or self._turn(node, shape, roleless=True)[1])
+        ):
+            raise BailError("history_parts_shape_incompatible")
 
     def _literal(
         self,
@@ -798,7 +820,9 @@ class GenerativeModelCalls:
             return self._history(node)
         return node, False
 
-    def _turn(self, node: cst.Dict, shape: ChatHistory) -> tuple[cst.Dict, bool]:
+    def _turn(
+        self, node: cst.Dict, shape: ChatHistory, *, roleless: bool = False
+    ) -> tuple[cst.Dict, bool]:
         """One entry of the history: a role both SDKs take, and its parts."""
         # As in `_row`: a non-literal key becomes `None` and fails the key-set check below.
         written: dict[str | None, cst.DictElement] = {}
@@ -806,9 +830,13 @@ class GenerativeModelCalls:
             if not isinstance(entry, cst.DictElement):
                 raise BailError("history_parts_shape_incompatible")
             written[literal_string(entry.key)] = entry
-        if set(written) != {shape.role_key, shape.parts_key}:
+        keys = set(written)
+        if keys != {shape.role_key, shape.parts_key} and not (
+            roleless and keys == {shape.parts_key}
+        ):
             raise BailError("history_parts_shape_incompatible")
-        if literal_string(written[shape.role_key].value) not in shape.roles:
+        role = written.get(shape.role_key)
+        if role is not None and literal_string(role.value) not in shape.roles:
             raise BailError("history_parts_shape_incompatible")
         holder = written[shape.parts_key]
         parts, rewrote = self._parts(holder.value, holder.key, shape)
@@ -888,6 +916,8 @@ class GenerativeModelCalls:
             config = _EMPTY
         if use.rewrite.coroutine and streaming:
             warnings = (*warnings, *self._await(tree, use))
+        if tree.echoed(use.call):
+            raise BailError("response_shape_changed")
         return _Plan(
             use=use,
             args=read.args,
@@ -1003,10 +1033,14 @@ class GenerativeModelCalls:
         ctor: _Ctor,
         plan: _Plan,
         alias: str | None,
+        stays: frozenset[int],
     ) -> cst.Call:
-        """The call that replaces one use, laid out at the line it sits on."""
+        """The call that replaces one use, laid out at the line it sits on.
+
+        `stays` holds the configuration calls that are not deleted.
+        """
         unit = context.module.default_indent
-        width = context.layout.line_length
+        width = tree.width(plan.use.call, context.layout.line_length)
         indent = tree.indent(plan.use.call)
         args = list(plan.args)
         if plan.use.rewrite.root == "client":
@@ -1016,7 +1050,9 @@ class GenerativeModelCalls:
             args.append(
                 layout.keyword(
                     keyword,
-                    self._configuration(plan, alias, indent + unit, unit, width, len(keyword) + 2),
+                    self._configuration(
+                        plan, alias, indent + unit, unit, width, len(keyword) + 2, stays
+                    ),
                 )
             )
         return layout.call(
@@ -1027,6 +1063,7 @@ class GenerativeModelCalls:
             unit=unit,
             width=width,
             around=tree.around(plan.use.call),
+            comments=True,
         )
 
     def _rooted(self, client: str, plan: _Plan) -> cst.BaseExpression:
@@ -1040,7 +1077,14 @@ class GenerativeModelCalls:
         return cst.Attribute(value=receiver, attr=cst.Name(plan.target))
 
     def _configuration(
-        self, plan: _Plan, alias: str, indent: str, unit: str, width: int, around: int
+        self,
+        plan: _Plan,
+        alias: str,
+        indent: str,
+        unit: str,
+        width: int,
+        around: int,
+        stays: frozenset[int],
     ) -> cst.Call:
         """One call's config object, rebuilt per call: hoisting needs a name no scope anchors."""
         args = [layout.keyword(name, value) for name, value in plan.config.fields]
@@ -1067,50 +1111,72 @@ class GenerativeModelCalls:
             unit=unit,
             width=width,
             around=around,
+            comments=id(plan.config.source) not in stays,
         )
 
     def _config_class(self, alias: str) -> cst.Attribute:
         return cst.Attribute(value=cst.Name(alias), attr=cst.Name(self._config_leaf))
 
-    def _drop(self, context: RuleContext, tree: _Tree, statement: cst.BaseSmallStatement) -> None:
-        """Delete the constructor, handing its leading comment to what follows.
+    def _drop(
+        self,
+        context: RuleContext,
+        tree: _Tree,
+        statement: cst.BaseSmallStatement,
+        emitted: Sequence[cst.CSTNode],
+    ) -> None:
+        """Delete a statement, handing its comments to what follows.
 
-        The next statement keeps its own blank lines and gains only the comment; at a block's end
-        the constructor's blank lines come too.
+        Those above it, then the ones on it or inside it that no call in `emitted` took over. The
+        next statement keeps its own blank lines and gains only the comments; at a block's end the
+        deleted statement's blank lines come too. A line that keeps another statement keeps its own.
         """
         context.rewrites.drop(statement)
         line = tree.line_of(statement)
-        if line is None or len(line.body) > 1:
+        if line is None:
             return
+        target = tree.after(line)
+        context.rewrites.hand_on(line, target)
+        if len(line.body) > 1:
+            return
+        kept = {id(found) for node in emitted for found in layout.comments(node)}
+        written = [*layout.comments(statement), line.trailing_whitespace.comment]
+        moved = [found for found in written if found is not None and id(found) not in kept]
         first = next(
             (index for index, empty in enumerate(line.leading_lines) if empty.comment is not None),
             None,
         )
-        if first is None:
+        if first is None and not moved:
             return
-        target = tree.after(line)
         keeps_the_blanks = isinstance(target, (cst.Module, cst.IndentedBlock))
-        context.rewrites.lead(target, tuple(line.leading_lines[0 if keeps_the_blanks else first :]))
-
-    def _check_the_response_is_still_read_the_old_way(self, tree: _Tree, group: _Group) -> None:
-        """Refuse a read, now `None` where it raised, guarded by a handler naming the old error.
-
-        E.g. `response.text` raised `ValueError`, so the handler would silently never run.
-        """
-        if not self._params.response_attrs_now_none:
-            return
-        reads = _handled_reads(
-            tree.module,
-            self._params.response_legacy_error or "",
-            frozenset(self._params.response_attrs_now_none),
+        start = 0 if keeps_the_blanks else len(line.leading_lines) if first is None else first
+        context.rewrites.lead(
+            target,
+            (*line.leading_lines[start:], *(cst.EmptyLine(comment=found) for found in moved)),
         )
-        held = {id(use.call) for use in group.uses}
-        names = _bound_by(tree, group)
-        for value in reads:
-            if id(value) in held:
+
+    def _response_reads(self, tree: _Tree, group: _Group) -> frozenset[Position]:
+        """The calls whose result has an attribute read that is now `None` where it raised.
+
+        Refused when a handler that could catch the old error surrounds the read, since it would
+        silently never run (`response.text` raised `ValueError`). Any other read runs on and is
+        warned about, as the value can be `None`.
+        """
+        attributes = frozenset(self._params.response_attrs_now_none)
+        if not attributes:
+            return frozenset()
+        read = _reads(tree.module, attributes)
+        handled = {
+            id(value)
+            for value in _handled_reads(tree, self._params.response_legacy_error or "", attributes)
+        }
+        positions: set[Position] = set()
+        for use in group.uses:
+            mine = [value for value in read if tree.yields(value, use.call)]
+            if any(id(value) in handled for value in mine):
                 raise BailError("response_shape_changed")
-            if isinstance(value, cst.Name) and value.value in names:
-                raise BailError("response_shape_changed")
+            if mine:
+                positions.add(use.position)
+        return frozenset(positions)
 
 
 class _Tree(Tree):
@@ -1215,6 +1281,40 @@ class _Tree(Tree):
                 )
         return False
 
+    def yields(self, value: cst.BaseExpression, call: cst.Call) -> bool:
+        """Whether `value` may be what `call` returns, or a chunk of a stream it returns.
+
+        The call itself, awaited or not, or a name that something binds to one: an assignment, a
+        walrus, or the `for` that takes a chunk of it. A name is resolved in its own scope, so
+        another function's variable of the same name is not this one.
+        """
+        pending, seen = [value], set[int]()
+        while pending:
+            node = pending.pop()
+            while isinstance(node, cst.Await):
+                node = node.expression
+            if node is call:
+                return True
+            if isinstance(node, cst.Name) and id(node) not in seen:
+                seen.add(id(node))
+                scope = self._scopes[node]
+                for assignment in scope[node.value] if scope is not None else ():
+                    if isinstance(assignment, Assignment):
+                        pending.extend(self._bound_to(assignment.node))
+        return False
+
+    def _bound_to(self, target: cst.CSTNode) -> list[cst.BaseExpression]:
+        """What the statement binding `target` takes its value from: none, or the one expression."""
+        match self.parent(target):
+            case cst.AssignTarget() as link:
+                site = self.parent(link)
+                return [site.value] if isinstance(site, cst.Assign) else []
+            case cst.AnnAssign(value=cst.BaseExpression() as value) | cst.NamedExpr(value=value):
+                return [value]
+            case cst.For(target=bound, iter=iterable) if bound is target:
+                return [iterable]
+        return []
+
     def receiver(self, call: cst.Call) -> str:
         """How the receiver of a method call is spelled in the source."""
         func = call.func
@@ -1300,47 +1400,62 @@ def _literal_flag(node: cst.BaseExpression) -> bool:
     raise BailError("dynamic_stream_flag")
 
 
-def _bound_by(tree: _Tree, group: _Group) -> frozenset[str]:
-    """The plain names this group's calls are assigned to."""
-    names: set[str] = set()
-    for use in group.uses:
-        statement = tree.parent(use.call)
-        if not isinstance(statement, cst.Assign):
-            continue
-        names.update(
-            target.target.value
-            for target in statement.targets
-            if isinstance(target.target, cst.Name)
-        )
-    return frozenset(names)
-
-
-def _handled_reads(
-    module: cst.Module, error: str, attributes: frozenset[str]
-) -> list[cst.BaseExpression]:
-    """Everything read as one of `attributes` inside a `try` that names `error`."""
-    found = _Handled(error, attributes)
+def _reads(module: cst.Module, attributes: frozenset[str]) -> list[cst.BaseExpression]:
+    """Everything read as one of `attributes` anywhere in the module."""
+    found = _Reads(attributes)
     module.visit(found)
+    return found.found
+
+
+def _handled_reads(tree: _Tree, error: str, attributes: frozenset[str]) -> list[cst.BaseExpression]:
+    """Everything read as one of `attributes` where a handler could catch `error`.
+
+    A `try` or `except*` whose handler names it or a class that holds it, or is a bare `except:`,
+    and a `with` that suppresses it: nothing says the exception was not relied on, so the group is
+    refused rather than guessed about.
+    """
+    found = _Handled(tree, error, attributes)
+    tree.module.visit(found)
     return found.reads
 
 
 class _Handled(cst.CSTVisitor):
-    def __init__(self, error: str, attributes: frozenset[str]) -> None:
+    def __init__(self, tree: _Tree, error: str, attributes: frozenset[str]) -> None:
         super().__init__()
+        self._tree = tree
         self._error = error
         self._attributes = attributes
         self.reads: list[cst.BaseExpression] = []
 
     def visit_Try(self, node: cst.Try) -> bool:  # noqa: N802 - libcst dispatch
-        if any(self._names(handler.type) for handler in node.handlers):
+        return self._guarded(node.body, any(self._names(handler.type) for handler in node.handlers))
+
+    def visit_TryStar(self, node: cst.TryStar) -> bool:  # noqa: N802 - libcst dispatch
+        return self._guarded(node.body, any(self._names(handler.type) for handler in node.handlers))
+
+    def visit_With(self, node: cst.With) -> bool:  # noqa: N802 - libcst dispatch
+        return self._guarded(node.body, any(self._suppresses(item.item) for item in node.items))
+
+    def _guarded(self, body: cst.BaseSuite, catches: bool) -> bool:
+        if catches:
             reads = _Reads(self._attributes)
-            node.body.visit(reads)
+            body.visit(reads)
             self.reads.extend(reads.found)
         return True
 
+    def _suppresses(self, node: cst.BaseExpression) -> bool:
+        """`contextlib.suppress(...)` naming the error, or given a `*` it cannot read."""
+        return (
+            isinstance(node, cst.Call)
+            and self._tree.qualified(node.func) == "contextlib.suppress"
+            and any(bool(arg.star) or self._names(arg.value) for arg in node.args)
+        )
+
     def _names(self, node: cst.BaseExpression | None) -> bool:
+        if node is None:
+            return True
         if isinstance(node, cst.Name):
-            return node.value == self._error
+            return node.value in {self._error, "BaseException", "Exception"}
         if isinstance(node, cst.Tuple):
             return any(self._names(element.value) for element in node.elements)
         return False

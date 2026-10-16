@@ -10,9 +10,11 @@ from pathlib import Path
 
 import acme
 import libcst as cst
+import pdf_repo
 import pytest
 
 from obelize.models import Edit
+from obelize.packs import loader
 from obelize.transforms.imports import statement_for
 
 
@@ -184,6 +186,37 @@ def test_the_types_alias_falls_back_before_it_collides() -> None:
     code, _ = acme.transform(source)
     assert "from acme.client import types as acme_types\n" in code
     assert "C = acme_types.RunConfig\n" in code
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import types, acme.sdk as sdk\n\nC = sdk.types.Config\nT = types.X\n",
+        "import types, acme.sdk.types\n\nC = acme.sdk.types.Config\nT = types.X\n",
+        "import types; import acme.sdk.types\n\nC = acme.sdk.types.Config\nT = types.X\n",
+    ],
+    ids=["aliased-module", "submodule", "second-statement"],
+)
+def test_a_name_an_entry_it_keeps_binds_is_not_released(source: str) -> None:
+    """`types` is the standard library's: the statement is replaced, that entry is not."""
+    code, _ = acme.transform(source)
+    assert code == (
+        "import types\nfrom acme.client import types as acme_types\n\n"
+        "C = acme_types.RunConfig\nT = types.X\n"
+    )
+
+
+def test_the_pypdf_pack_falls_back_the_same_way() -> None:
+    """The fallback is the pack's own: `errors` is a module of the author's here."""
+    change = next(
+        c for c in loader.load("py-pdf/pypdf2-to-pypdf").pack.changes if c.id == "rename-import"
+    )
+    source = "import errors, PyPDF2.errors\n\nE = PyPDF2.errors.PdfReadError\nX = errors.Y\n"
+    code, _ = acme.transform(source, change, spec=pdf_repo.SPEC)
+    assert code == (
+        "import errors\nfrom pypdf import errors as pypdf_errors\n\n"
+        "E = pypdf_errors.PdfReadError\nX = errors.Y\n"
+    )
 
 
 def test_the_types_alias_collides_when_the_fallback_is_taken_too() -> None:

@@ -91,7 +91,8 @@ them on the changed files after `fix --apply`. One number per pack, never per ch
 the layout: a rewritten call goes multi-line when the source call was, when an
 argument is, or when the whole line (indent and trailing comment included)
 would exceed the width; then one argument per line, one indent unit (the
-file's own) past the statement, with a trailing comma.
+file's own) past the line the call starts on, with a trailing comma. A comment written inside
+a replaced call stays beside its argument, or goes on a line above the statement.
 
 ### The newest legacy release
 
@@ -151,8 +152,8 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 |---|---|
 | `rename_import` | `from_module`, `to_module`, `default_alias`, `submodule_map` (`types` -> `google.genai.types`), `symbol_map` (`Name`, or `<submodule>.Name` for one in `submodule_map`, to the new name), `alias_fallbacks` (a submodule to the alias used when the file already binds its own name) |
 | `configure_to_client` | `legacy_symbol`, `client_symbol` (fully qualified), `client_name` and `client_name_fallback` (tried in order), `allowed_kwargs`, `credential_kwarg` (validated by the new client at construction) and `credentials_object_kwarg` (an object where the legacy call also took a mapping) |
-| `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields`, `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
-| `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `positional_to_kw`, `keywords`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes` |
+| `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields` (a mapping literal among them must already be a turn of `history`'s shape, since it is carried as written), `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
+| `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `positional_to_kw`, `keywords`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes`, `value_maps`, `warnings`, `warnings_unless` |
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec` |
@@ -167,7 +168,7 @@ more of the new call's arguments, carried only **when written as keywords**, so
 a positional argument beyond `positional_to_kw` is still
 `positional_arg_ambiguous`; `config_kwargs` go into `config_class`, passed as
 `config_kwarg`. Any other keyword, and a `**` splat, is `unsupported_kwarg`. The
-schema checks that no parameter is in two lists, every `arg_map` key is in one, no two parameters map to one keyword (the configuration object's own keyword, `config_kwarg`, counts: `arg_map` may not rename a parameter onto it), `keywords`, `config_kwargs` and `result_paths` are sorted and de-duplicated, and every `dispatch_prefixes` key is read by the rule. A list of `keywords` is an allowlist of what a measurement showed
+schema checks that no parameter is in two lists, every `arg_map` key is in one, no two parameters map to one keyword (the configuration object's own keyword, `config_kwarg`, counts: `arg_map` may not rename a parameter onto it), `keywords`, `config_kwargs` and `result_paths` are sorted and de-duplicated, and every `dispatch_prefixes` and `value_maps` key is read by the rule; `warnings` is sorted and holds codes of [the warning table](SCAN_VOCABULARY.md), and `warnings_unless` keys are such codes, not also in `warnings`, with a parameter the rule reads. A list of `keywords` is an allowlist of what a measurement showed
 the new call takes with the meaning the old one gave it, never a list of what
 the old one accepted: 0.28.1's `create` sent an unknown keyword as the request
 body and read others itself, and a name nobody measured must not carry.
@@ -225,7 +226,32 @@ call reproduces; any other argument is `response_shape_changed`. With
 `result_access_flags` (the result's type changed: `embed_content` returned a
 mapping, now an object), any use of the result is `response_shape_changed`, so
 the call is rewritten only where its result is discarded; the flags record the
-reads the legacy result allowed.
+reads the legacy result allowed. Whatever a pack states, a call inside an f-string field written
+with `=` is `response_shape_changed`: the field prints its own source text, which the rewrite
+changes.
+
+**`value_maps`** is for an argument the legacy SDK looked up and the new one sends as
+written: the legacy `task_type` lowered a string and took `"document"` for
+`RETRIEVAL_DOCUMENT`, which the new configuration passes on unchanged for the
+service to refuse. It maps a parameter, by its legacy name, from the lower-case
+legacy spellings to the one name the new call takes. A string literal in the
+table is written as the mapped name, in the author's own quotes; a literal
+`None` is carried as written, since the legacy call tested the value for truth
+before it looked it up; any other value (a name, a number, an enum member, a
+string outside the table) is `unsupported_kwarg`, since the legacy lookup took
+more than a literal and the rule cannot tell which.
+
+**`warnings`** lists the warning codes every call the rule writes carries, for a
+difference the new call leaves unsaid and the rule cannot see in the source: the
+legacy `upload_file` gave a path its own name as `display_name`, and the new
+`files.upload` gives none, so a read of it changes without any line showing it.
+A refused call carries none.
+
+**`warnings_unless`** maps a warning code to the legacy parameter that settles
+it: a call carries the warning unless it passes that parameter. The legacy
+`upload_file` set `display_name` from the path only when the call gave none, so
+a call that passes one has nothing to be told. The parameter is read by its
+legacy name, and a positional argument lifted to a keyword counts as passed.
 
 **`rename_setting`** is for a module the new release keeps (`match.shared`), whose setting is
 assigned under another name there: `openai.api_base = x` becomes `openai.base_url = x`. It rewrites
@@ -365,7 +391,10 @@ submodule's.
 legacy shape with a `ValidationError`). A list literal of dict literals with
 string-literal parts and literal `user` or `model` roles has each part
 rewritten to `{"text": <the string>}`; anything else is
-`history_parts_shape_incompatible`.
+`history_parts_shape_incompatible`. A mapping literal among the constructor
+fields carried into the configuration (Gemini's `system_instruction`) is not
+rewritten, so it is refused the same way unless its parts are already
+`{"text": ...}` and its role, if it has one, is one of `history.roles`.
 
 **One `configure(...)` per module, anywhere in it, is the client source.** Two
 or more is `multiple_configure_calls`; none is `client_source_unresolved`,
@@ -473,7 +502,7 @@ Defined in [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md); a pack's fixtures and
 | Code | Kind | Raised when |
 |---|---|---|
 | `roundtrip_mismatch` | bail | `cst.parse_module(data).bytes != data`; the file is reported, never edited. |
-| `history_parts_shape_incompatible` | bail | `start_chat(history=...)` outside the rewritable shape. |
+| `history_parts_shape_incompatible` | bail | `start_chat(history=...)` outside the rewritable shape, or a mapping constructor field that is not already the shape the new SDK reads. |
 | `multiple_configure_calls` | bail | Two or more `configure(...)` in one module. |
 | `credentials_shape_differs` | bail | `configure(credentials=<dict literal>)`; `Client.credentials` takes only `google.auth.credentials.Credentials`. |
 | `module_alias_rebound` | confidence_reason | The legacy import's name was reassigned or aliased (`g = genai`); the file is `needs_review`. |

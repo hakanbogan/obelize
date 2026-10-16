@@ -53,7 +53,9 @@ that is not a literal under a listed prefix is refused. Under `result_paths`
 where every read of its result is a listed attribute path (ADR-053 D5). A field
 in `result_attribute_flags`, which the new result lacks, read off the result,
 off the `for` or comprehension target or one name it feeds, or by `getattr`, is
-`attribute_removed`.
+`attribute_removed`. Whatever the pack states, a call in an f-string field written with `=`, which
+prints the source text the rewrite changes, is `response_shape_changed` as well, here and in
+`generative_model_calls`.
 
 ### D6. The client bail is borrowed, and the scan's blind spot is written down rather than fixed here
 

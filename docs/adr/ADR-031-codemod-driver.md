@@ -41,7 +41,7 @@ The driver asks `parse.gates` of the bytes it produced (libcst parses them, `com
 them) and withholds the file on every row as `output_does_not_parse` when it fails. The gate is
 asked only of a file the run would write and whose bytes changed. The round-trip gate has no output
 counterpart: the output is libcst's own serialisation, so nothing can make it fire. `ReadRefusal`
-stays at three members, because a refused rewrite is an `Edit`, not an unreadable file.
+gains no member for it, because a refused rewrite is an `Edit`, not an unreadable file.
 
 ### D5. Neither new code gets a rung on the merged ladder, for two reasons
 
@@ -102,6 +102,16 @@ it was: each applied row becomes `needs_review` with `repo_not_fully_migrated`, 
 graded again so F-1 holds. It runs after D11's pass and before the manifest rules. A file written for
 the new API fails on the old pin and a file left behind fails on the new one, so no part is worth
 writing alone ([ADR-053](ADR-053-shared-module-migrations.md) D6).
+
+### D13. An exception from one file's rules withholds that file and nothing else
+
+`codemod.run` catches any `Exception` a file's rules raise (a stack overrun keeps D4's
+`output_does_not_parse`). The file is kept as it was and every row the scan graded `eligible` is
+withheld as `internal_error`, a file gate like D4's, so F-1 names it in `caused_by` on the rest and
+D12's pack holds the repository. `Run.limitations` carries one `internal_error` row per file naming
+the exception's class and never its message ([ADR-017](ADR-017-input-gates.md) D9), and `run.json`
+merges them with the scan's. Unlike D4's code it is on `LADDER`, at rung 2 beside
+`input_does_not_parse`, because a scan raises it too.
 
 ## Consequences
 

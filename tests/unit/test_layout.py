@@ -73,6 +73,99 @@ def test_a_statement_that_does_not_start_its_line_is_indented_by_its_column() ->
     assert [row.status for row in edits] == ["auto", "auto"]
 
 
+WRITTEN = """f(  # opening
+    # above x
+    x=1,  # after x
+    # above y
+    y=2  # after y
+    # tail
+)"""
+
+
+def written(source: str = WRITTEN) -> cst.Call:
+    return cst.ensure_type(cst.parse_expression(source), cst.Call)
+
+
+def rewritten(source: cst.Call, args: list[cst.Arg], *, comments: bool = True) -> str:
+    return layout.render(
+        layout.call(
+            source,
+            cst.Name("g"),
+            args,
+            indent="",
+            unit="    ",
+            width=100,
+            around=0,
+            comments=comments,
+        )
+    )
+
+
+def test_the_comments_under_a_node_are_listed_in_the_order_they_were_written() -> None:
+    assert [found.value for found in layout.comments(written())] == [
+        "# opening",
+        "# above x",
+        "# after x",
+        "# above y",
+        "# after y",
+        "# tail",
+    ]
+
+
+def test_a_comment_beside_a_moved_argument_goes_with_it() -> None:
+    """Above it, after it, after the opening parenthesis, and after the last: each where it was."""
+    source = written()
+    args = [layout.keyword(arg.keyword.value, arg.value) for arg in source.args if arg.keyword]
+    assert rewritten(source, args) == (
+        "g(\n    # opening\n    # above x\n    x=1,  # after x\n    # above y\n"
+        "    y=2,  # after y\n    # tail\n)"
+    )
+
+
+def test_a_comment_follows_the_argument_it_was_written_beside_when_the_order_changes() -> None:
+    """A moved argument is found by its value; the one left out takes its comments with it."""
+    source = written("f(\n    # above a\n    a=1,  # after a\n    b=2,  # after b\n    c=3,\n)")
+    a, _b, c = source.args
+    produced = rewritten(
+        source,
+        [
+            layout.keyword("c", c.value),
+            layout.keyword("new", cst.Name("z")),
+            layout.keyword("a", a.value),
+        ],
+    )
+    assert produced == "g(\n    c=3,\n    new=z,\n    # above a\n    a=1,  # after a\n)"
+
+
+def test_a_comment_is_not_carried_unless_the_call_replaces_the_one_it_was_written_in() -> None:
+    """A copy of an object that stays has its comments where it is."""
+    source = written()
+    args = [layout.keyword(arg.keyword.value, arg.value) for arg in source.args if arg.keyword]
+    assert rewritten(source, args, comments=False) == "g(\n    x=1,\n    y=2,\n)"
+
+
+def test_a_comment_in_an_empty_call_closes_the_call_that_replaces_it() -> None:
+    source = written("f(\n    # nothing yet\n)")
+    assert rewritten(source, [layout.keyword("x", cst.Name("v"))]) == (
+        "g(\n    x=v,\n    # nothing yet\n)"
+    )
+
+
+def test_what_is_not_a_call_has_no_arguments_to_carry_comments_from() -> None:
+    source = cst.parse_expression("{\n    # c\n    'a': 1,\n}")
+    produced = layout.call(
+        source,
+        cst.Name("g"),
+        [layout.keyword("a", cst.Integer("1"))],
+        indent="",
+        unit="    ",
+        width=100,
+        around=0,
+        comments=True,
+    )
+    assert layout.render(produced) == "g(\n    a=1,\n)"
+
+
 def test_the_repository_has_the_answer_keys_this_guard_thinks_it_has() -> None:
     """An empty parametrisation would pass silently."""
     assert len(KEYS) >= 20, [path.name for path in KEYS]

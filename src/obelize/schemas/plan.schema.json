@@ -13,6 +13,7 @@
                   "input_does_not_parse",
                   "output_does_not_parse",
                   "output_names_unresolved",
+                  "internal_error",
                   "file_too_large",
                   "runtime_unsupported",
                   "legacy_version_unsupported",
@@ -91,6 +92,7 @@
                 "input_does_not_parse",
                 "output_does_not_parse",
                 "output_names_unresolved",
+                "internal_error",
                 "file_too_large",
                 "runtime_unsupported",
                 "legacy_version_unsupported",
@@ -180,7 +182,9 @@
               "count_tokens_config_dropped",
               "positional_args_mapped_by_index",
               "history_parts_rewritten",
-              "async_stream_await_preserved"
+              "async_stream_await_preserved",
+              "response_text_may_be_none",
+              "upload_display_name_unset"
             ],
             "type": "string"
           },

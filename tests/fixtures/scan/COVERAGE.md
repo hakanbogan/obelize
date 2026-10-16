@@ -2,8 +2,8 @@
 
 These fixtures are the measurement oracle, hand-written so the implementation is judged
 against a decision rather than its own output. The first five were written before the scanner.
-Nine cases, 179 graded findings (82 `auto`, 85 `needs_review`, 3 `unsupported`,
-9 `not_a_usage`), 25 bindings, 109 `must_not_report` rows and one
+Nine cases, 183 graded findings (86 `auto`, 85 `needs_review`, 3 `unsupported`,
+9 `not_a_usage`), 26 bindings, 111 `must_not_report` rows and one
 `must_not_autofix` row. `tests/unit/test_fixture_vocabulary.py` asserts this
 census per case and every value against
 [docs/SCAN_VOCABULARY.md](../../../docs/SCAN_VOCABULARY.md).
@@ -17,7 +17,7 @@ line, use lines, verdict and bail; and that the files blocking the manifest edit
 are the ones the key leaves importing the legacy distribution. Nothing is
 excluded, so a new code arrives with the fixture that grades it.
 
-The gaps are numbered: thirty-seven are written down and **nineteen are
+The gaps are numbered: thirty-eight are written down and **twenty are
 closed**. None of the open ones is a shipped surface without a fixture; they are
 measurements and decisions. A closed gap is struck through and keeps its number,
 because task rows, ADRs, fixtures and `bench/errors.yaml` cite gaps by number.
@@ -31,7 +31,7 @@ because task rows, ADRs, fixtures and `bench/errors.yaml` cite gaps by number.
 | `encoding/` | Bytes in, bytes out: CRLF, a latin-1 cookie, a UTF-8 BOM, bare CR (`roundtrip_mismatch`), no trailing newline, and both `input_does_not_parse` gates: Python 2 (libcst parses, `compile()` rejects) and a half-finished hand migration (both refuse, `compile()` first). Generated from byte literals by `encoding/_build.py` and guarded by `tests/unit/test_fixture_encoding.py`. The four files that migrate carry a `.after.py`, which `tests/oracle/test_apply_against_the_oracle.py` compares with a real write; the three refused have none, which under `after_file_is: fix_apply_output` claims they come out byte-identical. |
 | `escapes/` | Fourteen ways a file refuses to migrate: rebound alias, shadowed name, conditional import, star import, an escaping model object, a `class_attr` binding, dynamic access, mock targets, two `configure` calls, no `configure` at all, a name assigned twice, an import inside a function body, an attribute other methods reassign, and a model another module imports. |
 | `manifests/` | The five dependency-manifest layouts in one half-migrated repository, so both halves of [ADR-010](../../../docs/adr/ADR-010-fixture-oracle-and-atomicity.md) F-2 fire: `requirements.txt`, the `requirements/` directory form, PEP 621 `[project] dependencies`, a Poetry group, a `Pipfile` `[dev-packages]` table, a `setup.cfg` extras table and a `setup.py` `install_requires`, and in the `pyproject.toml` the arrays uv, PDM and Hatch keep requirements in and a Poetry dependency given as its own table. `app.py` migrates and `legacy.py` cannot, so the new pin is `auto` and the legacy pin withheld everywhere. Each layout carries a decoy spelling the distribution name (a comment, a description or a URL). |
-| `import_forms/` | Every import spelling but the aliased one: plain dotted, `from … import … as …`, `from google import generativeai`, the `types` submodule with two enum members read as attributes, both annotation forms resolving through an `if TYPE_CHECKING:` import, and a model and a function named outside ASCII. All `auto`, deliberately without answer keys. |
+| `import_forms/` | Every import spelling but the aliased one: plain dotted, `from … import … as …`, `from google import generativeai`, the `types` submodule with two enum members read as attributes, both annotation forms resolving through an `if TYPE_CHECKING:` import, a model and a function named outside ASCII, and a file holding both SDKs, where the calls on the new SDK's client report nothing. All `auto`, deliberately without answer keys. |
 | `transitive/` | A repository that migrates whole beside a module importing google-api-core without naming the legacy SDK. The legacy pin stays, under `transitive_dependency_in_use`: the new SDK does not install what that module imports, and the manifest never declared it. |
 | `negative/` | Zero findings expected: already on `google.genai`, Vertex (both origins), a local package called `genai`, prose mentions, a Markdown code block. |
 | `examples/gemini-legacy-app/` | The end-to-end subject. A run writes nothing: the scan grades three rows `auto`, and the driver withholds the module holding the `configure` two others still run on. |
@@ -148,3 +148,8 @@ Each lever is how many round-one rows would migrate if that cause alone were fix
     parameter never give (ADR-027 D2). The pack's limitations name it. *Closes: reusing the
     existing binding (`self.model = <name>`, `model=self.model` at each call), with a fixture that
     grades a class wrapper.*
+38. ~~A call on the new SDK's client in a file that still builds a legacy model~~ — closed
+    (ADR-019 D5). `import_forms/half_migrated.py` grades four `auto` rows and two
+    `must_not_report` rows, and no existing row moved. `ScanSpec.new_client_symbol` is new, so
+    `spec_digest` moves for a pack with a `configure_to_client` rule, and the recorded Gate 1
+    measurement is stale until it is re-run, as for gap 21.

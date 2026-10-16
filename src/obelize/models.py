@@ -77,6 +77,7 @@ BailCode = Literal[
     "input_does_not_parse",
     "output_does_not_parse",
     "output_names_unresolved",
+    "internal_error",
     "file_too_large",
     "runtime_unsupported",
     "legacy_version_unsupported",
@@ -141,8 +142,8 @@ BAIL_ACTIONS: dict[BailCode, str] = {
         "rewrite it."
     ),
     "input_does_not_parse": (
-        "Fix the syntax error in the file, or the Python requirement in pyproject.toml or "
-        "setup.cfg, then run again."
+        "Fix the syntax error in the file, flatten code nested that deep, or fix the Python "
+        "requirement in pyproject.toml or setup.cfg, then run again."
     ),
     "output_does_not_parse": (
         "Migrate the file by hand; the rewrite did not parse, so the file was left alone."
@@ -151,6 +152,7 @@ BAIL_ACTIONS: dict[BailCode, str] = {
         "Migrate the file by hand; the rewrite would read a name the module does not bind, so "
         "the file was left alone."
     ),
+    "internal_error": "Migrate the file by hand; obelize raised on it, so it was left alone.",
     "file_too_large": "Raise max_file_bytes in .obelize.yml, or migrate the file by hand.",
     "runtime_unsupported": (
         "Raise the Python version the project declares to one the new distribution installs on, "
@@ -305,6 +307,8 @@ WarningCode = Literal[
     "positional_args_mapped_by_index",
     "history_parts_rewritten",
     "async_stream_await_preserved",
+    "response_text_may_be_none",
+    "upload_display_name_unset",
 ]
 WARNING_CODES: frozenset[WarningCode] = frozenset(get_args(WarningCode))
 
@@ -335,6 +339,14 @@ WARNING_MEANINGS: dict[WarningCode, str] = {
         "An await before an async streaming call was kept after the rename; dropping it raises "
         "TypeError."
     ),
+    "response_text_may_be_none": (
+        "The reply's text is read where the old SDK raised ValueError for a reply with none; the "
+        "new one returns None, so the value can be None and a handler for that error never runs."
+    ),
+    "upload_display_name_unset": (
+        "The old upload_file set display_name to the file's name when none was given; the new "
+        "files.upload sets none, so a read of the uploaded file's display_name is now None."
+    ),
 }
 
 # An import finding is the statement itself, so only a bail about the statement, the
@@ -344,6 +356,7 @@ IMPORT_BAILS: frozenset[BailCode] = frozenset(
         "roundtrip_mismatch",
         "output_does_not_parse",
         "output_names_unresolved",
+        "internal_error",
         "flag_only_surface",
         "module_alias_rebound",
         "conditional_binding",
@@ -1069,6 +1082,8 @@ class ScanSpec(_Frozen):
     symbols: tuple[str, ...] = ()
     # The legacy call that configures the module; `None` for a library with no client.
     client_symbol: str | None = None
+    # The class the new SDK's client is built from: a receiver only ever assigned one is not legacy.
+    new_client_symbol: str | None = None
     constructor_symbols: tuple[str, ...] = ()
     supported_methods: tuple[ReceiverMethods, ...] = ()
     method_returns: tuple[MethodReturn, ...] = ()
@@ -1120,8 +1135,12 @@ class ScanSpec(_Frozen):
         ):
             if not _DISTRIBUTION_NAME.fullmatch(value):
                 raise ValueError(f"{field} takes a distribution name, got {value!r}")
-        if self.client_symbol is not None and not QUALIFIED_NAME.fullmatch(self.client_symbol):
-            raise ValueError(f"client_symbol must be a qualified name, got {self.client_symbol!r}")
+        for field, symbol in (
+            ("client_symbol", self.client_symbol),
+            ("new_client_symbol", self.new_client_symbol),
+        ):
+            if symbol is not None and not QUALIFIED_NAME.fullmatch(symbol):
+                raise ValueError(f"{field} must be a qualified name, got {symbol!r}")
         SpecifierSet(self.requires_python)
         for specifier in (self.new_range, self.new_version):
             if specifier is not None:
@@ -1712,6 +1731,7 @@ BlockedReason = Literal[
 LimitationCode = Literal[
     "file_too_large",
     "input_does_not_parse",
+    "internal_error",
     "missing",
     "not_a_file",
     "outside_root",

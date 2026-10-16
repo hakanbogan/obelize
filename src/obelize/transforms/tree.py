@@ -7,6 +7,7 @@ disagree about which of two calls at one position the scanner found.
 from __future__ import annotations
 
 import re
+import sys
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -158,6 +159,18 @@ class Tree:
                 return True
         return False
 
+    def echoed(self, node: cst.CSTNode) -> bool:
+        """Whether `node` is in an f-string field written with `=`, which prints its own source."""
+        while not isinstance(node, cst.BaseSmallStatement | cst.BaseCompoundStatement):
+            node = self._parent[node]
+            if isinstance(node, cst.FormattedStringExpression) and node.equal is not None:
+                return True
+        return False
+
+    def width(self, node: cst.CSTNode, line_length: int) -> int:
+        """The width `node` is laid out to; before Python 3.12 an f-string field is one line."""
+        return sys.maxsize if self.in_f_string(node) else line_length
+
     def statement_of(self, node: cst.CSTNode) -> cst.CSTNode:
         """The innermost simple or compound statement holding `node` (a `for` header: the `for`)."""
         current = node
@@ -171,9 +184,15 @@ class Tree:
         return statement if isinstance(statement, cst.SimpleStatementLine) else None
 
     def indent(self, node: cst.CSTNode) -> str:
-        """The characters indenting the statement `node` belongs to."""
-        start = self._pos[self.statement_of(node)].start
-        return layout.indent_of(self.lines, start.line, start.column)
+        """The characters indenting the line `node` starts on: its statement's, or a continuation's.
+
+        A call inside a multi-line bracket starts on a line the author indented as they chose.
+        """
+        start, first = self._pos[node].start, self._pos[self.statement_of(node)].start
+        if start.line == first.line:
+            return layout.indent_of(self.lines, first.line, first.column)
+        text = self.lines[start.line - 1]
+        return text[: len(text) - len(text.lstrip(" \t"))]
 
     def around(self, call: cst.Call) -> int:
         """How many characters of `call`'s source line are not the call or its indent.

@@ -3,7 +3,8 @@ after_file_is: none
 what_it_exercises: >-
   Every spelling of the legacy import other than `import google.generativeai as
   genai`, which the other five cases use exclusively, plus the two annotation
-  forms, and one file whose model and function are named outside ASCII.
+  forms, one file whose model and function are named outside ASCII, and one file
+  that holds both SDKs, where the calls on the new SDK's client report nothing.
   Before this case `direct_import_resolved` and `from_import_resolved`
   had zero uses anywhere in the oracle and C-26 -- a string annotation is a real
   finding and not a prose mention -- had no positive case at all. It carries no
@@ -317,6 +318,38 @@ findings:
       Bound to `modèle` at line 12 and read inside `üret`. Both names are
       identifiers, and neither is ASCII.
 
+  # =====================================================================
+  # half_migrated.py -- a legacy model beside a client the new SDK built.
+  # Before ADR-019 D5's amendment the two calls on `client` were each a
+  # `receiver_unresolved` finding, and every row below was withheld as
+  # `file_not_fully_migrated` because of them.
+  # =====================================================================
+  - file: half_migrated.py
+    line: 9
+    symbol: google.generativeai
+    kind: import
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: half_migrated.py
+    line: 12
+    symbol: google.generativeai.configure
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+    warnings: [client_constructed_eagerly]
+  - file: half_migrated.py
+    line: 14
+    symbol: google.generativeai.GenerativeModel
+    kind: call
+    confidence_reason: alias_resolved
+    verdict: auto
+  - file: half_migrated.py
+    line: 19
+    symbol: google.generativeai.GenerativeModel.generate_content
+    kind: method_call
+    confidence_reason: receiver_bound_module_const
+    verdict: auto
+
 bindings:
   - file: plain_dotted.py
     kind: name
@@ -359,6 +392,13 @@ bindings:
     scope: module
     ctor_line: 12
     use_lines: [16]
+    verdict: auto
+  - file: half_migrated.py
+    kind: module_const
+    name: MODEL
+    scope: module
+    ctor_line: 14
+    use_lines: [19]
     verdict: auto
 
 must_not_report:
@@ -414,6 +454,22 @@ must_not_report:
       annotations into string matching would report this line and miss lines 17
       and 22; one that string-matched the bare class name would report all
       three.
+  - file: half_migrated.py
+    line: 23
+    symbol: google.generativeai.GenerativeModel.generate_content
+    why: >-
+      `client` is only ever assigned `modern.Client(...)`, which resolves to
+      [('google.genai.Client', IMPORT)], the pack's `configure_to_client`
+      client. `generate_content` is the method of exactly one legacy receiver and
+      the file builds a legacy model, so before D5's amendment this line was
+      `receiver_unresolved`. It is the new SDK's call and no legacy usage.
+  - file: half_migrated.py
+    line: 27
+    symbol: google.generativeai.ChatSession.send_message
+    why: >-
+      The same name at the root of a longer chain, `client.chats.create(...)`,
+      whose `send_message` is the new SDK's chat. The root name decides, not the
+      method that ends the chain.
 
 notes: |
   There is no `.after.py` in this directory and `after_file_is` is `none`. Every
@@ -447,3 +503,9 @@ notes: |
   on the un-aliased and submodule shapes this case pins, because those are the
   two whose rewrite has to introduce a name. COVERAGE.md gap 8 is struck
   through there.
+
+  `half_migrated.py` is the contrast to `../escapes/model_escapes.py:22`, where
+  the receiver is a parameter and stays `receiver_unresolved`. A receiver is the new SDK's client
+  only when every assignment of the name at the root of its chain builds the pack's client class:
+  a name assigned anything else too, a parameter and `self.client` are still unresolved, because a
+  wrong guess would hide a legacy call. `tests/unit/test_analysis.py` pins those negatives.

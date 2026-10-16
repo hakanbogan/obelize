@@ -59,6 +59,7 @@ findings:
     kind: method_call
     confidence_reason: receiver_bound_module_const
     verdict: auto
+    warnings: [response_text_may_be_none]
     note: >-
       Receiver `MODEL` is the module-level binding constructed on line 9; closed-world holds (two
       uses, both plain receivers, no escape). Becomes
@@ -139,7 +140,9 @@ notes: |
   ([ADR-027](../../../../docs/adr/ADR-027-model-object.md)).
   `tests/oracle/test_generative_model_calls_against_the_oracle.py` runs the three implemented
   rules over `app.py` and asserts the bytes are this file's, that nothing in it is unclaimed,
-  and that the two warnings the rows below grade are the two the rules emit. Every decision
+  and that the three warnings the rows below grade are the three the rules emit (the third,
+  `response_text_may_be_none` on line 14, was added when the rule began to warn on every
+  `.text` read). Every decision
   numbered here was made before any rule existed and none of them was adjusted afterwards,
   which is the whole of what this oracle is for (ADR-010 F-4).
 

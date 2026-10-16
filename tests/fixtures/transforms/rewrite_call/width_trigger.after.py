@@ -19,7 +19,7 @@ def embed(paragraph):
         model="models/gemini-embedding-001",
         contents=paragraph,
         config=types.EmbedContentConfig(
-            task_type="retrieval_document",
+            task_type="RETRIEVAL_DOCUMENT",
             title="the quarterly report, as filed",
             output_dimensionality=1536,
         ),

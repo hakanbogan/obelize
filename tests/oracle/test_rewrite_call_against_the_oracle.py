@@ -1,4 +1,4 @@
-"""`rewrite_call` against its answer key: twenty-four cases, eight rules (one per legacy function).
+"""`rewrite_call` against its answer key: twenty-six cases, eight rules (one per legacy function).
 
 Every rule runs in pack order, because this kind builds on the names `configure_to_client` and
 `rename_import` bind; an edit's `rule_id` says which of the eight changes fired.

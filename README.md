@@ -200,7 +200,7 @@ part it can prove, give the agent the rest, and keep the check:
 `scan` and `fix` run every pack your repository uses, or the ones `--pack` names, and your own packs
 can sit in a directory your own `~/.config/obelize/config.yml` lists as `pack_dirs`; a
 repository's `.obelize.yml` may not. The Gemini pack,
-`gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 22
+`gemini/google-generativeai-to-google-genai`, declares the 16 changes the migration makes and 23
 limitations. The limitations say what it reports instead of rewriting, such as every tool
 declaration, because automatic function calling is on by default in `google-genai`; what it cannot
 find; and what it rewrites without having checked it against a live API call. `scan` and `fix` print
@@ -270,8 +270,8 @@ you trust. These gaps are known in 0.5.0:
 Each case under [tests/fixtures/scan/](tests/fixtures/scan/) has an answer key written by hand that
 grades every usage: migrated, or left and why. The first five were written before the scanner
 existed. The suite reproduces every key, and each rewritten file matches its expected file byte for
-byte. [tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 37 gaps the fixtures
-do not cover, 19 of them closed. CI runs the suite on Linux for every supported Python and on macOS
+byte. [tests/fixtures/scan/COVERAGE.md](tests/fixtures/scan/COVERAGE.md) lists 38 gaps the fixtures
+do not cover, 20 of them closed. CI runs the suite on Linux for every supported Python and on macOS
 and Windows for the oldest, the newest and 3.14, and holds each system to 100% branch coverage of the
 code it runs.
 

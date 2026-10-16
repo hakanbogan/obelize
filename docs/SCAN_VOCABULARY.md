@@ -18,7 +18,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `star_import` | `from google.generativeai import *`. Of a shared module, only one from the module itself or from a legacy symbol (`from openai.types import *` is not). Names it may bind are separate findings with `confidence_reason: star_import_candidate`. |
 | `text_mention` | The prefilter token in a string, comment or docstring, on a line with no AST finding. |
 | `manifest` | A dependency declaration in a `*requirement*.txt` file (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. A `*requirements*.in` or `*constraints*.txt` file is read too but never written: its declarations are reported as `manifest_pin_shape_unsupported`. Lockfiles are not read: a line edit would break their hashes. |
-| `parse_error` | libcst or `compile()` refused the file. Reported, never edited. |
+| `parse_error` | libcst or `compile()` refused the file, it is nested past the depth limit ([ADR-017](adr/ADR-017-input-gates.md) D1), or obelize raised on it (`internal_error`, D9). Reported, never edited. |
 
 ## 2. `Finding.confidence_reason`: why we believe it (16 values)
 
@@ -77,7 +77,7 @@ summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACT
 | Code | Raised when | What to do |
 |---|---|---|
 | `roundtrip_mismatch` | `cst.parse_module(data).bytes != data` on the input. | Migrate the file by hand; obelize could not read it back byte for byte, so it will not rewrite it. |
-| `input_does_not_parse` | libcst or `compile()` refused the input; `limitations[].detail` names which. Also a `pyproject.toml`, `setup.cfg`, `Pipfile` or `setup.py` whose Python requirement is unreadable; that run is not blocked. | Fix the syntax error in the file, or the Python requirement in pyproject.toml or setup.cfg, then run again. |
+| `input_does_not_parse` | libcst or `compile()` refused the input, or it is nested more than 300 levels deep (a chain of that many operands, a dotted name, an `elif` ladder, about a hundred brackets inside brackets); `limitations[].detail` names which. Also a `pyproject.toml`, `setup.cfg`, `Pipfile` or `setup.py` whose Python requirement is unreadable; that run is not blocked. | Fix the syntax error in the file, flatten code nested that deep, or fix the Python requirement in pyproject.toml or setup.cfg, then run again. |
 | `output_does_not_parse` | The rewritten bytes fail `cst.parse_module` or `compile()`. The file is left alone. | Migrate the file by hand; the rewrite did not parse, so the file was left alone. |
 | `output_names_unresolved` | The rewritten bytes read a name the module does not bind and the input did not read (a `self` in a static method): a `NameError` `compile()` misses. The file is left alone. | Migrate the file by hand; the rewrite would read a name the module does not bind, so the file was left alone. |
 | `file_too_large` | Over `max_file_bytes`. | Raise max_file_bytes in .obelize.yml, or migrate the file by hand. |
@@ -95,8 +95,9 @@ summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACT
 | `model_object_read_elsewhere` | No escape in its own file, but another selected module imports the module constant (by name or `*`) or reads it or the instance attribute off the module; judged from imports and reads, never text. | Stop other modules importing or reading the legacy object, or migrate those modules by hand. |
 | `multiple_assignments` | The name is assigned more than once in its scope (`len(scope[name]) > 1`); an instance attribute counts every write in the class's methods. | Assign the name once in its scope, or migrate its uses by hand. |
 | `class_attr_binding` | The constructor is a class-body attribute. Out of scope in v0. | Build the object in a method or at module level, not in the class body, or migrate it by hand. |
-| `receiver_unresolved` | A supported method on a receiver with no binding record, including an unbound constructor result. | Bind the receiver to a name assigned once from its constructor, or migrate the call by hand. |
+| `receiver_unresolved` | A supported method on a receiver with no binding record, including an unbound constructor result. A call on a name only ever assigned the new SDK's client is none. | Bind the receiver to a name assigned once from its constructor, or migrate the call by hand. |
 | `receiver_method_unmapped` | A supported method in the pack's `methods` with no `rewrites` entry; the whole group is withheld. | Migrate the call by hand; the pack has no rewrite for this method. |
+| `internal_error` | obelize itself raised on the file, in the scan (the file is one `parse_error` row) or in a `fix` run (each row the scan graded `eligible` is withheld). The file is left alone, and `limitations[]` names the exception class and never its message. A defect in obelize, reported so one file does not end the run. | Migrate the file by hand; obelize raised on it, so it was left alone. |
 
 ### Client
 
@@ -135,12 +136,12 @@ summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACT
 | `default_model_name_required` | `GenerativeModel()` with no model name. | Give the constructor a model name, or migrate the call by hand. |
 | `generation_config_not_static` | `generation_config=` is a spread, a computed `dict(...)`, a name that is not one plain assignment read only as a configuration (assigned twice, changed, read elsewhere, a parameter), or has a key outside the legal 15; or a configuration object is not a constructor argument. | Write generation_config as a literal, or a name assigned once and used only as the configuration, or migrate it by hand. |
 | `safety_settings_not_static` | A category or threshold outside the closed tables, a shape other than a category-to-threshold mapping or a list of one-row mappings, or a name that is not one plain assignment read only as a configuration. | Write safety_settings as a literal mapping of known categories to known thresholds, or migrate it by hand. |
-| `history_parts_shape_incompatible` | `start_chat(history=…)` outside the rewritable shape; also a model request that is a single turn, a name filled with a mapping, or any turn on a chat's `send_message`. A literal list of turns in a client call is reshaped instead. | Pass history as a literal list of turns, or migrate the call by hand. |
+| `history_parts_shape_incompatible` | `start_chat(history=…)` outside the rewritable shape; also a model request that is a single turn, a name filled with a mapping, or any turn on a chat's `send_message`, or a mapping `system_instruction` that is not already the shape the new SDK reads (parts that are `{"text": ...}`, and a role it takes or none). A literal list of turns in a client call is reshaped instead. | Pass history as a literal list of turns, or migrate the call by hand. |
 | `dynamic_stream_flag` | `stream=` is not a literal. | Write stream= as True or False, or migrate the call by hand. |
 | `async_stream_await_missing` | `async for` over `generate_content_async(..., stream=True)` with no `await`: already a `TypeError`, since the legacy method is a coroutine function. | Add the missing await before the streaming call, which raises a TypeError without it. |
-| `unsupported_kwarg` | `request_options=` and other kwargs with no counterpart, or in no list the rule carries; `stream=` where the new method cannot stream; a `**` splat. | Migrate the call by hand; the new call has no counterpart for this keyword. |
+| `unsupported_kwarg` | `request_options=` and other kwargs with no counterpart, or in no list the rule carries; an argument with a `value_maps` table whose value is neither `None` nor a string literal in it (`task_type=` as a name or a number); `stream=` where the new method cannot stream; a `**` splat. | Migrate the call by hand; the new call has no counterpart for this keyword. |
 | `afc_semantics_differ` | `tools=`, `tool_config=`, or `enable_automatic_function_calling=`. | Migrate the call by hand; automatic function calling works differently in the new SDK. |
-| `response_shape_changed` | The pack says the new call returns a different shape. `result_access_flags`: the legacy result was a mapping; raised on a call whose result is used, or a stream read other than as a `for` iterable. `dispatch_prefixes`: the argument is not a literal under a prefix the new call reproduces (`get_model("tunedModels/…")` would silently return the wrong class). `result_paths`: a read of the result that is not along a listed path, written as attributes or as string keys (a key off the path, `.get`, a loop over the whole result, a part that stops short of a leaf and is not carried on into a name or a loop over its items, a key read of a name that may hold something else, in a closure or a generator expression, or in a `try` that catches `KeyError`, the result or a part passed on or returned). | Migrate by hand the code that reads the result; the new call returns a different shape. |
+| `response_shape_changed` | The pack says the new call returns a different shape. `result_access_flags`: the legacy result was a mapping; raised on a call whose result is used, or a stream read other than as a `for` iterable. `dispatch_prefixes`: the argument is not a literal under a prefix the new call reproduces (`get_model("tunedModels/…")` would silently return the wrong class). `result_paths`: a read of the result that is not along a listed path, written as attributes or as string keys (a key off the path, `.get`, a loop over the whole result, a part that stops short of a leaf and is not carried on into a name or a loop over its items, a key read of a name that may hold something else, in a closure or a generator expression, or in a `try` that catches `KeyError`, the result or a part passed on or returned). Whatever the pack states, a call in an f-string field written with `=`, which prints the source text the rewrite changes. | Migrate by hand the code that reads the result; the new call returns a different shape. |
 | `count_tokens_config_carries_semantics` | `count_tokens` on a constructor with `system_instruction=` or `tools=`, which change the count. | Migrate the count_tokens call by hand; system_instruction and tools change the count. |
 | `attribute_removed` | An attribute only the legacy object has (`supported_generation_methods`) or that became a method (`chat.history` -> `chat.get_history()`); at fix time, a call result read for a field listed in `result_attribute_flags`, or a use other than a plain assignment of a setting a `rename_setting` change renames. | Migrate by hand the code that uses this attribute; the new object has none, or a method in its place. |
 | `flag_only_surface` | The pack's `flag_only` rule matched: a `mock.patch` target, a dynamic import, a `sys.modules` stub, `protos`/`caching`, the PaLM-era surface. Reported with a suggestion, never rewritten. | Read the pack's suggestion and change the flagged code by hand; obelize never rewrites it. |
@@ -169,6 +170,8 @@ REPORT.md.
 | `positional_args_mapped_by_index` | A positional argument past the model name was matched by the old SDK's order (model_name, safety_settings, generation_config, tools, tool_config, system_instruction); safety_settings comes first, so check each landed where you meant. | A positional `GenerativeModel(...)` argument past index 0 was mapped by that order. |
 | `history_parts_rewritten` | Each string part of the start_chat history literal became {"text": the string}. | A `start_chat(history=...)` literal held string parts. |
 | `async_stream_await_preserved` | An await before an async streaming call was kept after the rename; dropping it raises TypeError. | An `await` precedes an async streaming call that was renamed. |
+| `response_text_may_be_none` | The reply's text is read where the old SDK raised ValueError for a reply with none; the new one returns None, so the value can be None and a handler for that error never runs. | A rewritten model call's result (awaited or not), a name it is assigned to, or a loop name over either (a stream's chunks) has `.text` read, with no handler that could catch the old error around it (that refuses the group). |
+| `upload_display_name_unset` | The old upload_file set display_name to the file's name when none was given; the new files.upload sets none, so a read of the uploaded file's display_name is now None. | An `upload_file(...)` call that passes no `display_name` was rewritten. |
 
 ## 6. Bail selection: which code a withheld finding names
 
@@ -181,7 +184,7 @@ the defect's code on its rows and `file_not_fully_migrated` on the rest
 | Rung | What fired | Raised by |
 |:---:|---|---|
 | 1 | the pack refuses the surface outright (`flag_only_surface`, `attribute_removed`) | `scan/analysis.py` |
-| 2 | a file-level gate (`input_does_not_parse`, `roundtrip_mismatch`, `output_does_not_parse`, `output_names_unresolved`) | `scan/parse.py`; the last two `transforms/codemod.py`, on the bytes a run would write |
+| 2 | a file-level gate (`input_does_not_parse`, `internal_error`, `roundtrip_mismatch`, `output_does_not_parse`, `output_names_unresolved`) | `scan/parse.py`, `scan/runner.py`; `output_does_not_parse` and `output_names_unresolved` `transforms/codemod.py`, on the bytes a run would write, and `internal_error` there on a file a rule raised on |
 | 3 | a whole-file resolution defect (`module_alias_rebound`, `conditional_binding`, `star_import`) or where an import statement sits (`local_import`, `lazy_import`) | `scan/analysis.py` |
 | 4 | the module's client (`client_source_unresolved`, `multiple_configure_calls`) | `impact/planner.py` |
 | 5 | the binding group (`receiver_unresolved`, `model_object_escapes`, `class_attr_binding`, `multiple_assignments`) | `receiver_unresolved` by `scan/analysis.py`, the rest by `impact/dataflow.py` |
@@ -229,6 +232,7 @@ other.
 | `roundtrip_mismatch` | File gate. |
 | `output_does_not_parse` | File gate, after the rewrite. |
 | `output_names_unresolved` | File gate, after the rewrite. |
+| `internal_error` | File gate: obelize raised on the file during a `fix` run, after the scan graded the row `eligible`. |
 | `flag_only_surface` | The imported surface is refused outright (`protos`, `caching`, the PaLM-era API). |
 | `module_alias_rebound` | The name it binds is reassigned or re-aliased. |
 | `conditional_binding` | It is one of two statements binding the same name. |
@@ -339,8 +343,8 @@ like an empty repository. `src/obelize/scan/walker.py` raises these;
 | `unreadable` | The filesystem would not answer (a directory would not list, permissions hide a path). A denial is a refusal, never a pass. |
 | `unusable_name` | Not valid UTF-8, holds a backslash, a control or format character, a backtick or a pipe, or on Windows is a name it reserves: a device such as `aux.py`, a `:` stream, a trailing dot or space. It cannot be reported and read back as one path, so its `limitations[]` row has no `path` and the detail quotes the name. The fallback walk refuses a directory with such a name whole. |
 
-`limitations[].code` adds the reader's `file_too_large` and
-`input_does_not_parse` ([RUN_FOLDER.md](RUN_FOLDER.md#limitations)). The reader
+`limitations[].code` adds the reader's `file_too_large`,
+`input_does_not_parse` and `internal_error` ([RUN_FOLDER.md](RUN_FOLDER.md#limitations)). The reader
 raises `unreadable` too, for a selected file that will not open, including one
 that became a symbolic link.
 

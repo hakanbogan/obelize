@@ -91,6 +91,104 @@ def test_an_argument_the_pack_cannot_place_refuses_the_call(body: str, reason: s
     assert statuses(edits)[-1] == (5, "needs_review", reason)
 
 
+# `tone` and `kind` are spelled the way the new call reads them, whatever case the author used.
+SPELLED = acme.MEASURE.model_copy(
+    update={
+        "params": acme.MEASURE.params.model_copy(
+            update={"value_maps": {"tone": {"dry": "DRY", "wet": "WET"}, "kind": {"a": "A"}}}
+        )
+    }
+)
+
+
+def spelled(body: str) -> tuple[str, list[Edit]]:
+    code, edits = acme.transform(f"{HEADER}\n{body}", acme.CHANGE, acme.CLIENT, SPELLED)
+    return code.splitlines()[-1], edits
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("sdk.measure(kind='a', tone='dry')\n", "kind='A', opts=types.MeasureConfig(tone='DRY')"),
+        ("sdk.measure(kind='A', tone='DRY')\n", "kind='A', opts=types.MeasureConfig(tone='DRY')"),
+        ('sdk.measure(kind="a", tone="Wet")\n', 'kind="A", opts=types.MeasureConfig(tone="WET")'),
+        ("sdk.measure('a', tone=('wet'))\n", "kind='A', opts=types.MeasureConfig(tone=('WET'))"),
+        ("sdk.measure(kind='a', tone='''dry''')\n", "tone='''DRY'''"),
+    ],
+    ids=["alias", "already-mapped", "double-quoted", "parenthesised", "triple-quoted"],
+)
+def test_a_mapped_argument_is_written_as_the_name_the_new_call_takes(
+    body: str, expected: str
+) -> None:
+    line, edits = spelled(body)
+    assert expected in line
+    assert [row.status for row in edits] == ["auto", "auto", "auto"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["task", "3", "b'dry'", "f'dry'", "'dry' 'x'", "'damp'", "NONE"],
+    ids=["name", "number", "bytes", "f-string", "concatenation", "unknown", "another name"],
+)
+def test_an_argument_with_a_table_is_refused_unless_it_is_a_string_in_it(value: str) -> None:
+    code, edits = spelled(f"sdk.measure(kind='a', tone={value})\n")
+    assert code == f"sdk.measure(kind='a', tone={value})"
+    assert statuses(edits)[-1] == (5, "needs_review", "unsupported_kwarg")
+
+
+def test_a_literal_none_is_carried_as_written_since_the_legacy_call_never_looked_it_up() -> None:
+    line, edits = spelled("sdk.measure(kind='a', tone=None)\n")
+    assert "kind='A', opts=types.MeasureConfig(tone=None)" in line
+    assert statuses(edits)[-1] == (5, "auto", None)
+
+
+def test_a_call_written_carries_the_warnings_the_pack_names_and_a_refused_one_none() -> None:
+    noted = acme.MEASURE.model_copy(
+        update={
+            "params": acme.MEASURE.params.model_copy(
+                update={"warnings": ("response_text_may_be_none", "upload_display_name_unset")}
+            )
+        }
+    )
+    _code, edits = acme.transform(
+        f"{HEADER}\nsdk.measure(kind='a')\nsdk.measure(retries=3)\n",
+        acme.CHANGE,
+        acme.CLIENT,
+        noted,
+    )
+    assert [row.warnings for row in edits if row.rule_id == "measure"] == [
+        ("response_text_may_be_none", "upload_display_name_unset"),
+        (),
+    ]
+
+
+def test_a_warning_a_parameter_settles_is_carried_only_by_a_call_that_leaves_it_out() -> None:
+    settled = acme.MEASURE.model_copy(
+        update={
+            "params": acme.MEASURE.params.model_copy(
+                update={
+                    "warnings": ("response_text_may_be_none",),
+                    "warnings_unless": {"upload_display_name_unset": "body"},
+                }
+            )
+        }
+    )
+    _code, edits = acme.transform(
+        f"{HEADER}\nsdk.measure(kind='a')\nsdk.measure('a', 'x')\n"
+        "sdk.measure(kind='a', body='x')\nsdk.measure(retries=3)\n",
+        acme.CHANGE,
+        acme.CLIENT,
+        settled,
+    )
+    both = ("response_text_may_be_none", "upload_display_name_unset")
+    assert [row.warnings for row in edits if row.rule_id == "measure"] == [
+        both,
+        ("response_text_may_be_none",),
+        ("response_text_may_be_none",),
+        (),
+    ]
+
+
 def test_a_refused_call_leaves_its_own_line_and_nothing_else_alone() -> None:
     """A free call holds no group; ADR-010 F-1 keeps the half-rewritten file off disk a layer up."""
     code, edits = run("sdk.measure(kind='a', retries=3)\n")
@@ -283,4 +381,115 @@ def test_the_configuration_and_the_call_wrap_at_the_width_the_pack_sets() -> Non
         "        tone='dry',",
         "    ),",
         ")",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("body", "lines"),
+    [
+        (
+            "xs = [\n    1,\n    sdk.lookup('kinds/a'),\n]\n",
+            [
+                "xs = [",
+                "    1,",
+                "    handle.registry.fetch(",
+                "        tag='kinds/a',",
+                "    ),",
+                "]",
+            ],
+        ),
+        (
+            "xs = {\n    'a': sdk.lookup('kinds/a'),\n}\n",
+            [
+                "xs = {",
+                "    'a': handle.registry.fetch(",
+                "        tag='kinds/a',",
+                "    ),",
+                "}",
+            ],
+        ),
+        (
+            "def f():\n    return {'a': sdk.lookup('kinds/a')}\n",
+            [
+                "def f():",
+                "    return {'a': handle.registry.fetch(",
+                "        tag='kinds/a',",
+                "    )}",
+            ],
+        ),
+    ],
+    ids=["a list element", "a dictionary value on its own line", "a dictionary value after a key"],
+)
+def test_a_call_inside_a_multi_line_bracket_wraps_at_the_indent_of_the_line_it_starts_on(
+    body: str, lines: list[str]
+) -> None:
+    code, _edits = run(body, layout=Layout(line_length=40))
+    assert code.splitlines()[-len(lines) :] == lines
+
+
+def test_a_call_in_an_f_string_field_stays_on_one_line_however_long_it_is() -> None:
+    """Before Python 3.12 a field takes no newline; the output check runs on a newer one."""
+    body = "print(f'{sdk.lookup(\"kinds/a\")}')\n"
+    code, _edits = run(body, layout=Layout(line_length=40))
+    assert code.splitlines()[-1] == "print(f'{handle.registry.fetch(tag=\"kinds/a\")}')"
+    code, _edits = run('print(sdk.lookup("kinds/a"))\n', layout=Layout(line_length=40))
+    assert code.splitlines()[-3:] == ["print(handle.registry.fetch(", '    tag="kinds/a",', "))"]
+
+
+def test_a_call_in_an_f_string_field_written_with_equals_is_refused() -> None:
+    """The field prints its own source text, which the rewrite changes."""
+    body = "print(f\"{sdk.lookup('kinds/a')=}\")\n"
+    code, edits = run(body)
+    assert statuses(edits)[-1] == (5, "needs_review", "response_shape_changed")
+    assert code.splitlines()[-1] == body.strip()
+
+
+def test_a_call_in_an_f_string_field_without_equals_is_written() -> None:
+    code, edits = run("print(f\"{sdk.lookup('kinds/a')}\")\n")
+    assert statuses(edits)[-1] == (5, "auto", None)
+    assert code.splitlines()[-1] == "print(f\"{handle.registry.fetch(tag='kinds/a')}\")"
+
+
+def test_a_comment_beside_an_argument_that_stays_an_argument_goes_with_it() -> None:
+    """Above the statement go the ones beside an argument that moved into the configuration."""
+    code, edits = run(
+        "sdk.measure(  # opening\n"
+        "    # the kind\n"
+        "    kind='a',  # about kind\n"
+        "    depth=2,  # about depth\n"
+        "    # tone next\n"
+        "    tone='dry',\n"
+        "    # the end\n"
+        ")\n"
+    )
+    assert statuses(edits)[-1] == (5, "auto", None)
+    assert code.splitlines()[5:] == [
+        "# about depth",
+        "# tone next",
+        "handle.probe.measure(",
+        "    # opening",
+        "    # the kind",
+        "    kind='a',  # about kind",
+        "    opts=types.MeasureConfig(depth=2, tone='dry'),",
+        "    # the end",
+        ")",
+    ]
+
+
+def test_a_comment_in_the_callee_is_kept_above_the_statement() -> None:
+    code, _edits = run("(sdk  # callee\n .measure)(kind='a')\n")
+    assert code.splitlines()[-4:] == ["# callee", "handle.probe.measure(", "    kind='a',", ")"]
+
+
+def test_a_comment_above_the_statement_is_written_at_the_indent_of_the_block_it_is_in() -> None:
+    code, _edits = run(
+        "def f():\n    if x:\n        sdk.measure(kind='a',\n"
+        "                    # inside\n                    depth=2)\n"
+    )
+    assert code.splitlines()[-5:] == [
+        "        # inside",
+        "        handle.probe.measure(",
+        "            kind='a',",
+        "            opts=types.MeasureConfig(depth=2),",
+        "        )",
     ]

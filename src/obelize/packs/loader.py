@@ -220,10 +220,11 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     attributes: set[str] = set()
     flagged: set[str] = set()
     patterns: set[FlagOnlyPattern] = set()
-    client_symbol = None
+    client_symbol = new_client_symbol = None
     for change in pack.changes:
         if isinstance(change, ConfigureToClientChange):
             client_symbol = change.params.legacy_symbol
+            new_client_symbol = change.params.client_symbol
         elif isinstance(change, GenerativeModelCallsChange):
             constructors.add(change.params.ctor_symbol)
             methods.update(change.params.methods)
@@ -243,6 +244,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         prefilter_tokens=pack.match.prefilter_tokens,
         symbols=pack.match.symbols,
         client_symbol=client_symbol,
+        new_client_symbol=new_client_symbol,
         requires_python=pack.to.requires_python,
         legacy_floor=None if floor is None else str(floor),
         legacy_newest=pack.from_.newest,
@@ -304,7 +306,7 @@ _GATES: Final[frozenset[str]] = frozenset(
 
 # Read by the scanner but absent from the measured digest of the packs that predate it: left out
 # while unset, so adding the field moved no digest.
-_WHEN_SET: Final[frozenset[str]] = frozenset({"shared", "new_range"})
+_WHEN_SET: Final[frozenset[str]] = frozenset({"shared", "new_range", "new_client_symbol"})
 
 
 def spec_digest(spec: ScanSpec) -> str:

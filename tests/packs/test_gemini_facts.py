@@ -10,13 +10,15 @@ import importlib
 import inspect
 import typing
 from importlib.metadata import version
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
 import pytest
-from google.genai import chats, files, models, types
+from google.genai import Client, chats, files, models, types
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
+from pydantic import ValidationError
 
 from obelize.models import ReceiverMethods, bounds
 from obelize.packs import loader, schema
@@ -156,6 +158,84 @@ def test_the_fields_the_pack_moves_into_a_config_are_fields_of_it() -> None:
             assert set(call.config_kwargs) <= set(config.model_fields), call.legacy_symbol
 
 
+@pytest.mark.parametrize("role", [None, "user"])
+def test_a_mapping_system_instruction_is_taken_only_with_text_parts(role: str | None) -> None:
+    """The legacy constructor (0.8.6) coerced `{"parts": ["hi"]}`; this config validates it."""
+    turn: dict[str, typing.Any] = {} if role is None else {"role": role}
+    kept = types.GenerateContentConfig(system_instruction={**turn, "parts": [{"text": "hi"}]})
+    assert kept.system_instruction is not None
+    with pytest.raises(ValidationError):
+        types.GenerateContentConfig(system_instruction={**turn, "parts": ["hi"]})
+
+
+# google-generativeai 0.8.6, `embedding._EMBEDDING_TASK_TYPE`: its string keys, which `to_task_type`
+# looks up lower-cased, and the `protos.TaskType` member each one is. It took integers and members
+# as well; the new `EmbedContentConfig.task_type` is a plain string sent as given.
+LEGACY_TASK_TYPES = {
+    "classification": "CLASSIFICATION",
+    "clustering": "CLUSTERING",
+    "document": "RETRIEVAL_DOCUMENT",
+    "fact_verification": "FACT_VERIFICATION",
+    "qa": "QUESTION_ANSWERING",
+    "question_answering": "QUESTION_ANSWERING",
+    "query": "RETRIEVAL_QUERY",
+    "retrieval_document": "RETRIEVAL_DOCUMENT",
+    "retrieval_query": "RETRIEVAL_QUERY",
+    "semantic_similarity": "SEMANTIC_SIMILARITY",
+    "similarity": "SEMANTIC_SIMILARITY",
+    "task_type_unspecified": "TASK_TYPE_UNSPECIFIED",
+    "unspecified": "TASK_TYPE_UNSPECIFIED",
+    "verification": "FACT_VERIFICATION",
+}
+
+
+def test_the_embedding_task_types_are_the_legacy_table_spelled_as_the_service_reads_them() -> None:
+    """The new field is a string with nothing to look it up, so the pack spells it out."""
+    annotation = types.EmbedContentConfig.model_fields["task_type"].annotation
+    assert set(typing.get_args(annotation)) == {str, type(None)}
+    tables = [call.value_maps for call in CALL_PARAMS if "task_type" in call.config_kwargs]
+    assert len(tables) == 2
+    assert all(table == {"task_type": LEGACY_TASK_TYPES} for table in tables)
+
+
+class _StopError(Exception):
+    """Raised by the stand-in for the request, so no upload goes anywhere."""
+
+
+def _created(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str | None = None
+) -> types.File:
+    """The `File` that `files.upload` would ask the service to create."""
+    path = tmp_path / "a.txt"
+    path.write_text("hi", encoding="utf-8")
+    client = Client(vertexai=False, api_key="not-a-key")
+    seen: list[types.File] = []
+
+    def create(*, file: types.File, config: object) -> object:
+        seen.append(file)
+        raise _StopError
+
+    monkeypatch.setattr(client.files, "_create", create)
+    with pytest.raises(_StopError):
+        client.files.upload(file=str(path), config=types.UploadFileConfig(name=name))
+    return seen[0]
+
+
+# google-generativeai 0.8.6 `upload_file`: a path with no display_name gets the path's name, and a
+# name with no "/" in it gets "files/" (one with a "/" is sent as written). Measured, not imported.
+def test_an_upload_names_nothing_for_a_path_and_prefixes_every_name_not_starting_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Why the upload carries a warning and a limitation, and what the limitation says."""
+    assert _created(tmp_path, monkeypatch).display_name is None
+    assert _created(tmp_path, monkeypatch, "sample").name == "files/sample"
+    assert _created(tmp_path, monkeypatch, "files/sample").name == "files/sample"
+    assert _created(tmp_path, monkeypatch, "a/b").name == "files/a/b"
+    unset = [call for call in CALL_PARAMS if "upload_display_name_unset" in call.warnings_unless]
+    assert [call.legacy_symbol for call in unset] == ["google.generativeai.upload_file"]
+    assert unset[0].warnings_unless == {"upload_display_name_unset": "display_name"}
+
+
 def test_every_class_the_pack_names_on_the_new_side_exists() -> None:
     """Attribute lookup, not construction, for the same reason as the safety tables."""
     named = {params.config_class for params in MODEL_PARAMS}
@@ -254,6 +334,7 @@ def test_the_hand_written_scan_specs_agree_with_the_bundled_pack() -> None:
     spec = loader.to_scan_spec(BUNDLED)
     assert spec.pack_id == BUNDLED_ID
     assert spec.client_symbol == "google.generativeai.configure"
+    assert spec.new_client_symbol == "google.genai.Client"
     assert spec.constructor_symbols == ("google.generativeai.GenerativeModel",)
     assert spec.legacy_distribution == "google-generativeai"
     assert spec.new_distribution == "google-genai"

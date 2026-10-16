@@ -26,7 +26,7 @@ from obelize.models import (
     VerifyResult,
 )
 from obelize.packs import loader
-from obelize.scan import runner, runtime
+from obelize.scan import parse, runner, runtime
 from obelize.verify import runner as verify_runner
 from platforms import AS_ROOT, PYTHON, deny, junction, link, windows_only
 
@@ -170,6 +170,18 @@ def test_both_halves_of_limitations_arrive_in_one_sorted_list(
         ("broken.py", "input_does_not_parse")
     ]
     assert len(record.limitations) == len(scanned.limitations) + len(scanned.skipped)
+
+
+def test_the_files_a_fix_raised_on_join_the_scans_limitations_in_one_sorted_list(
+    scanned: runner.Scan,
+) -> None:
+    raised = parse.crashed("a_app.py", b"", RuntimeError("never shown")).limitations
+    rows = run_dir._limitations(scanned, raised)
+    assert [(row.path, row.code) for row in rows] == [
+        ("a_app.py", "internal_error"),
+        ("broken.py", "input_does_not_parse"),
+    ]
+    assert "never shown" not in rows[0].detail
 
 
 def test_the_two_halves_are_sorted_together_and_not_one_after_the_other(

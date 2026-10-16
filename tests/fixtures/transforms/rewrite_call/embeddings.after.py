@@ -15,7 +15,7 @@ def embed(sentence):
     client.models.embed_content(
         model="models/gemini-embedding-001",
         contents=sentence,
-        config=types.EmbedContentConfig(task_type="retrieval_document"),
+        config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
     )
 
 

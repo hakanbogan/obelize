@@ -334,6 +334,76 @@ def test_a_file_too_deep_for_the_analysis_is_one_unparsable_file(
     assert [row.code for row in result.limitations] == ["input_does_not_parse"]
 
 
+def _raise_on(monkeypatch: pytest.MonkeyPatch, path: str, error: Exception) -> None:
+    """Make the analysis of one file's tree raise, as a defect in obelize would."""
+    real = analysis.analyse
+
+    def analyse(read: parse.Read, spec: Any) -> Any:
+        if read.path == path and read.module is not None:
+            raise error
+        return real(read, spec)
+
+    monkeypatch.setattr(analysis, "analyse", analyse)
+
+
+def test_an_unexpected_error_on_one_file_is_that_files_refusal_and_not_the_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The row says which class, never the message, which can quote the file or a path."""
+    _raise_on(monkeypatch, "bad.py", KeyError("/home/me/bad.py: sk-123"))
+    scan = scanned(tree(tmp_path, {"bad.py": LEGACY, "good.py": LEGACY}))
+
+    assert (at(scan, "bad.py").parsed, at(scan, "good.py").parsed) == (False, True)
+    assert [(row.kind, row.scan_status, row.bail) for row in at(scan, "bad.py").plan.findings] == [
+        ("parse_error", "unsupported", "internal_error")
+    ]
+    assert {row.scan_status for row in at(scan, "good.py").plan.findings} == {"eligible"}
+    [limitation] = scan.limitations
+    assert (limitation.path, limitation.code) == ("bad.py", "internal_error")
+    assert limitation.detail.endswith("It raised KeyError.")
+    assert "sk-123" not in limitation.detail
+    assert scan.counts.files_parsed == 1
+
+
+def test_a_file_obelize_raised_on_holds_the_pin_as_an_unparsable_one_does(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """It may import the legacy SDK, so the dependency line stays: removing it could break it."""
+    files = {"app.py": LEGACY, "requirements.txt": MANIFEST}
+    refused = scanned(tree(tmp_path / "unparsable", {**files, "app.py": BROKEN}))
+    assert [row.scan_status for row in refused.manifests.findings] == ["needs_review"]
+
+    _raise_on(monkeypatch, "app.py", RuntimeError())
+    raised = scanned(tree(tmp_path / "raised", files))
+    assert [(row.scan_status, row.bail) for row in raised.manifests.findings] == [
+        (row.scan_status, row.bail) for row in refused.manifests.findings
+    ]
+
+
+def test_an_error_while_gating_a_file_is_its_refusal_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    def overrun(path: str, data: bytes) -> parse.Read:
+        raise ValueError("a gate raised outside the type it documents")
+
+    monkeypatch.setattr(parse, "gates", overrun)
+    candidate = runner.Candidate(path="app.py", sha256="0" * 64, data=LEGACY.encode())
+
+    result = runner.examine(candidate, SPEC)
+
+    assert result.parsed is False
+    assert [row.code for row in result.limitations] == ["internal_error"]
+    assert result.limitations[0].detail.endswith("It raised ValueError.")
+
+
+def test_a_refusal_for_an_error_crosses_the_pool_boundary_as_plain_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _raise_on(monkeypatch, "app.py", RuntimeError())
+    candidate = runner.Candidate(path="app.py", sha256="0" * 64, data=LEGACY.encode())
+    result = runner.examine(candidate, SPEC)
+
+    assert runner.restore(json.loads(json.dumps(runner.payload(result)))) == result
+
+
 def test_a_worker_that_was_never_initialised_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     """The executor always initialises first, so reaching this is a defect."""
     monkeypatch.setattr(runner, "_SPEC", None)
@@ -493,7 +563,7 @@ def test_a_module_that_names_neither_the_model_nor_its_module_is_not_parsed(
     real = ast.parse
 
     def spy(source: str | bytes, *args: Any, **kwargs: Any) -> Any:
-        # Bytes are this pass's; pytest and coverage parse text of their own.
+        # Bytes are the scan's: pytest and coverage parse text of their own.
         if isinstance(source, bytes):
             parsed.append(source)
         return real(source, *args, **kwargs)
@@ -503,7 +573,8 @@ def test_a_module_that_names_neither_the_model_nor_its_module_is_not_parsed(
     files = {"llm.py": HOLDER, "app.py": reader, "plain.py": "print('hello')\n"}
     # Its name without its module, and its module without its name.
     scanned(tree(tmp_path, {**files, "same.py": "M = 1\n", "twin.py": "import llm\n"}))
-    assert parsed == [reader.encode()]
+    # The depth check parses the one candidate; this pass, only the reader.
+    assert parsed == [HOLDER.encode(), reader.encode()]
 
 
 @pytest.mark.skipif(AS_ROOT, reason="root reads a file it may not")

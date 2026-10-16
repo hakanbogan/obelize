@@ -6,17 +6,35 @@ Accepted.
 
 ## Decision
 
-**D1. The order is `compile()`, then libcst, then the byte round-trip.** A file
+**D1. The order is `compile()`, a depth check, then libcst, then the byte round-trip.** A file
 failing only the round-trip is valid Python, so it is analysed and every finding
 carries `roundtrip_mismatch`; one also failing `compile()` (bare-CR terminators
 and a late `__future__` import, in `tests/unit/test_parse.py`) is one
 `input_does_not_parse` finding, not analysis of source that is not Python.
 `compile()` goes first because a pathologically deep expression (3,000 nested
 parentheses, a chain of 100,000 operands, 10,000 `not`s) overruns libcst's
-parser and kills the process with SIGSEGV, where `compile()` raises. The
-analysis and the codemod catch `RecursionError` and `MemoryError` per file for
-the trees that do parse: the file is one `input_does_not_parse` finding, or, when
-only the rewrite overruns, kept as it was with `output_does_not_parse`.
+parser and kills the process with SIGSEGV, where `compile()` raises. A chain of
+about thirteen thousand operands, or of attributes, calls or subscripts, is
+accepted by `compile()` on some versions (3.14) and kills libcst the same way, as
+does a dotted import of fifteen thousand names on every version, so a second
+check, `parse.MAX_DEPTH`, refuses a file whose syntax tree is nested more than
+300 levels deep before libcst sees it. The walk is iterative and counts libcst's
+tree, which `ast` does not show: an `and` or `or` nests each operand one level,
+the components of a dotted name in an `import` nest one level each, and libcst
+puts a node of its own between a container and each item, so a list's item, a
+call's argument or a block's statement costs three levels, an index four, and
+the `else` or `finally` of a statement one more. An `elif` costs one. Those
+costs are measured against where the analysis visitors give out, near 320 levels
+of a chain on the default stack and fewer for a sequence, so brackets inside
+brackets reach about 100 and `a[a[a[...]]]` about 75. The limit is under that
+point with room for a caller sixty frames deep: a file the check passes does not
+overrun the stack later, which would depend on the stack (`--jobs`, a test
+runner) and not on the file. The refusal is one `input_does_not_parse` finding
+whose detail is its own sentence, naming the limit. The analysis and the codemod
+still catch `RecursionError` and `MemoryError` per file for a tree that does
+parse (a shape the costs do not know, or a caller deeper than that): the file is
+one `input_does_not_parse` finding, or, when only the rewrite overruns, kept as
+it was with `output_does_not_parse`.
 
 **D2. The handler is `except (cst.ParserSyntaxError, SyntaxError, ValueError)`.**
 That is libcst's handler: `cst.ParserSyntaxError` is not a `SyntaxError`, and
@@ -48,11 +66,11 @@ or `.msg`, capped. `str(cst.ParserSyntaxError)` and `SyntaxError.text` quote the
 source and are never used; `compile()`'s message may name an unknown coding
 cookie, a declaration kept because it explains the refusal.
 
-**D5. The reader writes three limitation codes and invents none.**
-`file_too_large` and `input_does_not_parse` are
+**D5. The reader writes four limitation codes and invents none.**
+`file_too_large`, `input_does_not_parse` and `internal_error` (D9) are
 [SCAN_VOCABULARY.md](../SCAN_VOCABULARY.md) §4 bails and `unreadable` is §11's.
 The set is closed and asserted against both, and `models.LimitationCode` is the
-union of the walker's seven and these three, which share `unreadable`: nine
+union of the walker's seven and these four, which share `unreadable`: ten
 values.
 
 **D6. `max_file_bytes` is a limit on the `lstat`, and the prefilter runs before
@@ -75,7 +93,24 @@ is not a program (a module-level `return`, a late `__future__` import), but it
 is the running interpreter's answer: newer syntax is `input_does_not_parse`,
 never edited, and the detail sentence says to try a newer interpreter. 3.14
 compiles Python 2's `except E, e:` (PEP 758), so there a Python 2 file using
-nothing else Python 3 lacks is accepted.
+nothing else Python 3 lacks is accepted. Both `compile()` calls (the gate and
+`verify.cheap`) pass `dont_inherit=True`: obelize's own `from __future__ import
+annotations` would otherwise apply to the file and refuse, on 3.12 and 3.13, a
+walrus in an annotation that is valid there. A file's own `__future__` imports
+still count.
+
+**D9. An exception from one file does not end the run.** `runner.examine` and
+`codemod.run` catch `Exception` per file, after the handlers for a stack overrun
+(`RecursionError`, `MemoryError`), which keep their own codes. In a scan the file
+is one `parse_error` row with `internal_error` as its bail, `unsupported`, at line
+1 column 0, so it holds the repository as an unparsable file does, and
+`limitations[]` carries `internal_error` with the exception's class and never its
+message, which can quote the file or a path. In a `fix` run the file is kept as it
+was and each row the scan graded `eligible` is withheld as `internal_error`
+([ADR-031](ADR-031-codemod-driver.md) D13). Catching it is not hiding it: the row
+is withheld where a reader looks, and the limitation names the class. A native
+crash is a signal, not an exception, so `BrokenProcessPool` still propagates
+([ADR-022](ADR-022-runner-result-order.md) D7).
 
 ## Consequences
 

@@ -74,9 +74,11 @@ than writing a wrong one.
 1. A rewritten call is emitted multi-line when the source call was multi-line,
    when one of its arguments is, **or when the line it would make is wider than
    the pack's `layout.line_length`**.
-2. Multi-line is one argument per line, one indent unit past the statement's
-   own indent, with a trailing comma and the closing parenthesis back on the
-   statement's indent. The unit is the file's own, which libcst infers.
+2. Multi-line is one argument per line, one indent unit past the indent of the
+   line the call starts on, with a trailing comma and the closing parenthesis
+   back on that indent. That line is the statement's, except for a call on a
+   continuation line inside a multi-line bracket: it is that line's own. The
+   unit is the file's own, which libcst infers.
 3. The indent is recursive: a nested call that goes multi-line indents one unit
    past the line its own opening parenthesis is on.
 
@@ -84,8 +86,12 @@ Width is the whole emitted line, indent and trailing comment included, as a
 formatter counts; for a call rewritten in place the rest of the line is read
 off its source line (ADR-027 D10). Wrapping only adds breaks. A moved argument
 keeps its value, keyword and inner comments, not its separators; a generated
-one is written `k=v` (`layout.keyword()`). `tests/unit/test_layout.py` asserts
-every answer key fits the width.
+one is written `k=v` (`layout.keyword()`). The comments written in the separators
+of a call that a rewrite replaces are kept: the ones on lines of their own above
+an argument and the one ending its line go with it (`layout.nest`), and any other
+goes on a line above the statement, in the order written (`Rewrites.keep_comments`).
+A configuration object copied from one that stays holds none, since the original
+keeps them. `tests/unit/test_layout.py` asserts every answer key fits the width.
 
 ### D8. The gate-1 staleness guard moves from the pack's bytes to the projection
 

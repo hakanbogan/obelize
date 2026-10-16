@@ -48,7 +48,7 @@ from obelize.models import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     from obelize.fsutil import Apply
     from obelize.gitutil import State
@@ -61,6 +61,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
         VerifyResult,
     )
     from obelize.packs.loader import LoadedPack
+    from obelize.scan.parse import Limitation
     from obelize.scan.runner import Scan
     from obelize.scan.runtime import Blocked
     from obelize.transforms.codemod import Run
@@ -373,7 +374,7 @@ def compose_fix(
         withheld=tuple(Withheld.of(finding) for finding in report.withheld_rows(run.findings)),
         verify=verified.record,
         model=model,
-        limitations=_limitations(scan),
+        limitations=_limitations(scan, run.limitations),
         timings=RunTimings(
             started_at=instant(started),
             finished_at=instant(finished),
@@ -858,8 +859,9 @@ def _pointer(root: Path, run_id: str) -> None:
     RunFolder(root, HOME).write(LATEST, f"{run_id}\n".encode())
 
 
-def _limitations(scan: Scan) -> tuple[RunLimitation, ...]:
-    """Walker skips and reader refusals, as one sorted `limitations[]`.
+def _limitations(scan: Scan, raised: Iterable[Limitation] = ()) -> tuple[RunLimitation, ...]:
+    """Walker skips, reader refusals and the files a `fix` rule raised on, as one sorted
+    `limitations[]`.
 
     An unusable name is no repository path, so its row quotes the name in the detail instead.
     """
@@ -868,7 +870,10 @@ def _limitations(scan: Scan) -> tuple[RunLimitation, ...]:
         if row.reason == "unusable_name"
         else RunLimitation(code=row.reason, path=row.path, detail=row.detail)
         for row in scan.skipped
-    ] + [RunLimitation(code=row.code, path=row.path, detail=row.detail) for row in scan.limitations]
+    ] + [
+        RunLimitation(code=row.code, path=row.path, detail=row.detail)
+        for row in (*scan.limitations, *raised)
+    ]
     return tuple(
         sorted(rows, key=lambda row: ((row.path or "").encode("utf-8"), row.code, row.detail))
     )

@@ -118,22 +118,38 @@ the author's statement (`for chunk in model.generate_content(...)`,
 that is neither the call nor the indent is counted as it stands; for a call the
 author already split across lines that rest counts zero, since it wraps anyway.
 
-### D11. A comment above a deleted statement moves to the statement that now comes first
+### D11. A comment on a deleted statement moves to the statement that now comes first
 
 A comment above the constructor is the author's prose and has nowhere else to
-go. The next statement keeps its own blank lines and gains the comment alone; at
-the end of a block the comment keeps the blank lines above it too and goes
-before the block's own footer. A commented constructor is not refused, because a
+go, nor has one on its line or between its arguments that no rewritten call
+takes over (a name, a model, a configuration key moved into a call carries the
+comments written beside it, as ADR-026 D7 says). The next statement keeps its own
+blank lines and gains the comments alone, those above first and then the rest in
+the order written; at the end of a block they keep the blank lines above them too
+and go before the block's own footer. A line that shares its statement with
+another keeps its own comments. When the next statement is deleted too, what was
+handed to it goes on to the one after, ahead of its own, so a row of deleted
+constructors leaves every comment above the first statement that stays. A commented constructor is not refused, because a
 comment above a model constant is ordinary.
 
-### D12. C-56 is a refusal about the answer, not about the call
+### D12. C-56 is a refusal about the answer, not about the call, and a warning where it is only read
 
 `response.text` raised `ValueError` with no parts and now returns `None`, so a
 handler for it never runs. The group is `response_shape_changed` when an
-attribute in `response_attrs_now_none` is read, on the call's result or a name
-it was assigned to, inside a `try` whose handler names `response_legacy_error`.
-A bare `except:` does not count: it is no evidence anyone relied on the
-exception. The schema requires both fields or neither.
+attribute in `response_attrs_now_none` is read, on the call's result (awaited or
+not), a name it was assigned to, or the name a `for` binds over either (a
+stream's chunks), where a handler could catch `response_legacy_error`: a `try` or
+an `except*` with a handler naming it, `Exception` or `BaseException`, alone or
+in a tuple, or a bare `except:`, and a `with` that calls `contextlib.suppress`
+(resolved to that name, so an import under another name counts) with any of them
+or with a `*`, which cannot be read. A name is resolved in its own scope, through
+annotated assignments and walruses as well as plain ones, so a variable of the
+same name in another function is not this call's. Nothing says the exception was
+not relied on, and a wrongly refused file costs a manual edit where a wrongly
+kept handler is a silent change. Any other read is rewritten, and the call
+carries `response_text_may_be_none`, since the value can be `None`: a handler in
+a caller, `builtins.ValueError`, a `suppress` reached through an alias and an
+unguarded `.strip()` are not seen. The schema requires both fields or neither.
 
 ### D13. A fix-time bail's order is the rule's, and it is not on the scan's ladder
 

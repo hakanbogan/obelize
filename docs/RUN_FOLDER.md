@@ -268,14 +268,15 @@ repository.
 
 | Field | Type | Description |
 |---|---|---|
-| `code` | string | `models.LimitationCode`, nine values: [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §11's seven plus `file_too_large` and `input_does_not_parse` (§4). |
+| `code` | string | `models.LimitationCode`, ten values: [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §11's seven plus `file_too_large`, `input_does_not_parse` and `internal_error` (§4). |
 | `path` | string or null | Repository-relative, when one file is meant. `null` for `unusable_name`, whose `detail` quotes the name. |
 | `detail` | string | One sentence a person can act on. |
 
 For a refused parse, `detail` names the gate and quotes the parser's message,
 never a line of the file (`cst.ParserSyntaxError.context` and `SyntaxError.text`
-stay out of the run folder). An unreadable manifest gets a fixed sentence,
-because `configparser` quotes the line.
+stay out of the run folder). For an `internal_error`, `detail` names the exception's
+class and never its message, which can quote the file or a path. An unreadable
+manifest gets a fixed sentence, because `configparser` quotes the line.
 
 ### `timings`
 

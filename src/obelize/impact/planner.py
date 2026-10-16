@@ -38,10 +38,11 @@ RUNG: Final[dict[BailCode, int]] = {
     "file_not_fully_migrated": 6,
 }
 
-# `input_does_not_parse` is numbered here: that gate collapses a file to one finding, so
-# `scan/parse.py` never compares against it.
+# `input_does_not_parse` and `internal_error` are numbered here: each collapses a file to one
+# finding, so `scan/parse.py` never compares against them.
 LADDER: Final[dict[BailCode, int]] = {
     parse.PARSE_BAIL: 2,
+    parse.CRASH_BAIL: 2,
     **analysis.RUNG,
     **dataflow.RUNG,
     **RUNG,
@@ -53,6 +54,7 @@ ORDER: Final[tuple[BailCode, ...]] = (
     "attribute_removed",
     "flag_only_surface",
     parse.PARSE_BAIL,
+    parse.CRASH_BAIL,
     "roundtrip_mismatch",
     "star_import",
     "conditional_binding",

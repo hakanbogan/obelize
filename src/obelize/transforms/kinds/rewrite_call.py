@@ -10,7 +10,6 @@ the author wrote and no client is needed. A read of the result by a string key a
 from __future__ import annotations
 
 import re
-import sys
 from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, ClassVar, Final
@@ -35,7 +34,7 @@ from obelize.transforms.imports import dotted
 from obelize.transforms.tree import Position, Tree, literal_string
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
-    from obelize.models import Finding
+    from obelize.models import Finding, WarningCode
     from obelize.packs.schema import ChangeKind, RewriteCallChange, RewriteCallParams
 
 # What reaches a variable by its name written as a string: the builtins, a frame's variables, a
@@ -137,7 +136,7 @@ class RewriteCall:
 
     def _edit(self, context: RuleContext, tree: _Tree, position: Position) -> Edit:
         try:
-            self._rewrite(context, tree, position)
+            warnings = self._rewrite(context, tree, position)
         except BailError as bail:
             return Edit(
                 path=context.path,
@@ -146,10 +145,18 @@ class RewriteCall:
                 rule_id=self._id,
                 reason=bail.reason,
             )
-        return Edit(path=context.path, line=position[0], status="auto", rule_id=self._id)
+        return Edit(
+            path=context.path,
+            line=position[0],
+            status="auto",
+            rule_id=self._id,
+            warnings=warnings,
+        )
 
-    def _rewrite(self, context: RuleContext, tree: _Tree, position: Position) -> None:
-        """Record what replaces one call, or raise the one code that refuses it.
+    def _rewrite(
+        self, context: RuleContext, tree: _Tree, position: Position
+    ) -> tuple[WarningCode, ...]:
+        """Record what replaces one call and return what it warns about, or raise the refusal.
 
         Asked in precedence order, as `generative_model_calls` does: the client (the planner's code,
         raised here as the projection misses free functions), arguments, result, then surroundings.
@@ -172,28 +179,39 @@ class RewriteCall:
                     self._configuration(context, tree, call, alias, read.config),
                 )
             )
-        context.rewrites.set(
+        rewritten = layout.call(
             call,
-            layout.call(
-                call,
-                callee,
-                args,
-                indent=tree.indent(call),
-                unit=context.module.default_indent,
-                width=self._width(context, tree, call),
-                around=tree.around(call),
-            ),
+            callee,
+            args,
+            indent=tree.indent(call),
+            unit=context.module.default_indent,
+            width=tree.width(call, context.layout.line_length),
+            around=tree.around(call),
+            comments=True,
         )
+        context.rewrites.set(call, rewritten)
+        context.rewrites.keep_comments(tree.statement_of(call), call, rewritten)
         for subscript, name in keyed:
-            context.rewrites.set(
-                subscript,
-                cst.Attribute(
-                    value=subscript.value,
-                    attr=cst.Name(name),
-                    lpar=subscript.lpar,
-                    rpar=subscript.rpar,
-                ),
+            attribute = cst.Attribute(
+                value=subscript.value,
+                attr=cst.Name(name),
+                lpar=subscript.lpar,
+                rpar=subscript.rpar,
             )
+            context.rewrites.set(subscript, attribute)
+            context.rewrites.keep_comments(tree.statement_of(subscript), subscript, attribute)
+        return tuple(
+            sorted(
+                {
+                    *self._params.warnings,
+                    *(
+                        code
+                        for code, name in self._params.warnings_unless.items()
+                        if name not in read.given
+                    ),
+                }
+            )
+        )
 
     def _callee(self, context: RuleContext, call: cst.Call) -> cst.BaseExpression:
         """What the new call is made on: the file's client, or the root the author wrote.
@@ -219,11 +237,6 @@ class RewriteCall:
         for part in self._params.new_call.split("."):
             root = cst.Attribute(value=root, attr=cst.Name(part))
         return root
-
-    @staticmethod
-    def _width(context: RuleContext, tree: Tree, call: cst.Call) -> int:
-        """The pack's width, except in an f-string field: before Python 3.12 that is one line."""
-        return sys.maxsize if tree.in_f_string(call) else context.layout.line_length
 
     def _arguments(self, call: cst.Call) -> _Read:
         """Every argument of the legacy call, sorted or refused one at a time.
@@ -252,14 +265,36 @@ class RewriteCall:
             if name in given:
                 raise BailError("positional_arg_ambiguous")
             landed = self._params.arg_map.get(name, name)
+            value = self._spelled(name, argument.value)
             if name in self._params.config_kwargs:
-                config.append((landed, argument.value))
+                config.append((landed, value))
             elif name in carried:
-                args.append(layout.keyword(landed, argument.value))
+                args.append(layout.keyword(landed, value))
             else:
                 raise BailError("unsupported_kwarg")
             given[name] = argument.value
         return _Read(args=tuple(args), config=tuple(config), given=given)
+
+    def _spelled(self, name: str, value: cst.BaseExpression) -> cst.BaseExpression:
+        """What the new call takes for an argument with a `value_maps` table; others as written.
+
+        The table holds what the legacy lookup took, so any other value (a name, an enum member, a
+        number, an unknown string) is refused rather than sent on as it is. A literal `None` is not
+        looked up by the legacy call, which tests the value for truth first, and the new field takes
+        it.
+        """
+        table = self._params.value_maps.get(name)
+        if table is None or (isinstance(value, cst.Name) and value.value == "None"):
+            return value
+        written = literal_string(value)
+        new = table.get(written.lower()) if written is not None else None
+        if new is None or not isinstance(value, cst.SimpleString):
+            raise BailError("unsupported_kwarg")
+        return (
+            value
+            if new == written
+            else value.with_changes(value=f"{value.prefix}{value.quote}{new}{value.quote}")
+        )
 
     def _configuration(
         self,
@@ -281,7 +316,7 @@ class RewriteCall:
             [layout.keyword(name, value) for name, value in fields],
             indent=tree.indent(call) + unit,
             unit=unit,
-            width=self._width(context, tree, call),
+            width=tree.width(call, context.layout.line_length),
             # `<kwarg>=` in front and a comma behind.
             around=len(self._config_kwarg) + 2,
         )
@@ -292,7 +327,8 @@ class RewriteCall:
         """Refuse a call whose result is not what the new call returns; else the reads to rewrite.
 
         `response_shape_changed`: a `dispatch_prefixes` argument that is not a literal with a listed
-        prefix, under `result_access_flags` any use of the result (it may be read unseen), or under
+        prefix, under `result_access_flags` any use of the result (it may be read unseen), a call in
+        an f-string field written with `=` (it prints the source text the rewrite changes), or under
         `result_paths` any read that stops short of one of them and is not followed on into a name
         (`confined`). A read of a field the new result lacks is `attribute_removed`, as the scan
         grades it. A string-keyed read along a path is returned, to become the attribute read the
@@ -307,6 +343,8 @@ class RewriteCall:
             raise BailError("response_shape_changed")
         if tree.reads(call, frozenset(self._params.result_attribute_flags)):
             raise BailError("attribute_removed")
+        if tree.echoed(call):
+            raise BailError("response_shape_changed")
         if not self._paths:
             return ()
         keyed = tree.confined(call, self._paths, self._stems)
@@ -526,20 +564,12 @@ class _Tree(Tree):
         if not keyed:
             return True
         first, last = keyed[0][0], keyed[-1][0]
-        return not (self._echoed(first) or self._swallowed(first) or self._glued(last))
+        return not (self.echoed(first) or self._swallowed(first) or self._glued(last))
 
     def _glued(self, node: cst.CSTNode) -> bool:
         """Whether a word follows `node` with no space: `]or` was a token end, `.id or` is not."""
         line, column = self.end(node)
         return self.lines[line - 1][column : column + 1].isidentifier()
-
-    def _echoed(self, node: cst.CSTNode) -> bool:
-        """Whether `node` is in an f-string field written with `=`, which prints its own source."""
-        while not isinstance(node, cst.BaseSmallStatement | cst.BaseCompoundStatement):
-            node = self.parent(node)
-            if isinstance(node, cst.FormattedStringExpression) and node.equal is not None:
-                return True
-        return False
 
     def _swallowed(self, node: cst.CSTNode) -> bool:
         """Whether a handler or `suppress` around `node` may have taken the missing key's error.

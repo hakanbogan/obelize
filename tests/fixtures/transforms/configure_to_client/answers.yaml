@@ -84,6 +84,21 @@ cases:
       `configure(api_key="")` returns and `Client(api_key="")` raises
       `ValueError: No API key was provided.` D5 says non-empty for this row.
 
+  - file: bare_configure
+    what_it_is: >-
+      `configure()` with no argument, so the environment supplies the key.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 8, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto, warnings: [client_constructed_eagerly]}
+    notes: >-
+      The rule writes `Client()` and does not look at the environment, where the
+      two SDKs read different variables first (the pack's limitations say so).
+      The one warning the row carries is that the client checks its key when it
+      is built, which a module-level one does at import.
+
   - file: trailing_comment
     what_it_is: >-
       `basic/app.py:7`'s shape, with a comment above the call and one after it.
@@ -183,7 +198,7 @@ cases:
       - {line: 13, rule: rename-import, status: auto}
       - {line: 17, rule: configure-to-client, status: auto}
       - {line: 18, rule: generative-model-calls, status: auto}
-      - {line: 19, rule: generative-model-calls, status: auto}
+      - {line: 19, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       A local where the `configure` was. No warning: D5's rule is about a
       module-level client and this one is not, so nothing is constructed at
@@ -201,7 +216,7 @@ cases:
       - {line: 13, rule: rename-import, status: auto}
       - {line: 18, rule: configure-to-client, status: auto}
       - {line: 19, rule: generative-model-calls, status: auto}
-      - {line: 22, rule: generative-model-calls, status: auto}
+      - {line: 22, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       `self.client`, with `self` read off the method's own first parameter
       rather than assumed. `chat_async_self/ground_truth.yaml` called this "the
@@ -431,7 +446,7 @@ cases:
       - {line: 11, rule: rename-import, status: auto}
       - {line: 22, rule: configure-to-client, status: auto}
       - {line: 23, rule: generative-model-calls, status: auto}
-      - {line: 26, rule: generative-model-calls, status: auto}
+      - {line: 26, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       transforms:CODEMOD-25. The base's `self.client` is taken, so the ladder moves to `genai_client`.
 
@@ -459,17 +474,17 @@ cases:
       - {line: 8, rule: rename-import, status: auto}
       - {line: 13, rule: configure-to-client, status: auto}
       - {line: 14, rule: generative-model-calls, status: auto}
-      - {line: 21, rule: generative-model-calls, status: auto}
+      - {line: 21, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
     notes: >-
       transforms:CODEMOD-25. A name the class body defines is taken.
 
 notes: |
   Every line number above was checked against `cat -n` and against a scan of
-  the twenty-eight `.before.py` files, all of which grade `eligible` with no bail:
+  the twenty-nine `.before.py` files, all of which grade `eligible` with no bail:
   the scan sees nothing wrong with any of them. What is withheld here is
   withheld by the rewrite.
 
-  The twenty-seven `.after.py` keys were written by hand before
+  The twenty-eight `.after.py` keys were written by hand before
   `src/obelize/transforms/kinds/configure_to_client.py` existed, and
   `module_alias_taken`, the one file with `after: none`, is the stronger claim
   of the two: both rules must hand back the module they were given, byte for

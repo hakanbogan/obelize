@@ -85,7 +85,7 @@ cases:
           needs_review: 0
           unsupported: 0
           not_a_usage: 0
-          warnings: 0
+          warnings: 1
         plan_files:
           - path: app.py
             hunks: 1
@@ -135,7 +135,7 @@ cases:
           needs_review: 0
           unsupported: 0
           not_a_usage: 0
-          warnings: 1
+          warnings: 2
         plan_files:
           - path: app.py
             hunks: 2
@@ -220,7 +220,7 @@ cases:
           needs_review: 0
           unsupported: 0
           not_a_usage: 0
-          warnings: 0
+          warnings: 1
         plan_files:
           - path: app.py
             hunks: 1
@@ -271,7 +271,7 @@ cases:
           needs_review: 5
           unsupported: 0
           not_a_usage: 0
-          warnings: 0
+          warnings: 1
         plan_files:
           - path: good.py
             hunks: 1

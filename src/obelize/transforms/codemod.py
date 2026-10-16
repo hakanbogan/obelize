@@ -80,6 +80,8 @@ class Run:
     manifests: tuple[Outcome, ...]
     plans: tuple[ImpactPlan, ...]
     manifest_plan: ManifestPlan
+    # One `internal_error` row per file a rule raised on, in scan order.
+    limitations: tuple[parse.Limitation, ...] = ()
 
     @property
     def outcomes(self) -> tuple[Outcome, ...]:
@@ -122,6 +124,7 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
 
     files: list[Outcome] = []
     plans: list[ImpactPlan] = []
+    limitations: list[parse.Limitation] = []
     for result in scan.results:
         data = sources.get(result.path)
         if data is None or not result.parsed:
@@ -135,7 +138,11 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
         try:
             outcome, plan = _file(result, data, pack, spec)
         except (RecursionError, MemoryError):
-            outcome, plan = _too_deep(result, data)
+            outcome, plan = _abandoned(result, data, GATE)
+        except Exception as error:
+            # One file's defect must not end the run: the rows it held are withheld and say why.
+            outcome, plan = _abandoned(result, data, parse.CRASH_BAIL)
+            limitations.extend(parse.crashed(result.path, data, error).limitations)
         files.append(outcome)
         plans.append(plan)
 
@@ -154,6 +161,7 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
         manifests=tuple(declared),
         plans=tuple(plans),
         manifest_plan=_refused(graded, written),
+        limitations=tuple(limitations),
     )
 
 
@@ -205,6 +213,7 @@ def blocked(run: Run, reason: BailCode) -> Run:
             excluded=run.manifest_plan.excluded,
             transitive=run.manifest_plan.transitive,
         ),
+        limitations=run.limitations,
     )
 
 
@@ -228,6 +237,7 @@ def chained(passes: Sequence[tuple[str, Run]]) -> Run:
         manifests=_in_path_order({path: row for path, row in outcomes.items() if path in declared}),
         plans=tuple(plan for _, run in passes for plan in run.plans),
         manifest_plan=manifests.merged([run.manifest_plan for _, run in passes]),
+        limitations=tuple(row for _, run in passes for row in run.limitations),
     )
 
 
@@ -320,11 +330,12 @@ def _file(
     ), plan
 
 
-def _too_deep(result: FileResult, data: bytes) -> tuple[Outcome, ImpactPlan]:
-    """A file libcst's visitors overrun the stack on: kept as it was, every eligible row gated."""
+def _abandoned(result: FileResult, data: bytes, code: BailCode) -> tuple[Outcome, ImpactPlan]:
+    """A file the rules overran the stack on or raised on: kept as it was, every eligible row
+    withheld for `code`."""
     eligible = [row for row in result.plan.findings if row.scan_status == "eligible"]
-    plan = _revised(result.plan, {id(row): GATE for row in eligible})
-    rows = _ordered([_row(row, GATE) for row in eligible])
+    plan = _revised(result.plan, {id(row): code for row in eligible})
+    rows = _ordered([_row(row, code) for row in eligible])
     return Outcome(result.path, data, data, tuple(rows)), plan
 
 

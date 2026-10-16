@@ -36,6 +36,7 @@ from obelize.models import (
     QualifiedName,
     RelativePath,
     Sha256,
+    WarningCode,
     bounds,
     schema_hint,
     terminal_unsafe,
@@ -128,10 +129,10 @@ def _enum_member(value: str) -> str:
 def _lower_key(value: str) -> str:
     """Lower-case only: lookups lower the input, as the legacy SDK did."""
     if not value:
-        raise ValueError("a safety-table key must not be empty")
+        raise ValueError("a table key must not be empty")
     if value != value.lower():
         raise ValueError(
-            f"safety-table keys are matched case-insensitively, so the table holds the "
+            f"table keys are matched case-insensitively, so the table holds the "
             f"lower-case spelling: {value!r} should be {value.lower()!r}"
         )
     return value
@@ -219,7 +220,7 @@ SymbolKey = Annotated[str, AfterValidator(_symbol_key), schema_hint(pattern=_SYM
 TrailingCharacter = Annotated[
     str, AfterValidator(_trailing_character), schema_hint(pattern=_TRAILING.pattern)
 ]
-SafetyKey = Annotated[str, AfterValidator(_lower_key)]
+LowerKey = Annotated[str, AfterValidator(_lower_key)]
 SourceUrl = Annotated[str, AfterValidator(_source_url)]
 Pep440Specifier = Annotated[str, AfterValidator(_pep440_specifier)]
 Release = Annotated[str, AfterValidator(_release)]
@@ -478,8 +479,8 @@ class SafetySettings(_Closed):
     # The PaLM-era `protos` spelling is deliberately absent: it is flagged, and the file withheld.
     legacy_category_class: QualifiedName
     legacy_threshold_class: QualifiedName
-    category_map: dict[SafetyKey, EnumMemberName]
-    threshold_map: dict[SafetyKey, EnumMemberName]
+    category_map: dict[LowerKey, EnumMemberName]
+    threshold_map: dict[LowerKey, EnumMemberName]
     # Recognised and emitted under their own names, so every map value must be one.
     category_members: tuple[EnumMemberName, ...]
     threshold_members: tuple[EnumMemberName, ...]
@@ -668,7 +669,8 @@ class GenerativeModelCallsParams(_Closed):
     # positional-or-keyword, and `safety_settings` comes before `generation_config`.
     ctor_order: tuple[PlainName, ...]
     ctor_model_kwarg: PlainName
-    # Constructor parameters carried into the configuration object under the same name.
+    # Constructor parameters carried into the configuration object under the same name. A mapping
+    # literal among them is a turn, carried as written, so it must already be `history`'s shape.
     ctor_config_fields: tuple[PlainName, ...] = ()
     # Constructor keywords toggling automatic function calling: refused, since the default flipped.
     ctor_afc_kwargs: tuple[PlainName, ...] = ()
@@ -680,7 +682,8 @@ class GenerativeModelCallsParams(_Closed):
     model_name_prefix: str
     rewrites: dict[QualifiedName, MethodRewrite] = Field(default_factory=dict)
     # Response attributes that raised `response_legacy_error` on the legacy object and return `None`
-    # on the new one. A handler would silently stop running, so the shape is refused.
+    # on the new one. A handler would silently stop running, so a read it could catch is refused;
+    # any other read warns `response_text_may_be_none`.
     response_attrs_now_none: tuple[PlainName, ...] = ()
     response_legacy_error: PlainName | None = None
     # Exceptions only the legacy SDK raises: a handler would never run, so `error_class_changed`.
@@ -854,6 +857,13 @@ class RewriteCallParams(_Closed):
     # The only reads of the result that carry: anything else, or the result passed on, is refused.
     result_paths: tuple[ResultPath, ...] = ()
     dispatch_prefixes: dict[PlainName, tuple[LiteralPrefix, ...]] = Field(default_factory=dict)
+    # A carried argument's legacy spellings (lower case, as the legacy lookup lowered its input)
+    # and the one the new call takes; a value outside the table is `unsupported_kwarg`.
+    value_maps: dict[PlainName, dict[LowerKey, EnumMemberName]] = Field(default_factory=dict)
+    # What every call this rule writes warns about: a difference the new call leaves unsaid.
+    warnings: tuple[WarningCode, ...] = ()
+    # What a call warns about unless it passes the parameter that settles the difference.
+    warnings_unless: dict[WarningCode, PlainName] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check(self) -> RewriteCallParams:
@@ -865,6 +875,7 @@ class RewriteCallParams(_Closed):
         _sorted_set(self.result_attribute_flags, "result_attribute_flags")
         _sorted_set(self.result_paths, "result_paths")
         _sorted_set(self.legacy_error_modules, "legacy_error_modules")
+        _sorted_set(self.warnings, "warnings")
         declared = {bool(self.config_class), bool(self.config_kwargs), bool(self.config_kwarg)}
         if len(declared) != 1:
             raise ValueError(
@@ -877,6 +888,8 @@ class RewriteCallParams(_Closed):
         self._check_every_renamed_parameter_is_one_the_rule_reads()
         self._check_no_two_parameters_land_on_one_keyword()
         self._check_every_dispatching_parameter_is_one_the_rule_reads()
+        self._check_every_mapped_parameter_is_one_the_rule_reads()
+        self._check_every_conditional_warning_is_one_the_rule_can_withhold()
         return self
 
     def _check_the_result_is_read_one_way(self) -> None:
@@ -936,6 +949,39 @@ class RewriteCallParams(_Closed):
                     f"than saying which values carry; drop the entry instead"
                 )
             _sorted_set(prefixes, f"dispatch_prefixes[{parameter!r}]")
+
+    def _check_every_mapped_parameter_is_one_the_rule_reads(self) -> None:
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.value_maps) - known)
+        if unknown:
+            raise ValueError(
+                f"value_maps names {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
+                f"table is never consulted"
+            )
+        for parameter, table in sorted(self.value_maps.items()):
+            if not table:
+                raise ValueError(
+                    f"value_maps[{parameter!r}] is empty, which refuses every call rather than "
+                    f"saying which values carry; drop the entry instead"
+                )
+
+    def _check_every_conditional_warning_is_one_the_rule_can_withhold(self) -> None:
+        both = sorted(set(self.warnings) & set(self.warnings_unless))
+        if both:
+            raise ValueError(
+                f"{both} is in warnings and in warnings_unless; a call carries it always or "
+                f"unless it passes the parameter, and a pack that says both leaves the rule to "
+                f"decide"
+            )
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.warnings_unless.values()) - known)
+        if unknown:
+            raise ValueError(
+                f"warnings_unless names {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not; the rule reads an argument by its legacy name, so no call "
+                f"could ever pass it and the warning would never be withheld"
+            )
 
     def _check_no_two_parameters_land_on_one_keyword(self) -> None:
         """After `arg_map`, no two parameters share a keyword: libcst emits that; Python refuses."""

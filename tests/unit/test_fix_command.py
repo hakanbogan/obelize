@@ -25,6 +25,7 @@ from obelize.models import BAIL_ACTIONS, WARNING_MEANINGS, EditProposal
 from obelize.native import shell, windows_programs
 from obelize.packs import loader
 from obelize.providers import base, openai_compat
+from obelize.transforms import base as transforms_base
 from obelize.verify import runner as verifier
 from platforms import (
     AS_ROOT,
@@ -141,6 +142,30 @@ def test_the_fixtures_of_a_pack_inside_the_repository_are_neither_planned_nor_wr
         "- **Not scanned** `packs/gem/fixtures/`, the fixtures of a pack this run loaded\n"
         in report
     )
+
+
+def test_a_rule_that_raises_on_a_file_is_one_row_of_the_run_and_not_a_traceback(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The file and its pin stay, `run.json` names the class and nothing the exception said."""
+
+    def finish(context: Any) -> Any:
+        raise KeyError("/home/me/app.py: AIzaNotARealKey")
+
+    monkeypatch.setattr(transforms_base, "finish", finish)
+    result = fix(tree)
+    assert result.exit_code == 0, result.output
+    assert "internal_error" in result.output
+    assert (tree / "app.py").read_text(encoding="utf-8") == LEGACY
+    record = json.loads((folder(tree) / "run.json").read_text(encoding="utf-8"))
+    [limitation] = [row for row in record["limitations"] if row["code"] == "internal_error"]
+    assert limitation["path"] == "app.py"
+    assert limitation["detail"].endswith("It raised KeyError.")
+    assert {row["bail"] for row in record["withheld"] if row["path"] == "app.py"} == {
+        "internal_error"
+    }
+    for name in ("run.json", "REPORT.md"):
+        assert "AIzaNotARealKey" not in (folder(tree) / name).read_text(encoding="utf-8")
 
 
 def test_without_a_pack_the_bundled_one_is_used_as_scan_uses_it(tree: Path) -> None:

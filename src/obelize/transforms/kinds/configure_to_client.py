@@ -115,10 +115,11 @@ class ConfigureToClient:
             unit=context.module.default_indent,
             width=context.layout.line_length,
             around=len(layout.render(target)) + tree.trailing(statement),
+            comments=True,
         )
-        context.rewrites.set_statement(
-            statement, cst.Assign(targets=[target], value=value, semicolon=statement.semicolon)
-        )
+        replacement = cst.Assign(targets=[target], value=value, semicolon=statement.semicolon)
+        context.rewrites.set_statement(statement, replacement)
+        context.rewrites.keep_comments(tree.statement_of(statement), statement, replacement)
         context.client.expression = layout.render(target.target)
         return placement.module_level and not self._literal_credential(args)
 

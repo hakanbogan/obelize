@@ -293,10 +293,14 @@ pack that names fields to refuse reads the linked reads alone, as before.
 ### D17. A call in an f-string field goes on one line
 
 Before Python 3.12 a field of an f-string takes no newline, and the layout of ADR-026 wraps a call at
-the pack's width. `rewrite_call` lays a call inside an f-string out on one line however long it is
-(`Tree.in_f_string`). obelize's own output check runs on 3.12 or later, where the wrapped call is
-valid, so only the rule can prevent it. The other rules still wrap there
-([KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-openai-pack)).
+the pack's width. A rule that writes a call lays one inside an f-string out on one line however long
+it is (`Tree.width`): `rewrite_call` and `generative_model_calls`. obelize's own output check runs
+on 3.12 or later, where the wrapped call is valid, so only the rule can prevent it. The other
+rules write no call there: `configure_to_client` replaces a whole expression statement and
+`rename_setting` a statement.
+
+A field written with `=` prints its own source text, which the rewrite changes. A call in one is
+`response_shape_changed` under both rules, as D18 says of a key read there.
 
 ### D18. A string key along a path is rewritten to the attribute
 
@@ -333,7 +337,7 @@ legacy result. `dict_reads` reads every listed path by its keys, a test
 job prints the fixture's results on 0.28.1 and on 1.109.1 and the newest release and diffs them.
 The other spellings stay refused: `.get` has a default where the attribute read raises, and a key
 held in a name or an expression is not known to be on the path. A comment between the brackets of a
-rewritten read is dropped, as for every rule.
+rewritten read moves to a line above its statement (ADR-026 D7).
 
 ### D19. Image, Moderation and Audio are rewritten
 

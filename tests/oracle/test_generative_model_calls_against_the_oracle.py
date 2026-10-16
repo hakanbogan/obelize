@@ -173,6 +173,7 @@ def test_every_rewritten_method_and_every_warning_has_a_case() -> None:
         "history_parts_rewritten",
         "model_name_looks_prefixed",
         "positional_args_mapped_by_index",
+        "response_text_may_be_none",
     }
 
 
@@ -188,7 +189,7 @@ def test_the_rules_produce_the_phase_zero_answer_key_for_the_demo() -> None:
         (7, "auto", "configure-to-client", ("client_constructed_eagerly",)),
         (9, "auto", "generative-model-calls", ()),
         (9, "auto", "generative-model-calls", ()),
-        (14, "auto", "generative-model-calls", ()),
+        (14, "auto", "generative-model-calls", ("response_text_may_be_none",)),
         (21, "auto", "generative-model-calls", ("count_tokens_config_dropped",)),
     ]
 
@@ -202,7 +203,11 @@ def test_the_warnings_the_demo_key_names_are_the_warnings_the_rules_emit() -> No
         for row in loaded.key["findings"]
         if row["file"] == "app.py" and row.get("warnings")
     }
-    assert graded == {(7, ("client_constructed_eagerly",)), (21, ("count_tokens_config_dropped",))}
+    assert graded == {
+        (7, ("client_constructed_eagerly",)),
+        (14, ("response_text_may_be_none",)),
+        (21, ("count_tokens_config_dropped",)),
+    }
     assert {(row.line, row.warnings) for row in edits if row.warnings} == graded
 
 
@@ -227,12 +232,17 @@ def test_the_rules_produce_the_other_phase_zero_answer_key() -> None:
         (3, "auto", "rename-import", ()),
         (12, "auto", "configure-to-client", ()),
         (13, "auto", "generative-model-calls", ("positional_args_mapped_by_index",)),
-        (24, "auto", "generative-model-calls", ()),
-        (28, "auto", "generative-model-calls", ()),
+        (24, "auto", "generative-model-calls", ("response_text_may_be_none",)),
+        (28, "auto", "generative-model-calls", ("response_text_may_be_none",)),
         (32, "auto", "generative-model-calls", ("history_parts_rewritten",)),
-        (38, "auto", "generative-model-calls", ()),
-        (42, "auto", "generative-model-calls", ()),
-        (46, "auto", "generative-model-calls", ("async_stream_await_preserved",)),
+        (38, "auto", "generative-model-calls", ("response_text_may_be_none",)),
+        (42, "auto", "generative-model-calls", ("response_text_may_be_none",)),
+        (
+            46,
+            "auto",
+            "generative-model-calls",
+            ("async_stream_await_preserved", "response_text_may_be_none"),
+        ),
     ]
 
 
@@ -247,7 +257,11 @@ def test_the_warnings_the_chat_key_names_are_the_warnings_the_rules_emit() -> No
     }
     assert graded == {
         (13, ("positional_args_mapped_by_index",)),
+        (24, ("response_text_may_be_none",)),
+        (28, ("response_text_may_be_none",)),
         (32, ("history_parts_rewritten",)),
-        (46, ("async_stream_await_preserved",)),
+        (38, ("response_text_may_be_none",)),
+        (42, ("response_text_may_be_none",)),
+        (46, ("async_stream_await_preserved", "response_text_may_be_none")),
     }
     assert {(row.line, row.warnings) for row in edits if row.warnings} == graded

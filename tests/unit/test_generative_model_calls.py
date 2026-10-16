@@ -10,7 +10,7 @@ import acme
 import pytest
 
 from obelize.models import Edit
-from obelize.packs.schema import GenerativeModelCallsChange
+from obelize.packs.schema import GenerativeModelCallsChange, Layout
 from obelize.transforms import registry
 
 SETUP = 'import acme.sdk as sdk\n\nsdk.configure(key="k")\n\n'
@@ -22,6 +22,19 @@ def run(body: str, change: GenerativeModelCallsChange | None = None) -> tuple[st
 
 def refusals(edits: list[Edit]) -> list[str | None]:
     return [row.reason for row in edits if row.rule_id == "model-calls"]
+
+
+def warned(edits: list[Edit]) -> list[tuple[str, ...]]:
+    """The rule's warnings but the one for the answer's own read, which most programs here have."""
+    return [
+        tuple(name for name in row.warnings if name != "response_text_may_be_none")
+        for row in edits
+        if row.rule_id == "model-calls"
+    ]
+
+
+# A module-level model's one call, below whatever builds it.
+CALLED = "\n\n\ndef a(p):\n    return MODEL.run(p).answer\n"
 
 
 def test_the_model_name_is_folded_into_every_call_under_the_packs_keyword() -> None:
@@ -63,21 +76,18 @@ def test_a_model_name_that_is_not_a_literal_carries_no_warning() -> None:
         'NAME = "acme/m"\nMODEL = sdk.Model(NAME)\n\n\ndef a(p):\n    return MODEL.run(p).answer\n'
     )
     assert "target=NAME" in produced
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [(), ()]
+    assert warned(edits) == [(), ()]
 
 
 def test_the_prefix_the_pack_names_and_not_the_one_the_other_pack_names() -> None:
     _produced, edits = run(
         'MODEL = sdk.Model("acme/m")\n\n\ndef a(p):\n    return MODEL.run(p).answer\n'
     )
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [
-        ("model_name_looks_prefixed",),
-        (),
-    ]
+    assert warned(edits) == [("model_name_looks_prefixed",), ()]
     _produced, edits = run(
         'MODEL = sdk.Model("models/m")\n\n\ndef a(p):\n    return MODEL.run(p).answer\n'
     )
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [(), ()]
+    assert warned(edits) == [(), ()]
 
 
 def test_the_keyword_that_turns_automatic_calling_on_is_refused_by_name() -> None:
@@ -347,6 +357,48 @@ def test_a_constructor_field_comes_before_the_configurations_own_keys() -> None:
         "def a(p):\n    return MODEL.run(p).answer\n"
     )
     assert "options=types.RunConfig(preamble='hi', heat=1)" in produced
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["{'said': [{'words': 'hi'}]}", "{'who': 'us', 'said': [{'words': 'hi'}]}"],
+    ids=["roleless", "with-role"],
+)
+def test_a_mapping_constructor_field_that_is_already_a_turn_is_carried_as_written(
+    value: str,
+) -> None:
+    produced, edits = run(f"MODEL = sdk.Model('m', preamble={value}){CALLED}")
+    assert f"options=types.RunConfig(preamble={value})" in produced
+    assert refusals(edits) == [None, None]
+
+
+@pytest.mark.parametrize(
+    ("value", "why"),
+    [
+        ("{'who': 'us', 'said': ['hi']}", "a bare string part, which the new config rejects"),
+        ("{'said': ['hi']}", "the same, without a role"),
+        ("{'who': 'they', 'said': [{'words': 'hi'}]}", "a role neither SDK accepts"),
+        ("{'said': [{'words': 'hi'}], 'extra': 1}", "a key too many"),
+        ("{'who': 'us'}", "no parts"),
+        ("{}", "nothing in it"),
+        ("PREAMBLE", "a name filled with a mapping, which is not seen"),
+    ],
+)
+def test_a_mapping_constructor_field_the_new_config_would_reject_is_refused(
+    value: str, why: str
+) -> None:
+    given = f"PREAMBLE = {{'said': [{{'words': 'hi'}}]}}\nMODEL = sdk.Model('m', preamble={value})"
+    _produced, edits = run(given + CALLED)
+    assert refusals(edits) == ["history_parts_shape_incompatible"] * 2, why
+
+
+def test_a_mapping_constructor_field_is_refused_when_the_pack_says_no_shape_for_it() -> None:
+    """No history shape means no way to tell a turn the new SDK reads from one it rejects."""
+    shapeless = acme.MODEL.model_copy(
+        update={"params": acme.MODEL.params.model_copy(update={"history": None})}
+    )
+    _produced, edits = run(f"MODEL = sdk.Model('m', preamble={{'said': []}}){CALLED}", shapeless)
+    assert refusals(edits) == ["history_parts_shape_incompatible"] * 2
 
 
 def test_a_key_only_the_call_has_is_appended_and_one_it_shares_is_replaced() -> None:
@@ -706,9 +758,7 @@ def test_a_list_of_turns_in_the_call_is_reshaped_and_says_so() -> None:
         ASKED.format("    return MODEL.run([{'who': 'us', 'said': ['hi']}]).answer\n")
     )
     assert "body=[{'who': 'us', 'said': [{'words': 'hi'}]}]" in produced
-    assert [row.warnings for row in edits if row.rule_id == "model-calls"][-1] == (
-        "history_parts_rewritten",
-    )
+    assert warned(edits)[-1] == ("history_parts_rewritten",)
 
 
 @pytest.mark.parametrize(
@@ -766,7 +816,6 @@ def test_a_call_a_legacy_handler_catches_refuses_the_group(source: str) -> None:
     [
         "    try:\n        return MODEL.run(p).answer\n"
         "    except ValueError:\n        return None\n",
-        "    try:\n        return MODEL.run(p).answer\n    except:\n        return None\n",
         "    try:\n        pass\n    except errors.Busy:\n        return MODEL.run(p).answer\n",
         "    try:\n        pass\n    except errors.Busy:\n        return None\n"
         "    else:\n        return MODEL.run(p).answer\n",
@@ -777,7 +826,6 @@ def test_a_call_a_legacy_handler_catches_refuses_the_group(source: str) -> None:
     ],
     ids=[
         "another exception",
-        "a bare except",
         "in the handler",
         "in the else",
         "in a def it holds",
@@ -963,12 +1011,236 @@ def test_a_handler_that_names_another_error_is_not_this_shape() -> None:
     assert refusals(edits) == [None, None]
 
 
-def test_a_bare_handler_is_not_evidence_that_anybody_relied_on_the_error() -> None:
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "except:",
+        "except Exception:",
+        "except BaseException:",
+        "except (OSError, Exception) as e:",
+    ],
+    ids=["bare", "Exception", "BaseException", "among others"],
+)
+def test_a_handler_that_would_catch_the_old_error_without_naming_it_refuses_the_group(
+    handler: str,
+) -> None:
+    """Nothing says the exception was not relied on, and the new attribute never raises it."""
     _produced, edits = run(
         'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    r = MODEL.run(p)\n'
-        "    try:\n        return r.answer\n    except:\n        return None\n"
+        f"    try:\n        return r.answer\n    {handler}\n        return None\n"
+    )
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+@pytest.mark.parametrize(
+    ("handler", "refused"),
+    [
+        ("except* LookupError:", True),
+        ("except* (OSError, Exception) as e:", True),
+        ("except* TypeError:", False),
+    ],
+    ids=["named", "among others", "another error"],
+)
+def test_an_exception_group_handler_is_read_like_the_one_it_stands_for(
+    handler: str, refused: bool
+) -> None:
+    _produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    r = MODEL.run(p)\n'
+        f"    try:\n        x = r.answer\n    {handler}\n        x = None\n    return x\n"
+    )
+    assert refusals(edits) == (["response_shape_changed"] * 2 if refused else [None, None])
+
+
+SUPPRESSED = (
+    'MODEL = sdk.Model("m")\n\n\ndef a(p, errors):\n    r = MODEL.run(p)\n'
+    "    with {suppress}:\n        return r.answer\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("imports", "suppress"),
+    [
+        ("from contextlib import suppress\n", "suppress(LookupError)"),
+        ("import contextlib\n", "contextlib.suppress(OSError, Exception)"),
+        ("import contextlib as cm\n", "cm.suppress((TypeError, LookupError))"),
+        ("import contextlib\n", "contextlib.suppress(*errors)"),
+    ],
+    ids=["imported by name", "among others", "under an alias, in a tuple", "from a star"],
+)
+def test_a_read_inside_a_suppress_that_could_catch_the_old_error_refuses_the_group(
+    imports: str, suppress: str
+) -> None:
+    """`with suppress(...):` is the handler in another spelling, so its body is read the same."""
+    _produced, edits = run(imports + SUPPRESSED.format(suppress=suppress))
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+@pytest.mark.parametrize(
+    ("imports", "suppress"),
+    [
+        ("import contextlib\n", "contextlib.suppress(TypeError)"),
+        ("import contextlib\n", "contextlib.suppress()"),
+        ("from helpers import suppress\n", "suppress(LookupError)"),
+        ("import contextlib\n", "contextlib.closing(errors)"),
+        ("", "errors"),
+    ],
+    ids=["another error", "none", "not contextlib's", "another manager", "not a call"],
+)
+def test_a_read_inside_a_with_that_suppresses_nothing_that_matters_is_written(
+    imports: str, suppress: str
+) -> None:
+    _produced, edits = run(imports + SUPPRESSED.format(suppress=suppress))
+    assert refusals(edits) == [None, None]
+
+
+def test_a_handler_around_a_stream_chunk_read_is_the_same_hazard() -> None:
+    _produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    for c in MODEL.run(p, live=True):\n'
+        "        try:\n            yield c.answer\n        except Exception:\n            pass\n"
+    )
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+ASYNC = 'MODEL = sdk.Model("m")\n\n\nasync def a(p):\n'
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    r = await MODEL.later(p)\n"
+        "    try:\n        return r.answer\n    except LookupError:\n        return None\n",
+        "    try:\n        return (await MODEL.later(p)).answer\n"
+        "    except Exception:\n        return None\n",
+        "    async for c in await MODEL.later(p, live=True):\n"
+        "        try:\n            yield c.answer\n"
+        "        except BaseException:\n            pass\n",
+        "    coro = MODEL.later(p)\n    r = await coro\n"
+        "    try:\n        return r.answer\n    except:\n        return None\n",
+        "    r = await MODEL.later(p, live=True)\n    async for c in r:\n"
+        "        try:\n            yield c.answer\n        except Exception:\n            pass\n",
+    ],
+    ids=["a name", "in place", "a stream's chunk", "through a coroutine's name", "a name's chunk"],
+)
+def test_the_result_of_an_awaited_call_is_read_where_a_handler_could_catch_the_old_error(
+    body: str,
+) -> None:
+    """The async twin of the sync shapes, which are refused: the call sits under an `await`."""
+    _produced, edits = run(ASYNC + body)
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    r = await MODEL.later(p)\n    return r.answer\n",
+        "    return (await MODEL.later(p)).answer\n",
+        "    async for c in await MODEL.later(p, live=True):\n        yield c.answer\n",
+        "    coro = MODEL.later(p)\n    r = await coro\n    return r.answer\n",
+    ],
+    ids=["a name", "in place", "a stream's chunk", "through a coroutine's name"],
+)
+def test_the_result_of_an_awaited_call_is_warned_about_where_nothing_could_catch_the_old_error(
+    body: str,
+) -> None:
+    _produced, edits = run(ASYNC + body)
+    assert refusals(edits) == [None, None]
+    assert "response_text_may_be_none" in [
+        name for row in edits if row.rule_id == "model-calls" for name in row.warnings
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    r: object = MODEL.run(p)\n    return r.answer\n",
+        "    return (r := MODEL.run(p)).answer and r.answer\n",
+    ],
+    ids=["an annotated name", "a walrus"],
+)
+def test_a_name_the_result_is_bound_to_in_other_ways_is_read_the_same(body: str) -> None:
+    _produced, edits = run(f'MODEL = sdk.Model("m")\n\n\ndef a(p):\n{body}')
+    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [
+        (),
+        ("response_text_may_be_none",),
+    ]
+
+
+@pytest.mark.parametrize(
+    "scope",
+    ["", "MODEL = sdk.Model('m')\nr = MODEL.run('q')\n\n\n"],
+    ids=["a call in a function", "a call at module level"],
+)
+def test_a_read_of_another_variable_that_shares_the_name_is_not_this_calls(scope: str) -> None:
+    """`r` in `b` is not the result of the call, so the handler around it is not this group's."""
+    call = "" if scope else "    r = MODEL.run(p)\n    return r.other\n"
+    header = "" if scope else 'MODEL = sdk.Model("m")\n\n\ndef a(p):\n'
+    _produced, edits = run(
+        f"{scope}{header}{call}\n\ndef b(u):\n    try:\n        r = sdk.fetch(u)\n"
+        "        return r.answer\n    except Exception:\n        return None\n"
     )
     assert refusals(edits) == [None, None]
+    assert warned_for_the_read(edits) == []
+
+
+def warned_for_the_read(edits: list[Edit]) -> list[str]:
+    return [
+        name
+        for row in edits
+        if row.rule_id == "model-calls"
+        for name in row.warnings
+        if name == "response_text_may_be_none"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("body", "noted"),
+    [
+        ("    return MODEL.run(p).answer\n", [(), ("response_text_may_be_none",)]),
+        ("    r = MODEL.run(p)\n    return r.answer\n", [(), ("response_text_may_be_none",)]),
+        (
+            "    for c in MODEL.run(p, live=True):\n        yield c.answer\n",
+            [(), ("response_text_may_be_none",)],
+        ),
+        (
+            "    r = MODEL.run(p, live=True)\n    for c in r:\n        yield c.answer\n",
+            [(), ("response_text_may_be_none",)],
+        ),
+        ("    r = MODEL.run(p)\n    for i, c in other:\n        yield c.answer\n", [(), ()]),
+        ("    return MODEL.run(p).other\n", [(), ()]),
+        ("    r = MODEL.run(p)\n    return other.answer\n", [(), ()]),
+        ("    r = MODEL.run(p)\n    return str.answer\n", [(), ()]),
+        ("    return MODEL.run(p)\n", [(), ()]),
+    ],
+    ids=[
+        "in place",
+        "through a name",
+        "a stream's chunk",
+        "a name's chunk",
+        "an unpacking loop over something else",
+        "another attribute",
+        "another object",
+        "a builtin",
+        "never read",
+    ],
+)
+def test_a_call_whose_result_is_read_as_an_attribute_that_stopped_raising_is_warned(
+    body: str, noted: list[tuple[str, ...]]
+) -> None:
+    """Only the call that is read, not the constructor beside it, and only that attribute."""
+    _produced, edits = run(f'MODEL = sdk.Model("m")\n\n\ndef a(p, other=None):\n{body}')
+    assert refusals(edits) == [None, None]
+    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == noted
+
+
+def test_the_warning_for_a_read_joins_the_warnings_the_call_already_has() -> None:
+    _produced, edits = run(
+        'MODEL = sdk.Model("acme/m")\n\n\ndef a(p):\n'
+        '    return MODEL.run([{"who": "us", "said": ["hi"]}]).answer\n'
+    )
+    assert [row.warnings for row in edits if row.rule_id == "model-calls"] == [
+        ("model_name_looks_prefixed",),
+        ("history_parts_rewritten", "response_text_may_be_none"),
+    ]
 
 
 def test_a_handler_around_something_that_is_not_this_groups_answer() -> None:
@@ -1119,9 +1391,6 @@ def test_a_parameter_called_types_does_not_capture_the_configuration() -> None:
 
 # The constructor's arguments are pasted into every call, so each is re-read at every call site.
 
-# A module-level model's one call, below whatever builds it.
-CALLED = "\n\n\ndef a(p):\n    return MODEL.run(p).answer\n"
-
 
 @pytest.mark.parametrize(
     "body",
@@ -1180,3 +1449,156 @@ def test_what_runs_when_it_is_read_refuses_the_group(body: str) -> None:
 def test_what_means_the_same_at_the_call_travels(body: str) -> None:
     _produced, edits = run(body)
     assert set(refusals(edits)) == {None}
+
+
+def test_a_call_in_an_f_string_field_stays_on_one_line_however_long_it_is() -> None:
+    """Before Python 3.12 a field takes no newline; the output check runs on a newer one."""
+    source = SETUP + 'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return {}\n'
+    narrow = Layout(line_length=40)
+    produced, _edits = acme.transform(
+        source.format("f'{MODEL.run(p).answer}'"),
+        acme.CHANGE,
+        acme.CLIENT,
+        acme.MODEL,
+        layout=narrow,
+    )
+    assert (
+        produced.splitlines()[-1]
+        == "    return f'{handle.models.run(target=\"m\", body=p).answer}'"
+    )
+    produced, _edits = acme.transform(
+        source.format("'{}'.format(MODEL.run(p).answer)"),
+        acme.CHANGE,
+        acme.CLIENT,
+        acme.MODEL,
+        layout=narrow,
+    )
+    assert "    return '{}'.format(handle.models.run(\n" in produced
+
+
+def test_a_call_in_an_f_string_field_written_with_equals_refuses_its_model() -> None:
+    """The field prints its own source text, which the rewrite changes; the group goes whole."""
+    produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return f"{MODEL.run(p).answer=}"\n'
+    )
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+    assert 'return f"{MODEL.run(p).answer=}"' in produced
+    produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return f"{MODEL.run(p).answer}"\n'
+    )
+    assert refusals(edits) == [None, None]
+
+
+def tail(produced: str, lines: list[str]) -> bool:
+    """Whether `produced` ends with exactly `lines`."""
+    return produced.splitlines()[-len(lines) :] == lines
+
+
+def test_a_comment_beside_an_argument_of_a_rewritten_call_goes_with_it() -> None:
+    produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    return MODEL.run(\n'
+        "        # the prompt\n        p,  # about it\n    ).answer\n"
+    )
+    assert refusals(edits) == [None, None]
+    assert tail(
+        produced,
+        [
+            "    return handle.models.run(",
+            '        target="m",',
+            "        # the prompt",
+            "        body=p,  # about it",
+            "    ).answer",
+        ],
+    )
+
+
+def test_what_is_written_on_or_inside_a_deleted_constructor_moves_to_the_next_statement() -> None:
+    """The comment on its line and the ones between its arguments, after those above it."""
+    produced, edits = run(
+        "def a(p):\n    x = 1\n\n    # the model\n    MODEL = sdk.Model(  # opening\n"
+        '        "m",  # the name\n        guard=[],\n    )  # trailing\n'
+        "    return MODEL.run(p).answer\n"
+    )
+    assert refusals(edits) == [None, None]
+    assert tail(
+        produced,
+        [
+            "    x = 1",
+            "    # the model",
+            "    # opening",
+            "    # the name",
+            "    # trailing",
+            '    return handle.models.run(target="m", body=p).answer',
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (
+            "# a\nM1 = sdk.Model('a')  # t1\n# b\nM2 = sdk.Model('b')  # t2\n# c\nx = 1\n",
+            "# c\n# a\n# t1\n# b\n# t2\nx = 1\n",
+        ),
+        (
+            "# a\nM1 = sdk.Model('a')\n# b\nM2 = sdk.Model('b')\n# c\nM3 = sdk.Model('c')\nx = 1\n",
+            "# a\n# b\n# c\nx = 1\n",
+        ),
+        ("# a\nM1 = sdk.Model('a')\nM2 = sdk.Model('b')  # t2\nx = 1\n", "# a\n# t2\nx = 1\n"),
+        (
+            "x = 1\n# a\nM1 = sdk.Model('a')  # t1\n# b\nM2 = sdk.Model('b')  # t2\n",
+            "x = 1\n\n\n# a\n# t1\n# b\n# t2\n",
+        ),
+    ],
+    ids=["two", "three", "one without comments of its own", "at the end of the file"],
+)
+def test_the_comments_of_constructors_deleted_in_a_row_all_reach_what_follows(
+    before: str, after: str
+) -> None:
+    """Each deleted statement hands on what it was handed, so none of them is left behind."""
+    uses = "".join(
+        f"{name}.run(p).answer, " for name in ("M1", "M2", "M3") if f"{name} =" in before
+    )
+    produced, edits = run(f"{before}\n\ndef f(p):\n    return {uses}\n")
+    assert set(refusals(edits)) == {None}
+    assert after in produced
+
+
+def test_a_trailing_comment_on_the_last_statement_of_a_block_keeps_the_blank_lines_above_it() -> (
+    None
+):
+    """Nothing follows it, so it goes to the block's end and nothing else supplies the blanks."""
+    produced, _edits = run(
+        'def a(p):\n    return MODEL.run(p).answer\n\n\nMODEL = sdk.Model("m")  # trailing\n'
+    )
+    assert produced.endswith(".answer\n\n\n# trailing\n")
+
+
+def test_the_comment_of_a_constructor_sharing_its_line_stays_on_that_line() -> None:
+    """The line survives, with what else it holds, so its own comment is not moved."""
+    produced, _edits = run(
+        'x = 1; MODEL = sdk.Model("m")  # trailing\nprint(MODEL.run("p").answer)\n'
+    )
+    assert "x = 1  # trailing\n" in produced
+
+
+def test_a_configuration_written_in_the_constructor_gives_each_call_its_comments() -> None:
+    produced, _edits = run(
+        "def a(p):\n"
+        '    MODEL = sdk.Model("m", settings=sdk.Config(heat=1,  # warm\n'
+        "                                               limit=2))\n"
+        '    return MODEL.run(p).answer, MODEL.run("x").answer\n'
+    )
+    assert produced.count("heat=1,  # warm") == 2
+    assert "sdk.Model" not in produced
+
+
+def test_a_configuration_that_stays_is_copied_into_each_call_without_its_comments() -> None:
+    """It keeps them where it stays."""
+    produced, _edits = run(
+        "BASE = sdk.Config(\n    heat=1,  # warm\n    limit=2,\n)\n"
+        'MODEL = sdk.Model("m", settings=BASE)\n\n\n'
+        'def a(p):\n    return MODEL.run(p).answer, MODEL.run("x").answer\n'
+    )
+    assert produced.count("# warm") == 1
+    assert "BASE = types.RunConfig(\n    heat=1,  # warm\n" in produced

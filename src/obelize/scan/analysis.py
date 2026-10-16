@@ -234,6 +234,7 @@ class _Pass:
 
         self._nodes = _Nodes()
         module.visit(self._nodes)
+        self._value_of = _assigned_values(self._nodes)
 
         self._findings: list[Finding] = []
         self._claimed: set[int] = set()
@@ -675,7 +676,7 @@ class _Pass:
             legacy = self._legacy(call)
             if legacy and legacy[0] in self._spec.constructor_symbols:
                 self._produced[id(call)] = legacy[0]
-        value_of = _assigned_values(self._nodes)
+        value_of = self._value_of
         while True:
             self._receivers = []
             self._method_findings: list[tuple[cst.CSTNode, ConfidenceReason, str]] = []
@@ -935,6 +936,7 @@ class _Pass:
         """A supported method on an unresolved receiver, only where a constructor call resolves.
 
         Otherwise a Vertex `model`, or one built through a rebound alias, gets an invented symbol.
+        Nor is the new SDK's own client one, which a half-migrated file also holds.
         """
         if not self._produced:
             return
@@ -944,7 +946,7 @@ class _Pass:
             if id(call) in claimed or not isinstance(call.func, cst.Attribute):
                 continue
             owner = owners.get(call.func.attr.value)
-            if owner is None or self._legacy(call.func):
+            if owner is None or self._legacy(call.func) or self._new_client(call.func.value):
                 continue
             self._add(
                 call,
@@ -959,6 +961,30 @@ class _Pass:
                     "bail": "receiver_unresolved",
                 }
             )
+
+    def _new_client(self, receiver: cst.BaseExpression) -> bool:
+        """Whether the name a receiver chain starts from is only ever assigned the new SDK's client.
+
+        Any other assignment, a parameter, an import and an attribute such as `self.client` leave it
+        unresolved: a wrong guess here would hide a legacy call.
+        """
+        while isinstance(receiver, cst.Attribute | cst.Call | cst.Subscript):
+            receiver = receiver.func if isinstance(receiver, cst.Call) else receiver.value
+        scope = self._scopes.get(receiver)
+        if not (self._spec.new_client_symbol and scope and isinstance(receiver, cst.Name)):
+            return False
+        held = scope[receiver.value]
+        return bool(held) and all(
+            isinstance(assignment, Assignment)
+            and self._builds_new_client(self._value_of.get(id(assignment.node)))
+            for assignment in held
+        )
+
+    def _builds_new_client(self, value: cst.BaseExpression | None) -> bool:
+        return value is not None and any(
+            name.source is QualifiedNameSource.IMPORT and name.name == self._spec.new_client_symbol
+            for name in qualified_names(self._qnp, value)
+        )
 
     def _mentions(self) -> None:
         """The module path in a comment or string on a line with no finding, anchored where it sits.

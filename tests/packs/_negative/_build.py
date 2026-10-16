@@ -1120,6 +1120,67 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: _with(d["changes"][1]["params"], "dispatch_prefixes", {"kind": []}),
     ),
     Case(
+        name="a_value_map_on_a_parameter_no_list_names",
+        defect="a table of spellings the rule would never consult",
+        path=f"{EXTRA}.params",
+        says="value_maps names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"value_maps": {"flavour": {"a": "A"}}}),
+    ),
+    Case(
+        name="a_value_map_with_nothing_in_it",
+        defect="a table that refuses every call rather than saying which values carry",
+        path=f"{EXTRA}.params",
+        says="value_maps['kind'] is empty",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "value_maps", {"kind": {}}),
+    ),
+    Case(
+        name="a_warning_list_that_is_not_sorted",
+        defect="a warning list with two spellings of one set",
+        path=f"{EXTRA}.params",
+        says="warnings must be sorted and de-duplicated",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(
+            d["changes"][1]["params"],
+            "warnings",
+            ["upload_display_name_unset", "response_text_may_be_none"],
+        ),
+    ),
+    Case(
+        name="a_warning_that_is_always_and_unless",
+        defect="a warning both carried by every call and withheld by one that passes a parameter",
+        path=f"{EXTRA}.params",
+        says="is in warnings and in warnings_unless",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            {
+                "warnings": ["upload_display_name_unset"],
+                "warnings_unless": {"upload_display_name_unset": "kind"},
+            }
+        ),
+    ),
+    Case(
+        name="a_conditional_warning_on_a_parameter_no_list_names",
+        defect="a warning no call could ever be rid of",
+        path=f"{EXTRA}.params",
+        says="warnings_unless names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(
+            d["changes"][1]["params"],
+            "warnings_unless",
+            {"upload_display_name_unset": "flavour"},
+        ),
+    ),
+    Case(
+        name="a_warning_nothing_defines",
+        defect="a warning code no report could explain",
+        path=f"{EXTRA}.params.warnings[0]",
+        says="Input should be",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "warnings", ["be_careful"]),
+    ),
+    Case(
         name="a_dispatch_prefix_list_that_is_not_sorted",
         defect="a prefix list with two spellings of one set",
         path=f"{EXTRA}.params",
