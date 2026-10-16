@@ -9,7 +9,19 @@ def streamed(prompt):
 
 
 def azure(prompt):
-    openai.ChatCompletion.create(engine="my-deployment", messages=[{"role": "user", "content": prompt}])
+    openai.ChatCompletion.create(
+        deployment_id="my-deployment", messages=[{"role": "user", "content": prompt}]
+    )
+
+
+def two_names(prompt):
+    openai.ChatCompletion.create(
+        engine="a", model="b", messages=[{"role": "user", "content": prompt}]
+    )
+
+
+def no_deadline(prompt):
+    openai.ChatCompletion.create(model="gpt-4o-mini", messages=[], request_timeout=(3, 30))
 
 
 def per_call_key(prompt, key):

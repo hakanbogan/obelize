@@ -266,6 +266,12 @@ def _shared(document: Document) -> None:
     document["match"].update(shared=True, symbols=["demo_legacy.configure"])
 
 
+def _attribute_outside(document: Document) -> None:
+    """A shared module whose one flag_only rule names only an attribute of another module."""
+    _shared(document)
+    document["changes"][1]["params"].update(symbols=[], attributes=["other_module.Reply.text"])
+
+
 def _setting(
     *,
     symbols: list[str] | None = None,
@@ -843,6 +849,40 @@ CASES: tuple[Case, ...] = (
         mutate=flagged_twice({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}),
     ),
     Case(
+        name="a_variable_named_where_no_shape_reports_a_write",
+        defect="environment variables on a rule that does not report a write of one",
+        path=f"{EXTRA}.params",
+        says="variables and the environment_write pattern are named together",
+        extra=FLAG_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "variables", ["DEMO_LEGACY_BASE"]),
+    ),
+    Case(
+        name="an_environment_write_shape_with_no_variable",
+        defect="a shape that reports a write of a variable, and no variable named",
+        path=f"{EXTRA}.params",
+        says="variables and the environment_write pattern are named together",
+        extra=FLAG_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "patterns", ["environment_write"]),
+    ),
+    Case(
+        name="a_variable_no_prefilter_token_occurs_in",
+        defect="a variable a file may set that no prefilter token finds, so the file is never read",
+        path="",
+        says="in which no match.prefilter_tokens entry occurs",
+        extra=FLAG_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            patterns=["environment_write"], variables=["DEMO_BASE"]
+        ),
+    ),
+    Case(
+        name="an_attribute_of_a_module_the_pack_does_not_match",
+        defect="an attribute path under no module in match.imports, in a shared pack too",
+        path="",
+        says="under nothing in match.imports",
+        extra=FLAG_CHANGE,
+        mutate=_attribute_outside,
+    ),
+    Case(
         name="manifest_names_a_third_distribution",
         defect="a dependency rule pinning a distribution this pack does not migrate",
         path="",
@@ -1198,6 +1238,40 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: d["changes"][1]["params"]["arg_map"].update({"body": "kind"}),
     ),
     Case(
+        name="an_alias_for_a_parameter_no_list_names",
+        defect="another name for a parameter the rule never reads, so it would carry nothing",
+        path=f"{EXTRA}.params",
+        says="aliases stand for ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"aliases": {"label": "flavour"}}),
+    ),
+    Case(
+        name="an_alias_that_is_also_a_parameter",
+        defect="a keyword that is a parameter and another name for one",
+        path=f"{EXTRA}.params",
+        says="['body'] is an alias and a parameter the rule reads too",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"aliases": {"body": "kind"}}),
+    ),
+    Case(
+        name="a_number_only_parameter_no_list_names",
+        defect="a list of numbers the rule would never consult",
+        path=f"{EXTRA}.params",
+        says="positive_numbers names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"positive_numbers": ["flavour"]}),
+    ),
+    Case(
+        name="a_number_only_parameter_with_a_value_map",
+        defect="a parameter that must be a number and a string in a table, so no value passes",
+        path=f"{EXTRA}.params",
+        says="['kind'] is in positive_numbers and has a value_maps table",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            {"positive_numbers": ["kind"], "value_maps": {"kind": {"a": "A"}}}
+        ),
+    ),
+    Case(
         name="a_dispatch_prefix_on_a_parameter_no_list_names",
         defect="a prefix list the rule would never consult",
         path=f"{EXTRA}.params",
@@ -1214,6 +1288,32 @@ CASES: tuple[Case, ...] = (
         says="is empty, which refuses every call",
         extra=CALL_CHANGE,
         mutate=lambda d: _with(d["changes"][1]["params"], "dispatch_prefixes", {"kind": []}),
+    ),
+    Case(
+        name="a_literal_prefix_on_a_parameter_no_list_names",
+        defect="a prefix list the rule would never consult",
+        path=f"{EXTRA}.params",
+        says="literal_prefixes names ['flavour']",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            {"literal_prefixes": {"flavour": ["a/"]}}
+        ),
+    ),
+    Case(
+        name="a_literal_prefix_list_with_nothing_in_it",
+        defect="a prefix list that refuses every value written out, naming none that carries",
+        path=f"{EXTRA}.params",
+        says="literal_prefixes['body'] is empty",
+        extra=CALL_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "literal_prefixes", {"body": []}),
+    ),
+    Case(
+        name="a_parameter_both_dispatched_and_literal",
+        defect="a parameter that must be a listed literal and one that carries unless it is not",
+        path=f"{EXTRA}.params",
+        says="['kind'] is in dispatch_prefixes and in literal_prefixes",
+        extra=CALL_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update({"literal_prefixes": {"kind": ["a/"]}}),
     ),
     Case(
         name="a_value_map_on_a_parameter_no_list_names",

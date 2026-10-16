@@ -142,6 +142,123 @@ def test_a_literal_none_is_carried_as_written_since_the_legacy_call_never_looked
     assert statuses(edits)[-1] == (5, "auto", None)
 
 
+# Other names for a parameter that lands on its own, one that is renamed, and a configuration field.
+ALIASED = acme.MEASURE.model_copy(
+    update={
+        "params": acme.MEASURE.params.model_copy(
+            update={
+                "aliases": {"label": "kind", "note": "body", "span": "depth"},
+                "positive_numbers": ("depth",),
+            }
+        )
+    }
+)
+
+
+def aliased(body: str) -> tuple[str, list[Edit]]:
+    code, edits = acme.transform(f"{HEADER}\n{body}", acme.CHANGE, acme.CLIENT, ALIASED)
+    return code.splitlines()[-1], edits
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("sdk.measure(label='a', note='b')\n", "kind='a', text='b'"),
+        ("sdk.measure(kind='a', span=2)\n", "kind='a', opts=types.MeasureConfig(depth=2)"),
+        ("sdk.measure('a', note='b')\n", "kind='a', text='b'"),
+    ],
+    ids=["a name and a renamed one", "a configuration field", "beside a positional"],
+)
+def test_an_alias_is_carried_as_the_parameter_it_stands_for(body: str, expected: str) -> None:
+    line, edits = aliased(body)
+    assert expected in line
+    assert [row.status for row in edits] == ["auto", "auto", "auto"]
+
+
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        ("sdk.measure(label='a', kind='b')\n", "unsupported_kwarg"),
+        ("sdk.measure(kind='a', label='b')\n", "unsupported_kwarg"),
+        ("sdk.measure('a', label='b')\n", "unsupported_kwarg"),
+        ("sdk.measure(depth=1, span=2)\n", "unsupported_kwarg"),
+        ("sdk.measure('a', 'b', body='c')\n", "unsupported_kwarg"),
+        ("sdk.measure('a', 'b', 'c')\n", "positional_arg_ambiguous"),
+        ("sdk.measure(kind='a', retries=3)\n", "unsupported_kwarg"),
+    ],
+    ids=[
+        "alias then name",
+        "name then alias",
+        "positional then alias",
+        "a field and its alias",
+        "two positionals then an alias",
+        "one positional too many",
+        "an unlisted keyword",
+    ],
+)
+def test_a_parameter_given_under_two_names_is_refused_where_the_legacy_call_took_both(
+    body: str, reason: str
+) -> None:
+    code, edits = aliased(body)
+    assert statuses(edits)[-1] == (5, "needs_review", reason)
+    assert code == body.strip()
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["2", "2.5", "(3)", "0x10", "1_0", "1e3"],
+    ids=["integer", "float", "parenthesised", "hex", "underscore", "exponent"],
+)
+def test_a_parameter_for_numbers_alone_carries_a_number_written_out_above_zero(value: str) -> None:
+    line, edits = aliased(f"sdk.measure(kind='a', depth={value})\n")
+    assert f"opts=types.MeasureConfig(depth={value})" in line
+    assert statuses(edits)[-1] == (5, "auto", None)
+    assert statuses(aliased(f"sdk.measure(kind='a', span={value})\n")[1])[-1] == (5, "auto", None)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["0", "0.0", "0x0", "-1", "1j", "True", "None", "'2'", "n", "(1, 2)", "2 * 3"],
+    ids=[
+        "zero",
+        "float zero",
+        "hex zero",
+        "negative",
+        "imaginary",
+        "boolean",
+        "none",
+        "string",
+        "name",
+        "tuple",
+        "arithmetic",
+    ],
+)
+def test_a_value_the_legacy_call_took_for_none_is_not_carried_as_a_number(value: str) -> None:
+    """A falsy `request_timeout` meant the SDK's own default; `timeout=0` would mean none at all."""
+    code, edits = aliased(f"sdk.measure(kind='a', depth={value})\n")
+    assert statuses(edits)[-1] == (5, "needs_review", "unsupported_kwarg")
+    assert code == f"sdk.measure(kind='a', depth={value})"
+
+
+def test_an_alias_is_read_by_the_prefix_check_under_the_name_it_stands_for() -> None:
+    named = acme.LOOKUP.model_copy(
+        update={"params": acme.LOOKUP.params.model_copy(update={"aliases": {"name": "tag"}})}
+    )
+
+    def lookup(body: str) -> tuple[str, list[Edit]]:
+        code, edits = acme.transform(f"{HEADER}\n{body}", acme.CHANGE, acme.CLIENT, named)
+        return code.splitlines()[-1], edits
+
+    line, edits = lookup("sdk.lookup(name='kinds/a')\n")
+    assert line == "handle.registry.fetch(tag='kinds/a')"
+    assert statuses(edits)[-1] == (5, "auto", None)
+    assert statuses(lookup("sdk.lookup(name='other/a')\n")[1])[-1] == (
+        5,
+        "needs_review",
+        "response_shape_changed",
+    )
+
+
 def test_a_call_written_carries_the_warnings_the_pack_names_and_a_refused_one_none() -> None:
     noted = acme.MEASURE.model_copy(
         update={

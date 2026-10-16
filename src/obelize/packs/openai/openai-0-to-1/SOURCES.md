@@ -107,16 +107,37 @@ The limitations that rest on the SDK's own text and not on a fixture:
 - Measured: 0.28.1 read `OPENAI_API_BASE` and `OPENAI_ORGANIZATION` from the environment when
   `openai` was imported (`api_base` and `organization` took them); 1.109.1 and 3.26.0 read
   `OPENAI_BASE_URL` and `OPENAI_ORG_ID` when the module client is first used, and
-  `OPENAI_API_KEY` is read by both. The pack lists this as a limitation: it does not look at
-  environment variables.
+  `OPENAI_API_KEY` is read by both. A write of either old name in the code is a row
+  (flag-indirect-use); one set outside the code is a limitation the pack lists.
 - Measured: the methods take keywords only, with no `**kwargs`. 0.28.1's
   `create` read `api_key`, `api_base`, `api_type`, `api_version`,
   `organization`, `request_id`, `engine`, `deployment_id`, `headers`,
   `request_timeout`, `stream` and `timeout` itself and sent everything else as
-  the request body, so each of those is refused and `keywords` lists the body
-  parameters that the call carried and every measured release still takes.
-  `timeout` is refused too: 0.28.1 popped it as a retry deadline and never sent
+  the request body, so `keywords` lists the body parameters that the call carried
+  and every measured release still takes, and `engine` and `request_timeout` are
+  carried as `model` and `timeout` (the next two items); the others are refused.
+  `timeout` is refused: 0.28.1 popped it as a retry deadline and never sent
   it, where the new methods send it as the HTTP timeout.
+- Measured: `engine` is read by `ChatCompletion`, `Completion` and `Embedding` only (the
+  resources built on `EngineAPIResource`; `Image`, `Moderation` and `Audio` send it in the body).
+  On 0.28.1's public API type it is the route, `/v1/engines/<name>/chat/completions`, and the body
+  carries no `model`, where `model=<name>` goes to `/v1/chat/completions` with the name in the body;
+  the same holds for `/completions` and `/embeddings`. Both are accepted as the one parameter
+  ("Must provide an 'engine' or 'model' parameter"), and the new methods send `model` in the body
+  on 1.109.1 and 3.26.0 (a local server recorded the requests). With `api_type` set to `azure`
+  `engine` is the deployment of `/openai/deployments/<name>/...`, which the new Azure client builds
+  from `model` on the same route. Given with a `model`, 0.28.1 sent both (`model` in the body) and
+  which one the service reads is not measured, so the pair is refused. Not measured: whether the
+  API still serves the `/engines/` route, or reads its name as the model; the fixture's mock does,
+  which is the assumption the rewrite rests on. `deployment_id` is the Azure spelling and stays
+  refused.
+- Measured: `request_timeout` is read by the same three resources and used as the `requests`
+  timeout: `0.5` raised `Timeout` after 0.5 s from one request, a falsy value (`0`, `None`) fell back
+  to the 600 seconds of `api_requestor.TIMEOUT_SECS`, and a tuple was a connect and a read time. The
+  new methods' `timeout` is a number of seconds or an `httpx.Timeout`: `timeout=0.5` against the same
+  server raised `APITimeoutError` after 2.9 s from three requests (the client retries a timeout
+  twice, as it does a 408, 409, 429 or 5xx), `timeout=0` raised `APIConnectionError` before any
+  request, and `None` waited. So only a number written out above zero is carried, as `timeout`.
 - Measured: `Embedding.create` on 0.28.1 asked for base64 itself and decoded it
   with numpy, which 0.28.1 does not install; `encoding_format` is therefore not
   carried.
@@ -129,6 +150,12 @@ The limitations that rest on the SDK's own text and not on a fixture:
   listed path by its keys and prints the same on 0.28.1, 1.109.1 and the newest release), and `result_paths` lists the fields every
   measured release defines
   (`choices[].message.content`, `usage.total_tokens`, `data[].embedding`, ...).
+- Measured: `r.get("k")` on a 0.28.1 result is `dict.get`, and `getattr(r, "k", None)` on a
+  1.109.1 and a 3.26.0 result gave the same for a field present, sent as null or left out, over a
+  local server's seven chat answers (no `usage`, a null `usage`, a null and an absent `content`, no
+  `finish_reason`, no `id`: `id` is required, and the client builds a result without validating it).
+  A `.get` with a default is not the same, since the model holds None for a field the server left
+  out, so it is refused. The `dict_reads` fixture reads the listed paths through `.get` as well.
 - Measured: the 0.28.1 result classes are not distinct types (a chat result is
   a plain `OpenAIObject`), so nothing can be read off the type: a file is
   decided by the reads it contains.
@@ -156,8 +183,11 @@ The limitations that rest on the SDK's own text and not on a fixture:
   that relied on the miss (`except Exception`, a bare `except`, `except AttributeError`) stops
   running. `url` is absent from a `b64_json` response and `revised_prompt` from a `dall-e-2` one, so
   `response_format` is not carried and only `url`, which the default format returns, is a listed
-  path. A model that returns no url whatever the format (`gpt-image-1`) is the case this does not
-  catch.
+  path. A model that returns no url whatever the format (`gpt-image-1`) is refused when it is
+  written as a string that does not begin with `dall-e`. Measured: `Image.create(prompt=...)` on
+  0.28.1 and `images.generate(prompt=...)` on 1.109.1 and 3.26.0 post the same body with no `model`,
+  so a call that names none is answered by the API's default, `dall-e-2` in its reference, which no
+  measurement here calls; a model held in a name is not looked into.
 - Measured: 0.28.1's `Moderation.create(input, model=None, api_key=None)` dropped a `model` of
   `None` from the body, where `moderations.create` sends `"model": null`, and raised `ValueError`
   before any request for a model other than `text-moderation-stable` and `text-moderation-latest`,
@@ -248,7 +278,12 @@ The limitations that rest on the SDK's own text and not on a fixture:
   attributes or classes compiles and fails, or never runs. The name is not
   reported, because it is the one a repository already on the new release writes
   (`except openai.APIError`) and reporting it would keep that repository on the
-  pack's list for good; the cost is a limitation of the pack.
+  pack's list for good.
+- Measured: an instance of `openai.APIError` or `openai.OpenAIError` has
+  `http_status`, `json_body` and `user_message` on 0.28.1; on 3.26.0 `APIError` has
+  `body` and `message` and `OpenAIError` none of the six, so the read of one of
+  the three off the name of a handler for either class is listed in `attributes`.
+  A handler that reads through another name is not seen.
 
 ## flag-resources
 
@@ -273,7 +308,17 @@ The limitations that rest on the SDK's own text and not on a fixture:
 ## flag-indirect-use
 
 - A string target in a `mock.patch`, an `importlib.import_module` or a
-  `sys.modules` stub names the old module and never meets an import statement.
+  `sys.modules` stub names the old module and never meets an import statement. The
+  target is found under a package of your own too (`myapp.llm.openai.ChatCompletion.create`),
+  beside an expression written to end in `.openai`, and as a dict literal handed to
+  `sys.modules` (`patch.dict`, `update`).
+- Measured (the environment variables of the api-base section): a write of
+  `OPENAI_API_BASE` or `OPENAI_ORGANIZATION` sets what 0.28.1 read and nothing on
+  1.109.1 and 3.26.0, which read `OPENAI_BASE_URL` and `OPENAI_ORG_ID`, so it is a
+  row (`environment_write`, `variables`) and a read of one is not.
+- Measured: on 3.26.0 a pydantic class with `result: "openai.Image"` raises
+  `APIRemovedInV1` when the class is built, so a name that only a quoted
+  annotation spells is a row of the name.
 
 ## dependency
 

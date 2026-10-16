@@ -414,7 +414,9 @@ PathRefusal = Literal["missing", "not_a_file", "outside_root", "symlink", "unrea
 PATH_REFUSALS: frozenset[PathRefusal] = frozenset(get_args(PathRefusal))
 
 # `flag_only.patterns`: closed ids, not regexes, since a pack may not carry behaviour.
-FlagOnlyPattern = Literal["mock_patch_target", "dynamic_access", "sys_modules_stub"]
+FlagOnlyPattern = Literal[
+    "mock_patch_target", "dynamic_access", "sys_modules_stub", "environment_write"
+]
 FLAG_ONLY_PATTERNS: frozenset[FlagOnlyPattern] = frozenset(get_args(FlagOnlyPattern))
 
 # `model.provider`; the default `none` is a promise that no endpoint is contacted. Not the adapter
@@ -1090,6 +1092,8 @@ class ScanSpec(_Frozen):
     removed_attributes: tuple[str, ...] = ()
     flag_only_symbols: tuple[str, ...] = ()
     flag_only_patterns: tuple[FlagOnlyPattern, ...] = ()
+    # The variables `environment_write` reports a write of: the new releases read other names.
+    flag_only_variables: tuple[str, ...] = ()
     # The new SDK keeps the module's name, so only `symbols` (and what lies under them) is legacy.
     shared: bool = False
     # Set only where one distribution is both sides: the versions of it that are the new API.
@@ -1130,6 +1134,7 @@ class ScanSpec(_Frozen):
             ("constructor_symbols", self.constructor_symbols),
             ("removed_attributes", self.removed_attributes),
             ("flag_only_symbols", self.flag_only_symbols),
+            ("flag_only_variables", self.flag_only_variables),
             ("legacy_lacks", self.legacy_lacks),
             ("legacy_since", self.legacy_since),
             ("new_names", self.new_names),

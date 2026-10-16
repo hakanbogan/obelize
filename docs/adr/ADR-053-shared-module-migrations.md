@@ -110,11 +110,29 @@ A call reached through `from openai import ChatCompletion` has no root to keep a
 `positional_to_kw`, which lists the legacy positional order. A positional argument beyond
 `positional_to_kw` is still `positional_arg_ambiguous`, and a keyword in neither list, or a `**`
 splat, is `unsupported_kwarg`. The openai pack lists the request-body parameters 0.28.1 sent untouched
-and every measured release still takes, and leaves out what 0.28.1 read itself (D1): `engine`,
-`api_key`, `request_timeout`, `stream` and `timeout`, which 0.28.1 popped as a retry deadline and
-never sent, where the new methods send it as the HTTP timeout, and `encoding_format`, which 0.28.1
-asked base64 for and decoded itself. A name outside the list is refused, so a name nobody measured
-never carries.
+and every measured release still takes, and leaves out what 0.28.1 read itself (D1): `api_key`,
+`stream` and `timeout`, which 0.28.1 popped as a retry deadline and never sent, where the new methods
+send it as the HTTP timeout, `deployment_id`, and `encoding_format`, which 0.28.1 asked base64 for and
+decoded itself. A name outside the list is refused, so a name nobody measured never carries.
+
+Two more names that 0.28.1 read itself mean one thing on the new side, and the three calls that take
+them (chat, completion, embedding: the resources built on `EngineAPIResource`) carry them under the
+new names:
+
+- `engine=` is an `aliases` entry for `model`. 0.28.1 sent it as the route of the call,
+  `/engines/<name>/chat/completions`, with no model in the body, where the new method sends the model
+  in the body of `/chat/completions`; its check "Must provide an 'engine' or 'model'" takes either
+  as the one parameter. Both given is `unsupported_kwarg`: 0.28.1 sent both and which one the API read
+  is not measured. Measured on a local server on 0.28.1 and on 1.109.1 and 3.26.0, with the mock
+  reading the route's engine as the model; the API's own reading of the legacy route is not
+  measured, as no measurement calls it. `deployment_id` stays refused, since it selects an Azure
+  deployment.
+- `request_timeout=` is `arg_map`ped to `timeout` and listed in `positive_numbers`, so only a number
+  written out above zero carries. 0.28.1 took any falsy value for its own 600 seconds, where
+  `timeout=0` fails every request on the new side, and read a tuple as a connect and a read time. The
+  new client applies a timeout to each attempt and retries a timed-out request twice (measured: 0.5
+  seconds against a slow server, 0.28.1 one request and an error after 0.5 seconds, 1.109.1 and 3.26.0
+  three requests and an error after 2.9), so one limitation of the pack says so.
 
 ### D5. A result is read only along listed paths
 
@@ -123,7 +141,7 @@ never carries.
 and no path continues another. The reads are followed off the call itself and off the one name it is
 assigned to, in that name's scope (D16 says which reads that counts). A string key that is the next
 segment of a path is the same read written as a key (D18). Any other use is `response_shape_changed`:
-a key off the path, `.get`, a loop over something that is not a list on the path, the result or a part
+a key off the path, a `.get` the next paragraph does not list, a loop over something that is not a list on the path, the result or a part
 of it returned or passed on, a method on a path that is not a leaf (D20 says where a part may go). A
 result nothing reads is fine. `result_paths` and `result_access_flags` exclude each other, since the
 second refuses every use and the first would never be consulted. Both ways of knowing are
@@ -163,14 +181,14 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 | Surface | Why it is refused |
 |---|---|
 | `acreate` | The new module client has no async form: `AsyncOpenAI` is a client the file must build and close. |
-| `stream=True`, `engine`, `deployment_id`, `request_timeout`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. |
-| A result read with `.get`, by a key off the path, looped over, passed on or returned | D5, D18. |
+| `stream=True`, `deployment_id`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. `engine` and `request_timeout` are carried as `model` and `timeout` when they can be (D4). |
+| A result read with `.get` and a default, by a key off the path, looped over, passed on or returned | D5, D18. |
 | The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. `api_base` has a counterpart and is rewritten (ADR-055). |
 | `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |
-| `openai.APIError` | **Deliberately not reported.** The name exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. The cost: a handler that reads `http_status`, `json_body` or `user_message` compiles and raises `AttributeError` once the pin moves, and nothing says so. It is a limitation of the pack. |
+| `openai.APIError` and `openai.OpenAIError` | **The name is deliberately not reported.** It exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. What is reported is a read of what only the old class carries, off the name of a handler for it (D21). A handler that reads through another name, or catches `Exception`, is not seen. |
 | `File`, `Model`, `FineTune`, `Edit` and the rest, the image edit and variation calls, the raw audio calls | Their replacements differ in shape, and the edits and fine-tunes endpoints were shut down. `Audio.transcribe` and `translate`, `Image.create` and `Moderation.create` were in this row until D19. |
 | The twelve modules of the 0.28.1 package (`util`, `api_requestor`, ...) | None imports on 3.26.0, and `openai.cli` is another module on the releases that ship `openai migrate`. |
-| Dynamic access, `mock.patch` targets, `sys.modules` stubs | The legacy name is a string, so no rewrite can follow it. The bare module fetched by its string is one too (D14). A target written against your own module is not seen. |
+| Dynamic access, `mock.patch` targets, `sys.modules` stubs | The legacy name is a string, so no rewrite can follow it. The bare module fetched by its string is one too (D14). A target written against your own module is one (D21). |
 | `openai[datalib]` and other pins that name extras, a URL, a hash or an editable requirement | The manifest rule cannot write the line, so the plan holds the repository (`manifest_pin_shape_unsupported`, D12). |
 
 
@@ -319,11 +337,15 @@ counts only when:
   that binding holds would lose its keys), no read the scope analysis cannot link to the call
   (D16), and every read in the call's own function, since a closure or lambda runs when something
   calls it;
-- no `try` around it has a handler that may name the missing key: `KeyError`, `LookupError`, or a
-  name this file defines or leaves unresolved, which may be a tuple holding one; and no
+- no `try` around it has a handler that may name the missing key: `KeyError`, `LookupError`, a
+  name this file defines or leaves unresolved, which may be a tuple holding one, or an imported
+  class, whose bases are not looked into and which may subclass `KeyError`; and no
   `contextlib.suppress` encloses it. The read would raise `AttributeError`, which only a bare
   `except:`, `Exception` or `AttributeError` catches, and a handler that never ran would hide the
-  change. Imported exception classes are not looked into, nor is a handler in a caller: both go unseen;
+  change. An imported class passes only if it is on a short list of standard library classes that
+  derive from neither (`socket.timeout`, `json.JSONDecodeError`, `asyncio.TimeoutError`, ...; a test
+  imports each and checks), so a handler for `requests.RequestException` withholds the call. A handler in a
+  caller is not looked into and goes unseen;
 - it is not in an f-string field written with `=`, which prints the source text, and no word follows
   it with no space (`r["id"]or 1`): the attribute ends in a name, and libcst refuses to join one to
   a keyword.
@@ -335,8 +357,14 @@ The format gains no field: whoever lists a path says both spellings read the sam
 legacy result. `dict_reads` reads every listed path by its keys, a test
 (`test_the_dict_reads_fixture_reads_every_listed_path_by_its_keys`) holds it to that, and the weekly
 job prints the fixture's results on 0.28.1 and on 1.109.1 and the newest release and diffs them.
-The other spellings stay refused: `.get` has a default where the attribute read raises, and a key
-held in a name or an expression is not known to be on the path. A comment between the brackets of a
+A one-argument `.get("name")` is read the same way and written `getattr(x, "name", None)`: on a
+0.28.1 result `.get` is `dict.get`, which gives None for a key that is left out or null, and on
+1.109.1 and 3.26.0 `getattr` gave the same for a field left out or null (measured for `id`,
+`usage` and a message's `content`, which a server may omit). The call and its string must be the
+one-argument shape with an identifier for a key; `getattr` must be the builtin, so a file that binds
+the name withholds the call. The other spellings stay refused: `.get` with a default, which
+the new model reads as None where the dictionary gave the default, and a key held in a name or an
+expression, which is not known to be on the path. A comment between the brackets of a
 rewritten read moves to a line above its statement (ADR-026 D7).
 
 ### D19. Image, Moderation and Audio are rewritten
@@ -369,7 +397,11 @@ What a review of the first version changed, each confirmed by running both SDKs:
   `url`, `b64_json` and `revised_prompt` optional, and reads one the server left out as `None`: the
   handler stops running, as for the `KeyError` of D18, and no scan can see it. So `response_format` is
   not carried, `url` (what the default format returns) is the one listed path, and `b64_json` and
-  `revised_prompt` are not. A model that returns no url whatever the format, `gpt-image-1`, is not caught.
+  `revised_prompt` are not. A model that returns no url whatever the format, `gpt-image-1`, is refused when it
+  is written out as a string that does not begin with `dall-e` (`literal_prefixes`, which refuses
+  nothing else). A call with no `model` is sent as it was (the same body on 0.28.1 and on 1.109.1 and
+  3.26.0, measured) and answered by the API's default, which its reference gives as `dall-e-2`, and a
+  `model` held in a name or built up is not looked into.
 - `Moderation.create` carries only `input`. 0.28.1 dropped a `model` of `None` from the body and
   raised `ValueError` before any request for a name other than two; the new method sends `"model":
   null`, and sends any name on. A call with a `model` is `unsupported_kwarg` or `positional_arg_ambiguous`.
@@ -419,6 +451,13 @@ rewritten to its attribute on the same terms:
   its binding in a loop is the second pass's), no class body, and no file that mentions a way to reach
   a name by its string: `eval`, `exec`, `globals`, `locals`, `vars`, `f_locals`, `f_globals`,
   `currentframe`, `_getframe` or `__dict__`, called or not, since `f = locals` calls it unseen.
+- Not a name another module takes. A name the module binds (also by `global`, a part of the result
+  or the target of a loop at the module's level) may be imported (`from a import resp`, `from a
+  import *`) or read off the module (`a.resp`) by a file this one never sees, which reads it by
+  key. `codemod.run` hands each file's rules the question `scan/reach.py` asks of a model constant,
+  by imports and attribute reads of the other selected modules, matched by the last segment of the
+  path, so another package's `a.py` counts too (the safe side), and a name the module reaches is
+  `response_shape_changed`. A name bound in a function is nobody else's.
 - Every keyed read in the call's own frame. A generator expression is a frame of its own, since it
   runs when something iterates it, possibly outside the handler around it, so a key read in one is
   refused, and so is a call inside one.
@@ -437,6 +476,47 @@ on the new releases and diffs them.
 **Rejected:** accepting `print(result)`. It reads no field, but 0.28.1 printed a result as JSON and
 the new releases print a one-line repr, so a program whose output another reads (`| jq`) would change
 with no error. A call given to `print` stays `response_shape_changed`.
+
+### D21. A legacy name written outside a call, and what a handler reads
+
+Found open after D7 and D14, each by writing the code a repository has and scanning it. Four are rows
+of shapes the pack already declares and one is a new shape id:
+
+- A patch target under a package of your own. `mock.patch("myapp.llm.openai.ChatCompletion.create")`
+  patches a name the migrated code no longer reaches, so the test stands in for nothing. In a shared
+  module a call argument that is a dotted path with any prefix before `openai` and a legacy symbol
+  after it is a `mock_patch_target`. Only a shared module: another pack's module name is not one
+  your own packages are likely to carry. `patch.object(myapp.llm.openai, "ChatCompletion")` is a
+  spelling heuristic: a string that names a legacy leaf of the module, in a call with an argument
+  written to end in `.openai` that resolves to nothing. A package of yours with its own `openai` and
+  a class of that name is a false hold, which the person clears by renaming the target. The module
+  itself as the first argument (`patch.object(openai, ...)`) already resolves and is a row.
+- A dict literal handed to `sys.modules`: `patch.dict(sys.modules, {"openai": fake})`, with the
+  name or the string `"sys.modules"`, or `sys.modules.update({...})`. Each key that fetches the
+  module or a legacy symbol is a `dynamic_access` row, as `sys.modules["openai"] = fake` is (D14).
+  `monkeypatch.setitem(sys.modules, ...)` and a keyword (`patch.dict(sys.modules, openai=fake)`) are
+  not seen.
+- A write of `OPENAI_API_BASE` or `OPENAI_ORGANIZATION`. The new releases read `OPENAI_BASE_URL` and
+  `OPENAI_ORG_ID` (SOURCES.md), so what the old name sets is lost without an error. The pack names
+  the variables (`flag_only.variables`) and opts in with `environment_write`, a shape id that
+  reports `dynamic_access` and is claimed with the other indirect shapes: `os.environ[...] =` and
+  `+=`, `setdefault`, `os.putenv`, and a dict literal handed to `os.environ.update` or
+  `patch.dict(os.environ, ...)`. A read is no row, since code that assigns `openai.api_base` from
+  the variable is rewritten and keeps its meaning. Both names are `match.prefilter_tokens`, and the
+  schema asks that every variable hold one: a settings module that sets one and never names
+  `openai` is otherwise skipped unparsed. `monkeypatch.setenv`, `update(NAME=...)`, a name held in
+  a variable and a `.env` file are not seen.
+- A name inside a string annotation. `result: "openai.Image"` in a pydantic model is evaluated when
+  the class is built, and 3.26.0 raises `APIRemovedInV1` there (measured). In a
+  shared module it is an `attribute` row of the name, so it is `usage_unmapped` as an unquoted
+  annotation is, where it had been a mention that held nothing. It is found only when it spells
+  `openai`: `"oa.Image"` for an alias is not.
+- A handler's reads. `except openai.APIError as e` (or `openai.OpenAIError`, or a tuple holding one)
+  followed by `e.http_status`, `e.json_body` or `e.user_message` in its body is `attribute_removed`,
+  the same row an attribute of a receiver is, listed in the pack's `flag-errors` as
+  `openai.APIError.http_status`. A shared pack's `attributes` need only sit under `match.imports`,
+  since the class is one both sides define and is no symbol. `openai.error.*` names were already
+  rows.
 
 ### Review
 
@@ -476,12 +556,13 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf`. The README, `docs/CLI.md` and the CI
   workflow name each, and `tests/packs/test_all_packs.py` fails when one does not.
 - The pack format gains `match.shared`, `rewrite_call`'s `root`, `keywords` and `result_paths`, and
-  a `manifest_dependency` on one distribution. No code, vocabulary or JSON Schema value is new:
+  a `manifest_dependency` on one distribution, and later `flag_only`'s `variables` and the
+  `environment_write` shape id (D21). No bail code or confidence reason is new:
   `from_import_unmigrated_symbol` is also raised by a module-rooted rule, `repo_not_fully_migrated`
   also lands on the source rows of a coupled pack, an import row included,
   `manifest_pin_shape_unsupported` is also raised by the scan for a coupled pack (D12), and
   `response_shape_changed` also means a read outside `result_paths`. `CHANGELOG.md` lists the format changes (ADR-048).
-- One withheld row anywhere keeps every file as it was: a `.get` read of a result, an `openai.File`
+- One withheld row anywhere keeps every file as it was: a `.get` of a result with a default, an `openai.File`
   call, an undeclared `requests` import or a pin it cannot write leaves the repository unchanged,
   with exit `4`. Gate 1 is
   not measured for this pack; the [dry run](../BENCHMARK_RESULTS.md#fix-dry-run) says how often.
@@ -498,6 +579,6 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   - Streaming: a `stream=True` result is read through its chunks, which have no `result_paths` yet.
   - Azure: `api_type`, `api_version`, `engine` and `deployment_id` become an `AzureOpenAI` client
     with an endpoint and an API version, which is a configuration rewrite across modules.
-  - A `.get` read of a result, which has no attribute spelling that raises the same way.
+  - A `.get` read of a result with a default, which the new model answers with None.
   - Client-object output: `openai.OpenAI(...)` with the module settings moved into its construction,
     for code that needs the client itself.

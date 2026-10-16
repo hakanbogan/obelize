@@ -10,3 +10,12 @@ def reply(prompt):
         return None
     except openai.InvalidRequestError as error:
         raise ValueError(error.http_status) from error
+
+
+def explain(prompt):
+    try:
+        return reply(prompt)
+    except (ValueError, openai.APIError) as error:
+        return error.http_status, error.json_body
+    except openai.OpenAIError as error:
+        return error.user_message

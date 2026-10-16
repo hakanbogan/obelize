@@ -4,6 +4,7 @@ one for both APIs. `acme.kit` is invented, so nothing here reads the openai pack
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,13 @@ import pytest
 from obelize.models import Edit
 from obelize.packs import loader
 from obelize.packs.schema import PackDocument
-from obelize.scan import manifests
-from obelize.transforms.kinds.rewrite_call import MODULE_BAILS, RewriteCall, _Tree
+from obelize.scan import manifests, reach
+from obelize.transforms.kinds.rewrite_call import (
+    _NOT_MISSING_KEY,
+    MODULE_BAILS,
+    RewriteCall,
+    _Tree,
+)
 
 HEADER = "import acme.kit\n\n"
 
@@ -460,6 +466,122 @@ def test_a_string_key_along_a_listed_path_is_read_as_the_attribute_of_that_name(
     assert code.splitlines()[-1] == line
 
 
+@pytest.mark.parametrize(
+    ("body", "line"),
+    [
+        (
+            f"r = {CALL}\nprint(r.get('reply').get('text'))\n",
+            "print(getattr(getattr(r, 'reply', None), 'text', None))",
+        ),
+        (
+            f"print({CALL}.get('reply').get('text'))\n",
+            "print(getattr(getattr(acme.kit.talk.say(who='a'), 'reply', None), 'text', None))",
+        ),
+        (
+            f"r = {CALL}\nm = r.get('reply')\nprint(m.get('text'), m.text)\n",
+            "print(getattr(m, 'text', None), m.text)",
+        ),
+        (
+            f"r = {ROWS}\nfor row in r.get('rows'):\n    print(row.get('price'))\n",
+            "    print(getattr(row, 'price', None))",
+        ),
+        (
+            f"r = {ROWS}\nprint(r.get('rows')[0].get('price'))\n",
+            "print(getattr(getattr(r, 'rows', None)[0], 'price', None))",
+        ),
+        (
+            f"r = {CALL}\nprint(r.get('reply')['text'])\n",
+            "print(getattr(r, 'reply', None).text)",
+        ),
+        (
+            f"r = {CALL}\nprint(r['reply'].get('text') or 1)\n",
+            "print(getattr(r.reply, 'text', None) or 1)",
+        ),
+        (
+            f"r = {CALL}\nprint(r.get(\"reply\").get( 'text' ))\n",
+            "print(getattr(getattr(r, \"reply\", None), 'text', None))",
+        ),
+        (
+            f"r = {CALL}\nprint(f\"{{r.get('reply').get('text')}}\")\n",
+            "print(f\"{getattr(getattr(r, 'reply', None), 'text', None)}\")",
+        ),
+    ],
+)
+def test_a_one_argument_get_along_a_listed_path_is_a_getattr_of_that_name(
+    body: str, line: str
+) -> None:
+    """A field left out or null is None on both sides, so the default says what `.get` said."""
+    code, edits = rewrite(body)
+    assert {row.status for row in edits} == {"auto"}, body
+    assert code.splitlines()[-1] == line
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"r = {CALL}\nprint(r.get('reply', {{}}).get('text'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('text', ''))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('text', default=''))\n",
+        f"r = {CALL}\nprint(r.get('reply').get(key))\n",
+        f"r = {CALL}\nprint(r.get('reply').get(key='text'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get(*keys))\n",
+        f"r = {CALL}\nprint(r.get('reply').get())\n",
+        f"r = {CALL}\nprint(r.get(b'reply'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('te-xt'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('words'))\n",
+        f"r = {CALL}\nf = r.get\nprint(f('reply'))\n",
+        f"r = {CALL}\nprint(r.get('reply').get('text')or 1)\n",
+        f"r = {CALL}\nprint(f\"{{r.get('reply').get('text')=}}\")\n",
+        f"r = {CALL}\ntry:\n    print(r.get('reply').get('text'))\nexcept KeyError:\n    pass\n",
+        f"r = {CALL}\nm = r.get('reply')\nm = {{}}\nprint(m.get('text'))\n",
+        f"r = {CALL}\ndef g():\n    return r.get('reply').get('text')\n",
+        f"r = {{}}\nif again:\n    r = {CALL}\nprint(r.get('reply').get('text'))\n",
+        f"g = (r.get('reply').get('text') for r in [{CALL}])\n",
+    ],
+)
+def test_a_get_the_rule_cannot_read_as_a_path_refuses_the_call(body: str) -> None:
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], body
+    assert "talk.say" not in code
+
+
+@pytest.mark.parametrize(
+    "prelude",
+    [
+        "getattr = len\n",
+        "from lib import getattr\n",
+        "def getattr(obj, name, default): ...\n",
+        "import getattr\n",
+    ],
+    ids=["assigned", "imported", "defined", "a module"],
+)
+def test_a_get_is_not_written_as_a_getattr_the_file_has_rebound(prelude: str) -> None:
+    body = f"{prelude}r = {CALL}\nprint(r.get('reply').get('text'))\n"
+    code, edits = rewrite(body)
+    assert reasons(edits) == ["response_shape_changed"], prelude
+    assert "talk.say" not in code
+    _, edits = rewrite(body.replace(".get('reply').get('text')", ".reply.text"))
+    assert [row.status for row in edits] == ["auto"], prelude
+
+
+def test_a_getattr_rebound_in_another_function_is_no_reason_to_keep_a_get() -> None:
+    body = (
+        f"def f(getattr):\n    return getattr\n\n\nr = {CALL}\nprint(r.get('reply').get('text'))\n"
+    )
+    code, edits = rewrite(body)
+    assert [row.status for row in edits] == ["auto"]
+    assert code.splitlines()[-1] == "print(getattr(getattr(r, 'reply', None), 'text', None))"
+
+
+def test_a_comment_inside_a_get_is_kept_above_its_statement() -> None:
+    code, edits = rewrite(f"r = {CALL}\nprint(r.get('reply').get(  # why\n    'text'))\n")
+    assert [row.status for row in edits] == ["auto"]
+    assert code.splitlines()[-2:] == [
+        "# why",
+        "print(getattr(getattr(r, 'reply', None), 'text', None))",
+    ]
+
+
 def test_a_comment_written_inside_a_key_read_is_kept_above_its_statement() -> None:
     """The attribute has no brackets to hold it; the comment goes above, in the order written."""
     code, edits = rewrite(
@@ -493,7 +615,6 @@ def test_a_comment_written_inside_a_key_read_is_kept_above_its_statement() -> No
         f"r = {CALL}\nr['re' 'ply']['text']\n",
         f"r = {CALL}\nr[f'reply']['text']\n",
         f"r = {CALL}\nr[b'reply']['text']\n",
-        f"r = {CALL}\nr['reply'].get('text')\n",
         f"p = {FETCH_CALL}['rows']['[]']['price']\n",
         f"r = {CALL}\nprint(f\"{{r['reply']['text']=}}\")\n",
         f'print(f"{{{CALL}.reply.text=}}")\n',
@@ -557,7 +678,18 @@ def test_a_read_by_key_must_run_where_the_call_does_and_be_linked_to_it(body: st
         ("EXC = (KeyError, ValueError)\n", "EXC", False),
         ("class Mine(Exception):\n    pass\n", "Mine", False),
         ("", "Undefined", False),
+        ("from lib import Mine\n", "Mine", False),
+        ("from lib import Mine as Other\n", "(ValueError, Other)", False),
+        ("import lib\n", "lib.errors.Mine", False),
+        ("import requests\n", "requests.RequestException", False),
+        ("import lib\n", "lib.pick()", False),
+        ("import builtins\n", "builtins.KeyError", False),
+        ("import socket\nsocket = None\n", "socket.timeout", False),
         ("import socket\n", "socket.timeout", True),
+        ("import socket as net\n", "net.timeout", True),
+        ("from socket import timeout\n", "(timeout, ValueError)", True),
+        ("from json import JSONDecodeError as Bad\n", "Bad", True),
+        ("import json.decoder\n", "json.decoder.JSONDecodeError", True),
         ("", "Exception", True),
         ("", "AttributeError", True),
         ("", "ValueError", True),
@@ -571,6 +703,16 @@ def test_a_handler_for_a_missing_key_would_miss_the_attribute_error_that_replace
     code, edits = rewrite(body)
     assert [row.status for row in edits] == (["auto"] if carried else ["needs_review"]), handler
     assert ("x = r.reply.text" in code) is carried
+
+
+@pytest.mark.parametrize("name", sorted(_NOT_MISSING_KEY))
+def test_a_stdlib_class_the_handler_check_lets_through_derives_from_neither_key_error(
+    name: str,
+) -> None:
+    module, _, leaf = name.rpartition(".")
+    found = getattr(importlib.import_module(module), leaf)
+    assert issubclass(found, BaseException)
+    assert not issubclass(found, LookupError)
 
 
 @pytest.mark.parametrize(
@@ -596,14 +738,10 @@ def test_a_suppress_around_a_read_would_hide_the_error_that_replaces_it(
 def test_a_read_is_rewritten_only_when_its_call_is() -> None:
     """The call is refused last of all, so its reads are recorded only once it has passed."""
     say = kit.SAY.model_copy(
-        update={
-            "params": kit.SAY.params.model_copy(
-                update={"legacy_error_modules": ("acme.kit.errors",)}
-            )
-        }
+        update={"params": kit.SAY.params.model_copy(update={"legacy_error_modules": ("json",)})}
     )
-    body = f"try:\n    print({CALL}['reply']['text'])\nexcept acme.kit.errors.Failure:\n    pass\n"
-    code, edits = acme.transform(f"{HEADER}{body}", say, kit.FETCH, spec=kit.SPEC)
+    body = f"try:\n    print({CALL}['reply']['text'])\nexcept json.JSONDecodeError:\n    pass\n"
+    code, edits = acme.transform(f"{HEADER}import json\n{body}", say, kit.FETCH, spec=kit.SPEC)
     assert reasons(edits) == ["error_class_changed"]
     assert "print(acme.kit.Greeter.say(name='a')['reply']['text'])" in code
 
@@ -745,6 +883,108 @@ def test_a_hold_in_the_manifest_alone_holds_the_files_too(tmp_path: Path) -> Non
     freed, _ = migrate(tmp_path / "freed", declared, pack, spec)
     assert freed["requirements.txt"].splitlines()[0] == "acme-kit>=2,<3"
     assert "talk.say" in freed["a.py"]
+
+
+# A result bound to a name another module takes: its reads there are dictionary reads that no pass
+# over this file sees.
+
+HOLDS = "import acme.kit\n\nreply = acme.kit.Greeter.say(name='a')\nprint(reply.reply.text)\n"
+FILES = {"pkg/__init__.py": "", "pkg/a.py": HOLDS, "requirements.txt": PINNED}
+
+
+def held_by(tmp_path: Path, reader: str, holder: str = HOLDS) -> bool:
+    """Whether `reader`, a module beside the one holding the result, keeps it from being written."""
+    files = {**FILES, "pkg/a.py": holder, "pkg/b.py": reader}
+    after, rows = migrate(tmp_path, files)
+    held = ("pkg/a.py", 3, "needs_review", "response_shape_changed") in rows
+    assert (after == files) is held
+    return held
+
+
+@pytest.mark.parametrize(
+    "reader",
+    [
+        "from a import reply\n\nprint(reply['reply']['text'])\n",
+        "from pkg.a import reply\n",
+        "from .a import reply as answer\n",
+        "from other.a import *\n",
+        "import pkg.a as m\n\nprint(m.reply['reply'])\n",
+        "from . import a\n\nprint(a.reply)\n",
+        "import a\n\nprint(a.reply)\n",
+    ],
+)
+def test_a_result_another_module_imports_or_reads_off_its_module_withholds_the_call(
+    tmp_path: Path, reader: str
+) -> None:
+    assert held_by(tmp_path, reader)
+
+
+@pytest.mark.parametrize(
+    "reader",
+    [
+        "from a import other\n",
+        "from other import reply\n",
+        "import a\n\nprint(a.other, reply)\n",
+        "import other\n\nprint(other.reply)\n",
+        "# from a import reply\nprint('a.reply')\n",
+        "x = 1\n",
+    ],
+    ids=[
+        "another name",
+        "another module",
+        "another attribute",
+        "an unread module",
+        "prose",
+        "no import",
+    ],
+)
+def test_a_result_no_other_module_takes_is_written_as_before(tmp_path: Path, reader: str) -> None:
+    assert not held_by(tmp_path, reader)
+
+
+@pytest.mark.parametrize(
+    "holder",
+    [
+        f"import acme.kit\n\n\ndef load():\n    global reply\n    reply = {CALL}\n",
+        f"import acme.kit\n\nreply = {CALL}\nmessage = reply.reply\n",
+        f"import acme.kit\n\nfor reply in {ROWS}.rows:\n    print(reply.price)\n",
+    ],
+    ids=["a global write", "a part", "a loop target"],
+)
+def test_a_name_the_module_binds_by_global_a_part_or_a_loop_is_the_modules_too(
+    tmp_path: Path, holder: str
+) -> None:
+    files = {**FILES, "pkg/a.py": holder, "pkg/b.py": "from a import reply, message\n"}
+    after, rows = migrate(tmp_path, files)
+    assert after == files
+    assert ("pkg/a.py", "response_shape_changed") in {(path, why) for path, _, _, why in rows}
+
+
+def test_a_result_in_a_function_is_nobody_elses_to_import(tmp_path: Path) -> None:
+    holder = f"import acme.kit\n\n\ndef f():\n    reply = {CALL}\n    return reply.reply.text\n"
+    files = {**FILES, "pkg/a.py": holder, "pkg/b.py": "from a import reply\n\nprint(reply)\n"}
+    after, _rows = migrate(tmp_path, files)
+    assert "talk.say" in after["pkg/a.py"]
+
+
+def test_a_name_is_taken_only_by_another_module_that_parses_and_imports_it() -> None:
+    sources = {
+        "pkg/a.py": b"reply = 1\n",
+        "pkg/b.py": b"from a import reply\n",
+        "pkg/c.py": b"def (:\nfrom a import reply\n",
+        "notes.txt": b"from a import reply\n",
+    }
+
+    def taken(*paths: str) -> bool:
+        return reach.read_elsewhere(
+            "pkg/a.py", paths, lambda path: (sources.get(path), ()), "reply"
+        )
+
+    assert taken("pkg/a.py", "pkg/b.py")
+    assert not taken("pkg/a.py")
+    assert not taken("pkg/a.py", "pkg/c.py")
+    assert not taken("pkg/a.py", "notes.txt")
+    assert not taken("pkg/a.py", "pkg/gone.py")
 
 
 # Names the module's namespace reaches, and what a scan must not trip over.
@@ -952,3 +1192,228 @@ def test_one_line_the_rule_cannot_write_holds_the_lines_it_can(tmp_path: Path) -
     assert after == files
     assert ("requirements.txt", 1, "needs_review", "repo_not_fully_migrated") in rows
     assert ("requirements.txt", 2, "needs_review", "manifest_pin_shape_unsupported") in rows
+
+
+# A legacy name written outside a call, and what a handler reads off its name (ADR-053 D21).
+
+MOCKED = "import sys\nfrom unittest import mock\n"
+
+
+def mentioned(source: str, spec: Any = kit.SPEC) -> list[tuple[int, str, str | None]]:
+    """(line, confidence_reason, symbol) of every row."""
+    return [(f.line, f.confidence_reason, f.symbol) for f in acme.scan(source, spec).findings]
+
+
+@pytest.mark.parametrize(
+    ("target", "symbol"),
+    [
+        ("acme.kit.Greeter.say", "acme.kit.Greeter.say"),
+        ("app.acme.kit.Greeter.say", "acme.kit.Greeter.say"),
+        ("app.llm.acme.kit.Quote", "acme.kit.Quote"),
+        ("app.acme.kit.legacy", "acme.kit.legacy"),
+    ],
+)
+def test_a_patch_target_under_a_package_of_your_own_is_a_target(target: str, symbol: str) -> None:
+    assert mentioned(f"{MOCKED}mock.patch('{target}')\n") == [(3, "mock_patch_target", symbol)]
+
+
+@pytest.mark.parametrize(
+    "target",
+    ["app.acme.kit.Client", "app.acme.kit", "app.acme.kit.Greeter.say now", "app.kit.Quote"],
+)
+def test_a_target_under_a_package_of_your_own_must_name_a_legacy_symbol_whole(target: str) -> None:
+    assert [
+        row
+        for row in mentioned(f"{MOCKED}mock.patch('{target}')\n")
+        if row[1] != "string_or_comment_mention"
+    ] == []
+
+
+def test_another_pack_does_not_find_its_module_under_a_package_of_your_own() -> None:
+    assert mentioned(f"{MOCKED}mock.patch('app.acme.sdk.protos')\n", acme.SPEC) == []
+    assert mentioned(f"{MOCKED}mock.patch('acme.sdk.protos')\n", acme.SPEC)
+
+
+@pytest.mark.parametrize(
+    ("call", "symbols"),
+    [
+        ("mock.patch.object(app.acme.kit, 'Greeter')", ["acme.kit.Greeter"]),
+        ("mock.patch.object(app.acme.kit, 'Greeter.say')", ["acme.kit.Greeter.say"]),
+        ("monkeypatch.setattr(app.llm.acme.kit, 'Quote', fake)", ["acme.kit.Quote"]),
+        ("mock.patch.object(target=app.acme.kit, attribute='Quote')", ["acme.kit.Quote"]),
+        ("mock.patch.object(app.acme.kit, 'Client')", []),
+        ("mock.patch.object(app.acme.kit, 'no such name')", []),
+        ("mock.patch.object(app.kit, 'Greeter')", []),
+        ("mock.patch.object(make(), 'Greeter')", []),
+        ("mock.patch.object(app.acme.kit, name)", []),
+    ],
+)
+def test_a_string_naming_a_legacy_leaf_beside_an_expression_ending_in_the_module(
+    call: str, symbols: list[str]
+) -> None:
+    assert [row[2] for row in mentioned(f"{MOCKED}{call}\n")] == symbols
+
+
+def test_a_module_that_resolves_is_its_own_row_and_leaves_the_leaf_alone() -> None:
+    assert found(f"import acme.kit\n{MOCKED}mock.patch.object(acme.kit, 'Greeter')\n") == [
+        (4, "attribute", "acme.kit", "module_alias_rebound")
+    ]
+    assert mentioned(f"{MOCKED}mock.patch.object(app.acme.sdk, 'protos')\n", acme.SPEC) == []
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "mock.patch.dict(sys.modules, {'acme.kit': fake})",
+        "mock.patch.dict('sys.modules', {'acme.kit.Greeter': fake}, clear=False)",
+        "sys.modules.update({'acme.kit': fake})",
+    ],
+)
+def test_a_dict_literal_keyed_by_the_module_handed_to_sys_modules_is_a_stub(write: str) -> None:
+    rows = found(f"{MOCKED}{write}\n")
+    assert [(row[1], row[3]) for row in rows] == [("dynamic", "flag_only_surface")]
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "mock.patch.dict(sys.modules, {'acme.kit.Client': fake})",
+        "mock.patch.dict(sys.modules, {name: fake, **more})",
+        "mock.patch.dict(sys.modules)",
+        "mock.patch.dict(os.environ, {'acme.kit': fake})",
+        "sys.modules.pop('acme.kit.Client')",
+        "other.update({'acme.kit': fake})",
+    ],
+)
+def test_a_dict_literal_that_stubs_no_legacy_name_is_no_row(write: str) -> None:
+    assert found(f"import os\n{MOCKED}{write}\n") == []
+
+
+ENVIRON = "import os\nfrom os import environ\nfrom unittest import mock\n"
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "os.environ['ACME_ENDPOINT'] = x",
+        "os.environ['ACME_ENDPOINT'] += x",
+        "environ['ACME_ENDPOINT'] = x",
+        "os.environ.setdefault('ACME_ENDPOINT', x)",
+        "os.putenv('ACME_ENDPOINT', x)",
+        "os.environ.update({'ACME_ENDPOINT': x, 'OTHER': y})",
+        "mock.patch.dict(os.environ, {'ACME_ENDPOINT': x})",
+    ],
+)
+def test_a_write_of_a_variable_the_pack_names_is_a_row(write: str) -> None:
+    rows = acme.scan(f"{ENVIRON}{write}\n", kit.SPEC).findings
+    assert [(f.line, f.kind, f.confidence_reason, f.symbol, f.bail) for f in rows] == [
+        (4, "dynamic", "dynamic_access", "ACME_ENDPOINT", "flag_only_surface")
+    ]
+    assert (
+        acme.scan(
+            f"{ENVIRON}{write}\n", kit.SPEC.model_copy(update={"flag_only_patterns": ()})
+        ).findings
+        == ()
+    )
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "y = os.environ['ACME_ENDPOINT']",
+        "y = os.environ.get('ACME_ENDPOINT')",
+        "y += os.environ['ACME_ENDPOINT']",
+        "del os.environ['ACME_ENDPOINT']",
+        "os.environ['ACME_TOKEN'] = x",
+        "other['ACME_ENDPOINT'] = x",
+        "os.environ[1:2] = x",
+        "os.environ.setdefault(name, x)",
+        "os.environ.update({name: x, **more})",
+        "os.putenv()",
+        "mock.patch.dict(os.environ, {})",
+    ],
+)
+def test_a_read_of_the_variable_or_a_write_of_another_name_is_no_row(use: str) -> None:
+    assert acme.scan(f"{ENVIRON}{use}\n", kit.SPEC).findings == ()
+
+
+CAUGHT = "import acme.kit\nfrom acme.kit import Client\n\n\ndef f():\n    try:\n        pass\n    "
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "except acme.kit.Client as e:\n        return e.status",
+        "except Client as e:\n        return e.status",
+        "except (ValueError, Client) as e:\n        return e.status",
+        "except* Client as e:\n        print(e.status)",
+    ],
+)
+def test_a_read_of_what_only_the_old_class_has_off_the_name_of_its_handler_is_a_row(
+    handler: str,
+) -> None:
+    assert found(f"{CAUGHT}{handler}\n") == [
+        (9, "attribute", "acme.kit.Client.status", "attribute_removed")
+    ]
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "except Client as e:\n        return e.message",
+        "except Client:\n        return 1",
+        "except ValueError as e:\n        return e.status",
+        "except Exception as e:\n        return e.status",
+        "except:\n        return 1",
+        "except Client as e:\n        return 1\n    print(e.status)",
+    ],
+)
+def test_a_handler_that_reads_nothing_the_pack_lists_off_a_legacy_class_is_no_row(
+    handler: str,
+) -> None:
+    assert found(f"{CAUGHT}{handler}\n") == []
+
+
+def test_a_class_the_file_defines_is_not_the_class_the_pack_lists() -> None:
+    source = (
+        "import acme.kit\n\n\nclass Client(Exception):\n    pass\n\n\n"
+        "def f():\n    try:\n        pass\n    except Client as e:\n        return e.status\n"
+    )
+    assert found(source) == []
+
+
+@pytest.mark.parametrize(
+    "annotation",
+    [
+        "'acme.kit.Greeter'",
+        "'acme.kit.Greeter | None'",
+        "'dict[str, acme.kit.Quote]'",
+        "Optional['acme.kit.Greeter']",
+    ],
+)
+def test_a_legacy_name_in_a_string_annotation_is_a_row_of_the_name(annotation: str) -> None:
+    header = "from typing import Optional\nimport acme.kit\n\n\n"
+    for source in (
+        f"{header}def f(c: {annotation}): ...\n",
+        f"{header}def f() -> {annotation}: ...\n",
+        f"{header}x: {annotation} = None\n",
+    ):
+        assert [(row[0], row[1]) for row in found(source)] == [(5, "attribute")], source
+    assert found(f"{header}x = None  # {annotation}\n") != [
+        (5, "attribute", "acme.kit.Greeter", None)
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import acme.kit\n\n\ndef f(c: 'acme.kit.Client'): ...\n",
+        "import acme.kit\n\n\ndef f(c: f'acme.kit.Greeter'): ...\n",
+        "import acme.kit\n\n\nx = 'acme.kit.Greeter'\n",
+        "import acme.kit\n\n\ndef f(c='acme.kit.Greeter'): ...\n",
+        "def f(c: 'acme.kit.Greeter'): ...\n",
+    ],
+    ids=["kept", "f-string", "not an annotation", "default", "not imported"],
+)
+def test_a_string_that_no_annotation_evaluates_stays_a_mention(source: str) -> None:
+    assert {row[1] for row in found(source)} <= {"text_mention"}

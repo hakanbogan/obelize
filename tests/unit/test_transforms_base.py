@@ -51,6 +51,7 @@ def test_a_copying_wrapper_reports_the_edits_and_writes_nothing() -> None:
         consumed=frozenset(),
         client_readers=frozenset(),
         client=base.ClientBinding(),
+        imported_elsewhere=lambda name: False,
     )
     edits = RenameImport(acme.CHANGE).apply(wrong)
     assert [row.status for row in edits] == ["auto", "auto"]

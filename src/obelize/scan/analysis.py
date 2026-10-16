@@ -92,6 +92,8 @@ _BY_NAME: Final[frozenset[str]] = frozenset(
 )
 _GETATTR: Final = "builtins.getattr"
 _SYS_MODULES: Final = "sys.modules"
+_ENVIRON: Final = "os.environ"
+_ENV_WRITES: Final[frozenset[str]] = frozenset({"os.putenv", "os.environ.setdefault"})
 
 # Identifier segments only: `Finding` rejects a symbol like `google.generativeai.2`.
 _TAIL: Final = r"(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
@@ -173,6 +175,7 @@ class _Nodes(cst.CSTVisitor):
         self.comments: list[cst.Comment] = []
         self.strings: list[cst.SimpleString | cst.FormattedString] = []
         self.attributes: list[cst.Attribute] = []
+        self.handlers: list[cst.ExceptHandler | cst.ExceptStarHandler] = []
 
     def visit_Import(self, node: cst.Import) -> None:
         self.imports.append(node)
@@ -213,6 +216,12 @@ class _Nodes(cst.CSTVisitor):
     def visit_Attribute(self, node: cst.Attribute) -> None:
         self.attributes.append(node)
 
+    def visit_ExceptHandler(self, node: cst.ExceptHandler) -> None:
+        self.handlers.append(node)
+
+    def visit_ExceptStarHandler(self, node: cst.ExceptStarHandler) -> None:
+        self.handlers.append(node)
+
 
 class _Pass:
     """One file's analysis; single use."""
@@ -252,14 +261,20 @@ class _Pass:
         # The hyphenated distribution name never matches: it is not an importable path.
         modules = "|".join(re.escape(module) for module in spec.legacy_modules)
         self._mention = re.compile(f"(?<![A-Za-z0-9_.])(?:{modules}){_TAIL}")
+        # A shared module's name is also a name in your own packages (`myapp.llm.openai`).
+        scope = r"(?:[A-Za-z_][A-Za-z0-9_]*\.)*" if spec.shared else ""
+        self._target = re.compile(f"{scope}(?P<path>(?:{modules}){_TAIL})")
         self._produced: dict[int, str] = {}
         self._receivers: list[Receiver] = []
 
     def run(self) -> Analysis:
         self._imports()
         self._dynamic()
+        self._environment()
+        self._caught()
         self._resolved()
         self._mock_targets()
+        self._quoted_annotations()
         self._star_candidates()
         self._bindings()
         self._unresolved_receivers()
@@ -534,6 +549,12 @@ class _Pass:
                         f"{module[0]}.{attribute}",
                         bail="module_alias_rebound",
                     )
+        for call in self._nodes.calls:
+            for key in self._stores(call, _SYS_MODULES):
+                text = _string(key)
+                if text is not None and self._fetches(text):
+                    self._claimed.add(id(key))
+                    self._add(key, "dynamic", "dynamic_access", text, bail=_FLAGGED)
         for subscript in self._nodes.subscripts:
             if _SYS_MODULES not in {
                 name.name for name in qualified_names(self._qnp, subscript.value)
@@ -547,6 +568,77 @@ class _Pass:
                 if text is not None and self._fetches(text):
                     self._claimed.add(id(index.value))
                     self._add(subscript, "dynamic", "dynamic_access", text, bail=_FLAGGED)
+
+    def _caught(self) -> None:
+        """`except openai.APIError as e` then `e.http_status`: an attribute only the old class has.
+
+        The class exists on both sides, so it is no row of its own; what is asked is the attributes
+        the pack lists under it.
+        """
+        for handler in self._nodes.handlers:
+            name = handler.name.name if handler.name else None
+            if handler.type is None or not isinstance(name, cst.Name):
+                continue
+            caught = (
+                [element.value for element in handler.type.elements]
+                if isinstance(handler.type, cst.Tuple)
+                else [handler.type]
+            )
+            for expression in caught:
+                for qualified in qualified_names(self._qnp, expression):
+                    if qualified.source is not QualifiedNameSource.IMPORT:
+                        continue
+                    for read in _attribute_reads(handler.body, name.value):
+                        symbol = f"{qualified.name}.{read.attr.value}"
+                        if symbol in self._spec.removed_attributes:
+                            self._add(read, "attribute", self._spelling(expression), symbol)
+
+    def _environment(self) -> None:
+        """A write of a variable the new releases read under another name: a read of it is no row.
+
+        Through `os.environ[...] =`, `setdefault`, `putenv` or a dict literal handed to `update` or
+        `patch.dict`; which variables is the pack's.
+        """
+        if "environment_write" not in self._spec.flag_only_patterns:
+            return
+        keys: list[cst.BaseExpression] = []
+        for call in self._nodes.calls:
+            names = {name.name for name in qualified_names(self._qnp, call.func)}
+            if call.args and names & _ENV_WRITES:
+                keys.append(call.args[0].value)
+            keys.extend(self._stores(call, _ENVIRON))
+        for subscript in self._nodes.subscripts:
+            if _stored(self._parent(subscript), subscript) and self._is(subscript.value, _ENVIRON):
+                keys.extend(
+                    element.slice.value
+                    for element in subscript.slice
+                    if isinstance(element.slice, cst.Index)
+                )
+        for key in keys:
+            text = _string(key)
+            if text is not None and text in self._spec.flag_only_variables:
+                self._add(key, "dynamic", "dynamic_access", text, bail=_FLAGGED)
+
+    def _stores(self, call: cst.Call, mapping: str) -> list[cst.BaseExpression]:
+        """The keys of the dict literals a call writes into `mapping`.
+
+        `mapping.update({...})` and `patch.dict(mapping, {...})`, which takes the name as well.
+        """
+        first = call.args[0].value if call.args else None
+        if not self._is(call.func, f"{mapping}.update") and not (
+            first is not None and self._is(first, mapping)
+        ):
+            return []
+        return [
+            element.key
+            for argument in call.args
+            if isinstance(argument.value, cst.Dict)
+            for element in argument.value.elements
+            if isinstance(element, cst.DictElement)
+        ]
+
+    def _is(self, node: cst.BaseExpression, name: str) -> bool:
+        return name in {n.name for n in qualified_names(self._qnp, node)} or _string(node) == name
 
     def _resolved(self) -> None:
         """Every node resolving to a legacy name, once per site.
@@ -627,21 +719,57 @@ class _Pass:
         """A legacy dotted path in a call argument; unlike a string annotation, it never resolves.
 
         Keyed on argument position: a list of patch callees would be behaviour a pack must carry.
+        A shared module is also found under your own package (`myapp.llm.openai.Image`) and as the
+        leaf beside it (`patch.object(myapp.llm.openai, "Image")`).
         """
         if "mock_patch_target" not in self._spec.flag_only_patterns:
             return
         for call in self._nodes.calls:
+            owners = [module for argument in call.args if (module := self._owner(argument.value))]
             for argument in call.args:
                 node = argument.value
-                if id(node) in self._claimed or self._legacy(node):
-                    continue
                 text = _string(node)
-                if text is None or not self._under_legacy(text):
+                if text is None or id(node) in self._claimed or self._legacy(node):
                     continue
-                if not self._mention.fullmatch(text):
-                    continue
-                self._claimed.add(id(node))
-                self._add(node, "text_mention", "mock_patch_target", text, bail=_FLAGGED)
+                candidates = [text, *(f"{module}.{text}" for module in owners)]
+                path = next(filter(None, map(self._legacy_path, candidates)), None)
+                if path is not None:
+                    self._claimed.add(id(node))
+                    self._add(node, "text_mention", "mock_patch_target", path, bail=_FLAGGED)
+
+    def _annotated(self, node: cst.CSTNode) -> bool:
+        """Whether `node` is in an annotation, however deep (`Optional["openai.Image"]`)."""
+        parent: cst.CSTNode | None = node
+        while parent is not None and not isinstance(parent, cst.Annotation | cst.BaseStatement):
+            parent = self._parent(parent)
+        return isinstance(parent, cst.Annotation)
+
+    def _legacy_path(self, text: str) -> str | None:
+        """The legacy symbol `text` is exactly, once the package it is written under is dropped."""
+        match = self._target.fullmatch(text)
+        return match["path"] if match and self._under_legacy(match["path"]) else None
+
+    def _owner(self, node: cst.BaseExpression) -> str | None:
+        """The shared module `node` is written to end in and resolves to none (`app.llm.openai`)."""
+        if not self._spec.shared or self._reaches(node):
+            return None
+        dotted = _dotted(node)
+        return next((m for m in self._spec.legacy_modules if dotted.endswith(f".{m}")), None)
+
+    def _quoted_annotations(self) -> None:
+        """A legacy name in a string annotation, which a pydantic model evaluates when it is built.
+
+        Only where the module is shared: elsewhere the string resolves to the module and is a row.
+        """
+        if not self._spec.shared:
+            return
+        for string in self._nodes.strings:
+            text = _string(string)
+            if text is None or not self._reaches(string) or not self._annotated(string):
+                continue
+            for match in self._mention.finditer(text):
+                if self._under_legacy(match.group(0)):
+                    self._add(string, "attribute", self._spelling(string), match.group(0))
 
     def _star_candidates(self) -> None:
         """A bare name a legacy star import may have bound: an access with no assignment record.
@@ -1022,13 +1150,13 @@ class _Pass:
 
 
 def _dotted(node: cst.BaseExpression) -> str:
-    """The dotted name of the `Attribute`/`Name` chain in a `from` clause."""
+    """The dotted name of an `Attribute`/`Name` chain, or "" for any other expression."""
     if isinstance(node, cst.Name):
         return node.value
     if isinstance(node, cst.Attribute):
         prefix = _dotted(node.value)
         return f"{prefix}.{node.attr.value}" if prefix else ""
-    return ""  # pragma: no cover - an import target is always a dotted name
+    return ""
 
 
 def _root(module: cst.Module, node: cst.CSTNode) -> str:
@@ -1041,6 +1169,13 @@ def _root(module: cst.Module, node: cst.CSTNode) -> str:
     else:
         text = module.code_for_node(node)
     return text.partition(".")[0].strip()
+
+
+def _stored(parent: cst.CSTNode | None, node: cst.CSTNode) -> bool:
+    """Whether `node` is what an assignment writes, not what one reads."""
+    return isinstance(parent, cst.AssignTarget) or (
+        isinstance(parent, cst.AugAssign) and parent.target is node
+    )
 
 
 def _string(node: cst.CSTNode) -> str | None:
@@ -1143,10 +1278,10 @@ def _family(class_def: cst.ClassDef, classes: Sequence[cst.ClassDef]) -> set[str
     return family - {class_def.name.value}
 
 
-def _attribute_reads(function: cst.FunctionDef, first: str) -> list[cst.Attribute]:
-    """Every `<first>.<attr>` node inside `function`, in source order."""
+def _attribute_reads(scope: cst.CSTNode, first: str) -> list[cst.Attribute]:
+    """Every `<first>.<attr>` node inside `scope`, in source order."""
     collector = _Attributes(first)
-    function.visit(collector)
+    scope.visit(collector)
     return collector.found
 
 

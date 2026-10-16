@@ -11,3 +11,7 @@ def models():
 
 def upload(path):
     return openai.File.create(file=open(path, "rb"), purpose="fine-tune")
+
+
+def described(result: "openai.Image"):
+    return result

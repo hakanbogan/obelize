@@ -552,7 +552,25 @@ KEYWORD_DEFECTS = [
         "['depth'] is in keywords and also in positional_to_kw or config_kwargs",
     ),
     ({"arg_map": {"weight": "mass"}}, "arg_map renames ['weight']"),
+    ({"aliases": {"flavour": "weight"}}, "aliases stand for ['weight']"),
+    ({"aliases": {"body": "kind"}}, "['body'] is an alias and a parameter the rule reads too"),
+    ({"positive_numbers": ["weight"]}, "positive_numbers names ['weight']"),
+    ({"positive_numbers": ["depth", "body"]}, "positive_numbers must be sorted and de-duplicated"),
+    (
+        {"positive_numbers": ["kind"], "value_maps": {"kind": {"a": "A"}}},
+        "['kind'] is in positive_numbers and has a value_maps table",
+    ),
     ({"dispatch_prefixes": {"flavour": ["kinds/"]}}, "dispatch_prefixes names ['flavour']"),
+    ({"literal_prefixes": {"flavour": ["kinds/"]}}, "literal_prefixes names ['flavour']"),
+    ({"literal_prefixes": {"kind": []}}, "literal_prefixes['kind'] is empty"),
+    (
+        {"literal_prefixes": {"kind": ["kinds/", "flavours/"]}},
+        "literal_prefixes['kind'] must be sorted and de-duplicated",
+    ),
+    (
+        {"literal_prefixes": {"kind": ["kinds/"]}},
+        "['kind'] is in dispatch_prefixes and in literal_prefixes",
+    ),
     (
         {"arg_map": {"body": "kind"}},
         "two entries of positional_to_kw and keywords land on ['kind']",
@@ -593,6 +611,25 @@ def test_a_keyword_may_be_renamed_and_may_dispatch_like_any_parameter_the_rule_r
     assert params.dispatch_prefixes == {"body": ("a/",), "kind": ("kinds/",)}
 
 
+def test_an_alias_and_a_number_only_parameter_are_names_the_rule_reads() -> None:
+    document = with_change(
+        builder.MODULE_CALL,
+        aliases={"label": "kind", "span": "depth"},
+        arg_map={"body": "text", "depth": "levels"},
+        positive_numbers=["depth"],
+    )
+    params = rewrite_params(build(document), 1)
+    assert params.aliases == {"label": "kind", "span": "depth"}
+    assert params.positive_numbers == ("depth",)
+
+
+def test_a_literal_prefix_list_may_sit_beside_a_dispatch_one_on_another_parameter() -> None:
+    document = with_change(builder.MODULE_CALL, literal_prefixes={"body": ["a/"]})
+    params = rewrite_params(build(document), 1)
+    assert params.literal_prefixes == {"body": ("a/",)}
+    assert params.dispatch_prefixes == {"kind": ("kinds/",)}
+
+
 NEW_CALLS = [
     ("models.embed_content", None),
     ("embed_content", "a service and a method"),
@@ -628,11 +665,27 @@ FLAG_DEFECTS = [
         "both a symbol and an attribute",
     ),
     ({"patterns": ["regular_expression"]}, "Input should be"),
+    ({"variables": ["DEMO_LEGACY_BASE"]}, "named together"),
+    ({"patterns": ["environment_write"]}, "named together"),
+    (
+        {"patterns": ["environment_write"], "variables": ["DEMO_B", "DEMO_A"]},
+        "variables must be sorted",
+    ),
 ]
 
 
 @pytest.mark.parametrize(
-    ("params", "says"), FLAG_DEFECTS, ids=["nothing", "bare-name", "both", "unknown-pattern"]
+    ("params", "says"),
+    FLAG_DEFECTS,
+    ids=[
+        "nothing",
+        "bare-name",
+        "both",
+        "unknown-pattern",
+        "variable-alone",
+        "shape-alone",
+        "unsorted-variables",
+    ],
 )
 def test_the_flag_rule_refuses_a_refusal_that_names_nothing_usable(
     params: dict[str, Any], says: str
@@ -679,6 +732,11 @@ def _two_flags(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
         ),
         ({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}, "dynamic_access"),
         ({"patterns": ["dynamic_access"]}, {"patterns": ["dynamic_access"]}, "dynamic_access"),
+        (
+            {"patterns": ["dynamic_access"]},
+            {"patterns": ["environment_write"], "variables": ["DEMO_LEGACY_BASE"]},
+            "dynamic_access",
+        ),
         (
             {"patterns": ["mock_patch_target"]},
             {"patterns": ["mock_patch_target"]},
@@ -870,6 +928,21 @@ def test_a_rule_in_a_shared_module_sits_under_a_listed_name_and_elsewhere_under_
     else:
         with pytest.raises(ValidationError, match=re.escape("under nothing in match.symbols")):
             build(document)
+
+
+def test_a_shared_pack_takes_an_attribute_of_a_class_both_sides_define() -> None:
+    """`APIError` is no symbol: reporting the name would hold the repositories already migrated."""
+    document = with_change(builder.FLAG_CHANGE, symbols=[], attributes=["demo_legacy.Reply.text"])
+    document["match"].update(shared=True, symbols=["demo_legacy.configure"])
+    assert flag_params(build(document), 1).attributes == ("demo_legacy.Reply.text",)
+
+
+def test_a_variable_is_reported_when_a_prefilter_token_occurs_in_its_name() -> None:
+    document = with_change(
+        builder.FLAG_CHANGE, patterns=["environment_write"], variables=["DEMO_LEGACY_BASE"]
+    )
+    document["match"]["prefilter_tokens"] = ["DEMO_LEGACY_BASE", "demo_legacy"]
+    assert flag_params(build(document), 1).variables == ("DEMO_LEGACY_BASE",)
 
 
 def test_a_shared_pack_refuses_an_import_rename_even_for_a_listed_module() -> None:
@@ -1091,6 +1164,7 @@ PROJECTED = {
     "removed_attributes",
     "flag_only_symbols",
     "flag_only_patterns",
+    "flag_only_variables",
     "requires_python",
     "legacy_floor",
     "legacy_newest",

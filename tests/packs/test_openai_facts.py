@@ -211,10 +211,23 @@ def test_a_rewritten_call_is_a_keyword_only_method_of_the_module_client(symbol: 
     method = _method(params.new_call)
     parameters = inspect.signature(method).parameters
     assert all(p.kind is p.KEYWORD_ONLY for p in parameters.values()), params.new_call
-    carried = {*params.positional_to_kw, *params.keywords}
-    unknown = sorted(carried - set(parameters))
+    legacy = {*params.positional_to_kw, *params.keywords}
+    unknown = sorted({params.arg_map.get(name, name) for name in legacy} - set(parameters))
     assert unknown == [], f"{params.new_call} takes none of {unknown}"
-    assert not carried & {"stream", "timeout", "api_key", "engine", "request_timeout"}
+    assert not legacy & {"stream", "timeout", "api_key", "engine"}
+
+
+def test_engine_and_request_timeout_are_carried_by_the_three_calls_that_read_them() -> None:
+    """The legacy half is `openai_legacy_check.py`: those three resources read both themselves."""
+    engines = {
+        "openai.ChatCompletion.create",
+        "openai.Completion.create",
+        "openai.Embedding.create",
+    }
+    for symbol, params in REWRITES.items():
+        assert (params.aliases == {"engine": "model"}) == (symbol in engines), symbol
+        assert (params.arg_map == {"request_timeout": "timeout"}) == (symbol in engines), symbol
+        assert (params.positive_numbers == ("request_timeout",)) == (symbol in engines), symbol
 
 
 @pytest.mark.parametrize("symbol", sorted(REWRITES))
@@ -257,6 +270,19 @@ def test_a_new_result_is_not_a_dictionary() -> None:
     with pytest.raises(TypeError):
         result["choices"]  # type: ignore[index]
     assert not hasattr(result, "get")
+
+
+def test_a_field_the_server_left_out_or_sent_null_is_none_through_getattr() -> None:
+    """Why `r.get("usage")` is written `getattr(r, "usage", None)`: 0.28.1's `.get` gave None too.
+
+    The client builds a result without validating it, so a required field may be missing as well.
+    """
+    sent_null = openai.types.chat.ChatCompletion.construct(created=1, usage=None)
+    left_out = openai.types.chat.ChatCompletion.construct(created=1)
+    for result in (sent_null, left_out):
+        assert getattr(result, "usage", None) is None
+        assert getattr(result, "id", None) is None
+        assert getattr(result, "created", None) == 1
 
 
 def test_the_module_settings_the_pack_leaves_alone_are_read_by_the_module_client() -> None:

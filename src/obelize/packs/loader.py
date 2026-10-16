@@ -221,6 +221,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     attributes: set[str] = set()
     flagged: set[str] = set()
     patterns: set[FlagOnlyPattern] = set()
+    variables: set[str] = set()
     client_symbol = new_client_symbol = None
     declare_transitive = False
     for change in pack.changes:
@@ -235,6 +236,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
             attributes.update(change.params.attributes)
             flagged.update(change.params.symbols)
             patterns.update(change.params.patterns)
+            variables.update(change.params.variables)
         elif isinstance(change, ManifestDependencyChange):
             declare_transitive = change.params.declare_transitive
     floor = bounds(SpecifierSet(pack.from_.version))[0]
@@ -269,6 +271,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         removed_attributes=tuple(sorted(attributes)),
         flag_only_symbols=tuple(sorted(flagged)),
         flag_only_patterns=tuple(sorted(patterns)),
+        flag_only_variables=tuple(sorted(variables)),
         shared=pack.match.shared,
         new_range=(
             pack.to.version
@@ -323,7 +326,14 @@ _GATES: Final[frozenset[str]] = frozenset(
 # Read by the scanner but absent from the measured digest of the packs that predate it: left out
 # while unset, so adding the field moved no digest.
 _WHEN_SET: Final[frozenset[str]] = frozenset(
-    {"shared", "new_range", "new_client_symbol", "new_names", "declare_transitive"}
+    {
+        "shared",
+        "new_range",
+        "new_client_symbol",
+        "new_names",
+        "declare_transitive",
+        "flag_only_variables",
+    }
 )
 
 

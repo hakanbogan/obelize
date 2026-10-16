@@ -73,6 +73,26 @@ def guarded(prompt):
         return None
 
 
+def getters(prompt):
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    choice = getattr(response, "choices", None)[0]
+    return (
+        getattr(response, "id", None),
+        getattr(getattr(response, "usage", None), "total_tokens", None),
+        getattr(choice, "finish_reason", None),
+        getattr(getattr(choice, "message", None), "content", None),
+    )
+
+
+def completion_getters(prompt):
+    response = openai.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt)
+    choice = getattr(response, "choices", None)[0]
+    return getattr(response, "model", None), getattr(choice, "text", None)
+
+
 def picture(prompt):
     response = openai.images.generate(prompt=prompt, n=1, size="256x256")
     return response.created, response.data[0].url

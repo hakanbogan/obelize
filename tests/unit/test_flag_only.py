@@ -7,6 +7,7 @@ of its own parameters claims every row in both; the Gemini changes' disjoint sur
 from __future__ import annotations
 
 import acme
+import acme_kept as kit
 
 from obelize.models import Edit, Finding
 from obelize.packs.schema import FlagOnlyChange, FlagOnlyParams
@@ -165,6 +166,36 @@ def test_a_change_that_declares_only_the_stub_shape_claims_it() -> None:
     produced, edits = run(source, change)
     assert produced == source
     assert reported(edits) == [(5, "needs_review", "flag_only_surface", "flag-stub")]
+
+
+def test_a_change_that_declares_only_the_environment_shape_claims_a_write_of_its_variable() -> None:
+    """The shape reports `dynamic_access`, so a change is told from another by its patterns."""
+    change = FlagOnlyChange(
+        id="flag-env",
+        kind="flag_only",
+        citation="Acme Kit 2 notes, 'Environment'",
+        fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+        params=FlagOnlyParams(
+            message="acme.kit 2 reads another variable.",
+            suggestion="Set ACME_ADDRESS.",
+            patterns=("environment_write",),
+            variables=("ACME_ENDPOINT",),
+        ),
+    )
+    source = "import os\n\nos.environ['ACME_ENDPOINT'] = 'x'\n"
+    produced, edits = acme.transform(source, change, spec=kit.SPEC)
+    assert produced == source
+    assert reported(edits) == [(3, "needs_review", "flag_only_surface", "flag-env")]
+    assert acme.transform(source, kit.CAUGHT, spec=kit.SPEC)[1] == []
+
+
+def test_an_attribute_read_off_a_handler_is_claimed_whole_like_any_other() -> None:
+    source = (
+        "import acme.kit\n\ntry:\n    pass\nexcept acme.kit.Client as e:\n    print(e.status)\n"
+    )
+    produced, edits = acme.transform(source, kit.CAUGHT, kit.FLAGGED, spec=kit.SPEC)
+    assert produced == source
+    assert reported(edits) == [(6, "unsupported", "attribute_removed", "flag-caught")]
 
 
 BOTH = (

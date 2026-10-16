@@ -204,9 +204,9 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rename_import` | `from_module`, `to_module`, `default_alias`, `submodule_map` (`types` -> `google.genai.types`), `symbol_map` (`Name`, or `<submodule>.Name` for one in `submodule_map`, to the new name), `alias_fallbacks` (a submodule to the alias used when the file already binds its own name) |
 | `configure_to_client` | `legacy_symbol`, `client_symbol` (fully qualified), `client_name` and `client_name_fallback` (tried in order), `allowed_kwargs`, `credential_kwarg` (validated by the new client at construction) and `credentials_object_kwarg` (an object where the legacy call also took a mapping) |
 | `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields` (a mapping literal among them must already be a turn of `history`'s shape, since it is carried as written), `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
-| `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `positional_to_kw`, `keywords`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes`, `value_maps`, `warnings`, `warnings_unless` |
+| `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `aliases`, `positional_to_kw`, `keywords`, `positive_numbers`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes`, `literal_prefixes`, `value_maps`, `warnings`, `warnings_unless` |
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
-| `flag_only` | `symbols` / `patterns` / `attributes`, `message`, `suggestion` |
+| `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [ADR-021](adr/ADR-021-dependency-manifests-verdict.md) D13) |
 
 **`legacy_error_modules`**: a rewritten call in a `try` whose handler names an
@@ -218,8 +218,14 @@ the legacy parameter order and the new call's own arguments; `keywords` names
 more of the new call's arguments, carried only **when written as keywords**, so
 a positional argument beyond `positional_to_kw` is still
 `positional_arg_ambiguous`; `config_kwargs` go into `config_class`, passed as
-`config_kwarg`. Any other keyword, and a `**` splat, is `unsupported_kwarg`. The
-schema checks that no parameter is in two lists, every `arg_map` key is in one, no two parameters map to one keyword (the configuration object's own keyword, `config_kwarg`, counts: `arg_map` may not rename a parameter onto it), `keywords`, `config_kwargs` and `result_paths` are sorted and de-duplicated, and every `dispatch_prefixes` and `value_maps` key is read by the rule; `warnings` is sorted and holds codes of [the warning table](SCAN_VOCABULARY.md), and `warnings_unless` keys are such codes, not also in `warnings`, with a parameter the rule reads. A list of `keywords` is an allowlist of what a measurement showed
+`config_kwarg`. Any other keyword, and a `**` splat, is `unsupported_kwarg`. `aliases`
+names other keywords the legacy call took for a parameter of those lists (`engine: model`): a call
+that passes one is read as the parameter, renamed and checked as it is, and a call that passes both
+is `unsupported_kwarg`, since which one the legacy call meant is not the pack's to say.
+`positive_numbers` names parameters carried only as a number written out above zero (`request_timeout`,
+which the legacy call took for none when falsy and replaced with its own default): any other value,
+a name or `None` included, is `unsupported_kwarg`. The
+schema checks that no parameter is in two lists, every `arg_map` key is in one, no two parameters map to one keyword (the configuration object's own keyword, `config_kwarg`, counts: `arg_map` may not rename a parameter onto it), `keywords`, `config_kwargs`, `positive_numbers` and `result_paths` are sorted and de-duplicated, every `aliases` value is a parameter of those lists and no alias is one, and every `dispatch_prefixes`, `literal_prefixes`, `value_maps` and `positive_numbers` name is read by the rule (`positive_numbers` and `value_maps` share none, and nor do `dispatch_prefixes` and `literal_prefixes`); `warnings` is sorted and holds codes of [the warning table](SCAN_VOCABULARY.md), and `warnings_unless` keys are such codes, not also in `warnings`, with a parameter the rule reads. A list of `keywords` is an allowlist of what a measurement showed
 the new call takes with the meaning the old one gave it, never a list of what
 the old one accepted: 0.28.1's `create` sent an unknown keyword as the request
 body and read others itself, and a name nobody measured must not carry.
@@ -250,7 +256,8 @@ such as `choices[].message.content` or `usage.total_tokens`:
   scope. A read that stops at a proper prefix of a listed path is followed on where a single name
   takes it (`message = r.choices[0].message`) or a `for` or comprehension binds one name to each of
   its items (`for choice in r.choices`, where `choices[]` is a prefix), under the same rules for
-  that name. Anything else is `response_shape_changed`: a key off the path, `.get`, a loop over
+  that name. Anything else is `response_shape_changed`: a key off the path, a `.get` that is not
+  `.get("name")` with one string literal, a loop over
   something that is not a list on the path, a read of a path that is not a prefix of a listed one, a
   method on a non-leaf, a part or the result passed on, returned or printed. A result nothing reads
   carries.
@@ -260,9 +267,17 @@ such as `choices[].message.content` or `usage.total_tokens`:
   trailing comma, and the read must load. Otherwise the call is `response_shape_changed`: a name
   that may hold something else (a second binding, a read in a closure, an unlinked read), an
   f-string field written with `=`, a read glued to a following word (`r["id"]or 1`), and a `try`
-  handler that may name a missing key (`KeyError`,
-  `LookupError`, a name the file defines) or a `contextlib.suppress`, since the attribute read
-  raises `AttributeError`. `.get` is not rewritten.
+  handler that may name a missing key (`KeyError`, `LookupError`, a name the file defines, or any
+  imported class but a few of the standard library that derive from neither) or a
+  `contextlib.suppress`, since the attribute read raises `AttributeError`.
+- `x.get("name")`, a dictionary's `get` with one string literal that is an identifier and the next
+  segment of a path, is read the same way and written `getattr(x, "name", None)`: a field the server
+  left out or sent null is None on both sides. The quotes stay as written. A `getattr` the file
+  binds itself withholds the call, and so does `.get` with a default, which the model reads as None
+  where the dictionary gave the default.
+- A name the module itself binds (also by `global`) and another selected module imports or reads off
+  the module, by imports and attribute reads of the last name of its path, is read where no pass over
+  this file looks: the call is `response_shape_changed`.
 - A read the scope analysis links to no assignment (above it, in a loop's second pass) counts as
   a read of the result, and a result bound in a class body is `response_shape_changed`: `A.r` and
   `self.r` link to no scope.
@@ -280,6 +295,12 @@ the call is rewritten only where its result is discarded; the flags record the
 reads the legacy result allowed. Whatever a pack states, a call inside an f-string field written
 with `=` is `response_shape_changed`: the field prints its own source text, which the rewrite
 changes.
+
+**`literal_prefixes`** is the converse, for an argument whose value only some of the new call's
+answers fit: `gpt-image-1` answers an image call with no `url`, a read the new model turns into
+None where 0.28.1 raised. A parameter written as a string literal without a listed prefix is
+`response_shape_changed`; one left out, or computed, carries, since the legacy call sent the same
+request and only a name written out can be shown to differ. A parameter is under one of the two.
 
 **`value_maps`** is for an argument the legacy SDK looked up and the new one sends as
 written: the legacy `task_type` lowered a string and took `"document"` for
@@ -322,7 +343,7 @@ suggestion, for anything that is not 1:1. Its channels:
 |---|---|---|
 | `symbols` | A qualified legacy symbol. | `flag_only_surface` |
 | `patterns` | A *shape* that is not a name at all, such as a string handed to `mock.patch`. | `flag_only_surface` |
-| `attributes` | A dotted attribute path the new object does not have. | `attribute_removed` |
+| `attributes` | A dotted attribute path the new object does not have, read off a receiver the scan holds or off the name an `except <class> as name` handler binds. | `attribute_removed` |
 
 `flag_only.patterns` holds shape ids, **never regular expressions** (hard rule
 1). The set is declared in `src/obelize/models.py`; `tests/unit/test_models.py`
@@ -330,16 +351,19 @@ holds this table equal to it.
 
 | Pattern id | Matches |
 |---|---|
-| `mock_patch_target` | A call argument that is exactly a legacy dotted path, as in `mock.patch("google.generativeai...")`. |
+| `mock_patch_target` | A call argument that is exactly a legacy dotted path, as in `mock.patch("google.generativeai...")`. In a shared module also the path under a package of your own (`myapp.llm.openai.ChatCompletion.create`), and a string naming a legacy leaf in a call that has an expression written to end in the module (`patch.object(myapp.llm.openai, "ChatCompletion")`). |
 | `dynamic_access` | The legacy module reached through `getattr`, `importlib.import_module` or `__import__`. |
-| `sys_modules_stub` | An assignment into `sys.modules` under the legacy module's name, which replaces the module for every later importer. |
+| `sys_modules_stub` | An assignment into `sys.modules` under the legacy module's name, or a dict literal keyed by it handed to `sys.modules.update` or `patch.dict(sys.modules, ...)`, which replaces the module for every later importer. |
+| `environment_write` | A write of a variable `variables` names: `os.environ[...] =` or `+=`, `os.environ.setdefault`, `os.putenv`, or a dict literal keyed by it handed to `os.environ.update` or `patch.dict(os.environ, ...)`. A read is no row. |
 
 The first two are also `confidence_reason` values
-([SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §2); a test pins `sys_modules_stub`
-as the only id that is not. On a shared module a string matches only when it names a legacy symbol or, for
-`importlib.import_module`, `__import__` and `sys.modules`, the bare module. The `dynamic_access` id enables four shapes:
-`importlib.import_module("...")`, `__import__("...")` and assignment into
-`sys.modules[...]` get reason `dynamic_access`, while `getattr(<alias>, "X")`
+([SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §2); a test pins `sys_modules_stub` and `environment_write`
+as the only ids that are not, and both report `dynamic_access`. A pack that names `environment_write`
+names its `variables` too, and each holds a `match.prefilter_tokens` entry, or a file that sets one
+and never names the module is skipped unparsed. On a shared module a string matches only when it names a legacy symbol or, for
+`importlib.import_module`, `__import__` and `sys.modules`, the bare module. The `dynamic_access` id enables
+`importlib.import_module("...")`, `__import__("...")`, assignment into `sys.modules[...]` and a dict
+literal handed to `sys.modules`, which get reason `dynamic_access`, while `getattr(<alias>, "X")`
 goes through a resolvable name, so it is `module_alias_rebound` and marks the
 whole file rebound, graded by
 `tests/fixtures/scan/escapes/dynamic.py`.
@@ -483,7 +507,7 @@ Then `import openai` says nothing about which API a file was written for, and
   the list equal to a snapshot of the old release
   ([Pack test requirements](#pack-test-requirements)).
 - The module used as a value (`client = openai`, `getattr(openai, "Image")`)
-  escapes the scan as `module_alias_rebound`, since a name read through it can no longer be resolved, and so does a read of its `__dict__` or `__getattribute__`. The bare module fetched by its string (`importlib.import_module("openai")`, `__import__("openai")`, `sys.modules["openai"]`) is a `dynamic_access` row. A star import is a row only from the module itself or from a legacy symbol (`from openai.types import *` is not). A mention in prose and a `mock.patch` target count only when they name a legacy symbol.
+  escapes the scan as `module_alias_rebound`, since a name read through it can no longer be resolved, and so does a read of its `__dict__` or `__getattribute__`. The bare module fetched by its string (`importlib.import_module("openai")`, `__import__("openai")`, `sys.modules["openai"]`) is a `dynamic_access` row. A star import is a row only from the module itself or from a legacy symbol (`from openai.types import *` is not). A mention in prose and a `mock.patch` target count only when they name a legacy symbol. A string annotation that spells one (`result: "openai.Image"`) is a row of the name, as an unquoted annotation is, since a pydantic model evaluates it when the class is built.
 - A read off a call's result (`f(...).choices[0].x`) belongs to the call's own
   row, and `result_paths` decides which reads carry. A pack that is not shared keeps such a read as a
   row of its own.
@@ -651,8 +675,12 @@ Per field:
 - A duplicate `changes[].id`.
 - Two `flag_only` changes that name one surface: the same attribute, the same symbol or one that is
   the other's dotted prefix (`a.b` and `a.b.c`, not `a.b` and `a.bc`), or shape ids that report one
-  reason (`dynamic_access` and `sys_modules_stub` both report `dynamic_access`). A symbol and an
-  attribute of one spelling are different rows and may sit in two changes.
+  reason (`dynamic_access`, `sys_modules_stub` and `environment_write` all report `dynamic_access`). A
+  symbol and an attribute of one spelling are different rows and may sit in two changes.
+- A `flag_only` change with `variables` and no `environment_write` pattern, or the pattern with no
+  `variables`, a variable in which no `match.prefilter_tokens` entry occurs, and in a shared pack an
+  `attributes` entry that is under none of `match.imports` (it needs no `match.symbols` entry: the
+  class may be one both sides define).
 - An unknown `changes[].kind`.
 - A missing `source.url` or `source.retrieved_at`.
 - `language` other than `python`.

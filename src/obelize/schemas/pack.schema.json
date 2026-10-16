@@ -200,7 +200,8 @@
             "enum": [
               "mock_patch_target",
               "dynamic_access",
-              "sys_modules_stub"
+              "sys_modules_stub",
+              "environment_write"
             ],
             "type": "string"
           },
@@ -220,6 +221,15 @@
             "type": "string"
           },
           "title": "Symbols",
+          "type": "array"
+        },
+        "variables": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Variables",
           "type": "array"
         }
       },
@@ -1034,6 +1044,17 @@
       "additionalProperties": false,
       "description": "One legacy free function and the client call it becomes; unlisted parameters are refused.",
       "properties": {
+        "aliases": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "title": "Aliases",
+          "type": "object"
+        },
         "arg_map": {
           "additionalProperties": false,
           "patternProperties": {
@@ -1116,6 +1137,19 @@
           "title": "Legacy Symbol",
           "type": "string"
         },
+        "literal_prefixes": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "title": "Literal Prefixes",
+          "type": "object"
+        },
         "new_call": {
           "title": "New Call",
           "type": "string"
@@ -1127,6 +1161,15 @@
             "type": "string"
           },
           "title": "Positional To Kw",
+          "type": "array"
+        },
+        "positive_numbers": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Positive Numbers",
           "type": "array"
         },
         "result_access_flags": {

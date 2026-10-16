@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, cast
 
 import libcst as cst
@@ -24,12 +25,12 @@ from obelize.models import (
     ImpactPlan,
     ManifestPlan,
 )
-from obelize.scan import manifests, parse
+from obelize.scan import manifests, parse, reach
 from obelize.transforms import base, registry
 from obelize.transforms import manifest as manifest_context
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
-    from collections.abc import Collection, Mapping, Sequence
+    from collections.abc import Callable, Collection, Mapping, Sequence
 
     from libcst.metadata import Scope
 
@@ -125,6 +126,11 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
     files: list[Outcome] = []
     plans: list[ImpactPlan] = []
     limitations: list[parse.Limitation] = []
+    modules = tuple(sources)
+
+    def contents(path: str) -> tuple[bytes | None, tuple[parse.Limitation, ...]]:
+        return sources.get(path), ()
+
     for result in scan.results:
         data = sources.get(result.path)
         if data is None or not result.parsed:
@@ -136,7 +142,13 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
             plans.append(result.plan)
             continue
         try:
-            outcome, plan = _file(result, data, pack, spec)
+            outcome, plan = _file(
+                result,
+                data,
+                pack,
+                spec,
+                partial(reach.read_elsewhere, result.path, modules, contents),
+            )
         except (RecursionError, MemoryError):
             outcome, plan = _abandoned(result, data, GATE)
         except Exception as error:
@@ -281,13 +293,19 @@ def _is_manifest(path: str) -> bool:
 
 
 def _file(
-    result: FileResult, data: bytes, pack: PackDocument, spec: ScanSpec
+    result: FileResult,
+    data: bytes,
+    pack: PackDocument,
+    spec: ScanSpec,
+    imported_elsewhere: Callable[[str], bool],
 ) -> tuple[Outcome, ImpactPlan]:
     """Every rule over one file, then the atomicity check; rules are built fresh per file, as
     the corpora do."""
     rules = registry.rules(pack)
     module = cst.parse_module(data)
-    context = base.RuleContext.build(result.plan, module, spec, rules, pack.layout)
+    context = base.RuleContext.build(
+        result.plan, module, spec, rules, pack.layout, imported_elsewhere
+    )
 
     # Keyed by `id(finding)`: two rows can share a line. `result.plan.findings` outlives this call.
     edits: list[Edit] = []

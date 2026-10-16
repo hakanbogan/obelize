@@ -222,7 +222,7 @@ The `openai` pack builds no client object, so `openai.api_key` and `openai.organ
 meaning. A 0.28.1 result is a dictionary and a new one is not, so it rewrites a call only when every
 read of the result is a path it has checked, `response.choices[0].message.content` or the same path
 as keys (`response["choices"][0]["message"]["content"]`, which it rewrites to the attribute form). A
-call whose result is read with `.get`, looped over or passed on is left to you. It writes nothing
+call whose result is read with `.get` and a default, looped over or passed on is left to you. It writes nothing
 while any place is left. The other two
 packs write each file they can migrate whole and leave the rest.
 

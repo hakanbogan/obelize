@@ -864,9 +864,15 @@ class RewriteCallParams(_Closed):
     # `module` spells `new_call` after the root the author wrote and asks for no client.
     root: RewriteRoot = "client"
     arg_map: dict[PlainName, PlainName] = Field(default_factory=dict)
+    # Another keyword the legacy call took for a parameter below: the alias, then the parameter.
+    # Both given is `unsupported_kwarg`: which of the two the legacy call meant is not the pack's.
+    aliases: dict[PlainName, PlainName] = Field(default_factory=dict)
     positional_to_kw: tuple[PlainName, ...] = ()
     # Legacy parameters carried when written as keywords, so a positional one is still refused.
     keywords: tuple[PlainName, ...] = ()
+    # Parameters carried only as a number written out above zero: the legacy call took any other
+    # value for none and used its own default, where the new one takes it as it is.
+    positive_numbers: tuple[PlainName, ...] = ()
     config_class: QualifiedName | None = None
     config_kwargs: tuple[PlainName, ...] = ()
     config_kwarg: PlainName | None = None
@@ -878,6 +884,10 @@ class RewriteCallParams(_Closed):
     # The only reads of the result that carry: anything else, or the result passed on, is refused.
     result_paths: tuple[ResultPath, ...] = ()
     dispatch_prefixes: dict[PlainName, tuple[LiteralPrefix, ...]] = Field(default_factory=dict)
+    # A parameter that, written as a string literal, must begin with a listed prefix. Left out or
+    # computed, it carries: only a name written out can be shown to be one the new call answers
+    # otherwise.
+    literal_prefixes: dict[PlainName, tuple[LiteralPrefix, ...]] = Field(default_factory=dict)
     # A carried argument's legacy spellings (lower case, as the legacy lookup lowered its input)
     # and the one the new call takes; a value outside the table is `unsupported_kwarg`.
     value_maps: dict[PlainName, dict[LowerKey, EnumMemberName]] = Field(default_factory=dict)
@@ -891,6 +901,7 @@ class RewriteCallParams(_Closed):
         # Legacy parameter order: the one sequence here that must not be sorted.
         _ordered_unique(self.positional_to_kw, "positional_to_kw")
         _sorted_set(self.keywords, "keywords")
+        _sorted_set(self.positive_numbers, "positive_numbers")
         _sorted_set(self.config_kwargs, "config_kwargs")
         _sorted_set(self.result_access_flags, "result_access_flags")
         _sorted_set(self.result_attribute_flags, "result_attribute_flags")
@@ -907,9 +918,11 @@ class RewriteCallParams(_Closed):
         self._check_the_result_is_read_one_way()
         self._check_no_parameter_has_two_destinations()
         self._check_every_renamed_parameter_is_one_the_rule_reads()
+        self._check_every_alias_stands_for_a_parameter_the_rule_reads()
         self._check_no_two_parameters_land_on_one_keyword()
         self._check_every_dispatching_parameter_is_one_the_rule_reads()
         self._check_every_mapped_parameter_is_one_the_rule_reads()
+        self._check_every_numeric_parameter_is_one_the_rule_reads()
         self._check_every_conditional_warning_is_one_the_rule_can_withhold()
         return self
 
@@ -956,20 +969,31 @@ class RewriteCallParams(_Closed):
 
     def _check_every_dispatching_parameter_is_one_the_rule_reads(self) -> None:
         known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
-        unknown = sorted(set(self.dispatch_prefixes) - known)
-        if unknown:
-            raise ValueError(
-                f"dispatch_prefixes names {unknown}, which positional_to_kw, keywords and "
-                f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
-                f"prefix list is never consulted"
-            )
-        for parameter, prefixes in sorted(self.dispatch_prefixes.items()):
-            if not prefixes:
+        for field, table in (
+            ("dispatch_prefixes", self.dispatch_prefixes),
+            ("literal_prefixes", self.literal_prefixes),
+        ):
+            unknown = sorted(set(table) - known)
+            if unknown:
                 raise ValueError(
-                    f"dispatch_prefixes[{parameter!r}] is empty, which refuses every call rather "
-                    f"than saying which values carry; drop the entry instead"
+                    f"{field} names {unknown}, which positional_to_kw, keywords and "
+                    f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
+                    f"prefix list is never consulted"
                 )
-            _sorted_set(prefixes, f"dispatch_prefixes[{parameter!r}]")
+            for parameter, prefixes in sorted(table.items()):
+                if not prefixes:
+                    raise ValueError(
+                        f"{field}[{parameter!r}] is empty, which refuses every call rather "
+                        f"than saying which values carry; drop the entry instead"
+                    )
+                _sorted_set(prefixes, f"{field}[{parameter!r}]")
+        both = sorted(set(self.dispatch_prefixes) & set(self.literal_prefixes))
+        if both:
+            raise ValueError(
+                f"{both} is in dispatch_prefixes and in literal_prefixes; the one refuses a value "
+                f"that is not a listed literal and the other carries one that is no literal, and a "
+                f"pack that says both leaves the rule to decide"
+            )
 
     def _check_every_mapped_parameter_is_one_the_rule_reads(self) -> None:
         known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
@@ -986,6 +1010,38 @@ class RewriteCallParams(_Closed):
                     f"value_maps[{parameter!r}] is empty, which refuses every call rather than "
                     f"saying which values carry; drop the entry instead"
                 )
+
+    def _check_every_alias_stands_for_a_parameter_the_rule_reads(self) -> None:
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.aliases.values()) - known)
+        if unknown:
+            raise ValueError(
+                f"aliases stand for {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not name; the rule reads an argument by its legacy name, so "
+                f"the alias would carry nothing"
+            )
+        named = sorted(set(self.aliases) & known)
+        if named:
+            raise ValueError(
+                f"{named} is an alias and a parameter the rule reads too; a keyword is one "
+                f"parameter or another name for it"
+            )
+
+    def _check_every_numeric_parameter_is_one_the_rule_reads(self) -> None:
+        known = {*self.positional_to_kw, *self.keywords, *self.config_kwargs}
+        unknown = sorted(set(self.positive_numbers) - known)
+        if unknown:
+            raise ValueError(
+                f"positive_numbers names {unknown}, which positional_to_kw, keywords and "
+                f"config_kwargs do not; the rule reads an argument by its legacy name, so this "
+                f"list is never consulted"
+            )
+        both = sorted(set(self.positive_numbers) & set(self.value_maps))
+        if both:
+            raise ValueError(
+                f"{both} is in positive_numbers and has a value_maps table; the one carries a "
+                f"number and the other a string, so no value could pass"
+            )
 
     def _check_every_conditional_warning_is_one_the_rule_can_withhold(self) -> None:
         both = sorted(set(self.warnings) & set(self.warnings_unless))
@@ -1055,6 +1111,7 @@ PATTERN_REASONS: dict[FlagOnlyPattern, ConfidenceReason] = {
     "dynamic_access": "dynamic_access",
     "mock_patch_target": "mock_patch_target",
     "sys_modules_stub": "dynamic_access",
+    "environment_write": "dynamic_access",
 }
 
 
@@ -1067,6 +1124,8 @@ class FlagOnlyParams(_Closed):
     symbols: tuple[QualifiedName, ...] = ()
     patterns: tuple[FlagOnlyPattern, ...] = ()
     attributes: tuple[QualifiedName, ...] = ()
+    # The environment variables `environment_write` reports a write of, and only it reads them.
+    variables: tuple[PlainName, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> FlagOnlyParams:
@@ -1075,6 +1134,9 @@ class FlagOnlyParams(_Closed):
         _sorted_set(self.symbols, "symbols")
         _sorted_set(self.patterns, "patterns")
         _sorted_set(self.attributes, "attributes")
+        _sorted_set(self.variables, "variables")
+        if bool(self.variables) != ("environment_write" in self.patterns):
+            raise ValueError("variables and the environment_write pattern are named together")
         for attribute in self.attributes:
             if "." not in attribute:
                 raise ValueError(
@@ -1234,6 +1296,7 @@ class PackDocument(_Closed):
         self._check_receivers_and_symbols_are_claimed_once()
         self._check_a_surface_is_flagged_once()
         self._check_every_legacy_symbol_is_looked_for()
+        self._check_a_variable_is_looked_for()
         self._check_mapped_symbols_are_not_also_refused()
         self._check_a_setting_is_not_renamed_onto_a_legacy_name()
         self._check_manifest_matches_the_migration()
@@ -1374,9 +1437,10 @@ class PackDocument(_Closed):
                     )
 
     def _check_every_legacy_symbol_is_looked_for(self) -> None:
-        """A shared module is legacy only where `symbols` says so, so the rules must sit there."""
-        field = "match.symbols" if self.match.shared else "match.imports"
-        looked = self.match.symbols if self.match.shared else self.match.imports
+        """A shared module is legacy only where `symbols` says so, so the rules must sit there.
+
+        An attribute is the exception: it is read off a class both sides define (`APIError`).
+        """
         for change in self.changes:
             if self.match.shared and change.kind == "rename_import":
                 raise ValueError(
@@ -1392,11 +1456,30 @@ class PackDocument(_Closed):
                 # Read for a member, never found as a usage, so no `symbols` entry can be asked.
                 if self.match.shared and name.startswith("safety."):
                     continue
+                by_symbols = self.match.shared and name != "attributes"
+                field, looked = (
+                    ("match.symbols", self.match.symbols)
+                    if by_symbols
+                    else ("match.imports", self.match.imports)
+                )
                 if not under_any(symbol, looked):
                     raise ValueError(
                         f"changes[{change.id!r}].params.{name} names {symbol!r}, which is under "
                         f"nothing in {field} {list(looked)}. Resolution can never produce it, so "
                         f"the rule can never fire"
+                    )
+
+    def _check_a_variable_is_looked_for(self) -> None:
+        """A file that sets the variable and never names the module is parsed only for a token."""
+        for change in self.changes:
+            if not isinstance(change, FlagOnlyChange):
+                continue
+            for variable in change.params.variables:
+                if not any(token in variable for token in self.match.prefilter_tokens):
+                    raise ValueError(
+                        f"changes[{change.id!r}].params.variables names {variable!r}, in which no "
+                        f"match.prefilter_tokens entry occurs, so a file that sets it and never "
+                        f"names the module is skipped unparsed"
                     )
 
     def _check_manifest_matches_the_migration(self) -> None:
