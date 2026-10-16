@@ -97,11 +97,6 @@ def _placement(root: Path, candidate: Path) -> Literal["inside", "outside", "unr
     return "inside" if inside else "outside"
 
 
-def contained(root: Path, candidate: Path) -> bool:
-    """Whether `candidate` is inside `root`, both resolved; a dangling link or loop is a refusal."""
-    return _placement(root, candidate) == "inside"
-
-
 def refusal(root: Path, candidate: Path) -> PathRefusal | None:
     """Why `candidate` must not be opened, or `None` when it may be.
 
@@ -366,7 +361,6 @@ __all__ = [
     "WriteRefusal",
     "Written",
     "apply",
-    "contained",
     "gate",
     "linked",
     "read",

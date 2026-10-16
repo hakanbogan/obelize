@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 
 from obelize import fsutil
-from obelize.fsutil import contained, refusal
+from obelize.fsutil import refusal
 from obelize.models import PATH_REFUSALS, SKIP_REASONS
 from obelize.native import files
 from platforms import AS_ROOT, MODE_BITS, deny, junction, link, posix_only, windows_only
@@ -43,6 +43,10 @@ def _build(root: Path) -> None:
     sealed = root / "sealed"
     sealed.mkdir()
     (sealed / "hidden.py").write_text("hidden = True\n", encoding="utf-8", newline="\n")
+
+
+def contained(root: Path, candidate: Path) -> bool:
+    return fsutil._placement(root, candidate) == "inside"
 
 
 TMP = posix_only("only POSIX has /tmp; the symlinked root poses its macOS trap everywhere")

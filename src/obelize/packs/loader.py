@@ -43,7 +43,6 @@ from obelize.packs.schema import (
 # Bundled packs ship in the wheel at `<provider>/<slug>/pack.yaml` here: the id is the directory.
 BUNDLED: Final[Path] = Path(__file__).resolve().parent
 PACK_FILENAME: Final = "pack.yaml"
-SOURCES_FILENAME: Final = "SOURCES.md"
 
 
 class PackError(Exception):
@@ -350,7 +349,6 @@ def spec_digest(spec: ScanSpec) -> str:
 __all__ = [
     "BUNDLED",
     "PACK_FILENAME",
-    "SOURCES_FILENAME",
     "LoadedPack",
     "PackConflictError",
     "PackError",

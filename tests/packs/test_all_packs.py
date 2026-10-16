@@ -319,7 +319,7 @@ def test_sources_has_a_section_for_every_change_and_no_orphans(bundled: loader.L
     The headings above the first `---` are prose; every one below it is a list of change ids.
     """
     changes = {change.id for change in bundled.pack.changes}
-    text = (pack_dir(bundled) / loader.SOURCES_FILENAME).read_text(encoding="utf-8")
+    text = (pack_dir(bundled) / "SOURCES.md").read_text(encoding="utf-8")
     _prose, _, sections = text.partition("\n---\n")
     headings = re.findall(r"^## (.+)$", sections, re.MULTILINE)
     cited = {part.strip() for heading in headings for part in heading.split(",")}
@@ -327,7 +327,7 @@ def test_sources_has_a_section_for_every_change_and_no_orphans(bundled: loader.L
 
 
 def test_sources_records_the_hash_of_the_page_the_pack_cites(bundled: loader.LoadedPack) -> None:
-    text = (pack_dir(bundled) / loader.SOURCES_FILENAME).read_text(encoding="utf-8")
+    text = (pack_dir(bundled) / "SOURCES.md").read_text(encoding="utf-8")
     assert bundled.pack.source.sha256 is not None
     assert bundled.pack.source.sha256 in text
     assert bundled.pack.source.url in text
