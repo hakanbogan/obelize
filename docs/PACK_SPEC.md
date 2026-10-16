@@ -224,10 +224,11 @@ written: the legacy `task_type` lowered a string and took `"document"` for
 `RETRIEVAL_DOCUMENT`, which the new configuration passes on unchanged for the
 service to refuse. It maps a parameter, by its legacy name, from the lower-case
 legacy spellings to the one name the new call takes. A string literal in the
-table is written as the mapped name, in the author's own quotes; any other
-value (a name, a number, an enum member, a string outside the table) is
-`unsupported_kwarg`, since the legacy lookup took more than a literal and the
-rule cannot tell which.
+table is written as the mapped name, in the author's own quotes; a literal
+`None` is carried as written, since the legacy call tested the value for truth
+before it looked it up; any other value (a name, a number, an enum member, a
+string outside the table) is `unsupported_kwarg`, since the legacy lookup took
+more than a literal and the rule cannot tell which.
 
 **`warnings`** lists the warning codes every call the rule writes carries, for a
 difference the new call leaves unsaid and the rule cannot see in the source: the

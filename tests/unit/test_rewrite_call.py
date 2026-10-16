@@ -127,13 +127,19 @@ def test_a_mapped_argument_is_written_as_the_name_the_new_call_takes(
 
 @pytest.mark.parametrize(
     "value",
-    ["task", "3", "b'dry'", "f'dry'", "'dry' 'x'", "'damp'", "None"],
-    ids=["name", "number", "bytes", "f-string", "concatenation", "unknown", "none"],
+    ["task", "3", "b'dry'", "f'dry'", "'dry' 'x'", "'damp'", "NONE"],
+    ids=["name", "number", "bytes", "f-string", "concatenation", "unknown", "another name"],
 )
 def test_an_argument_with_a_table_is_refused_unless_it_is_a_string_in_it(value: str) -> None:
     code, edits = spelled(f"sdk.measure(kind='a', tone={value})\n")
     assert code == f"sdk.measure(kind='a', tone={value})"
     assert statuses(edits)[-1] == (5, "needs_review", "unsupported_kwarg")
+
+
+def test_a_literal_none_is_carried_as_written_since_the_legacy_call_never_looked_it_up() -> None:
+    line, edits = spelled("sdk.measure(kind='a', tone=None)\n")
+    assert "kind='A', opts=types.MeasureConfig(tone=None)" in line
+    assert statuses(edits)[-1] == (5, "auto", None)
 
 
 def test_a_call_written_carries_the_warnings_the_pack_names_and_a_refused_one_none() -> None:

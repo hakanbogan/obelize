@@ -265,10 +265,12 @@ class RewriteCall:
         """What the new call takes for an argument with a `value_maps` table; others as written.
 
         The table holds what the legacy lookup took, so any other value (a name, an enum member, a
-        number, an unknown string) is refused rather than sent on as it is.
+        number, an unknown string) is refused rather than sent on as it is. A literal `None` is not
+        looked up by the legacy call, which tests the value for truth first, and the new field takes
+        it.
         """
         table = self._params.value_maps.get(name)
-        if table is None:
+        if table is None or (isinstance(value, cst.Name) and value.value == "None"):
             return value
         written = literal_string(value)
         new = table.get(written.lower()) if written is not None else None
