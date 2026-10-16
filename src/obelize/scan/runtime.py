@@ -269,7 +269,7 @@ def declaration(path: str, contents: parse.Contents) -> Declared | parse.Limitat
         return None
     try:
         declared = reader(data)
-    except ValueError:
+    except (ValueError, RecursionError):
         return parse.Limitation(path=path, code="input_does_not_parse", detail=UNPARSED[found])
     if declared is None:
         return None

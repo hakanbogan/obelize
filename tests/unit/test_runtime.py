@@ -360,6 +360,8 @@ UNPARSED = [
         marks=BEFORE_3_15,
     ),
     ("Pipfile", b'[requires]\npython_version = "3.\xff"\n', NOT_TOML),
+    ("pyproject.toml", b"x = " + b"[" * 5000 + b"]" * 5000, NOT_TOML),
+    ("Pipfile", b"x = " + b"[" * 5000 + b"]" * 5000, NOT_TOML),
 ]
 
 
@@ -384,6 +386,8 @@ def test_a_manifest_in_toml_1_1_is_read_where_tomllib_reads_it(tmp_path: Path) -
         "pipfile-unclosed",
         "pipfile-toml-1.1",
         "pipfile-not-utf8",
+        "toml-too-deep",
+        "pipfile-too-deep",
     ],
 )
 def test_a_manifest_that_does_not_parse_is_reported_rather_than_ignored(
