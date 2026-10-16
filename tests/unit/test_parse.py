@@ -65,7 +65,8 @@ def _fixture(name: str) -> bytes:
 
 
 def test_every_limitation_code_is_one_the_documents_already_publish() -> None:
-    """No new vocabulary: `limitations[].code` draws only on bail codes and skip reasons."""
+    """`limitations[].code` is no vocabulary of its own: it draws only on bail codes and skip
+    reasons."""
     assert READ_REFUSALS <= (BAIL_CODES | SKIP_REASONS)
     assert sorted(READ_REFUSALS & BAIL_CODES) == [
         "file_too_large",
