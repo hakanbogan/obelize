@@ -77,7 +77,7 @@ coverage in `pyproject.toml`.
 
 ### D10. A dry run asks any pack's frame what the rules alone would write
 
-`bench/gate1_collect.py dryrun --pack <id>` runs `fix --model none` over a pack's frame, which
+`python -m bench.gate1_collect dryrun --pack <id>` runs `fix --model none` over a pack's frame, which
 `sample --pack <id> --term <t>` draws as D8 does; the Gemini frame keeps its place and every other
 pack's sits in `bench/gate1/<provider>__<change>/`. A record keeps the plan's file count, the run
 record's `blocked` and its withheld rows with their symbols, and from `findings.json` the number of
