@@ -331,7 +331,7 @@ nothing never refuses a command.
 
 ### The verification vocabulary
 
-Closed sets, declared as `Literal`s in `src/obelize/models.py` and held equal
+Closed sets, declared as `Literal`s in `src/obelize/models/vocabulary.py` and held equal
 to these tables by `tests/unit/test_verify_vocabulary.py`.
 
 #### `verify.status` (4 values)

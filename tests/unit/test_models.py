@@ -162,7 +162,7 @@ def test_the_document_and_the_code_hold_the_same_members(section: str) -> None:
     in_code = DECLARED_IN_CODE[section]
     assert documented == set(in_code), (
         f"docs/SCAN_VOCABULARY.md section {section} ({heading.strip('# ')}) and "
-        f"src/obelize/models.py disagree. Only in the document: "
+        f"src/obelize/models/vocabulary.py disagree. Only in the document: "
         f"{sorted(documented - set(in_code))}. Only in the code: "
         f"{sorted(set(in_code) - documented)}. A member is added to both, in one commit."
     )

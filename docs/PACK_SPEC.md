@@ -363,7 +363,7 @@ suggestion, for anything that is not 1:1. Its channels:
 | `attributes` | A dotted attribute path the new object does not have, read off a receiver the scan holds or off the name an `except <class> as name` handler binds. | `attribute_removed` |
 
 `flag_only.patterns` holds shape ids, **never regular expressions** (hard rule
-1). The set is declared in `src/obelize/models.py`; `tests/unit/test_models.py`
+1). The set is declared in `src/obelize/models/vocabulary.py`; `tests/unit/test_models.py`
 holds this table equal to it.
 
 | Pattern id | Matches |

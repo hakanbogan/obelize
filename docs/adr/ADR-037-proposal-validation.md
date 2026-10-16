@@ -8,7 +8,7 @@ Accepted; amended by ADR-039 (D9) and ADR-052.
 
 ### D1. Seventeen words in one fixed order, first refusal wins
 
-`GuardRefusal` is a closed set in `models.py`. The checks run in this order and
+`GuardRefusal` is a closed set in `models/vocabulary.py`. The checks run in this order and
 only the **first** refusal is recorded:
 
 | # | Word | Refused because |

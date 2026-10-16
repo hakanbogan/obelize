@@ -41,7 +41,7 @@ the call, as `afc_semantics_differ`.
 
 `Finding.kind`, `Finding.confidence_reason`, the fixture `verdict`, and the bail and warning
 codes are written out in [docs/SCAN_VOCABULARY.md](../SCAN_VOCABULARY.md) and held equal to
-`models.py`, because three fixture defects were members invented where no list could be read.
+`models/vocabulary.py`, because three fixture defects were members invented where no list could be read.
 The attested member is `manifest_dependency`, not `manifest_declaration`, and `not_a_usage`
 is a `verdict`: a prose mention is neither an edit nor a review item.
 

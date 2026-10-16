@@ -2,7 +2,7 @@
 
 `.obelize/runs/<run-id>/` is the evidence a run leaves behind; `run.json` is its
 index. `tests/unit/test_run_folder_contract.py` fails when this file, the models
-in `src/obelize/models.py` and `.github/workflows/e2e.yml` disagree.
+in `src/obelize/models/` and `.github/workflows/e2e.yml` disagree.
 
 ## Layout
 
@@ -317,7 +317,7 @@ id, timings or absolute path), so two scans of one input are identical.
 | `caused_by` | array of strings or null | §6. Set exactly when `bail` is `file_not_fully_migrated`; sorted, de-duplicated. |
 
 Document order is `(path, line, column, kind, symbol)`, and
-`src/obelize/models.py` refuses any other: libcst yields references in an order
+`src/obelize/models/scan.py` refuses any other: libcst yields references in an order
 that varies between processes. A finding has no verdict or warning; those
 belong to an edit, in `plan.json` and `REPORT.md`.
 
@@ -424,7 +424,7 @@ anything was proposed.
 
 ### The four Phase 3 vocabularies
 
-Closed sets in `src/obelize/models.py`, published here where a reader meets
+Closed sets in `src/obelize/models/vocabulary.py`, published here where a reader meets
 them.
 
 #### A model was not asked (`ConsultSkip`)

@@ -61,7 +61,7 @@ not add a module without an ADR.
 | `cli.py` | Flags, help text and exit codes. Heavy imports stay inside command bodies so `--help` stays under 300 ms; a subprocess test checks the import graph, not the time |
 | `_yaml.py` | The one YAML reader: `SafeLoader`, and a duplicate key is an error |
 | `config.py` | `.obelize.yml`, its merge with the flags, and file selection |
-| `models.py` | The closed vocabularies ([SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md), [RUN_FOLDER.md](docs/RUN_FOLDER.md)) and the shared pydantic models |
+| `models/` | The closed vocabularies ([SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md), [RUN_FOLDER.md](docs/RUN_FOLDER.md)) and the shared pydantic models, in `vocabulary`, `fields`, `scan`, `config`, `verify` and `run`, each importing only the ones before it ([ADR-058](docs/adr/ADR-058-models-by-section.md)) |
 | `gitutil.py` | git via subprocess: `tree` gates `--apply` and `state` records it. Staged files are uncommitted changes; untracked ones are not, since obelize writes its own run folder, unless the plan would rewrite one |
 | `fsutil.py` | The path guard, the `O_NOFOLLOW` read and its read in windows for a file too large to hold, sha256, and `apply`, the only writer of a user's file: every path checked first, then a temporary file, `fsync`, the original mode and a rename |
 | `native/` | The platform seam: `files` opens, creates, renames and deletes relative to a parent directory and never through a link, except the read by path, which guards only the last component, `processes` starts a verification command in its own session, or on Windows its own job object, reads its output against a deadline and stops everything it started, and `console` makes Windows' standard streams UTF-8. Each picks its implementation at import |
@@ -86,6 +86,9 @@ twenty-seven for `rewrite_call` and eleven for `flag_only`, beside the repositor
 `complete` column in `rename_import/` is about that one rule; in `configure_to_client/` and
 `generative_model_calls/`, which run every implemented rule, it means `fix --apply` writes the
 file.
+
+`tests/support.py` holds the git, written-tree and snapshot helpers the suites share, and
+`tests/platforms.py` the selectors that tell one system from another.
 
 `tests/unit/acme.py` and `tests/unit/acme_kept.py` hold the literals of two invented SDKs the unit
 tests share, one with a client (`acme.sdk`) and one that keeps its module name across a major version

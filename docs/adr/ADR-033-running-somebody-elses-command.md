@@ -104,7 +104,7 @@ reports per test is not built.
 ## Consequences
 
 - `docs/CLI.md` publishes the statuses, reasons and sources as closed vocabularies, which change
-  only together with `models.py`.
+  only together with `models/vocabulary.py`.
 - Execution is not isolated: a command runs with the user's environment and credentials, and the
   documents say so.
 - Redaction over-redacts on purpose (`GIT_AUTHOR_NAME` matches `AUTH`) until a log it made
