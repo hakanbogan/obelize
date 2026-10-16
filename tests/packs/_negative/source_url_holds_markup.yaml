@@ -11,7 +11,7 @@ language: python
 source:
   type: official_guide
   url: https://example.invalid/g`<img src=x>
-  retrieved_at: '2026-09-17'
+  retrieved_at: 2026-09-17
 from:
   package: demo-legacy
   version: <1

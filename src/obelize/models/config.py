@@ -51,11 +51,11 @@ class ModelConfig(_Frozen):
     """
 
     provider: ProviderName = "none"
-    base_url: str | None = None
-    allow_insecure_http: bool = False
-    model: str | None = None
-    api_key_env: str = "OBELIZE_MODEL_API_KEY"
-    log_prompts: bool = False
+    base_url: StrictStr | None = None
+    allow_insecure_http: StrictBool = False
+    model: StrictStr | None = None
+    api_key_env: StrictStr = "OBELIZE_MODEL_API_KEY"
+    log_prompts: StrictBool = False
 
     @model_validator(mode="after")
     def _check(self) -> ModelConfig:

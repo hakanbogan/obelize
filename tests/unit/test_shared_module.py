@@ -1071,6 +1071,7 @@ def test_a_coupled_pack_that_renames_a_module_holds_the_import_with_the_rest(
 ) -> None:
     """An import row may carry the repository's atomicity code, like any other row."""
     document = acme.OLD_PACK.model_dump(by_alias=True, mode="json")
+    document["source"]["retrieved_at"] = acme.OLD_PACK.source.retrieved_at
     document["to"]["package"] = "acme-old"
     document["changes"][2]["params"] = {
         "from_name": "acme-old",

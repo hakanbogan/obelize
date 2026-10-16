@@ -548,7 +548,8 @@ absolute path to an existing directory (`~` is expanded), and a pack in one is v
 any other file (exit `7`), never trusted more. A repository's `.obelize.yml` may not set it. A
 directory inside a repository you scan is scanned too, so list it in `exclude`.
 
-The `model` keys are acted on by `obelize fix`.
+The `model` keys are acted on by `obelize fix`. A value of another type is refused, not converted
+(`log_prompts: 'yes'`, a number for `model`).
 
 | Key | Type | Default | Description |
 |---|---|---|---|
