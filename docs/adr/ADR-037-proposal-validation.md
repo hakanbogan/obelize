@@ -6,7 +6,7 @@ Accepted; amended by ADR-039 (D9) and ADR-052.
 
 ## Decision
 
-### D1. Twelve words for seven checks, in one fixed order, first refusal wins
+### D1. Seventeen words in one fixed order, first refusal wins
 
 `GuardRefusal` is a closed set in `models.py`. The checks run in this order and
 only the **first** refusal is recorded:
@@ -20,18 +20,19 @@ only the **first** refusal is recorded:
 | 5 | `outside_the_context` | the replaced range is not inside the range that was sent |
 | 6 | `site_not_replaced` | the replaced range does not contain the line asked about |
 | 7 | `symbol_mismatch` | the proposal names a symbol other than the question's |
-| 8 | `replacement_too_large` | over the line or byte limit (D5) |
-| 9 | `replacement_not_displayable` | it holds a character a terminal acts on |
-| 10 | `replacement_carries_redaction` | it holds `[REDACTED`, which the lines it replaces do not (D10) |
-| 11 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
-| 12 | `output_does_not_parse` | libcst refuses the resulting module |
+| 8 | `replaced_text_differs` | the lines it says it replaces are not the lines it names, as sent (D12) |
+| 9 | `replacement_too_large` | over the line or byte limit (D5), or a statement over the token limit (D11) |
+| 10 | `replacement_not_displayable` | it holds a character a terminal acts on |
+| 11 | `replacement_carries_redaction` | it holds `[REDACTED`, which the lines it replaces do not (D10) |
+| 12 | `replacement_not_encodable` | the file's own encoding cannot hold it (D6) |
 | 13 | `output_does_not_compile` | `compile()` refuses it (D6) |
-| 14 | `replacement_runs_past_its_range` | it changes how the lines after it are read |
-| 15 | `import_outside_the_target` | the result imports a module the pack does not target (D7) |
-| 16 | `name_outside_the_question` | it names something the question did not license (D7) |
+| 14 | `output_does_not_parse` | libcst refuses a module `compile()` accepted, or it nests deeper than obelize reads (D6, D11) |
+| 15 | `replacement_runs_past_its_range` | it changes how the lines after it are read |
+| 16 | `import_outside_the_target` | the result imports a module the pack does not target (D7) |
+| 17 | `name_outside_the_question` | it names something the question did not license (D7) |
 
 Three groups: may this file be touched (1-4), is this an answer to the question
-(5-7), and is the result Python that brings nothing in (8-16), last because
+(5-8), and is the result Python that brings nothing in (9-17), last because
 those cost a parse. `../../.bashrc` is reported as an escape, not an unplanned
 file, because that is what a reviewer must learn first.
 
@@ -50,28 +51,34 @@ is one finding in one file.
 line numbers mean nothing against other bytes; `fsutil.apply` repeats the check
 for the write.
 
-### D4. Three questions about where the edit lands, not one
+### D4. Four questions about where the edit lands, not one
 
 `outside_the_context` is `Context.holds`, called rather than re-derived.
 `site_not_replaced`: the replaced range must contain `Consultation.line`.
 `symbol_mismatch`: the proposal's `symbol` must equal the consultation's, which
-also refuses a consultation with no symbol. Because whether the symbol exists
-is the scan's fact; the guard checks the answer is about it.
+also refuses a consultation with no symbol. `replaced_text_differs` is D12's.
+Because whether the symbol exists is the scan's fact; the guard checks the answer
+is about it.
 
 ### D5. The diff size limit is on the replacement, and it is absolute
 
 `REPLACEMENT_LINE_LIMIT = CONTEXT_LINE_LIMIT` (80) and
 `REPLACEMENT_BYTE_LIMIT = 1024 * REPLACEMENT_LINE_LIMIT` (81 920 UTF-8 bytes),
 not relative to the replaced range. Because the removed side is already bounded
-by the context, and the byte limit bounds one huge line.
+by the context, and the byte limit bounds one huge line. A third limit, on the
+tokens of one statement, is D11's.
 
 ### D6. Three output gates, because encoding is not parsing
 
 The result is encoded in the file's own encoding as libcst reports it, then
-parsed, then compiled. Because a latin-1 file cannot take a character latin-1
+compiled, then parsed. Because a latin-1 file cannot take a character latin-1
 lacks, and libcst parses what `compile()` refuses (`await` outside `async`).
-Before them a replacement may carry no character a terminal acts on except tab
-and line breaks; after them its last token must end a statement.
+`compile()` goes first because it answers a deeply nested expression with an
+exception, where libcst's parser overruns the C stack and kills the process; a
+syntax error is therefore `output_does_not_compile`, and `output_does_not_parse`
+is what `compile()` accepted and libcst cannot read. Before them a replacement
+may carry no character a terminal acts on except tab and line breaks; after
+them its last token must end a statement.
 
 ### D7. The import check reads `__import__` and `importlib.import_module` too
 
@@ -104,6 +111,48 @@ what ran with the value would run with the word. `replacement_carries_redaction`
 `[REDACTED` prefix in the replacement with the lines it replaces: a marker those lines already hold
 is the file's own text and passes. Because a proposal that compiles and imports nothing can still
 destroy a credential, and the later checks cannot see it.
+
+### D11. A reply nested deeper than the stack is refused, not raised
+
+A replacement of a few hundred operands in one chain passes `compile()` and
+libcst's parser, and the visitors that walk its tree recurse once per level and
+raise `RecursionError`. `check` catches that and `MemoryError` and records
+`output_does_not_parse`, with the detail "nested more deeply than obelize
+reads". Because a refusal is a row for a reviewer, and an exception ends the run
+with a traceback and no run folder.
+
+libcst's parser itself does not raise: it overruns the C stack and kills the
+process. `compile()` answers most deep expressions with an exception, so it is
+asked first, but it takes a chain of about 13,000 `and` or `or` terms on every
+version (the AST holds them flat) and a long chain of any operator from Python
+3.14, where its own limit is the stack's. Between `compile()` and libcst the
+guard therefore counts the tokens of the longest statement that the replacement
+holds and refuses more than `REPLACEMENT_STATEMENT_TOKENS` (500) as
+`replacement_too_large`. A statement is never deeper than its tokens. The
+number is a fraction of what was measured to kill the process on Python 3.15,
+about a thousand tokens of any chain per MiB of stack, and far above a rewritten
+call; a chain past a few hundred levels is refused after the parse anyway. The
+limit holds for the replacement alone: a file that already holds such an
+expression is read by the scanner, which has the same open item.
+
+### D12. A proposal quotes the lines it replaces, and the quote must be what was sent
+
+`EditProposal.replaces` is required: the text of the lines the range names, as
+the model was shown them. After `symbol_mismatch` the guard compares it with
+`Consultation.context.text` for `start_line` to `end_line`, line by line without
+trailing whitespace or line break, and ignoring blank lines at the end of either
+(a quote joined with newlines has no tail where the range ends blank; a final
+line break is allowed; indentation is not ignored), and refuses a difference as
+`replaced_text_differs`.
+The context is the redacted text the model read, so a secret is quoted as its
+marker and the quote of the raw value is refused. A redaction can join lines (a
+private key over three lines becomes one marker), which leaves the context with
+fewer lines than its range and every later line number untrustworthy: the guard
+then refuses every proposal for that context, with that sentence in the detail.
+Because a range that slipped by one line still covers the asked line, is inside
+the context and names the right symbol, and the result can compile: only the
+text it claims to replace can tell it from the range that was meant. A model
+that cannot quote exactly is refused more often, which fails closed.
 
 ## Consequences
 

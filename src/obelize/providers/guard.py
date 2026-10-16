@@ -8,6 +8,7 @@ proves an edit safe to apply, not correct: an accepted proposal is still a revie
 from __future__ import annotations
 
 import io
+import itertools
 import tokenize
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -33,6 +34,13 @@ REPLACEMENT_LINE_LIMIT = base.CONTEXT_LINE_LIMIT
 
 # In UTF-8 bytes, as the line limit does not bound one huge line; 1 KiB a line dwarfs any formatter.
 REPLACEMENT_BYTE_LIMIT = 1024 * REPLACEMENT_LINE_LIMIT
+
+# Tokens in the longest statement a replacement may hold. libcst's parser overruns the C stack and
+# kills the process on a chain of about 13,000 `or` terms, which `compile()` takes, and on Python
+# 3.15 on about a thousand tokens of any chain per MiB of stack, measured. A statement is never
+# deeper than its tokens, a chain past a few hundred levels is refused after the parse anyway, and
+# nobody reviews a call of this many tokens as a rewrite.
+REPLACEMENT_STATEMENT_TOKENS = 500
 
 # A call-shaped import of a non-literal module; under no module, so a new one is refused.
 DYNAMIC_IMPORT = "<computed>"
@@ -87,7 +95,16 @@ def check(
     refused = _admissible(proposal, consultation, root, before)
     if refused is not None:
         return Checked(proposal, refused[0], refused[1])
-    return _produced(proposal, consultation, before)
+    try:
+        return _produced(proposal, consultation, before)
+    except (RecursionError, MemoryError):
+        # libcst's tree walks take a few frames a level, so a reply that compiles can still
+        # overrun the stack a few hundred levels down.
+        return Checked(
+            proposal,
+            "output_does_not_parse",
+            f"{proposal.path}: nested more deeply than obelize reads",
+        )
 
 
 def _admissible(
@@ -156,7 +173,8 @@ def _produced(
     before: bytes,
 ) -> Checked:
     """Where the edit lands, and what it makes of the file."""
-    lines = base.split_lines(before)
+    source = cst.parse_module(before)
+    lines = base.split_lines(before.decode(source.encoding))
     misplaced = _placed(proposal, consultation, len(lines))
     if misplaced is not None:
         return Checked(proposal, misplaced[0], misplaced[1])
@@ -197,8 +215,6 @@ def _produced(
             f"instead of the value, and the lines it replaces hold none",
         )
 
-    # A second parse of `before`, for its encoding and imports; `split_lines` owns line splitting.
-    source = cst.parse_module(before)
     spliced = _spliced(parts, lines[proposal.start_line - 1 : proposal.end_line])
     text = "".join([*lines[: proposal.start_line - 1], *spliced, *lines[proposal.end_line :]])
     try:
@@ -211,17 +227,29 @@ def _produced(
             f"{error.object[error.start : error.end]!r}",
         )
 
-    try:
-        result = cst.parse_module(after)
-    except (cst.ParserSyntaxError, SyntaxError) as error:
-        return Checked(proposal, "output_does_not_parse", f"{proposal.path}: {_said(error)}")
+    # `compile()` first: it answers most deeply nested expressions with an exception, where libcst's
+    # parser overruns the C stack and kills the process (`scan.parse.gates` orders them so too). It
+    # takes the rest, so the longest statement is bounded before libcst sees it.
     try:
         compile(after, proposal.path, "exec")
     except cheap.COMPILE_REFUSALS as error:
         return Checked(proposal, "output_does_not_compile", f"{proposal.path}: {_said(error)}")
-
     last = proposal.start_line + len(parts) - 1
-    if _runs_past(text, last):
+    tokens = _tokens(text, last)
+    longest = _longest_statement(tokens, proposal.start_line)
+    if longest > REPLACEMENT_STATEMENT_TOKENS:
+        return Checked(
+            proposal,
+            "replacement_too_large",
+            f"a statement of the replacement is {longest} tokens and the limit is "
+            f"{REPLACEMENT_STATEMENT_TOKENS}",
+        )
+    try:
+        result = cst.parse_module(after)
+    except (cst.ParserSyntaxError, SyntaxError) as error:
+        return Checked(proposal, "output_does_not_parse", f"{proposal.path}: {_said(error)}")
+
+    if _runs_past(tokens):
         return Checked(
             proposal,
             "replacement_runs_past_its_range",
@@ -281,7 +309,36 @@ def _placed(
             f"the question was about {consultation.symbol!r} and the proposal names "
             f"{proposal.symbol!r}",
         )
+    differs = _misquoted(proposal, context)
+    return None if differs is None else ("replaced_text_differs", differs)
+
+
+def _misquoted(proposal: EditProposal, context: base.Context) -> str | None:
+    """Why the text the proposal says it replaces is not what its lines were sent as, or `None`.
+
+    Against the context as sent, redacted, so the model is held to what it read. Compared without
+    trailing whitespace or line break, and without blank lines at the end of either: a quote joined
+    with newlines has no tail where the range ends in a blank line. A redaction that joined lines
+    leaves fewer lines than the range, so no number can be trusted, and nothing is accepted.
+    """
+    shown = base.split_lines(context.text)
+    if len(shown) != context.end_line - context.start_line + 1:
+        return (
+            f"redaction joined lines of the {context.start_line}..{context.end_line} sent, so "
+            f"what lines {proposal.start_line}..{proposal.end_line} held cannot be checked"
+        )
+    first = proposal.start_line - context.start_line
+    held = shown[first : first + proposal.end_line - proposal.start_line + 1]
+    if _text(held) != _text(base.split_lines(proposal.replaces)):
+        return (
+            "the text the proposal says it replaces is not the text of lines "
+            f"{proposal.start_line}..{proposal.end_line} as they were sent"
+        )
     return None
+
+
+def _text(lines: Sequence[str]) -> str:
+    return "\n".join(line.rstrip() for line in lines).rstrip()
 
 
 def _spliced(parts: Sequence[str], replaced: Sequence[str]) -> list[str]:
@@ -347,14 +404,29 @@ class _Imports(cst.CSTVisitor):
         self.found.add(named if isinstance(named, str) else DYNAMIC_IMPORT)
 
 
-def _runs_past(after: str, last: int) -> bool:
+def _tokens(text: str, last: int) -> list[tokenize.TokenInfo]:
+    """The file's tokens up to line `last`, where the replacement ends."""
+    every = tokenize.generate_tokens(io.StringIO(text).readline)
+    return list(itertools.takewhile(lambda token: token.start[0] <= last, every))
+
+
+def _longest_statement(tokens: Sequence[tokenize.TokenInfo], first: int) -> int:
+    """The token count of the longest statement, from line `first` on, in `tokens`."""
+    longest = run = 0
+    for token in tokens:
+        if token.start[0] >= first and token.type not in _TRIVIA:
+            run = 0 if token.type == tokenize.NEWLINE else run + 1
+            longest = max(longest, run)
+    return longest
+
+
+def _runs_past(tokens: Sequence[tokenize.TokenInfo]) -> bool:
     """Whether the replacement reaches into the lines after its range.
 
     True when its last token ends no statement (a backslash, open bracket or string), which still
     parses and compiles. An opened block cannot capture the lines below: `compile()` checked that.
     """
-    tokens = tokenize.generate_tokens(io.StringIO(after).readline)
-    closing = [token for token in tokens if token.start[0] <= last and token.type not in _TRIVIA]
+    closing = [token for token in tokens if token.type not in _TRIVIA]
     return bool(closing) and closing[-1].type != tokenize.NEWLINE
 
 
@@ -504,6 +576,7 @@ __all__ = [
     "IMPORT_FUNCTIONS",
     "REPLACEMENT_BYTE_LIMIT",
     "REPLACEMENT_LINE_LIMIT",
+    "REPLACEMENT_STATEMENT_TOKENS",
     "Checked",
     "check",
 ]

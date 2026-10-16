@@ -18,19 +18,25 @@
 # rendering: which facts are stated, in which order, under which labels, where
 # the context begins and ends, and that nothing else is in the request.
 #
-# What is quoted rather than retyped. The eighteen paragraphs under "What this
+# What is quoted rather than retyped. The twenty-two paragraphs under "What this
 # pack does not automate" are the pack's own `limitations`, spliced in from
-# `src/obelize/packs/gemini/*.yaml` when this file was written. They are 3 477
-# of the message's 4 352 characters, and that is the measurement rather than an
+# `src/obelize/packs/gemini/*.yaml` when this file was written. They are 4 846
+# of the message's 5 818 characters, and that is the measurement rather than an
 # accident: a payload whose largest part is the pack's own published text and
 # whose smallest is the eight lines of somebody's code it is about
 # ([ADR-038](../../../docs/adr/ADR-038-one-endpoint.md)
 # D3).
 #
+# The context is numbered. Each of its lines is behind its number in the file
+# and a colon, so that a model answering with `start_line` and `end_line` reads
+# the numbers instead of counting; the system prompt says the numbers are not
+# code. They are added after redaction, and a colon rather than a bar because
+# `12: f(x)` cannot compile where `12 | f(x)` can.
+#
 # The other four consultations this repository makes are graded on their
 # header lines only, under `others`. One message is written out in full
 # because one is what a reader will actually read; five would be four copies
-# of the same eighteen paragraphs.
+# of the same twenty-two paragraphs.
 
 case: requests
 pack: gemini/google-generativeai-to-google-genai
@@ -70,7 +76,7 @@ headers:
 
 # The two lines that delimit somebody else's file inside the message. They are
 # a formatting convention and not a security boundary -- the boundary is
-# `providers/guard.py`, which is measured against fifteen hostile proposals in
+# `providers/guard.py`, which is measured against the hostile proposals in
 # `proposals.yaml`.
 markers:
   begin: "<<<OBELIZE CONTEXT BEGIN>>>"
@@ -130,14 +136,14 @@ message: |-
   - A model name is kept as written. Google retires models on a published schedule (https://ai.google.dev/gemini-api/docs/deprecations), so check each name you pass against it.
 
   <<<OBELIZE CONTEXT BEGIN>>>
-      def run(body):
-          # Rotated on 2026-09-01; the key this used to read was
-          # [REDACTED], which the audit log still names.
-          model = genai.GenerativeModel(
-              "gemini-1.5-flash",
-              generation_config={"seed": 7},
-          )
-          return model.generate_content(prefix + body).text
+  28:     def run(body):
+  29:         # Rotated on 2026-09-01; the key this used to read was
+  30:         # [REDACTED], which the audit log still names.
+  31:         model = genai.GenerativeModel(
+  32:             "gemini-1.5-flash",
+  33:             generation_config={"seed": 7},
+  34:         )
+  35:         return model.generate_content(prefix + body).text
   <<<OBELIZE CONTEXT END>>>
 
 # The header lines of the other four consultations this repository makes.

@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import pickle
+import subprocess
+import sys
+from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import libcst as cst
 import pytest
 
 from obelize.models import GUARD_REFUSALS, EditProposal
 from obelize.native import files
-from obelize.providers import base, guard
+from obelize.providers import base, guard, openai_compat
+from obelize.verify import redact
 from platforms import windows_only
 
 SYMBOL = "google.generativeai.GenerativeModel"
@@ -24,6 +31,11 @@ def ask(prompt):
 """
 
 
+def lines_of(source: bytes, span: tuple[int, int]) -> str:
+    """Lines `span` of `source` as a context holds them: what the guard compares a quote with."""
+    return "".join(base.split_lines(source.decode("latin-1"))[span[0] - 1 : span[1]])
+
+
 def question(
     *,
     path: str = "app.py",
@@ -33,7 +45,7 @@ def question(
     to_modules: tuple[str, ...] = ("google.genai",),
 ) -> base.Consultation:
     return base.Consultation(
-        context=base.Context(path, span[0], span[1], "the payload is not read by the guard"),
+        context=base.Context(path, span[0], span[1], lines_of(SOURCE, span)),
         line=line,
         column=12,
         symbol=symbol,
@@ -45,7 +57,8 @@ def question(
     )
 
 
-def proposal(replacement: str, **overrides: Any) -> EditProposal:
+def proposal(replacement: str, *, source: bytes = SOURCE, **overrides: Any) -> EditProposal:
+    """Quotes the lines it names, as sent, unless `replaces` says otherwise."""
     fields: dict[str, Any] = {
         "path": "app.py",
         "start_line": 4,
@@ -55,6 +68,7 @@ def proposal(replacement: str, **overrides: Any) -> EditProposal:
         "rationale": "because the test says so",
     }
     fields.update(overrides)
+    fields.setdefault("replaces", lines_of(source, (fields["start_line"], fields["end_line"])))
     return EditProposal(**fields)
 
 
@@ -66,15 +80,21 @@ def check(
     consultation: base.Consultation | None = None,
     **overrides: Any,
 ) -> guard.Checked:
+    """The consultation's context is rebuilt from `source`, so a quote is faithful to it."""
     one = consultation or question()
+    span = (one.context.start_line, one.context.end_line)
+    one = replace(one, context=replace(one.context, text=lines_of(source, span)))
     (root / one.context.path).write_bytes(source)
     return guard.check(
-        proposal(replacement, **overrides), consultation=one, root=root, before=source
+        proposal(replacement, source=source, **overrides),
+        consultation=one,
+        root=root,
+        before=source,
     )
 
 
-def test_the_vocabulary_is_the_sixteen_words_the_adrs_name() -> None:
-    """Thirteen from ADR-037 D1, three more from D7, for what an import check cannot see."""
+def test_the_vocabulary_is_the_seventeen_words_the_adrs_name() -> None:
+    """Thirteen from ADR-037 D1, three from D7 for what an import check cannot see, and D12's."""
     assert {
         "file_changed_since_read",
         "import_outside_the_target",
@@ -85,6 +105,7 @@ def test_the_vocabulary_is_the_sixteen_words_the_adrs_name() -> None:
         "path_not_python",
         "path_not_the_consulted_file",
         "path_outside_root",
+        "replaced_text_differs",
         "replacement_carries_redaction",
         "replacement_not_displayable",
         "replacement_not_encodable",
@@ -138,6 +159,23 @@ def test_a_name_windows_reads_as_another_file_is_an_escape(tmp_path: Path) -> No
     assert (tmp_path / "app.py.").read_bytes() == SOURCE
 
 
+def test_the_file_the_plan_read_is_parsed_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its lines, encoding and imports come from one parse; the result is the only other."""
+    parsed: list[bytes | str] = []
+    real = cst.parse_module
+
+    def counting(source: bytes | str) -> cst.Module:
+        parsed.append(source)
+        return real(source)
+
+    monkeypatch.setattr(cst, "parse_module", counting)
+
+    assert check(tmp_path, "pass").accepted
+    assert parsed.count(SOURCE) == 1
+
+
 def test_a_file_that_is_no_longer_there_is_a_file_that_changed(tmp_path: Path) -> None:
     """One word for four outcomes, and the detail line says which (ADR-037 D3)."""
     (tmp_path / "app.py").write_bytes(SOURCE)
@@ -170,6 +208,157 @@ def test_a_question_that_named_no_symbol_is_answered_by_nothing(tmp_path: Path) 
     checked = check(tmp_path, "pass", consultation=question(symbol=None))
 
     assert checked.refusal == "symbol_mismatch"
+
+
+def test_a_range_that_slipped_a_line_is_not_the_text_that_was_quoted(tmp_path: Path) -> None:
+    """The model meant lines 4..5, named 5..6 and still covers the asked line 5: only the quote
+    tells the two apart, and the other check that could is the later one that parses."""
+    checked = check(
+        tmp_path,
+        "def ask(prompt):\n    return None",
+        start_line=5,
+        end_line=6,
+        replaces=lines_of(SOURCE, (4, 5)),
+    )
+
+    assert checked.refusal == "replaced_text_differs"
+    assert "lines 5..6 as they were sent" in checked.detail
+    assert checked.after is None
+
+
+def test_a_quote_of_another_length_is_not_the_text_that_was_quoted(tmp_path: Path) -> None:
+    checked = check(tmp_path, "pass", replaces=lines_of(SOURCE, (4, 5)))
+
+    assert checked.refusal == "replaced_text_differs"
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        pytest.param(lambda text: text, id="exact"),
+        pytest.param(lambda text: text.rstrip("\n"), id="no-final-newline"),
+        pytest.param(lambda text: text.replace("\n", "  \n"), id="trailing-spaces"),
+        pytest.param(lambda text: text.replace("\n", "\r\n"), id="crlf"),
+    ],
+)
+def test_a_quote_may_differ_in_trailing_whitespace_and_line_ending(
+    quote: Callable[[str], str], tmp_path: Path
+) -> None:
+    """Only what a reader cannot see: a model that drops an indent has quoted other lines."""
+    checked = check(tmp_path, "pass", replaces=quote(lines_of(SOURCE, (4, 6))))
+
+    assert checked.refusal is None, checked.detail
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        pytest.param(lambda lines: "".join(lines), id="exact"),
+        pytest.param(lambda lines: "\n".join(line.rstrip("\n") for line in lines), id="joined"),
+        pytest.param(lambda lines: "".join(lines).rstrip("\n"), id="tail-left-off"),
+        pytest.param(lambda lines: "".join(lines) + "\n\n", id="longer-tail"),
+    ],
+)
+def test_a_range_ending_in_blank_lines_may_be_quoted_without_them(
+    quote: Callable[[list[str]], str], tmp_path: Path
+) -> None:
+    """A model joins lines with newlines, which leaves no last line where that one is blank."""
+    source = SOURCE + b"\n\n"
+    lines = base.split_lines(lines_of(source, (4, 8)))
+    checked = check(
+        tmp_path,
+        "pass",
+        source=source,
+        consultation=question(span=(4, 8)),
+        end_line=8,
+        replaces=quote(lines),
+    )
+
+    assert checked.refusal is None, checked.detail
+
+
+def test_blank_lines_at_the_end_are_the_only_lines_a_quote_may_leave_off(tmp_path: Path) -> None:
+    source = SOURCE + b"\n"
+    lines = base.split_lines(lines_of(source, (4, 7)))
+    wrong = "".join(lines[1:])
+
+    checked = check(
+        tmp_path,
+        "pass",
+        source=source,
+        consultation=question(span=(4, 7)),
+        end_line=7,
+        replaces=wrong,
+    )
+
+    assert checked.refusal == "replaced_text_differs"
+
+
+def test_a_file_with_crlf_endings_is_quoted_with_either(tmp_path: Path) -> None:
+    source = SOURCE.replace(b"\n", b"\r\n")
+    for quote in ("\r\n", "\n"):
+        replaces = lines_of(source, (4, 6)).replace("\r\n", quote)
+        assert check(tmp_path, "pass", source=source, replaces=replaces).refusal is None
+
+
+def test_a_quote_that_drops_the_indentation_is_other_text(tmp_path: Path) -> None:
+    quoted = [line.strip() for line in lines_of(SOURCE, (4, 6)).splitlines()]
+
+    assert check(tmp_path, "pass", replaces="\n".join(quoted)).refusal == "replaced_text_differs"
+
+
+def test_the_quote_is_held_to_what_the_model_was_shown_and_not_to_the_file(tmp_path: Path) -> None:
+    """A secret stands in the context as the marker, so the marker is what must be quoted."""
+    key = "AIza" + "x" * 35
+    source = SOURCE.replace(b'"m"', f'"{key}"'.encode())
+    shown = redact.redact(lines_of(source, (4, 6)), {})
+    one = question()
+    one = replace(one, context=replace(one.context, text=shown))
+    (tmp_path / "app.py").write_bytes(source)
+
+    def asked(replaces: str) -> guard.Checked:
+        return guard.check(
+            proposal("pass", replaces=replaces), consultation=one, root=tmp_path, before=source
+        )
+
+    assert key not in shown
+    assert asked(shown).refusal is None
+    assert asked(lines_of(source, (4, 6))).refusal == "replaced_text_differs"
+
+
+def test_a_redaction_that_joins_lines_leaves_no_number_to_trust(tmp_path: Path) -> None:
+    """A private key over three lines is one marker in the context, which leaves every line after
+    it two lower than in the file; the proposal is refused whatever it quotes."""
+    pem = b'KEY = """-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"""\n'
+    first, rest = SOURCE.split(b"\n", 1)
+    source = first + b"\n" + pem + rest
+    shown = redact.redact(lines_of(source, (1, 9)), {})
+    one = question(line=8, span=(1, 9))
+    one = replace(one, context=replace(one.context, text=shown))
+    (tmp_path / "app.py").write_bytes(source)
+
+    checked = guard.check(
+        proposal("pass", start_line=8, end_line=8, replaces=shown.splitlines()[5]),
+        consultation=one,
+        root=tmp_path,
+        before=source,
+    )
+
+    assert len(base.split_lines(shown)) == 7
+    assert checked.refusal == "replaced_text_differs"
+    assert "redaction joined lines of the 1..9 sent" in checked.detail
+
+
+def test_the_quote_is_asked_after_the_symbol_and_before_the_limits(tmp_path: Path) -> None:
+    """Placement is decided first; what a replacement is made of is not looked at until it holds."""
+    wrong = "not what was sent"
+    huge = "\n".join(["pass"] * (guard.REPLACEMENT_LINE_LIMIT + 1))
+
+    assert (
+        check(tmp_path, "pass", symbol="other.Thing", replaces=wrong).refusal == "symbol_mismatch"
+    )
+    assert check(tmp_path, huge, replaces=wrong).refusal == "replaced_text_differs"
+    assert check(tmp_path, huge).refusal == "replacement_too_large"
 
 
 @pytest.mark.parametrize(
@@ -207,6 +396,34 @@ def test_the_byte_limit_bounds_the_line_the_line_limit_cannot(
         assert f"is {size} bytes" in checked.detail
 
 
+def test_a_replacement_that_keeps_the_line_numbers_it_was_shown_does_not_compile(
+    tmp_path: Path,
+) -> None:
+    """The prompt's numbers end in a colon: behind a bar, `35| f(x)` would be a valid expression."""
+    text = SOURCE.decode().splitlines(keepends=True)[3:6]
+    shown = openai_compat.question(
+        base.Consultation(
+            context=base.Context("app.py", 4, 6, "".join(text)),
+            line=5,
+            column=12,
+            symbol=SYMBOL,
+            bail="generation_config_not_static",
+            pack_id="gemini/google-generativeai-to-google-genai",
+            to_package="google-genai",
+            to_modules=("google.genai",),
+            limitations=(),
+        )
+    )
+    copied = shown.split(openai_compat.CONTEXT_BEGIN + "\n")[1].split(
+        "\n" + openai_compat.CONTEXT_END
+    )[0]
+
+    checked = check(tmp_path, copied)
+
+    assert copied.splitlines()[0].startswith("4: ")
+    assert checked.refusal == "output_does_not_compile"
+
+
 def test_a_replacement_the_files_encoding_cannot_hold(tmp_path: Path) -> None:
     """Writing it anyway would re-encode the file, rewriting every line."""
     source = b"# -*- coding: latin-1 -*-\nimport google.generativeai as genai\n\n\nx = 1\n"
@@ -222,6 +439,119 @@ def test_a_replacement_the_files_encoding_cannot_hold(tmp_path: Path) -> None:
     assert checked.refusal == "replacement_not_encodable"
     assert "iso-8859-1" in checked.detail
     assert "→" in checked.detail
+
+
+# Each shape, one line under the byte limit, as a model could send it, overruns libcst's parser
+# (SIGSEGV) where it reaches it: `compile()` refuses some, and from Python 3.14 takes the `+` chain;
+# it takes a chain of `and` or `or` terms on every version.
+DEEP = {
+    "nested parentheses": ("x = " + "(" * 3000 + "1" + ")" * 3000, {"output_does_not_compile"}),
+    "a stack of nots": ("x = " + "not " * 10_000 + "y", {"output_does_not_compile"}),
+    "a long chain of plus": (
+        "x = " + " + ".join(["1"] * 20_000),
+        {"output_does_not_compile", "replacement_too_large"},
+    ),
+    "a long chain of or": ("x = " + " or ".join(["a"] * 13_300), {"replacement_too_large"}),
+    "a long chain of and": ("x = " + " and ".join(["a"] * 13_500), {"replacement_too_large"}),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(DEEP), ids=sorted(DEEP))
+def test_a_reply_too_deep_for_the_parser_is_refused_and_the_process_lives(
+    shape: str, tmp_path: Path
+) -> None:
+    """In a subprocess: a regression kills the interpreter, which a test must survive to report."""
+    replacement, words = DEEP[shape]
+    assert len(replacement) < guard.REPLACEMENT_BYTE_LIMIT
+    (tmp_path / "app.py").write_bytes(SOURCE)
+    code = (
+        "import pickle, sys; from pathlib import Path; from obelize.providers import guard; "
+        "one, found, source, root = pickle.load(sys.stdin.buffer); "
+        "print(guard.check(found, consultation=one, root=Path(root), before=source).refusal)"
+    )
+    done = subprocess.run(
+        [sys.executable, "-I", "-c", code],
+        input=pickle.dumps((question(), proposal(replacement), SOURCE, str(tmp_path))),
+        capture_output=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.returncode
+    assert done.stdout.strip().decode() in words
+
+
+def test_a_reply_that_compiles_but_overruns_the_stack_is_a_refusal_and_not_an_exception(
+    tmp_path: Path,
+) -> None:
+    """400 negations pass `compile()` and libcst's parser; its visitors recurse past the stack."""
+    checked = check(tmp_path, "x = " + "-" * 400 + "1")
+    assert checked.refusal == "output_does_not_parse"
+    assert checked.detail == "app.py: nested more deeply than obelize reads"
+
+
+def statement(tokens: int) -> str:
+    """One statement of exactly `tokens` tokens, for an even count: `x`, `=`, then pairs."""
+    return "x = " + "1, " * ((tokens - 2) // 2)
+
+
+@pytest.mark.parametrize(
+    ("tokens", "refused"),
+    [(guard.REPLACEMENT_STATEMENT_TOKENS, False), (guard.REPLACEMENT_STATEMENT_TOKENS + 2, True)],
+    ids=["at-the-limit", "past-it"],
+)
+def test_a_statement_is_limited_in_tokens(tokens: int, refused: bool, tmp_path: Path) -> None:
+    checked = check(tmp_path, statement(tokens))
+
+    assert checked.refusal == ("replacement_too_large" if refused else None), checked.detail
+    if refused:
+        assert checked.detail == (
+            f"a statement of the replacement is {tokens} tokens and the limit is "
+            f"{guard.REPLACEMENT_STATEMENT_TOKENS}"
+        )
+
+
+def test_the_token_limit_is_on_one_statement_and_not_on_the_replacement(tmp_path: Path) -> None:
+    """Three statements of 400 tokens: how long a replacement may be is a matter of lines."""
+    one = statement(400)
+    checked = check(tmp_path, "\n".join([one, one, one]))
+
+    assert checked.refusal is None, checked.detail
+
+
+def test_a_comment_is_no_token_of_a_statement(tmp_path: Path) -> None:
+    lines = [f"# {n}" for n in range(guard.REPLACEMENT_STATEMENT_TOKENS)]
+    checked = check(tmp_path, "\n".join([*lines[:70], "x = 1"]))
+
+    assert checked.refusal is None, checked.detail
+
+
+def test_a_statement_before_the_replaced_lines_does_not_count(tmp_path: Path) -> None:
+    """Only what the replacement adds is bounded: the file's own text was read before this ran."""
+    big = b"BIG = (" + b"1, " * guard.REPLACEMENT_STATEMENT_TOKENS + b")"
+    source = SOURCE.replace(b"\n\n\ndef", b"\n" + big + b"\n\ndef")
+
+    assert check(tmp_path, "pass", source=source).refusal is None
+
+
+def test_a_syntax_error_is_the_compilers_word_since_it_is_asked_first(tmp_path: Path) -> None:
+    checked = check(tmp_path, 'model = genai.GenerativeModel("m"')
+    assert checked.refusal == "output_does_not_compile"
+
+
+def test_a_result_the_compiler_takes_and_libcst_refuses_is_still_a_parse_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stubbed: no source is known that `compile()` takes and libcst 1.8 or later cannot read."""
+    real = cst.parse_module
+
+    def refuse_the_result(source: bytes) -> cst.Module:
+        if b"unreadable" in source:
+            raise cst.ParserSyntaxError("not a tree", lines=("x",), raw_line=1, raw_column=0)
+        return real(source)
+
+    monkeypatch.setattr(cst, "parse_module", refuse_the_result)
+    checked = check(tmp_path, "x = 1  # unreadable")
+    assert checked.refusal == "output_does_not_parse"
+    assert "not a tree" in checked.detail
 
 
 @pytest.mark.parametrize(

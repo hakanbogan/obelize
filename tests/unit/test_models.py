@@ -1509,7 +1509,13 @@ def proposed(**changes: object) -> ProposalRecord:
 
 
 A_PROPOSAL = EditProposal(
-    path="a.py", start_line=5, end_line=5, symbol="x.Y", replacement="pass", rationale="because"
+    path="a.py",
+    start_line=5,
+    end_line=5,
+    symbol="x.Y",
+    replaces="x = Y()",
+    replacement="pass",
+    rationale="because",
 )
 
 

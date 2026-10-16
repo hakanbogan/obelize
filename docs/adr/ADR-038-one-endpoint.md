@@ -22,8 +22,14 @@ A `Reply` with `None` is an answer, not a failure.
 The system message is a constant naming no pack or file; it asks for what the
 guard enforces, including that `__import__` and `importlib.import_module` are
 imports. The user message is eight labelled facts from `Consultation`, the pack
-note, and the redacted context between two marker lines. The markers only aid
-reading; `providers/guard.py` is the boundary.
+note, and the redacted context between two marker lines, each line behind its
+number in the file and a colon (`12: code`), which the system message says are
+not code. The markers only aid reading; `providers/guard.py` is the boundary.
+The numbers are added after redaction, so one cannot split a secret, and use a
+colon, because `12: f(x)` is an illegal annotation and cannot compile where
+`12 | f(x)` can: a model that copies them into its replacement is refused
+`output_does_not_compile`, not written. Because a model that has to count lines
+to answer with `start_line` and `end_line` can be off by one.
 
 ### D3. The pack note is sent whole
 
@@ -41,9 +47,16 @@ The message carries the line and the symbol only. Because `Finding.column` is
 No retry: a 429 is `endpoint_refused` with the endpoint's own sentence. The body
 is JSON with sorted keys, so the same question is the same bytes.
 `REQUEST_TIMEOUT_S = 120`, deliberately not a configuration key, and below
-verification's 600 s, which is for a whole test suite. Because a retry resends
-source code for a row that is already `needs_review`, and 120 s is enough for a
-local model on a CPU.
+verification's 600 s, which is for a whole test suite. It bounds the whole
+body: it is read in pieces of at most 64 KiB and the deadline checked after
+each, so a reply dripped a byte at a time is `endpoint_unreachable` too, though
+it may run one read past the limit. The body of an error status is read the same
+way, and one that stalls or resets leaves the status line as the detail. Not
+bounded by it: the wait for the headers and the chunk-size line of a chunked
+body, which the HTTP library reads in a loop of its own; each wait there is
+bounded by the socket timeout alone, so an endpoint that drips those can hold a
+run. Because a retry resends source code for a row that is already
+`needs_review`, and 120 s is enough for a local model on a CPU.
 
 ### D6. Three readings of the content, in a fixed order
 
@@ -61,7 +74,12 @@ repository's `model:` block is refused with exit `2` before any adapter exists.
 The opener departs from `urlopen`'s defaults: no proxy (`ProxyHandler({})`), no
 redirect (a 3xx is `endpoint_redirected`), no cookies, no compression, so the
 byte cap counts wire bytes. The URL is
-`base_url.rstrip("/") + "/chat/completions"`, never `urljoin`, which drops a `/v1`.
+`base_url.rstrip("/") + "/chat/completions"`, never `urljoin`, which drops a `/v1`;
+so a `base_url` with a query string or fragment is refused, as the path would land
+inside it. A failure detail names the host and port, never the URL. Plain `http://` is
+accepted only for `localhost`, `127.0.0.0/8` and `::1`, judged on the text with no lookup; any
+other host needs `https://` or the user's `model.allow_insecure_http: true`, because the key
+and the source would cross the network in the clear.
 `RESPONSE_BYTE_LIMIT` is 1 MiB, far above any replacement the guard accepts.
 Because the payload and the key must reach only the host the run prints.
 
@@ -70,8 +88,9 @@ Because the payload and the key must reach only the host the run prints.
 A failure detail carries the status and the endpoint's body, passed through
 `obelize.verify.redact` with the run's environment and then cut to 500
 characters. Every string in a `ProviderError` that obelize did not write is
-redacted, the operating system's included. Because a gateway may quote back the
-key it rejected.
+redacted, the operating system's included, and a lone surrogate in them is
+spelt out (`\ud800`), since the run folder is UTF-8. Because a gateway may quote
+back the key it rejected.
 
 ### D9. An unset key sends no `Authorization` header
 

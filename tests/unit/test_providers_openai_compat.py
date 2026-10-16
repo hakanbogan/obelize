@@ -8,15 +8,17 @@ from __future__ import annotations
 import email.message
 import http.client
 import io
+import itertools
 import json
 import socket
+import types
 import urllib.error
 import urllib.request
 from typing import Any
 
 import pytest
 
-from obelize.models import PROVIDER_FAILURES, ModelConfig
+from obelize.models import PROVIDER_FAILURES, EditProposal, ModelConfig
 from obelize.providers import base, guard
 from obelize.providers import openai_compat as adapter
 
@@ -27,6 +29,7 @@ GOOD = json.dumps(
             "start_line": 1,
             "end_line": 2,
             "symbol": "legacy.Thing",
+            "replaces": "x = 1\ny = 2",
             "replacement": "x = 1",
             "rationale": "because",
         }
@@ -54,32 +57,16 @@ def _consultation(**changes: Any) -> base.Consultation:
     return base.Consultation(**fields)
 
 
-class _Answer:
-    """A response body for a caller that reads it once, with a size cap."""
-
-    def __init__(self, body: bytes) -> None:
-        self.body = body
-
-    def read(self, amount: int) -> bytes:
-        return self.body[:amount]
-
-    def __enter__(self) -> _Answer:
-        return self
-
-    def __exit__(self, *unused: object) -> None:
-        return None
-
-
 class _Stub:
     def __init__(self, outcome: bytes | Exception) -> None:
         self.outcome = outcome
         self.seen: list[urllib.request.Request] = []
 
-    def open(self, request: urllib.request.Request, timeout: float | None = None) -> _Answer:
+    def open(self, request: urllib.request.Request, timeout: float | None = None) -> io.BytesIO:
         self.seen.append(request)
         if isinstance(self.outcome, Exception):
             raise self.outcome
-        return _Answer(self.outcome)
+        return io.BytesIO(self.outcome)
 
 
 def _adapter(
@@ -148,6 +135,12 @@ def test_the_system_prompt_asks_for_what_the_guard_enforces() -> None:
     assert adapter.CONTEXT_END in adapter.SYSTEM_PROMPT
 
 
+def test_the_system_prompt_shows_every_field_a_proposal_needs() -> None:
+    """A field `EditProposal` requires and the prompt never mentions is refused in every reply."""
+    for name in EditProposal.model_fields:
+        assert f'"{name}"' in adapter.SYSTEM_PROMPT
+
+
 def test_the_system_prompt_names_no_pack_and_no_migration() -> None:
     """Fixed means the same bytes in every request, whatever is migrated."""
     assert "google" not in adapter.SYSTEM_PROMPT
@@ -173,7 +166,33 @@ def test_a_context_that_does_not_end_in_a_newline_still_ends_its_line() -> None:
     """Without it the end marker glues to the code and the payload depends on how the file ends."""
     context = base.Context(path="app.py", start_line=1, end_line=1, text="x = 1")
     message = adapter.question(_consultation(context=context))
-    assert message.endswith(f"x = 1\n{adapter.CONTEXT_END}")
+    assert message.endswith(f"1: x = 1\n{adapter.CONTEXT_END}")
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [
+        pytest.param("a\n\nb\nc\n", [" 99: a", "100: ", "101: b", "102: c"], id="a-blank-line"),
+        pytest.param("a\r\nb\rc", [" 99: a", "100: b", "101: c"], id="mixed-endings"),
+    ],
+)
+def test_each_line_of_the_context_is_behind_its_number_in_the_file(
+    text: str, shown: list[str]
+) -> None:
+    """Right-aligned to the last number, so the code starts in one column; no `\\r` survives."""
+    context = base.Context(path="app.py", start_line=99, end_line=102, text=text)
+    message = adapter.question(_consultation(context=context))
+    inside = message.split(adapter.CONTEXT_BEGIN + "\n")[1].split("\n" + adapter.CONTEXT_END)[0]
+
+    assert inside.split("\n") == shown
+    assert "\r" not in message
+
+
+def test_the_system_prompt_says_the_line_numbers_are_not_code() -> None:
+    """The format `question` writes, named once in the prompt, and a replacement told to drop it."""
+    assert "`12: code`" in adapter.SYSTEM_PROMPT
+    assert "not part of the code" in adapter.SYSTEM_PROMPT
+    assert "without the line numbers" in adapter.SYSTEM_PROMPT
 
 
 def test_the_body_is_the_same_bytes_twice() -> None:
@@ -255,6 +274,127 @@ def test_nothing_answered_is_one_word(monkeypatch: pytest.MonkeyPatch, raised: E
     assert _refusal(monkeypatch, raised).failure == "endpoint_unreachable"
 
 
+def test_an_unreachable_endpoint_is_named_by_host_and_port_and_never_by_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The detail is written to the run folder, and a path can hold a key no redactor knows."""
+    made = adapter.OpenAICompat(
+        url="http://localhost:8080/abcd1234/v1/chat/completions",
+        model="a-model",
+        environ={},
+        api_key_env="OBELIZE_MODEL_API_KEY",
+    )
+    monkeypatch.setattr(made, "opener", _Stub(urllib.error.URLError("no route to host")))
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.detail == "localhost:8080: <urlopen error no route to host>"
+
+
+class _OneByteAtATime(io.BytesIO):
+    """A body whose every read is short, as a dripped reply's is."""
+
+    def read1(self, size: int | None = -1, /) -> bytes:
+        return self.read(1)
+
+
+@pytest.mark.parametrize(
+    ("timeout_s", "word"),
+    [(100.0, "endpoint_unreachable"), (1000.0, "response_not_json")],
+    ids=["past_the_deadline", "inside_it"],
+)
+def test_the_deadline_bounds_the_whole_body_and_not_each_read(
+    monkeypatch: pytest.MonkeyPatch, timeout_s: float, word: str
+) -> None:
+    """Each read is 40 s on a fake clock: no read waits long, and the third passes 100 s."""
+    ticks = itertools.count(0, 40)
+    monkeypatch.setattr(adapter, "time", types.SimpleNamespace(monotonic=lambda: next(ticks)))
+    made = adapter.OpenAICompat(
+        url="https://example.invalid/v1/chat/completions",
+        model="a-model",
+        environ={},
+        api_key_env="OBELIZE_MODEL_API_KEY",
+        timeout_s=timeout_s,
+    )
+    opener = types.SimpleNamespace(open=lambda request, timeout=None: _OneByteAtATime(b"x" * 9))
+    monkeypatch.setattr(made, "opener", opener)
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.failure == word
+    if word == "endpoint_unreachable":
+        assert raised.value.detail == "example.invalid: no complete answer within 100 s"
+
+
+class _BrokenBody(io.BytesIO):
+    """An error page whose first read fails, as a stalled or reset connection's does."""
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__(b"")
+        self.error = error
+
+    def read1(self, size: int | None = -1, /) -> bytes:
+        raise self.error
+
+
+def _error_with(body: io.BytesIO) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://example.invalid/v1/chat/completions",
+        502,
+        "Bad Gateway",
+        email.message.Message(),
+        body,
+    )
+
+
+@pytest.mark.parametrize(
+    ("raised", "said"),
+    [
+        (TimeoutError("timed out"), "timed out"),
+        (ConnectionResetError("reset"), "reset"),
+        (http.client.IncompleteRead(b"ab", 10), "IncompleteRead"),
+    ],
+    ids=["stalled", "reset", "cut_short"],
+)
+def test_an_error_page_that_does_not_arrive_is_the_status_and_not_an_exception(
+    monkeypatch: pytest.MonkeyPatch, raised: Exception, said: str
+) -> None:
+    """`base.consult` catches `ProviderError` alone: anything else ends the run in a traceback."""
+    error = _refusal(monkeypatch, _error_with(_BrokenBody(raised)))
+    assert error.failure == "endpoint_refused"
+    assert error.detail.startswith("HTTP 502 Bad Gateway: (the body did not arrive: ")
+    assert said in error.detail
+
+
+def test_the_deadline_bounds_an_error_page_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each read is 40 s on a fake clock, as for a 2xx body: the third passes the 100 s."""
+    ticks = itertools.count(0, 40)
+    monkeypatch.setattr(adapter, "time", types.SimpleNamespace(monotonic=lambda: next(ticks)))
+    made = adapter.OpenAICompat(
+        url="https://example.invalid/v1/chat/completions",
+        model="a-model",
+        environ={},
+        api_key_env="OBELIZE_MODEL_API_KEY",
+        timeout_s=100.0,
+    )
+    error = _error_with(_OneByteAtATime(b"x" * 9))
+    monkeypatch.setattr(made, "opener", _Stub(error))
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.failure == "endpoint_refused"
+    assert raised.value.detail.endswith(
+        "(the body did not arrive: no complete answer within 100 s)"
+    )
+
+
+def test_a_lone_surrogate_in_an_endpoints_words_is_spelt_out_so_it_can_be_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """JSON's `\\ud800` escape makes one; the detail goes to the run folder as UTF-8."""
+    error = _refusal(monkeypatch, _completion("prose \ud800 and nothing else"))
+    assert error.failure == "answer_not_json"
+    assert error.detail == "prose \\ud800 and nothing else"
+    error.detail.encode("utf-8")
+
+
 def test_a_long_refusal_is_cut_and_says_it_was(monkeypatch: pytest.MonkeyPatch) -> None:
     """The endpoint's words are bounded; redaction runs before the cut (ADR-038 D8)."""
     error = _refusal(monkeypatch, _http_error(500, b"x" * 3000))
@@ -311,6 +451,46 @@ def test_a_usage_that_is_not_an_object_is_no_counts(monkeypatch: pytest.MonkeyPa
     made, _ = _adapter(monkeypatch, body)
     reply = made.propose(_consultation())
     assert (reply.tokens_in, reply.tokens_out) == (0, 0)
+
+
+def test_a_body_nested_past_the_parser_is_not_json_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`RecursionError` is not a `ValueError`; a 1 MiB body holds a depth that raises it."""
+    deep = b"[" * 400_000 + b"]" * 400_000
+    assert len(deep) < adapter.RESPONSE_BYTE_LIMIT
+    assert _refusal(monkeypatch, deep).failure == "response_not_json"
+
+
+def test_a_body_loads_takes_and_dumps_refuses_is_not_a_completion_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On Python 3.15 `loads` reads 65,000 levels and `dumps` raises at fewer, so the detail
+    cannot be a dump; the refusal is stubbed because no version before it has such a window.
+    """
+
+    def refuse(value: object) -> str:
+        raise RecursionError
+
+    made, _ = _adapter(monkeypatch, b"[[[]]]")
+    monkeypatch.setattr(made, "request", lambda consultation: b"{}")
+    monkeypatch.setattr(adapter, "json", types.SimpleNamespace(loads=json.loads, dumps=refuse))
+    with pytest.raises(base.ProviderError) as raised:
+        made.propose(_consultation())
+    assert raised.value.failure == "response_not_a_completion"
+    assert raised.value.detail == "(nested more deeply than obelize shows)"
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["[" * 100_000, '{"proposal": ' + "[" * 100_000 + "]" * 100_000 + "}"],
+    ids=["array", "inside_an_object"],
+)
+def test_an_answer_nested_past_the_parser_is_not_json_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, content: str
+) -> None:
+    """Every reading of the content fails the same way, so none is an object."""
+    assert _refusal(monkeypatch, _completion(content)).failure == "answer_not_json"
 
 
 def test_an_answer_that_is_json_and_not_an_object_is_prose(

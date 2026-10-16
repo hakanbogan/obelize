@@ -21,6 +21,10 @@
           "title": "Replacement",
           "type": "string"
         },
+        "replaces": {
+          "title": "Replaces",
+          "type": "string"
+        },
         "start_line": {
           "minimum": 1,
           "title": "Start Line",
@@ -36,6 +40,7 @@
         "start_line",
         "end_line",
         "symbol",
+        "replaces",
         "replacement",
         "rationale"
       ],
@@ -229,6 +234,7 @@
             "path_not_python",
             "path_not_the_consulted_file",
             "path_outside_root",
+            "replaced_text_differs",
             "replacement_carries_redaction",
             "replacement_not_displayable",
             "replacement_not_encodable",

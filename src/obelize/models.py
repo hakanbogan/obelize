@@ -9,6 +9,7 @@ pydantic.
 
 from __future__ import annotations
 
+import ipaddress
 import keyword
 import re
 import shlex
@@ -245,7 +246,7 @@ CONSULT_SKIPS: frozenset[ConsultSkip] = frozenset(get_args(ConsultSkip))
 
 # Why `obelize.providers.guard` refused a proposal; the first refusal in its order is recorded.
 # `file_changed_since_read` is RefusalCode's word on purpose; parse and compile both stay because
-# `await` outside `async` passes libcst and fails `compile()`.
+# `await` outside `async` passes libcst and fails `compile()`, which is asked first.
 GuardRefusal = Literal[
     "file_changed_since_read",
     "import_outside_the_target",
@@ -256,6 +257,7 @@ GuardRefusal = Literal[
     "path_not_python",
     "path_not_the_consulted_file",
     "path_outside_root",
+    "replaced_text_differs",
     "replacement_carries_redaction",
     "replacement_not_displayable",
     "replacement_not_encodable",
@@ -365,6 +367,8 @@ _PLAIN_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # The user config names the variable holding the API key, never the key; a pasted `sk-...` key
 # fails because `-` is not a name character.
 _ENV_VAR_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Always lone in a `str`: JSON's `\ud800` escape makes one and UTF-8 cannot write it.
+_SURROGATE = re.compile("[\ud800-\udfff]")
 
 # Commands run via `shlex` with `shell=False`, so `|` would silently be an argument.
 _SHELL_OPERATORS = frozenset({"|", "||", "&", "&&", ";", ">", ">>", "<", "<<", "2>", "2>&1"})
@@ -374,6 +378,14 @@ _REFUSED_CATEGORIES = frozenset({"Cc", "Cf", "Cs"})
 
 # In characters: fits PACK_SPEC.md's longest limitation sentence and keeps a report row one row.
 DISPLAY_TEXT_LIMIT = 500
+
+
+def _loopback(host: str) -> bool:
+    """`localhost` or a loopback address by its text; a name that resolves to one is not."""
+    try:
+        return host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _relative_posix_path(value: str) -> str:
@@ -745,6 +757,8 @@ class EditProposal(_Frozen):
     end_line: int = Field(ge=1)
     # The legacy symbol it claims to migrate; the guard checks it is at that line.
     symbol: str
+    # The range's old text as the model read it; the guard compares it with what was sent.
+    replaces: str
     # The range's new text: newline-separated, no trailing newline.
     replacement: str
     # For the report; it never reaches the tree.
@@ -764,6 +778,11 @@ class EditProposal(_Frozen):
         ):
             if not value.strip():
                 raise ValueError(f"{field} is empty, so the proposal names nothing")
+        for field in ("path", "symbol", "replaces", "replacement", "rationale"):
+            if _SURROGATE.search(getattr(self, field)):
+                raise ValueError(
+                    f"{field} holds a lone surrogate, which no file or report can hold"
+                )
         return self
 
 
@@ -1078,6 +1097,7 @@ class ModelConfig(_Frozen):
 
     provider: ProviderName = "none"
     base_url: str | None = None
+    allow_insecure_http: bool = False
     model: str | None = None
     api_key_env: str = "OBELIZE_MODEL_API_KEY"
     log_prompts: bool = False
@@ -1101,6 +1121,21 @@ class ModelConfig(_Frozen):
                     "base_url must not carry credentials; put the key in the environment "
                     "variable named by api_key_env"
                 )
+            # On the text: a bare `?` leaves `parts.query` empty and still breaks the appended path.
+            if "?" in self.base_url or "#" in self.base_url:
+                raise ValueError(
+                    "base_url must not carry a query string or fragment, which the appended "
+                    "path would land inside; put the key in the environment variable named "
+                    "by api_key_env"
+                )
+            if parts.scheme == "http" and not (
+                self.allow_insecure_http or _loopback(parts.hostname)
+            ):
+                raise ValueError(
+                    f"base_url is plain http to {parts.hostname}, which sends the key and your "
+                    f"source in the clear; use https, or set allow_insecure_http: true for a "
+                    f"network you trust"
+                )
         if self.provider != "none":
             missing = [
                 name
@@ -1115,7 +1150,7 @@ class ModelConfig(_Frozen):
 
     @property
     def host(self) -> str | None:
-        """The host `run.json` records -- never the whole URL, which can carry a query."""
+        """The host `run.json` records, never the whole URL."""
         return urlsplit(self.base_url).hostname if self.base_url is not None else None
 
 

@@ -41,6 +41,11 @@ ENVIRON = {"OBELIZE_MODEL_API_KEY": str(REPLIES["api_key"])}
 # ends before the module does.
 SLOW_SECONDS = 1.0
 
+# The dripping endpoint: this many bytes, one per pause. The pause is far under any deadline here
+# and the whole is four times the shortest.
+DRIP_BYTES = 20
+DRIP_PAUSE_S = 0.05
+
 # The request half's route, deliberately not a reply case.
 REQUEST_ROUTE = "requests"
 
@@ -69,6 +74,7 @@ def _sized(target: int) -> bytes:
                 "start_line": 31,
                 "end_line": 34,
                 "symbol": "google.generativeai.GenerativeModel",
+                "replaces": "        model = genai.GenerativeModel()",
                 "replacement": "        model = new_genai.Client().models",
                 "rationale": "x" * pad,
             }
@@ -110,6 +116,12 @@ class Endpoint(http.server.BaseHTTPRequestHandler):
         if case.get("transport") == "slow":
             time.sleep(SLOW_SECONDS)
             return
+        if case.get("transport") == "drip":
+            self._drip(int(case.get("status", 200)))
+            return
+        if case.get("transport") == "stall":
+            self._stall(int(case["status"]))
+            return
         self._answer(int(case.get("status", 200)), _reply(case), case.get("location"))
 
     def do_GET(self) -> None:
@@ -134,6 +146,29 @@ class Endpoint(http.server.BaseHTTPRequestHandler):
                 body=self.rfile.read(length),
             )
         )
+
+    def _drip(self, status: int) -> None:
+        try:
+            self.send_response(status)
+            self.send_header("Content-Length", str(DRIP_BYTES))
+            self.end_headers()
+            for _ in range(DRIP_BYTES):
+                self.wfile.write(b"x")
+                time.sleep(DRIP_PAUSE_S)
+        except OSError:
+            pass  # The client gave up, which is what the deadline does.
+
+    def _stall(self, status: int) -> None:
+        """A body promised in full and sent in part, then silence."""
+        try:
+            self.send_response(status)
+            self.send_header("Content-Length", "1000")
+            self.end_headers()
+            self.wfile.write(b"abc")
+            self.wfile.flush()
+            time.sleep(SLOW_SECONDS)
+        except OSError:
+            pass  # The client gave up, which is what the socket timeout does.
 
     def _answer(self, status: int, payload: bytes, location: str | None = None) -> None:
         try:
@@ -222,7 +257,11 @@ def test_the_context_sits_once_between_the_two_markers(driven: Driven) -> None:
     assert message.count(begin) == 1
     assert message.count(end) == 1
     assert message.endswith(end)
-    assert message.split(begin)[1].split(end)[0] == "\n" + driven.consultation.context.text
+    inside = message.split(begin)[1].split(end)[0].strip("\n").split("\n")
+    context = driven.consultation.context
+    numbers = range(context.start_line, context.end_line + 1)
+    assert [line.split(": ", 1)[0].strip() for line in inside] == [str(one) for one in numbers]
+    assert "\n".join(line.split(": ", 1)[1] for line in inside) + "\n" == context.text
 
 
 def test_the_other_consultations_state_their_own_facts(driven: Driven) -> None:
@@ -315,6 +354,7 @@ def test_the_endpoint_behaviour_gets_the_word_the_key_names(
     with pytest.raises(base.ProviderError) as raised:
         made.propose(driven.consultation)
     assert raised.value.failure == outcome
+    raised.value.detail.encode("utf-8")  # it is written to the run folder as UTF-8
     if "detail_holds" in case:
         assert str(case["detail_holds"]) in raised.value.detail
 

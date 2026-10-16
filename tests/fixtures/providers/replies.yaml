@@ -5,7 +5,7 @@
 # shape and then names the thing that makes it awkward: "Structured output is
 # not uniformly available. The Anthropic compatibility layer ignores
 # `response_format` and `strict`, so the fenced-JSON fallback is not optional
-# and must be tested." That is one row below. The other twenty-two are there
+# and must be tested." That is one row below. The other twenty-eight are there
 # because an adapter graded only on the endpoint behaving is an adapter whose
 # failure path is written from imagination.
 #
@@ -50,7 +50,7 @@ cases:
       The endpoint honoured `response_format`, so the content is the object
       and nothing else. This is the path every other case here is a departure
       from.
-    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
     usage: {prompt_tokens: 1234, completion_tokens: 56}
     outcome: proposal
     tokens_in: 1234
@@ -69,7 +69,7 @@ cases:
       Here is the edit:
 
       ```json
-      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
       ```
 
       Let me know if you would like the config written as {**options} instead.
@@ -83,7 +83,7 @@ cases:
       smaller model tends to emit.
     content: |-
       ```
-      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
       ```
     outcome: proposal
 
@@ -103,7 +103,7 @@ cases:
       and here is the edit:
 
       ```json
-      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}
       ```
     outcome: proposal
 
@@ -116,7 +116,7 @@ cases:
       The whole span from the first brace to the last is what rescues it.
     content: |-
       ```json
-      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        # ```\n        model = None", "rationale": "the client is built where the model was"}}
+      {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        # ```\n        model = None", "rationale": "the client is built where the model was"}}
       ```
     outcome: proposal
 
@@ -125,7 +125,7 @@ cases:
       No fence at all, just a sentence either side. The braces candidate again,
       and the reason it is the last one tried rather than the first: it would
       happily take the first brace of a sentence that merely mentions one.
-    content: 'Sure! {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}} Hope that helps.'
+    content: 'Sure! {"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}} Hope that helps.'
     outcome: proposal
 
   - case: no_usage_block
@@ -133,7 +133,7 @@ cases:
       A local runner that does not report token counts. Zero is the honest
       answer and not an error: the proposal is unaffected and the evidence
       says nought rather than guessing.
-    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
     outcome: proposal
     tokens_in: 0
     tokens_out: 0
@@ -143,7 +143,7 @@ cases:
       An endpoint that reports the prompt in words and the completion as a
       negative number. Neither is a count, both become nought, and the answer
       still stands.
-    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = new_genai.Client().models", "rationale": "the client is built where the model was"}}'
     usage: {prompt_tokens: "many", completion_tokens: -3}
     outcome: proposal
     tokens_in: 0
@@ -176,7 +176,7 @@ cases:
       envelope is what distinguishes "here is an edit" from "I have none", and
       a reader guessing which one an object without it meant would be guessing
       on behalf of a model that was told.
-    content: '{"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = None", "rationale": "guessing"}'
+    content: '{"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = None", "rationale": "guessing"}'
     outcome: answer_not_a_proposal
 
   - case: an_envelope_holding_something_else
@@ -193,8 +193,18 @@ cases:
       an empty path and a line number below one. ADR-036 D5's distinction --
       unanswered, not refused -- and the case that keeps `EditProposal`'s own
       validation from being dead code.
-    content: '{"proposal": {"path": "", "start_line": 0, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = None", "rationale": "guessing"}}'
+    content: '{"proposal": {"path": "", "start_line": 0, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = None", "rationale": "guessing"}}'
     outcome: proposal_does_not_hold
+
+  - case: a_proposal_that_does_not_say_what_it_replaces
+    what_it_is: >-
+      Everything but `replaces`, the lines it quotes so that the guard can tell
+      a range that slipped from the range that was meant. A proposal that
+      cannot be checked is not held, and the case keeps the field required
+      rather than defaulted.
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replacement": "        model = None", "rationale": "guessing"}}'
+    outcome: proposal_does_not_hold
+    detail_holds: replaces
 
   # -- the endpoint answered and it was not a completion -------------------
   - case: an_error_object_with_a_200
@@ -284,3 +294,55 @@ cases:
     transport: slow
     deadline_s: 0.25
     outcome: endpoint_unreachable
+
+  - case: dripped_past_the_deadline
+    what_it_is: >-
+      An endpoint that answers at once and then sends a byte every twentieth of
+      a second, so no single wait is long and the whole takes a second. The
+      deadline is a quarter of a second: it bounds the answer, not each wait
+      for a piece of it, which is all a socket timeout can say.
+    transport: drip
+    deadline_s: 0.25
+    outcome: endpoint_unreachable
+    detail_holds: no complete answer
+
+  - case: error_body_dripped_past_the_deadline
+    what_it_is: >-
+      A gateway that answers 502 at once and drips its error page a byte at a
+      time. The deadline bounds that body too: the status is still the
+      refusal, and the detail says the body did not arrive.
+    transport: drip
+    status: 502
+    deadline_s: 0.25
+    outcome: endpoint_refused
+    detail_holds: no complete answer
+
+  - case: error_body_that_stalls
+    what_it_is: >-
+      A gateway that answers 500, promises a body and sends three bytes of it
+      before going quiet. The wait for the rest is a refusal with the status,
+      not an exception that ends the run.
+    transport: stall
+    status: 500
+    deadline_s: 0.25
+    outcome: endpoint_refused
+    detail_holds: did not arrive
+
+  - case: a_proposal_with_a_lone_surrogate
+    what_it_is: >-
+      A JSON `\ud800` escape in a field, which makes a string that no file, no
+      report and no JSON document obelize writes can hold. It is a proposal too
+      malformed to hold, so the case is unanswered, and the answer does not
+      reach the guard or the run folder to fail there.
+    content: '{"proposal": {"path": "nested.py", "start_line": 31, "end_line": 34, "symbol": "google.generativeai.GenerativeModel", "replaces": "        model = genai.GenerativeModel(\n            \"gemini-1.5-flash\",\n            generation_config={\"seed\": 7},\n        )", "replacement": "        model = None", "rationale": "the \ud800 case"}}'
+    outcome: proposal_does_not_hold
+    detail_holds: lone surrogate
+
+  - case: prose_with_a_lone_surrogate
+    what_it_is: >-
+      The same escape in a sentence that is no answer. The detail quotes the
+      endpoint's words, and a lone surrogate in it is spelt out so that the
+      record of the failure can be written.
+    content: "I cannot help with \ud800 that."
+    outcome: answer_not_json
+    detail_holds: '\ud800'

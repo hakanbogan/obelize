@@ -501,6 +501,7 @@ pack_dirs:
 model:
   provider: none            # the default; no network call is made while it is `none`
   # base_url: "http://localhost:11434/v1"
+  # allow_insecure_http: false
   # model: "qwen2.5-coder"
   # api_key_env: OBELIZE_MODEL_API_KEY
   # log_prompts: false
@@ -517,7 +518,8 @@ The `model` keys are acted on by `obelize fix`.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `model.provider` | `none` \| `openai_compat` | `none` | Model adapter for ambiguous cases; `none` makes no network call. |
-| `model.base_url` | string | unset | An OpenAI-compatible endpoint, such as a local Ollama. `http` or `https`, no credential: the host goes into the evidence. |
+| `model.base_url` | string | unset | An OpenAI-compatible endpoint, such as a local Ollama. `http` or `https`, with no credential, query string or fragment (the key goes in `api_key_env`): the host goes into the evidence. |
+| `model.allow_insecure_http` | boolean | `false` | Permit a plain `http://` `base_url` that is not `localhost`, `127.0.0.0/8` or `::1`, which sends the key and your source across the network in the clear. Unset, such a URL is refused. |
 | `model.model` | string | unset | Model name sent to the endpoint. |
 | `model.api_key_env` | string | `OBELIZE_MODEL_API_KEY` | Environment variable holding the key; the key never reaches configuration, logs or evidence. |
 | `model.log_prompts` | boolean | `false` | Keep raw prompts, which contain source, in the run folder. |

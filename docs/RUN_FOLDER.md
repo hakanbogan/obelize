@@ -250,7 +250,7 @@ the `verify` object alone.
 | Field | Type | Description |
 |---|---|---|
 | `provider` | string | `openai_compat`, the only v0 value. |
-| `host` | string | The host of `base_url`, never the full URL, whose query can carry a credential. |
+| `host` | string | The host of `base_url`, never the full URL, whose path can carry a credential. |
 | `model` | string | The model name sent. |
 | `proposals` | integer | Edits proposed, not questions asked. |
 | `accepted` | integer | Proposals that passed every guard check **and** were written, which needs `--apply` with `--accept-model`. |
@@ -414,7 +414,7 @@ anything was proposed.
 | `failure` | string or null | A [`provider failure`](#an-adapter-could-not-answer-providerfailure), set exactly when `outcome` is `unanswered`. |
 | `refusal` | string or null | A [`guard refusal`](#the-guard-refused-a-proposal-guardrefusal), set exactly when `outcome` is `guard_refused`. |
 | `detail` | string or null | One line from whichever decided; the endpoint's words are redacted, then cut. |
-| `proposal` | object or null | What came back, unvalidated (`path`, `start_line`, `end_line`, `symbol`, `replacement`, `rationale`), so a proposal naming `~/.bashrc` is refused **by name**, not lost in a parse error. |
+| `proposal` | object or null | What came back, unvalidated (`path`, `start_line`, `end_line`, `symbol`, `replaces`, `replacement`, `rationale`), so a proposal naming `~/.bashrc` is refused **by name**, not lost in a parse error. |
 
 ### The four Phase 3 vocabularies
 
@@ -448,11 +448,11 @@ them.
 | `response_not_a_completion` | JSON with no `choices[0].message.content` string. |
 | `answer_not_json` | The content holds no JSON object under any of the three readings. |
 | `answer_not_a_proposal` | An object without the key it was asked for. A bare proposal at the top level is this too: the envelope separates "an edit" from "none". |
-| `proposal_does_not_hold` | `EditProposal` refuses it. Unanswered, not refused. |
+| `proposal_does_not_hold` | `EditProposal` refuses it: a field it cannot hold, such as an empty path, a missing `replaces` or a lone surrogate, which no file or report can carry. Unanswered, not refused. |
 
 #### The guard refused a proposal (`GuardRefusal`)
 
-`refusal`. Sixteen words in three groups; the **first** refusal in this order is
+`refusal`. Seventeen words in three groups; the **first** refusal in this order is
 recorded, because a hostile proposal trips several and a reviewer needs the
 first.
 
@@ -472,17 +472,18 @@ Is this an answer to the question:
 | `outside_the_context` | The replaced range is not inside the range sent. |
 | `site_not_replaced` | The range does not contain the line asked about. |
 | `symbol_mismatch` | It names another symbol, or the consultation named none to check. |
+| `replaced_text_differs` | The lines it says it replaces (`replaces`) are not the lines it names as they were sent, trailing whitespace, line endings and blank lines at the end aside: a range that slipped is not the range that was meant. Also refused when redaction joined lines of what was sent, so that no line number can be trusted. |
 
 Is what it produces Python, and does it bring anything in:
 
 | Value | Meaning |
 |---|---|
-| `replacement_too_large` | Over ADR-003's diff size limit, in lines or bytes. |
+| `replacement_too_large` | Over ADR-037's size limits: too many lines, too many bytes, or one statement of more than 500 tokens, which libcst's parser may not survive. |
 | `replacement_not_displayable` | A control, format or surrogate character other than tab or line break: the line a reviewer reads is not the line that runs. |
 | `replacement_carries_redaction` | It holds `[REDACTED`, the placeholder for a secret the model was shown instead of the value, and the lines it replaces hold none: written as it stands it would put the word in the file. |
 | `replacement_not_encodable` | Not writable in the file's own encoding. |
-| `output_does_not_parse` | libcst refuses the result. |
-| `output_does_not_compile` | `compile()` refuses it: `await` outside `async` passes libcst and fails here. |
+| `output_does_not_compile` | `compile()` refuses the result: a syntax error, a nesting too deep to read, or `await` outside `async`, which libcst accepts. Asked first, because libcst's parser dies on a deeply nested expression. |
+| `output_does_not_parse` | libcst refuses a result `compile()` accepted, or the result nests deeper than obelize can walk. |
 | `replacement_runs_past_its_range` | It changes how the following lines read (a trailing backslash or open bracket, or an opened block or string), though it parses and compiles. |
 | `import_outside_the_target` | It imports a module the pack does not target, `__import__` and `importlib.import_module` included. |
 | `name_outside_the_question` | It uses a name nothing licenses: not in the replaced lines, not bound by a target-module import or by itself, not an allowed builtin; never a double-underscore name. Catches `imp = __import__`, `exec("import os")`, `open(...)`, a module the file already imported. |
