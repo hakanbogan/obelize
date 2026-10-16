@@ -333,6 +333,7 @@ def test_the_hand_written_scan_specs_agree_with_the_bundled_pack() -> None:
     spec = loader.to_scan_spec(BUNDLED)
     assert spec.pack_id == BUNDLED_ID
     assert spec.client_symbol == "google.generativeai.configure"
+    assert spec.new_client_symbol == "google.genai.Client"
     assert spec.constructor_symbols == ("google.generativeai.GenerativeModel",)
     assert spec.legacy_distribution == "google-generativeai"
     assert spec.new_distribution == "google-genai"

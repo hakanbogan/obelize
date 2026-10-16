@@ -951,6 +951,7 @@ PROJECTED = {
     "prefilter_tokens",
     "symbols",
     "client_symbol",
+    "new_client_symbol",
     "constructor_symbols",
     "supported_methods",
     "method_returns",

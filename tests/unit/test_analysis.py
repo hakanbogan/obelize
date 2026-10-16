@@ -561,6 +561,70 @@ def test_an_unresolvable_receiver_needs_a_constructor_somewhere_in_the_file() ->
     assert silent.findings == ()
 
 
+HALF = "import acme.sdk as sdk\nimport acme.client as new\n\nM = sdk.Model('m')\n"
+NEW_CLIENT = SPEC.model_copy(update={"new_client_symbol": "acme.client.Client"})
+
+
+def unresolved(source: str, spec: ScanSpec = NEW_CLIENT) -> list[int]:
+    return [
+        line
+        for line, _kind, reason, _s in rows(scan(source, spec))
+        if reason == "receiver_unresolved"
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "handle = new.Client()\n\n\ndef go(p):\n    return handle.chats.run(p)\n",
+        "handle = new.Client()\n\n\ndef go(p):\n    return handle.chats.create().run(p)\n",
+        "def go(p):\n    handle = new.Client()\n    return handle.run(p)\n",
+        "from acme.client import Client\n\nhandle = Client()\nhandle.run(1)\n",
+        "handle = new.Client()\nhandle = new.Client()\nhandle.run(1)\n",
+    ],
+    ids=[
+        "through a module name",
+        "through a call",
+        "in the same function",
+        "from-imported",
+        "twice",
+    ],
+)
+def test_a_call_on_the_new_sdks_client_is_not_an_unresolved_receiver(source: str) -> None:
+    """A half-migrated file holds both, and the new client's `run` is no legacy usage to name."""
+    assert unresolved(HALF + source) == []
+    assert unresolved(HALF + source, SPEC) != [], "the pack names no new client, so it is as before"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "handle = new.Client()\nhandle = other()\nhandle.run(1)\n",
+        "handle = new.Other()\nhandle.run(1)\n",
+        "def go(handle, p):\n    return handle.run(p)\n",
+        "def go(p):\n    return other().run(p)\n",
+        "def go(p):\n    return handle.run(p)\n",
+        "handles = [new.Client()]\nhandles[0].run(1)\n",
+        "def go(p):\n    return 'text'.run(p)\n",
+        "class A:\n    def __init__(self):\n        self.h = new.Client()\n\n"
+        "    def go(self, p):\n        return self.h.run(p)\n",
+    ],
+    ids=[
+        "also something else",
+        "another class",
+        "a parameter",
+        "a call",
+        "no assignment",
+        "a list",
+        "a literal",
+        "an attribute",
+    ],
+)
+def test_a_receiver_not_only_built_by_the_new_client_stays_unresolved(source: str) -> None:
+    """A wrong guess that a receiver is the new SDK's would hide a legacy call."""
+    assert unresolved(HALF + source) != []
+
+
 def test_a_method_two_receivers_share_is_named_by_neither() -> None:
     """Reporting the sorted-first owner would put an unmeasured symbol in the evidence."""
     shared = SPEC.model_copy(

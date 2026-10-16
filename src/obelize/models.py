@@ -874,6 +874,8 @@ class ScanSpec(_Frozen):
     symbols: tuple[str, ...] = ()
     # The legacy call that configures the module; `None` for a library with no client.
     client_symbol: str | None = None
+    # The class the new SDK's client is built from: a receiver only ever assigned one is not legacy.
+    new_client_symbol: str | None = None
     constructor_symbols: tuple[str, ...] = ()
     supported_methods: tuple[ReceiverMethods, ...] = ()
     method_returns: tuple[MethodReturn, ...] = ()
@@ -922,8 +924,12 @@ class ScanSpec(_Frozen):
         ):
             if not _DISTRIBUTION_NAME.fullmatch(value):
                 raise ValueError(f"{field} takes a distribution name, got {value!r}")
-        if self.client_symbol is not None and not QUALIFIED_NAME.fullmatch(self.client_symbol):
-            raise ValueError(f"client_symbol must be a qualified name, got {self.client_symbol!r}")
+        for field, symbol in (
+            ("client_symbol", self.client_symbol),
+            ("new_client_symbol", self.new_client_symbol),
+        ):
+            if symbol is not None and not QUALIFIED_NAME.fullmatch(symbol):
+                raise ValueError(f"{field} must be a qualified name, got {symbol!r}")
         SpecifierSet(self.requires_python)
         if self.new_range is not None:
             SpecifierSet(self.new_range)

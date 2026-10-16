@@ -643,6 +643,7 @@ def test_the_scan_spec_answers_what_a_receiver_supports() -> None:
         ({"legacy_distribution": "not a name"}, "distribution name"),
         ({"new_distribution": "not a name"}, "distribution name"),
         ({"client_symbol": "genai.configure()"}, "qualified name"),
+        ({"new_client_symbol": "genai.Client()"}, "qualified name"),
         ({"pack_sha256": "abc"}, "sha256"),
         ({"flag_only_patterns": ("regex",)}, "flag_only_patterns"),
         ({"legacy_newest": "latest"}, "Invalid version"),

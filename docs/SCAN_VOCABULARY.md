@@ -93,7 +93,7 @@ A bail withholds its whole binding group; the group is atomic.
 | `model_object_read_elsewhere` | No escape in its own file, but another selected module imports the module constant (by name or `*`) or reads it or the instance attribute off the module; judged from imports and reads, never text. |
 | `multiple_assignments` | The name is assigned more than once in its scope (`len(scope[name]) > 1`); an instance attribute counts every write in the class's methods. |
 | `class_attr_binding` | The constructor is a class-body attribute. Out of scope in v0. |
-| `receiver_unresolved` | A supported method on a receiver with no binding record, including an unbound constructor result. |
+| `receiver_unresolved` | A supported method on a receiver with no binding record, including an unbound constructor result. A call on a name only ever assigned the new SDK's client is none. |
 | `receiver_method_unmapped` | A supported method in the pack's `methods` with no `rewrites` entry; the whole group is withheld. |
 
 ### Client

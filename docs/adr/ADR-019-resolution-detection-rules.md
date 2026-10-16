@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by [ADR-020](ADR-020-impact-plan-ladder.md) (D8).
+Accepted; amended by [ADR-020](ADR-020-impact-plan-ladder.md) (D8), and in D5 for a call on the new SDK's client.
 
 ## Decision
 
@@ -36,12 +36,27 @@ A mention is a dotted run that starts at a legacy module after a non-word,
 non-dot character and continues in identifiers: `google-generativeai` is no
 importable path, and a non-identifier segment would fail `Finding.symbol`.
 
-### D5 — An unresolvable receiver is reported only where the file builds a legacy object.
+### D5 — An unresolvable receiver is reported only where the file builds a legacy object, and not for the new SDK's client.
 
 `<expr>.<method>(...)` is `receiver_unresolved` when `<method>` is the supported
 method of exactly one receiver in the spec, `<expr>` resolves to no legacy
 binding, and at least one call in the file resolves to a constructor symbol.
 Otherwise there is no symbol to name, as with a method two receivers share.
+
+A half-migrated file holds a legacy model beside `client = genai.Client(...)`, and
+`client.models.generate_content(...)` names the same method. It is no finding
+when the name at the root of `<expr>` (`client` in `client.chats.create(...)`)
+has every one of its assignments built from `ScanSpec.new_client_symbol`, the
+pack's `configure_to_client` client class, resolved through
+`QualifiedNameProvider`, so `genai.Client`, an alias of it and a `from` import
+of `Client` all count. It is no finding at all, not a `not_a_usage` row: that
+status is context only (SCAN_VOCABULARY §10), and a row for every call on the new
+SDK would be noise. A name assigned anything else too, a parameter, an import, a
+`with` target and an attribute such as `self.client` stay `receiver_unresolved`,
+because a wrong guess that a receiver is the new SDK's would hide a legacy call.
+A pack with no `configure_to_client` rule has no such class and reports as
+before. The field moves `spec_digest` for a pack that sets it, so Gate 1 waits
+for a re-measurement (`COVERAGE.md` gap 38).
 
 ### D6 — A patch target is a legacy path that *is* a call argument, whole.
 
@@ -112,6 +127,7 @@ own files could pass by grading less. The harness also unquotes a mock target's
 - Analysis has no dataflow through returns, by design, so D5 can report a false
   positive (`Anything().run(x)` beside a legacy constructor), as `needs_review`
   and never an edit.
-- D5 covers method calls, not attribute reads (`COVERAGE.md` gap 20).
+- D5 covers method calls, not attribute reads (`COVERAGE.md` gap 20), and sees the new SDK's client
+  only as a plain name: one held on `self` or passed in is still `receiver_unresolved`.
 - D6 reports a patch target passed through a variable only as a mention (gap 17).
 - D8's field defaults to empty; chaining deeper than one level is unexercised.
