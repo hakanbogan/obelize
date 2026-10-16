@@ -60,8 +60,8 @@ when no `display_name` was given and the new `files.upload` sets none. The old c
 with `files/` only when it held no slash, where the new one prefixes any name that does not start
 with `files/`, so `name="a/b"` becomes `files/a/b`.
 
-The dependency-file reader does not follow an `-r` or `-c` include of a file whose name is not a
-requirements file's, and does not read uv's `constraint-dependencies` and `override-dependencies`,
+The dependency-file reader reads an `-r` or `-c` include of any name inside the repository (up to
+eight includes deep, as an input that nothing writes), but does not read uv's `constraint-dependencies` and `override-dependencies`,
 PDM's overrides or Hatch's matrix and `overrides` tables ([the openai pack](#the-openai-pack) lists
 what that leaves behind). The Python gate reads `requires-python`, Poetry's `python`, `setup.cfg`'s
 `python_requires`, a `Pipfile`'s `[requires]` and a `python_requires=` in `setup.py` written as a
@@ -103,9 +103,7 @@ of calls.
 
 ## Data files and formats
 
-The `model:` block of the user's own config file still coerces a wrongly typed value
-(`log_prompts: 'yes'` reads as true), and a pack's `retrieved_at` still accepts a quoted ISO date;
-the other input documents refuse a number, flag or string of the wrong type. The JSON Schemas I
+The input documents refuse a number, flag or string of the wrong type. The JSON Schemas I
 publish state the shape of each id, symbol, version, digest and display text, but not the rules on
 a dotted call, a result path, a source URL or an environment variable name, PEP 440 specifiers,
 sorted order or any rule that compares two fields, so a document can pass a schema and still fail
@@ -318,17 +316,18 @@ migrated nor reported, and the pin still moves when everything else does:
 - A legacy name inside a string annotation is reported (`usage_unmapped`) when it is spelled
   `openai.X`, however deep (`Optional["openai.Image"]`), since a pydantic model evaluates it when the
   class is built. One the string reaches through an alias (`"oa.Image"`) is not seen.
-- A file obelize does not read: one over the size limit or that it cannot open, a script with no
-  `.py` name, a `.pyx`. The report lists the first two as limitations, the pin moves beside them,
-  and a legacy call in one fails at run time.
+- A file obelize does not read: a script with no `.py` name, a `.pyx`. A `.py` file over
+  `max_file_bytes`, or one that cannot be opened, holds the pin in this pack and the report names
+  it; raise `max_file_bytes` or list the file under `exclude`.
 - Spellings Python folds to the same name, such as fullwidth letters in `openai`: the scan reads
   the text as written.
 - The names a result is read through when the file reads names by their strings: a file that calls
   `locals()`, `globals()`, `vars()`, `eval` or `exec` holds every call whose result is bound to a
   name, which is the safe answer and often more than the file needs.
-- A dependency in a form obelize does not read: an `-r` or `-c` include of a file whose name is not
-  a requirements file's (`*requirement*.txt`, `requirements/*.txt`, `*requirements*.in` and
-  `*constraints*.txt` are read), a `Dockerfile` pip line, `environment.yml` and `tox.ini`, and uv,
+- A dependency in a form obelize does not read: an `-r` or `-c` include of a file outside the
+  repository, more than eight includes deep, or whose argument holds a blank or a quote (a file
+  inside the repository is read as an input whatever its name, and never written), a `Dockerfile`
+  pip line, `environment.yml` and `tox.ini`, and uv,
   PDM and Hatch tables other than the dependency arrays (see Scanning and rewriting). A
   `setup.py` whose requirements variable is bound more than once, augmented (`+=`), annotated, a
   dict or built from other code, or given to a call (`sorted(REQS)`) or unpacked (`*REQS`) is not
@@ -338,8 +337,8 @@ migrated nor reported, and the pin still moves when everything else does:
   requirement, a local wheel, a `setup.cfg` line with a trailing comment (setuptools rejects it too),
   a dependency given as a table of its own (`[tool.poetry.dependencies.openai]`, also the dev, group
   and Pipfile forms), a Poetry or Pipfile inline table with another key beside the version (extras, a
-  marker, git, path), and a legacy pin in a `requirements.in` or a constraints file, which are read
-  but never written. `openai===0.28.1`, `openai==0.*`, and an editable requirement or wheel (whose
+  marker, git, path), and a legacy pin in a `requirements.in`, a constraints file or a file that only an include names,
+  which are read but never written. `openai===0.28.1`, `openai==0.*`, and an editable requirement or wheel (whose
   version is not read) are also `legacy_version_unsupported`. The `PyPDF2` pack uses the same files
   differently: several of them stop an unpinned requirement from being taken as 3.0.1, though a
   PyPDF2 pin that stays in one of them is still left alone ([the PyPDF2 pack](#the-pypdf2-pack)).
@@ -375,8 +374,8 @@ install nobody ran, and it is wrong where the evidence is not in the repository'
   the root or a manifest that declares PyPDF2, and an ignored `.venv`, `venv` or `env` in a
   directory that holds no listed file.
 - A file over 32 MiB, one that cannot be opened, and a UTF-16 file over `max_file_bytes` (2,000,000
-  bytes by default): the search for a version does not read them, and the report does not name
-  them. A file over `max_file_bytes` up to 32 MiB is searched in windows and never held whole.
+  bytes by default): the search for a version does not read them; the report names a file over 32 MiB
+  (a `file_too_large` limitation) where the run took a release, and not the other two. A file over `max_file_bytes` up to 32 MiB is searched in windows and never held whole.
 - Code that uses what 3.0.1 lacks (`PdfFileReader`, `PdfFileWriter`, `PdfFileMerger`, and the modules
   `PyPDF2.pdf`, `PyPDF2.utils` and `PyPDF2.merger`) is evidence of an older release wherever it is
   written, a notebook, a Python 2 file, a stub, excluded code and prose included, but by its name

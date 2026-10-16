@@ -21,12 +21,10 @@ engine of this version; their records read `obelize 0.5.0` because the version h
 each pack's record is bound to the sha of the pack it was taken with, so a changed pack fails a test
 until it is measured again.
 
-- Gate 1: scan precision is 100.0% and recall 98.4% over the same 64 usages in five repositories.
-  The record was taken with `obelize scan` and no `--pack`, so it also holds 91 rows of the `PyPDF2`
-  pack and 3 of the `openai` pack under the Gemini pack's name, and its generated block counts them:
-  59 of 80 repositories (73.8%) with a file where nothing bails. Over the Gemini pack's rows alone
-  it gives the 57 (71.2%) of the record taken with 0.1.0. One repository now stops on the Python
-  floor it declares.
+- Gate 1: scan precision is 100.0% and recall 98.4% over the same 64 usages in five repositories, and
+  the zero-bail share is the 0.1.0 record's 57 of 80 repositories (71.2%). The record was taken
+  again with `obelize scan --pack` (the harness now names the pack, since a scan without it runs
+  every pack a repository uses).
 - `openai/openai-0-to-1`: complete 12 to 27, blocked 41 to 27 and held 27 to 26. Nine repositories
   moved from blocked to complete, six from held to complete and six from blocked to held, and one
   moved from held to blocked on a Python floor that is now read.
@@ -105,6 +103,16 @@ Schemas, which now carry the patterns of the values the models check.
   reported.
 
 ### Changed
+
+- A file that an `-r` or `-c` line names is read whatever its name (inside the repository, eight
+  includes deep, never written): a legacy pin in it holds the pack with one distribution for both
+  APIs, and the newest-release check no longer stops at the include alone.
+- A `.py` file that the scan cannot read (over `max_file_bytes`, or unopenable) holds the pin of a
+  pack with one distribution for both APIs (`openai`), and its limitation says so; raise
+  `max_file_bytes` or list the file under `exclude`. A file over 32 MiB that the newest-release
+  search skipped is named as a limitation.
+- The `model:` block of the user config and a pack's `retrieved_at` refuse a value of another type
+  instead of converting it (`log_prompts: 'yes'`, a quoted date).
 
 - The code of a model reply that `compile()` refuses is `output_does_not_compile`, and
   `output_does_not_parse` is for a result `compile()` accepted and libcst cannot read. A reply
@@ -238,6 +246,11 @@ Schemas, which now carry the patterns of the values the models check.
   (`2026-10-15T09:00:00Z`), which uv would refuse after the round had started.
 
 ### Packs
+
+- `openai/openai-0-to-1` 0.3.1 and `py-pdf/pypdf2-to-pypdf` 0.4.1 stop printing limitations the scan
+  contradicts: a notebook holds the pin only where a cell calls the legacy API, a pin-less `openai`
+  beside `ChatCompletion` or `Audio` code is taken, a Python in `setup.py` or a `Pipfile` is read,
+  and every requirement shape the pack cannot rewrite leaves its manifest line.
 
 - `openai/openai-0-to-1` 0.3.0:
   - A declaration with no lower bound (`openai`, `openai<1`, `openai>=0.20`) beside a call of

@@ -1,7 +1,7 @@
 {
   "obelize_version": "0.5.0",
   "pack": "py-pdf/pypdf2-to-pypdf",
-  "pack_sha256": "032c03631c6a6a43f92ea3b5d1f0050c9ba3dbe4f848ef0a58e36ad259ca2179",
+  "pack_sha256": "34db4a1315d5dfadd53879ffd5d98fe9de65add16f19340941f3b05bc1a038d5",
   "spec_sha256": "41c1f03d1a374f6aee66ca68bdcbefcb57d6dcc5554e7378036043f6c43262a1",
   "python": "3.12.9",
   "machine": "arm64",
@@ -46,7 +46,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.9
+      "seconds": 0.8
     },
     {
       "full_name": "aneagoie/watermarker",
@@ -57,7 +57,7 @@
       "manifests": 0,
       "files": 0,
       "withheld": [],
-      "seconds": 0.75
+      "seconds": 0.63
     },
     {
       "full_name": "naiveHobo/PostOCR",
@@ -76,7 +76,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.87
+      "seconds": 0.8
     },
     {
       "full_name": "GrupElGas/mailcertificado",
@@ -111,7 +111,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.14
+      "seconds": 1.04
     },
     {
       "full_name": "RajatSingh95/GangaGSoC2020",
@@ -268,7 +268,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.93
+      "seconds": 1.72
     },
     {
       "full_name": "SanketNatekar/cold-email-generator",
@@ -287,7 +287,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 6.17
+      "seconds": 5.25
     },
     {
       "full_name": "tinkertanker/tinkertanker-pdfgen",
@@ -371,7 +371,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.35
+      "seconds": 1.2
     },
     {
       "full_name": "Mangala-Manmatharaja/PDF-Sign",
@@ -427,7 +427,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.86
+      "seconds": 0.74
     },
     {
       "full_name": "alejandro-ao/langchain-ask-pdf",
@@ -438,7 +438,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.81
+      "seconds": 0.69
     },
     {
       "full_name": "strongSoda/chat-with-pdf-tutorial",
@@ -464,7 +464,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.85
+      "seconds": 0.73
     },
     {
       "full_name": "fuchenru/ATS-Checker",
@@ -475,7 +475,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.63
+      "seconds": 2.34
     },
     {
       "full_name": "pradhyumn/Conversational-agent-langchain",
@@ -486,7 +486,7 @@
       "manifests": 1,
       "files": 4,
       "withheld": [],
-      "seconds": 1.13
+      "seconds": 1.02
     },
     {
       "full_name": "hyeok-jong/pdf_add_padding",
@@ -665,7 +665,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.2
+      "seconds": 1.11
     },
     {
       "full_name": "mr-teslaa/langchain-chat-pdfs",
@@ -676,7 +676,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.83
+      "seconds": 0.74
     },
     {
       "full_name": "tknishh/ayurvedic-doctor-bot",
@@ -687,7 +687,7 @@
       "manifests": 1,
       "files": 3,
       "withheld": [],
-      "seconds": 0.92
+      "seconds": 0.86
     },
     {
       "full_name": "craig-osterhout/docker-genai-sample",
@@ -698,7 +698,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.84
+      "seconds": 0.77
     },
     {
       "full_name": "A9K5/Resume-Scraper",
@@ -733,7 +733,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.79
+      "seconds": 0.73
     },
     {
       "full_name": "IshuSinghSE/scripts",
@@ -808,7 +808,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.04
+      "seconds": 0.9
     },
     {
       "full_name": "michaelearncoding/AIagent-KnowledgeBase-Info-Retrieval-System-with-RAG-Pipeline-",
@@ -819,7 +819,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.89
+      "seconds": 0.7
     },
     {
       "full_name": "prabhakarvenkat/Resume_ATS-Tracker",
@@ -830,7 +830,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.87
+      "seconds": 0.72
     },
     {
       "full_name": "andriymalyshchak1/HookedDeploy",
@@ -841,7 +841,7 @@
       "manifests": 1,
       "files": 3,
       "withheld": [],
-      "seconds": 1.21
+      "seconds": 0.97
     },
     {
       "full_name": "Aamanshaikh786/Resume_Analyzer",
@@ -852,7 +852,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.96
+      "seconds": 0.69
     },
     {
       "full_name": "synoptekpawan/LLM-Based-Document-Query-Tool",
@@ -863,7 +863,7 @@
       "manifests": 1,
       "files": 4,
       "withheld": [],
-      "seconds": 1.16
+      "seconds": 0.85
     },
     {
       "full_name": "ayush542316/ai-study-assistant",
@@ -874,7 +874,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.86
+      "seconds": 0.68
     },
     {
       "full_name": "sunilkahalekar/Application_tracking_system",
@@ -885,7 +885,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.84
+      "seconds": 0.67
     },
     {
       "full_name": "colindoyle0000/pdftextadd",
@@ -896,7 +896,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.78
+      "seconds": 0.7
     },
     {
       "full_name": "Srinadhch07/StudyBot",
@@ -907,7 +907,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.82
+      "seconds": 0.69
     },
     {
       "full_name": "imakshit/Multilingual-Document-Q-A-Summarizer",
@@ -918,7 +918,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.89
+      "seconds": 0.78
     },
     {
       "full_name": "CharlleyJJ/Python_NLP_JJ",
@@ -990,7 +990,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.26
+      "seconds": 0.91
     },
     {
       "full_name": "rati45643/Resume-Ranker-Application-Tracking-Systems-ATS-",
@@ -1037,7 +1037,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.08
+      "seconds": 0.88
     },
     {
       "full_name": "balaji1233/Text_Summary_Pro",
@@ -1048,7 +1048,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.87
+      "seconds": 0.74
     },
     {
       "full_name": "rishiraparthy/BloomsTaxonomyAnalysis",
@@ -1083,7 +1083,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.2
+      "seconds": 0.83
     },
     {
       "full_name": "InsightEdge01/RAGGemmaModel",
@@ -1094,7 +1094,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.96
+      "seconds": 0.76
     },
     {
       "full_name": "moluqitu/Python-crawler1",
@@ -1134,7 +1134,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.18
+      "seconds": 0.87
     },
     {
       "full_name": "whoamif/CM-Consulting-generating-auto-responses-",
@@ -1174,7 +1174,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.13
+      "seconds": 0.92
     },
     {
       "full_name": "jiandandaoxingfu/pdfdo",
@@ -1293,7 +1293,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.09
+      "seconds": 0.97
     },
     {
       "full_name": "SR-Sujon/llamachirp",
@@ -1304,7 +1304,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.95
+      "seconds": 0.84
     },
     {
       "full_name": "fjxmlzn/paper_downloader",
@@ -1355,7 +1355,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.28
+      "seconds": 1.19
     },
     {
       "full_name": "hyuunnn/Autopsy-DocumentMetadataIngestModule",
@@ -1390,7 +1390,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 6.32
+      "seconds": 5.85
     },
     {
       "full_name": "alexanderoviedofadul/ContadorPaginasPDF",
@@ -1439,7 +1439,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.14
+      "seconds": 0.92
     },
     {
       "full_name": "NyasaVishwas/AI-Powered-Directory-Management-System",
@@ -1450,7 +1450,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.97
+      "seconds": 0.89
     },
     {
       "full_name": "mohamedabdulkadar788/CV-shortlisting-SYstem",
@@ -1476,7 +1476,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.86
+      "seconds": 0.78
     },
     {
       "full_name": "ardyadipta/gemini_chatbot_qna",
@@ -1487,7 +1487,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.81
+      "seconds": 0.73
     },
     {
       "full_name": "Fahed1401/Fact-Check-Agent",
@@ -1498,7 +1498,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.28
+      "seconds": 1.42
     },
     {
       "full_name": "harinivasudatla/AISearchDemo",
@@ -1542,7 +1542,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.54
+      "seconds": 1.01
     },
     {
       "full_name": "mhmmeddanish/Hackcelerate",
@@ -1596,7 +1596,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.51
+      "seconds": 1.76
     },
     {
       "full_name": "chamadi2002/ai-study-assistant",
@@ -1607,7 +1607,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.99
+      "seconds": 0.75
     },
     {
       "full_name": "sreeharivponline/ppt-builder",
@@ -1642,7 +1642,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.06
+      "seconds": 0.84
     },
     {
       "full_name": "alistairhendersoninfo/document-indexing",
@@ -1653,7 +1653,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.26
+      "seconds": 1.04
     },
     {
       "full_name": "rasik-nep/Nepali-PDF-text-extractor",
@@ -1664,7 +1664,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.06
+      "seconds": 0.88
     },
     {
       "full_name": "Techcoderpython/ai-resume-analyzer",
@@ -1690,7 +1690,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.9
+      "seconds": 0.79
     },
     {
       "full_name": "abithach/MyQuizGenerator",
@@ -1701,7 +1701,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.93
+      "seconds": 0.81
     },
     {
       "full_name": "Muhammad-Hammad-Khan7/Resume_Category_Prediction_systems",
@@ -1727,7 +1727,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.93
+      "seconds": 0.82
     },
     {
       "full_name": "harikeshlapsetwar/resume-screning-project",
@@ -1753,7 +1753,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.87
+      "seconds": 0.76
     },
     {
       "full_name": "BalasaitejaG/Pdf_AI",
@@ -1764,7 +1764,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 0.97
+      "seconds": 0.84
     },
     {
       "full_name": "coco44440/cvanalyse",
@@ -1799,7 +1799,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.94
+      "seconds": 0.77
     },
     {
       "full_name": "LinXueyuanStdio/academic-mcp",
@@ -1810,7 +1810,7 @@
       "manifests": 1,
       "files": 20,
       "withheld": [],
-      "seconds": 7.27
+      "seconds": 5.73
     },
     {
       "full_name": "cbcpd/Resume-Screening-App-main",
@@ -1836,7 +1836,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.86
+      "seconds": 0.81
     },
     {
       "full_name": "Amankumar6274/MCQ-Generation-Model",
@@ -1869,7 +1869,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 0.9
+      "seconds": 0.79
     },
     {
       "full_name": "aiea-lab/driving-rules",
@@ -1925,7 +1925,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.02
+      "seconds": 1.97
     },
     {
       "full_name": "ntiglao-umd/k-12mlsupport",
@@ -1936,7 +1936,7 @@
       "manifests": 1,
       "files": 5,
       "withheld": [],
-      "seconds": 2.35
+      "seconds": 4.12
     },
     {
       "full_name": "ZeroTang05/cyber-doctor",
@@ -1947,7 +1947,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.81
+      "seconds": 1.6
     },
     {
       "full_name": "codingis4noobs2/QuickDigest",
@@ -1982,7 +1982,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.46
+      "seconds": 1.38
     },
     {
       "full_name": "QGB/QPSU",
@@ -2017,7 +2017,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 5.02
+      "seconds": 4.42
     },
     {
       "full_name": "AnshPradhan14/chatur_ai_prototype",
@@ -2071,7 +2071,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.1
+      "seconds": 1.89
     },
     {
       "full_name": "deepanshu414/benefittool",
@@ -2082,7 +2082,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 2.56
+      "seconds": 2.38
     },
     {
       "full_name": "reichaves/chatgeminipdfs",
@@ -2101,7 +2101,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.12
+      "seconds": 1.07
     },
     {
       "full_name": "Imran786-hub/RAG-Chatbot",
@@ -2134,7 +2134,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.74
+      "seconds": 1.47
     },
     {
       "full_name": "manumanoj0010/PDF-BOT",
@@ -2204,7 +2204,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 3.4
+      "seconds": 2.97
     },
     {
       "full_name": "pokemon918/Streamlit-Chatbot",
@@ -2237,7 +2237,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.39
+      "seconds": 1.17
     },
     {
       "full_name": "elibroftw/website",
@@ -2293,7 +2293,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.69
+      "seconds": 1.37
     },
     {
       "full_name": "jyoti9909/AI-Driven-Automated-Interviewer-for-Project-Presentations",
@@ -2340,7 +2340,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 6.34
+      "seconds": 2.98
     },
     {
       "full_name": "YoussefAlkent/PDF-Poisoning",
@@ -2380,7 +2380,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.06
+      "seconds": 1.61
     },
     {
       "full_name": "Idk507/FAQ-Assistant",
@@ -2391,7 +2391,7 @@
       "manifests": 1,
       "files": 2,
       "withheld": [],
-      "seconds": 1.66
+      "seconds": 1.48
     },
     {
       "full_name": "Slumbersaga/pu_code_hackathon-3.0",
@@ -2459,7 +2459,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 8.79
+      "seconds": 7.81
     },
     {
       "full_name": "Subho4156/Innofusion-project-ai",
@@ -2515,7 +2515,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.54
+      "seconds": 1.33
     },
     {
       "full_name": "haribhaski/DDMM_project",
@@ -2548,7 +2548,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.5
+      "seconds": 1.36
     },
     {
       "full_name": "Harshal1810/PDF_TO_HTML_Converter",
@@ -2574,7 +2574,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 2.0
+      "seconds": 1.85
     },
     {
       "full_name": "kirtanpathak4/ProGuard",
@@ -2607,7 +2607,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 1.46
+      "seconds": 1.3
     },
     {
       "full_name": "G-Navarro/contabilfacil",
@@ -2633,7 +2633,7 @@
           "caused_by": null
         }
       ],
-      "seconds": 8.25
+      "seconds": 7.66
     }
   ]
 }

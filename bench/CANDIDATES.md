@@ -76,7 +76,7 @@ Checked against GitHub on 2026-09-21T12:35:21Z, and scanned with obelize 0.1.0.d
 | 6 | [atharvv8/Gemini-Powered-AI-App](https://github.com/atharvv8/Gemini-Powered-AI-App) | `atharvv8` | `MIT` | `e69f0284068dc5bec64b435a1529fcdf5fa22623` | 0 | 10 | 10 | 4 | `manifest` | frame |
 | 7 | [chirag6521/Multilingual-AI-Assistant](https://github.com/chirag6521/Multilingual-AI-Assistant) | `chirag6521` | `MIT` | `fabdeabe85cd381109eb192b6fda03a1f9cf185e` | 0 | 8 | 6 | 4 | `manifest` | frame |
 | 8 | [sito-sikino/avatar-ui-core](https://github.com/sito-sikino/avatar-ui-core) | `sito-sikino` | `MIT` | `332765ab57b9942b80c8f1f0395b648047963514` | 169 | 6 | 6 | 5 | `manifest` | frame |
-| 9 | [sumitx99/Calories-Estimator](https://github.com/sumitx99/Calories-Estimator) | `sumitx99` | `MIT` | `4f902a7d216ed99e16c1891bfffbc7c92ad13095` | 3 | 4 | 4 | 4 | -- | frame |
+| 9 | [sumitx99/Calories-Estimator](https://github.com/sumitx99/Calories-Estimator) | `sumitx99` | `MIT` | `4f902a7d216ed99e16c1891bfffbc7c92ad13095` | 3 | 5 | 5 | 4 | -- | frame |
 | 10 | [LJX2017/A-Song-of-Ice-and-Fire](https://github.com/LJX2017/A-Song-of-Ice-and-Fire) | `LJX2017` | `Apache-2.0` | `b7596d5686000e9df1a219f3b3d922905832f9c5` | 0 | 19 | 7 | 6 | -- | frame |
 | 11 | [Hiba550/Google-DeepMind-for-Discord](https://github.com/Hiba550/Google-DeepMind-for-Discord) | `Hiba550` | `MIT` | `555ea392bdbb1b9a3ff1b6f40f7fb06ff9e84475` | 0 | 5 | 5 | 4 | `ci_workflow`, `manifest` | frame |
 | 12 | [mukul-mschauhan/imagetotext](https://github.com/mukul-mschauhan/imagetotext) | `mukul-mschauhan` | `MIT` | `ea0f9f828f8ea6ae02dada62ad7f75fa21c347df` | 0 | 6 | 6 | 4 | `manifest` | frame |
@@ -134,7 +134,7 @@ The 37 candidates carry **13 distinct pattern keys**, which is the denominator t
 | `flag-removed-object-attributes` | 4 | 1 | exercised by 1, first `Sharukesh3/LLM-for-hydrogen-storage` |
 | `flag-legacy-module-reached-indirectly` | 3 | 0 | no eligible result, 18528 hit(s) searched |
 | `flag-out-of-scope-surfaces` | 11 | 1 | exercised by 1, first `ImprintLab/Medical-Graph-RAG` |
-| `manifest-dependency` | 1 | 28 | exercised by 28, first `000wan/ara-ai-bot` |
+| `manifest-dependency` | 1 | 29 | exercised by 29, first `000wan/ara-ai-bot` |
 
 **The queries behind the rows that needed one.** Dated, verbatim, with the count GitHub returned. `absent` and `no eligible result` are different findings and are not interchangeable.
 
@@ -188,7 +188,6 @@ The 37 candidates carry **13 distinct pattern keys**, which is the denominator t
 | `vendors_the_sdk` | 0 |
 
 **What declares `google-genai`.** None of the 83 repositories scanned declares the new distribution in a manifest of its own. 7 carry a `google-genai` row all the same, and every one of them sits at the same path and line as a legacy pin: it is the dependency `manifest-dependency` proposes to **add** where it removes the old one, not something the repository wrote. Counting those rows as declarations was this document's first reading of the scans, and it was wrong, which is why the manifest/code mismatch has to be drawn for rather than inherited from this corpus.
-
 <!-- candidates:end -->
 
 ## Reproducing this
