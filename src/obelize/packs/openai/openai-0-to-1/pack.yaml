@@ -1,7 +1,7 @@
 # Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
 # Measured on openai 0.27.0 to 0.28.1, 1.109.1 and 3.26.0 (SOURCES.md).
 id: openai/openai-0-to-1
-pack_version: 0.2.0
+pack_version: 0.3.0
 provider: openai
 language: python
 
