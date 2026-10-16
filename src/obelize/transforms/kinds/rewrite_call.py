@@ -22,6 +22,7 @@ from libcst.metadata import (
     ClassScope,
     ExpressionContext,
     ExpressionContextProvider,
+    QualifiedName,
     QualifiedNameSource,
     Scope,
     ScopeProvider,
@@ -45,6 +46,26 @@ _NAMED: Final = frozenset({"eval", "exec", "globals", "locals", "vars"}) | froze
 
 # Handlers for these miss the `AttributeError` an attribute read raises in place of the key error.
 _MISSING_KEY: Final = frozenset({"builtins.KeyError", "builtins.LookupError"})
+
+# Standard library classes that derive from neither, so a handler for one never takes a missing
+# key's error. Any other imported class may subclass `KeyError` where this file cannot see it.
+_NOT_MISSING_KEY: Final = frozenset(
+    {
+        "asyncio.CancelledError",
+        "asyncio.TimeoutError",
+        "concurrent.futures.TimeoutError",
+        "http.client.HTTPException",
+        "json.JSONDecodeError",
+        "json.decoder.JSONDecodeError",
+        "socket.error",
+        "socket.timeout",
+        "ssl.SSLError",
+        "subprocess.CalledProcessError",
+        "subprocess.TimeoutExpired",
+        "urllib.error.HTTPError",
+        "urllib.error.URLError",
+    }
+)
 
 # A string-keyed read and the name it becomes.
 Keyed = tuple[cst.Subscript, str]
@@ -366,6 +387,16 @@ def _tokens(path: str) -> tuple[str, ...]:
     return tuple(re.findall(r"\[\]|\w+", path))
 
 
+def _may_name_a_key(name: QualifiedName) -> bool:
+    """Whether a handler for `name` may take a missing key's error: any class but a known one."""
+    match name.source:
+        case QualifiedNameSource.BUILTIN:
+            return name.name in _MISSING_KEY
+        case QualifiedNameSource.IMPORT:
+            return name.name not in _NOT_MISSING_KEY
+    return True
+
+
 def _positive(node: cst.BaseExpression) -> bool:
     return isinstance(node, cst.Integer | cst.Float) and node.evaluated_value > 0
 
@@ -604,18 +635,17 @@ class _Tree(Tree):
         return False
 
     def _may_miss(self, handler: cst.ExceptHandler | cst.ExceptStarHandler) -> bool:
-        """Whether `handler` may name a missing key; a bare one also takes the `AttributeError`."""
+        """Whether `handler` may name a missing key; a bare one also takes the `AttributeError`.
+
+        A dotted name is judged whole, not by the module it starts at.
+        """
         if handler.type is None:
             return False
         for name in m.findall(handler.type, m.Name() | m.Attribute()):
-            above = self.parent(name)
-            if isinstance(above, cst.Attribute) and above.attr is name:
+            if isinstance(self.parent(name), cst.Attribute):
                 continue
             found = self.names(name)
-            if not found or any(
-                each.source is QualifiedNameSource.LOCAL or each.name in _MISSING_KEY
-                for each in found
-            ):
+            if not found or any(_may_name_a_key(each) for each in found):
                 return True
         return False
 

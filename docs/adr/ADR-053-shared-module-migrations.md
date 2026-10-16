@@ -337,11 +337,15 @@ counts only when:
   that binding holds would lose its keys), no read the scope analysis cannot link to the call
   (D16), and every read in the call's own function, since a closure or lambda runs when something
   calls it;
-- no `try` around it has a handler that may name the missing key: `KeyError`, `LookupError`, or a
-  name this file defines or leaves unresolved, which may be a tuple holding one; and no
+- no `try` around it has a handler that may name the missing key: `KeyError`, `LookupError`, a
+  name this file defines or leaves unresolved, which may be a tuple holding one, or an imported
+  class, whose bases are not looked into and which may subclass `KeyError`; and no
   `contextlib.suppress` encloses it. The read would raise `AttributeError`, which only a bare
   `except:`, `Exception` or `AttributeError` catches, and a handler that never ran would hide the
-  change. Imported exception classes are not looked into, nor is a handler in a caller: both go unseen;
+  change. An imported class passes only if it is on a short list of standard library classes that
+  derive from neither (`socket.timeout`, `json.JSONDecodeError`, `asyncio.TimeoutError`, ...; a test
+  imports each and checks), so a handler for `requests.RequestException` withholds the call. A handler in a
+  caller is not looked into and goes unseen;
 - it is not in an f-string field written with `=`, which prints the source text, and no word follows
   it with no space (`r["id"]or 1`): the attribute ends in a name, and libcst refuses to join one to
   a keyword.

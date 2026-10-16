@@ -215,9 +215,9 @@ such as `choices[].message.content` or `usage.total_tokens`:
   trailing comma, and the read must load. Otherwise the call is `response_shape_changed`: a name
   that may hold something else (a second binding, a read in a closure, an unlinked read), an
   f-string field written with `=`, a read glued to a following word (`r["id"]or 1`), and a `try`
-  handler that may name a missing key (`KeyError`,
-  `LookupError`, a name the file defines) or a `contextlib.suppress`, since the attribute read
-  raises `AttributeError`. `.get` is not rewritten.
+  handler that may name a missing key (`KeyError`, `LookupError`, a name the file defines, or any
+  imported class but a few of the standard library that derive from neither) or a
+  `contextlib.suppress`, since the attribute read raises `AttributeError`. `.get` is not rewritten.
 - A read the scope analysis links to no assignment (above it, in a loop's second pass) counts as
   a read of the result, and a result bound in a class body is `response_shape_changed`: `A.r` and
   `self.r` link to no scope.

@@ -4,6 +4,7 @@ one for both APIs. `acme.kit` is invented, so nothing here reads the openai pack
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,12 @@ from obelize.models import Edit
 from obelize.packs import loader
 from obelize.packs.schema import PackDocument
 from obelize.scan import manifests
-from obelize.transforms.kinds.rewrite_call import MODULE_BAILS, RewriteCall, _Tree
+from obelize.transforms.kinds.rewrite_call import (
+    _NOT_MISSING_KEY,
+    MODULE_BAILS,
+    RewriteCall,
+    _Tree,
+)
 
 HEADER = "import acme.kit\n\n"
 
@@ -557,7 +563,18 @@ def test_a_read_by_key_must_run_where_the_call_does_and_be_linked_to_it(body: st
         ("EXC = (KeyError, ValueError)\n", "EXC", False),
         ("class Mine(Exception):\n    pass\n", "Mine", False),
         ("", "Undefined", False),
+        ("from lib import Mine\n", "Mine", False),
+        ("from lib import Mine as Other\n", "(ValueError, Other)", False),
+        ("import lib\n", "lib.errors.Mine", False),
+        ("import requests\n", "requests.RequestException", False),
+        ("import lib\n", "lib.pick()", False),
+        ("import builtins\n", "builtins.KeyError", False),
+        ("import socket\nsocket = None\n", "socket.timeout", False),
         ("import socket\n", "socket.timeout", True),
+        ("import socket as net\n", "net.timeout", True),
+        ("from socket import timeout\n", "(timeout, ValueError)", True),
+        ("from json import JSONDecodeError as Bad\n", "Bad", True),
+        ("import json.decoder\n", "json.decoder.JSONDecodeError", True),
         ("", "Exception", True),
         ("", "AttributeError", True),
         ("", "ValueError", True),
@@ -571,6 +588,16 @@ def test_a_handler_for_a_missing_key_would_miss_the_attribute_error_that_replace
     code, edits = rewrite(body)
     assert [row.status for row in edits] == (["auto"] if carried else ["needs_review"]), handler
     assert ("x = r.reply.text" in code) is carried
+
+
+@pytest.mark.parametrize("name", sorted(_NOT_MISSING_KEY))
+def test_a_stdlib_class_the_handler_check_lets_through_derives_from_neither_key_error(
+    name: str,
+) -> None:
+    module, _, leaf = name.rpartition(".")
+    found = getattr(importlib.import_module(module), leaf)
+    assert issubclass(found, BaseException)
+    assert not issubclass(found, LookupError)
 
 
 @pytest.mark.parametrize(
@@ -596,14 +623,10 @@ def test_a_suppress_around_a_read_would_hide_the_error_that_replaces_it(
 def test_a_read_is_rewritten_only_when_its_call_is() -> None:
     """The call is refused last of all, so its reads are recorded only once it has passed."""
     say = kit.SAY.model_copy(
-        update={
-            "params": kit.SAY.params.model_copy(
-                update={"legacy_error_modules": ("acme.kit.errors",)}
-            )
-        }
+        update={"params": kit.SAY.params.model_copy(update={"legacy_error_modules": ("json",)})}
     )
-    body = f"try:\n    print({CALL}['reply']['text'])\nexcept acme.kit.errors.Failure:\n    pass\n"
-    code, edits = acme.transform(f"{HEADER}{body}", say, kit.FETCH, spec=kit.SPEC)
+    body = f"try:\n    print({CALL}['reply']['text'])\nexcept json.JSONDecodeError:\n    pass\n"
+    code, edits = acme.transform(f"{HEADER}import json\n{body}", say, kit.FETCH, spec=kit.SPEC)
     assert reasons(edits) == ["error_class_changed"]
     assert "print(acme.kit.Greeter.say(name='a')['reply']['text'])" in code
 
