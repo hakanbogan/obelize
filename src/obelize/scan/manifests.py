@@ -403,32 +403,62 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
         declares.setdefault(declaration.path, set()).add(declaration.name)
         if not fnmatch.fnmatchcase(PurePosixPath(declaration.path).name, _CONSTRAINTS):
             owners.setdefault(declaration.name, set()).add(_owner(declaration.path))
-    needed = tuple(
-        sorted(
-            {
-                path
-                for path, distribution in migration.transitive
-                if not any(
-                    parent in owners.get(canonicalize_name(distribution), ())
-                    for parent in PurePosixPath(path).parents
-                )
-            }
-        )
+    undeclared = sorted(
+        {
+            (path, canonicalize_name(distribution))
+            for path, distribution in migration.transitive
+            if not any(
+                parent in owners.get(canonicalize_name(distribution), ())
+                for parent in PurePosixPath(path).parents
+            )
+        }
     )
+    needed = tuple(sorted({path for path, _ in undeclared}))
+    placed = _placed(found, undeclared, spec) if spec.declare_transitive and needed else None
     rows: list[Finding] = []
     for declaration in found:
         beside = declares[declaration.path]
         if declaration.name == legacy:
             if not _arrived(declaration, spec):
-                rows.extend(_legacy(declaration, migration, spec, new in beside, needed))
+                rows.extend(_legacy(declaration, migration, spec, new in beside, needed, placed))
         elif declaration.name == new and migration.blocking and legacy not in beside:
             rows.append(_row(declaration, spec.new_distribution, "manifest_code_mismatch"))
     return ManifestPlan(
         findings=tuple(sorted(rows, key=lambda row: row.sort_key)),
         blocking=migration.blocking,
         excluded=migration.excluded,
-        transitive=needed,
+        transitive=() if placed is not None and not migration.blocking else needed,
     )
+
+
+def _placed(
+    found: Sequence[Declaration], undeclared: Sequence[tuple[str, str]], spec: ScanSpec
+) -> dict[tuple[str, int, int], tuple[str, ...]] | None:
+    """The distributions to declare below each legacy requirement, or `None` where one has no
+    requirement to go below.
+
+    Each goes below the legacy requirement nearest the file that imports it, in a requirements
+    file whose line can be copied: any other layout keeps the pin waiting, since a declaration
+    written into a table or a `setup.py` list is not a line of its own.
+    """
+    legacy = canonicalize_name(spec.legacy_distribution)
+    hosts = [
+        row
+        for row in found
+        if row.name == legacy
+        and row.pin is not None
+        and layout(row.path) == "requirements"
+        and not _arrived(row, spec)
+    ]
+    placed: dict[tuple[str, int, int], set[str]] = {}
+    for path, distribution in undeclared:
+        parents = PurePosixPath(path).parents
+        near = [row for row in hosts if _owner(row.path) in parents]
+        if not near:
+            return None
+        host = min(near, key=lambda row: (-len(_owner(row.path).parts), row.path, row.line))
+        placed.setdefault((host.path, host.line, host.column), set()).add(distribution)
+    return {key: tuple(sorted(names)) for key, names in placed.items()}
 
 
 def _owner(path: str) -> PurePosixPath:
@@ -443,12 +473,14 @@ def _legacy(
     spec: ScanSpec,
     new_declared: bool,
     needed: Sequence[str],
+    placed: Mapping[tuple[str, int, int], tuple[str, ...]] | None = None,
 ) -> Iterator[Finding]:
     """The two pin edits on one legacy declaration, in its four states.
 
     Adding the new distribution is `auto` once anything migrated (a partial migration needs both);
-    removing the legacy pin waits while any file imports it or needs a module only it installs.
-    Both clear: one rewrite. Nothing migrated or importing: `not_a_usage` context, never an edit.
+    removing the legacy pin waits while any file imports it or needs a module only it installs,
+    unless `placed` declares those below it. Both clear: one rewrite. Nothing migrated or importing:
+    `not_a_usage` context, never an edit.
     """
     if not migration.migrated:
         code = (
@@ -465,9 +497,14 @@ def _legacy(
     if spec.new_range is not None and declaration.pin is None:
         yield _row(declaration, spec.legacy_distribution, SHAPE_BAIL)
         return
-    if not migration.blocking and not needed:
-        # Both halves are clear, so they are one rewrite of one line.
+    if not migration.blocking and (not needed or placed is not None):
+        # Both halves are clear, so they are one rewrite of one line, and what only the legacy
+        # distribution installed is declared below it.
         yield _row(declaration, spec.legacy_distribution, None)
+        for name in (placed or {}).get(
+            (declaration.path, declaration.line, declaration.column), ()
+        ):
+            yield _row(declaration, name, None)
         return
     if not new_declared:
         yield _row(declaration, spec.new_distribution, None)

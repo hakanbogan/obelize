@@ -1100,11 +1100,17 @@ class FlagOnlyParams(_Closed):
 
 
 class ManifestDependencyParams(_Closed):
-    """The pin edit; both names may be one distribution, whose major version is the migration."""
+    """The pin edit; both names may be one distribution, whose major version is the migration.
+
+    `declare_transitive` lets the pin move while a file imports a module only the legacy
+    distribution installed (`match.transitive`) and no manifest of its app declares it: each such
+    distribution is declared, unpinned, on a line below the legacy requirement.
+    """
 
     from_name: DistributionName
     to_name: DistributionName
     to_spec: Pep440Specifier
+    declare_transitive: StrictBool = False
 
 
 class _ChangeBase(_Closed):
@@ -1235,6 +1241,7 @@ class PackDocument(_Closed):
         self._check_what_the_newest_release_lacks_is_flagged()
         self._check_what_the_code_may_prove_is_looked_for()
         self._check_what_the_new_side_introduces_is_not_legacy()
+        self._check_what_is_declared_for_a_transitive_module_is_listed()
         return self
 
     def to_modules(self) -> tuple[str, ...]:
@@ -1452,6 +1459,19 @@ class PackDocument(_Closed):
                 raise ValueError(
                     f"to.introduces names {name!r}, which is not under a module of match.imports "
                     f"{list(self.match.imports)} or is a legacy name in match.symbols"
+                )
+
+    def _check_what_is_declared_for_a_transitive_module_is_listed(self) -> None:
+        """A rule that declares what `match.transitive` lists has nothing to declare without it."""
+        for change in self.changes:
+            if (
+                isinstance(change, ManifestDependencyChange)
+                and change.params.declare_transitive
+                and not self.match.transitive
+            ):
+                raise ValueError(
+                    f"changes[{change.id!r}].params.declare_transitive declares what "
+                    f"match.transitive lists, and this pack lists none"
                 )
 
     def _check_version_ranges(self) -> None:

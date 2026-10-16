@@ -565,8 +565,13 @@
     },
     "ManifestDependencyParams": {
       "additionalProperties": false,
-      "description": "The pin edit; both names may be one distribution, whose major version is the migration.",
+      "description": "The pin edit; both names may be one distribution, whose major version is the migration.\n\n`declare_transitive` lets the pin move while a file imports a module only the legacy\ndistribution installed (`match.transitive`) and no manifest of its app declares it: each such\ndistribution is declared, unpinned, on a line below the legacy requirement.",
       "properties": {
+        "declare_transitive": {
+          "default": false,
+          "title": "Declare Transitive",
+          "type": "boolean"
+        },
         "from_name": {
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "From Name",

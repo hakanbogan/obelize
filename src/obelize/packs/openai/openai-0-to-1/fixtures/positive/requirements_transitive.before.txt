@@ -1,0 +1,3 @@
+# Application dependencies
+openai==0.28.1  # chat
+rich

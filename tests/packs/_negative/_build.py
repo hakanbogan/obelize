@@ -851,6 +851,15 @@ CASES: tuple[Case, ...] = (
         mutate=lambda d: _with(d["changes"][1]["params"], "to_name", "something-else"),
     ),
     Case(
+        name="declare_transitive_with_no_module_listed",
+        defect="a dependency rule that declares what the legacy distribution installed, where the "
+        "pack lists none",
+        path="",
+        says="declares what match.transitive lists, and this pack lists none",
+        extra=MANIFEST_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "declare_transitive", True),
+    ),
+    Case(
         name="method_returns_names_no_such_method",
         defect="a return recorded for a method the rule does not support",
         path=f"{EXTRA}.params",

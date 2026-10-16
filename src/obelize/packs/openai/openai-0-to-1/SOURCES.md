@@ -299,3 +299,9 @@ The limitations that rest on the SDK's own text and not on a fixture:
   (`openai>=0.28.1,<3`) is rewritten to `openai>=1.109.1`. A declaration the rule cannot write in
   place, with extras or a URL such as `openai[datalib]==0.28.1`, holds the repository
   (`manifest_pin_shape_unsupported`).
+- `declare_transitive`: 0.28.1 required `requests>=2.20`, `tqdm` and `aiohttp` (above), so an app
+  that imports one of them without declaring it ran on what `openai` installed for it. Moving the
+  pin to 1.109.1 or 3.26.0 takes that away, so each such distribution is written below the openai
+  requirement of a requirements file as its name and nothing else: no version is chosen for it,
+  where the one 0.28.1 asked for is a floor and not the release the app ran. Neither new release
+  installs `requests` or `aiohttp`, and 3.26.0 does not install `tqdm`.

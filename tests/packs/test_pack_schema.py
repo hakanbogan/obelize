@@ -768,6 +768,21 @@ def test_a_pin_that_names_one_distribution_twice_is_a_migration_only_if_the_rang
             build(document)
 
 
+def test_a_pin_rule_declares_what_the_legacy_distribution_installed_only_if_one_is_listed() -> None:
+    document = with_change(builder.MANIFEST_CHANGE, declare_transitive=True)
+    with pytest.raises(ValidationError, match="and this pack lists none"):
+        build(document)
+    document["match"]["transitive"] = {"demo_wire": "demo-wire"}
+    built = build(document)
+    change = built.changes[1]
+    assert isinstance(change, schema.ManifestDependencyChange)
+    assert change.params.declare_transitive is True
+    assert loader.to_scan_spec(_loaded(built)).declare_transitive is True
+    plain = with_change(builder.MANIFEST_CHANGE)
+    assert loader.to_scan_spec(_loaded(build(plain))).declare_transitive is False
+    assert loader.to_scan_spec(_loaded(build(minimal()))).declare_transitive is False
+
+
 def test_a_pin_on_one_distribution_must_still_name_that_distribution() -> None:
     """Two sides of one distribution do not make any other name this migration."""
     for field in ("from_name", "to_name"):
@@ -1084,6 +1099,7 @@ PROJECTED = {
     "legacy_since",
     "new_version",
     "new_names",
+    "declare_transitive",
     "shared",
     "new_range",
 }

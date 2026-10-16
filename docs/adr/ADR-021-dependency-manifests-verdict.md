@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-050 and ADR-053.
+Accepted; amended by ADR-050, ADR-053 and ADR-056.
 
 ## Decision
 
@@ -155,6 +155,34 @@ declaration already names the new distribution. The driver then leaves every fil
 the rule cannot write in place is withheld by this plan, so the driver holds every file
 ([ADR-053](ADR-053-shared-module-migrations.md) D11 and D12). The reasons are in
 [ADR-053](ADR-053-shared-module-migrations.md) D6.
+
+### D13. A pin that waits for a module can declare it
+
+The module the legacy distribution installed for an app that never declared it (`requests` for
+`openai==0.28.1`) held the pin, and with it the whole repository where one distribution holds both
+APIs (D6 of ADR-053), until the user declared it by hand. A pack may set `declare_transitive` on its
+`manifest_dependency` instead (`ScanSpec.declare_transitive`, in `spec_digest` once set, since it
+changes rows). The module is then declared where it came from, as the pin moves:
+
+- A distribution is written once for each file that imports it and has no declaration in its app
+  (D7's reading), below the legacy requirement nearest that file: the one in the deepest directory
+  that is at or above the file, a `requirements/` directory counting for the directory above it.
+  Its row is a manifest row on that requirement's line and column, with the distribution as its
+  symbol, so the plan, `REPORT.md` and the driver need no second kind of row.
+- The line holds the distribution's name, folded as PEP 503 folds it, and nothing else: no version
+  (0.28.1 asked for a floor, `requests>=2.20`, and the release the app ran is not known), no marker,
+  no comment, the indent and the line ending of the requirement it follows. The legacy line itself
+  is written as D2 says.
+- Only a requirements file takes it (`requirements*.txt`, `requirements/*.txt`) and only on a
+  requirement with a pin the rule can write. If any distribution has no such requirement, because
+  the pin is in a `pyproject.toml`, a `setup.cfg`, a `setup.py`, a `Pipfile` or a constraints file,
+  or no requirement is at or above the file, none is declared and every legacy pin waits as before
+  (`transitive_dependency_in_use`), since a pin that moves with a module still undeclared is the
+  half-migrated repository D6 of ADR-053 forbids. Files that still import the legacy distribution
+  keep the pin (`repo_not_fully_migrated`) and nothing is declared.
+- The plan's `transitive` list is empty when the run declares them, since nothing waits.
+
+`undo` restores each manifest from its journalled original, so the inserted lines go with the pin.
 
 ## Consequences
 

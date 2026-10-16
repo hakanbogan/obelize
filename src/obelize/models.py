@@ -1097,6 +1097,9 @@ class ScanSpec(_Frozen):
     # Modules that came with the legacy pin, which the manifest pin check inspects before the
     # pin may go.
     transitive_modules: tuple[ProvidedModule, ...] = ()
+    # Whether the pin moves by declaring those modules' distributions in a requirements file,
+    # where `transitive_dependency_in_use` would keep it.
+    declare_transitive: bool = False
     # Names only the new API defines, where one distribution holds both: code that uses one beside
     # a pin that admits only the legacy range is a manifest row.
     new_names: tuple[str, ...] = ()

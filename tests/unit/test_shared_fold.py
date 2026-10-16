@@ -388,29 +388,55 @@ def test_undo_puts_back_the_bytes_both_packs_wrote(migrated: Path) -> None:
     assert sources(migrated) == LEGACY
 
 
+FETCH = "import requests\n\nPAGE = requests.get('http://x').text\n"
+
+
+def test_an_openai_pin_in_a_requirements_file_declares_requests_as_both_packs_write(
+    tmp_path: Path,
+) -> None:
+    """`requests` came with openai 0.x and does not with 1.x, so the pack declares it, unpinned,
+    below the pin it moves, in the file the other pack writes its own pin in."""
+    files = {**LEGACY, "fetch.py": FETCH}
+    tree = repository(tmp_path / "repo", files)
+    result = run(tree, "fix", "--apply", "--verify", QUIET)
+    assert result.exit_code == 0, result.output
+    assert sources(tree) == {
+        **files,
+        "chat.py": NEW["chat.py"],
+        "answer.py": NEW["answer.py"],
+        "requirements.txt": "openai>=1.109.1\nrequests\ngoogle-genai>=1.55\n",
+    }
+    undone = run(tree, "undo", "--run", latest(tree).name)
+    assert undone.exit_code == 0, undone.output
+    assert sources(tree) == files
+
+
 def test_an_openai_pin_held_by_requests_leaves_gemini_to_write(tmp_path: Path) -> None:
-    """`requests` came with openai 0.x and does not with 1.x, so nothing declares it until told."""
-    files = {**LEGACY, "fetch.py": "import requests\n\nPAGE = requests.get('http://x').text\n"}
+    """The pack declares `requests` only below a requirement of a requirements file: with the pin in
+    a `pyproject.toml` nothing declares it until told, and the pack holds the repository."""
+    pyproject = '[project]\nname = "app"\ndependencies = ["openai==0.28.1"]\n'
+    files = {
+        **LEGACY,
+        "fetch.py": FETCH,
+        "pyproject.toml": pyproject,
+        "requirements.txt": "google-generativeai==0.8.6\n",
+    }
     tree = repository(tmp_path / "repo", files)
     held = run(tree, "fix", "--apply", "--verify", QUIET)
     assert held.exit_code == 4, held.output
     assert sources(tree) == {
         **files,
         "answer.py": NEW["answer.py"],
-        "requirements.txt": "openai==0.28.1\ngoogle-genai>=1.55\n",
+        "requirements.txt": "google-genai>=1.55\n",
     }
     withheld = {row["bail"] for row in document(tree, "run.json")["withheld"]}
     assert withheld == {HELD, "transitive_dependency_in_use"}
 
-    (tree / "requirements.txt").write_text(
-        "openai==0.28.1\ngoogle-genai>=1.55\nrequests>=2.31\n", encoding="utf-8"
-    )
+    (tree / "requirements.txt").write_text("google-genai>=1.55\nrequests>=2.31\n", encoding="utf-8")
     released = run(tree, "fix", "--apply", "--allow-dirty", "--verify", QUIET)
     assert released.exit_code == 0, released.output
     assert sources(tree)["chat.py"] == NEW["chat.py"]
-    assert (
-        sources(tree)["requirements.txt"] == "openai>=1.109.1\ngoogle-genai>=1.55\nrequests>=2.31\n"
-    )
+    assert sources(tree)["pyproject.toml"] == pyproject.replace("==0.28.1", ">=1.109.1")
 
 
 # What the all-or-nothing pack changes about the rest of the run.
