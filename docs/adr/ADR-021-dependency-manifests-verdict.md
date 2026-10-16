@@ -186,10 +186,11 @@ changes rows). The module is then declared where it came from, as the pin moves:
 
 ### D14. A notebook is read for the legacy API and never written
 
-A notebook that names the library held the pin whether or not it called the old API: three of the
-five such notebooks in the openai frame installed a package or used the new client. Under the
-default `include`, one that matches the prefilter is now read as code (`parse.notebook`), in the
-scan's own process and never by a rule:
+A notebook that names the library held the pin whether or not it called the old API: five of the
+six such notebooks in the openai frame, in five repositories, did not call it: they installed a
+package from `openai`'s GitHub organization, used the new client, used another library's `openai`
+names, or named a model in an output. Under the default `include`, one that matches the prefilter
+is now read as code (`parse.notebook`), in the scan's own process and never by a rule:
 
 - Its code cells become one module, in order, since a cell sees what the cells before it bound.
   A line that starts with `!` or `%` is a shell escape or a line magic, no Python, and becomes a

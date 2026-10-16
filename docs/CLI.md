@@ -144,10 +144,11 @@ named. `REPORT.md` says the same under Dependency manifests, for a dry run too.
 **Findings left for you** are summarised whenever there are any, with a file written or not: how
 many, the most common reasons with a sentence on what to change for each (the last column of
 [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md#4-bail-codes-editreason)), up to five of the rows that cause them (`path:line symbol code`,
-with `and N more in REPORT.md` after them), the files that hold the pin without a row (a notebook that calls the legacy API, which obelize
-reads and never writes, or a file it does not analyse; migrate them by hand, or list a notebook
-under `exclude` to migrate the rest), and a link to what each code means. A pack whose one distribution holds both APIs adds a line saying the whole repository
-moves or none of it.
+with `and N more in REPORT.md` after them), the files that hold the pin without a row (a notebook
+that calls the legacy API, which obelize reads and never writes, or a file it does not analyse;
+migrate them by hand, or list a notebook under `exclude` to migrate the rest), and a link to what
+each code means. A pack whose one distribution holds both APIs adds a line saying the whole
+repository moves or none of it.
 
 **A warning on an edit that is written** (or would be, in a dry run) is printed as
 `Check <file>:<line>: <code>: <what to look at>`. After `--apply` the line is the one before the

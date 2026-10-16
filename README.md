@@ -172,8 +172,9 @@ uvx obelize verify --run "$(cat .obelize/latest)" --verify ".venv/bin/python -m 
 
 If you ran `fix --apply --verify` with 1.x already installed, the tests fail before the change and
 `verify` cannot rerun that run: `obelize undo` it, run `fix --apply` without `--verify`, then
-`verify --run` the new id. A notebook whose code cells call the old `openai` API holds the pin until you migrate it by hand
-or list it under `exclude` in `.obelize.yml`; obelize reads a notebook and never writes one.
+`verify --run` the new id. A notebook whose code cells call the old `openai` API holds the pin
+until you migrate it by hand or list it under `exclude` in `.obelize.yml`; obelize reads a
+notebook and never writes one.
 
 ## With a coding agent
 

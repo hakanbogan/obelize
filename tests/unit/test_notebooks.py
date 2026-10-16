@@ -1,8 +1,8 @@
 """A notebook is read for the legacy API, cell by cell, and never written.
 
 Under the default `include` a notebook was `unanalysed` as soon as its bytes named the library, so
-it held the pin whether or not it called the old API: three of the five notebooks in the openai
-frame only installed a package or used the new client. Its code cells are now run as the one module
+it held the pin whether or not it called the old API: five of the six notebooks in the openai
+frame did not call it. Its code cells are now run as the one module
 they are, and it holds the pin only where a row of the legacy API appears, with the cell named.
 """
 
