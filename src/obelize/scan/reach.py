@@ -85,8 +85,9 @@ def _trees(
         data, _refused = contents(path)
         if data is None:
             continue
-        named = _STAR.search(data) or any(name.encode() in data for name in names)
-        if not (named and any(segment.encode() in data for segment in segments)):
+        # The segment first: it is the rarest, and the star import is a regular expression.
+        spelled = any(segment.encode() in data for segment in segments)
+        if not (spelled and (any(name.encode() in data for name in names) or _STAR.search(data))):
             continue
         try:
             trees[path] = ast.parse(data)
