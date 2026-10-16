@@ -19,3 +19,20 @@ def explain(prompt):
         return error.http_status, error.json_body
     except openai.OpenAIError as error:
         return error.user_message
+
+
+def classes(error):
+    return isinstance(
+        error,
+        (
+            openai.error.APIConnectionError,
+            openai.error.APIError,
+            openai.error.AuthenticationError,
+            openai.error.InvalidAPIType,
+            openai.error.InvalidRequestError,
+            openai.error.OpenAIError,
+            openai.error.ServiceUnavailableError,
+            openai.error.SignatureVerificationError,
+            openai.error.TryAgain,
+        ),
+    )

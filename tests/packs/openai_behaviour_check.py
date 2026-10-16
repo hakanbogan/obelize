@@ -64,7 +64,10 @@ class Handler(BaseHTTPRequestHandler):
                 "results": [{"flagged": "in" in body["input"], "categories": {}}],
             }
         elif self.path.endswith("/chat/completions"):
-            message = {"role": "assistant", "content": "chat " + body["messages"][-1]["content"]}
+            prompt = body["messages"][-1]["content"]
+            if prompt.startswith("status:"):
+                return self._fail(int(prompt.removeprefix("status:")))
+            message = {"role": "assistant", "content": "chat " + prompt}
             answer = {
                 "id": "c1",
                 "object": "chat.completion",
@@ -101,6 +104,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def _fail(self, status: int) -> None:
+        """The API's own error body under `status`, which the exception fixtures ask for."""
+        data = json.dumps({"error": {"message": "m", "type": "t", "param": None, "code": "c"}})
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data.encode())
 
     def log_message(self, *args: object) -> None:
         """Silent: the output is the comparison."""

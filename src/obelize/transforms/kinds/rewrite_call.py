@@ -414,13 +414,14 @@ def _attribute(read: Read, name: str) -> cst.BaseExpression:
     )
 
 
-def _may_name_a_key(name: QualifiedName) -> bool:
-    """Whether a handler for `name` may take a missing key's error: any class but a known one."""
+def _may_name_a_key(name: QualifiedName, renamed: frozenset[str]) -> bool:
+    """Whether a handler for `name` may take a missing key's error: any class but a known one,
+    or one a running rule renames, which derives from the base of the API's errors."""
     match name.source:
         case QualifiedNameSource.BUILTIN:
             return name.name in _MISSING_KEY
         case QualifiedNameSource.IMPORT:
-            return name.name not in _NOT_MISSING_KEY
+            return name.name not in _NOT_MISSING_KEY and name.name not in renamed
     return True
 
 
@@ -446,6 +447,7 @@ class _Tree(Tree):
         self._scopes = context.wrapper.resolve(ScopeProvider)
         self._contexts = context.wrapper.resolve(ExpressionContextProvider)
         self._imported = context.imported_elsewhere
+        self._renamed = context.renamed
         self._reads: dict[tuple[Scope | None, str], list[cst.CSTNode]] = {}
         self._confined: dict[
             tuple[Scope | None, str, frozenset[tuple[str, ...]]], dict[Read, str] | None
@@ -710,7 +712,7 @@ class _Tree(Tree):
             if isinstance(self.parent(name), cst.Attribute):
                 continue
             found = self.names(name)
-            if not found or any(_may_name_a_key(each) for each in found):
+            if not found or any(_may_name_a_key(each, self._renamed) for each in found):
                 return True
         return False
 

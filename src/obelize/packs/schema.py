@@ -49,6 +49,7 @@ ChangeKind = Literal[
     "generative_model_calls",
     "rewrite_call",
     "rename_setting",
+    "rename_symbol",
     "flag_only",
     "manifest_dependency",
 ]
@@ -1105,6 +1106,37 @@ class RenameSettingParams(_Closed):
         return self
 
 
+class RenameSymbolParams(_Closed):
+    """Names a kept package's submodule defined, which the new release exports from the package."""
+
+    # A legacy dotted path in a submodule, and the name it takes in the package above it.
+    symbols: dict[QualifiedName, PlainName]
+    # What the new release derives a renamed class from that the old one did not derive its class
+    # from: a handler for one of them ahead of a renamed class now catches what it did not.
+    now_caught_by: tuple[QualifiedName, ...] = ()
+
+    @model_validator(mode="after")
+    def _check(self) -> RenameSymbolParams:
+        if not self.symbols:
+            raise ValueError("a rename_symbol rule must name a symbol")
+        _sorted_set(self.now_caught_by, "now_caught_by")
+        landed: dict[str, str] = {}
+        for key, new in self.symbols.items():
+            if key.count(".") < 2:
+                raise ValueError(
+                    f"symbols names a member of a submodule, so it is a path of three names or "
+                    f"more: got {key!r}"
+                )
+            target = f"{key.rpartition('.')[0].rpartition('.')[0]}.{new}"
+            if target in landed:
+                raise ValueError(
+                    f"symbols[{key!r}] and symbols[{landed[target]!r}] are both renamed onto "
+                    f"{target!r}"
+                )
+            landed[target] = key
+        return self
+
+
 # The reason a shape row carries, which is what a change's `patterns` claim it by: two ids with one
 # reason claim the same rows (`transforms.kinds.flag_only.REASONS` is the same table, tested).
 PATTERN_REASONS: dict[FlagOnlyPattern, ConfidenceReason] = {
@@ -1213,6 +1245,11 @@ class RenameSettingChange(_ChangeBase):
     params: RenameSettingParams
 
 
+class RenameSymbolChange(_ChangeBase):
+    kind: Literal["rename_symbol"]
+    params: RenameSymbolParams
+
+
 class FlagOnlyChange(_ChangeBase):
     kind: Literal["flag_only"]
     params: FlagOnlyParams
@@ -1232,6 +1269,7 @@ Change = Annotated[
         GenerativeModelCallsChange,
         RewriteCallChange,
         RenameSettingChange,
+        RenameSymbolChange,
         FlagOnlyChange,
         ManifestDependencyChange,
     ],
@@ -1298,7 +1336,8 @@ class PackDocument(_Closed):
         self._check_every_legacy_symbol_is_looked_for()
         self._check_a_variable_is_looked_for()
         self._check_mapped_symbols_are_not_also_refused()
-        self._check_a_setting_is_not_renamed_onto_a_legacy_name()
+        self._check_a_name_is_not_renamed_onto_a_legacy_one()
+        self._check_a_renamed_symbol_is_not_under_a_refused_one()
         self._check_manifest_matches_the_migration()
         self._check_version_ranges()
         self._check_what_the_newest_release_lacks_is_flagged()
@@ -1362,6 +1401,8 @@ class PackDocument(_Closed):
                 claimed: tuple[str, ...] = (change.params.legacy_symbol,)
             elif isinstance(change, RenameSettingChange):
                 claimed = tuple(change.params.settings)
+            elif isinstance(change, RenameSymbolChange):
+                claimed = tuple(change.params.symbols)
             else:
                 continue
             for symbol in claimed:
@@ -1423,17 +1464,47 @@ class PackDocument(_Closed):
                     f"flag_only rule refuses; a symbol is mapped or refused, not both"
                 )
 
-    def _check_a_setting_is_not_renamed_onto_a_legacy_name(self) -> None:
+    def _check_a_name_is_not_renamed_onto_a_legacy_one(self) -> None:
         """The new name must be one the scan lets pass, or the rewritten file is a finding again."""
         for change in self.changes:
-            if not isinstance(change, RenameSettingChange):
+            if isinstance(change, RenameSettingChange):
+                field = "settings"
+                lands = {
+                    key: f"{key.rpartition('.')[0]}.{new}"
+                    for key, new in change.params.settings.items()
+                }
+            elif isinstance(change, RenameSymbolChange):
+                field = "symbols"
+                lands = {
+                    key: f"{key.rpartition('.')[0].rpartition('.')[0]}.{new}"
+                    for key, new in change.params.symbols.items()
+                }
+            else:
                 continue
-            for key, new in change.params.settings.items():
-                landed = f"{key.rpartition('.')[0]}.{new}"
+            for key, landed in lands.items():
                 if under_any(landed, self.match.symbols):
                     raise ValueError(
-                        f"changes[{change.id!r}].params.settings[{key!r}] is renamed onto "
+                        f"changes[{change.id!r}].params.{field}[{key!r}] is renamed onto "
                         f"{landed!r}, which match.symbols lists as legacy"
+                    )
+
+    def _check_a_renamed_symbol_is_not_under_a_refused_one(self) -> None:
+        """The scan grades a refused prefix first, so a symbol under one would never be renamed."""
+        refused = tuple(
+            symbol
+            for change in self.changes
+            if isinstance(change, FlagOnlyChange)
+            for symbol in change.params.symbols
+        )
+        for change in self.changes:
+            if not isinstance(change, RenameSymbolChange):
+                continue
+            for key in change.params.symbols:
+                if under_any(key, refused):
+                    raise ValueError(
+                        f"changes[{change.id!r}].params.symbols[{key!r}] is under a symbol a "
+                        f"flag_only rule refuses, which the scan grades first, so it would never "
+                        f"be renamed"
                     )
 
     def _check_every_legacy_symbol_is_looked_for(self) -> None:
@@ -1451,6 +1522,11 @@ class PackDocument(_Closed):
                 raise ValueError(
                     f"changes[{change.id!r}] renames a setting and keeps its module, which "
                     f"match.shared says; a module that moves is renamed by rename_import"
+                )
+            if not self.match.shared and change.kind == "rename_symbol":
+                raise ValueError(
+                    f"changes[{change.id!r}] renames a symbol and keeps its package, which "
+                    f"match.shared says; a package that moves is renamed by rename_import"
                 )
             for name, symbol in self._legacy_symbols(change):
                 # Read for a member, never found as a usage, so no `symbols` entry can be asked.
@@ -1601,6 +1677,8 @@ class PackDocument(_Closed):
                 symbols.add(change.params.legacy_symbol)
             elif isinstance(change, RenameSettingChange):
                 symbols.update(change.params.settings)
+            elif isinstance(change, RenameSymbolChange):
+                symbols.update(change.params.symbols)
         return frozenset(symbols)
 
     @staticmethod
@@ -1628,6 +1706,8 @@ class PackDocument(_Closed):
             return (("legacy_symbol", change.params.legacy_symbol),)
         if isinstance(change, RenameSettingChange):
             return tuple(("settings", key) for key in change.params.settings)
+        if isinstance(change, RenameSymbolChange):
+            return tuple(("symbols", key) for key in change.params.symbols)
         if isinstance(change, FlagOnlyChange):
             return (
                 *(("symbols", symbol) for symbol in change.params.symbols),

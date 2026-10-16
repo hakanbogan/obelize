@@ -20,6 +20,8 @@ from obelize.packs.schema import (
     PackSource,
     RenameSettingChange,
     RenameSettingParams,
+    RenameSymbolChange,
+    RenameSymbolParams,
     RewriteCallChange,
     RewriteCallParams,
     Target,
@@ -74,6 +76,32 @@ BARE = RenameSettingChange(
     params=RenameSettingParams(settings={"acme.kit.endpoint": "address"}),
 )
 
+# 2.x exports two error classes from the package, one under another name, and derives them both
+# from `Fault`, which the old classes did not have as a base.
+ERRORS = RenameSymbolChange(
+    id="errors",
+    kind="rename_symbol",
+    citation="Acme Kit 2 notes, 'Errors'",
+    fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+    params=RenameSymbolParams(
+        symbols={"acme.kit.faults.Busy": "Busy", "acme.kit.faults.Denied": "Forbidden"},
+        now_caught_by=("acme.kit.Fault",),
+    ),
+)
+
+# The class whose responses 2.x splits between two.
+BROKEN = FlagOnlyChange(
+    id="flag-failure",
+    kind="flag_only",
+    citation="Acme Kit 2 notes, 'Errors'",
+    fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+    params=FlagOnlyParams(
+        message="acme.kit 2 raises Refused and Missing where 1.x raised Failure.",
+        suggestion="Catch both by hand.",
+        symbols=("acme.kit.faults.Failure",),
+    ),
+)
+
 FLAGGED = FlagOnlyChange(
     id="flag-legacy",
     kind="flag_only",
@@ -126,13 +154,14 @@ PACK = PackDocument(
             "acme.kit.Greeter",
             "acme.kit.Quote",
             "acme.kit.endpoint",
+            "acme.kit.faults",
             "acme.kit.legacy",
             "acme.kit.proxy",
         ),
         prefilter_tokens=("ACME_ENDPOINT", "acme"),
         shared=True,
     ),
-    changes=(SAY, FETCH, TUNE, FLAGGED, CAUGHT, PIN),
+    changes=(SAY, FETCH, TUNE, ERRORS, BROKEN, FLAGGED, CAUGHT, PIN),
     limitations=("Invented for the tests; no library of this name exists.",),
 )
 

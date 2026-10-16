@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by [ADR-055](ADR-055-rename-setting.md).
+Accepted; amended by [ADR-055](ADR-055-rename-setting.md) and [ADR-057](ADR-057-rename-symbol.md).
 
 ## Decision
 
@@ -184,7 +184,7 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 | `stream=True`, `deployment_id`, `timeout`, `api_key`, `api_base`, any other keyword, a positional argument, a splat | D1 and D4. `engine` and `request_timeout` are carried as `model` and `timeout` when they can be (D4). |
 | A result read with `.get` and a default, by a key off the path, looped over, passed on or returned | D5, D18. |
 | The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. `api_base` has a counterpart and is rewritten (ADR-055). |
-| `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |
+| `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. Three classes with a counterpart that is raised for the same responses are renamed (ADR-057); the rest are reported. |
 | `openai.APIError` and `openai.OpenAIError` | **The name is deliberately not reported.** It exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. What is reported is a read of what only the old class carries, off the name of a handler for it (D21). A handler that reads through another name, or catches `Exception`, is not seen. |
 | `File`, `Model`, `FineTune`, `Edit` and the rest, the image edit and variation calls, the raw audio calls | Their replacements differ in shape, and the edits and fine-tunes endpoints were shut down. `Audio.transcribe` and `translate`, `Image.create` and `Moderation.create` were in this row until D19. |
 | The twelve modules of the 0.28.1 package (`util`, `api_requestor`, ...) | None imports on 3.26.0, and `openai.cli` is another module on the releases that ship `openai migrate`. |

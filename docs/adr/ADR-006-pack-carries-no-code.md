@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-050, ADR-053 and ADR-055.
+Accepted; amended by ADR-050, ADR-053, ADR-055 and ADR-057.
 
 ## Decision
 
@@ -23,6 +23,7 @@ evaluated in it would be code execution inside a tool that edits the user's tree
 | `generative_model_calls` | the model constructor and its methods, including config and safety merging |
 | `rewrite_call` | a single legacy call to a new dotted call under the client, or under the module the author wrote, with argument mapping and the reads of its result that carry |
 | `rename_setting` | the plain assignment of a shared module's setting under the name the new release gives it, with the value ending as that name demands |
+| `rename_symbol` | a name a kept package's submodule defined, under the name the new release exports from the package, in a reference and in the import that names it |
 | `flag_only` | report a surface, never rewrite it |
 | `manifest_dependency` | rewrite or report a dependency declaration in a manifest |
 

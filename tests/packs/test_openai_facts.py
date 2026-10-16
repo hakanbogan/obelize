@@ -13,7 +13,11 @@ import importlib
 import importlib.util
 import inspect
 import json
+import socket
+import threading
+import time
 import typing
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from importlib.metadata import metadata, version
 from pathlib import Path
 from typing import Any
@@ -41,6 +45,12 @@ SETTINGS = {
     for change in PACK.changes
     if isinstance(change, schema.RenameSettingChange)
     for key, new in change.params.settings.items()
+}
+RENAMED = {
+    symbol: new
+    for change in PACK.changes
+    if isinstance(change, schema.RenameSymbolChange)
+    for symbol, new in change.params.symbols.items()
 }
 FLAGGED = {
     symbol
@@ -301,3 +311,147 @@ def test_a_renamed_setting_is_read_by_the_module_client_as_written(
     for written in ("http://example.invalid/v1", "http://example.invalid/v1/"):
         monkeypatch.setattr(openai, new, written)
         assert str(openai.chat.completions._client.base_url) == written
+
+
+class _Server(BaseHTTPRequestHandler):
+    """The legacy check's server: an API error under the status in the path, or an odd answer."""
+
+    def do_POST(self) -> None:
+        self.rfile.read(int(self.headers["Content-Length"]))
+        kind, _, rest = self.path[1:].partition("/")
+        if kind == "slow":
+            time.sleep(1.5)
+        status = int(rest.partition("/")[0]) if kind == "status" else 200
+        body = {"error": {"message": "m", "type": "t", "param": None, "code": "c"}}
+        data = b"" if kind == "empty" else json.dumps(body).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, *args: object) -> None:
+        """Silent."""
+
+
+@pytest.fixture(scope="module")
+def raised() -> dict[str, BaseException | None]:
+    """What the new release raises for each response the legacy snapshot recorded."""
+    server = HTTPServer(("127.0.0.1", 0), _Server)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_port}"
+    unbound = socket.socket()
+    unbound.bind(("127.0.0.1", 0))
+    closed = f"http://127.0.0.1:{unbound.getsockname()[1]}"
+    unbound.close()
+    # The base URL, the API key and the timeout of each case, by the snapshot's names.
+    cases: dict[str, tuple[str, str | None, float | None]] = {
+        **{
+            name: (f"{url}/{name.replace(' ', '/')}/", "k", None)
+            for name in SNAPSHOT["responses"]
+            if name.startswith("status ")
+        },
+        "empty 200 body": (f"{url}/empty/", "k", None),
+        "no API key": (f"{url}/", None, None),
+        "timeout": (f"{url}/slow/", "k", 0.3),
+        "connection refused": (f"{closed}/", "k", None),
+    }
+    found: dict[str, BaseException | None] = {}
+    with pytest.MonkeyPatch.context() as patch:
+        patch.delenv("OPENAI_API_KEY", raising=False)
+        for name, (base, key, timeout) in cases.items():
+            try:
+                openai.OpenAI(
+                    api_key=key, base_url=base, max_retries=0, timeout=timeout
+                ).chat.completions.create(model="m", messages=[])
+            except Exception as error:
+                found[name] = error
+            else:
+                found[name] = None
+    server.shutdown()
+    return found
+
+
+def _caught(raised: dict[str, BaseException | None], cls: type[BaseException]) -> set[str]:
+    """The responses a handler for `cls` catches on the new release."""
+    return {name for name, error in raised.items() if isinstance(error, cls)}
+
+
+def _raised_by_the_old(name: str) -> set[str]:
+    """The responses 0.28.1 raised `openai.error.<name>` or a class derived from it for."""
+    return {case for case, classes in SNAPSHOT["responses"].items() if name in classes}
+
+
+def test_the_snapshot_holds_the_responses_the_new_release_is_asked() -> None:
+    assert sorted(SNAPSHOT["responses"]) == sorted(
+        [
+            *(f"status {status}" for status in (400, 401, 403, 404, 415, 429, 500, 503)),
+            "connection refused",
+            "empty 200 body",
+            "no API key",
+            "timeout",
+        ]
+    )
+
+
+def test_the_old_classes_were_siblings_under_openai_error() -> None:
+    """So none was a base of another, which the new classes' bases are measured against."""
+    assert all(classes[1:] == ["OpenAIError"] for classes in SNAPSHOT["responses"].values())
+
+
+@pytest.mark.parametrize(("legacy", "new"), sorted(RENAMED.items()))
+def test_a_renamed_class_is_defined_by_the_new_release_and_the_old_module_is_not(
+    legacy: str, new: str
+) -> None:
+    assert issubclass(getattr(openai, new), openai.OpenAIError)
+    assert not hasattr(openai, legacy.split(".")[1])
+
+
+@pytest.mark.parametrize(("legacy", "new"), sorted(RENAMED.items()))
+def test_a_renamed_class_is_raised_for_exactly_the_responses_the_old_one_was(
+    raised: dict[str, BaseException | None], legacy: str, new: str
+) -> None:
+    """A handler for the old class ran for a set of responses; the new one runs for the same."""
+    old = _raised_by_the_old(legacy.rpartition(".")[2])
+    assert old
+    assert _caught(raised, getattr(openai, new)) == old
+
+
+@pytest.mark.parametrize(
+    "name",
+    sorted(
+        symbol.rpartition(".")[2]
+        for symbol in FLAGGED
+        if symbol.startswith("openai.error.") and _raised_by_the_old(symbol.rpartition(".")[2])
+    ),
+)
+def test_no_class_of_the_new_release_is_raised_for_exactly_the_responses_a_flagged_one_was(
+    raised: dict[str, BaseException | None], name: str
+) -> None:
+    """Why each is flagged: a rename would catch more or fewer responses than the old class did."""
+    old = _raised_by_the_old(name)
+    same = [
+        cls.__name__
+        for cls in list(vars(openai).values())
+        if inspect.isclass(cls) and issubclass(cls, Exception) and _caught(raised, cls) == old
+    ]
+    assert same == []
+
+
+@pytest.mark.parametrize(
+    "change",
+    [change for change in PACK.changes if isinstance(change, schema.RenameSymbolChange)],
+    ids=lambda change: change.id,
+)
+def test_the_bases_a_renamed_class_gained_are_the_ones_the_pack_lists(
+    change: schema.RenameSymbolChange,
+) -> None:
+    """The old classes derived from `OpenAIError` alone; every other base is new to a handler."""
+    gained = {
+        f"openai.{base.__name__}"
+        for new in change.params.symbols.values()
+        for base in getattr(openai, new).__mro__
+        if base.__module__.startswith("openai")
+        and base not in {getattr(openai, new), openai.OpenAIError}
+    }
+    assert gained == set(change.params.now_caught_by)

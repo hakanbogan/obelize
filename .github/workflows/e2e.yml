@@ -282,8 +282,8 @@ jobs:
           fixtures=src/obelize/packs/openai/openai-0-to-1/fixtures/positive
           out="$(mktemp -d)"
           before=(); after=()
-          for fixture in api_base audio chat_completion completion dict_reads embedding image \
-            import_alias moderation renamed_arguments result_names; do
+          for fixture in api_base audio chat_completion completion dict_reads embedding \
+            error_classes image import_alias moderation renamed_arguments result_names; do
             before+=("$fixtures/$fixture.before.py")
             after+=("$fixtures/$fixture.after.py")
           done

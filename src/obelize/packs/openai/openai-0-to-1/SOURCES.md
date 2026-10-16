@@ -65,7 +65,8 @@ the pinned 3.26.0 and, weekly, on 1.109.1.
 The claim that matters, that the migrated call does what the old one did, is
 measured too: `tests/packs/openai_behaviour_check.py` runs the fixtures that
 migrate (chat completion, text completion, embedding, an aliased import, dictionary-style reads, a
-part of a result in a name, an image, a moderation, an audio call and the base URL setting) against
+part of a result in a name, an image, a moderation, an audio call, the base URL setting and the
+exception classes) against
 a local server, the `.before.py` files on 0.28.1 and
 the `.after.py` answer keys on 1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0 and 3.26.1, and the printed
 results were identical. The weekly job repeats it on 0.28.1, 1.109.1 and the newest release.
@@ -262,20 +263,77 @@ The limitations that rest on the SDK's own text and not on a fixture:
   client in 3.26.0 without an error. A base URL set on the module must end in a
   slash or the request path is joined onto it without one.
 
-## flag-errors
+## error-classes
 
-- Measured: 0.28.1 raises from `openai.error` (`InvalidRequestError`,
-  `AuthenticationError`, `PermissionError`, `RateLimitError`,
-  `ServiceUnavailableError`, `Timeout`, `TryAgain`, `APIConnectionError`,
-  `APIError`, `InvalidAPIType`, `SignatureVerificationError`), re-exporting
-  three at the top level. No measured newer release has the module, or
-  `InvalidRequestError`, `TryAgain` or `ServiceUnavailableError`; `openai.Timeout`
-  is a configuration class and not an exception.
-- Measured: `openai.APIError` exists on both sides and is not the same class:
-  the old one carries `http_status`, `json_body` and `user_message`, the new one
-  `status_code`, `body`, `code` and `request_id`, and a 404 that was
-  `InvalidRequestError` is `NotFoundError` now. A handler that names the old
-  attributes or classes compiles and fails, or never runs. The name is not
+- Guide: the exception classes moved from `openai.error` to the top level of the package, and some
+  were renamed (`PermissionError` is `PermissionDeniedError`).
+- Measured: 0.27.0 and 0.28.1 raise the same class of `openai.error` for each of twelve responses
+  to `ChatCompletion.create` against a local server, and every class derives from `OpenAIError`
+  alone, so no class was the base of another. 1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0 and 3.31.0 have
+  no `openai.error`, and raise one class each for the same responses:
+
+| Response | 0.27.0 and 0.28.1 | 1.109.1 and later |
+|---|---|---|
+| status 400, API error body | `InvalidRequestError` | `BadRequestError` |
+| status 401 | `AuthenticationError` | `AuthenticationError` |
+| status 403 | `PermissionError` | `PermissionDeniedError` |
+| status 404 | `InvalidRequestError` | `NotFoundError` |
+| status 415 | `InvalidRequestError` | `APIStatusError` |
+| status 429 | `RateLimitError` | `RateLimitError` |
+| status 500 | `APIError` | `InternalServerError` |
+| status 503 | `ServiceUnavailableError` | `InternalServerError` |
+| an empty 200 body | `APIError` | `json.JSONDecodeError` |
+| no API key | `AuthenticationError` | `OpenAIError` (1.109.1, 2.0.0), `TypeError` (2.54.0 and later) |
+| a read timeout | `Timeout` | `APITimeoutError` |
+| a refused connection | `APIConnectionError` | `APIConnectionError` |
+
+- Measured: a class is renamed when the new one is raised for exactly the responses the old one
+  was: `RateLimitError` (429), `PermissionError` to `PermissionDeniedError` (403) and `Timeout` to
+  `APITimeoutError`. The new releases retry a 429 twice, and a timeout, and raise the same class
+  after the last attempt. `tests/packs/test_openai_facts.py` asserts this on the installed release
+  against the snapshot of the old side, and for each flagged class that no class of the new
+  release is raised for exactly its responses.
+- Measured: the new classes derive from `APIStatusError` (`RateLimitError`, `PermissionDeniedError`)
+  or `APIConnectionError` (`APITimeoutError`), and both from `APIError`, which the old classes did
+  not. A handler for one of these ahead of a renamed class, in one `try`, now catches what it did
+  not, so `now_caught_by` lists them and the rule withholds a handler that names one, or whose
+  class it cannot tell (a name bound in the file, a call). `openai.APIError` exists on 0.28.1 as a
+  sibling and is the name most likely to be there.
+- Measured: a response that is no API error (an HTML page, a JSON object with no `error` key) was
+  an `APIError` on 0.28.1 whatever its status, and is the class of its status on the new releases,
+  so a proxy's 429 that no handler for `RateLimitError` caught before is caught now. The text of a
+  caught exception changes: 0.28.1's `str(error)` was the API's message, with `Request <id>: `
+  before it when the response had a request id, and a new one is `Error code: <status> - <body>`.
+  A new status class is built from `message`, the `response` and the `body`, and `APITimeoutError`
+  from the `request`, where an old one took `message` and the body, status and headers, so a class
+  that is called, raised or derived from is refused. The old attributes (`http_status`, `json_body`, `user_message`, `headers`, `error`,
+  `_message`) are `status_code`, `body` and `message` on the new ones, or gone.
+- Measured: the `error_classes` fixture prints the same on 0.27.0 and 0.28.1 as its answer key does
+  on 1.109.1, 2.0.0, 2.54.0, 3.0.0, 3.26.0 and 3.31.0, for a 429, a 403 and an answered call.
+
+## flag-error-no-key, flag-error-invalid-request, flag-error-status-classes, flag-error-try-again, flag-error-removed
+
+- Measured (the table above): `AuthenticationError` and `OpenAIError` are raised, and caught, for
+  more responses on 0.28.1 than any class of the new releases is: a missing API key made 0.28.1
+  raise `AuthenticationError` before it sent anything, where 1.109.1 and 2.0.0 raise a bare
+  `OpenAIError` and 2.54.0 and later a `TypeError`: no handler for `AuthenticationError` catches
+  either, and none for `OpenAIError` catches the `TypeError`. An empty 200 body was an `APIError` and
+  is a `json.JSONDecodeError`, which `OpenAIError` does not catch on any of them. Renaming either
+  class would stop a handler running for a failure it handled. The top-level `openai.OpenAIError` is the one class both
+  sides define and is not reported.
+- Measured: `InvalidRequestError` was raised for 400, 404 and 415; the new releases raise
+  `BadRequestError`, `NotFoundError` and a bare `APIStatusError`, which is also the base of the other
+  two. `ServiceUnavailableError` was a 503, and `InternalServerError` is every status from 500;
+  `APIError` was every other status and a body that was no API error, and is the base of every class;
+  `APIConnectionError` was a refused connection, and is also the base of `APITimeoutError`.
+- Measured: `TryAgain` was raised for a 409, but `ChatCompletion.create` caught it and retried until
+  its `timeout` argument had passed, which a call without one never did, so it hung; the new releases
+  raise `ConflictError` for a 409 after two retries. `InvalidAPIType` was raised for an `api_type`
+  0.28.1 did not support, and `SignatureVerificationError` is defined and raised by nothing in it.
+  Every release measured from 1.109.1 defines `InvalidWebhookSignatureError`.
+- Measured: `openai.APIError` exists on both sides and is not the same class: the old one carries
+  `http_status`, `json_body` and `user_message`, the new one `status_code`, `body`, `code` and
+  `request_id`, and a 404 that was `InvalidRequestError` is `NotFoundError` now. The name is not
   reported, because it is the one a repository already on the new release writes
   (`except openai.APIError`) and reporting it would keep that repository on the
   pack's list for good.

@@ -72,6 +72,9 @@ class RuleContext:
     # Whether another selected module imports a name of this file's module, or reads it off the
     # module: a value bound to one is read where no rule here looks.
     imported_elsewhere: Callable[[str], bool]
+    # Legacy classes the running rules rename to ones of the new release, which derive from the same
+    # base (`Exception`) as the old: a handler for one never takes a missing key's error.
+    renamed: frozenset[str] = frozenset()
 
     @classmethod
     def build(
@@ -98,6 +101,7 @@ class RuleContext:
             client_readers=frozenset().union(*(rule.client_readers for rule in rules)),
             client=ClientBinding(),
             imported_elsewhere=imported_elsewhere,
+            renamed=frozenset().union(*(getattr(rule, "renames", ()) for rule in rules)),
         )
 
 

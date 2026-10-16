@@ -88,6 +88,13 @@ class Tree:
             None,
         )
 
+    def name(self, position: Position, symbol: str) -> cst.Name | None:
+        """The bare name a finding names (a from-imported one), or None where it names a chain."""
+        return next(
+            (node for node in self._names.get(position, ()) if self.qualified(node) == symbol),
+            None,
+        )
+
     def mentions(self, symbol: str) -> bool:
         """Whether some attribute in the file resolves to `symbol`."""
         leaf = symbol.rpartition(".")[2]
@@ -99,9 +106,16 @@ class Tree:
 
     @cached_property
     def _attributes(self) -> dict[Position, list[cst.Attribute]]:
-        found: dict[Position, list[cst.Attribute]] = {}
+        return self._at(cst.Attribute)
+
+    @cached_property
+    def _names(self) -> dict[Position, list[cst.Name]]:
+        return self._at(cst.Name)
+
+    def _at[Node: (cst.Attribute, cst.Name)](self, kind: type[Node]) -> dict[Position, list[Node]]:
+        found: dict[Position, list[Node]] = {}
         for node, span in self._pos.items():
-            if isinstance(node, cst.Attribute):
+            if isinstance(node, kind):
                 found.setdefault((span.start.line, span.start.column), []).append(node)
         return found
 

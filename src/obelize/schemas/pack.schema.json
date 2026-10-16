@@ -998,6 +998,79 @@
       "title": "RenameSettingParams",
       "type": "object"
     },
+    "RenameSymbolChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rename_symbol",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RenameSymbolParams"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "RenameSymbolChange",
+      "type": "object"
+    },
+    "RenameSymbolParams": {
+      "additionalProperties": false,
+      "description": "Names a kept package's submodule defined, which the new release exports from the package.",
+      "properties": {
+        "now_caught_by": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Now Caught By",
+          "type": "array"
+        },
+        "symbols": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "title": "Symbols",
+          "type": "object"
+        }
+      },
+      "required": [
+        "symbols"
+      ],
+      "title": "RenameSymbolParams",
+      "type": "object"
+    },
     "RewriteCallChange": {
       "additionalProperties": false,
       "properties": {
@@ -1449,6 +1522,7 @@
             "manifest_dependency": "#/$defs/ManifestDependencyChange",
             "rename_import": "#/$defs/RenameImportChange",
             "rename_setting": "#/$defs/RenameSettingChange",
+            "rename_symbol": "#/$defs/RenameSymbolChange",
             "rewrite_call": "#/$defs/RewriteCallChange"
           },
           "propertyName": "kind"
@@ -1468,6 +1542,9 @@
           },
           {
             "$ref": "#/$defs/RenameSettingChange"
+          },
+          {
+            "$ref": "#/$defs/RenameSymbolChange"
           },
           {
             "$ref": "#/$defs/FlagOnlyChange"

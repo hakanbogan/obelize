@@ -13,6 +13,56 @@
   "Timeout",
   "TryAgain"
  ],
+ "responses": {
+  "connection refused": [
+   "APIConnectionError",
+   "OpenAIError"
+  ],
+  "empty 200 body": [
+   "APIError",
+   "OpenAIError"
+  ],
+  "no API key": [
+   "AuthenticationError",
+   "OpenAIError"
+  ],
+  "status 400": [
+   "InvalidRequestError",
+   "OpenAIError"
+  ],
+  "status 401": [
+   "AuthenticationError",
+   "OpenAIError"
+  ],
+  "status 403": [
+   "PermissionError",
+   "OpenAIError"
+  ],
+  "status 404": [
+   "InvalidRequestError",
+   "OpenAIError"
+  ],
+  "status 415": [
+   "InvalidRequestError",
+   "OpenAIError"
+  ],
+  "status 429": [
+   "RateLimitError",
+   "OpenAIError"
+  ],
+  "status 500": [
+   "APIError",
+   "OpenAIError"
+  ],
+  "status 503": [
+   "ServiceUnavailableError",
+   "OpenAIError"
+  ],
+  "timeout": [
+   "Timeout",
+   "OpenAIError"
+  ]
+ },
  "submodules": [
   "_openai_scripts",
   "api_requestor",

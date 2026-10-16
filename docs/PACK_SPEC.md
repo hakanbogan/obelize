@@ -192,8 +192,8 @@ to:
 
 ## Rule kind registry
 
-The seven kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
-one. All seven are implemented: `registry.IMPLEMENTED`
+The eight kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
+one. All eight are implemented: `registry.IMPLEMENTED`
 (`src/obelize/transforms/registry.py`) equals the schema's set, and
 `tests/packs/test_all_packs.py` reads the registry. A method listed in
 `generative_model_calls.methods` but absent from `rewrites` is recognised, and
@@ -206,6 +206,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields` (a mapping literal among them must already be a turn of `history`'s shape, since it is carried as written), `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
 | `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `aliases`, `positional_to_kw`, `keywords`, `positive_numbers`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes`, `literal_prefixes`, `value_maps`, `warnings`, `warnings_unless` |
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
+| `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `now_caught_by` (what the new class derives from and the old one did not) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [ADR-021](adr/ADR-021-dependency-manifests-verdict.md) D13) |
 
@@ -335,6 +336,22 @@ names no builtin. A file that already uses the new name is `alias_collision`. Th
 every setting is under `match.symbols` and its new name is not, that none renames onto another and
 none onto a keyword, that the pack is `shared`, that no other change claims or refuses a setting,
 and that the character is one visible ASCII character that is no quote, backslash or digit.
+
+**`rename_symbol`** is for a package the new release keeps (`match.shared`) whose submodule defined a
+class the new release exports from the package: `openai.error.RateLimitError` becomes
+`openai.RateLimitError`. List a class only when the same responses raise it on both sides, which is
+measured against a server, and list the submodule in `match.symbols` and each class it does not rename
+in a `flag_only` change. It drops the submodule from a reference, from `import openai.error` and from
+`from openai.error import X`, and renames the class where the new release spells it another way. A
+class that is called, raised or derived from, a handler whose `as` name has an attribute read, and a
+handler that a handler ahead of it in one `try` may now catch for (it names a class in
+`now_caught_by` or none the rule can tell) are `error_class_changed` or `attribute_removed`; a
+`from` import that names a class the change does not rename is `from_import_unmigrated_symbol`, and
+a renamed class the file already binds is `alias_collision` ([ADR-057](adr/ADR-057-rename-symbol.md)).
+The schema checks that every symbol is a path of three names or more under `match.symbols`, that none
+renames onto a keyword or onto a name `match.symbols` lists, that no two land on one name, that none is
+claimed by another change or under a symbol a `flag_only` change refuses, that `now_caught_by` is
+sorted and de-duplicated, and that the pack is `shared`.
 
 **`flag_only`** never edits code: it reports a finding with a message and a
 suggestion, for anything that is not 1:1. Its channels:
@@ -626,7 +643,8 @@ so its two halves are held differently
 ([ADR-053](adr/ADR-053-shared-module-migrations.md) D8):
 
 - The legacy side is a committed snapshot of the old release's public names
-  (with their kinds), submodules and error classes. A test requires every name
+  (with their kinds), submodules and error classes, and of the class each of a dozen responses to
+  a local server makes it raise. A test requires every name
   in it to be listed in `match.symbols` or in a short set of names the new
   release defines (with the meaning they had, or left unreported on purpose), and not both, so a legacy name the
   pack forgot fails the suite. A script that needs only the standard library
@@ -638,6 +656,11 @@ so its two halves are held differently
   `to.requires_python` covers the Pythons the release declares.
 - A pack with `result_paths` has a positive fixture that reads every listed path by its keys, run on
   the old release and on the new ones, since the key rewrite rests on both spellings being one read.
+- A pack with a `rename_symbol` change records in the snapshot what the old release raises for each of
+  a dozen responses to a local server, and its facts test requires that each renamed class is raised
+  for exactly the responses the old one was, that no class of the new release is for a class the pack
+  flags, and that `now_caught_by` is the set of bases the renamed classes gained. The fixture that
+  triggers each is run on the old release and on the new ones.
 - Its negative fixtures are scanned, not prefiltered, since the module's name is
   the token of every file that already uses the new API.
 
