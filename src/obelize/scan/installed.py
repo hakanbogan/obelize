@@ -311,14 +311,17 @@ def _mentioned(
     return ""
 
 
+def _written(name: str) -> str:
+    """How code spells a name of `lacks`: a class by its own name, a module by its dotted path
+    (`utils` alone is a word)."""
+    leaf = name.rpartition(".")[2]
+    return leaf if leaf[:1].isupper() else name
+
+
 def _mention(spelled: str, lacks: Sequence[str]) -> re.Pattern[bytes]:
-    """A release of the distribution, or a name of `lacks` in any file, notebook, Python 2 file or
-    stub the scan does not parse included: a class by its own name, a module by its dotted path
-    (`utils` alone is a word), in the case it is written."""
-    names = "|".join(
-        re.escape(name.rpartition(".")[2] if name.rpartition(".")[2][:1].isupper() else name)
-        for name in lacks
-    )
+    """A release of the distribution written in a text, or a name of `lacks` in the case it is
+    written."""
+    names = "|".join(re.escape(_written(name)) for name in lacks)
     return re.compile(
         (
             rf"(?<![\w-]){spelled}(?:\[[^\]\n]{{0,100}}\])?[ \t]*"

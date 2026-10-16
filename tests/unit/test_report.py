@@ -177,6 +177,10 @@ APPLY = (
     " To apply it in a git repository, commit that change first: fix --apply refuses uncommitted "
     "changes unless you pass --allow-dirty."
 )
+PORT = (
+    " A pin moves the release, not the code: a call to a name that release removed has to be "
+    "ported first."
+)
 
 
 @pytest.mark.parametrize(
@@ -194,25 +198,27 @@ APPLY = (
             ),
             "requirements.txt declares old-sdk >=1, which allows versions this migration does "
             "not cover, so this migration reports its findings and plans no change. To migrate, "
-            "pin old-sdk to >=3 in requirements.txt and run again." + APPLY,
+            "pin old-sdk to >=3 in requirements.txt and run again." + PORT + APPLY,
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "requirements.txt", "", ">=3"),
             "requirements.txt declares old-sdk with no version, which allows versions this "
             "migration does not cover, so this migration reports its findings and plans no "
-            "change. To migrate, pin old-sdk to >=3 in requirements.txt and run again." + APPLY,
+            "change. To migrate, pin old-sdk to >=3 in requirements.txt and run again."
+            + PORT
+            + APPLY,
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "pyproject.toml", None, ">=3"),
             "pyproject.toml declares old-sdk in a form obelize cannot read, so this migration "
             "reports its findings and plans no change. To migrate, write it as a plain "
-            "requirement such as old-sdk>=3 in pyproject.toml and run again." + APPLY,
+            "requirement such as old-sdk>=3 in pyproject.toml and run again." + PORT + APPLY,
         ),
         (
             runtime.Blocked("legacy_version_unsupported", "old-sdk", "", None, ">=3"),
             "No manifest declares old-sdk, so the version in use is not known and this "
             "migration reports its findings and plans no change. To migrate, declare old-sdk>=3 "
-            "in a manifest obelize reads, such as requirements.txt, and run again." + APPLY,
+            "in a manifest obelize reads, such as requirements.txt, and run again." + PORT + APPLY,
         ),
         (
             runtime.Blocked(
@@ -226,7 +232,7 @@ APPLY = (
             "requirements.txt declares old-sdk with no version, which this migration would take "
             "as the newest release of old-sdk, but poetry.lock suggests another release is in use, "
             "so it reports its findings and plans no change. To migrate, pin old-sdk to >=3 in "
-            "requirements.txt and run again." + APPLY,
+            "requirements.txt and run again." + PORT + APPLY,
         ),
         (
             runtime.Blocked(
@@ -235,7 +241,7 @@ APPLY = (
             "setup.py declares old-sdk >=1, which this migration would take as the newest "
             "release of old-sdk, but app/main.py suggests another release is in use, so it "
             "reports its findings and plans no change. To migrate, pin old-sdk to >=3 in "
-            "setup.py and run again." + APPLY,
+            "setup.py and run again." + PORT + APPLY,
         ),
         (
             runtime.Blocked(
@@ -251,7 +257,7 @@ APPLY = (
             "git repository and this run was not at one, so a file that names another release "
             "may be unseen. It reports its findings and plans no change. To migrate, run it from "
             "the top of the git repository, or pin old-sdk to >=3 in requirements.txt and run "
-            "again." + APPLY,
+            "again." + PORT + APPLY,
         ),
         (
             runtime.Blocked(
@@ -278,6 +284,45 @@ def test_a_blocked_run_names_the_declaration_and_what_would_unblock_it(
     blocked: runtime.Blocked, says: str
 ) -> None:
     assert report._blocked(blocked, report._bare) == says
+
+
+# Where PyPDF2 is pinned below 3, the code written for it names classes 3.0.0 removed.
+
+
+def pypdf2(declared: str | None, evidence: str = "") -> runtime.Blocked:
+    return runtime.Blocked(
+        "legacy_version_unsupported", "PyPDF2", "requirements.txt", declared, ">=3", evidence
+    )
+
+
+@pytest.mark.parametrize(
+    "blocked",
+    [
+        *(pypdf2(declared) for declared in ("==1.26.0", "<3", "<3.0.0", "==2.12.1", "")),
+        pypdf2("", "pdf.py"),
+        runtime.Blocked("legacy_version_unsupported", "PyPDF2", "", None, ">=3"),
+    ],
+    ids=["1.26.0", "below-3", "below-3.0.0", "2.12.1", "bare", "bare-and-code", "undeclared"],
+)
+def test_a_pin_is_said_to_move_the_release_and_not_the_code(blocked: runtime.Blocked) -> None:
+    said = report._blocked(blocked, report._bare)
+    assert said.count(PORT) == 1
+    assert ">=3" in said.split(PORT)[0]
+    assert said.endswith(PORT + APPLY)
+
+
+@pytest.mark.parametrize(
+    "blocked",
+    [
+        runtime.Blocked("runtime_unsupported", "new-sdk", "pyproject.toml", ">=3.8", ">=3.10"),
+        runtime.Blocked("new_version_unsupported", "new-sdk", "requirements.txt", "==3", ">=6"),
+    ],
+    ids=["python", "new-pin"],
+)
+def test_a_block_that_is_not_about_the_legacy_release_says_nothing_of_porting(
+    blocked: runtime.Blocked,
+) -> None:
+    assert "A pin moves" not in report._blocked(blocked, report._bare)
 
 
 def test_the_path_that_refuted_the_newest_release_is_a_code_span_in_the_report() -> None:
@@ -329,8 +374,8 @@ def test_the_report_puts_the_command_and_the_flag_of_a_blocked_run_in_code_spans
     blocked = runtime.Blocked("legacy_version_unsupported", "old-sdk", "", None, ">=3")
     assert report._blocked(blocked, report._code).endswith(
         "declare `old-sdk>=3` in a manifest obelize reads, such as `requirements.txt`, and run "
-        "again. To apply it in a git repository, commit that change first: `fix --apply` refuses "
-        "uncommitted changes unless you pass `--allow-dirty`."
+        "again." + PORT + " To apply it in a git repository, commit that change first: "
+        "`fix --apply` refuses uncommitted changes unless you pass `--allow-dirty`."
     )
 
 
