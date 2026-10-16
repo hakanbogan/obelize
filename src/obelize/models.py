@@ -160,6 +160,10 @@ BAIL_ACTIONS: dict[BailCode, str] = {
         "Declare the legacy distribution in a manifest obelize reads, pinned at or above the "
         "pack's floor, then run again."
     ),
+    "new_version_unsupported": (
+        "Raise the declaration of the new distribution to a release the pack writes, or remove "
+        "it, then run again."
+    ),
     "conditional_binding": (
         "Bind the legacy name with one import statement, or migrate its uses by hand."
     ),
