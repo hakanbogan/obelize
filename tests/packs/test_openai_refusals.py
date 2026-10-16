@@ -199,3 +199,63 @@ def test_a_result_another_module_takes_holds_the_whole_repository(
         (edit.path, edit.line, edit.reason) for edit in run.edits
     }
     assert run.written == ()
+
+
+MIGRATES = (
+    "import openai\n\n\ndef ask(x):\n"
+    "    return openai.ChatCompletion.create(model='m', messages=x).id\n"
+)
+HANDLED = "import openai\n\ntry:\n    pass\nexcept {caught} as e:\n    print(e.{read})\n"
+INDIRECT = [
+    ("import os\nos.environ['OPENAI_API_BASE'] = 'http://h/v1'\n", "flag_only_surface"),
+    ("import os\nos.environ['OPENAI_ORGANIZATION'] += 'x'\n", "flag_only_surface"),
+    ("import os\nos.environ.setdefault('OPENAI_API_BASE', 'x')\n", "flag_only_surface"),
+    ("import os\nos.putenv('OPENAI_ORGANIZATION', 'org')\n", "flag_only_surface"),
+    (
+        "import os\nfrom unittest import mock\n"
+        "mock.patch.dict(os.environ, {'OPENAI_API_BASE': 'x'})\n",
+        "flag_only_surface",
+    ),
+    (
+        "import os\nos.environ['OPENAI_API_KEY'] = 'k'\nbase = os.environ.get('OPENAI_API_BASE')\n"
+        "os.environ['OPENAI_BASE_URL'] = base\n",
+        None,
+    ),
+    (
+        "from unittest import mock\nmock.patch('myapp.llm.openai.ChatCompletion.create')\n",
+        "flag_only_surface",
+    ),
+    (
+        "from unittest import mock\nmock.patch.object(myapp.llm.openai, 'ChatCompletion')\n",
+        "flag_only_surface",
+    ),
+    ("from unittest import mock\nmock.patch.object(myapp.llm.openai, 'OpenAI')\n", None),
+    (
+        "import sys\nfrom unittest import mock\nmock.patch.dict(sys.modules, {'openai': 1})\n",
+        "flag_only_surface",
+    ),
+    (HANDLED.format(caught="openai.APIError", read="http_status"), "attribute_removed"),
+    (HANDLED.format(caught="(OSError, openai.OpenAIError)", read="json_body"), "attribute_removed"),
+    (HANDLED.format(caught="openai.OpenAIError", read="user_message"), "attribute_removed"),
+    (HANDLED.format(caught="openai.APIError", read="body"), None),
+    (HANDLED.format(caught="openai.APIError", read="message"), None),
+    ("import openai\n\n\ndef f(result: 'openai.Image'): ...\n", "usage_unmapped"),
+    ("import openai\n\n\ndef f(result: 'Optional[openai.Image]'): ...\n", "usage_unmapped"),
+    ("import openai\n\n\ndef f(result: 'openai.OpenAI'): ...\n", None),
+]
+
+
+@pytest.mark.parametrize(
+    ("extra", "withheld"), INDIRECT, ids=[extra.splitlines()[-1] for extra, _ in INDIRECT]
+)
+def test_a_name_reached_without_a_call_holds_a_repository_that_would_migrate(
+    tmp_path: Path, extra: str, withheld: str | None
+) -> None:
+    (tmp_path / "app.py").write_text(MIGRATES, encoding="utf-8")
+    (tmp_path / "other.py").write_text(extra, encoding="utf-8")
+    scan = scanner.scan(tmp_path, Config(), SPEC, jobs=1)
+    sources = {result.path: (tmp_path / result.path).read_bytes() for result in scan.results}
+    run = codemod.run(scan, sources, LOADED.pack, SPEC)
+    held = {edit.reason for edit in run.edits if edit.status != "auto"}
+    assert (withheld in held) if withheld else not held, held
+    assert bool(run.written) is (withheld is None)

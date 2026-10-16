@@ -4,6 +4,9 @@ import openai
 
 openai.api_key = os.environ["OPENAI_API_KEY"]
 openai.organization = "org-example"
+openai.base_url = os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1/")
+os.environ["OPENAI_API_KEY"] = openai.api_key
+os.environ["OPENAI_BASE_URL"] = openai.base_url
 
 
 def reply(prompt):

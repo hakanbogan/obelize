@@ -185,10 +185,10 @@ reports the rest, because each of these is a measured way for the rewrite to be 
 | A result read with `.get` and a default, by a key off the path, looped over, passed on or returned | D5, D18. |
 | The thirteen module settings | Eleven do nothing on the new side, and nothing a scan, import or test of the migrated code shows. `api_type` and `api_version` choose Azure, once. `api_base` has a counterpart and is rewritten (ADR-055). |
 | `openai.error`, `InvalidRequestError` | A handler for a name that is gone fails or never runs. |
-| `openai.APIError` | **Deliberately not reported.** The name exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. The cost: a handler that reads `http_status`, `json_body` or `user_message` compiles and raises `AttributeError` once the pin moves, and nothing says so. It is a limitation of the pack. |
+| `openai.APIError` and `openai.OpenAIError` | **The name is deliberately not reported.** It exists on both sides with other attributes, and code already on the new release writes `except openai.APIError`, so reporting it would keep every modern repository on the pack's list for good. What is reported is a read of what only the old class carries, off the name of a handler for it (D21). A handler that reads through another name, or catches `Exception`, is not seen. |
 | `File`, `Model`, `FineTune`, `Edit` and the rest, the image edit and variation calls, the raw audio calls | Their replacements differ in shape, and the edits and fine-tunes endpoints were shut down. `Audio.transcribe` and `translate`, `Image.create` and `Moderation.create` were in this row until D19. |
 | The twelve modules of the 0.28.1 package (`util`, `api_requestor`, ...) | None imports on 3.26.0, and `openai.cli` is another module on the releases that ship `openai migrate`. |
-| Dynamic access, `mock.patch` targets, `sys.modules` stubs | The legacy name is a string, so no rewrite can follow it. The bare module fetched by its string is one too (D14). A target written against your own module is not seen. |
+| Dynamic access, `mock.patch` targets, `sys.modules` stubs | The legacy name is a string, so no rewrite can follow it. The bare module fetched by its string is one too (D14). A target written against your own module is one (D21). |
 | `openai[datalib]` and other pins that name extras, a URL, a hash or an editable requirement | The manifest rule cannot write the line, so the plan holds the repository (`manifest_pin_shape_unsupported`, D12). |
 
 
@@ -477,6 +477,47 @@ on the new releases and diffs them.
 the new releases print a one-line repr, so a program whose output another reads (`| jq`) would change
 with no error. A call given to `print` stays `response_shape_changed`.
 
+### D21. A legacy name written outside a call, and what a handler reads
+
+Found open after D7 and D14, each by writing the code a repository has and scanning it. Four are rows
+of shapes the pack already declares and one is a new shape id:
+
+- A patch target under a package of your own. `mock.patch("myapp.llm.openai.ChatCompletion.create")`
+  patches a name the migrated code no longer reaches, so the test stands in for nothing. In a shared
+  module a call argument that is a dotted path with any prefix before `openai` and a legacy symbol
+  after it is a `mock_patch_target`. Only a shared module: another pack's module name is not one
+  your own packages are likely to carry. `patch.object(myapp.llm.openai, "ChatCompletion")` is a
+  spelling heuristic: a string that names a legacy leaf of the module, in a call with an argument
+  written to end in `.openai` that resolves to nothing. A package of yours with its own `openai` and
+  a class of that name is a false hold, which the person clears by renaming the target. The module
+  itself as the first argument (`patch.object(openai, ...)`) already resolves and is a row.
+- A dict literal handed to `sys.modules`: `patch.dict(sys.modules, {"openai": fake})`, with the
+  name or the string `"sys.modules"`, or `sys.modules.update({...})`. Each key that fetches the
+  module or a legacy symbol is a `dynamic_access` row, as `sys.modules["openai"] = fake` is (D14).
+  `monkeypatch.setitem(sys.modules, ...)` and a keyword (`patch.dict(sys.modules, openai=fake)`) are
+  not seen.
+- A write of `OPENAI_API_BASE` or `OPENAI_ORGANIZATION`. The new releases read `OPENAI_BASE_URL` and
+  `OPENAI_ORG_ID` (SOURCES.md), so what the old name sets is lost without an error. The pack names
+  the variables (`flag_only.variables`) and opts in with `environment_write`, a shape id that
+  reports `dynamic_access` and is claimed with the other indirect shapes: `os.environ[...] =` and
+  `+=`, `setdefault`, `os.putenv`, and a dict literal handed to `os.environ.update` or
+  `patch.dict(os.environ, ...)`. A read is no row, since code that assigns `openai.api_base` from
+  the variable is rewritten and keeps its meaning. Both names are `match.prefilter_tokens`, and the
+  schema asks that every variable hold one: a settings module that sets one and never names
+  `openai` is otherwise skipped unparsed. `monkeypatch.setenv`, `update(NAME=...)`, a name held in
+  a variable and a `.env` file are not seen.
+- A name inside a string annotation. `result: "openai.Image"` in a pydantic model is evaluated when
+  the class is built, and 3.26.0 raises `APIRemovedInV1` there (measured). In a
+  shared module it is an `attribute` row of the name, so it is `usage_unmapped` as an unquoted
+  annotation is, where it had been a mention that held nothing. It is found only when it spells
+  `openai`: `"oa.Image"` for an alias is not.
+- A handler's reads. `except openai.APIError as e` (or `openai.OpenAIError`, or a tuple holding one)
+  followed by `e.http_status`, `e.json_body` or `e.user_message` in its body is `attribute_removed`,
+  the same row an attribute of a receiver is, listed in the pack's `flag-errors` as
+  `openai.APIError.http_status`. A shared pack's `attributes` need only sit under `match.imports`,
+  since the class is one both sides define and is no symbol. `openai.error.*` names were already
+  rows.
+
 ### Review
 
 Three adversarial reviewers each ran 150 to 450 inputs against the finished pack and the engine under
@@ -515,7 +556,8 @@ The gaps the review left open are in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md#the-op
   `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf`. The README, `docs/CLI.md` and the CI
   workflow name each, and `tests/packs/test_all_packs.py` fails when one does not.
 - The pack format gains `match.shared`, `rewrite_call`'s `root`, `keywords` and `result_paths`, and
-  a `manifest_dependency` on one distribution. No code, vocabulary or JSON Schema value is new:
+  a `manifest_dependency` on one distribution, and later `flag_only`'s `variables` and the
+  `environment_write` shape id (D21). No bail code or confidence reason is new:
   `from_import_unmigrated_symbol` is also raised by a module-rooted rule, `repo_not_fully_migrated`
   also lands on the source rows of a coupled pack, an import row included,
   `manifest_pin_shape_unsupported` is also raised by the scan for a coupled pack (D12), and

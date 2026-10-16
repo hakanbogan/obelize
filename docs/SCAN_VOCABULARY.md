@@ -33,11 +33,11 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `receiver_bound_module_const` | The receiver is a module-level constant, used in a function or method of the same module. |
 | `receiver_bound_self_attr` | The receiver is `self.<attr>`, matched on (enclosing `ClassDef`, first-parameter name, attribute name). |
 | `receiver_unresolved` | The receiver has no resolvable binding. |
-| `dynamic_access` | Reached by name at run time: `importlib.import_module("…")`, `__import__("…")`, a `sys.modules[…]` assignment. `getattr(<alias>, "X")` is `module_alias_rebound`. Of a shared module, the bare module fetched by its string counts too. |
+| `dynamic_access` | Reached by name at run time: `importlib.import_module("…")`, `__import__("…")`, a `sys.modules[…]` assignment or a dict literal handed to it. A write of an environment variable the pack names (`os.environ[…] =`, `putenv`) is this too. `getattr(<alias>, "X")` is `module_alias_rebound`. Of a shared module, the bare module fetched by its string counts too. |
 | `star_import` | Bound by a star import; the names are unknown. |
 | `star_import_candidate` | A bare name a star import in the same module may have bound. |
 | `string_or_comment_mention` | Only in a string, comment or docstring. |
-| `mock_patch_target` | A call argument that is exactly a legacy dotted path, as in `mock.patch("google.generativeai...")`. |
+| `mock_patch_target` | A call argument that is exactly a legacy dotted path, as in `mock.patch("google.generativeai...")`. Of a shared module, also that path under a package of your own, and a string naming a legacy leaf beside an expression written to end in the module. |
 | `manifest_dependency` | A dependency declaration naming the legacy distribution. |
 | `parse_error` | The file did not parse; coordinates come from the exception. |
 

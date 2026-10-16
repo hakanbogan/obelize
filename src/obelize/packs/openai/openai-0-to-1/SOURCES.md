@@ -97,8 +97,8 @@ The limitations that rest on the SDK's own text and not on a fixture:
 - Measured: 0.28.1 read `OPENAI_API_BASE` and `OPENAI_ORGANIZATION` from the environment when
   `openai` was imported (`api_base` and `organization` took them); 1.109.1 and 3.26.0 read
   `OPENAI_BASE_URL` and `OPENAI_ORG_ID` when the module client is first used, and
-  `OPENAI_API_KEY` is read by both. The pack lists this as a limitation: it does not look at
-  environment variables.
+  `OPENAI_API_KEY` is read by both. A write of either old name in the code is a row
+  (flag-indirect-use); one set outside the code is a limitation the pack lists.
 - Measured: the methods take keywords only, with no `**kwargs`. 0.28.1's
   `create` read `api_key`, `api_base`, `api_type`, `api_version`,
   `organization`, `request_id`, `engine`, `deployment_id`, `headers`,
@@ -268,7 +268,12 @@ The limitations that rest on the SDK's own text and not on a fixture:
   attributes or classes compiles and fails, or never runs. The name is not
   reported, because it is the one a repository already on the new release writes
   (`except openai.APIError`) and reporting it would keep that repository on the
-  pack's list for good; the cost is a limitation of the pack.
+  pack's list for good.
+- Measured: an instance of `openai.APIError` or `openai.OpenAIError` has
+  `http_status`, `json_body` and `user_message` on 0.28.1; on 3.26.0 `APIError` has
+  `body` and `message` and `OpenAIError` none of the six, so the read of one of
+  the three off the name of a handler for either class is listed in `attributes`.
+  A handler that reads through another name is not seen.
 
 ## flag-resources
 
@@ -293,7 +298,17 @@ The limitations that rest on the SDK's own text and not on a fixture:
 ## flag-indirect-use
 
 - A string target in a `mock.patch`, an `importlib.import_module` or a
-  `sys.modules` stub names the old module and never meets an import statement.
+  `sys.modules` stub names the old module and never meets an import statement. The
+  target is found under a package of your own too (`myapp.llm.openai.ChatCompletion.create`),
+  beside an expression written to end in `.openai`, and as a dict literal handed to
+  `sys.modules` (`patch.dict`, `update`).
+- Measured (the environment variables of the api-base section): a write of
+  `OPENAI_API_BASE` or `OPENAI_ORGANIZATION` sets what 0.28.1 read and nothing on
+  1.109.1 and 3.26.0, which read `OPENAI_BASE_URL` and `OPENAI_ORG_ID`, so it is a
+  row (`environment_write`, `variables`) and a read of one is not.
+- Measured: on 3.26.0 a pydantic class with `result: "openai.Image"` raises
+  `APIRemovedInV1` when the class is built, so a name that only a quoted
+  annotation spells is a row of the name.
 
 ## dependency
 

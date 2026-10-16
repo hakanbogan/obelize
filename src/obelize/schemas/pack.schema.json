@@ -200,7 +200,8 @@
             "enum": [
               "mock_patch_target",
               "dynamic_access",
-              "sys_modules_stub"
+              "sys_modules_stub",
+              "environment_write"
             ],
             "type": "string"
           },
@@ -220,6 +221,15 @@
             "type": "string"
           },
           "title": "Symbols",
+          "type": "array"
+        },
+        "variables": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Variables",
           "type": "array"
         }
       },

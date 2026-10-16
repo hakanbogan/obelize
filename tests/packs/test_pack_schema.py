@@ -665,11 +665,27 @@ FLAG_DEFECTS = [
         "both a symbol and an attribute",
     ),
     ({"patterns": ["regular_expression"]}, "Input should be"),
+    ({"variables": ["DEMO_LEGACY_BASE"]}, "named together"),
+    ({"patterns": ["environment_write"]}, "named together"),
+    (
+        {"patterns": ["environment_write"], "variables": ["DEMO_B", "DEMO_A"]},
+        "variables must be sorted",
+    ),
 ]
 
 
 @pytest.mark.parametrize(
-    ("params", "says"), FLAG_DEFECTS, ids=["nothing", "bare-name", "both", "unknown-pattern"]
+    ("params", "says"),
+    FLAG_DEFECTS,
+    ids=[
+        "nothing",
+        "bare-name",
+        "both",
+        "unknown-pattern",
+        "variable-alone",
+        "shape-alone",
+        "unsorted-variables",
+    ],
 )
 def test_the_flag_rule_refuses_a_refusal_that_names_nothing_usable(
     params: dict[str, Any], says: str
@@ -716,6 +732,11 @@ def _two_flags(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
         ),
         ({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}, "dynamic_access"),
         ({"patterns": ["dynamic_access"]}, {"patterns": ["dynamic_access"]}, "dynamic_access"),
+        (
+            {"patterns": ["dynamic_access"]},
+            {"patterns": ["environment_write"], "variables": ["DEMO_LEGACY_BASE"]},
+            "dynamic_access",
+        ),
         (
             {"patterns": ["mock_patch_target"]},
             {"patterns": ["mock_patch_target"]},
@@ -892,6 +913,21 @@ def test_a_rule_in_a_shared_module_sits_under_a_listed_name_and_elsewhere_under_
     else:
         with pytest.raises(ValidationError, match=re.escape("under nothing in match.symbols")):
             build(document)
+
+
+def test_a_shared_pack_takes_an_attribute_of_a_class_both_sides_define() -> None:
+    """`APIError` is no symbol: reporting the name would hold the repositories already migrated."""
+    document = with_change(builder.FLAG_CHANGE, symbols=[], attributes=["demo_legacy.Reply.text"])
+    document["match"].update(shared=True, symbols=["demo_legacy.configure"])
+    assert flag_params(build(document), 1).attributes == ("demo_legacy.Reply.text",)
+
+
+def test_a_variable_is_reported_when_a_prefilter_token_occurs_in_its_name() -> None:
+    document = with_change(
+        builder.FLAG_CHANGE, patterns=["environment_write"], variables=["DEMO_LEGACY_BASE"]
+    )
+    document["match"]["prefilter_tokens"] = ["DEMO_LEGACY_BASE", "demo_legacy"]
+    assert flag_params(build(document), 1).variables == ("DEMO_LEGACY_BASE",)
 
 
 def test_a_shared_pack_refuses_an_import_rename_even_for_a_listed_module() -> None:
@@ -1113,6 +1149,7 @@ PROJECTED = {
     "removed_attributes",
     "flag_only_symbols",
     "flag_only_patterns",
+    "flag_only_variables",
     "requires_python",
     "legacy_floor",
     "legacy_newest",

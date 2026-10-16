@@ -258,7 +258,7 @@ def test_the_flag_only_pattern_ids_are_the_ones_the_pack_specification_lists() -
         documented.update(re.findall(r"^\| `([a-z_]+)` \|", line))
     assert documented == FLAG_ONLY_PATTERNS, sorted(documented ^ set(FLAG_ONLY_PATTERNS))
     # Every other pattern id reuses a `confidence_reason` for the same fact.
-    assert {"sys_modules_stub"} == FLAG_ONLY_PATTERNS - CONFIDENCE_REASONS
+    assert {"environment_write", "sys_modules_stub"} == FLAG_ONLY_PATTERNS - CONFIDENCE_REASONS
 
 
 # Value shapes shared with `obelize.packs.schema` and `ScanSpec` (PACK_SPEC hard rule 3).

@@ -155,7 +155,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields` (a mapping literal among them must already be a turn of `history`'s shape, since it is carried as written), `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
 | `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `aliases`, `positional_to_kw`, `keywords`, `positive_numbers`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes`, `literal_prefixes`, `value_maps`, `warnings`, `warnings_unless` |
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
-| `flag_only` | `symbols` / `patterns` / `attributes`, `message`, `suggestion` |
+| `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec` |
 
 **`legacy_error_modules`**: a rewritten call in a `try` whose handler names an
@@ -292,7 +292,7 @@ suggestion, for anything that is not 1:1. Its channels:
 |---|---|---|
 | `symbols` | A qualified legacy symbol. | `flag_only_surface` |
 | `patterns` | A *shape* that is not a name at all, such as a string handed to `mock.patch`. | `flag_only_surface` |
-| `attributes` | A dotted attribute path the new object does not have. | `attribute_removed` |
+| `attributes` | A dotted attribute path the new object does not have, read off a receiver the scan holds or off the name an `except <class> as name` handler binds. | `attribute_removed` |
 
 `flag_only.patterns` holds shape ids, **never regular expressions** (hard rule
 1). The set is declared in `src/obelize/models.py`; `tests/unit/test_models.py`
@@ -300,16 +300,19 @@ holds this table equal to it.
 
 | Pattern id | Matches |
 |---|---|
-| `mock_patch_target` | A call argument that is exactly a legacy dotted path, as in `mock.patch("google.generativeai...")`. |
+| `mock_patch_target` | A call argument that is exactly a legacy dotted path, as in `mock.patch("google.generativeai...")`. In a shared module also the path under a package of your own (`myapp.llm.openai.ChatCompletion.create`), and a string naming a legacy leaf in a call that has an expression written to end in the module (`patch.object(myapp.llm.openai, "ChatCompletion")`). |
 | `dynamic_access` | The legacy module reached through `getattr`, `importlib.import_module` or `__import__`. |
-| `sys_modules_stub` | An assignment into `sys.modules` under the legacy module's name, which replaces the module for every later importer. |
+| `sys_modules_stub` | An assignment into `sys.modules` under the legacy module's name, or a dict literal keyed by it handed to `sys.modules.update` or `patch.dict(sys.modules, ...)`, which replaces the module for every later importer. |
+| `environment_write` | A write of a variable `variables` names: `os.environ[...] =` or `+=`, `os.environ.setdefault`, `os.putenv`, or a dict literal keyed by it handed to `os.environ.update` or `patch.dict(os.environ, ...)`. A read is no row. |
 
 The first two are also `confidence_reason` values
-([SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §2); a test pins `sys_modules_stub`
-as the only id that is not. On a shared module a string matches only when it names a legacy symbol or, for
-`importlib.import_module`, `__import__` and `sys.modules`, the bare module. The `dynamic_access` id enables four shapes:
-`importlib.import_module("...")`, `__import__("...")` and assignment into
-`sys.modules[...]` get reason `dynamic_access`, while `getattr(<alias>, "X")`
+([SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §2); a test pins `sys_modules_stub` and `environment_write`
+as the only ids that are not, and both report `dynamic_access`. A pack that names `environment_write`
+names its `variables` too, and each holds a `match.prefilter_tokens` entry, or a file that sets one
+and never names the module is skipped unparsed. On a shared module a string matches only when it names a legacy symbol or, for
+`importlib.import_module`, `__import__` and `sys.modules`, the bare module. The `dynamic_access` id enables
+`importlib.import_module("...")`, `__import__("...")`, assignment into `sys.modules[...]` and a dict
+literal handed to `sys.modules`, which get reason `dynamic_access`, while `getattr(<alias>, "X")`
 goes through a resolvable name, so it is `module_alias_rebound` and marks the
 whole file rebound, graded by
 `tests/fixtures/scan/escapes/dynamic.py`.
@@ -453,7 +456,7 @@ Then `import openai` says nothing about which API a file was written for, and
   the list equal to a snapshot of the old release
   ([Pack test requirements](#pack-test-requirements)).
 - The module used as a value (`client = openai`, `getattr(openai, "Image")`)
-  escapes the scan as `module_alias_rebound`, since a name read through it can no longer be resolved, and so does a read of its `__dict__` or `__getattribute__`. The bare module fetched by its string (`importlib.import_module("openai")`, `__import__("openai")`, `sys.modules["openai"]`) is a `dynamic_access` row. A star import is a row only from the module itself or from a legacy symbol (`from openai.types import *` is not). A mention in prose and a `mock.patch` target count only when they name a legacy symbol.
+  escapes the scan as `module_alias_rebound`, since a name read through it can no longer be resolved, and so does a read of its `__dict__` or `__getattribute__`. The bare module fetched by its string (`importlib.import_module("openai")`, `__import__("openai")`, `sys.modules["openai"]`) is a `dynamic_access` row. A star import is a row only from the module itself or from a legacy symbol (`from openai.types import *` is not). A mention in prose and a `mock.patch` target count only when they name a legacy symbol. A string annotation that spells one (`result: "openai.Image"`) is a row of the name, as an unquoted annotation is, since a pydantic model evaluates it when the class is built.
 - A read off a call's result (`f(...).choices[0].x`) belongs to the call's own
   row, and `result_paths` decides which reads carry. A pack that is not shared keeps such a read as a
   row of its own.
@@ -617,8 +620,12 @@ Per field:
 - A duplicate `changes[].id`.
 - Two `flag_only` changes that name one surface: the same attribute, the same symbol or one that is
   the other's dotted prefix (`a.b` and `a.b.c`, not `a.b` and `a.bc`), or shape ids that report one
-  reason (`dynamic_access` and `sys_modules_stub` both report `dynamic_access`). A symbol and an
-  attribute of one spelling are different rows and may sit in two changes.
+  reason (`dynamic_access`, `sys_modules_stub` and `environment_write` all report `dynamic_access`). A
+  symbol and an attribute of one spelling are different rows and may sit in two changes.
+- A `flag_only` change with `variables` and no `environment_write` pattern, or the pattern with no
+  `variables`, a variable in which no `match.prefilter_tokens` entry occurs, and in a shared pack an
+  `attributes` entry that is under none of `match.imports` (it needs no `match.symbols` entry: the
+  class may be one both sides define).
 - An unknown `changes[].kind`.
 - A missing `source.url` or `source.retrieved_at`.
 - `language` other than `python`.

@@ -1090,6 +1090,7 @@ PATTERN_REASONS: dict[FlagOnlyPattern, ConfidenceReason] = {
     "dynamic_access": "dynamic_access",
     "mock_patch_target": "mock_patch_target",
     "sys_modules_stub": "dynamic_access",
+    "environment_write": "dynamic_access",
 }
 
 
@@ -1102,6 +1103,8 @@ class FlagOnlyParams(_Closed):
     symbols: tuple[QualifiedName, ...] = ()
     patterns: tuple[FlagOnlyPattern, ...] = ()
     attributes: tuple[QualifiedName, ...] = ()
+    # The environment variables `environment_write` reports a write of, and only it reads them.
+    variables: tuple[PlainName, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> FlagOnlyParams:
@@ -1110,6 +1113,9 @@ class FlagOnlyParams(_Closed):
         _sorted_set(self.symbols, "symbols")
         _sorted_set(self.patterns, "patterns")
         _sorted_set(self.attributes, "attributes")
+        _sorted_set(self.variables, "variables")
+        if bool(self.variables) != ("environment_write" in self.patterns):
+            raise ValueError("variables and the environment_write pattern are named together")
         for attribute in self.attributes:
             if "." not in attribute:
                 raise ValueError(
@@ -1263,6 +1269,7 @@ class PackDocument(_Closed):
         self._check_receivers_and_symbols_are_claimed_once()
         self._check_a_surface_is_flagged_once()
         self._check_every_legacy_symbol_is_looked_for()
+        self._check_a_variable_is_looked_for()
         self._check_mapped_symbols_are_not_also_refused()
         self._check_a_setting_is_not_renamed_onto_a_legacy_name()
         self._check_manifest_matches_the_migration()
@@ -1400,9 +1407,10 @@ class PackDocument(_Closed):
                     )
 
     def _check_every_legacy_symbol_is_looked_for(self) -> None:
-        """A shared module is legacy only where `symbols` says so, so the rules must sit there."""
-        field = "match.symbols" if self.match.shared else "match.imports"
-        looked = self.match.symbols if self.match.shared else self.match.imports
+        """A shared module is legacy only where `symbols` says so, so the rules must sit there.
+
+        An attribute is the exception: it is read off a class both sides define (`APIError`).
+        """
         for change in self.changes:
             if self.match.shared and change.kind == "rename_import":
                 raise ValueError(
@@ -1418,11 +1426,30 @@ class PackDocument(_Closed):
                 # Read for a member, never found as a usage, so no `symbols` entry can be asked.
                 if self.match.shared and name.startswith("safety."):
                     continue
+                by_symbols = self.match.shared and name != "attributes"
+                field, looked = (
+                    ("match.symbols", self.match.symbols)
+                    if by_symbols
+                    else ("match.imports", self.match.imports)
+                )
                 if not under_any(symbol, looked):
                     raise ValueError(
                         f"changes[{change.id!r}].params.{name} names {symbol!r}, which is under "
                         f"nothing in {field} {list(looked)}. Resolution can never produce it, so "
                         f"the rule can never fire"
+                    )
+
+    def _check_a_variable_is_looked_for(self) -> None:
+        """A file that sets the variable and never names the module is parsed only for a token."""
+        for change in self.changes:
+            if not isinstance(change, FlagOnlyChange):
+                continue
+            for variable in change.params.variables:
+                if not any(token in variable for token in self.match.prefilter_tokens):
+                    raise ValueError(
+                        f"changes[{change.id!r}].params.variables names {variable!r}, in which no "
+                        f"match.prefilter_tokens entry occurs, so a file that sets it and never "
+                        f"names the module is skipped unparsed"
                     )
 
     def _check_manifest_matches_the_migration(self) -> None:

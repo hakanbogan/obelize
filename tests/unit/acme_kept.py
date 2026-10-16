@@ -83,7 +83,21 @@ FLAGGED = FlagOnlyChange(
         message="acme.kit 2 has no legacy module and no proxy setting.",
         suggestion="Port these call sites by hand against the acme.kit 2 reference.",
         symbols=("acme.kit.legacy", "acme.kit.proxy"),
-        patterns=("dynamic_access", "mock_patch_target", "sys_modules_stub"),
+        patterns=("dynamic_access", "environment_write", "mock_patch_target", "sys_modules_stub"),
+        variables=("ACME_ENDPOINT",),
+    ),
+)
+
+# `Client` is a class both sides define; 1.x also set `status` on an instance, 2.x does not.
+CAUGHT = FlagOnlyChange(
+    id="flag-caught",
+    kind="flag_only",
+    citation="Acme Kit 2 notes, 'Errors'",
+    fixtures=("fixtures/negative/none.py", "fixtures/positive/one.before.py"),
+    params=FlagOnlyParams(
+        message="acme.kit 2 errors carry no status.",
+        suggestion="Read the response instead.",
+        attributes=("acme.kit.Client.status",),
     ),
 )
 
@@ -115,10 +129,10 @@ PACK = PackDocument(
             "acme.kit.legacy",
             "acme.kit.proxy",
         ),
-        prefilter_tokens=("acme",),
+        prefilter_tokens=("ACME_ENDPOINT", "acme"),
         shared=True,
     ),
-    changes=(SAY, FETCH, TUNE, FLAGGED, PIN),
+    changes=(SAY, FETCH, TUNE, FLAGGED, CAUGHT, PIN),
     limitations=("Invented for the tests; no library of this name exists.",),
 )
 

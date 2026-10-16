@@ -1192,3 +1192,228 @@ def test_one_line_the_rule_cannot_write_holds_the_lines_it_can(tmp_path: Path) -
     assert after == files
     assert ("requirements.txt", 1, "needs_review", "repo_not_fully_migrated") in rows
     assert ("requirements.txt", 2, "needs_review", "manifest_pin_shape_unsupported") in rows
+
+
+# A legacy name written outside a call, and what a handler reads off its name (ADR-053 D21).
+
+MOCKED = "import sys\nfrom unittest import mock\n"
+
+
+def mentioned(source: str, spec: Any = kit.SPEC) -> list[tuple[int, str, str | None]]:
+    """(line, confidence_reason, symbol) of every row."""
+    return [(f.line, f.confidence_reason, f.symbol) for f in acme.scan(source, spec).findings]
+
+
+@pytest.mark.parametrize(
+    ("target", "symbol"),
+    [
+        ("acme.kit.Greeter.say", "acme.kit.Greeter.say"),
+        ("app.acme.kit.Greeter.say", "acme.kit.Greeter.say"),
+        ("app.llm.acme.kit.Quote", "acme.kit.Quote"),
+        ("app.acme.kit.legacy", "acme.kit.legacy"),
+    ],
+)
+def test_a_patch_target_under_a_package_of_your_own_is_a_target(target: str, symbol: str) -> None:
+    assert mentioned(f"{MOCKED}mock.patch('{target}')\n") == [(3, "mock_patch_target", symbol)]
+
+
+@pytest.mark.parametrize(
+    "target",
+    ["app.acme.kit.Client", "app.acme.kit", "app.acme.kit.Greeter.say now", "app.kit.Quote"],
+)
+def test_a_target_under_a_package_of_your_own_must_name_a_legacy_symbol_whole(target: str) -> None:
+    assert [
+        row
+        for row in mentioned(f"{MOCKED}mock.patch('{target}')\n")
+        if row[1] != "string_or_comment_mention"
+    ] == []
+
+
+def test_another_pack_does_not_find_its_module_under_a_package_of_your_own() -> None:
+    assert mentioned(f"{MOCKED}mock.patch('app.acme.sdk.protos')\n", acme.SPEC) == []
+    assert mentioned(f"{MOCKED}mock.patch('acme.sdk.protos')\n", acme.SPEC)
+
+
+@pytest.mark.parametrize(
+    ("call", "symbols"),
+    [
+        ("mock.patch.object(app.acme.kit, 'Greeter')", ["acme.kit.Greeter"]),
+        ("mock.patch.object(app.acme.kit, 'Greeter.say')", ["acme.kit.Greeter.say"]),
+        ("monkeypatch.setattr(app.llm.acme.kit, 'Quote', fake)", ["acme.kit.Quote"]),
+        ("mock.patch.object(target=app.acme.kit, attribute='Quote')", ["acme.kit.Quote"]),
+        ("mock.patch.object(app.acme.kit, 'Client')", []),
+        ("mock.patch.object(app.acme.kit, 'no such name')", []),
+        ("mock.patch.object(app.kit, 'Greeter')", []),
+        ("mock.patch.object(make(), 'Greeter')", []),
+        ("mock.patch.object(app.acme.kit, name)", []),
+    ],
+)
+def test_a_string_naming_a_legacy_leaf_beside_an_expression_ending_in_the_module(
+    call: str, symbols: list[str]
+) -> None:
+    assert [row[2] for row in mentioned(f"{MOCKED}{call}\n")] == symbols
+
+
+def test_a_module_that_resolves_is_its_own_row_and_leaves_the_leaf_alone() -> None:
+    assert found(f"import acme.kit\n{MOCKED}mock.patch.object(acme.kit, 'Greeter')\n") == [
+        (4, "attribute", "acme.kit", "module_alias_rebound")
+    ]
+    assert mentioned(f"{MOCKED}mock.patch.object(app.acme.sdk, 'protos')\n", acme.SPEC) == []
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "mock.patch.dict(sys.modules, {'acme.kit': fake})",
+        "mock.patch.dict('sys.modules', {'acme.kit.Greeter': fake}, clear=False)",
+        "sys.modules.update({'acme.kit': fake})",
+    ],
+)
+def test_a_dict_literal_keyed_by_the_module_handed_to_sys_modules_is_a_stub(write: str) -> None:
+    rows = found(f"{MOCKED}{write}\n")
+    assert [(row[1], row[3]) for row in rows] == [("dynamic", "flag_only_surface")]
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "mock.patch.dict(sys.modules, {'acme.kit.Client': fake})",
+        "mock.patch.dict(sys.modules, {name: fake, **more})",
+        "mock.patch.dict(sys.modules)",
+        "mock.patch.dict(os.environ, {'acme.kit': fake})",
+        "sys.modules.pop('acme.kit.Client')",
+        "other.update({'acme.kit': fake})",
+    ],
+)
+def test_a_dict_literal_that_stubs_no_legacy_name_is_no_row(write: str) -> None:
+    assert found(f"import os\n{MOCKED}{write}\n") == []
+
+
+ENVIRON = "import os\nfrom os import environ\nfrom unittest import mock\n"
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "os.environ['ACME_ENDPOINT'] = x",
+        "os.environ['ACME_ENDPOINT'] += x",
+        "environ['ACME_ENDPOINT'] = x",
+        "os.environ.setdefault('ACME_ENDPOINT', x)",
+        "os.putenv('ACME_ENDPOINT', x)",
+        "os.environ.update({'ACME_ENDPOINT': x, 'OTHER': y})",
+        "mock.patch.dict(os.environ, {'ACME_ENDPOINT': x})",
+    ],
+)
+def test_a_write_of_a_variable_the_pack_names_is_a_row(write: str) -> None:
+    rows = acme.scan(f"{ENVIRON}{write}\n", kit.SPEC).findings
+    assert [(f.line, f.kind, f.confidence_reason, f.symbol, f.bail) for f in rows] == [
+        (4, "dynamic", "dynamic_access", "ACME_ENDPOINT", "flag_only_surface")
+    ]
+    assert (
+        acme.scan(
+            f"{ENVIRON}{write}\n", kit.SPEC.model_copy(update={"flag_only_patterns": ()})
+        ).findings
+        == ()
+    )
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "y = os.environ['ACME_ENDPOINT']",
+        "y = os.environ.get('ACME_ENDPOINT')",
+        "y += os.environ['ACME_ENDPOINT']",
+        "del os.environ['ACME_ENDPOINT']",
+        "os.environ['ACME_TOKEN'] = x",
+        "other['ACME_ENDPOINT'] = x",
+        "os.environ[1:2] = x",
+        "os.environ.setdefault(name, x)",
+        "os.environ.update({name: x, **more})",
+        "os.putenv()",
+        "mock.patch.dict(os.environ, {})",
+    ],
+)
+def test_a_read_of_the_variable_or_a_write_of_another_name_is_no_row(use: str) -> None:
+    assert acme.scan(f"{ENVIRON}{use}\n", kit.SPEC).findings == ()
+
+
+CAUGHT = "import acme.kit\nfrom acme.kit import Client\n\n\ndef f():\n    try:\n        pass\n    "
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "except acme.kit.Client as e:\n        return e.status",
+        "except Client as e:\n        return e.status",
+        "except (ValueError, Client) as e:\n        return e.status",
+        "except* Client as e:\n        print(e.status)",
+    ],
+)
+def test_a_read_of_what_only_the_old_class_has_off_the_name_of_its_handler_is_a_row(
+    handler: str,
+) -> None:
+    assert found(f"{CAUGHT}{handler}\n") == [
+        (9, "attribute", "acme.kit.Client.status", "attribute_removed")
+    ]
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        "except Client as e:\n        return e.message",
+        "except Client:\n        return 1",
+        "except ValueError as e:\n        return e.status",
+        "except Exception as e:\n        return e.status",
+        "except:\n        return 1",
+        "except Client as e:\n        return 1\n    print(e.status)",
+    ],
+)
+def test_a_handler_that_reads_nothing_the_pack_lists_off_a_legacy_class_is_no_row(
+    handler: str,
+) -> None:
+    assert found(f"{CAUGHT}{handler}\n") == []
+
+
+def test_a_class_the_file_defines_is_not_the_class_the_pack_lists() -> None:
+    source = (
+        "import acme.kit\n\n\nclass Client(Exception):\n    pass\n\n\n"
+        "def f():\n    try:\n        pass\n    except Client as e:\n        return e.status\n"
+    )
+    assert found(source) == []
+
+
+@pytest.mark.parametrize(
+    "annotation",
+    [
+        "'acme.kit.Greeter'",
+        "'acme.kit.Greeter | None'",
+        "'dict[str, acme.kit.Quote]'",
+        "Optional['acme.kit.Greeter']",
+    ],
+)
+def test_a_legacy_name_in_a_string_annotation_is_a_row_of_the_name(annotation: str) -> None:
+    header = "from typing import Optional\nimport acme.kit\n\n\n"
+    for source in (
+        f"{header}def f(c: {annotation}): ...\n",
+        f"{header}def f() -> {annotation}: ...\n",
+        f"{header}x: {annotation} = None\n",
+    ):
+        assert [(row[0], row[1]) for row in found(source)] == [(5, "attribute")], source
+    assert found(f"{header}x = None  # {annotation}\n") != [
+        (5, "attribute", "acme.kit.Greeter", None)
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import acme.kit\n\n\ndef f(c: 'acme.kit.Client'): ...\n",
+        "import acme.kit\n\n\ndef f(c: f'acme.kit.Greeter'): ...\n",
+        "import acme.kit\n\n\nx = 'acme.kit.Greeter'\n",
+        "import acme.kit\n\n\ndef f(c='acme.kit.Greeter'): ...\n",
+        "def f(c: 'acme.kit.Greeter'): ...\n",
+    ],
+    ids=["kept", "f-string", "not an annotation", "default", "not imported"],
+)
+def test_a_string_that_no_annotation_evaluates_stays_a_mention(source: str) -> None:
+    assert {row[1] for row in found(source)} <= {"text_mention"}

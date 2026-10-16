@@ -33,11 +33,12 @@ BAILS: frozenset[BailCode] = frozenset({"attribute_removed", "flag_only_surface"
 # not also claimed for the surface it names.
 _SHAPES: Final[frozenset[FindingKind]] = frozenset({"dynamic", "text_mention"})
 
-# Confidence reason per pattern id: a table, since `sys_modules_stub` reports `dynamic_access`.
+# Confidence reason per pattern id: a table, since two ids report `dynamic_access`.
 REASONS: Final[dict[FlagOnlyPattern, ConfidenceReason]] = {
     "dynamic_access": "dynamic_access",
     "mock_patch_target": "mock_patch_target",
     "sys_modules_stub": "dynamic_access",
+    "environment_write": "dynamic_access",
 }
 
 

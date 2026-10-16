@@ -242,6 +242,12 @@ def _shared(document: Document) -> None:
     document["match"].update(shared=True, symbols=["demo_legacy.configure"])
 
 
+def _attribute_outside(document: Document) -> None:
+    """A shared module whose one flag_only rule names only an attribute of another module."""
+    _shared(document)
+    document["changes"][1]["params"].update(symbols=[], attributes=["other_module.Reply.text"])
+
+
 def _setting(
     *,
     symbols: list[str] | None = None,
@@ -754,6 +760,40 @@ CASES: tuple[Case, ...] = (
         says="both flag ['dynamic_access']",
         extra=FLAG_CHANGE,
         mutate=flagged_twice({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}),
+    ),
+    Case(
+        name="a_variable_named_where_no_shape_reports_a_write",
+        defect="environment variables on a rule that does not report a write of one",
+        path=f"{EXTRA}.params",
+        says="variables and the environment_write pattern are named together",
+        extra=FLAG_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "variables", ["DEMO_LEGACY_BASE"]),
+    ),
+    Case(
+        name="an_environment_write_shape_with_no_variable",
+        defect="a shape that reports a write of a variable, and no variable named",
+        path=f"{EXTRA}.params",
+        says="variables and the environment_write pattern are named together",
+        extra=FLAG_CHANGE,
+        mutate=lambda d: _with(d["changes"][1]["params"], "patterns", ["environment_write"]),
+    ),
+    Case(
+        name="a_variable_no_prefilter_token_occurs_in",
+        defect="a variable a file may set that no prefilter token finds, so the file is never read",
+        path="",
+        says="in which no match.prefilter_tokens entry occurs",
+        extra=FLAG_CHANGE,
+        mutate=lambda d: d["changes"][1]["params"].update(
+            patterns=["environment_write"], variables=["DEMO_BASE"]
+        ),
+    ),
+    Case(
+        name="an_attribute_of_a_module_the_pack_does_not_match",
+        defect="an attribute path under no module in match.imports, in a shared pack too",
+        path="",
+        says="under nothing in match.imports",
+        extra=FLAG_CHANGE,
+        mutate=_attribute_outside,
     ),
     Case(
         name="manifest_names_a_third_distribution",
