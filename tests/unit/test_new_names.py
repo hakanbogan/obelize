@@ -141,9 +141,11 @@ def test_a_pin_that_admits_only_the_old_releases_beside_the_new_client_is_a_mism
         "openai==1.30.1",
         "openai==0.28.1.*.*",
         "openai===0.28.1.corp",
+        "openai==0.18.0",
+        "openai<0.27",
     ],
 )
-def test_a_pin_that_admits_a_release_of_the_new_api_or_that_nobody_can_read_is_no_mismatch(
+def test_a_pin_of_the_new_api_or_below_the_old_range_or_that_nobody_can_read_is_no_mismatch(
     tmp_path: Path, pin: str
 ) -> None:
     scan = scanned(repository(tmp_path, {"app.py": CLIENT, "requirements.txt": f"{pin}\n"}))
