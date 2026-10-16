@@ -2,7 +2,7 @@
 # Measured on google-generativeai 0.8.6 and google-genai 2.24.0 and 1.55.0, overriding the guide
 # (SOURCES.md).
 id: gemini/google-generativeai-to-google-genai
-pack_version: 0.3.0
+pack_version: 0.4.0
 provider: gemini
 language: python
 
