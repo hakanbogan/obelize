@@ -32,7 +32,8 @@ fails on 3.0.1, whose camelCase members raise. The weekly job does not run it.
 
 ## The newest release
 
-`from.newest` is `3.0.1`, and `from.lacks` is the three names `flag-removed-names` reports.
+`from.newest` is `3.0.1`, and `from.lacks` is the three classes `flag-removed-names` reports and the
+three modules `flag-removed-modules` reports.
 
 | Source | URL | Checked | What it shows |
 |---|---|---|---|
@@ -42,7 +43,7 @@ Measured (see `flag-removed-names`): `PdfFileMerger`, `PdfFileReader` and `PdfFi
 `DeprecationError` when constructed on PyPDF2 3.0.1, which is what makes code that names one
 evidence of an older release.
 `tests/packs/test_pypdf_facts.py` holds `from.newest` equal to the installed PyPDF2 and `from.lacks`
-equal to the names `flag-removed-names` lists. The weekly end-to-end run reads the release list and
+equal to the names of both. The weekly end-to-end run reads the release list and
 fails when a final release that is not yanked is newer than `from.newest`. obelize never requests the
 URL.
 
@@ -116,6 +117,25 @@ URL.
   reads `Hello World` for two pieces of a line 40 units apart.
 - Not measured: AES encryption, the output of the `merge*Page` methods beyond
   the size of the page, and any file a person wrote rather than one built here.
+
+## flag-removed-modules
+
+- Measured on PyPDF2 1.26.0, 1.27.12, 1.28.0, 1.28.6, 2.0.0, 2.10.9, 2.12.1, 3.0.0 and 3.0.1, each
+  installed on CPython 3.12 alone: `PyPDF2.pdf`, `PyPDF2.utils` and `PyPDF2.merger` import on the four
+  1.x releases and on none from 2.0.0 on, so code that imports one ran on PyPDF2 1 and cannot run on
+  3.0.1 or on pypdf 6. `PyPDF2.errors` exists from 1.27.12 and `PyPDF2.generic` on all of them.
+- Measured: on 1.26.0, 1.27.12, 1.28.0 and 1.28.6 `PyPDF2.utils` defines `PdfReadError`,
+  `PdfStreamError`, `PyPdfError`, `PageSizeNotDefinedError`, `PdfReadWarning`, `isString` and `b_`;
+  the five classes are in `pypdf.errors` under the same name, and `isString` and `b_` are in no
+  module of pypdf 6.19.0. `PyPDF2.pdf.PageObject` is `pypdf.PageObject`.
+- `tests/packs/test_pypdf_facts.py` holds that none of the three imports on PyPDF2 3.0.1 or pypdf
+  6.19.0 and that the suggestion names what exists. `tests/packs/pypdf_legacy_check.py` holds the
+  rest on 1.26.0 and 2.12.1. The other releases were imported one by one by hand.
+- A module is a prefix: `PyPDF2.utils.PdfReadError` and a call on `PyPDF2.pdf.PdfFileReader` are
+  reported, and are what the version gate reads as code that cannot have run on 3.0.1. `from PyPDF2
+  import utils` alone names no module the scan can tell from a name, so it is not reported.
+- A file that names one of these three modules, or one of the three classes above, anywhere git
+  lists, a notebook or a Python 2 file included, also counts for that gate.
 
 ## flag-names-pypdf-dropped
 

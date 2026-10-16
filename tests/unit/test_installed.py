@@ -14,7 +14,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from pdf_repo import MAIN, SPEC, git_repo
+from pdf_repo import MAIN, REMOVED, SPEC, git_repo
 
 from obelize import fsutil
 from obelize.models import Config, Finding, ScanSpec
@@ -78,11 +78,28 @@ def test_a_repository_that_shows_nothing_else_is_clean(tmp_path: Path) -> None:
         ("PyPDF2.PdfFileReader", "needs_review", "call", "main.py"),
         ("PyPDF2.PdfFileWriter", "unsupported", "import", "main.py"),
         ("PyPDF2.PdfFileMerger", "needs_review", "attribute", "main.py"),
+        ("PyPDF2.utils", "needs_review", "import", "main.py"),
+        ("PyPDF2.pdf.PdfFileReader", "needs_review", "call", "main.py"),
+        ("PyPDF2.merger.PdfFileMerger", "needs_review", "call", "main.py"),
         ("PyPDF2.PdfFileReader", "not_a_usage", "text_mention", ""),
         ("PyPDF2.PdfReader", "needs_review", "call", ""),
         ("PyPDF2.PdfMerger", "needs_review", "call", ""),
+        ("PyPDF2.utilsx", "needs_review", "call", ""),
+        ("PyPDF2.errors", "needs_review", "import", ""),
     ],
-    ids=["reader", "writer", "merger", "prose-only", "kept-name", "dropped-later"],
+    ids=[
+        "reader",
+        "writer",
+        "merger",
+        "module",
+        "member-of-a-module",
+        "class-of-a-module",
+        "prose-only",
+        "kept-name",
+        "dropped-later",
+        "longer-name",
+        "module-the-newest-has",
+    ],
 )
 def test_code_that_uses_a_name_the_newest_release_lacks_cannot_have_run_on_it(
     tmp_path: Path, symbol: str, status: str, kind: str, evidence: str
@@ -95,6 +112,74 @@ def test_a_manifest_row_is_not_code_that_uses_the_name(tmp_path: Path) -> None:
     root = git_repo(tmp_path, {**REQUIRED, "main.py": MAIN})
     row = usage("PyPDF2.PdfFileReader", status="eligible", kind="manifest")
     assert contrary(root, findings=(row,)) == ""
+
+
+# A name the newest release lacks, written where the scan reads no code: a notebook, a Python 2
+# file, a stub, code the user excluded, prose.
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("nb.ipynb", '{"source": ["from PyPDF2 import PdfFileReader\\n"]}\n'),
+        ("py2.py", 'print "x"\nfrom PyPDF2 import PdfFileReader\n'),
+        ("stubs/app.pyi", "from PyPDF2 import PdfFileWriter\n"),
+        ("scripts/old.py", "m = PyPDF2.PdfFileMerger()\n"),
+        ("docs/notes.md", "Reads with PdfFileReader.\n"),
+        ("legacy/old.py", "from PyPDF2.utils import PdfReadError\n"),
+        ("legacy/old.py", "import PyPDF2.pdf\n"),
+        ("legacy/old.py", "x = PyPDF2.merger.PdfFileMerger\n"),
+    ],
+    ids=[
+        "notebook",
+        "python-2",
+        "stub",
+        "excluded-code",
+        "prose",
+        "module-import",
+        "plain-import",
+        "module-member",
+    ],
+)
+def test_a_name_the_newest_release_lacks_is_evidence_wherever_it_is_written(
+    tmp_path: Path, name: str, body: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, name: body})
+    assert contrary(root, config=Config(exclude=("scripts/**",))) == name
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "pdffilereader\n",
+        "MyPdfFileReader PdfFileReader_ PdfFileReaders\n",
+        "from PyPDF2 import utils\n",
+        "import utils, pdf, merger\n",
+        "mypypdf2.utils PyPDF2.utilsx PyPDF2.pdf_extra PyPDF2_utils\n",
+        "pypdf2.utils.isString pypdf2.pdf\n",
+        "PyPDF2.errors.PdfReadError PyPDF2.PdfReader\n",
+    ],
+    ids=[
+        "lower-case",
+        "longer-names",
+        "from-import",
+        "bare-words",
+        "near-misses",
+        "another-case",
+        "kept-names",
+    ],
+)
+def test_a_word_that_is_not_a_name_the_newest_release_lacks_is_not_evidence(
+    tmp_path: Path, body: str
+) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, "notes.txt": body})
+    assert contrary(root) == ""
+
+
+def test_a_pack_that_names_nothing_its_newest_release_lacks_reads_no_name(tmp_path: Path) -> None:
+    root = git_repo(tmp_path, {**REQUIRED, "old.py": REMOVED})
+    assert contrary(root) == "old.py"
+    assert contrary(root, spec=SPEC.model_copy(update={"legacy_lacks": ()})) == ""
 
 
 # What a manifest says: unreadable, a name with no row, an option that moves a release's source.
@@ -733,28 +818,37 @@ def searched(tmp_path: Path, body: str) -> bool:
     """Whether `_searched` takes a file that holds `body` as evidence against 3.0.1."""
     path = tmp_path / "notes.txt"
     path.write_text(body, encoding="utf-8", newline="\n")
-    return installed._searched(path, installed._mention("PyPDF2"), "3.0.1")
+    return installed._searched(path, installed._mention("PyPDF2", SPEC.legacy_lacks), "3.0.1")
 
 
 @pytest.mark.usefixtures("small_windows")
 @pytest.mark.parametrize("tail", ["\n" + "x" * 80, ""], ids=["inside", "at-the-end"])
+@pytest.mark.parametrize("text", ["PyPDF2==1.26.0", "PdfFileReader", "PyPDF2.utils"])
 def test_a_mention_across_the_edge_of_a_window_is_found_at_every_offset(
-    tmp_path: Path, tail: str
+    tmp_path: Path, text: str, tail: str
 ) -> None:
     for offset in range(70):
-        assert searched(tmp_path, "x" * offset + "\nPyPDF2==1.26.0" + tail), offset
+        assert searched(tmp_path, "x" * offset + "\n" + text + tail), offset
 
 
 @pytest.mark.usefixtures("small_windows")
 @pytest.mark.parametrize(
     "text",
-    ["PyPDF2==3.0.1", "PyPDF2<=3.0.1", "PyPDF2-3.0.1", "mypypdf2==1.26.0", "xPyPDF2-1.26.0"],
+    [
+        "PyPDF2==3.0.1",
+        "PyPDF2<=3.0.1",
+        "PyPDF2-3.0.1",
+        "mypypdf2==1.26.0",
+        "xPyPDF2-1.26.0",
+        "xPdfFileReader",
+        "xPyPDF2.utils",
+    ],
 )
 def test_a_mention_across_the_edge_of_a_window_is_never_read_as_another_release(
     tmp_path: Path, text: str
 ) -> None:
-    """Cut, `PyPDF2==3.0.1` reads `==3.0`, and a window that starts on `PyPDF2` of `mypypdf2` has
-    lost the letter before it."""
+    """Cut, `PyPDF2==3.0.1` reads `==3.0`, and a window that starts on `PyPDF2` of `mypypdf2` or on
+    `PdfFileReader` of `xPdfFileReader` has lost the letter before it."""
     for offset in range(70):
         assert not searched(tmp_path, "x" * offset + "\n" + text + "\n" + "x" * 80), offset
         assert not searched(tmp_path, "x" * offset + "\n" + text), offset

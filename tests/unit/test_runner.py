@@ -966,7 +966,14 @@ def test_only_the_pack_that_names_a_newest_release_takes_one() -> None:
         "openai/openai-0-to-1": (None, ()),
         "py-pdf/pypdf2-to-pypdf": (
             "3.0.1",
-            ("PyPDF2.PdfFileMerger", "PyPDF2.PdfFileReader", "PyPDF2.PdfFileWriter"),
+            (
+                "PyPDF2.PdfFileMerger",
+                "PyPDF2.PdfFileReader",
+                "PyPDF2.PdfFileWriter",
+                "PyPDF2.merger",
+                "PyPDF2.pdf",
+                "PyPDF2.utils",
+            ),
         ),
     }
 

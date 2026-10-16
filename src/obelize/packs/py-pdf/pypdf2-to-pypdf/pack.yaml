@@ -19,11 +19,15 @@ from:
   # PyPI's last PyPDF2 release (2022-12-31), the one the rules were measured on: what a requirement
   # that names no version installs. The weekly e2e run fails if the index lists a newer one.
   newest: "3.0.1"
-  # What 3.0.1 no longer defines (flag-removed-names): code that uses one ran on an older release.
+  # What 3.0.1 no longer defines (flag-removed-names, flag-removed-modules): code that uses one ran
+  # on an older release.
   lacks:
     - PyPDF2.PdfFileMerger
     - PyPDF2.PdfFileReader
     - PyPDF2.PdfFileWriter
+    - PyPDF2.merger
+    - PyPDF2.pdf
+    - PyPDF2.utils
 to:
   package: pypdf
   version: ">=6.19"
@@ -46,7 +50,10 @@ match:
     - PyPDF2.PdfReader
     - PyPDF2.PdfWriter
     - PyPDF2.Transformation
+    - PyPDF2.merger
     - PyPDF2.parse_filename_page_ranges
+    - PyPDF2.pdf
+    - PyPDF2.utils
   prefilter_tokens:
     - PyPDF2
 
@@ -149,6 +156,26 @@ changes:
       - fixtures/negative/already_pypdf.py
       - fixtures/positive/removed_names.before.py
 
+  - id: flag-removed-modules
+    kind: flag_only
+    citation: "PyPDF2 1.26.0 to 3.0.1 source, which releases ship each module"
+    params:
+      symbols:
+        - PyPDF2.merger
+        - PyPDF2.pdf
+        - PyPDF2.utils
+      message: >-
+        PyPDF2 2.0.0 removed this module, which only the 1.x releases ship: code
+        that imports it runs on PyPDF2 1 and does not run on 3.0.1 or on pypdf 6.
+      suggestion: >-
+        Take PdfReadError, PdfStreamError, PyPdfError, PageSizeNotDefinedError
+        and PdfReadWarning from pypdf.errors and PageObject from pypdf, and port
+        the classes as the flag on their names says. isString, b_ and the other
+        helpers of PyPDF2.utils have no equivalent in pypdf.
+    fixtures:
+      - fixtures/negative/already_pypdf.py
+      - fixtures/positive/removed_modules.before.py
+
   - id: flag-names-pypdf-dropped
     kind: flag_only
     citation: "pypdf 6.19.0 source, the names it no longer defines"
@@ -216,9 +243,9 @@ limitations:
   - "A repository whose pyproject.toml or setup.cfg declares a Python below 3.9 is blocked, since pypdf 6 does not install there and pip would resolve an older release with the advisories this pack avoids. A Python declared only in setup.py or a Pipfile is not read."
   - "A repository that declares PyPDF2 below 3 is blocked, and so is one that uses it and declares it nowhere obelize reads: PyPDF2 1 and 2 have a camelCase API, and the rules were measured on 3.0.1."
   - "A declaration that names no version, or a range below 3 that admits 3.0.1 (PyPDF2, PyPDF2>=2.10), is taken as 3.0.1, the newest release on PyPI, which is what a fresh install resolves to; the run says so. A requirement with an environment marker or a pre-release is not taken, and nothing is taken in a directory that is not the top of a git repository."
-  - "That is not taken where the repository shows another release, and the run is blocked: code that uses PdfFileReader, PdfFileWriter or PdfFileMerger, a lock or constraints file, an installer or index setting, a version written elsewhere (a Dockerfile, a CI file, a tox.ini), a virtual environment kept in the repository."
+  - "That is not taken where the repository shows another release, and the run is blocked: code that uses PdfFileReader, PdfFileWriter or PdfFileMerger or imports PyPDF2.pdf, PyPDF2.utils or PyPDF2.merger (the name in a notebook, a Python 2 file, a stub or a document counts too), a lock or constraints file, an installer or index setting, a version written elsewhere (a Dockerfile, a CI file, a tox.ini), a virtual environment kept in the repository."
   - "What lives outside the repository is not seen: the environment the code runs in, a pip.conf in the home directory, a release another package requires. A repository that installs an older PyPDF2 than its manifest says needs the version pinned in a manifest obelize reads."
   - "A requirement with extras, PyPDF2[crypto] for one, is not rewritten, so the code moves to pypdf while the manifest keeps PyPDF2: edit that line by hand."
-  - "A name no rule maps withholds its file: that is every submodule name other than the classes of errors and generic, whatever it is, and all of constants, filters, xmp, pagerange and papersizes."
+  - "A name no rule maps withholds its file: that is every submodule name other than the classes of errors and generic, whatever it is, and all of constants, filters, xmp, pagerange and papersizes. The modules only PyPDF2 1 ships (pdf, utils, merger) are reported as removed, and `from PyPDF2 import utils` with nothing that uses the name is not."
   - "Dynamic access, star imports and mock patch targets are reported, never rewritten."
   - "A file whose round trip through the parser is not byte-identical is reported and never edited."

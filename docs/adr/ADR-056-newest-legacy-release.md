@@ -25,7 +25,8 @@ single stop for the pack in the benchmark frame ([BENCHMARK_RESULTS.md](../BENCH
 - `lacks`: the qualified names that release no longer defines, sorted and de-duplicated, and only
   with `newest`. Each is a name in `symbols` of a `flag_only` change, so the scan reports it. The
   pypdf pack lists `PdfFileMerger`, `PdfFileReader` and `PdfFileWriter`, which have raised
-  `DeprecationError` since 3.0.0.
+  `DeprecationError` since 3.0.0, and the modules `PyPDF2.merger`, `PyPDF2.pdf` and `PyPDF2.utils`,
+  which only the 1.x releases ship.
 
 `to` has neither: the schema refuses an unknown key there. Both reach the scan as
 `ScanSpec.legacy_newest` and `legacy_lacks`, which are gates like `legacy_floor`, so `spec_digest`
@@ -47,8 +48,9 @@ blocked as before, naming that path. The checks run in this order, and each fail
 it cannot read is evidence), except that a listed file that cannot be read, or is over 32 MiB, is not
 searched for a version.
 
-1. Code. A finding that is not `not_a_usage` for a name in `lacks`: that code cannot run on the
-   newest release, so an older one is in use.
+1. Code. A finding that is not `not_a_usage` for a name in `lacks`, or for one inside it
+   (`PyPDF2.utils.PdfReadError`): that code cannot run on the newest release, so an older one is in
+   use.
 2. A manifest the scan reads: every `*requirement*.txt` (`dev-requirements.txt` too),
    `requirements/*.txt`, and, for their declarations only, `*requirements*.in` and
    `*constraints*.txt`, which no rule writes (their declarations carry no pin, and a bare name in
@@ -86,7 +88,11 @@ searched for a version.
    and a file the user's `exclude` removed included: `PyPDF2 <op> <version>` that does not admit
    the newest release or that cannot be read, or `PyPDF2-<version>` of another release (a
    Dockerfile, a CI file, a `tox.ini`, a notebook's `!pip install`, a committed environment's
-   `dist-info`). A UTF-16 file is read after its byte-order mark. A file over `max_file_bytes` is
+   `dist-info`). So is a name in `lacks` written there, which finds what item 1 cannot: a notebook,
+   a Python 2 file, a stub, code the user excluded, and prose. A class is read by its own name
+   (`PdfFileReader`) and a module by its dotted path (`PyPDF2.utils`), in the case it is written, so
+   `from PyPDF2 import utils` with nothing that uses the name is not read. A UTF-16 file is read
+   after its byte-order mark. A file over `max_file_bytes` is
    searched too, in windows of 1 MiB that repeat the last 4 KiB of the one before, so that no more
    than a window is held and a mention is whole in one of them; a UTF-16 one is read as bytes, and a
    file over 32 MiB is not searched. A mention is read by the window it starts in, where it lies

@@ -11,6 +11,7 @@ each claim that does not hold and exits 1 if there is one.
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import io
 import sys
@@ -243,6 +244,26 @@ def encryption() -> bool:
     )
 
 
+def _import(name: str) -> str:
+    return _fails(lambda: importlib.import_module(name))
+
+
+def modules() -> bool:
+    """PyPDF2.pdf, utils and merger import on 1.x and not from 2.0.0; what they hold is in pypdf."""
+    results = [_import(f"PyPDF2.{name}") for name in ("pdf", "utils", "merger")]
+    if not old.__version__.startswith("1."):
+        return results == ["ModuleNotFoundError"] * 3
+    names = ("PdfReadError", "PdfStreamError", "PyPdfError", "PageSizeNotDefinedError")
+    classes = (*names, "PdfReadWarning")
+    utils = importlib.import_module("PyPDF2.utils")
+    return (
+        results == [""] * 3
+        and all(hasattr(utils, name) and hasattr(new.errors, name) for name in classes)
+        and hasattr(importlib.import_module("PyPDF2.pdf"), "PageObject")
+        and hasattr(new, "PageObject")
+    )
+
+
 def written() -> bool:
     """write returns a tuple on pypdf 6, and on PyPDF2 from 2.0."""
     before, after = _writers()
@@ -263,6 +284,7 @@ CHECKS = (
     removals,
     merger,
     encryption,
+    modules,
     written,
 )
 
