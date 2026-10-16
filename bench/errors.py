@@ -19,9 +19,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import yaml
-
-from . import run, summarize
+from . import read_yaml, run, summarize
 from .gate1_score import ACTIONABLE_KINDS, share
 from .gate1_score import Row as ScanRow
 from .gate1_score import rows as scan_rows
@@ -70,7 +68,7 @@ def load(number: int | None = None) -> Analysis:
     round_number = number if number is not None else state.number
     path = RECORDS / f"round-{round_number}.json"
     record = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"cases": {}}
-    return Analysis(round_number, state.cases, record, yaml.safe_load(DATA.read_text("utf-8")))
+    return Analysis(round_number, state.cases, record, read_yaml(DATA))
 
 
 def graded(state: Analysis) -> list[run.Case]:

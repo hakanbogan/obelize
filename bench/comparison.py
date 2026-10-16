@@ -18,9 +18,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import yaml
-
-from . import run, summarize
+from . import read_yaml, run, summarize
 from .gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -90,7 +88,7 @@ def load(number: int | None = None) -> Comparison:
         round_number,
         state.cases,
         record,
-        yaml.safe_load(DATA.read_text(encoding="utf-8")),
+        read_yaml(DATA),
         published,
     )
 

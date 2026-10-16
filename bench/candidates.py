@@ -15,12 +15,11 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import yaml
-
 from obelize.packs import loader
 from obelize.scan import manifests
 
 # Shared with the gate-1 scorer, so both agree on what a usage is.
+from . import read_yaml
 from .gate1_score import ACTIONABLE_KINDS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -165,7 +164,7 @@ def evidence(paths: Iterable[str]) -> dict[str, str]:
 
 
 def load() -> Corpus:
-    data = yaml.safe_load(DATA.read_text(encoding="utf-8"))
+    data = read_yaml(DATA)
     records: dict[str, dict[str, Any]] = {}
     for path in (FRAME_SCAN, DRAWN_SCAN):
         for record in json.loads(path.read_text(encoding="utf-8"))["scanned"]:

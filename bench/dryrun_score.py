@@ -13,10 +13,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from obelize.models import ATOMICITY_BAIL, REPO_ATOMICITY_BAIL
 
+from . import read_yaml
 from .gate1_score import share
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -94,7 +93,7 @@ def load() -> list[tuple[dict[str, Any], dict[str, Any]]]:
     loaded = []
     for path in sorted(RECORDS.glob("*.json")):
         record = json.loads(path.read_text(encoding="utf-8"))
-        frame = yaml.safe_load((ROOT / record["frame"]).read_text(encoding="utf-8"))
+        frame = read_yaml(ROOT / record["frame"])
         loaded.append((record, frame))
     return loaded
 

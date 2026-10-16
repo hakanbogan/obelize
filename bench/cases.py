@@ -22,9 +22,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import yaml
-
-from . import candidates
+from . import candidates, read_yaml
 
 # Shared with the gate-1 scorer, so both agree on what a usage is.
 from .gate1_score import ACTIONABLE_KINDS
@@ -75,10 +73,10 @@ class Corpus(NamedTuple):
 
 
 def repositories() -> dict[str, dict[str, Any]]:
-    corpus = yaml.safe_load(candidates.DATA.read_text(encoding="utf-8"))
+    corpus = read_yaml(candidates.DATA)
     rows = {row["full_name"]: row for row in corpus["candidates"]}
     if DRAWS.exists():
-        drawn = yaml.safe_load(DRAWS.read_text(encoding="utf-8"))
+        drawn = read_yaml(DRAWS)
         for row in drawn["drawn"]:
             rows[row["full_name"]] = row
     return rows
@@ -180,8 +178,8 @@ PERMISSIVE: frozenset[str] = frozenset({"MIT", "BSD-2-Clause", "BSD-3-Clause", "
 
 def load() -> Corpus:
     return Corpus(
-        cases=yaml.safe_load(DATA.read_text(encoding="utf-8")),
-        draws=yaml.safe_load(DRAWS.read_text(encoding="utf-8")),
+        cases=read_yaml(DATA),
+        draws=read_yaml(DRAWS),
         repositories=repositories(),
         findings=findings(),
     )

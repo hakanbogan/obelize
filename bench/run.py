@@ -25,13 +25,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, NamedTuple, NoReturn
 
-import yaml
-
 import obelize
 from obelize import __version__
 from obelize.native import processes
 
-from . import cases
+from . import cases, read_yaml
 from .gate1_score import ACTIONABLE_KINDS, Row, compare, rows
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -295,7 +293,7 @@ def fixtures() -> list[Case]:
 
 def _fixture_case(path: Path) -> Case:
     """One `bench/fixtures/<id>/case.yaml`; a fixture pins no SDK and names no interpreter."""
-    row = yaml.safe_load((path / "case.yaml").read_text(encoding="utf-8"))
+    row = read_yaml(path / "case.yaml")
     return Case(
         id=str(row["id"]),
         origin="fixture",
