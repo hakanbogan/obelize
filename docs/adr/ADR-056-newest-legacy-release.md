@@ -57,12 +57,13 @@ searched for a version.
    comments are cut (a bare name in an input or constraints file); in `pyproject.toml` and a
    `Pipfile` the names are counted instead, against the rows read: a key or a string where a
    dependency can be declared (PEP 621's and 735's, the tables of uv, Poetry, PDM, Hatch, Pixi and
-   Rye, and a Pipfile's packages), so a `[tool.uv.sources]` key, a constraint or an override counts,
-   and `known_third_party` under `[tool.isort]`, a Ruff or mypy list, a project's `description` and
-   a URL do not; in a requirements, input or constraints file, a pip option that can
-   move the release, which is every option but `-r` or `-c` to a manifest the scan reads, `-e` to
-   a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued line is such
-   an option. A line that is read and names a release (`PyPDF2<3` in a constraints file) is judged
+   Rye, and every table of a Pipfile but `[source]`, `[requires]`, `[scripts]` and `[pipenv]`, a
+   category of its own such as `[docs]` among them), so a `[tool.uv.sources]` key, a constraint or
+   an override counts, and `known_third_party` under `[tool.isort]`, a Ruff or mypy list, a
+   project's `description` and a URL do not; in a requirements, input or constraints file, a pip
+   option that can move the release, which is every option but `-r` or `-c` to a manifest the scan
+   reads, `-e` to a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued
+   line is such an option. A line that is read and names a release (`PyPDF2<3` in a constraints file) is judged
    like any declaration, by the floor and by item 5; a file that names nothing about the
    distribution is no evidence for being there. A manifest the user's `exclude` removed is judged
    by its pip options and, in item 3, its resolver settings, and by nothing else: no row is read

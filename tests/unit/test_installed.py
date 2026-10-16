@@ -256,6 +256,7 @@ def test_a_declaration_the_reader_reads_names_nothing_it_missed(
         ),
         ("pyproject.toml", '[tool.poetry.extras]\npdf = ["PyPDF2"]\n'),
         ("Pipfile", '[packages]\nPyPDF2 = { git = "https://host/PyPDF2.git" }\n'),
+        ("Pipfile", '[packages]\nflask = "*"\n[docs]\nPyPDF2 = "==1.26.0"\n'),
     ],
     ids=[
         "uv-override",
@@ -268,6 +269,7 @@ def test_a_declaration_the_reader_reads_names_nothing_it_missed(
         "poetry-path",
         "poetry-extras",
         "pipfile-git",
+        "pipfile-category",
     ],
 )
 def test_a_name_where_a_dependency_can_be_declared_and_no_row_was_read_is_evidence(

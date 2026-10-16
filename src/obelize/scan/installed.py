@@ -51,9 +51,10 @@ _OPERATOR: Final = r"(?:===|==|~=|!=|<=|>=|<|>)"
 _CLAUSE: Final = rf"{_OPERATOR}[ \t]*\d[\w.*+!]*"
 
 _RESOLVER_FILES: Final = ("pyproject.toml", "Pipfile")
-# Where a key or a string of such a file can be a dependency: PEP 621's and 735's, the dependency
-# managers' own tables (a key there can be a distribution no row carries: a source, an override) and
-# a Pipfile's. Not what a tool that reads source holds (isort, Ruff, mypy) or a project's own text.
+# Where a key or a string of such a file can be a dependency: PEP 621's and 735's and the dependency
+# managers' own tables (a key there can be a distribution no row carries: a source, an override).
+# Not what a tool that reads source holds (isort, Ruff, mypy) or a project's own text. In a Pipfile
+# every table is one, a category of its own (`[docs]`) too, but these.
 _DEPENDING: Final = (
     ("project", "dependencies"),
     ("project", "optional-dependencies"),
@@ -67,9 +68,8 @@ _DEPENDING: Final = (
     ("tool", "hatch"),
     ("tool", "pixi"),
     ("tool", "rye"),
-    ("packages",),
-    ("dev-packages",),
 )
+_PIPFILE_OTHER: Final = frozenset({"source", "requires", "scripts", "pipenv"})
 _PYPI: Final = "https://pypi.org/simple"
 # Settings that hold a release back, take it from elsewhere or pick the lowest one.
 _SETTINGS: Final = (
@@ -176,7 +176,8 @@ def _unread(
         if manifests.layout(path) == "toml":
             # Counted, not placed by line: a row stands for one name, so more names than rows leave
             # one unread. A file `_settings` cannot parse has no name to count.
-            if whole and _names_in(data, named) > sum(row.path == path for row in rows):
+            counted = _names_in(data, named, posixpath.basename(path) == "Pipfile")
+            if whole and counted > sum(row.path == path for row in rows):
                 return path
             continue
         pip = manifests.layout(path) in manifests.PIP
@@ -190,7 +191,7 @@ def _unread(
     return ""
 
 
-def _names_in(data: bytes, named: re.Pattern[str]) -> int:
+def _names_in(data: bytes, named: re.Pattern[str], pipfile: bool) -> int:
     """How many keys and strings of a TOML file, where a dependency can be declared, name the
     distribution; none where it is not TOML this Python reads."""
     try:
@@ -204,17 +205,22 @@ def _names_in(data: bytes, named: re.Pattern[str]) -> int:
         if isinstance(node, dict):
             for key, value in node.items():
                 pending.append((value, (*path, key)))
-                found += _counts((*path, key), key, named)
+                found += _counts((*path, key), key, named, pipfile)
         elif isinstance(node, list):
             pending.extend((item, path) for item in node)
         elif isinstance(node, str):
-            found += _counts(path, node, named)
+            found += _counts(path, node, named, pipfile)
     return found
 
 
-def _counts(path: tuple[str, ...], text: str, named: re.Pattern[str]) -> bool:
+def _counts(path: tuple[str, ...], text: str, named: re.Pattern[str], pipfile: bool) -> bool:
     """Whether `text`, a key or a string at `path`, is a name where a dependency can be declared."""
-    return any(path[: len(place)] == place for place in _DEPENDING) and bool(named.search(text))
+    place = (
+        path[0] not in _PIPFILE_OTHER
+        if pipfile
+        else any(path[: len(place)] == place for place in _DEPENDING)
+    )
+    return place and bool(named.search(text))
 
 
 def _harmless(path: str, option: str, walk: Walk) -> bool:
