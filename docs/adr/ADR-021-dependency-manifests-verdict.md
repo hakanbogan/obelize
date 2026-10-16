@@ -143,6 +143,11 @@ declaration. An unreadable *source* file does not block the removal:
 `repo_not_fully_migrated` claims a file imports the distribution, and an unread
 file is the absence of that fact. A file read but not parsed does block (D3).
 
+Where one distribution holds both APIs (D12) the absence says nothing, since an import does not mark
+the old API, so a selected file that could not be read (over `max_file_bytes`, or one that will not
+open) blocks as a notebook that is not analysed does (D14): `Scan.unanalysed` names it, the pin
+waits, and its limitation says so. A raised `max_file_bytes` reads it, and `exclude` takes it out.
+
 ### D12. One distribution on both sides: any withheld row blocks
 
 Where the new distribution is the legacy one (`manifests.coupled`), the survey is `paired`. No

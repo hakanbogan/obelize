@@ -48,6 +48,12 @@ RESERVED_CORES: Final = 1
 # child inherits.
 START_METHOD: Final = "spawn"
 
+# What a limitation adds where a file that could not be read holds the pin (`scan`).
+HOLDS: Final = (
+    "This pack moves one distribution for both APIs, so a file it cannot read may call the legacy "
+    "one and holds the pin until it is read."
+)
+
 # Set once per worker process by `_initialise` rather than pickled with every task.
 _SPEC: ScanSpec | None = None
 
@@ -351,6 +357,11 @@ def scan(
             ]
         )
     )
+    # One distribution for both APIs: an import says nothing of which one a file uses, so a selected
+    # file that could not be read may call the legacy one, and holds the pin like a notebook.
+    coupled = manifests.coupled(spec)
+    unopened = {result.path for result in files if not result.sha256} if coupled else set()
+    unanalysed = (*unanalysed, *sorted(unopened))
     declared = tuple(row for reading in readings for row in reading.declarations)
     # Without code to migrate or a pin to judge, the pack has no use for them.
     transitive = (
@@ -365,7 +376,7 @@ def scan(
         hits,
         unanalysed,
         transitive,
-        paired=manifests.coupled(spec),
+        paired=coupled,
         modern=modern,
     )
     declarations = manifests.plan(declared, migration, spec)
@@ -377,7 +388,11 @@ def scan(
             key=lambda finding: finding.sort_key,
         )
     )
-    limitations = [row for result in files for row in result.limitations]
+    limitations = [
+        replace(row, detail=f"{row.detail} {HOLDS}") if row.path in unopened else row
+        for result in files
+        for row in result.limitations
+    ]
     limitations.extend(row for reading in readings for row in reading.limitations)
     limitations.extend(refused)
     limitations.extend(unreadable)
@@ -395,6 +410,8 @@ def scan(
         because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
         blocked = runtime.legacy(declared, spec, used, taken, because) if because else None
         assumed = () if because else ((spec.legacy_distribution, taken),)
+        if not because:
+            limitations.extend(installed.unsearched(tree.root, selection, spec))
     return Scan(
         source=selection.source,
         results=files,

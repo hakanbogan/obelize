@@ -121,6 +121,25 @@ def contrary(
     )
 
 
+def unsearched(root: Path, walk: Walk, spec: ScanSpec) -> tuple[parse.Limitation, ...]:
+    """The listed files over `_LIMIT`, which the search for a version does not read: the release
+    the run took was taken without them."""
+    rows: list[parse.Limitation] = []
+    for path in walk.listed:
+        try:
+            size = (root / path).lstat().st_size
+        except OSError:
+            continue
+        if size > _LIMIT:
+            detail = (
+                f"It is {size} bytes, over the {_LIMIT} that the search for a release of "
+                f"{spec.legacy_distribution} reads, so it was not searched. If it pins another "
+                f"release, the run took the wrong one."
+            )
+            rows.append(parse.Limitation(path=path, code="file_too_large", detail=detail))
+    return tuple(rows)
+
+
 def _hidden(walk: Walk) -> str:
     """A listed file that can pin or constrain a release, or a name no report can spell, under
     which anything may be.
@@ -446,4 +465,4 @@ def _names(directory: Path) -> list[str]:
         return []
 
 
-__all__ = ["contrary"]
+__all__ = ["contrary", "unsearched"]

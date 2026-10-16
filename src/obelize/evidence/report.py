@@ -293,7 +293,8 @@ def _left(record: RunRecord, held: ManifestPlan, evidence: str) -> list[str]:
     if unread:
         lines.append(
             f"  Not migrated by obelize, so they hold the pin: {', '.join(unread)}. Migrate them "
-            f"by hand, or list a notebook under exclude in .obelize.yml to migrate the rest."
+            f"by hand, or list one under exclude in .obelize.yml to migrate the rest. A file over "
+            f"max_file_bytes is read once you raise it."
         )
     if held.transitive:
         lines.append(

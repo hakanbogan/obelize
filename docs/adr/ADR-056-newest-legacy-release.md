@@ -47,7 +47,8 @@ Only then is the repository asked whether anything else decides the release
 (`scan/installed.py`, `contrary`). The first path that says it does is the evidence, and the run is
 blocked as before, naming that path. The checks run in this order, and each fails closed (a manifest
 it cannot read is evidence), except that a listed file that cannot be read, or is over 32 MiB, is not
-searched for a version or a name.
+searched for a version or a name. A file over 32 MiB is named as a `file_too_large` limitation when
+the run took a release (`installed.unsearched`).
 
 1. Code. A finding that is not `not_a_usage` for a name in `lacks`, or for one inside it
    (`PyPDF2.utils.PdfReadError`): that code cannot run on the newest release, so an older one is in
