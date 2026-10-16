@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sys
 from functools import cached_property
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 import libcst as cst
 import libcst.matchers as m
@@ -34,8 +34,6 @@ _LINE_BREAK = re.compile(r"\r\n|\r|\n")
 
 # Where a node starts; a finding and the call it names share it, so the index is keyed on it.
 Position = tuple[int, int]
-
-_Node = TypeVar("_Node", cst.Attribute, cst.Name)
 
 
 class Tree:
@@ -114,8 +112,8 @@ class Tree:
     def _names(self) -> dict[Position, list[cst.Name]]:
         return self._at(cst.Name)
 
-    def _at(self, kind: type[_Node]) -> dict[Position, list[_Node]]:
-        found: dict[Position, list[_Node]] = {}
+    def _at[Node: (cst.Attribute, cst.Name)](self, kind: type[Node]) -> dict[Position, list[Node]]:
+        found: dict[Position, list[Node]] = {}
         for node, span in self._pos.items():
             if isinstance(node, kind):
                 found.setdefault((span.start.line, span.start.column), []).append(node)
