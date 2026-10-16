@@ -158,7 +158,8 @@ def read(root: Path, path: str, spec: ScanSpec, config: Config) -> Read:
 
 
 def contents(root: Path, path: str, config: Config) -> tuple[bytes | None, tuple[Limitation, ...]]:
-    """One file's bytes, or the row saying why not: the only place a scanned file is opened.
+    """One file's bytes, or the row saying why not: where a scanned file is opened, but for one
+    over the size limit that `installed` searches for a version, in windows, through `fsutil`.
 
     Manifests and the manifest pin check's excluded-file check use it too, so all share the
     size limit, the `O_NOFOLLOW` open and the `Limitation` vocabulary.
@@ -182,7 +183,8 @@ def contents(root: Path, path: str, config: Config) -> tuple[bytes | None, tuple
         return None, (limitation(path, "unreadable"),)
 
 
-# What every read of a scan goes through, so a caller may answer from bytes it already holds.
+# What a read of a scan goes through, so a caller may answer from bytes it already holds; the search
+# of a file over the size limit is the one that does not.
 Contents = Callable[[str], tuple[bytes | None, tuple[Limitation, ...]]]
 
 
