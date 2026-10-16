@@ -190,6 +190,7 @@ carries it, and `spec_digest` includes it once set, since it adds rows.
 - `run.json` gains `packs[].assumed`; the formats stay unstable through 0.x ([ADR-048](ADR-048-accepted-gaps-in-0-1-0.md)).
   The pypdf pack is 0.3.0: a pack field it now fills is a minor bump. `from.since` is a gate too:
   `ScanSpec.legacy_since` and `legacy_range` are left out of `spec_digest` like `legacy_newest`.
+  The openai pack is 0.3.0 for `since` and `introduces`.
 - The inference is a claim about an install nobody ran. It cannot see the environment outside the
   repository, a release another package requires, a submodule's files, a gitignored file the last
   check does not look for, a Python declared only in a `Pipfile` or `setup.py`, or an index the
