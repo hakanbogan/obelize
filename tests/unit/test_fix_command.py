@@ -829,6 +829,12 @@ class _ProposesNested:
                 start_line=31,
                 end_line=34,
                 symbol="google.generativeai.GenerativeModel",
+                replaces=(
+                    "        model = genai.GenerativeModel(\n"
+                    '            "gemini-1.5-flash",\n'
+                    '            generation_config={"seed": 7},\n'
+                    "        )"
+                ),
                 replacement=(
                     "        from google import genai as new_genai\n\n"
                     "        model = new_genai.Client().models"
