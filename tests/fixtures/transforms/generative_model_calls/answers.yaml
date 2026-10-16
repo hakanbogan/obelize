@@ -54,6 +54,25 @@ cases:
       generation does not, because the new count takes no configuration at all
       and the generation takes the same one.
 
+  - file: half_migrated
+    what_it_is: >-
+      A legacy model beside a client the new SDK built, as a file half migrated
+      by hand reads.
+    complete: true
+    after: present
+    unclaimed: []
+    edits:
+      - {line: 7, rule: rename-import, status: auto}
+      - {line: 10, rule: configure-to-client, status: auto}
+      - {line: 12, rule: generative-model-calls, status: auto}
+      - {line: 17, rule: generative-model-calls, status: auto, warnings: [response_text_may_be_none]}
+    notes: >-
+      `client.models.generate_content` at line 21 is the new SDK's call, and
+      the scan no longer calls its receiver unresolved, so nothing withholds the
+      file and no rule claims the line. The configured client takes
+      `genai_client`, because the name `client` is the new one's, and the
+      import keeps the alias `legacy` it was written under.
+
   - file: dict_config
     what_it_is: >-
       The configuration as a mapping literal, which is the form the legacy SDK

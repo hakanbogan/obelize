@@ -4,13 +4,15 @@ The model's rows migrate as in any other file. The two calls on the client are
 no legacy usage, so they report nothing and do not withhold the model's rows.
 """
 
+import os
+
 import google.generativeai as legacy
 import google.genai as modern
 
-legacy.configure(api_key="AIzaNotARealKey")
+legacy.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 MODEL = legacy.GenerativeModel("gemini-1.5-flash")
-client = modern.Client(api_key="AIzaNotARealKey")
+client = modern.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 
 def old(prompt):

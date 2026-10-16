@@ -77,8 +77,8 @@ not add a module without an ADR.
 Tests live in `tests/unit/`, `tests/packs/`, `tests/oracle/` and `tests/e2e/`. `tests/oracle/`
 grades the scan over the eight cases in `tests/fixtures/scan/`, the verification runner over
 twenty-four more in `tests/fixtures/verify/` (real programs), and the transform rules over one
-hundred and sixty-four more in `tests/fixtures/transforms/`: twelve for `rename_import`,
-twenty-nine for `configure_to_client`, eighty-six for `generative_model_calls`,
+hundred and sixty-five more in `tests/fixtures/transforms/`: twelve for `rename_import`,
+twenty-nine for `configure_to_client`, eighty-seven for `generative_model_calls`,
 twenty-six for `rewrite_call` and eleven for `flag_only`, beside the repository-shaped
 `codemod/` and `manifest_dependency/` corpora. A rewrite-time bail stays out of
 `tests/fixtures/scan/`, whose harness would read it as an answer `obelize scan` must give. A

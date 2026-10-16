@@ -325,26 +325,26 @@ findings:
   # `file_not_fully_migrated` because of them.
   # =====================================================================
   - file: half_migrated.py
-    line: 7
+    line: 9
     symbol: google.generativeai
     kind: import
     confidence_reason: alias_resolved
     verdict: auto
   - file: half_migrated.py
-    line: 10
+    line: 12
     symbol: google.generativeai.configure
     kind: call
     confidence_reason: alias_resolved
     verdict: auto
     warnings: [client_constructed_eagerly]
   - file: half_migrated.py
-    line: 12
+    line: 14
     symbol: google.generativeai.GenerativeModel
     kind: call
     confidence_reason: alias_resolved
     verdict: auto
   - file: half_migrated.py
-    line: 17
+    line: 19
     symbol: google.generativeai.GenerativeModel.generate_content
     kind: method_call
     confidence_reason: receiver_bound_module_const
@@ -397,8 +397,8 @@ bindings:
     kind: module_const
     name: MODEL
     scope: module
-    ctor_line: 12
-    use_lines: [17]
+    ctor_line: 14
+    use_lines: [19]
     verdict: auto
 
 must_not_report:
@@ -455,7 +455,7 @@ must_not_report:
       and 22; one that string-matched the bare class name would report all
       three.
   - file: half_migrated.py
-    line: 21
+    line: 23
     symbol: google.generativeai.GenerativeModel.generate_content
     why: >-
       `client` is only ever assigned `modern.Client(...)`, which resolves to
@@ -464,7 +464,7 @@ must_not_report:
       the file builds a legacy model, so before D5's amendment this line was
       `receiver_unresolved`. It is the new SDK's call and no legacy usage.
   - file: half_migrated.py
-    line: 25
+    line: 27
     symbol: google.generativeai.ChatSession.send_message
     why: >-
       The same name at the root of a longer chain, `client.chats.create(...)`,
