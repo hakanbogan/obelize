@@ -1164,9 +1164,7 @@ class GenerativeModelCalls:
         read = _reads(tree.module, attributes)
         handled = {
             id(value)
-            for value in _handled_reads(
-                tree.module, self._params.response_legacy_error or "", attributes
-            )
+            for value in _handled_reads(tree, self._params.response_legacy_error or "", attributes)
         }
         positions: set[Position] = set()
         for use in group.uses:
@@ -1406,32 +1404,49 @@ def _reads(module: cst.Module, attributes: frozenset[str]) -> list[cst.BaseExpre
     return found.found
 
 
-def _handled_reads(
-    module: cst.Module, error: str, attributes: frozenset[str]
-) -> list[cst.BaseExpression]:
-    """Everything read as one of `attributes` inside a `try` whose handler could catch `error`.
+def _handled_reads(tree: _Tree, error: str, attributes: frozenset[str]) -> list[cst.BaseExpression]:
+    """Everything read as one of `attributes` where a handler could catch `error`.
 
-    That is one naming it or a class that holds it, and a bare `except:`: nothing says the
-    exception was not relied on, so the group is refused rather than guessed about.
+    A `try` or `except*` whose handler names it or a class that holds it, or is a bare `except:`,
+    and a `with` that suppresses it: nothing says the exception was not relied on, so the group is
+    refused rather than guessed about.
     """
-    found = _Handled(error, attributes)
-    module.visit(found)
+    found = _Handled(tree, error, attributes)
+    tree.module.visit(found)
     return found.reads
 
 
 class _Handled(cst.CSTVisitor):
-    def __init__(self, error: str, attributes: frozenset[str]) -> None:
+    def __init__(self, tree: _Tree, error: str, attributes: frozenset[str]) -> None:
         super().__init__()
+        self._tree = tree
         self._error = error
         self._attributes = attributes
         self.reads: list[cst.BaseExpression] = []
 
     def visit_Try(self, node: cst.Try) -> bool:  # noqa: N802 - libcst dispatch
-        if any(self._names(handler.type) for handler in node.handlers):
+        return self._guarded(node.body, any(self._names(handler.type) for handler in node.handlers))
+
+    def visit_TryStar(self, node: cst.TryStar) -> bool:  # noqa: N802 - libcst dispatch
+        return self._guarded(node.body, any(self._names(handler.type) for handler in node.handlers))
+
+    def visit_With(self, node: cst.With) -> bool:  # noqa: N802 - libcst dispatch
+        return self._guarded(node.body, any(self._suppresses(item.item) for item in node.items))
+
+    def _guarded(self, body: cst.BaseSuite, catches: bool) -> bool:
+        if catches:
             reads = _Reads(self._attributes)
-            node.body.visit(reads)
+            body.visit(reads)
             self.reads.extend(reads.found)
         return True
+
+    def _suppresses(self, node: cst.BaseExpression) -> bool:
+        """`contextlib.suppress(...)` naming the error, or given a `*` it cannot read."""
+        return (
+            isinstance(node, cst.Call)
+            and self._tree.qualified(node.func) == "contextlib.suppress"
+            and any(bool(arg.star) or self._names(arg.value) for arg in node.args)
+        )
 
     def _names(self, node: cst.BaseExpression | None) -> bool:
         if node is None:

@@ -1032,6 +1032,67 @@ def test_a_handler_that_would_catch_the_old_error_without_naming_it_refuses_the_
     assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
 
 
+@pytest.mark.parametrize(
+    ("handler", "refused"),
+    [
+        ("except* LookupError:", True),
+        ("except* (OSError, Exception) as e:", True),
+        ("except* TypeError:", False),
+    ],
+    ids=["named", "among others", "another error"],
+)
+def test_an_exception_group_handler_is_read_like_the_one_it_stands_for(
+    handler: str, refused: bool
+) -> None:
+    _produced, edits = run(
+        'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    r = MODEL.run(p)\n'
+        f"    try:\n        x = r.answer\n    {handler}\n        x = None\n    return x\n"
+    )
+    assert refusals(edits) == (["response_shape_changed"] * 2 if refused else [None, None])
+
+
+SUPPRESSED = (
+    'MODEL = sdk.Model("m")\n\n\ndef a(p, errors):\n    r = MODEL.run(p)\n'
+    "    with {suppress}:\n        return r.answer\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("imports", "suppress"),
+    [
+        ("from contextlib import suppress\n", "suppress(LookupError)"),
+        ("import contextlib\n", "contextlib.suppress(OSError, Exception)"),
+        ("import contextlib as cm\n", "cm.suppress((TypeError, LookupError))"),
+        ("import contextlib\n", "contextlib.suppress(*errors)"),
+    ],
+    ids=["imported by name", "among others", "under an alias, in a tuple", "from a star"],
+)
+def test_a_read_inside_a_suppress_that_could_catch_the_old_error_refuses_the_group(
+    imports: str, suppress: str
+) -> None:
+    """`with suppress(...):` is the handler in another spelling, so its body is read the same."""
+    _produced, edits = run(imports + SUPPRESSED.format(suppress=suppress))
+    assert refusals(edits) == ["response_shape_changed", "response_shape_changed"]
+
+
+@pytest.mark.parametrize(
+    ("imports", "suppress"),
+    [
+        ("import contextlib\n", "contextlib.suppress(TypeError)"),
+        ("import contextlib\n", "contextlib.suppress()"),
+        ("from helpers import suppress\n", "suppress(LookupError)"),
+        ("import contextlib\n", "contextlib.closing(errors)"),
+        ("", "errors"),
+    ],
+    ids=["another error", "none", "not contextlib's", "another manager", "not a call"],
+)
+def test_a_read_inside_a_with_that_suppresses_nothing_that_matters_is_written(
+    imports: str, suppress: str
+) -> None:
+    _produced, edits = run(imports + SUPPRESSED.format(suppress=suppress))
+    assert refusals(edits) == [None, None]
+
+
 def test_a_handler_around_a_stream_chunk_read_is_the_same_hazard() -> None:
     _produced, edits = run(
         'MODEL = sdk.Model("m")\n\n\ndef a(p):\n    for c in MODEL.run(p, live=True):\n'

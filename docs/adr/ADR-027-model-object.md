@@ -134,15 +134,20 @@ comment above a model constant is ordinary.
 
 `response.text` raised `ValueError` with no parts and now returns `None`, so a
 handler for it never runs. The group is `response_shape_changed` when an
-attribute in `response_attrs_now_none` is read, on the call's result, a name it
-was assigned to, or the name a `for` binds over either (a stream's chunks),
-inside a `try` whose handler could catch `response_legacy_error`: one naming it,
-`Exception` or `BaseException`, alone or in a tuple, or a bare `except:`. Nothing
-says the exception was not relied on, and a wrongly refused file costs a manual
-edit where a wrongly kept handler is a silent change. Any other read is
-rewritten, and the call carries `response_text_may_be_none`, since the value can
-be `None`: a handler in a caller, `builtins.ValueError` and an unguarded
-`.strip()` are not seen. The schema requires both fields or neither.
+attribute in `response_attrs_now_none` is read, on the call's result (awaited or
+not), a name it was assigned to, or the name a `for` binds over either (a
+stream's chunks), where a handler could catch `response_legacy_error`: a `try` or
+an `except*` with a handler naming it, `Exception` or `BaseException`, alone or
+in a tuple, or a bare `except:`, and a `with` that calls `contextlib.suppress`
+(resolved to that name, so an import under another name counts) with any of them
+or with a `*`, which cannot be read. A name is resolved in its own scope, through
+annotated assignments and walruses as well as plain ones, so a variable of the
+same name in another function is not this call's. Nothing says the exception was
+not relied on, and a wrongly refused file costs a manual edit where a wrongly
+kept handler is a silent change. Any other read is rewritten, and the call
+carries `response_text_may_be_none`, since the value can be `None`: a handler in
+a caller, `builtins.ValueError`, a `suppress` reached through an alias and an
+unguarded `.strip()` are not seen. The schema requires both fields or neither.
 
 ### D13. A fix-time bail's order is the rule's, and it is not on the scan's ladder
 
