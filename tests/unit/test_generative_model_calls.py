@@ -1533,6 +1533,37 @@ def test_what_is_written_on_or_inside_a_deleted_constructor_moves_to_the_next_st
     )
 
 
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (
+            "# a\nM1 = sdk.Model('a')  # t1\n# b\nM2 = sdk.Model('b')  # t2\n# c\nx = 1\n",
+            "# c\n# a\n# t1\n# b\n# t2\nx = 1\n",
+        ),
+        (
+            "# a\nM1 = sdk.Model('a')\n# b\nM2 = sdk.Model('b')\n# c\nM3 = sdk.Model('c')\nx = 1\n",
+            "# a\n# b\n# c\nx = 1\n",
+        ),
+        ("# a\nM1 = sdk.Model('a')\nM2 = sdk.Model('b')  # t2\nx = 1\n", "# a\n# t2\nx = 1\n"),
+        (
+            "x = 1\n# a\nM1 = sdk.Model('a')  # t1\n# b\nM2 = sdk.Model('b')  # t2\n",
+            "x = 1\n\n\n# a\n# t1\n# b\n# t2\n",
+        ),
+    ],
+    ids=["two", "three", "one without comments of its own", "at the end of the file"],
+)
+def test_the_comments_of_constructors_deleted_in_a_row_all_reach_what_follows(
+    before: str, after: str
+) -> None:
+    """Each deleted statement hands on what it was handed, so none of them is left behind."""
+    uses = "".join(
+        f"{name}.run(p).answer, " for name in ("M1", "M2", "M3") if f"{name} =" in before
+    )
+    produced, edits = run(f"{before}\n\ndef f(p):\n    return {uses}\n")
+    assert set(refusals(edits)) == {None}
+    assert after in produced
+
+
 def test_a_trailing_comment_on_the_last_statement_of_a_block_keeps_the_blank_lines_above_it() -> (
     None
 ):

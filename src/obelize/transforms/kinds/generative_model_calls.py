@@ -1132,7 +1132,11 @@ class GenerativeModelCalls:
         """
         context.rewrites.drop(statement)
         line = tree.line_of(statement)
-        if line is None or len(line.body) > 1:
+        if line is None:
+            return
+        target = tree.after(line)
+        context.rewrites.hand_on(line, target)
+        if len(line.body) > 1:
             return
         kept = {id(found) for node in emitted for found in layout.comments(node)}
         written = [*layout.comments(statement), line.trailing_whitespace.comment]
@@ -1143,7 +1147,6 @@ class GenerativeModelCalls:
         )
         if first is None and not moved:
             return
-        target = tree.after(line)
         keeps_the_blanks = isinstance(target, (cst.Module, cst.IndentedBlock))
         start = 0 if keeps_the_blanks else len(line.leading_lines) if first is None else first
         context.rewrites.lead(

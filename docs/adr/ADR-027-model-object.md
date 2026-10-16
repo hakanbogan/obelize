@@ -127,7 +127,9 @@ comments written beside it, as ADR-026 D7 says). The next statement keeps its ow
 blank lines and gains the comments alone, those above first and then the rest in
 the order written; at the end of a block they keep the blank lines above them too
 and go before the block's own footer. A line that shares its statement with
-another keeps its own comments. A commented constructor is not refused, because a
+another keeps its own comments. When the next statement is deleted too, what was
+handed to it goes on to the one after, ahead of its own, so a row of deleted
+constructors leaves every comment above the first statement that stays. A commented constructor is not refused, because a
 comment above a model constant is ordinary.
 
 ### D12. C-56 is a refusal about the answer, not about the call, and a warning where it is only read

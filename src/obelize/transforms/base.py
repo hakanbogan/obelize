@@ -99,6 +99,7 @@ class Rewrites:
         self._statements: dict[int, cst.BaseSmallStatement] = {}
         self._dropped: set[int] = set()
         self._leading: dict[int, tuple[cst.EmptyLine, ...]] = {}
+        self._next: dict[int, cst.CSTNode] = {}
 
     def set(self, node: cst.CSTNode, replacement: cst.BaseExpression) -> None:
         self._by_id[id(node)] = replacement
@@ -128,6 +129,17 @@ class Rewrites:
 
     def leading(self, node: cst.CSTNode) -> tuple[cst.EmptyLine, ...]:
         return self._leading.get(id(node), ())
+
+    def hand_on(self, node: cst.CSTNode, successor: cst.CSTNode) -> None:
+        """Say where the lines led onto the line `node` go, if a rule deletes it as well."""
+        self._next[id(node)] = successor
+
+    def successor(self, node: cst.CSTNode) -> cst.CSTNode | None:
+        return self._next.get(id(node))
+
+    def lead_first(self, node: cst.CSTNode, lines: tuple[cst.EmptyLine, ...]) -> None:
+        """`lead` ahead of what `node` has: the lines of an earlier statement come first."""
+        self._leading[id(node)] = lines + self._leading.get(id(node), ())
 
     def keep_comments(self, statement: cst.CSTNode, old: cst.CSTNode, *new: cst.CSTNode) -> None:
         """Lead `statement` with the comments written under `old` that no node of `new` holds.
@@ -195,6 +207,11 @@ class _Apply(cst.CSTTransformer):
         result = super().on_leave(original_node, updated_node)
         lines = self._rewrites.leading(original_node)
         if not lines:
+            return result
+        if isinstance(result, cst.RemovalSentinel):
+            # Deleted too: what was led onto it goes on to the next, which is left after this one.
+            if (successor := self._rewrites.successor(original_node)) is not None:
+                self._rewrites.lead_first(successor, lines)
             return result
         # `with_changes` keeps the node's type; mypy cannot see that through the narrowing.
         return cast("cst.CSTNodeT", _led(result, lines))

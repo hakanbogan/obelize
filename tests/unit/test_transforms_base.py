@@ -234,3 +234,32 @@ def test_a_file_with_nothing_replaced_refuses_under_the_old_name() -> None:
     plan.offer("acme.client.types", "types", "acme_types")
     assert plan.require("acme.client.types") is None
     assert plan.refusal("acme.client.types") == "alias_collision"
+
+
+def _statement(built: base.RuleContext, index: int) -> cst.SimpleStatementLine:
+    line = built.module.body[index]
+    assert isinstance(line, cst.SimpleStatementLine)
+    return line
+
+
+def test_lines_led_onto_a_statement_that_goes_too_go_on_to_the_next_that_stays() -> None:
+    built = context("a = 1\nb = 2\nc = 3\nd = 4\n")
+    first, second, third, last = (_statement(built, index) for index in range(4))
+    for line in (second, third):
+        built.rewrites.drop(line.body[0])
+    built.rewrites.hand_on(second, third)
+    built.rewrites.hand_on(third, last)
+    note, other = (cst.EmptyLine(comment=cst.Comment(f"# {name}")) for name in "ab")
+    built.rewrites.lead(third, (other,))
+    built.rewrites.lead(second, (note,))
+    assert built.rewrites.successor(second) is third
+    assert built.rewrites.successor(first) is None
+    assert base.finish(built).code == "a = 1\n# a\n# b\nd = 4\n"
+
+
+def test_lines_led_onto_a_statement_that_goes_with_no_successor_named_go_with_it() -> None:
+    built = context("a = 1\nb = 2\n")
+    gone = _statement(built, 0)
+    built.rewrites.drop(gone.body[0])
+    built.rewrites.lead(gone, (cst.EmptyLine(comment=cst.Comment("# lost")),))
+    assert base.finish(built).code == "b = 2\n"
