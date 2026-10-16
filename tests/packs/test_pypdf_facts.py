@@ -12,6 +12,7 @@ import importlib
 import inspect
 import io
 import warnings
+from collections.abc import Callable
 from importlib.metadata import metadata, version
 from typing import Any, cast
 
@@ -30,6 +31,18 @@ with warnings.catch_warnings():
 BUNDLED_ID = "py-pdf/pypdf2-to-pypdf"
 BUNDLED = loader.load(BUNDLED_ID)
 PACK = BUNDLED.pack
+
+
+def _flagged_by(change_id: str) -> schema.FlagOnlyParams:
+    return next(
+        change.params
+        for change in PACK.changes
+        if change.id == change_id and isinstance(change, schema.FlagOnlyChange)
+    )
+
+
+REMOVED = _flagged_by("flag-removed-names")
+MODULES = _flagged_by("flag-removed-modules")
 RENAME = next(change.params for change in PACK.changes if change.kind == "rename_import")
 FLAGGED = {
     symbol
@@ -79,14 +92,7 @@ def test_the_installed_projects_are_inside_the_ranges_the_pack_was_measured_on()
 def test_the_newest_release_named_is_the_one_installed_and_it_lacks_the_removed_names() -> None:
     """What an unversioned requirement installs is a claim about PyPI; the weekly job checks it."""
     assert PACK.from_.newest == version("PyPDF2")
-    removed = {
-        symbol
-        for change in PACK.changes
-        if change.id == "flag-removed-names" and isinstance(change, schema.FlagOnlyChange)
-        for symbol in change.params.symbols
-    }
-    assert removed
-    assert set(PACK.from_.lacks) == removed
+    assert set(PACK.from_.lacks) == {*REMOVED.symbols, *MODULES.symbols}
     assert set(PACK.from_.lacks) <= FLAGGED
 
 
@@ -125,7 +131,7 @@ def test_every_name_pypdf2_defines_is_mapped_or_reported() -> None:
 def test_a_mapped_name_is_defined_on_pypdf_and_a_reported_one_no_longer_is() -> None:
     for key in RENAME.symbol_map:
         _resolve("pypdf", key)
-    for name in FLAGGED:
+    for name in FLAGGED - set(MODULES.symbols):
         relative = name.removeprefix("PyPDF2.")
         assert _resolve("PyPDF2", relative)
         with pytest.raises(AttributeError):
@@ -138,6 +144,27 @@ def test_a_camel_case_class_raises_on_the_version_the_pack_migrates_from(name: s
     with pytest.raises(PyPDF2.errors.DeprecationError, match=r"removed in PyPDF2 3\.0\.0"):
         getattr(PyPDF2, name)()
     assert f"PyPDF2.{name}" in FLAGGED
+
+
+@pytest.mark.parametrize("symbol", MODULES.symbols)
+def test_a_module_only_pypdf2_1_ships_is_gone_from_the_version_the_pack_migrates_from(
+    symbol: str,
+) -> None:
+    """Which is why a file that imports one ran on an older release. The releases that ship it
+    cannot share this environment: `pypdf_legacy_check.py` holds them."""
+    for root in ("PyPDF2", "pypdf"):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(symbol.replace("PyPDF2", root, 1))
+    assert symbol in PACK.from_.lacks
+
+
+def test_what_the_suggestion_for_a_removed_module_points_to_exists_in_pypdf() -> None:
+    errors = ("PdfReadError", "PdfStreamError", "PyPdfError", "PageSizeNotDefinedError")
+    for name in (*errors, "PdfReadWarning"):
+        assert hasattr(pypdf.errors, name)
+        assert name in MODULES.suggestion
+    assert hasattr(pypdf, "PageObject")
+    assert "PageObject" in MODULES.suggestion
 
 
 def _warns(call: Any) -> bool:
@@ -241,3 +268,73 @@ def test_page_boxes_and_float_objects_change_numeric_type() -> None:
     assert issubclass(PyPDF2.generic.FloatObject, decimal.Decimal)
     assert issubclass(pypdf.generic.FloatObject, float)
     assert "decimal.Decimal" in " ".join(PACK.limitations)
+
+
+# What the suggestion of `flag-removed-names` names, as a call on a reader, a writer and a page.
+CAMEL_CASE: dict[str, Callable[[Any, Any, Any], object]] = {
+    "getPage": lambda reader, writer, page: reader.getPage(0),
+    "numPages": lambda reader, writer, page: reader.numPages,
+    "getNumPages": lambda reader, writer, page: reader.getNumPages(),
+    "mediaBox": lambda reader, writer, page: page.mediaBox,
+    "addPage": lambda reader, writer, page: writer.addPage(page),
+    "mergePage": lambda reader, writer, page: page.mergePage(page),
+    "scaleBy": lambda reader, writer, page: page.scaleBy(2),
+    "extractText": lambda reader, writer, page: page.extractText(),
+    "rotateCounterClockwise": lambda reader, writer, page: page.rotateCounterClockwise(90),
+    "removeImages": lambda reader, writer, page: writer.removeImages(),
+    "removeText": lambda reader, writer, page: writer.removeText(),
+}
+
+
+@pytest.mark.parametrize("name", CAMEL_CASE)
+def test_a_camel_case_member_the_suggestion_names_raises_on_the_version_the_pack_migrates_from(
+    name: str,
+) -> None:
+    reader = PyPDF2.PdfReader(_pdf(PyPDF2))
+    with pytest.raises(PyPDF2.errors.DeprecationError, match=r"removed in PyPDF2 3\.0\.0"):
+        CAMEL_CASE[name](reader, PyPDF2.PdfWriter(), reader.pages[0])
+    assert name in REMOVED.suggestion
+
+
+def test_the_replacements_the_suggestion_names_exist_in_pypdf() -> None:
+    reader = pypdf.PdfReader(_pdf(pypdf))
+    page = reader.pages[0]
+    writer = pypdf.PdfWriter()
+    named = {
+        "pages": reader,
+        "mediabox": page,
+        "extract_text": page,
+        "merge_page": page,
+        "scale_by": page,
+        "rotate": page,
+        "add_page": writer,
+        "append": writer,
+        "merge": writer,
+    }
+    assert all(hasattr(owner, name) and name in REMOVED.suggestion for name, owner in named.items())
+    assert "strict=True" in REMOVED.suggestion
+    assert inspect.signature(pypdf.PdfReader).parameters["strict"].default is False
+
+
+def test_the_names_the_limitations_say_pypdf_changed_are_the_ones_it_has() -> None:
+    """What a rename by name alone gets wrong: a move of position, of keyword or of meaning."""
+    fourth = [
+        list(inspect.signature(method).parameters)[4]
+        for method in (
+            PyPDF2.PageObject.mergeTranslatedPage,
+            pypdf.PageObject.merge_translated_page,
+        )
+    ]
+    assert fourth == ["expand", "over"]
+    assert "the fourth positional of merge*Page is over, not expand" in REMOVED.suggestion
+    parameters = {
+        name: set(inspect.signature(getattr(pypdf.PdfWriter, name)).parameters)
+        for name in ("append", "merge", "remove_images", "remove_text", "encrypt")
+    }
+    assert {"outline_item", "import_outline"} <= parameters["append"] & parameters["merge"]
+    assert "to_delete" in parameters["remove_images"]
+    assert "font_names" in parameters["remove_text"]
+    assert {"user_password", "owner_password"} <= parameters["encrypt"]
+    text = " ".join(PACK.limitations)
+    for named in ("outline_item", "import_outline", "font_names", "to_delete", "user_password"):
+        assert named in text

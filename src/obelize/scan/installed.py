@@ -2,10 +2,11 @@
 
 A declaration that names no version installs the pack's newest release only where nothing else
 decides: a lock, a constraints file, an index setting, a version written outside the manifests, an
-environment kept in the repository, code that uses what that release removed. `contrary` names the
-first path that says another release is in use. Every check fails closed (a manifest it cannot
-read is evidence, and so is a name no report can spell, which hides what is under it), but one: a
-listed file that cannot be read, or is over `_LIMIT`, is not searched for a version. One over
+environment kept in the repository, code that uses what that release removed (in a file the scan
+parses, or a name of it written in any file git lists). `contrary` names the first path that says
+another release is in use. Every check fails closed (a manifest it cannot read is evidence, and so
+is a name no report can spell, which hides what is under it), but one: a listed file that cannot be
+read, or is over `_LIMIT`, is not searched for a version or a name. One over
 `max_file_bytes` is searched in windows and never held whole, since that limit bounds what a scan
 holds. Files are opened through `parse.contents`, or `fsutil.windows` for those, only after the
 walk's own refusal check.
@@ -117,7 +118,7 @@ def contrary(
         or _unread(walk, contents, rows, spelled)
         or _settings(walk, contents)
         or _hidden(walk)
-        or _mentioned(root, walk, contents, spelled, newest)
+        or _mentioned(root, walk, contents, _mention(spelled, spec.legacy_lacks), newest)
         or _on_disk(root, walk, rows, spelled, newest)
     )
 
@@ -142,14 +143,19 @@ def _hidden(walk: Walk) -> str:
 
 
 def _removed(findings: Sequence[Finding], spec: ScanSpec) -> str:
-    """Code that uses a name the newest release no longer defines cannot run on it."""
+    """Code that uses a name the newest release no longer defines, or one inside it (a module's
+    member), cannot run on it."""
     return next(
         (
             row.path
             for row in findings
             if row.kind != "manifest"
             and row.scan_status != "not_a_usage"
-            and row.symbol in spec.legacy_lacks
+            and row.symbol is not None
+            and any(
+                row.symbol == lacked or row.symbol.startswith(f"{lacked}.")
+                for lacked in spec.legacy_lacks
+            )
         ),
         "",
     )
@@ -279,10 +285,11 @@ def _index(source: Any) -> str:
     return url.rstrip("/") if isinstance(url, str) else ""
 
 
-def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, newest: str) -> str:
+def _mentioned(
+    root: Path, walk: Walk, contents: parse.Contents, mention: re.Pattern[bytes], newest: str
+) -> str:
     """A version of the distribution written anywhere, in a file or in a file's name, that rules
-    the newest release out: `PyPDF2==1.26.0`, `PyPDF2-1.26.0.dist-info`."""
-    mention = _mention(spelled)
+    the newest release out (`PyPDF2==1.26.0`, `PyPDF2-1.26.0.dist-info`), or a name it lacks."""
     vetted = {*walk.files, *walk.manifests}
     for path in walk.listed:
         if _rules_out(os.fsencode(path), mention, newest):
@@ -304,12 +311,23 @@ def _mentioned(root: Path, walk: Walk, contents: parse.Contents, spelled: str, n
     return ""
 
 
-def _mention(spelled: str) -> re.Pattern[bytes]:
+def _written(name: str) -> str:
+    """How code spells a name of `lacks`: a class by its own name, a module by its dotted path
+    (`utils` alone is a word)."""
+    leaf = name.rpartition(".")[2]
+    return leaf if leaf[:1].isupper() else name
+
+
+def _mention(spelled: str, lacks: Sequence[str]) -> re.Pattern[bytes]:
+    """A release of the distribution written in a text, or a name of `lacks` in the case it is
+    written."""
+    names = "|".join(re.escape(_written(name)) for name in lacks)
     return re.compile(
         (
             rf"(?<![\w-]){spelled}(?:\[[^\]\n]{{0,100}}\])?[ \t]*"
             rf"(?P<spec>{_CLAUSE}(?:[ \t]*,[ \t]*{_CLAUSE})*)"
             rf"|(?<![\w-]){spelled}-(?P<release>\d+(?:\.\d+)*)"
+            + (rf"|(?P<lacked>(?-i:(?<!\w)(?:{names})(?!\w)))" if names else "")
         ).encode(),
         re.IGNORECASE,
     )
@@ -336,13 +354,16 @@ def _searched(path: Path, mention: re.Pattern[bytes], newest: str) -> bool:
 def _rules_out(
     data: bytes, mention: re.Pattern[bytes], newest: str, start: int = 0, stop: int | None = None
 ) -> bool:
-    """Whether `data` writes a release of the distribution that is not, or may not be, `newest`.
+    """Whether `data` writes a release of the distribution that is not, or may not be, `newest`, or
+    a name that release lacks.
 
     Only a mention that starts from `start` on, and at or before `stop`, is read.
     """
     for found in mention.finditer(data, start):
         if stop is not None and found.start() > stop:
             return False
+        if found.lastgroup == "lacked":
+            return True
         try:
             if found["spec"] is None:
                 if Version(found["release"].decode()) != Version(newest):

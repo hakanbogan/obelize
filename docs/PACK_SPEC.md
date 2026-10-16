@@ -105,6 +105,9 @@ from:
     - PyPDF2.PdfFileMerger
     - PyPDF2.PdfFileReader
     - PyPDF2.PdfFileWriter
+    - PyPDF2.merger
+    - PyPDF2.pdf
+    - PyPDF2.utils
 ```
 
 When `from.version` has a floor, a repository that declares the legacy distribution with no version,
@@ -123,9 +126,12 @@ nobody can read is not judged, and `to.version` is a gate like the floor: `spec_
   `from.version` admits. It is the pack's claim about what an unversioned install resolves to, so a
   pack names one only where the distribution's index has no later release, and the weekly
   end-to-end run checks that for each pack that names one.
-- `lacks` lists the qualified names that release does not define. Code that uses one cannot have run
-  on it, so it is evidence of an older release. Each name is in `symbols` of a `flag_only` change,
-  so the scan reports it. Without `newest` it is refused.
+- `lacks` lists the qualified names that release does not define: a class, or a module. Code that
+  uses one, or a name inside a module, cannot have run on it, so it is evidence of an older release.
+  So is the name written in any file git lists, a notebook, a Python 2 file or a document included:
+  a class by its own name (`PdfFileReader`), a module by its dotted path (`PyPDF2.utils`), in the
+  case it is written. Each name is in `symbols` of a `flag_only` change, so the scan reports it.
+  Without `newest` it is refused.
 - `to` has neither field. A pack that sets neither is gated as before, and `spec_digest` ignores both,
   as it ignores `from.version`'s floor.
 

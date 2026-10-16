@@ -909,10 +909,20 @@ def _limitations_section(record: RunRecord, packs: Sequence[PackDocument]) -> li
 
 
 def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
-    """Why a pack plans nothing, what to change, and that in git the change is committed first."""
+    """Why a pack plans nothing, what to change, and that in git the change is committed first.
+
+    A pin moves a legacy release, not the code that runs on the old one: a class the new release
+    removed raises there, so the call sites are ported before the pin is.
+    """
+    ported = (
+        " A pin moves the release, not the code: a call to a name that release removed has to be "
+        "ported first."
+        if blocked.reason == "legacy_version_unsupported"
+        else ""
+    )
     return (
-        f"{_stop(blocked, code)} To apply it in a git repository, commit that change first: "
-        f"{code('fix --apply')} refuses uncommitted changes unless you pass "
+        f"{_stop(blocked, code)}{ported} To apply it in a git repository, commit that change "
+        f"first: {code('fix --apply')} refuses uncommitted changes unless you pass "
         f"{code('--allow-dirty')}."
     )
 
