@@ -9,7 +9,6 @@ they are, and it holds the pin only where a row of the legacy API appears, with 
 from __future__ import annotations
 
 import json
-import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -23,6 +22,7 @@ from obelize.models import Config
 from obelize.packs import loader
 from obelize.scan import analysis, parse, runner
 from platforms import PYTHON
+from support import committed
 
 OPENAI = loader.to_scan_spec(loader.load("openai/openai-0-to-1"))
 OLD = "import openai\nr = openai.ChatCompletion.create(model='m', messages=[])\n"
@@ -318,21 +318,6 @@ def command(tree: Path, *arguments: str) -> Any:
 
 def raw(data: str | bytes) -> bytes:
     return data if isinstance(data, bytes) else data.encode()
-
-
-def committed(root: Path, files: Mapping[str, str | bytes]) -> Path:
-    root.mkdir(parents=True)
-    for name, data in files.items():
-        (root / name).write_bytes(raw(data))
-    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "before"],
-        check=True,
-    )
-    return root
 
 
 def latest(tree: Path) -> Path:

@@ -15,10 +15,10 @@ from typing import Any
 import pytest
 
 import obelize
-import support
 from bench import cases, run
 from obelize.verify import runner
 from platforms import BENCH
+from support import commit_all, init_repo
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -1625,10 +1625,6 @@ def test_a_cutoff_that_uv_would_not_read_is_refused_before_a_round_starts(
     assert "not a UTC time" in capsys.readouterr().err
 
 
-def git(where: Path, *arguments: str) -> None:
-    support.git(where, "-c", "user.name=t", "-c", "user.email=t@t", *arguments)
-
-
 def test_the_commit_and_the_tree_are_read_from_this_checkout() -> None:
     instrument = run.read_instrument()
     assert instrument.commit is not None
@@ -1650,9 +1646,8 @@ def test_a_change_outside_the_results_makes_the_tree_dirty_and_one_inside_does_n
     monkeypatch.setattr(run, "ROOT", tmp_path)
     (tmp_path / "bench" / "results").mkdir(parents=True)
     (tmp_path / "bench" / "run.py").write_text("one\n")
-    git(tmp_path, "init", "-q")
-    git(tmp_path, "add", "-A")
-    git(tmp_path, "commit", "-q", "-m", "one")
+    init_repo(tmp_path)
+    commit_all(tmp_path, "one")
     (tmp_path / "bench" / "results" / "round-9.json").write_text("{}\n")
     assert run.read_instrument().dirty is False
     (tmp_path / "bench" / "run.py").write_text("two\n")

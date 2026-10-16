@@ -17,7 +17,6 @@ import libcst as cst
 import pytest
 from typer.testing import CliRunner, Result
 
-import support
 from obelize import __version__
 from obelize.cli import app
 from obelize.evidence import run_dir
@@ -26,6 +25,7 @@ from obelize.native import processes
 from obelize.packs import loader
 from obelize.scan import runner as scanner
 from platforms import posix_only, stdout_as_on_windows, text_files_as_on_windows, windows_only
+from support import commit_all, git, init_repo
 
 GEMINI = "gemini/google-generativeai-to-google-genai"
 
@@ -439,19 +439,13 @@ def test_every_artefact_a_scan_writes_is_there(tree: Path) -> None:
     assert folder.joinpath("packs", GEMINI, "pack.yaml").read_bytes() == loader.load(GEMINI).data
 
 
-def _git(root: Path, *arguments: str) -> str:
-    identity = ("-c", "user.name=t", "-c", "user.email=t@t.invalid")
-    return support.git(root, *identity, *arguments).stdout.decode()
-
-
 def test_a_scan_leaves_git_nothing_to_add(tree: Path) -> None:
     """A run folder holds copies of the source and what commands printed: never `git add -A`'s."""
-    _git(tree, "init", "-q")
-    _git(tree, "add", "-A")
-    _git(tree, "-c", "commit.gpgsign=false", "commit", "-qm", "before")
+    init_repo(tree)
+    commit_all(tree)
     assert _scan(tree).exit_code == 0
     assert _folder(tree).is_dir()
-    assert _git(tree, "status", "--porcelain", "--untracked-files=all") == ""
+    assert git(tree, "status", "--porcelain", "--untracked-files=all").stdout == b""
 
 
 @pytest.mark.parametrize("shape", ["file", "link"])

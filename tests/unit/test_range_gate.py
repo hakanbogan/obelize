@@ -8,7 +8,6 @@ ADR-056 passes one that installs the newest release, and fails closed on the sam
 from __future__ import annotations
 
 import json
-import subprocess
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -26,6 +25,7 @@ from obelize.models import Config, Finding, ScanSpec
 from obelize.packs import loader
 from obelize.scan import manifests, runner, runtime
 from platforms import PYTHON
+from support import committed
 
 OPENAI = loader.to_scan_spec(loader.load("openai/openai-0-to-1"))
 RANGE = ">=0.27.0,<1"
@@ -461,21 +461,6 @@ runner_ = CliRunner()
 
 def command(tree: Path, *arguments: str) -> Any:
     return runner_.invoke(app, [*arguments, "--repo", str(tree)])
-
-
-def committed(root: Path, files: dict[str, str]) -> Path:
-    root.mkdir(parents=True)
-    for name, text in files.items():
-        (root / name).write_text(text, encoding="utf-8", newline="\n")
-    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "before"],
-        check=True,
-    )
-    return root
 
 
 def recorded(tree: Path) -> Any:

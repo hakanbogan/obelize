@@ -8,7 +8,6 @@ requirement of a requirements file, and in any other layout the pin still waits.
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -23,6 +22,7 @@ from obelize.scan import manifests
 from obelize.transforms import manifest as manifest_rules
 from obelize.transforms.registry import manifest_rule_for
 from platforms import PYTHON
+from support import committed
 
 BUNDLED = loader.load("openai/openai-0-to-1")
 OPENAI = loader.to_scan_spec(BUNDLED)
@@ -318,22 +318,6 @@ QUIET = f"{PYTHON} -c pass"
 
 def command(tree: Path, *arguments: str) -> Any:
     return runner_.invoke(app, [*arguments, "--repo", str(tree)])
-
-
-def committed(root: Path, files: Mapping[str, str]) -> Path:
-    root.mkdir(parents=True)
-    for name, text in files.items():
-        (root / name).parent.mkdir(parents=True, exist_ok=True)
-        (root / name).write_text(text, encoding="utf-8", newline="")
-    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "before"],
-        check=True,
-    )
-    return root
 
 
 APP = (

@@ -17,7 +17,7 @@ from obelize.models import Config
 from obelize.packs import loader
 from obelize.scan import runner, walker
 from obelize.transforms import codemod
-from support import git
+from support import git, init_repo
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "apply"
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -81,9 +81,7 @@ def prepare(work: Path, root: Path, state: dict[str, Any]) -> None:
     """Commit first, so what the key calls dirty or untracked became so after a clean tree existed.
     The repository is at `work`; `root`, what `--repo` names, may be a subdirectory."""
     if state.get("init"):
-        git(work, "init", "-q", "-b", "work")
-        git(work, "config", "user.name", "obelize tests")
-        git(work, "config", "user.email", "tests@obelize.invalid")
+        init_repo(work)
         left_out = set(state.get("never_added") or [])
         git(
             work,

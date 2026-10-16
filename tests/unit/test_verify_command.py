@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -19,6 +18,7 @@ from obelize.cli import app
 from obelize.evidence import report
 from obelize.native import files
 from platforms import AS_ROOT, PYTHON, deny, link, quoted, reports_held_as_on_windows
+from support import commit_all, committed, git
 
 runner = CliRunner()
 
@@ -40,29 +40,16 @@ def note(diff):
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    root = tmp_path / "repo"
-    root.mkdir()
-    (root / "app.py").write_text(LEGACY, encoding="utf-8")
-    (root / "requirements.txt").write_text("google-generativeai==0.8.6\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "before"],
-        check=True,
+    return committed(
+        tmp_path / "repo", {"app.py": LEGACY, "requirements.txt": "google-generativeai==0.8.6\n"}
     )
-    return root
 
 
 def nest(tree: Path) -> None:
     """Move the legacy file one directory down, so a recorded path holds a directory."""
     (tree / "pkg").mkdir()
-    subprocess.run(["git", "-C", str(tree), "mv", "app.py", "pkg/app.py"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "nested"],
-        check=True,
-    )
+    git(tree, "mv", "app.py", "pkg/app.py")
+    git(tree, "commit", "-qm", "nested")
 
 
 def applied(tree: Path) -> str:
@@ -173,11 +160,7 @@ def test_a_dry_run_has_no_after_state_to_verify(tree: Path) -> None:
 def test_an_apply_that_wrote_nothing_has_no_hash_to_check_against(tree: Path) -> None:
     """The second apply over a migrated tree: `file_edits` is empty."""
     applied(tree)
-    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "after"],
-        check=True,
-    )
+    commit_all(tree, "after")
     again = runner.invoke(app, ["fix", "--repo", str(tree), "--pack", PACK, "--apply"])
     assert again.exit_code == 4
     result = verify(tree, (tree / ".obelize" / "latest").read_text(encoding="utf-8").strip())
@@ -391,11 +374,8 @@ def test_the_superseding_note_says_whether_tests_ran_before_the_change(
         (tree / ".obelize.yml").write_text(
             "verify:\n  commands:\n    - pytest -q\n", encoding="utf-8"
         )
-        subprocess.run(["git", "-C", str(tree), "add", ".obelize.yml"], check=True)
-        subprocess.run(
-            ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "configure"],
-            check=True,
-        )
+        git(tree, "add", ".obelize.yml")
+        git(tree, "commit", "-qm", "configure")
     runner.invoke(app, ["fix", "--repo", str(tree), "--pack", PACK, "--apply", *first])
     run_id = (tree / ".obelize" / "latest").read_text(encoding="utf-8").strip()
     record = json.loads((folder(tree, run_id) / "run.json").read_text(encoding="utf-8"))

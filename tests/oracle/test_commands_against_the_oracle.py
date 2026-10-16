@@ -20,7 +20,7 @@ from typer.testing import CliRunner, Result
 from obelize.cli import app
 from obelize.evidence import report
 from platforms import PYTHON, copied
-from support import git
+from support import commit_all, init_repo
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "commands"
 KEY: dict[str, Any] = yaml.safe_load((ROOT / "answers.yaml").read_text(encoding="utf-8"))
@@ -33,11 +33,6 @@ runner = CliRunner()
 # One parameter per run. A case's runs share one working copy, in order, so `verify` and `undo`
 # can point at an earlier run's folder.
 RUNS = [(name, index) for name in sorted(CASES) for index in range(len(CASES[name]["runs"]))]
-
-
-def commit(root: Path, message: str) -> None:
-    git(root, "add", "-A")
-    git(root, "commit", "-q", "-m", message)
 
 
 def append(root: Path, files: dict[str, str]) -> None:
@@ -70,10 +65,8 @@ def prepare(work: Path, case: dict[str, Any]) -> None:
     """One working copy, in the git state its key declares."""
     shutil.copytree(ROOT / case["repository"], work)
     if case["git"]["init"]:
-        git(work, "init", "-q", "-b", "work")
-        git(work, "config", "user.name", "obelize tests")
-        git(work, "config", "user.email", "tests@obelize.invalid")
-        commit(work, "the tree before obelize saw it")
+        init_repo(work)
+        commit_all(work, "the tree before obelize saw it")
     append(work, case["git"].get("appended") or {})
 
 
@@ -95,7 +88,7 @@ def drive(
     states: list[dict[str, Any]] = []
     for spec in case["runs"]:
         if spec.get("commit"):
-            commit(work, "the tree after the last run")
+            commit_all(work, "the tree after the last run")
         append(work, spec.get("appended") or {})
         argv = list(spec["argv"])
         target = spec.get("updates", spec.get("undo_of"))

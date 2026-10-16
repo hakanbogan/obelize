@@ -6,7 +6,6 @@ The full revert and the edited-file skip are graded by the oracle.
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +17,7 @@ from obelize.cli import app
 from obelize.models import UNDO_SKIPS
 from obelize.native import files
 from platforms import AS_ROOT, PYTHON, deny, link
+from support import commit_all, committed, git
 
 runner = CliRunner()
 
@@ -38,19 +38,9 @@ def note(diff):
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
-    root = tmp_path / "repo"
-    root.mkdir()
-    (root / "app.py").write_text(LEGACY, encoding="utf-8")
-    (root / "requirements.txt").write_text("google-generativeai==0.8.6\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "work"], check=True)
-    for key, value in (("user.name", "t"), ("user.email", "t@t.invalid")):
-        subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "commit.gpgsign=false", "commit", "-qm", "before"],
-        check=True,
+    return committed(
+        tmp_path / "repo", {"app.py": LEGACY, "requirements.txt": "google-generativeai==0.8.6\n"}
     )
-    return root
 
 
 @pytest.fixture
@@ -62,11 +52,8 @@ def run_id(tree: Path) -> str:
 def nested_run(tree: Path) -> str:
     """A run whose legacy file is one directory down, so its recorded path holds a directory."""
     (tree / "pkg").mkdir()
-    subprocess.run(["git", "-C", str(tree), "mv", "app.py", "pkg/app.py"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "nested"],
-        check=True,
-    )
+    git(tree, "mv", "app.py", "pkg/app.py")
+    git(tree, "commit", "-qm", "nested")
     return applied(tree)
 
 
@@ -229,11 +216,7 @@ def test_the_document_cannot_be_written_and_the_command_says_which_half_happened
 
 def test_undoing_a_run_that_wrote_nothing_is_not_a_success(tree: Path, run_id: str) -> None:
     """`0` would tell a script the pre-migration state is restored, but nothing was put back."""
-    subprocess.run(["git", "-C", str(tree), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(tree), "-c", "commit.gpgsign=false", "commit", "-qm", "after"],
-        check=True,
-    )
+    commit_all(tree, "after")
     again = runner.invoke(app, ["fix", "--repo", str(tree), "--pack", PACK, "--apply"])
     assert again.exit_code == 4, again.output
     empty = (tree / ".obelize" / "latest").read_text(encoding="utf-8").strip()

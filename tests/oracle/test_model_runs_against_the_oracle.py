@@ -25,7 +25,7 @@ from typer.testing import CliRunner
 from obelize.cli import app
 from obelize.providers import openai_compat as adapter
 from platforms import PYTHON
-from support import git
+from support import commit_all, init_repo
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -152,11 +152,8 @@ def prepare(work: Path, case: dict[str, Any], base_url: str, config_home: Path) 
         (work / ".obelize.yml").write_text(yaml.safe_dump(settings), encoding="utf-8")
     spec = case.get("git") or {}
     if spec.get("init"):
-        git(work, "init", "-q", "-b", "work")
-        git(work, "config", "user.name", "obelize tests")
-        git(work, "config", "user.email", "tests@obelize.invalid")
-        git(work, "add", "-A")
-        git(work, "commit", "-q", "-m", "the tree before obelize saw it")
+        init_repo(work)
+        commit_all(work, "the tree before obelize saw it")
     if spec.get("dirty"):
         with (work / "long.py").open("a", encoding="utf-8") as handle:
             handle.write("# edited by hand, and not committed\n")

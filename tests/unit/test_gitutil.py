@@ -16,7 +16,7 @@ import pytest
 from obelize import fsutil, gitutil
 from obelize.native import processes
 from platforms import posix_only, program, windows_only
-from support import git
+from support import commit_all, git, init_repo
 
 HEX = 40
 
@@ -32,11 +32,8 @@ def repository(tmp_path: Path) -> Path:
     root = tmp_path / "checkout"
     root.mkdir()
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
-    git(root, "init", "-q", "-b", "work")
-    git(root, "config", "user.name", "obelize tests")
-    git(root, "config", "user.email", "tests@obelize.invalid")
-    git(root, "add", "-A")
-    git(root, "commit", "-q", "-m", "first")
+    init_repo(root)
+    commit_all(root, "first")
     return root
 
 
