@@ -6,6 +6,7 @@ what the first wrote.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from pathlib import Path
 from typing import Any
@@ -310,7 +311,7 @@ def test_a_pack_in_a_user_directory_is_chosen_like_a_bundled_one(
         "source": {
             "type": "official_guide",
             "url": "https://example.invalid/guide",
-            "retrieved_at": "2026-09-17",
+            "retrieved_at": dt.date(2026, 9, 17),
         },
         "from": {"package": "demo-legacy", "version": "<1"},
         "to": {"package": "demo-modern", "version": ">=1", "requires_python": ">=3.9"},

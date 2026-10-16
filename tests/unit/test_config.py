@@ -554,6 +554,13 @@ USER_MODEL_REFUSALS = [
     ("base_url: 'http://192.168.1.5/v1'", "plain http to 192.168.1.5"),
     ("base_url: 'http://[2001:db8::1]/v1'", "plain http to 2001:db8::1"),
     ("allow_insecure_http: 'sometimes'", "allow_insecure_http"),
+    ("allow_insecure_http: 'true'", "allow_insecure_http"),
+    ("allow_insecure_http: 1", "allow_insecure_http"),
+    ("log_prompts: 'yes'", "log_prompts"),
+    ("log_prompts: 1", "log_prompts"),
+    ("model: 5", "Input should be a valid string"),
+    ("api_key_env: 5", "Input should be a valid string"),
+    ("base_url: 5", "Input should be a valid string"),
 ]
 
 
@@ -564,6 +571,23 @@ def test_a_model_block_the_documentation_does_not_admit_is_refused_in_the_users_
     (tmp_path / "config.yml").write_text(f"model:\n  {body}\n", encoding="utf-8")
     with pytest.raises(ConfigError, match=re.escape(said)):
         user_config(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("log_prompts", "yes"),
+        ("log_prompts", 1),
+        ("allow_insecure_http", "true"),
+        ("model", 5),
+        ("model", b"m"),
+        ("api_key_env", 5),
+        ("base_url", b"https://h/v1"),
+    ],
+)
+def test_the_model_block_converts_no_value_of_another_type(key: str, value: object) -> None:
+    with pytest.raises(ValidationError, match=key):
+        ModelConfig(**{key: value})
 
 
 def test_a_pattern_that_does_not_compile_is_refused_when_the_file_is_read(tmp_path: Path) -> None:

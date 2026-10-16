@@ -121,7 +121,7 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
     A scanned file missing from `sources` is left alone; one with an `eligible` row raises.
     """
     results = {result.path: result for result in scan.results}
-    _check(results, sources)
+    _check(results, sources, scan.followed)
 
     files: list[Outcome] = []
     plans: list[ImpactPlan] = []
@@ -269,9 +269,18 @@ def _in_path_order(outcomes: Mapping[str, Outcome]) -> tuple[Outcome, ...]:
     return tuple(sorted(outcomes.values(), key=lambda outcome: os.fsencode(outcome.path)))
 
 
-def _check(results: Mapping[str, FileResult], sources: Mapping[str, bytes]) -> None:
+def _check(
+    results: Mapping[str, FileResult],
+    sources: Mapping[str, bytes],
+    followed: Sequence[tuple[str, manifests.Followed]],
+) -> None:
     """Refuse bytes no scan read, and eligible files handed no bytes."""
-    unknown = sorted(name for name in sources if name not in results and not _is_manifest(name))
+    named = {path for path, _ in followed}
+    unknown = sorted(
+        name
+        for name in sources
+        if name not in results and not _is_manifest(name) and name not in named
+    )
     if unknown:
         raise CodemodError(f"{unknown} were not in this scan; a plan grades the bytes it read")
     missing = sorted(
@@ -579,11 +588,12 @@ def _manifest_plan(
         paired=manifests.coupled(spec),
         modern=scan.modern,
     )
+    followed = dict(scan.followed)
     declared = [
         declaration
         for name in sorted(sources)
-        if _is_manifest(name)
-        for declaration in manifests.declarations(name, sources[name])
+        if _is_manifest(name) or name in followed
+        for declaration in manifests.declarations(name, sources[name], followed.get(name))
     ]
     return manifests.plan(declared, migration, spec)
 

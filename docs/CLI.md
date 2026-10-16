@@ -145,8 +145,9 @@ named. `REPORT.md` says the same under Dependency manifests, for a dry run too.
 many, the most common reasons with a sentence on what to change for each (the last column of
 [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md#4-bail-codes-editreason)), up to five of the rows that cause them (`path:line symbol code`,
 with `and N more in REPORT.md` after them), the files that hold the pin without a row (a notebook
-that calls the legacy API, which obelize reads and never writes, or a file it does not analyse;
-migrate them by hand, or list a notebook under `exclude` to migrate the rest), and a link to what
+that calls the legacy API, which obelize reads and never writes, a file it does not analyse, or, for
+a pack with one distribution for both APIs, a `.py` file it could not read; migrate them by hand,
+raise `max_file_bytes`, or list one under `exclude` to migrate the rest), and a link to what
 each code means. A pack whose one distribution holds both APIs adds a line saying the whole
 repository moves or none of it.
 
@@ -547,7 +548,8 @@ absolute path to an existing directory (`~` is expanded), and a pack in one is v
 any other file (exit `7`), never trusted more. A repository's `.obelize.yml` may not set it. A
 directory inside a repository you scan is scanned too, so list it in `exclude`.
 
-The `model` keys are acted on by `obelize fix`.
+The `model` keys are acted on by `obelize fix`. A value of another type is refused, not converted
+(`log_prompts: 'yes'`, a number for `model`).
 
 | Key | Type | Default | Description |
 |---|---|---|---|

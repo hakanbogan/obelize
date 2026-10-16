@@ -47,7 +47,8 @@ Only then is the repository asked whether anything else decides the release
 (`scan/installed.py`, `contrary`). The first path that says it does is the evidence, and the run is
 blocked as before, naming that path. The checks run in this order, and each fails closed (a manifest
 it cannot read is evidence), except that a listed file that cannot be read, or is over 32 MiB, is not
-searched for a version or a name.
+searched for a version or a name. A file over 32 MiB is named as a `file_too_large` limitation when
+the run took a release (`installed.unsearched`).
 
 1. Code. A finding that is not `not_a_usage` for a name in `lacks`, or for one inside it
    (`PyPDF2.utils.PdfReadError`): that code cannot run on the newest release, so an older one is in
@@ -65,7 +66,7 @@ searched for a version or a name.
    an override counts, and `known_third_party` under `[tool.isort]`, a Ruff or mypy list, a
    project's `description` and a URL do not; in a requirements, input or constraints file, a pip
    option that can move the release, which is every option but `-r` or `-c` to a manifest the scan
-   reads, `-e` to a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued
+   reads (one that an include names too, [ADR-021](ADR-021-dependency-manifests-verdict.md) D15), `-e` to a local directory, `--extra-index-url` and `--trusted-host`. A hash on a continued
    line is such an option. A line that is read and names a release (`PyPDF2<3` in a constraints file) is judged
    like any declaration, by the floor and by item 5; a file that names nothing about the
    distribution is no evidence for being there. A manifest the user's `exclude` removed is judged

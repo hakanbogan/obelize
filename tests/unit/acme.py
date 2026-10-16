@@ -6,6 +6,7 @@ of one kind (MEASURE and LOOKUP, FLAGGED and GONE) catch a rule that ignores its
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -348,7 +349,7 @@ PACK = PackDocument(
     source=PackSource(
         type="official_guide",
         url="https://example.invalid/acme",
-        retrieved_at="2026-09-20",
+        retrieved_at=dt.date(2026, 9, 20),
     ),
     **{"from": Legacy(package="acme-sdk", version="==0.1.0")},
     to=Target(package="acme-client", version=">=2", requires_python=">=3.9"),
@@ -405,7 +406,9 @@ OLD_PACK = PackDocument(
     provider="acme",
     language="python",
     source=PackSource(
-        type="official_guide", url="https://example.invalid/acme2", retrieved_at="2026-09-20"
+        type="official_guide",
+        url="https://example.invalid/acme2",
+        retrieved_at=dt.date(2026, 9, 20),
     ),
     **{"from": Legacy(package="acme-old", version=">=2,<3")},
     to=Target(package="acme-new", version=">=3", requires_python=">=3.9"),

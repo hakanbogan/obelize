@@ -282,7 +282,7 @@ class PackSource(_Closed):
 
     type: SourceType
     url: SourceUrl
-    retrieved_at: dt.date
+    retrieved_at: Annotated[dt.date, Field(strict=True)]
     sha256: Sha256 | None = None
 
 

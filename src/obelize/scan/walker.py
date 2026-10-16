@@ -7,9 +7,10 @@ each file is read once. A silently dropped file would make "no findings" a false
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import cache
 from pathlib import Path
-from typing import Final, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 from obelize import gitutil
 from obelize.config import ConfigError, Selection
@@ -17,6 +18,10 @@ from obelize.fsutil import refusal
 from obelize.models import Config, SkipReason, printable, terminal_unsafe
 from obelize.native import files
 from obelize.scan import manifests
+from obelize.scan.manifests import Followed
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Recorded because only `git` honours `.gitignore`.
 ListingSource = Literal["git", "walk"]
@@ -93,6 +98,9 @@ class Walk:
     # Manifests the user's `exclude` removed, under the same path guard: never edited, but still
     # what installs, so the newest-release check judges their options and settings.
     excluded_manifests: tuple[str, ...] = ()
+    # The files an `-r` or `-c` line of a pip manifest names that no name makes a manifest, and how
+    # each is named. They are in `manifests` too. Only `follow` finds them: `walk` opens nothing.
+    followed: tuple[tuple[str, Followed], ...] = ()
 
 
 def walk(root: Path, config: Config) -> Walk:
@@ -151,6 +159,57 @@ def walk(root: Path, config: Config) -> Walk:
         unincluded=tuple(sorted(unincluded, key=os.fsencode)),
         listed=tuple(sorted(named, key=os.fsencode)),
         excluded_manifests=tuple(sorted(dropped, key=os.fsencode)),
+    )
+
+
+def follow(root: Path, config: Config, found: Walk, read: Callable[[str], bytes | None]) -> Walk:
+    """`found` with the files that the `-r` and `-c` lines of its pip manifests name taken as
+    manifests, up to `manifests.MAX_DEPTH` includes deep.
+
+    A file is taken only if the listing has it, a manifest may be read there (the same `exclude` and
+    guard as any other) and it is a regular file; one named twice is read once, and a cycle ends
+    where it began. A name that already is a manifest is read as it was.
+    """
+    selection = Selection(config)
+    listed = set(found.listed)
+    known = {*found.manifests, *found.excluded_manifests}
+    skipped: list[Skipped] = []
+
+    @cache
+    def admitted(target: str) -> bool:
+        if target not in listed or not selection.selects_manifest(target):
+            return False
+        reason = refusal(root, root / target)
+        if reason is not None:
+            skipped.append(_skip(target, reason))
+        return reason is None
+
+    followed: dict[str, Followed] = {}
+    seen: set[tuple[str, Followed]] = set()
+    level: list[tuple[str, Followed]] = [
+        (path, "constrained" if manifests.constrains(path) else "required")
+        for path in found.manifests
+        if manifests.layout(path) in manifests.PIP
+    ]
+    for _ in range(manifests.MAX_DEPTH):
+        ahead: list[tuple[str, Followed]] = []
+        for path, kind in level:
+            for target, named in manifests.includes(path, read(path) or b""):
+                how = "constrained" if kind == "constrained" else named
+                if target in known or (target, how) in seen or not admitted(target):
+                    continue
+                seen.add((target, how))
+                if followed.get(target) != "required":
+                    followed[target] = how
+                ahead.append((target, how))
+        level = ahead
+    return replace(
+        found,
+        manifests=tuple(sorted({*found.manifests, *followed}, key=os.fsencode)),
+        skipped=tuple(
+            sorted([*found.skipped, *skipped], key=lambda row: (os.fsencode(row.path), row.reason))
+        ),
+        followed=tuple(sorted(followed.items(), key=lambda row: os.fsencode(row[0]))),
     )
 
 
@@ -255,6 +314,7 @@ __all__ = [
     "ListingSource",
     "Skipped",
     "Walk",
+    "follow",
     "git_listing",
     "walk",
     "walk_listing",

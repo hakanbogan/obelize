@@ -121,6 +121,25 @@ def contrary(
     )
 
 
+def unsearched(root: Path, walk: Walk, spec: ScanSpec) -> tuple[parse.Limitation, ...]:
+    """The listed files over `_LIMIT`, which the search for a version does not read: the release
+    the run took was taken without them."""
+    rows: list[parse.Limitation] = []
+    for path in walk.listed:
+        try:
+            size = (root / path).lstat().st_size
+        except OSError:
+            continue
+        if size > _LIMIT:
+            detail = (
+                f"It is {size} bytes, over the {_LIMIT} that the search for a release of "
+                f"{spec.legacy_distribution} reads, so it was not searched. If it pins another "
+                f"release, the run took the wrong one."
+            )
+            rows.append(parse.Limitation(path=path, code="file_too_large", detail=detail))
+    return tuple(rows)
+
+
 def _hidden(walk: Walk) -> str:
     """A listed file that can pin or constrain a release, or a name no report can spell, under
     which anything may be.
@@ -169,6 +188,7 @@ def _unread(
     version it names is judged with every listed file.
     """
     named = re.compile(rf"(?<![\w-]){spelled}(?!\w|-[a-z])", re.IGNORECASE)
+    followed = {path for path, _ in walk.followed}
     for path in (*walk.manifests, *walk.excluded_manifests):
         data, _refused = contents(path)
         whole = path in walk.manifests
@@ -184,7 +204,7 @@ def _unread(
             if whole and counted > sum(row.path == path for row in rows):
                 return path
             continue
-        pip = manifests.layout(path) in manifests.PIP
+        pip = path in followed or manifests.layout(path) in manifests.PIP
         read = {row.line for row in rows if row.path == path}
         for number, line in enumerate(data.decode("utf-8", "surrogateescape").split("\n"), 1):
             body = manifests.PIP_COMMENT.sub("", line) if pip else manifests.uncommented(line)
@@ -233,8 +253,9 @@ def _harmless(path: str, option: str, walk: Walk) -> bool:
         return False
     flag, argument = found["flag"], (found["argument"] or "").strip()
     if flag in _FILES:
-        return posixpath.normpath(posixpath.join(posixpath.dirname(path), argument)) in set(
-            walk.manifests
+        return any(
+            target in walk.manifests
+            for target, _ in manifests.includes(path, option.encode("utf-8", "surrogateescape"))
         )
     if flag in _EDITABLE:
         return "://" not in argument and "+" not in argument.split("/")[0]
@@ -445,4 +466,4 @@ def _names(directory: Path) -> list[str]:
         return []
 
 
-__all__ = ["contrary"]
+__all__ = ["contrary", "unsearched"]

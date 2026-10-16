@@ -9,6 +9,7 @@ No arguments rewrites the corpus; `--check` reports drift and writes nothing.
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,7 +32,7 @@ MINIMAL: Document = {
     "source": {
         "type": "official_guide",
         "url": "https://example.invalid/guide",
-        "retrieved_at": "2026-09-17",
+        "retrieved_at": dt.date(2026, 9, 17),
     },
     "from": {"package": "demo-legacy", "version": "<1"},
     "to": {"package": "demo-modern", "version": ">=1", "requires_python": ">=3.9"},
@@ -382,6 +383,20 @@ CASES: tuple[Case, ...] = (
         path="source.retrieved_at",
         says="Field required",
         mutate=lambda d: d["source"].pop("retrieved_at"),
+    ),
+    Case(
+        name="source_retrieved_at_is_text",
+        defect="a retrieval date written as a quoted string, which no other field coerces",
+        path="source.retrieved_at",
+        says="Input should be a valid date",
+        mutate=lambda d: _with(d["source"], "retrieved_at", "2026-09-17"),
+    ),
+    Case(
+        name="source_retrieved_at_is_a_timestamp",
+        defect="a retrieval date given with a time of day",
+        path="source.retrieved_at",
+        says="Input should be a valid date",
+        mutate=lambda d: _with(d["source"], "retrieved_at", dt.datetime(2026, 9, 17, 10, 30)),
     ),
     Case(
         name="source_url_is_not_https",

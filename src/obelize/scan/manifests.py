@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import posixpath
 import re
 from dataclasses import astuple, dataclass, replace
 from pathlib import PurePosixPath
@@ -78,6 +79,16 @@ UNWRITTEN_GLOBS: Final = (_CONSTRAINTS, "*requirements*.in")
 
 # Layouts pip reads: a line may be an option, and a comment needs a blank before its `#`.
 PIP: Final[frozenset[Layout]] = frozenset({"requirements", "unwritten"})
+
+# A file an `-r` or `-c` line names, where no name makes it a manifest, is read as a pip-tools input
+# is: its declarations, never an edit. `required` declares; `constrained` only bounds a version.
+Followed = Literal["required", "constrained"]
+# How many includes deep a file is followed; one named beyond it is not read.
+MAX_DEPTH: Final = 8
+_INCLUDE: Final = re.compile(
+    r"(?P<flag>-r|-c|--requirement|--constraint)[=\s]+(?P<target>[^\s'\"]+)"
+)
+_DRIVE: Final = re.compile(r"[A-Za-z]:")
 
 # Files nothing here reads that can still decide which release a requirement installs: a lock, the
 # installer's own settings. Python-free `*.lock` files are not among them.
@@ -157,6 +168,8 @@ class Declaration:
     spec: str | None
     # An environment marker follows the version: the pin may not apply on every system.
     marked: bool = False
+    # Read from a constraints file: it bounds a version and declares nothing.
+    constraint: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,18 +225,44 @@ def is_lock(path: str) -> bool:
     )
 
 
-def read(path: str, contents: parse.Contents) -> Reading:
+def constrains(path: str) -> bool:
+    """Whether the name of `path` is a constraints file's."""
+    return fnmatch.fnmatchcase(PurePosixPath(path).name, _CONSTRAINTS)
+
+
+def includes(path: str, data: bytes) -> Iterator[tuple[str, Followed]]:
+    """The file each `-r` or `-c` line of a pip layout names, as a path from the repository root
+    and how it is named. A backslash is a separator, as on Windows; a target outside the
+    repository (absolute, a drive, `..` above the root) is none."""
+    for _, text, _ in _joined(data.decode("utf-8", "surrogateescape").split("\n")):
+        found = _INCLUDE.fullmatch(PIP_COMMENT.sub("", text).strip(_BLANK))
+        if found is None:
+            continue
+        target = found["target"].replace("\\", "/")
+        if target.startswith("/") or _DRIVE.match(target):
+            continue
+        reached = posixpath.normpath(posixpath.join(posixpath.dirname(path), target))
+        if reached != ".." and not reached.startswith("../"):
+            yield reached, "constrained" if found["flag"] in {"-c", "--constraint"} else "required"
+
+
+def read(path: str, contents: parse.Contents, followed: Followed | None = None) -> Reading:
     """Read one manifest, through the source files' size limit."""
     data, limitations = contents(path)
     if data is None:
         return Reading(path=path, limitations=limitations)
-    return Reading(path=path, declarations=declarations(path, data))
+    return Reading(path=path, declarations=declarations(path, data, followed))
 
 
-def declarations(path: str, data: bytes) -> tuple[Declaration, ...]:
-    """Every declared dependency, in order; deliberately spec-free so nothing is filtered early."""
-    found = layout(path)
-    if found is None:  # pragma: no cover - callers ask `is_manifest` first
+def declarations(
+    path: str, data: bytes, followed: Followed | None = None
+) -> tuple[Declaration, ...]:
+    """Every declared dependency, in order; deliberately spec-free so nothing is filtered early.
+
+    A `followed` file is no manifest by name; one read for a path that is neither declares nothing.
+    """
+    found = "unwritten" if followed else layout(path)
+    if found is None:
         return ()
     if found == "setup_py":
         return tuple(_from_setup_py(path, data))
@@ -234,7 +273,8 @@ def declarations(path: str, data: bytes) -> tuple[Declaration, ...]:
         "toml": _from_toml,
         "cfg": _from_cfg,
     }
-    return tuple(readers[found](path, lines))
+    constraint = followed == "constrained" or constrains(path)
+    return tuple(replace(row, constraint=constraint) for row in readers[found](path, lines))
 
 
 def coupled(spec: ScanSpec) -> bool:
@@ -401,7 +441,7 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
     owners: dict[str, set[PurePosixPath]] = {}
     for declaration in found:
         declares.setdefault(declaration.path, set()).add(declaration.name)
-        if not fnmatch.fnmatchcase(PurePosixPath(declaration.path).name, _CONSTRAINTS):
+        if not declaration.constraint:
             owners.setdefault(declaration.name, set()).add(_owner(declaration.path))
     undeclared = sorted(
         {
@@ -1147,6 +1187,7 @@ __all__ = [
     "KIND",
     "LOCKS",
     "LOCK_GLOBS",
+    "MAX_DEPTH",
     "NAMES",
     "PIP",
     "PIP_COMMENT",
@@ -1157,10 +1198,13 @@ __all__ = [
     "TRANSITIVE_BAIL",
     "UNWRITTEN_GLOBS",
     "Declaration",
+    "Followed",
     "Layout",
     "Migration",
     "Reading",
+    "constrains",
     "declarations",
+    "includes",
     "is_lock",
     "is_manifest",
     "layout",

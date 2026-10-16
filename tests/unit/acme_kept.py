@@ -6,6 +6,7 @@ everything else under it (`Client`, `token`) is what it kept, so nothing but `sy
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 from obelize.packs import loader
@@ -144,7 +145,9 @@ PACK = PackDocument(
     provider="acme",
     language="python",
     source=PackSource(
-        type="official_guide", url="https://example.invalid/acme-kit", retrieved_at="2026-10-07"
+        type="official_guide",
+        url="https://example.invalid/acme-kit",
+        retrieved_at=dt.date(2026, 10, 7),
     ),
     **{"from": Legacy(package="acme-kit", version=">=1.2,<2")},
     to=Target(package="acme-kit", version=">=2,<3", requires_python=">=3.9"),

@@ -143,6 +143,11 @@ declaration. An unreadable *source* file does not block the removal:
 `repo_not_fully_migrated` claims a file imports the distribution, and an unread
 file is the absence of that fact. A file read but not parsed does block (D3).
 
+Where one distribution holds both APIs (D12) the absence says nothing, since an import does not mark
+the old API, so a selected file that could not be read (over `max_file_bytes`, or one that will not
+open) blocks as a notebook that is not analysed does (D14): `Scan.unanalysed` names it, the pin
+waits, and its limitation says so. A raised `max_file_bytes` reads it, and `exclude` takes it out.
+
 ### D12. One distribution on both sides: any withheld row blocks
 
 Where the new distribution is the legacy one (`manifests.coupled`), the survey is `paired`. No
@@ -213,6 +218,33 @@ is now read as code (`parse.notebook`), in the scan's own process and never by a
   where their bytes spell a symbol of a shared module (its module otherwise), they are named too.
 - Under a narrowed `include`, or where `exclude` takes it, a notebook is the user's choice and is
   not read.
+
+### D15. A file that `-r` or `-c` names is a manifest the scan reads and never writes
+
+A requirements, input or constraints file can include another under any name (`-r base/common.pip`,
+`-c pins.txt`), which D10's names never select: a legacy pin there was no row, and the `-r` line
+alone stopped the newest-release check ([ADR-056](ADR-056-newest-legacy-release.md)).
+`walker.follow`, which `runner.read` calls on the walk because the walker opens nothing, takes the
+file that each `-r`, `-c`, `--requirement` or `--constraint` line of a pip manifest names as a
+manifest, and again each file those name, up to `manifests.MAX_DEPTH` (8) includes deep.
+
+- The target is the line's argument from the including file's directory, a backslash read as a
+  separator, as pip does on Windows, so the same files are read on every system. An absolute path,
+  a drive, a path above the repository root and an argument with a blank or a quote name no file.
+- It is taken only if the listing has it, a manifest may be read there (the user's `exclude` and the
+  always-excluded directories still apply) and the walk's path guard passes it; a link or a file
+  gone from the disk is a skipped path, named. A name D10 already selects is read as it was. A
+  cycle ends where it began, and a file named twice is read once.
+- It is read as an input is (D10), for its declarations, with no pin, so a legacy pin in it is
+  `manifest_pin_shape_unsupported` and a coupled pack holds the repository (D12). A bare name is not
+  read, and the newest-release check stops at it, as at an input. It is never a rewrite target: the
+  layout of a file whose name tells nothing is not known to `manifests.layout`, so `Scan.followed`
+  carries it to the codemod, which re-reads its declarations from the bytes.
+- A file named by `-c` only, or by a constraints file, is `constrained`: its declarations carry
+  `Declaration.constraint` and declare nothing for the app that imports a module (D13). A file
+  named both ways is `required`.
+- A file beyond the depth bound is not read, and its `-r` line stays an option that can move the
+  release, which the newest-release check stops at.
 
 ## Consequences
 

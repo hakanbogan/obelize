@@ -1439,7 +1439,9 @@ def _written(root: Path, document: dict[str, Any], where: str | None = None) -> 
 def _spelled(document: dict[str, Any], old: str, new: str) -> dict[str, Any]:
     import json
 
-    return dict(json.loads(json.dumps(document).replace(old, new)))
+    spelled = dict(json.loads(json.dumps(document, default=str).replace(old, new)))
+    spelled["source"]["retrieved_at"] = document["source"]["retrieved_at"]
+    return spelled
 
 
 def test_the_ids_a_user_directory_adds_are_known_beside_the_wheels(tmp_path: Path) -> None:

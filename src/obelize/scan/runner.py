@@ -31,6 +31,7 @@ from obelize.models import (
 )
 from obelize.native import processes
 from obelize.scan import analysis, installed, manifests, parse, reach, runtime, walker
+from obelize.scan.manifests import Followed
 
 # Candidates (prefilter survivors, not selected files) before the default starts processes: the
 # first size where the pool won with a core to spare. A typed `--jobs` ignores it.
@@ -46,6 +47,12 @@ RESERVED_CORES: Final = 1
 # On every platform: `fork` is unsafe with threads, and mixed start methods differ in what a
 # child inherits.
 START_METHOD: Final = "spawn"
+
+# What a limitation adds where a file that could not be read holds the pin (`scan`).
+HOLDS: Final = (
+    "This pack moves one distribution for both APIs, so a file it cannot read may call the legacy "
+    "one and holds the pin until it is read."
+)
 
 # Set once per worker process by `_initialise` rather than pickled with every task.
 _SPEC: ScanSpec | None = None
@@ -106,6 +113,8 @@ class Scan:
     # the pack's newest, for a declaration that names no version that rules it out, or, as the
     # range `from.version` states, where the code uses a name only those releases define.
     assumed: tuple[tuple[str, str], ...] = ()
+    # The manifests that only an `-r` or `-c` line names, and how: read, never written.
+    followed: tuple[tuple[str, Followed], ...] = ()
 
     @property
     def receivers(self) -> tuple[tuple[str, analysis.Receiver], ...]:
@@ -137,6 +146,7 @@ def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
             limitations=(),
             counts=_counts(len(tree.walk.files), (), ()),
             workers=1,
+            followed=tree.walk.followed,
         )
     first = scans[0]
     findings = tuple(
@@ -166,6 +176,7 @@ def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
         modern=any(scan.modern for scan in scans),
         unwritten=tuple(sorted({row for scan in scans for row in scan.unwritten})),
         assumed=tuple(sorted({row for scan in scans for row in scan.assumed})),
+        followed=first.followed,
     )
 
 
@@ -272,7 +283,9 @@ def read(root: Path, config: Config, specs: Sequence[ScanSpec]) -> Tree:
     Bytes are kept only for a manifest, or a file one of `specs` could look at: its prefilter
     token or a module only the legacy distribution installed occurs in it.
     """
-    walk = walker.walk(root, config)
+    walk = walker.follow(
+        root, config, walker.walk(root, config), lambda path: parse.contents(root, path, config)[0]
+    )
     needles = [
         needle.encode()
         for spec in specs
@@ -282,12 +295,13 @@ def read(root: Path, config: Config, specs: Sequence[ScanSpec]) -> Tree:
         )
     ]
     entries: dict[str, Entry] = {}
+    manifest_names = set(walk.manifests)
     for path in dict.fromkeys((*walk.files, *walk.manifests)):
         data, refused = parse.contents(root, path, config)
         if data is None:
             entries[path] = Entry(None, "", refused)
             continue
-        keep = manifests.is_manifest(path) or any(needle in data for needle in needles)
+        keep = path in manifest_names or any(needle in data for needle in needles)
         entries[path] = Entry(data if keep else None, fsutil.sha256(data))
     return Tree(root, config, walk, entries)
 
@@ -320,7 +334,10 @@ def scan(
     files = reach.revised(selection.files, ordered(results), tree.contents)
 
     # Deliberately unsorted: `manifests.plan` sorts its own rows, and a test pins that.
-    readings = [manifests.read(name, tree.contents) for name in selection.manifests]
+    followed = dict(selection.followed)
+    readings = [
+        manifests.read(name, tree.contents, followed.get(name)) for name in selection.manifests
+    ]
     hits, refused = manifests.prefiltered(selection.excluded, spec, tree.contents)
     # Un-included files block the removal only under the default `include`, which silently skips
     # notebooks, and a notebook is read for the legacy API all the same; under a narrower one they
@@ -340,6 +357,11 @@ def scan(
             ]
         )
     )
+    # One distribution for both APIs: an import says nothing of which one a file uses, so a selected
+    # file that could not be read may call the legacy one, and holds the pin like a notebook.
+    coupled = manifests.coupled(spec)
+    unopened = {result.path for result in files if not result.sha256} if coupled else set()
+    unanalysed = (*unanalysed, *sorted(unopened))
     declared = tuple(row for reading in readings for row in reading.declarations)
     # Without code to migrate or a pin to judge, the pack has no use for them.
     transitive = (
@@ -354,7 +376,7 @@ def scan(
         hits,
         unanalysed,
         transitive,
-        paired=manifests.coupled(spec),
+        paired=coupled,
         modern=modern,
     )
     declarations = manifests.plan(declared, migration, spec)
@@ -366,7 +388,11 @@ def scan(
             key=lambda finding: finding.sort_key,
         )
     )
-    limitations = [row for result in files for row in result.limitations]
+    limitations = [
+        replace(row, detail=f"{row.detail} {HOLDS}") if row.path in unopened else row
+        for result in files
+        for row in result.limitations
+    ]
     limitations.extend(row for reading in readings for row in reading.limitations)
     limitations.extend(refused)
     limitations.extend(unreadable)
@@ -384,6 +410,8 @@ def scan(
         because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
         blocked = runtime.legacy(declared, spec, used, taken, because) if because else None
         assumed = () if because else ((spec.legacy_distribution, taken),)
+        if not because:
+            limitations.extend(installed.unsearched(tree.root, selection, spec))
     return Scan(
         source=selection.source,
         results=files,
@@ -400,6 +428,7 @@ def scan(
         modern=modern,
         unwritten=unwritten,
         assumed=assumed,
+        followed=selection.followed,
     )
 
 
