@@ -3,10 +3,10 @@
 A declaration that names no version installs the pack's newest release only where nothing else
 decides: a lock, a constraints file, an index setting, a version written outside the manifests, an
 environment kept in the repository, code that uses what that release removed (in a file the scan
-parses, or a name of it written in any file git lists). `contrary` names the
-first path that says another release is in use. Every check fails closed (a manifest it cannot
-read is evidence, and so is a name no report can spell, which hides what is under it), but one: a
-listed file that cannot be read, or is over `_LIMIT`, is not searched for a version. One over
+parses, or a name of it written in any file git lists). `contrary` names the first path that says
+another release is in use. Every check fails closed (a manifest it cannot read is evidence, and so
+is a name no report can spell, which hides what is under it), but one: a listed file that cannot be
+read, or is over `_LIMIT`, is not searched for a version or a name. One over
 `max_file_bytes` is searched in windows and never held whole, since that limit bounds what a scan
 holds. Files are opened through `parse.contents`, or `fsutil.windows` for those, only after the
 walk's own refusal check.

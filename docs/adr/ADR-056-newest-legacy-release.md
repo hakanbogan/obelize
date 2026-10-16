@@ -46,7 +46,7 @@ Only then is the repository asked whether anything else decides the release
 (`scan/installed.py`, `contrary`). The first path that says it does is the evidence, and the run is
 blocked as before, naming that path. The checks run in this order, and each fails closed (a manifest
 it cannot read is evidence), except that a listed file that cannot be read, or is over 32 MiB, is not
-searched for a version.
+searched for a version or a name.
 
 1. Code. A finding that is not `not_a_usage` for a name in `lacks`, or for one inside it
    (`PyPDF2.utils.PdfReadError`): that code cannot run on the newest release, so an older one is in
@@ -92,10 +92,9 @@ searched for a version.
    a Python 2 file, a stub, code the user excluded, and prose. A class is read by its own name
    (`PdfFileReader`) and a module by its dotted path (`PyPDF2.utils`), in the case it is written, so
    `from PyPDF2 import utils` with nothing that uses the name is not read. A UTF-16 file is read
-   after its byte-order mark. A file over `max_file_bytes` is
-   searched too, in windows of 1 MiB that repeat the last 4 KiB of the one before, so that no more
-   than a window is held and a mention is whole in one of them; a UTF-16 one is read as bytes, and a
-   file over 32 MiB is not searched. A mention is read by the window it starts in, where it lies
+   after its byte-order mark. A file over `max_file_bytes` is searched too, in windows of 1 MiB that
+   repeat the last 4 KiB of the one before, so that no more than a window is held and a mention is
+   whole in one of them; a UTF-16 one is read as bytes, and a file over 32 MiB is not searched. A mention is read by the window it starts in, where it lies
    whole, so an edge never cuts one into another release.
 6. What git ignores, found with `scandir` and never read: a lock, a requirements file, a
    constraints file or a `*requirements*.in` beside the repository root or a manifest that declares
@@ -112,7 +111,8 @@ run it there, with the pin the other (`runtime.Blocked.unlisted`).
 When nothing is found, the run says what it took: `Scan.assumed` is the (distribution, release)
 pair, `packs[].assumed` in `run.json` is the release, and the terminal and `REPORT.md` say that the
 distribution is declared with no version that rules the release out and is taken as it. A blocked
-run's message names the evidence and still says what to pin.
+run's message names the evidence and still says what to pin, and that a pin moves the release and
+not the code.
 
 ### D3. One consumer is enough
 
