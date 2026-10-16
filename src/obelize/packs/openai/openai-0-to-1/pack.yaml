@@ -390,10 +390,11 @@ changes:
         - openai.error.OpenAIError
       message: >-
         0.28.1 raised AuthenticationError for a missing API key before it sent
-        anything, and every one of its errors derived from OpenAIError. The new
-        releases raise OpenAIError for a missing key up to 2.0 and a TypeError
-        from 2.54, which neither class catches, and an empty 2xx body raises
-        json.JSONDecodeError where 0.28.1 raised an APIError.
+        anything, and every error it raised derived from OpenAIError. A missing
+        key is a bare OpenAIError on openai 1.109.1 to 2.0 and a TypeError from
+        2.54, which no handler for AuthenticationError catches, nor one for
+        OpenAIError from 2.54. An empty 2xx body, an APIError, raises
+        json.JSONDecodeError.
       suggestion: >-
         Catch openai.OpenAIError (openai.AuthenticationError for a 401) and add
         TypeError where a missing key must still be handled, and read

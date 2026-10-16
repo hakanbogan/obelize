@@ -276,9 +276,10 @@ The limitations that rest on the SDK's own text and not on a fixture:
 - Measured (the table above): `AuthenticationError` and `OpenAIError` are raised, and caught, for
   more responses on 0.28.1 than any class of the new releases is: a missing API key made 0.28.1
   raise `AuthenticationError` before it sent anything, where 1.109.1 and 2.0.0 raise a bare
-  `OpenAIError` and 2.54.0 and later a `TypeError`, which no handler for `OpenAIError` catches, and
-  an empty 200 body was an `APIError` and is a `json.JSONDecodeError`. Renaming either would stop a
-  handler running for a failure it handled. The top-level `openai.OpenAIError` is the one class both
+  `OpenAIError` and 2.54.0 and later a `TypeError`: no handler for `AuthenticationError` catches
+  either, and none for `OpenAIError` catches the `TypeError`. An empty 200 body was an `APIError` and
+  is a `json.JSONDecodeError`, which `OpenAIError` does not catch on any of them. Renaming either
+  class would stop a handler running for a failure it handled. The top-level `openai.OpenAIError` is the one class both
   sides define and is not reported.
 - Measured: `InvalidRequestError` was raised for 400, 404 and 415; the new releases raise
   `BadRequestError`, `NotFoundError` and a bare `APIStatusError`, which is also the base of the other

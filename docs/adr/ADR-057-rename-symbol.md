@@ -37,8 +37,9 @@ the new releases alike (`tests/packs/openai_legacy_check.py` for the old side, h
 
 `RateLimitError`, `PermissionError` (as `PermissionDeniedError`) and `Timeout` (as `APITimeoutError`)
 pass. `AuthenticationError` and `OpenAIError` do not: a missing key was an `AuthenticationError`, so
-an `OpenAIError`, and is a bare `OpenAIError` or a `TypeError` now, which neither handler catches,
-and an empty 200 body was an `APIError` and is no `OpenAIError`. `InvalidRequestError` is three
+an `OpenAIError`, and is a bare `OpenAIError` or a `TypeError` now, which no `AuthenticationError`
+handler catches and, for the `TypeError`, no `OpenAIError` handler either, and an empty 200 body was
+an `APIError`, so an `OpenAIError`, and is a `json.JSONDecodeError`. `InvalidRequestError` is three
 classes, `ServiceUnavailableError` is a part of one, and `APIError` and `APIConnectionError` are
 bases that catch more. `TryAgain` was raised only for a call with a timeout argument, and
 `InvalidAPIType` and `SignatureVerificationError` have no counterpart. Each of them stays in a
@@ -61,9 +62,10 @@ A reference loses the submodule, and a class that takes another name takes it:
 - `import openai.error` binds the package, so it becomes `import openai`, and
   `import openai.error as faults` becomes `import openai as faults`: the alias is kept and
   `faults.RateLimitError` needs no other change. A line of several statements becomes one line each.
-- `from openai.error import RateLimitError as Limited` becomes `from openai import RateLimitError as
-  Limited`. Without an alias a class that takes another name is renamed where the file reads it
-  (`PermissionError` is `PermissionDeniedError`), unless the file already binds that name.
+- `from openai.error import RateLimitError as Limited` becomes
+  `from openai import RateLimitError as Limited`. Without an alias a class that takes another name is
+  renamed where the file reads it (`PermissionError` is `PermissionDeniedError`), unless the file
+  already binds that name.
 
 The rule claims the finding of a reference and of the import of a submodule it renames. The import
 statement is replaced through the import plan (ADR-025) and a reference through `Rewrites.set`, so
