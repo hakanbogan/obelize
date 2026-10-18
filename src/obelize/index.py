@@ -165,11 +165,12 @@ def _file(entry: dict[str, Any], page: str) -> File | None:
     )
 
 
-def metadata(fetcher: Fetcher, name: str) -> Metadata | None:
-    """What PyPI's JSON API says of `name`, or `None` where the index has no such API or project."""
-    base = fetcher.index.rstrip("/")
-    root = base.removesuffix("/simple")
-    url = f"{root}/pypi/{canonicalize_name(name)}/json"
+def metadata(fetcher: Fetcher, name: str, version: str | None = None) -> Metadata | None:
+    """What PyPI's JSON API says of `name` (its newest release, or `version`), or `None` where the
+    index has no such API, project or release."""
+    root = fetcher.index.removesuffix("/simple")
+    where = canonicalize_name(name) + (f"/{version}" if version else "")
+    url = f"{root}/pypi/{where}/json"
     try:
         body = fetcher.get(url, accept=JSON, max_bytes=PAGE_BYTES)
         document = json.loads(body)

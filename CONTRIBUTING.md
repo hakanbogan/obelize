@@ -10,6 +10,8 @@ obelize fix    [--pack <id|path>] [--repo .] [--apply] [--allow-dirty] [--verify
 obelize verify --run <id> [--repo .] [--verify "<cmd>"]...
 obelize undo   --run <id> [--repo .]
 obelize mcp    [--repo .] [--trust-repo-config] [--read-only]
+obelize outdated [--repo .] [--all] [--json] [--offline]
+obelize upgrade <distribution> [--from <version>] [--to <version>] [--repo .]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>

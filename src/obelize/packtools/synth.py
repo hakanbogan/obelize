@@ -89,8 +89,7 @@ class Request:
 
     @property
     def pack_id(self) -> str:
-        slug = re.sub(r"[^a-z0-9]+", "-", f"{self.old}-to-{self.new}".lower()).strip("-")
-        return f"{canonicalize_name(self.distribution)}/{slug}"
+        return pack_id(self.distribution, self.old, self.new)
 
     @property
     def label(self) -> str:
@@ -117,6 +116,12 @@ class _Flag:
     category: str
     message: str
     suggestion: str
+
+
+def pack_id(distribution: str, old: Version, new: Version) -> str:
+    """`<distribution>/<old>-to-<new>`, in the characters a pack id may have."""
+    slug = re.sub(r"[^a-z0-9]+", "-", f"{old}-to-{new}".lower()).strip("-")
+    return f"{canonicalize_name(distribution)}/{slug}"
 
 
 def make(
@@ -651,4 +656,4 @@ def _fold(
     return [*ordered[: MAX_GROUPS - 1], (generic, rest)]
 
 
-__all__ = ["Made", "Request", "SynthDefectError", "SynthError", "make", "request"]
+__all__ = ["Made", "Request", "SynthDefectError", "SynthError", "make", "pack_id", "request"]

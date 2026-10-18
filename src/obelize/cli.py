@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from obelize.config import LoadedConfig, Overrides
     from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig, ScanSpec
     from obelize.net import Fetcher
+    from obelize.outdated import Dependency
     from obelize.packs.loader import LoadedPack
     from obelize.packs.schema import PackDocument
     from obelize.scan.runner import Scan, Tree
@@ -972,6 +973,172 @@ def pack_new(
     for name in files:
         typer.echo(f"  {name}")
     typer.echo(f"Next: edit pack.yaml and SOURCES.md, then run obelize pack test {shown}")
+
+
+@app.command("outdated")
+def outdated(
+    repo: str = typer.Option(
+        ".", "--repo", metavar="<path>", help="Repository root. Defaults to the current directory."
+    ),
+    show_all: bool = typer.Option(
+        False, "--all", help="Also list the dependencies that are current."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Print the rows as JSON."),
+    offline: bool = typer.Option(
+        False, "--offline", help="Reach no host: use only what an earlier run kept in the cache."
+    ),
+) -> None:
+    """List the dependencies a repository declares that the package index says have moved on.
+
+    Reads the manifests (nothing is installed), asks the index about each distribution
+    and prints the release in use, the newest, the size of the gap, whether the library
+    is marked inactive, withdrawn or has an advisory for that release, and what obelize
+    can migrate it with: a bundled pack, or two releases to compare with pack synth.
+    Exit codes: 0 listed, 2 the request is wrong, 6 the index could not be reached for
+    any distribution.
+    """
+    from urllib.parse import urlsplit
+
+    from obelize import outdated as survey
+    from obelize.config import ConfigError
+    from obelize.packs import loader
+
+    root = Path(repo)
+    try:
+        config, _ = _settings(root, _overrides(None, None, False))
+        fetcher = _fetcher(offline)
+        packs = _known_packs()
+    except (ConfigError, loader.PackError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(2) from error
+    rows = survey.survey(fetcher, _declared(root, config), packs)
+    if survey.unreachable(rows):
+        typer.echo("The index could not be reached for any dependency.", err=True)
+        raise typer.Exit(6)
+    shown = [row for row in rows if show_all or survey.worth_showing(row)]
+    if as_json:
+        document = survey.Document(index=urlsplit(fetcher.index).hostname or "", rows=tuple(shown))
+        _document(document.model_dump_json(indent=2) + "\n")
+        return
+    if not shown:
+        typer.echo(f"{len(rows)} dependencies read, none behind a major release or flagged.")
+        return
+    for line in survey.table(shown):
+        typer.echo(line)
+    step = survey.next_step(shown)
+    if step:
+        typer.echo(f"Next: {step}")
+
+
+def _declared(root: Path, config: Config) -> list[Dependency]:
+    """The distributions the repository's manifests declare, read without parsing any source."""
+    from obelize import outdated as survey
+    from obelize.scan import manifests
+    from obelize.scan import runner as scanner
+
+    tree = scanner.read(root, config, ())
+    followed = dict(tree.walk.followed)
+    return survey.dependencies(
+        row
+        for name in tree.walk.manifests
+        for row in manifests.read(name, tree.contents, followed.get(name)).declarations
+    )
+
+
+def _known_packs() -> list[LoadedPack]:
+    """Every pack the wheel and the user's own directories hold, loaded."""
+    from obelize.packs import loader
+
+    dirs = _pack_dirs()
+    return [loader.load(reference, dirs=dirs) for reference in loader.known(dirs)]
+
+
+@app.command("upgrade")
+def upgrade(
+    distribution: str = typer.Argument(
+        ..., metavar="<distribution>", help="The dependency to move to a newer release."
+    ),
+    old: str | None = typer.Option(
+        None,
+        "--from",
+        metavar="<version>",
+        help="The release the code is written for. Default: the one the manifests name.",
+    ),
+    new: str | None = typer.Option(
+        None,
+        "--to",
+        metavar="<version>",
+        help="The release to move to. Default: the newest that is neither withdrawn nor a "
+        "pre-release.",
+    ),
+    module: str | None = typer.Option(
+        None, "--module", metavar="<module>", help="The module to compare, as for pack synth."
+    ),
+    repo: str = typer.Option(
+        ".", "--repo", metavar="<path>", help="Repository root. Defaults to the current directory."
+    ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Reach no host: use only what an earlier run kept in the cache."
+    ),
+) -> None:
+    """Show what moving one dependency to a newer release would change. Writes nothing.
+
+    Uses the pack that migrates the dependency when obelize has one, and otherwise makes
+    one from the public API of the two releases and keeps it, as pack synth does. Then
+    plans the migration as fix does, without --apply, and prints the diff. Exit codes: as
+    fix, plus 2 for a dependency the manifests do not name and no --from, and 6 for an
+    index that could not be reached.
+    """
+    from obelize import index, libdiff, net
+    from obelize import outdated as survey
+    from obelize import upgrade as upgrading
+    from obelize.config import ConfigError
+    from obelize.net import NetworkError
+    from obelize.packtools import synth
+
+    root = Path(repo)
+    try:
+        config, _ = _settings(root, _overrides(None, None, False))
+        fetcher = _fetcher(offline)
+        project = index.project(fetcher, distribution)
+        target = libdiff.version(new) if new else libdiff.newest(project)
+        declared = next((one for one in _declared(root, config) if one.name == project.name), None)
+        now = libdiff.version(old) if old else survey.current(declared.specs if declared else ())
+        if now is None:
+            raise libdiff.LibraryError(
+                f"{project.name} is not declared with a release in {repo}: pass --from."
+            )
+        chosen = upgrading.choose(
+            fetcher,
+            project,
+            now,
+            target,
+            targeted=new is not None,
+            module=module,
+            known=_known_packs(),
+            kept=net.Cache.home(os.environ).directory / "packs" / __version__,
+        )
+    except (ConfigError, libdiff.LibraryError, synth.SynthError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1 if isinstance(error, synth.SynthDefectError) else 2) from error
+    except NetworkError as error:
+        typer.echo(error.detail, err=True)
+        raise typer.Exit(2 if error.reason == "not_found" else 6) from error
+    typer.echo(f"Moving {project.name} {now} to {target}. {chosen.note}", err=True)
+    fix(
+        pack=[chosen.reference],
+        repo=repo,
+        apply_changes=False,
+        allow_dirty=False,
+        verify_commands=None,
+        timeout=None,
+        non_interactive=True,
+        trust_repo_config=False,
+        provider=None,
+        accept_model=False,
+        show_context=False,
+        as_json=False,
+    )
 
 
 @pack_app.command("synth")

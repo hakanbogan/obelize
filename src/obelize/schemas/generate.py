@@ -22,6 +22,7 @@ from obelize.models import (
     RunRecord,
     UndoRecord,
 )
+from obelize.outdated import Document as OutdatedDocument
 from obelize.packs.schema import PackDocument
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ DIALECT = "https://json-schema.org/draft/2020-12/schema"
 SCHEMAS: tuple[tuple[str, type[BaseModel]], ...] = (
     ("findings.schema.json", FindingsDocument),
     ("model.schema.json", ModelDocument),
+    ("outdated.schema.json", OutdatedDocument),
     ("pack.schema.json", PackDocument),
     ("plan.schema.json", PlanDocument),
     ("proposal.schema.json", ProposalRecord),

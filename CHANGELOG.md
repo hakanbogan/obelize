@@ -46,6 +46,13 @@ in the release that makes it.
   a submodule is moved, everything else that changed is flagged with the library's own words, and
   the dependency line moves. The pack must pass `pack test` or it is not kept. Every host is printed
   before it is contacted, answers are cached for you alone, and `--offline` uses only the cache.
+- `obelize outdated` lists the dependencies a repository declares that the package index says have
+  moved on: the release in use, the newest, the size of the gap, whether the library marks itself
+  inactive, the release was withdrawn or has an advisory, and what can migrate it (a bundled pack,
+  or two releases to compare). `--json` prints the rows, described by the new `outdated.schema.json`.
+- `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
+  it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
+  migration as `fix` does without `--apply`. It writes nothing in the repository.
 - `~/.config/obelize/config.yml` takes `network.index` and `network.offline`, and the environment
   `OBELIZE_INDEX_URL`, `OBELIZE_INDEX_AUTHORIZATION` and `OBELIZE_OFFLINE` do the same for one run.
   A repository's `.obelize.yml` may not set `network`: it is refused, as `model` is.

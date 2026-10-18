@@ -1,0 +1,150 @@
+{
+  "$defs": {
+    "Row": {
+      "additionalProperties": false,
+      "properties": {
+        "advisories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Advisories",
+          "type": "array"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Current"
+        },
+        "declared": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Declared"
+        },
+        "distribution": {
+          "title": "Distribution",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "flags": {
+          "items": {
+            "enum": [
+              "inactive",
+              "yanked",
+              "advisory"
+            ],
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "gap": {
+          "enum": [
+            "none",
+            "patch",
+            "minor",
+            "major",
+            "unknown"
+          ],
+          "title": "Gap",
+          "type": "string"
+        },
+        "knowledge": {
+          "enum": [
+            "bundled",
+            "synthesizable",
+            "none"
+          ],
+          "title": "Knowledge",
+          "type": "string"
+        },
+        "newest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Newest"
+        },
+        "pack": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pack"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "distribution",
+        "declared",
+        "current",
+        "newest",
+        "gap",
+        "flags",
+        "advisories",
+        "knowledge",
+        "pack",
+        "paths",
+        "error"
+      ],
+      "title": "Row",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "index": {
+      "title": "Index",
+      "type": "string"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/Row"
+      },
+      "title": "Rows",
+      "type": "array"
+    }
+  },
+  "required": [
+    "index",
+    "rows"
+  ],
+  "title": "Document",
+  "type": "object"
+}

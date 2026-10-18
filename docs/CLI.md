@@ -16,6 +16,9 @@ obelize verify --run <id> [--repo .] [--verify "<cmd>"]... [--timeout <s>]
             [--non-interactive] [--trust-repo-config] [--current] [--json]
 obelize undo   --run <id> [--repo .] [--json]
 obelize mcp    [--repo .] [--trust-repo-config] [--read-only]
+obelize outdated [--repo .] [--all] [--json] [--offline]
+obelize upgrade <distribution> [--from <version>] [--to <version>] [--module <module>] [--repo .]
+            [--offline]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
@@ -410,6 +413,57 @@ run the tests yourself. A result is cut to about 200 KB, saying so; the child pr
 so a file of the repository cannot stand in for one of obelize's imports.
 
 Exit codes of the command: `0` the client closed the stream; `2` `--repo` is not a directory.
+
+## `obelize outdated`
+
+List the dependencies a repository declares that the package index says have moved on. It reads the
+manifests, asks the index about each distribution, and installs nothing and writes nothing. Every
+host is printed on standard error before it is contacted.
+
+| Flag | Description |
+|---|---|
+| `--repo <path>` | Repository root. Default: the current directory. |
+| `--all` | Also list the dependencies that are current. |
+| `--json` | The rows as JSON on stdout, a document described by `outdated.schema.json`. |
+| `--offline` | Reach no host: use only what an earlier run kept in the cache. |
+
+A row has the distribution, the declaration as written, the release it starts at (the one it pins,
+else its lower bound), the newest release that is neither withdrawn nor a pre-release, and the gap
+between them: `major`, `minor`, `patch`, `none`, or `unknown` where the declaration names no
+release. It carries the flags `inactive` (the library marks itself `Development Status :: 7 -
+Inactive`), `yanked` (the release in use was withdrawn) and `advisory` (the index lists a
+vulnerability for that release; the ids are in `advisories`), and what obelize can migrate it with:
+`bundled` (a pack that migrates that release; the id is in `pack`), `synthesizable` (two releases to
+compare with `pack synth`) or `none`. A distribution the index does not have is a row whose `error`
+says so, as a private one would be. By default only rows with a flag, a major gap or an error are
+listed, worst first: an advisory, then the size of the gap.
+
+Exit codes: `0` listed; `2` the request is wrong (a `--repo` that is not a directory, an invalid
+configuration file); `6` the index answered no question for any distribution.
+
+## `obelize upgrade`
+
+Show what moving one dependency to a newer release would change, and write nothing in the
+repository. It plans the migration as [`fix`](#obelize-fix) does without `--apply`, with the pack
+that suits the move.
+
+| Flag | Description |
+|---|---|
+| `<distribution>` | Required. The dependency to move, as the manifests name it. |
+| `--from <version>` | The release the code is written for. Default: the one the manifests pin, else their lower bound; required when they name none. |
+| `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release. |
+| `--module <module>` | The module to compare, as for [`pack synth`](#obelize-pack-synth). |
+| `--repo <path>` | Repository root. Default: the current directory. |
+| `--offline` | Reach no host: use only what an earlier run kept in the cache. |
+
+The pack is, in this order: a known one (a bundled pack, or one in a directory of your own) that
+migrates the dependency from that release and, if you named `--to`, to that one; else the pack
+made from the public API of the two releases, kept in the cache under the name of both, so the same
+move reads the index once. The first line says which, and the rest is what `fix` prints, with its
+run folder under `.obelize/`. Exit codes are `fix`'s, plus `2` for a dependency the manifests do not
+name when `--from` is missing, a version or a library the index does not have, and nothing that
+changed between the releases, `6` for an index that could not be reached, and `1` for a pack
+obelize made that fails its own checks.
 
 ## `obelize pack validate`
 

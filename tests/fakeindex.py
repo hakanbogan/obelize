@@ -136,12 +136,15 @@ class FakeIndex:
         if len(parts) == 2 and parts[0] == "simple" and parts[1] in self.projects:
             return 200, "application/vnd.pypi.simple.v1+json", self._page(self.projects[parts[1]])
         if (
-            len(parts) == 3
-            and parts[0] == "pypi"
-            and parts[2] == "json"
+            parts[:1] == ["pypi"]
+            and parts[-1:] == ["json"]
+            and parts[1:2]
             and parts[1] in self.projects
         ):
-            return 200, "application/json", self._json(self.projects[parts[1]])
+            project = self.projects[parts[1]]
+            which = parts[2] if len(parts) == 4 else None
+            if which is None or which in project.releases:
+                return 200, "application/json", self._json(project, which)
         if len(parts) == 2 and parts[0] == "files":
             for project in self.projects.values():
                 for release in project.releases.values():
@@ -171,7 +174,8 @@ class FakeIndex:
             {"meta": {"api-version": "1.0"}, "name": project.name, "files": files}
         ).encode()
 
-    def _json(self, project: Project) -> bytes:
+    def _json(self, project: Project, release: str | None = None) -> bytes:
+        """The project's JSON, or one release's: the advisories that name it, if they name any."""
         info = {
             "name": project.name,
             "classifiers": [],
@@ -179,4 +183,9 @@ class FakeIndex:
             "summary": "",
             **project.info,
         }
-        return json.dumps({"info": info, "vulnerabilities": project.vulnerabilities}).encode()
+        found = [
+            one
+            for one in project.vulnerabilities
+            if release is None or "versions" not in one or release in one["versions"]
+        ]
+        return json.dumps({"info": info, "vulnerabilities": found}).encode()
