@@ -7,7 +7,7 @@ only from a snapshot whose bytes hash to its name. Every edit gets a row, skippe
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 from obelize import __version__, fsutil
@@ -79,7 +79,7 @@ def run(request: Request) -> Outcome:
 def _one(root: Path, folder: RunFolder, row: FileEdit) -> UndoFile:
     """One recorded edit, put back or skipped; the check order makes each skip reason specific."""
     stored = run_dir.snapshot(row.before_sha256)
-    if fsutil.unusable(row.path):
+    if fsutil.unusable(row.path) or _kept_by_others(row.path):
         # Before any read by path: Windows opens `aux.py` as a device and `C:x` elsewhere.
         return _skipped(row, stored, "outside_root", None)
     current = fsutil.digest(root / row.path)
@@ -100,6 +100,12 @@ def _one(root: Path, folder: RunFolder, row: FileEdit) -> UndoFile:
         current_sha256=current,
         snapshot=stored,
     )
+
+
+def _kept_by_others(path: str) -> bool:
+    """A path in git's own directory or in obelize's: a run writes neither, so a row that names
+    one was forged, and an undo of it would put attacker bytes where git runs them."""
+    return PurePosixPath(path.lower()).parts[:1] in ((".git",), (".obelize",))
 
 
 def _skipped(row: FileEdit, stored: str, reason: UndoSkip, current: str | None) -> UndoFile:

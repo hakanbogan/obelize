@@ -14,5 +14,21 @@ Let obelize do the part it can prove, give the agent the rest, and keep the chec
 4. Run your tests, and read `git diff`.
 
 [skills/obelize/SKILL.md](../skills/obelize/SKILL.md) is the same workflow as a skill file for an
-agent. The agent edits files and obelize reports what is left, so the two never write the same
+agent.
+
+## As tools
+
+`obelize mcp` offers the same workflow to an agent as tools, so it calls them instead of running
+commands. Add it to the agent's configuration, for example `.mcp.json`:
+
+```json
+{ "mcpServers": { "obelize": { "command": "uvx", "args": ["obelize", "mcp"] } } }
+```
+
+The agent scans, applies what obelize can prove, asks `obelize_residue` for the places left (each
+with its reason, what to change and the code around it), edits them, and calls `obelize_verify` with
+`current` set so your tests judge the result. No tool takes a command, a path or a consent: the
+verification commands are the ones in your own configuration, and the repository's `.obelize.yml`
+runs only if you start the server with `--trust-repo-config`. `--read-only` leaves out the two tools
+that write files. [CLI.md](CLI.md#obelize-mcp) lists the tools. The agent edits files and obelize reports what is left, so the two never write the same
 place at once: obelize writes only the files it can migrate whole.

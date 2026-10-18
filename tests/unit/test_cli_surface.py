@@ -222,7 +222,7 @@ def test_every_command_the_contract_publishes_is_registered() -> None:
     }
     for name in sorted(published):
         assert runner.invoke(app, [name, "--help"]).exit_code == 0, name
-    assert published == {"scan", "fix", "verify", "undo", "pack"}
+    assert published == {"scan", "fix", "verify", "undo", "mcp", "pack"}
     assert not set(UNIMPLEMENTED_COMMANDS) & published
 
 

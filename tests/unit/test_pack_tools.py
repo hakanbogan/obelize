@@ -10,7 +10,8 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from obelize.cli import app
-from obelize.packs import check, loader, scaffold
+from obelize.packs import loader
+from obelize.packtools import check, scaffold
 from support import commit_all, committed, write_tree
 
 if TYPE_CHECKING:

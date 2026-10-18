@@ -1,0 +1,18 @@
+# Hooks other repositories use from their own .pre-commit-config.yaml:
+#
+#   - repo: https://github.com/hakanbogan/obelize
+#     rev: v0.7.0
+#     hooks:
+#       - id: obelize-scan
+#
+# obelize needs Python 3.12 or newer, so a hook environment built on an older one fails to install.
+- id: obelize-scan
+  name: obelize scan
+  description: Fail while the repository still has a place a migration affects.
+  entry: obelize scan
+  args: [--fail-on, eligible, --fail-on, needs_review, --fail-on, unsupported]
+  language: python
+  language_version: python3.12
+  pass_filenames: false
+  types: [python]
+  minimum_pre_commit_version: "3.0.0"

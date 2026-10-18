@@ -140,7 +140,7 @@ jobs:
       - name: zizmor
         # Holds each action to a commit (docs/THREAT_MODEL.md, TM-7) and audits permissions,
         # template injection and Dependabot's cooldown. The version is the lock's.
-        run: uv run --only-group workflows zizmor --no-progress .github
+        run: uv run --only-group workflows zizmor --no-progress .github action.yml
 
   test:
     name: test (ubuntu, py${{ matrix.python-version }})

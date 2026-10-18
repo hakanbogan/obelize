@@ -6,6 +6,7 @@ scope; heavy imports (libcst, pydantic models, packs) go inside the command body
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 import time
@@ -857,7 +858,8 @@ def pack_test(
     failed (a bug in obelize).
     """
     from obelize.config import ConfigError
-    from obelize.packs import check, loader
+    from obelize.packs import loader
+    from obelize.packtools import check
 
     where = Path(reference)
     named = str(where / loader.PACK_FILENAME) if where.is_dir() else reference
@@ -948,7 +950,7 @@ def pack_new(
     obelize pack test as made. Exit codes: 0 made, 2 the request is wrong or the
     folder exists.
     """
-    from obelize.packs import scaffold
+    from obelize.packtools import scaffold
 
     try:
         made = scaffold.plan(
@@ -969,6 +971,46 @@ def pack_new(
     for name in files:
         typer.echo(f"  {name}")
     typer.echo(f"Next: edit pack.yaml and SOURCES.md, then run obelize pack test {shown}")
+
+
+@app.command("mcp")
+def mcp(
+    repo: str = typer.Option(
+        ".",
+        "--repo",
+        metavar="<path>",
+        help="The repository to serve. Defaults to the current directory.",
+    ),
+    trust_repo_config: bool = typer.Option(
+        False,
+        "--trust-repo-config",
+        help="Let the verification tools run the commands in this repository's .obelize.yml "
+        "without asking. Only you can set this: no tool can.",
+    ),
+    read_only: bool = typer.Option(
+        False,
+        "--read-only",
+        help="Leave out obelize_apply and obelize_undo, the tools that write source files. The "
+        "others still write .obelize/, and obelize_verify runs your tests.",
+    ),
+) -> None:
+    """Serve obelize to a coding agent over the Model Context Protocol.
+
+    Speaks JSON-RPC on standard input and output, so start it from the agent's own
+    configuration and not in a terminal. The tools scan, plan, apply, verify, undo
+    and report on one repository, and list what obelize could not migrate; none takes
+    a command to run, a path or a consent. Verification commands come from your
+    configuration, as for obelize verify.
+    """
+    root = Path(repo)
+    if not root.is_dir():
+        typer.echo(f"--repo {root} is not a directory", err=True)
+        raise typer.Exit(2)
+    from obelize.mcp import server, tools
+
+    # A client that goes away while a reply is written leaves nobody to tell.
+    with contextlib.suppress(BrokenPipeError):
+        server.serve(tools.Session(root.resolve(), trust=trust_repo_config, read_only=read_only))
 
 
 @app.callback()

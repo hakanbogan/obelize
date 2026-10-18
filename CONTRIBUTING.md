@@ -9,6 +9,7 @@ obelize scan   [--repo .] [--pack <id|path>] [--json] [--jobs N] [--list-files]
 obelize fix    [--pack <id|path>] [--repo .] [--apply] [--allow-dirty] [--verify "<cmd>"]...
 obelize verify --run <id> [--repo .] [--verify "<cmd>"]...
 obelize undo   --run <id> [--repo .]
+obelize mcp    [--repo .] [--trust-repo-config] [--read-only]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
@@ -42,7 +43,7 @@ uv run ruff format --check .
 uv run pre-commit run --all-files
 uv run mypy
 uv run mypy --platform win32
-uv run --only-group workflows zizmor .github
+uv run --only-group workflows zizmor .github action.yml
 uv run --only-group docs mkdocs build --strict
 ```
 

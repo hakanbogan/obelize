@@ -17,8 +17,9 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
 
 from obelize.models import bounds
-from obelize.packs import check, loader
+from obelize.packs import loader
 from obelize.packs.schema import _PACK_ID
+from obelize.packtools import check
 
 
 class ScaffoldError(ValueError):

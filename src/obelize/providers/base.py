@@ -311,6 +311,28 @@ def split_lines(text: str) -> list[str]:
     return joined
 
 
+def excerpt(path: str, data: bytes, line: int, environ: Mapping[str, str]) -> Context | None:
+    """The redacted text around `line` that a question about it would send, or `None` when the file
+    does not parse.
+
+    The same window a consultation takes without the binding group: the smallest scope that holds
+    the line, else the margin around it.
+    """
+    try:
+        scopes, lines = _parse(data)
+    except cst.ParserSyntaxError:
+        return None
+    span = _range(line, (), scopes, len(lines))
+    assert span is not None  # noqa: S101 - one line and its margin never pass the limit
+    start, end = span
+    return Context(
+        path=path,
+        start_line=start,
+        end_line=end,
+        text=redact.redact("".join(lines[start - 1 : end]), environ),
+    )
+
+
 def _question(
     finding: Finding,
     span: tuple[int, int],
@@ -353,6 +375,7 @@ __all__ = [
     "Reply",
     "Skipped",
     "consult",
+    "excerpt",
     "questions",
     "split_lines",
 ]

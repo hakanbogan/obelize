@@ -15,6 +15,10 @@
 Anything a future version adds that talks to a network will be opt-in and documented here,
 with exactly what it sends.
 
+`obelize mcp` opens no socket. It answers a coding agent on standard input and output with what the
+commands print and, for `obelize_residue`, the code around each place left, redacted as a model's
+context is. Where that text goes next is the agent's, which you chose.
+
 ## What is written to `.obelize/`
 
 Every run writes `.obelize/runs/<run-id>/` in the migrated repository, on your disk; nothing

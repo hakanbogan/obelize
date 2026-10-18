@@ -22,19 +22,28 @@ in the release that makes it.
   no pack, with `--module` to name the modules when the library is imported under another name.
   Each place is `needs_review` with the new reason `no_pack_for_usage` and nothing is rewritten. The
   run records `source: inventory` in `packs[]` and holds no copy of a pack.
-
 - `obelize pack new <id> --from "<requirement>" --to "<requirement>" --guide <url>` makes a pack
   that loads, with fixtures and sources to edit.
 - `obelize pack test <id|path>` runs a pack over its own fixtures and sources: the checks the three
   bundled packs pass in the test suite, now available for a pack of your own.
-
 - `obelize verify --current` runs a run's verification on the tree as it stands instead of
   answering `tree_changed`, and records the files that differ from what the run wrote in
   `verify.edited` (a new field of `run.json`, empty for any other verification). A run that wrote no
   file can be checked this way, so someone else's migration can be verified.
+- `obelize mcp` serves obelize to a coding agent over the Model Context Protocol, on standard input
+  and output and with no new dependency. Seven tools (`obelize_scan`, `obelize_plan`,
+  `obelize_apply`, `obelize_residue`, `obelize_verify`, `obelize_report`, `obelize_undo`) run the
+  commands and return what they print; `obelize_residue` lists the places obelize could not migrate
+  with the code around each. No tool takes a command, a path, a model or a consent, and `--read-only`
+  leaves out the two that write files.
+- `action.yml` is a GitHub Action that runs a scan, annotates each place on its file and line,
+  uploads the findings to code scanning if asked and fails the job on the statuses you name.
+  `.pre-commit-hooks.yaml` offers the same scan as the hook `obelize-scan`.
 
 ### Changed
 
+- `obelize undo` skips a recorded path in `.git/` or `.obelize/` as `outside_root`: a run never
+  writes either, so a run folder that names one was forged.
 - A scan that finds no pack to apply names the libraries the repository imports most and the
   command that lists one.
 

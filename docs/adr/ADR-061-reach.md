@@ -61,7 +61,7 @@ sources say to read them. It refuses a folder that exists and removes the one it
 would not load.
 
 `obelize pack test` runs the checks the bundled packs already pass in `tests/packs/`, moved into
-`src/obelize/packs/check.py` so that a pack of your own is held to the same standard: fixtures on
+`src/obelize/packtools/check.py` so that a pack of your own is held to the same standard: fixtures on
 disk and named, both kinds per change, parsing and prefilter, answer keys equal to what the rules
 write, a second run that changes nothing, equal bytes on two runs, and sources that match the
 changes. `pack validate` stays a reading of the pack alone, as before.
@@ -76,6 +76,48 @@ verification commands on the tree as it stands, through the same trust rules, an
 `verify.edited` the files whose bytes differ from the run's, so the record still says that the
 verdict is not about obelize's own bytes. It works for an apply that wrote nothing, because the
 agent may have written everything, and not for a dry run, which has no verification to replace.
+
+### D7. A coding agent calls tools that cannot ask for more than the person gave
+
+`obelize mcp` serves the commands over the Model Context Protocol on standard input and output,
+with the protocol's `initialize`, `ping`, `tools/list` and `tools/call` written against the standard
+library so that no dependency is added. A tool runs the command of its name as a child process with
+no input and its output captured: the stream carries protocol and nothing else, and a tool does
+what the command does, trust rules and refusals included.
+
+The agent is an untrusted caller and the person who started the server is the owner. A tool
+argument is one of a pack id, a distribution, a module, a run id, a number or a boolean, each
+checked against its shape before it reaches a command line, so no flag, path or command can be
+passed. No tool takes `--verify`, a model, `--accept-model`, `--allow-dirty` or
+`--trust-repo-config`: verification commands come from the person's own configuration, the
+repository's `.obelize.yml` runs only if the person starts the server with `--trust-repo-config`,
+a model is never consulted (`--model none`; the agent is the model), and a dirty tree is refused as
+ever. The two tools that write files are marked destructive, and `--read-only` leaves them out.
+
+`obelize_residue` is what makes the agent useful: the places a scan could not migrate, each with
+its reason, what to change, the pack's own guidance and the window of code a model would be shown,
+redacted by the same redactor. What the tools return quotes the repository's code and is data to
+the agent, which the server's instructions say.
+
+A review of the first version found where the line between agent and owner was drawn too loosely,
+and each was closed. The child runs with `-P`, because `python -m` puts the repository first on the
+import path and a `typer.py` in it would have run as obelize. A pack is a known id and never a
+path, because a path would be read from the repository. The trust of `--trust-repo-config` is
+pinned to the hash of `.obelize.yml` at start, because the agent can edit that file. `verify` and
+`undo` take only runs the session made, because a run folder the repository carries names the files
+an undo writes; and `undo` refuses a row in `.git/` or `.obelize/` whoever asks. A fault of the
+server ends one call and not the session. What cannot be closed is that the person's tests run
+the repository's code, an agent's edits included, which the documentation says.
+
+### D8. A pipeline step and a hook run the scan
+
+The repository's `action.yml` is a composite action over `scan --sarif --fail-on`: it installs uv,
+runs the pinned release, prints an annotation per place with the file name and message escaped so
+that repository text cannot end a workflow command, appends a summary, uploads the SARIF to code
+scanning if asked, and only then fails the job with the scan's exit code. Each input reaches the
+script as an environment variable and is checked against the shape it may have (a release, a pack
+id, a distribution, a module, a status) before it joins a command line. `.pre-commit-hooks.yaml`
+offers `obelize-scan` with the same default statuses. Neither writes a file of the repository.
 
 ## Consequences
 

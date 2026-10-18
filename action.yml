@@ -1,0 +1,91 @@
+name: obelize
+description: Find what a dependency migration leaves in your code, annotate it and fail the job.
+author: Hakan Bogan
+branding:
+  icon: search
+  color: blue
+
+inputs:
+  version:
+    description: >-
+      The obelize release to run, such as 0.7.0. Pin it: any 0.x release can change what a scan
+      reports.
+    required: true
+  packs:
+    description: >-
+      Pack ids to run, separated by spaces, such as py-pdf/pypdf2-to-pypdf. Default: every pack the
+      repository uses.
+    default: ""
+  library:
+    description: >-
+      A distribution that has no pack, such as requests: list every place the repository uses it.
+      It cannot be combined with packs.
+    default: ""
+  modules:
+    description: Modules of library as they are imported, separated by spaces, such as yaml.
+    default: ""
+  fail-on:
+    description: >-
+      The statuses that fail the job, separated by spaces: eligible, needs_review, unsupported.
+      Empty fails on none.
+    default: "eligible needs_review unsupported"
+  sarif:
+    description: >-
+      true to upload the findings to code scanning. The job needs the security-events: write
+      permission. Never use this action on pull_request_target.
+    default: "false"
+  working-directory:
+    description: The repository root to scan, relative to the workspace.
+    default: "."
+
+outputs:
+  exit-code:
+    description: The scan's exit code, 0 or 4 for a scan that ran (see docs/CLI.md).
+    value: ${{ steps.scan.outputs.exit-code }}
+  sarif-file:
+    description: The SARIF document the scan printed.
+    value: ${{ steps.scan.outputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      with:
+        enable-cache: false
+        version: "0.12.15"
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        OBELIZE_VERSION: ${{ inputs.version }}
+        OBELIZE_PACKS: ${{ inputs.packs }}
+        OBELIZE_LIBRARY: ${{ inputs.library }}
+        OBELIZE_MODULES: ${{ inputs.modules }}
+        OBELIZE_FAIL_ON: ${{ inputs.fail-on }}
+        OBELIZE_WORKDIR: ${{ inputs.working-directory }}
+        OBELIZE_SARIF_FILE: ${{ runner.temp }}/obelize.sarif
+      run: '"$ACTION_PATH/action/scan.sh"'
+
+    - name: Annotate
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        OBELIZE_SARIF_FILE: ${{ steps.scan.outputs.sarif-file }}
+      run: python3 "$ACTION_PATH/action/annotate.py" "$OBELIZE_SARIF_FILE"
+
+    - name: Upload to code scanning
+      if: ${{ !cancelled() && inputs.sarif == 'true' && (steps.scan.outputs.exit-code == '0' || steps.scan.outputs.exit-code == '4') }}
+      uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif-file }}
+        category: obelize
+        wait-for-processing: "false"
+
+    - name: Fail on what was found
+      shell: bash
+      env:
+        OBELIZE_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: exit "${OBELIZE_EXIT_CODE:-1}"

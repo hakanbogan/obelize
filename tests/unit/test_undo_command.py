@@ -314,3 +314,23 @@ def test_a_recorded_name_the_system_reserves_is_skipped_before_it_is_read(
     undo(tree, nested_run)
     assert row(tree, nested_run, "pkg/app.py")["reason"] == "outside_root"
     assert tree / "pkg" / "app.py" not in opened
+
+
+@pytest.mark.parametrize("forged", [".git/config", ".GIT/config", ".obelize/latest"])
+def test_a_forged_row_naming_git_or_obelize_is_skipped_and_nothing_is_written(
+    tree: Path, run_id: str, forged: str
+) -> None:
+    """A run folder a repository carries can name any file; one in `.git/` is run by the next git
+    command, so the guard that keeps a row inside the root keeps these out too."""
+    target = tree / ".git" / "config"
+    before = target.read_bytes()
+    record = tree / ".obelize" / "runs" / run_id / "run.json"
+    forged_record = json.loads(record.read_text(encoding="utf-8"))
+    forged_record["file_edits"][0]["path"] = forged
+    forged_record["file_edits"][0]["after_sha256"] = fsutil.sha256(before)
+    record.write_text(json.dumps(forged_record), encoding="utf-8")
+    result = undo(tree, run_id)
+    assert result.exit_code == 4, result.output
+    skipped = [one for one in document(tree, run_id)["files"] if one["path"] == forged]
+    assert [one["reason"] for one in skipped] == ["outside_root"]
+    assert target.read_bytes() == before

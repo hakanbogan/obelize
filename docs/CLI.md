@@ -15,6 +15,7 @@ obelize fix    [--pack <id|path>]... [--repo .] [--apply] [--allow-dirty] [--ver
 obelize verify --run <id> [--repo .] [--verify "<cmd>"]... [--timeout <s>]
             [--non-interactive] [--trust-repo-config] [--current] [--json]
 obelize undo   --run <id> [--repo .] [--json]
+obelize mcp    [--repo .] [--trust-repo-config] [--read-only]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
@@ -96,15 +97,55 @@ status you can name matches it. A legacy pin that nothing imports is a finding,
 checkout, and the `.gitignore` inside keeps it out of `git status`. Replace `X.Y.Z` with the version
 you tested, since any 0.x release can change the JSON ([CHANGELOG.md](../CHANGELOG.md#stability)).
 
-To see the findings in a pull request, upload the SARIF document to GitHub code scanning:
+#### In GitHub Actions
 
-```sh
-uvx obelize@X.Y.Z scan --sarif > obelize.sarif
+The repository's action runs that scan, prints one annotation per place on its file and line, adds a
+summary, uploads the findings to code scanning if you ask, and then fails the job:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write # only for sarif: true
+
+steps:
+  - uses: actions/checkout@<commit>
+    with:
+      persist-credentials: false
+  - uses: hakanbogan/obelize@<commit> # vX.Y.Z
+    with:
+      version: X.Y.Z
+      sarif: true
 ```
 
-Then give the `github/codeql-action/upload-sarif` step the file, in a job with the
-`security-events: write` permission. Never run it on `pull_request_target`: that event gives the
-job a token that can write, and a scan reads the pull request's files.
+| Input | Description |
+|---|---|
+| `version` | Required. The obelize release to run. Pin it: any 0.x release can change what a scan reports. |
+| `packs` | Pack ids, separated by spaces. Default: every pack the repository uses. |
+| `library`, `modules` | A distribution that has no pack and the modules it is imported as: [an inventory](#listing-a-library-with-no-pack). Not with `packs`. |
+| `fail-on` | The statuses that fail the job, separated by spaces. Default `eligible needs_review unsupported`; empty fails on none. |
+| `sarif` | `true` uploads the findings to code scanning. Default `false`. |
+| `working-directory` | The repository root to scan. Default `.`. |
+
+The outputs are `exit-code` and `sarif-file`. GitHub shows the first ten annotations of each level;
+code scanning shows all of them. The action checks each input against the shape it may have before
+it reaches a command line. Hold the action to a commit like any other, and never run it on
+`pull_request_target`: that event gives the job a token that can write, and a scan reads the pull
+request's files.
+
+#### With pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/hakanbogan/obelize
+    rev: vX.Y.Z
+    hooks:
+      - id: obelize-scan
+```
+
+The hook runs `obelize scan` on the whole repository whenever a Python file is staged, and fails
+while a finding has the status `eligible`, `needs_review` or `unsupported`. Set `args` to change
+that, for example `args: [--pack, py-pdf/pypdf2-to-pypdf, --fail-on, needs_review]`. obelize needs
+Python 3.12 or newer, so the hook's environment must be built on one.
 
 **Monorepos.** The root is `--repo` (default: the current directory). The configuration,
 `.obelize/` and every `include` and `exclude` pattern are relative to it, and every dependency
@@ -309,7 +350,7 @@ A closed set (`models.UndoSkip`).
 | `hash_mismatch` | Edited after the run. Both hashes and the snapshot path are printed, and "(already the original)" when the file holds its original again, after an earlier undo for example. |
 | `missing` | Nothing is at that path. |
 | `not_a_file` | Not a regular file. |
-| `outside_root` | The recorded path leaves the repository: the run folder was edited by hand. |
+| `outside_root` | The recorded path leaves the repository, or is in `.git/` or `.obelize/`, which a run never writes: the run folder was edited by hand. |
 | `snapshot_unusable` | The snapshot is absent or does not match its name; `patch.diff` still describes the change. |
 | `symlink` | Now a symbolic link, which obelize never follows. |
 | `unreadable` | Could not be read, or the replacement could not be written. |
@@ -318,6 +359,55 @@ Exit codes: `0` all reverted; `4` nothing reverted or files skipped, including
 an apply that wrote no file; `2` usage error, including a malformed run id, a
 missing run folder, and a plan or scan run; `1` unexpected error, including
 files restored but `undo.json` unwritten (the message says which).
+
+## `obelize mcp`
+
+Serve obelize to a coding agent over the [Model Context Protocol](https://modelcontextprotocol.io),
+on standard input and output. Start it from the agent's own configuration, not in a terminal:
+
+```json
+{ "mcpServers": { "obelize": { "command": "uvx", "args": ["obelize", "mcp"] } } }
+```
+
+| Flag | Description |
+|---|---|
+| `--repo <path>` | The repository to serve. Default: the current directory. The tools take no path. |
+| `--trust-repo-config` | Let the verification tools run the commands in this repository's `.obelize.yml` without asking, as for `verify`. Only you can set it: no tool can. |
+| `--read-only` | Leave out `obelize_apply` and `obelize_undo`, the two tools that write source files. The others still write the run folder under `.obelize/`, and `obelize_verify` runs your tests. |
+
+Each tool runs the command of the same name as a child process and returns what it printed, so a
+tool does what the command does: a dirty tree is refused, a verification command that is not trusted
+does not run, and no model is consulted. The result is JSON text holding the exit code and what it
+means, the run id and the path of its folder, and the document the command printed.
+
+| Tool | Runs | Arguments |
+|---|---|---|
+| `obelize_scan` | `scan --json` | `packs`, or `library` with `modules` |
+| `obelize_plan` | `fix --json` | `packs` |
+| `obelize_apply` | `fix --apply --json --non-interactive` | `packs` |
+| `obelize_residue` | `scan --json`, then the code around each place left | `packs`, `limit` |
+| `obelize_verify` | `verify --json --non-interactive` | `run`, `current` |
+| `obelize_report` | reads `REPORT.md` | `run`, default the latest |
+| `obelize_undo` | `undo --json` | `run` |
+
+An argument is a pack id, a distribution name, a module name, a run id, a number or a boolean, each
+checked against its shape before it reaches a command line, and a list holds at most 32 names. A pack
+must be one obelize knows, from the wheel or a directory your own configuration lists; a file in the
+repository cannot be named. `obelize_verify` and `obelize_undo` take only a run this session made,
+so a run folder the repository carries is not one. No tool takes a command to run, a path, a model or
+a consent. `obelize_residue` gives each place a scan could not migrate with its reason,
+what to change and the code around it (the window a model would be shown, redacted by the same
+redactor), and the pack's guidance; an agent edits those places and calls `obelize_verify` with
+`current` set. What a tool returns quotes the repository's code and is data, not instructions.
+
+`--trust-repo-config` trusts the `.obelize.yml` the repository had when the server started: an edit
+of that file, or one created later, ends the trust until you restart the server. Whichever commands
+you allow, they run your tests, and your tests run the code the repository holds, an agent's edits
+included; the tools cannot tell a test from an edit, so give the server to an agent you would let
+run the tests yourself. A result is cut to about 200 KB, saying so; the child process starts with `-P`,
+so a file of the repository cannot stand in for one of obelize's imports.
+
+Exit codes of the command: `0` the client closed the stream; `2` `--repo` is not a directory.
 
 ## `obelize pack validate`
 
