@@ -172,27 +172,6 @@ def test_the_traceback_of_each_test_that_failed_or_errored_is_kept(tmp_path: Pat
     assert tests._failures(None) == {}
 
 
-def test_a_copy_git_cannot_describe_is_an_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    copy.make(repository(tmp_path), tmp_path / "copy")
-    monkeypatch.setattr(gitutil, "run", lambda *_a, **_k: None)
-    with pytest.raises(copy.CopyError, match="could not say what changed"):
-        copy.changed(tmp_path / "copy")
-
-
-def test_what_changed_in_the_copy_is_every_file_that_differs_and_nothing_of_the_run_folder(
-    tmp_path: Path,
-) -> None:
-    copy.make(repository(tmp_path), tmp_path / "copy")
-    (tmp_path / "copy" / "app.py").write_text("changed\n")
-    (tmp_path / "copy" / "added.py").write_text("new\n")
-    (tmp_path / "copy" / "requirements.txt").unlink()
-    (tmp_path / "copy" / ".obelize").mkdir()
-    (tmp_path / "copy" / ".obelize" / "x").write_text("run")
-    assert copy.changed(tmp_path / "copy") == {"added.py": b"new\n", "app.py": b"changed\n"}
-
-
 def test_a_git_that_refuses_the_copy_is_an_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -377,7 +356,14 @@ def test_the_command_is_the_persons_or_pytest_in_the_environment(tmp_path: Path)
     env = envs.Env(tmp_path / "env", "requirements")
     (tmp_path / "pytest.ini").write_text("[pytest]\n")
     assert tests.argv(tmp_path, env, "make test") == ("make", "test")
-    assert tests.argv(tmp_path, env, None) == (str(env.python), "-m", "pytest", "--tb=native", "-q")
+    assert tests.argv(tmp_path, env, None) == (
+        str(env.python),
+        "-m",
+        "pytest",
+        "--tb=native",
+        "-q",
+        "--continue-on-collection-errors",
+    )
     (tmp_path / "pytest.ini").unlink()
     assert tests.argv(tmp_path, env, None) is None
 

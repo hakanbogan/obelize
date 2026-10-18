@@ -17,7 +17,7 @@ from obelize import resolve as resolving
 from obelize.trial import copy, envs, tests
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Collection, Mapping, Sequence
     from pathlib import Path
 
     from packaging.version import Version
@@ -45,7 +45,7 @@ class Plan:
     # Puts what the migration left to a model, in a tree; none where no model was asked for.
     resolve: Callable[[Path], resolving.Resolved] | None = None
     # Puts the tests that broke, by their tracebacks, to a model; none where no model was asked for.
-    repair: Callable[[Path, Mapping[str, str]], resolving.Resolved] | None = None
+    repair: Callable[[Path, Mapping[str, str], Collection[str]], resolving.Resolved] | None = None
     max_rounds: int = 3
     remove: str | None = None
     python: str | None = None
@@ -83,6 +83,8 @@ def run(plan: Plan) -> Trial:
             environ=plan.environ,
             say=plan.say,
         )
+        # A floor with no pin resolves to the newest release, which is not the one in use.
+        envs.install(old, f"{plan.distribution}=={plan.old}", work=work, environ=plan.environ)
         (plan.evidence / "old.txt").write_text(
             envs.freeze(old, work=work, environ=plan.environ), encoding="utf-8"
         )
@@ -123,6 +125,7 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
     )
     written = tuple(plan.migrate(work))
     answered: resolving.Resolved | None = None
+    touched = set(written)
     if not written and plan.resolve is not None:
         answered = plan.resolve(work)
         plan.say(
@@ -130,9 +133,10 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
             f"{len(answered.edited)} file(s) were edited, {answered.left} place(s) are left"
         )
         written = tuple(plan.migrate(work)) if answered.edited else ()
+        touched = {*written, *answered.edited}
         if not written:
             verdict = tests.Verdict("inconclusive", "unresolved", 0, (), ())
-            return _done(plan, verdict, (), command, work, [("resolve", answered)])
+            return _done(plan, verdict, (), command, work, [("resolve", answered)], touched)
     if not written:
         return _done(
             plan, tests.Verdict("inconclusive", "nothing_to_compare", 0, (), ()), (), command
@@ -147,8 +151,9 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
             f"Putting the {len(verdict.broken)} test(s) that broke to the model, round {number}"
         )
         failed = {name: after.failures[name] for name in verdict.broken if name in after.failures}
-        repaired = plan.repair(work, failed)
+        repaired = plan.repair(work, failed, frozenset(touched))
         rounds.append((f"repair-{number}", repaired))
+        touched |= set(repaired.edited)
         if not repaired.edited:
             break
         after, again = _tried(plan, work, new, later, before, f"after-{number}", f"again-{number}")
@@ -156,7 +161,7 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
         verdict = again
         if stalled:
             break
-    return _done(plan, verdict, written, command, work, rounds)
+    return _done(plan, verdict, written, command, work, rounds, touched)
 
 
 def _tried(
@@ -201,6 +206,7 @@ def _done(
     command: tuple[str, ...] | None,
     work: Path | None = None,
     rounds: Sequence[tuple[str, resolving.Resolved]] = (),
+    touched: Collection[str] = (),
 ) -> Trial:
     document = {
         "distribution": plan.distribution,
@@ -228,7 +234,7 @@ def _done(
     (plan.evidence / "trial.json").write_text(
         json.dumps(document, indent=2) + "\n", encoding="utf-8"
     )
-    kept = copy.changed(work) if work is not None else {}
+    kept = {path: (work / path).read_bytes() for path in sorted(touched)} if work else {}
     by_model = tuple(sorted({path for _, one in rounds for path in one.edited}))
     return Trial(verdict, tuple(kept) or written, command, plan.evidence, kept, by_model)
 

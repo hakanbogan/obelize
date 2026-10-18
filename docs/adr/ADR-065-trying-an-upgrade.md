@@ -18,7 +18,10 @@ no template and no hook), installs the dependencies twice with uv, and runs the 
 recipe is the lock file if there is one with a `[project]` table, else the project file, else the
 `requirements*.txt` at the top; pytest is added. The second environment is the first with the
 release moved to installed over it. The tests are pytest unless the person names a command, run by
-each environment's own interpreter with its `bin` first on `PATH`, with a junit file.
+each environment's own interpreter with its `bin` first on `PATH`, with a junit file (the folder of
+the evidence, by an absolute path, since pytest reads a relative one from the copy). The pytest
+command goes on past a module that does not import (`--continue-on-collection-errors`), so that one
+broken module, before or after the move, does not stand for all the tests.
 
 ### D2. The verdict is per test
 

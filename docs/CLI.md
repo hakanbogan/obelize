@@ -491,6 +491,10 @@ repository:
 4. the tests run on the changed copy with the second environment, and the tests that failed are run
    once more.
 
+The tests are `python -m pytest --tb=native -q --continue-on-collection-errors`: a module that does
+not import is an error in both runs and does not hide the tests of the others. A module that
+imports before the move and not after it is a break.
+
 A test is its junit `classname::name`. The move is **written to your repository** only if no test
 that passed in step 2 now fails, errors or is missing, not counting one that passed on the second
 try; the real write is `fix --apply` and ends `0` then. Otherwise nothing is written: exit `3` names

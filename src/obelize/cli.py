@@ -21,7 +21,7 @@ import typer
 from obelize import __version__
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Collection
 
     from packaging.version import Version
 
@@ -1215,7 +1215,8 @@ def upgrade(
     except NetworkError as error:
         typer.echo(error.detail, err=True)
         raise typer.Exit(2 if error.reason == "not_found" else 6) from error
-    typer.echo(f"Moving {project.name} {now} to {target}. {chosen.note}", err=True)
+    goal = chosen.install if chosen.remove else target
+    typer.echo(f"Moving {project.name} {now} to {goal}. {chosen.note}", err=True)
     wants_branch = bool(branch or branch_name)
     if agent_name and not (apply_changes and wants_branch):
         typer.echo(
@@ -1279,7 +1280,9 @@ def _agent(flag: str | None) -> tuple[str | None, str | None]:
 
 def _resolver(
     loaded: LoadedPack, backend: str, model: str | None, limit: int
-) -> tuple[Callable[[Path], Resolved], Callable[[Path, Mapping[str, str]], Resolved]]:
+) -> tuple[
+    Callable[[Path], Resolved], Callable[[Path, Mapping[str, str], Collection[str]], Resolved]
+]:
     """What a trial calls to put the places a pack flags, and then the tests that broke, to the
     agent, in its copy."""
     from obelize import repair as repairing
@@ -1287,7 +1290,6 @@ def _resolver(
     from obelize.packs import loader
     from obelize.providers import agent_cli, base
     from obelize.scan import runner as scanner
-    from obelize.trial import copy
 
     try:
         provider = agent_cli.build(backend, model, os.environ)
@@ -1314,8 +1316,8 @@ def _resolver(
             limit=limit,
         )
 
-    def repair(tree: Path, failures: Mapping[str, str]) -> Resolved:
-        found = repairing.rows(tree, failures, copy.changed(tree), os.environ)
+    def repair(tree: Path, failures: Mapping[str, str], changed: Collection[str]) -> Resolved:
+        found = repairing.rows(tree, failures, changed, os.environ)
         return resolving.resolve(
             tree, found, provider=provider, pack=loaded.pack, environ=os.environ, limit=limit
         )
@@ -1434,7 +1436,7 @@ def _trial(
             trying.Plan(
                 root=root,
                 scratch=net.Cache.home(os.environ).directory / "trials" / named,
-                evidence=root / ".obelize" / "trials" / named,
+                evidence=root.resolve() / ".obelize" / "trials" / named,
                 distribution=distribution,
                 old=now,
                 install=chosen.install,

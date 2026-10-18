@@ -76,7 +76,10 @@ def argv(work: Path, env: Env, custom: str | None) -> tuple[str, ...] | None:
     """The tests as a command: the person's, else pytest where the repository is set up for it."""
     if custom:
         return tuple(shlex.split(custom))
-    return (str(env.python), "-m", "pytest", "--tb=native", "-q") if configured(work) else None
+    if not configured(work):
+        return None
+    # A module that does not import must not hide the tests of the others, in either phase.
+    return (str(env.python), "-m", "pytest", "--tb=native", "-q", "--continue-on-collection-errors")
 
 
 def run(

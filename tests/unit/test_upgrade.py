@@ -103,6 +103,7 @@ def test_a_distribution_a_bundled_pack_migrates_uses_it(home: Path) -> None:
     result = runner.invoke(app, ["upgrade", "PyPDF2", "--repo", str(root)])
     assert result.exit_code == 0, result.output
     assert "Using the pack py-pdf/pypdf2-to-pypdf." in result.output
+    assert "Moving pypdf2 3.0.1 to pypdf" in result.output
 
 
 def test_a_release_the_person_names_is_one_the_pack_must_reach(home: Path) -> None:
@@ -195,6 +196,54 @@ def test_a_move_whose_tests_pass_is_tried_in_a_copy_and_then_written(trial: Path
     assert (root / "requirements.txt").read_text() != "acme-kit==1.0\n"
     folder = next((root / ".obelize" / "trials").iterdir())
     assert (folder / "trial.json").is_file()
+
+
+def test_a_floor_without_a_pin_is_run_on_the_floor_before_the_move(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit>=1.0\n")
+    result = tried(root, "--yes")
+    assert result.exit_code == 0, result.output
+    folder = next((root / ".obelize" / "trials").iterdir())
+    assert "acme-kit==1.0" in (folder / "old.txt").read_text()
+    assert "acme-kit==2.0" in (folder / "new.txt").read_text()
+
+
+def test_a_repository_named_by_a_relative_path_keeps_its_evidence(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """pytest reads a relative `--junitxml` from the copy, so the evidence path must not be one."""
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    monkeypatch.chdir(root.parent)
+    result = runner.invoke(
+        app,
+        ["upgrade", "acme-kit", "--repo", "repo", "--python", PYTHON, "--apply", "--yes"],
+    )
+    assert result.exit_code == 0, result.output
+    folder = next((root / ".obelize" / "trials").iterdir())
+    assert (folder / "before" / "1.junit.xml").is_file()
+    assert (folder / "after" / "1.junit.xml").is_file()
+
+
+def test_a_file_the_tests_leave_in_the_copy_is_not_part_of_the_move(trial: Path) -> None:
+    leaving = TESTS + "\n\ndef test_leaves():\n    open('leftover.txt', 'w').write('x')\n"
+    root = repo(trial, app__py=HELLO, test_app__py=leaving, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes", "--branch")
+    assert result.exit_code == 0, result.output
+    shown = git(root, "show", "--stat", "--format=", "obelize/upgrade-acme-kit-2.0").stdout.decode()
+    assert "app.py" in shown
+    assert "leftover.txt" not in shown
+
+
+def test_a_module_that_does_not_import_does_not_hide_the_tests_of_the_others(trial: Path) -> None:
+    root = repo(
+        trial,
+        app__py=HELLO,
+        test_app__py=TESTS,
+        test_other__py="import nothere\n",
+        requirements__txt="acme-kit==1.0\n",
+    )
+    result = tried(root, "--yes")
+    assert result.exit_code == 0, result.output
+    assert "2 test(s) passed before, 0 broke" in result.output
 
 
 def test_a_move_that_breaks_a_test_is_not_written(trial: Path) -> None:
