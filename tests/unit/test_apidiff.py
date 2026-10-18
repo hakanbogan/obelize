@@ -229,6 +229,22 @@ def test_a_warning_run_on_import_is_the_modules_and_a_function_s_is_not(tmp_path
     assert objects["quiet.sub"]["deprecated"] == "sub is gone"
 
 
+def test_a_message_about_one_parameter_is_not_the_functions_notice(tmp_path: Path) -> None:
+    source = (
+        "import warnings\n\n"
+        "def f(a, min_items=None):\n"
+        "    if min_items:\n"
+        "        warnings.warn('`min_items` is deprecated, use `min_length`', DeprecationWarning)\n"
+        "\n"
+        "def g(a, min_items=None):\n"
+        "    warnings.warn('g is deprecated, use `h` and not `min`', DeprecationWarning)\n"
+    )
+    root = lib(tmp_path, {"__init__.py": source}, "params")
+    objects = worker.surface(root, "params")["objects"]
+    assert objects["params.f"]["deprecated"] is None
+    assert objects["params.g"]["deprecated"] == "g is deprecated, use `h` and not `min`"
+
+
 def test_a_namespace_package_is_a_module_with_no_notice_of_its_own(tmp_path: Path) -> None:
     root = lib(tmp_path, {"sub.py": "def f(x):\n    return x\n"}, "spaced")
     objects = worker.surface(root, "spaced")["objects"]
@@ -494,6 +510,17 @@ def test_a_parameter_that_changed_kind_or_default_is_reported() -> None:
         ("default_changed", "f", "b", ""),
         ("default_changed", "f", "c", ""),
     ]
+
+
+def test_a_default_that_became_not_given_is_not_reported() -> None:
+    old = fn(opt("a", "None"), opt("b", "Undefined"), opt("c", "True"), opt("d", "3"))
+    new = fn(
+        opt("a", "_Unset"),
+        opt("b", "pydantic.PydanticUndefined"),
+        opt("c", "_Unset"),
+        opt("d", "None"),
+    )
+    assert changes({"f": old}, {"f": new}) == [("default_changed", "f", "d", "")]
 
 
 def test_a_value_that_changed_is_not_an_api_change() -> None:

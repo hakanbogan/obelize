@@ -36,6 +36,10 @@ ChangeType = Literal[
 
 _VARIADIC: Final = ("variadic positional", "variadic keyword")
 _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# A name that stands for "not given": private, or one that says so (`_Unset`, `PydanticUndefined`).
+_SENTINEL: Final = re.compile(
+    r"(?:\w+\.)*(?:_\w+|\w*(?:undefined|unset|missing|sentinel|notset|notgiven)\w*)", re.I
+)
 # A message that tells the reader what replaces a name, as opposed to one that only warns.
 _REPLACEMENT: Final = re.compile(r"\b(use|replaced|renamed|instead|favou?r|supersed\w*)\b", re.I)
 
@@ -234,8 +238,13 @@ def _signature(path: str, old: tuple[Param, ...], new: tuple[Param, ...]) -> Ite
         if match.kind != one.kind:
             detail = f"{one.kind} -> {match.kind}"
             yield ApiChange("param_kind_changed", path, param=one.name, detail=detail)
-        # A default added to a parameter that had none breaks nothing.
-        if match.default != one.default and one.default is not None:
+        # A default added to a parameter that had none breaks nothing. Nor does one that became
+        # "not given": the library decides the value elsewhere, which a name cannot show.
+        if (
+            match.default != one.default
+            and one.default is not None
+            and not (match.default and _SENTINEL.fullmatch(match.default))
+        ):
             detail = f"{one.default} -> {match.default or 'required'}"
             yield ApiChange("default_changed", path, param=one.name, detail=detail)
     # What a caller passed through `*args` still arrives, so only a keyword-only name breaks it.

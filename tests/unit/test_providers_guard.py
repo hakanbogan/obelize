@@ -779,6 +779,7 @@ def test_a_dunder_or_an_unadmitted_builtin_is_refused(replacement: str, tmp_path
         pytest.param("    model = generation_config = None", id="a-keyword-the-lines-named"),
         pytest.param("    model = (lambda seed: seed)(None)", id="a-parameter-it-declares"),
         pytest.param("    model = dict(seed=7)", id="a-keyword-argument-is-not-a-name-it-reaches"),
+        pytest.param("    @classmethod\n    def model(cls): ...", id="a-decorator-builtin"),
     ],
 )
 def test_names_the_question_licenses_are_accepted(replacement: str, tmp_path: Path) -> None:

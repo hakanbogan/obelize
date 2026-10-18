@@ -942,6 +942,11 @@ def _limitations_section(
     return lines
 
 
+def why_blocked(blocked: Blocked) -> str:
+    """The sentence for a terminal: why a pack plans nothing, and what to change."""
+    return _blocked(blocked, str)
+
+
 def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
     """Why a pack plans nothing, what to change, and that in git the change is committed first.
 
@@ -1133,5 +1138,6 @@ __all__ = [
     "superseded",
     "terminal",
     "verified",
+    "why_blocked",
     "withheld_rows",
 ]

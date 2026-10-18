@@ -1399,7 +1399,7 @@ def _trial(
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
     from obelize.config import ConfigError
-    from obelize.evidence import run_dir
+    from obelize.evidence import report, run_dir
     from obelize.models import ModelConfig
     from obelize.packs import loader
     from obelize.packtools import synth
@@ -1425,8 +1425,10 @@ def _trial(
         _resolver(loaded, agent, agent_model, max_asks, hints) if agent else (None, None)
     )
 
-    # Dependency lines the last run of the rules could not write, as `path:line`.
+    # Dependency lines the last run of the rules could not write, as `path:line`, and why the
+    # last run planned nothing, if a declaration stopped it.
     held: list[str] = []
+    stopped: list[str] = []
 
     def migrate(tree: Path, elsewhere: Collection[str]) -> list[str]:
         config, source = _settings(tree, _overrides(None, None, True))
@@ -1448,6 +1450,7 @@ def _trial(
                 elsewhere=tuple(sorted(elsewhere)),
             )
         )
+        stopped[:] = [report.why_blocked(one) for one in outcome.blocked]
         held[:] = [
             f"{row.path}:{row.line}"
             for row in outcome.manifest_plan.findings
@@ -1480,11 +1483,15 @@ def _trial(
         raise typer.Exit(6) from error
     verdict = done.verdict
     shown = _under(str(root), f".obelize/trials/{named}")
+    counts = (
+        f"; {verdict.compared} test(s) passed before, {len(verdict.broken)} broke, "
+        f"{len(verdict.flaky)} failed once and passed again"
+        if verdict.compared
+        else ""
+    )
     typer.echo(
         f"Trial of {distribution} {now} to {chosen.install}: {verdict.status}"
-        f"{f' ({verdict.reason})' if verdict.reason else ''}; {verdict.compared} test(s) passed "
-        f"before, {len(verdict.broken)} broke, {len(verdict.flaky)} failed once and passed again. "
-        f"Evidence: {shown}",
+        f"{f' ({verdict.reason})' if verdict.reason else ''}{counts}. Evidence: {shown}",
         err=True,
     )
     for name in verdict.broken[:10]:
@@ -1493,6 +1500,8 @@ def _trial(
         raise typer.Exit(3)
     if verdict.status != "pass":
         typer.echo(_UNJUDGED[verdict.reason or "no_junit"], err=True)
+        for text in stopped:
+            typer.echo(text, err=True)
         raise typer.Exit(6)
     if branch is not None:
         _commit_branch(

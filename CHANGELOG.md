@@ -91,6 +91,11 @@ in the release that makes it.
   writes either, so a run folder that names one was forged.
 - A scan that finds no pack to apply names the libraries the repository imports most and the
   command that lists one.
+- A pack made by `pack synth` no longer flags a function because one of its parameters is
+  deprecated, or because a parameter's default became a sentinel such as `_Unset`: the library
+  decides the value elsewhere, which a name cannot show. A trial that could not compare any test
+  prints no counts, and names the dependency declaration that stopped the rules.
+- The guard lets a replacement name `classmethod`, `staticmethod`, `property`, `super` and `object`.
 
 ## [0.6.1] - 2026-10-18
 

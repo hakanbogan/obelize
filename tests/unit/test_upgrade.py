@@ -597,3 +597,15 @@ def test_a_dependency_line_with_extras_is_left_and_the_commit_says_so(trial: Pat
     shown = git(root, "show", "--stat", "--format=", name).stdout.decode()
     assert "pdf.py" in shown
     assert "requirements.txt" not in shown
+
+
+def test_a_declaration_that_stops_the_rules_is_said_when_the_trial_cannot_judge(
+    trial: Path,
+) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit<2\n")
+    result = tried(root, "--yes", "--from", "1.0")
+    assert result.exit_code == 6, result.output
+    assert "requirements.txt declares acme-kit <2" in result.output
+    assert "allows versions this migration does not cover" in result.output
+    assert "test(s) passed before" not in result.output
+    assert (root / "app.py").read_text() == HELLO

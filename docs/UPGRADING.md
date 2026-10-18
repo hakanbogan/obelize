@@ -108,10 +108,10 @@ If tests that passed before the move fail after it, the agent is put those too, 
 and the line of your code the traceback points at, for up to `--max-rounds` rounds. It never edits
 a test.
 
-## Two runs on real repositories
+## Runs on real repositories
 
-Both ran on a public repository, `academic-mcp` at the commit the benchmark pins, and neither changed
-the clone's working tree.
+The first two ran on a public repository, `academic-mcp` at the commit the benchmark pins, and none
+changed a clone's working tree.
 
 - `upgrade PyPDF2 --apply --yes --branch`: the bundled pack changed the import in 19 files and the
   dependency line to `pypdf`. The 60 tests that passed before the move all passed after it, and a commit was made.
@@ -121,5 +121,14 @@ the clone's working tree.
   passed after, and the commit held the one file the agent edited. The dependency line, `mcp[cli]>=1.28.1`,
   carries an extra, so it was left, and the summary and the commit message said so.
 
-What they show is that the steps join up, on two repositories. They do not show how often a move
+A third did not pass. `upgrade pydantic --from 1.10.26 --to 2.14.1 --agent claude_code` on a small
+scraper first flagged 55 places, most of them every `Field(...)` call, because the new release
+deprecates one of its parameters and gave `repr` a private default. Both are now left out of the
+pack, which flags 22, all `@validator`. The agent was asked about each and moved none: one reply
+imported the new name through `__import__`, which the guard refuses, and the rest proposed nothing.
+The library has one release for both APIs, so the pack writes nothing while a place is left, and the
+trial ended `inconclusive`. Moving `@validator` to `@field_validator` also needs the import and every
+decorator changed together, which a place-by-place agent does not do.
+
+What they show is that the steps join up, on three repositories. They do not show how often a move
 passes: for that, the benchmark is the evidence.

@@ -56,8 +56,9 @@ ADMITTED_BUILTINS = frozenset(
     {
         "Exception", "False", "KeyError", "None", "RuntimeError", "True", "TypeError",
         "ValueError", "all", "any", "bool", "bytes", "dict", "enumerate", "float",
-        "frozenset", "int", "isinstance", "len", "list", "max", "min", "range", "repr",
-        "set", "sorted", "str", "sum", "tuple", "zip",
+        "classmethod", "frozenset", "int", "isinstance", "len", "list", "max", "min", "object",
+        "property", "range", "repr", "set", "sorted", "staticmethod", "str", "sum", "super",
+        "tuple", "zip",
     }
 )  # fmt: skip
 

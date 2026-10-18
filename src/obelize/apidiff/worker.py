@@ -198,7 +198,13 @@ class _Walker:
         if located is None:  # pragma: no cover - griffe gives what it parsed a file and lines
             return None
         path, first, last = located
-        inside = [text for line, text in self._facts(path).calls if first <= line <= last]
+        # A message about one parameter (`min_items` is deprecated) is not the function's own.
+        named = [f"`{one.name}`" for one in getattr(member, "parameters", ())]
+        inside = [
+            text
+            for line, text in self._facts(path).calls
+            if first <= line <= last and not any(name in text for name in named)
+        ]
         return inside[0] if inside else None
 
     def _trivial(self, member: Any) -> bool:
