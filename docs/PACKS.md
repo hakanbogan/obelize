@@ -63,6 +63,12 @@ and `MCPServer` share `mcp`) and, for a method, by place. They are guesses, show
 the agent of [UPGRADING.md](UPGRADING.md) with the library's own words, and never written to your
 code by a rule.
 
+A pack names at most what fits in a pack file, a little under 1 MiB. For a library that changed
+more than that (pandas between 1.5 and 2.2, for one) `pack synth` stops and says so, and
+`--used-by <folder>` makes the pack for the names that folder's code reaches through its imports;
+`obelize upgrade` does the same for the repository it is run on. Such a pack is a different pack,
+so its id ends with a digest of those names, and it is not reused for another repository.
+
 What two surfaces cannot show is what a function does. A pack made this way says so in its
 limitations, cites the file of the newer release with its hash, and is never bundled: the
 tests of your repository are what show whether a migration holds. A library that builds its exports

@@ -15,7 +15,7 @@ from packaging.utils import canonicalize_name
 
 from obelize import libdiff
 from obelize.packs import loader
-from obelize.packtools import synth
+from obelize.packtools import synth, uses
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -49,9 +49,11 @@ def choose(
     module: str | None,
     known: Sequence[loader.LoadedPack],
     kept: Path,
+    root: Path | None = None,
 ) -> Chosen:
     """A known pack that migrates `project` from `now` (and to `target`, if the person named one),
-    else the pack made from the two releases, which is kept in `kept`."""
+    else the pack made from the two releases, which is kept in `kept`. A library that changed too
+    much to flag name by name gets a pack for the names the code under `root` uses."""
     for loaded in known:
         pack = loaded.pack
         if (
@@ -69,18 +71,45 @@ def choose(
             "Using the pack made from these two releases before.",
             f"{project.name}=={target}",
         )
+    big = folder.with_name(f"{folder.name}.too-large")
+    if root is not None and big.is_file():
+        used = uses.names(root, big.read_text(encoding="utf-8").strip())
+        if used is not None:
+            again = kept / synth.pack_id(project.name, now, target, used) / loader.PACK_FILENAME
+            if again.is_file():
+                return Chosen(
+                    str(again),
+                    "Using the pack made for the names this repository uses before.",
+                    f"{project.name}=={target}",
+                )
     compared = libdiff.compare(fetcher, project, now, target, module=module)
-    made = synth.make(
-        kept,
-        synth.request(project.name, now, target, compared),
-        compared.old_surface,
-        compared.changes,
-        compared.new_surface,
-    )
+    scope: frozenset[str] | None = None
+    scoped = ""
+    while True:
+        wanted = synth.request(project.name, now, target, compared, scope)
+        try:
+            made = synth.make(
+                kept, wanted, compared.old_surface, compared.changes, compared.new_surface
+            )
+        except synth.SynthTooLargeError as error:
+            big.parent.mkdir(parents=True, exist_ok=True)
+            big.write_text(compared.module + "\n", encoding="utf-8")
+            used = uses.names(root, compared.module) if root is not None and scope is None else None
+            if used is None:
+                raise
+            if not used:
+                raise synth.SynthError(
+                    f"{error} No import this repository makes reaches any of them, so there is "
+                    f"nothing to flag."
+                ) from error
+            scope, scoped = used, f" {error} It flags the {len(used)} name(s) this repository uses."
+            continue
+        break
     names = sum(made.covered.values()) - made.covered.get("dependency-line", 0)
     return Chosen(
         str(made.folder / loader.PACK_FILENAME),
-        f"Made a pack from the public API of {project.name} {now} and {target}: {names} name(s).",
+        f"Made a pack from the public API of {project.name} {now} and {target}: {names} name(s)."
+        f"{scoped}",
         f"{project.name}=={target}",
     )
 

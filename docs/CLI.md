@@ -24,7 +24,7 @@ obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
             [--module <module>] [--to-module <module>] [--requires-python <range>] [--dir <path>]
 obelize pack synth    <distribution> --from <version> [--to <version>] [--module <module>]
-            [--dir <path>] [--offline]
+            [--used-by <path>] [--dir <path>] [--offline]
 ```
 
 `python -m obelize` runs the same commands where the `obelize` script is not
@@ -620,6 +620,7 @@ comparison and its `.after` files from the rules, as `pack new` does, and the pa
 | `--from <version>` | Required. The release the code is written for. |
 | `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release. |
 | `--module <module>` | The module to compare, when the library has more than one. Default: the one both releases have, or the one named like the library. |
+| `--used-by <path>` | Flag only the names the Python code in this folder reaches through its imports, for a library that changed more names than a pack can hold (pandas, for one): the command says so and exits `2` without it. A star import of the library leaves no telling which names are used, and is refused. The pack's id ends with a digest of the names. |
 | `--dir <path>` | Where to make the pack's folder, `<provider>/<from>-to-<to>`. Default: the current directory. |
 | `--offline` | Reach no host: read only what an earlier run kept in the cache. |
 

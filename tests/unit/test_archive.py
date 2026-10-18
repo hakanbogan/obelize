@@ -190,6 +190,18 @@ def test_a_file_over_the_limit_is_refused_before_it_is_read(
         unpack(sdist({"a-1/a.py": b"x" * 11}), "a-1.tar.gz", tmp_path / "o2")
 
 
+def test_a_file_that_is_never_read_may_be_as_large_as_a_compiled_library(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(archive, "FILE_BYTES", 10)
+    done = unpack(
+        wheel({"acme/a.py": b"x", "acme/.dylibs/libc.dylib": b"x" * 50}),
+        "a-1-py3-none-any.whl",
+        tmp_path / "o",
+    )
+    assert (done.files, done.left) == (1, 1)
+
+
 def test_an_archive_that_unpacks_past_its_total_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

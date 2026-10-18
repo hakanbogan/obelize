@@ -1208,6 +1208,7 @@ def upgrade(
             module=module,
             known=_known_packs(),
             kept=net.Cache.home(os.environ).directory / "packs" / __version__,
+            root=root,
         )
     except (ConfigError, libdiff.LibraryError, synth.SynthError) as error:
         typer.echo(str(error), err=True)
@@ -1545,6 +1546,13 @@ def pack_synth(
         help="Where to make the pack's folder, <provider>/<name>. Defaults to the current "
         "directory.",
     ),
+    used_by: str | None = typer.Option(
+        None,
+        "--used-by",
+        metavar="<path>",
+        help="Flag only the names the code in this folder reaches through its imports, for a "
+        "library that changed too much to flag name by name.",
+    ),
     offline: bool = typer.Option(
         False,
         "--offline",
@@ -1559,12 +1567,13 @@ def pack_synth(
     library's own deprecation messages where it gave any. Every host is printed
     before it is contacted. Exit codes: 0 made, 2 the request is wrong or the
     folder exists, 6 the releases could not be fetched or read, 1 a pack obelize
-    made fails its own checks.
+    made fails its own checks. A library that changed more than a pack can name gets
+    exit 2; --used-by then makes the pack for the names your code reaches.
     """
     from obelize import index, libdiff
     from obelize.config import ConfigError
     from obelize.net import NetworkError
-    from obelize.packtools import synth
+    from obelize.packtools import synth, uses
 
     try:
         fetcher = _fetcher(offline)
@@ -1572,7 +1581,15 @@ def pack_synth(
         before = libdiff.version(old)
         after = libdiff.version(new) if new else libdiff.newest(project)
         compared = libdiff.compare(fetcher, project, before, after, module=module)
-        asked = synth.request(project.name, before, after, compared)
+        scope = uses.names(Path(used_by), compared.module) if used_by else None
+        if used_by and scope is None:
+            typer.echo(
+                f"{used_by} imports every name of {compared.module} with a star import, so there "
+                f"is no telling which it uses.",
+                err=True,
+            )
+            raise typer.Exit(2)
+        asked = synth.request(project.name, before, after, compared, scope)
         made = synth.make(
             Path(directory), asked, compared.old_surface, compared.changes, compared.new_surface
         )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -426,6 +427,32 @@ def test_a_rename_that_lands_on_a_name_the_pack_flags_is_flagged_instead() -> No
     assert "acme_kit.loud" in made.flags["old_greet"].message
 
 
+def test_old_names_that_become_one_are_flagged_instead_of_all_renamed() -> None:
+    made = plan(
+        ApiChange("renamed", "old_greet", "greet", same_signature=True),
+        ApiChange("renamed", "loud", "greet", same_signature=True),
+        ApiChange("renamed", "gone", "found", same_signature=True),
+        ApiChange("moved", "sub.Thing", "Thing", same_signature=True),
+        ApiChange("moved", "sub.helper", "Thing", same_signature=True),
+    )
+    assert made.with_calls == {"gone": "found"}
+    assert made.exports == {}
+    assert sorted(made.flags) == ["loud", "old_greet", "sub.Thing", "sub.helper"]
+    assert made.flags["loud"].category == "moved"
+    assert "acme_kit.greet" in made.flags["old_greet"].message
+
+
+def test_a_fixture_uses_a_sample_of_the_names_of_a_large_library() -> None:
+    many = old_surface(**{f"f{n:03}": fn(req("x")) for n in range(synth.FIXTURE_NAMES + 40)})
+    made = plan(
+        *(ApiChange("removed", f"f{n:03}") for n in range(synth.FIXTURE_NAMES + 40)), old=many
+    )
+    assert len(made.flags) == synth.FIXTURE_NAMES + 40
+    text = made.fixtures()["fixtures/positive/flagged.before.py"]
+    assert text.count("acme_kit.f") == synth.FIXTURE_NAMES
+    assert len(made.symbols) == synth.FIXTURE_NAMES + 40
+
+
 def test_a_flag_under_a_flagged_class_is_left_out_and_said_so() -> None:
     made = plan(
         ApiChange("param_removed", "Client", param="key"),
@@ -723,3 +750,56 @@ def test_hints_are_read_only_as_names_with_text(tmp_path: Path, text: str | None
     expected = {"b": "kept"} if text and "kept" in text else {}
     assert synth.hints_for(str(tmp_path / "pack.yaml")) == expected
     assert synth.hints_for("py-pdf/pypdf2-to-pypdf") == {}
+
+
+def test_a_pack_for_the_names_a_repository_uses_holds_those_and_what_they_sit_on() -> None:
+    scoped = replace(REQUEST, scope=frozenset({"old_greet", "Client"}))
+    made = plan(
+        ApiChange("renamed", "old_greet", "greet", same_signature=True),
+        ApiChange("renamed", "loud", "shout", same_signature=True),
+        ApiChange("removed", "Client.ping"),
+        ApiChange("removed", "gone"),
+        request=scoped,
+    )
+    assert made.with_calls == {"old_greet": "greet"}
+    assert sorted(made.flags) == ["Client.ping"]
+    above = plan(
+        ApiChange("removed", "Client"), request=replace(REQUEST, scope=frozenset({"Client.ping"}))
+    )
+    assert sorted(above.flags) == ["Client"]
+    assert (
+        plan(ApiChange("removed", "gone"), request=replace(REQUEST, scope=frozenset())).flags == {}
+    )
+
+
+def test_a_pack_for_a_scope_has_an_id_that_says_so_and_one_scope_has_one_id() -> None:
+    whole = synth.pack_id("acme-kit", Version("1.0"), Version("2.0"))
+    one = synth.pack_id("acme-kit", Version("1.0"), Version("2.0"), frozenset({"a", "b"}))
+    same = synth.pack_id("acme-kit", Version("1.0"), Version("2.0"), frozenset({"b", "a"}))
+    other = synth.pack_id("acme-kit", Version("1.0"), Version("2.0"), frozenset({"a"}))
+    assert one == same != other
+    assert one.startswith(f"{whole}-for-")
+    assert len(one) == len(whole) + len("-for-") + 8
+
+
+def test_a_pack_larger_than_a_pack_may_be_is_refused_before_anything_is_written(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(synth, "PACK_BYTES", 10)
+    result = _synth(home)
+    assert result.exit_code == 2  # type: ignore[attr-defined]
+    assert "more than a pack holds" in result.output  # type: ignore[attr-defined]
+    assert not any(home.rglob("pack.yaml"))
+
+
+def test_a_pack_for_the_names_a_folder_uses_is_made_and_a_star_import_is_refused(
+    home: Path,
+) -> None:
+    used = committed(home / "used", {"app.py": "import acme_kit\nacme_kit.old_greet('x')\n"})
+    made = _synth(home, "--used-by", str(used))
+    assert made.exit_code == 0, made.output  # type: ignore[attr-defined]
+    assert "-for-" in made.output  # type: ignore[attr-defined]
+    star = committed(home / "star", {"app.py": "from acme_kit import *\n"})
+    refused = _synth(home, "--used-by", str(star))
+    assert refused.exit_code == 2  # type: ignore[attr-defined]
+    assert "star import" in refused.output  # type: ignore[attr-defined]

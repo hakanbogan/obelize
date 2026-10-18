@@ -76,6 +76,13 @@ def diff(old: Surface, new: Surface, *, before: Sequence[Surface] = ()) -> tuple
     olds, news = old.relative(), new.relative()
     warned = [one.relative() for one in before]
     appeared = {path: one for path, one in news.items() if path not in olds}
+    # What `_departed` looks a name up by, so a large library is not walked once per removed name.
+    leaves: dict[str, list[tuple[str, Obj]]] = {}
+    for path, one in appeared.items():
+        leaves.setdefault(path.rpartition(".")[2], []).append((path, one))
+    members: dict[str, list[tuple[str, Obj]]] = {}
+    for path, one in news.items():
+        members.setdefault(_parent(path), []).append((path, one))
     # A name the old release already re-exported from the place that is now gone is the same object.
     reexported = {one.target: path for path, one in olds.items() if one.target and path in news}
     found: list[ApiChange] = []
@@ -93,7 +100,12 @@ def diff(old: Surface, new: Surface, *, before: Sequence[Surface] = ()) -> tuple
                 continue
             found.append(
                 _departed(
-                    path, one, news, appeared, message, reexported.get(f"{old.module}.{path}")
+                    path,
+                    one,
+                    news,
+                    (leaves, members),
+                    message,
+                    reexported.get(f"{old.module}.{path}"),
                 )
             )
         else:
@@ -142,30 +154,31 @@ def _ancestors(path: str) -> list[str]:
 
 
 def _beneath(path: str, parents: set[str]) -> bool:
-    return any(path.startswith(f"{parent}.") for parent in parents)
+    """Whether a name above `path` is in `parents`."""
+    while path := _parent(path):
+        if path in parents:
+            return True
+    return False
 
 
 def _departed(
     path: str,
     one: Obj,
     news: dict[str, Obj],
-    appeared: dict[str, Obj],
+    indexed: tuple[dict[str, list[tuple[str, Obj]]], dict[str, list[tuple[str, Obj]]]],
     message: str | None,
     reexported: str | None,
 ) -> ApiChange:
+    leaves, members = indexed
     name = path.rpartition(".")[2]
-    same = [
-        (new_path, new)
-        for new_path, new in appeared.items()
-        if new_path.rpartition(".")[2] == name and new.kind == one.kind
-    ]
+    same = [(new_path, new) for new_path, new in leaves.get(name, ()) if new.kind == one.kind]
     if reexported is not None and reexported in news:
         same.append((reexported, news[reexported]))
     if len(same) > 1:
         return ApiChange("removed", path, message=message, detail=f"{len(same)} candidates")
     if same and not one.trivial and _alike(one, same[0][1]):
         return ApiChange("moved", path, new_path=same[0][0], message=message, same_signature=True)
-    named = _named(path, one, news, message)
+    named = _named(path, one, members, message)
     if named is not None:
         return ApiChange(
             "renamed",
@@ -178,19 +191,16 @@ def _departed(
 
 
 def _named(
-    path: str, one: Obj, news: dict[str, Obj], message: str | None
+    path: str, one: Obj, members: dict[str, list[tuple[str, Obj]]], message: str | None
 ) -> tuple[str, Obj] | None:
     """The one name beside `path`, of its kind, that the library's message says to use."""
     if message is None or not _REPLACEMENT.search(message):
         return None
-    parent, words = path.rpartition(".")[0], set(_IDENTIFIER.findall(message))
+    words = set(_IDENTIFIER.findall(message))
     found = [
         (new_path, new)
-        for new_path, new in news.items()
-        if new_path != path
-        and new_path.rpartition(".")[0] == parent
-        and new_path.rpartition(".")[2] in words
-        and new.kind == one.kind
+        for new_path, new in members.get(_parent(path), ())
+        if new_path != path and new_path.rpartition(".")[2] in words and new.kind == one.kind
     ]
     return found[0] if len(found) == 1 else None
 
@@ -264,45 +274,60 @@ def _renamed(old: Param, new: Param, index: int, params: tuple[Param, ...]) -> b
     )
 
 
-def successors(old: Surface, new: Surface, path: str) -> list[tuple[str, str]]:
-    """The names only `new` has that the removed `path` may have become: the path and kind of each,
+class Successors:
+    """What removed names may have become, for any number of them: both releases are read once.
+
+    The names only `new` has that the removed `path` may have become: the path and kind of each,
     closest first. Words in the names and place decide, so it is a guess to put in front of a
     reader, never a name to rewrite to. A module stands for the names in it; a method is offered
-    other methods, and any other name the names that are not."""
-    olds, news = old.relative(), new.relative()
-    below = olds.get(path) is not None and olds[path].kind == "module"
-    gone = [
-        one
-        for one in olds
-        if (one == path or (below and _parent(one) == path)) and olds[one].kind in _NAMED
-    ][:_MEMBERS]
-    member = _in_class(olds, path)
-    appeared = [
-        one
-        for one, found in news.items()
-        if one not in olds and found.kind in _NAMED and _in_class(news, one) == member
-    ]
-    best: dict[str, float] = {}
-    for former in gone:
-        words = _words(former.rpartition(".")[2])
-        for found in appeared:
-            leaf = found.rpartition(".")[2]
-            theirs = _words(leaf)
-            alike = len(words & theirs) / max(1, min(len(words), len(theirs)))
-            if not alike:
-                matcher = SequenceMatcher(None, former.rpartition(".")[2].lower(), leaf.lower())
-                if matcher.real_quick_ratio() >= _SPELT and matcher.quick_ratio() >= _SPELT:
-                    alike = matcher.ratio() if matcher.ratio() >= _SPELT else 0.0
-            # A method is offered the other methods of the class, whatever they are called.
-            same = member and _parent(found) == _parent(former)
-            if not alike and not same:
-                continue
-            shared = sum(
-                1 for a, b in zip(found.split("."), former.split("."), strict=False) if a == b
-            )
-            best[found] = max(best.get(found, 0.0), alike + shared / 10 + (0.5 if same else 0.0))
-    ranked = sorted(best, key=lambda one: (-best[one], one))[:SUCCESSORS]
-    return [(one, news[one].kind) for one in ranked]
+    other methods, and any other name the names that are not.
+    """
+
+    def __init__(self, old: Surface, new: Surface) -> None:
+        self._olds, self._news = old.relative(), new.relative()
+        # The new names, by whether each is a member of a class: (path, lower-case leaf, words).
+        self._appeared: dict[bool, list[tuple[str, str, frozenset[str]]]] = {False: [], True: []}
+        for one, found in self._news.items():
+            if one not in self._olds and found.kind in _NAMED:
+                leaf = one.rpartition(".")[2]
+                self._appeared[_in_class(self._news, one)].append((one, leaf.lower(), _words(leaf)))
+
+    def of(self, path: str) -> list[tuple[str, str]]:
+        olds = self._olds
+        below = olds.get(path) is not None and olds[path].kind == "module"
+        gone = [
+            one
+            for one in olds
+            if (one == path or (below and _parent(one) == path)) and olds[one].kind in _NAMED
+        ][:_MEMBERS]
+        member = _in_class(olds, path)
+        best: dict[str, float] = {}
+        for former in gone:
+            name = former.rpartition(".")[2]
+            words = _words(name)
+            for found, leaf, theirs in self._appeared[member]:
+                alike = len(words & theirs) / max(1, min(len(words), len(theirs)))
+                if not alike:
+                    matcher = SequenceMatcher(None, name.lower(), leaf)
+                    if matcher.real_quick_ratio() >= _SPELT and matcher.quick_ratio() >= _SPELT:
+                        alike = matcher.ratio() if matcher.ratio() >= _SPELT else 0.0
+                # A method is offered the other methods of the class, whatever they are called.
+                same = member and _parent(found) == _parent(former)
+                if not alike and not same:
+                    continue
+                shared = sum(
+                    1 for a, b in zip(found.split("."), former.split("."), strict=False) if a == b
+                )
+                best[found] = max(
+                    best.get(found, 0.0), alike + shared / 10 + (0.5 if same else 0.0)
+                )
+        ranked = sorted(best, key=lambda one: (-best[one], one))[:SUCCESSORS]
+        return [(one, self._news[one].kind) for one in ranked]
+
+
+def successors(old: Surface, new: Surface, path: str) -> list[tuple[str, str]]:
+    """What the removed `path` may have become (see `Successors`)."""
+    return Successors(old, new).of(path)
 
 
 def _words(name: str) -> frozenset[str]:
@@ -310,4 +335,4 @@ def _words(name: str) -> frozenset[str]:
     return frozenset(one.lower() for one in _WORD.findall(name))
 
 
-__all__ = ["SUCCESSORS", "ApiChange", "ChangeType", "diff", "successors"]
+__all__ = ["SUCCESSORS", "ApiChange", "ChangeType", "Successors", "diff", "successors"]

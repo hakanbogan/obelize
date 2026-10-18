@@ -24,6 +24,8 @@ MAX_OBJECTS: Final = 200_000
 MAX_DEPTH: Final = 8
 VALUE_CHARS: Final = 80
 _DEPRECATED_CATEGORIES: Final = ("Deprecat", "FutureWarning")
+# Modules of a library that only test it.
+_TESTS: Final = frozenset({"conftest", "test", "tests"})
 _DYNAMIC: Final = frozenset({"__getattr__", "__dir__"})
 
 
@@ -97,7 +99,8 @@ class _Walker:
             if member.is_alias:
                 self._alias(module, name, member, exported, depth)
             elif member.is_module:
-                if depth < MAX_DEPTH:
+                # A library's own tests ship with it and are no one's API.
+                if depth < MAX_DEPTH and name not in _TESTS:
                     self.visit(member, depth + 1)
             elif member.is_class:
                 self._class(member, depth)

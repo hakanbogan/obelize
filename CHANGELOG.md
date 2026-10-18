@@ -96,6 +96,14 @@ in the release that makes it.
   decides the value elsewhere, which a name cannot show. A trial that could not compare any test
   prints no counts, and names the dependency declaration that stopped the rules.
 - The guard lets a replacement name `classmethod`, `staticmethod`, `property`, `super` and `object`.
+- `pack synth --used-by <path>` makes the pack for the names the code in a folder reaches through
+  its imports, and `upgrade` does so by itself for a library that changed more names than a pack
+  file holds (pandas, for one), and keeps the pack for that repository. A star import of the
+  library is refused, since it leaves no telling which names are used.
+- `pack synth` no longer writes an invalid pack when two old names become one new name: they are
+  flagged. A wheel's compiled library no longer stops the archive from being read (numpy), a
+  fixture names at most 60 of a large library's names, and the scan looks a name's prefixes up
+  instead of walking every name of the pack.
 - A model's or agent's proposal may carry `imports`, up to four plain `import` or `from ... import`
   statements of the pack's target modules. The guard adds them at module level, to the file's own
   `from m import ...` line when it has one, and refuses one that is not an import of a target or

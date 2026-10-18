@@ -268,6 +268,9 @@ class _Pass:
         self._target = re.compile(f"{scope}(?P<path>(?:{modules}){_TAIL})")
         self._produced: dict[int, str] = {}
         self._receivers: list[Receiver] = []
+        self._modules = frozenset(spec.legacy_modules)
+        self._symbols = frozenset(spec.symbols)
+        self._flagged = frozenset(spec.flag_only_symbols)
 
     def run(self) -> Analysis:
         self._imports()
@@ -307,11 +310,17 @@ class _Pass:
         )
 
     @staticmethod
-    def _under(name: str, roots: Iterable[str]) -> bool:
-        return any(name == root or name.startswith(root + ".") for root in roots)
+    def _under(name: str, roots: frozenset[str]) -> bool:
+        """Whether `name` is one of `roots` or lies below one: its prefixes are looked up, not the
+        roots walked, since a pack made from a large library has thousands."""
+        while name:
+            if name in roots:
+                return True
+            name = name.rpartition(".")[0]
+        return False
 
     def _in_module(self, name: str) -> bool:
-        return self._under(name, self._spec.legacy_modules)
+        return self._under(name, self._modules)
 
     def _bare(self, name: str) -> bool:
         return self._spec.shared and name in self._spec.legacy_modules
@@ -323,9 +332,7 @@ class _Pass:
 
     def _under_legacy(self, name: str) -> bool:
         """A shared module is legacy only under `symbols`: the rest is what the new SDK keeps."""
-        return self._under(
-            name, self._spec.symbols if self._spec.shared else self._spec.legacy_modules
-        )
+        return self._under(name, self._symbols if self._spec.shared else self._modules)
 
     def _line(self, node: cst.CSTNode) -> tuple[int, int]:
         start = self._pos[node].start
@@ -371,10 +378,7 @@ class _Pass:
             return "needs_review", "no_pack_for_usage"
         if kind != "import" and symbol in self._spec.removed_attributes:
             return "unsupported", "attribute_removed"
-        if any(
-            symbol == flagged or symbol.startswith(flagged + ".")
-            for flagged in self._spec.flag_only_symbols
-        ):
+        if self._under(symbol, self._flagged):
             return "needs_review", "flag_only_surface"
         return "eligible", None
 

@@ -135,10 +135,6 @@ def _write(members: Iterator[_Entry], into: Path, *, strip: bool) -> Unpacked:
         name = _checked(entry.name, strip=strip)
         if name is None or entry.directory:
             continue
-        if entry.size > FILE_BYTES:
-            raise ArchiveError(f"{entry.name} holds more than {FILE_BYTES} bytes")
-        if entry.size // entry.packed > RATIO and entry.size > (1 << 20):
-            raise ArchiveError(f"{entry.name} unpacks to far more than it holds: an archive bomb")
         folded = name.casefold()
         if folded in seen:
             raise ArchiveError(
@@ -149,8 +145,13 @@ def _write(members: Iterator[_Entry], into: Path, *, strip: bool) -> Unpacked:
         if files > FILE_COUNT:
             raise ArchiveError(f"the archive holds more than {FILE_COUNT} files")
         if not _wanted(name):
+            # Never read, so its size is no danger: a wheel carries compiled libraries.
             left += 1
             continue
+        if entry.size > FILE_BYTES:
+            raise ArchiveError(f"{entry.name} holds more than {FILE_BYTES} bytes")
+        if entry.size // entry.packed > RATIO and entry.size > (1 << 20):
+            raise ArchiveError(f"{entry.name} unpacks to far more than it holds: an archive bomb")
         # Bounded by the declared size, which was checked above: neither format reads past it.
         content = entry.read()
         size += len(content)

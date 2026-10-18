@@ -87,6 +87,11 @@ workflow do it.
   command counts the names it could not judge instead of calling them removed.
 - It installs only from the index uv is configured for, and only in a trial.
 
+A library can change more names than a pack file can hold. Then `upgrade` makes the pack for the
+names your code reaches through its imports and says so (`... changed <n> names, more than a pack
+holds. It flags the <m> name(s) this repository uses.`). The names come from the `import` statements and the attribute chains that start at what they bind; a name
+reached any other way, through an object's attribute for one, is not among them.
+
 ## When places are left for a person
 
 Most real moves leave places that a pack made from two releases can only flag, and a library that

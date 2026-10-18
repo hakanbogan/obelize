@@ -98,6 +98,65 @@ def test_the_pack_made_is_kept_and_a_second_run_asks_the_index_for_no_release(
     assert served.asked == []
 
 
+def repo2(home: Path, name: str, code: str) -> Path:
+    return committed(home / name, {"app.py": code, "requirements.txt": "acme-kit==1.0\n"})
+
+
+def too_large_unless_scoped(monkeypatch: pytest.MonkeyPatch) -> list[synth.Request]:
+    """`synth.make` as it is, except that a pack for every change is more than a pack holds."""
+    real = synth.make
+    whole: list[synth.Request] = []
+
+    def make(directory: Path, request: synth.Request, *rest: object) -> object:
+        if request.scope is None:
+            whole.append(request)
+            raise synth.SynthTooLargeError("acme-kit changed 2 names, more than a pack holds.")
+        return real(directory, request, *rest)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(synth, "make", make)
+    return whole
+
+
+def test_a_library_that_changed_too_much_gets_a_pack_for_the_names_the_repository_uses(
+    home: Path, served: fakeindex.FakeIndex, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    whole = too_large_unless_scoped(monkeypatch)
+    root = repo(home, app__py=APP, requirements__txt="acme-kit==1.0\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert result.exit_code == 0, result.output
+    assert "more than a pack holds. It flags the 1 name(s) this repository uses." in result.output
+    assert "acme_kit.greet" in next(root.glob(".obelize/runs/*/patch.diff")).read_text()
+    assert len(whole) == 1
+    kept = home / "cache" / "obelize" / "packs"
+    assert list(kept.rglob("*.too-large"))
+    served.asked.clear()
+    again = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--offline"])
+    assert again.exit_code == 0, again.output
+    assert "Using the pack made for the names this repository uses before." in again.output
+    assert served.asked == []
+    assert len(whole) == 1
+    star = repo2(home, "star", "from acme_kit import *\n")
+    other = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(star)])
+    assert other.exit_code == 2
+    assert len(whole) == 2
+
+
+def test_a_library_too_large_to_flag_whole_needs_a_repository_that_can_be_read(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    too_large_unless_scoped(monkeypatch)
+    star = repo(home, app__py="from acme_kit import *\n", requirements__txt="acme-kit==1.0\n")
+    refused = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(star)])
+    assert refused.exit_code == 2
+    assert "more than a pack holds" in refused.output
+    plain = committed(
+        home / "plain", {"app.py": "import acme_kit\n", "requirements.txt": "acme-kit==1.0\n"}
+    )
+    nothing = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(plain)])
+    assert nothing.exit_code == 2
+    assert "nothing to flag" in nothing.output
+
+
 def test_a_distribution_a_bundled_pack_migrates_uses_it(home: Path) -> None:
     root = repo(home, pdf__py=PDF, requirements__txt="PyPDF2==3.0.1\n")
     result = runner.invoke(app, ["upgrade", "PyPDF2", "--repo", str(root)])

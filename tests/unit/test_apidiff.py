@@ -245,6 +245,22 @@ def test_a_message_about_one_parameter_is_not_the_functions_notice(tmp_path: Pat
     assert objects["params.g"]["deprecated"] == "g is deprecated, use `h` and not `min`"
 
 
+def test_the_modules_that_only_test_a_library_are_not_its_surface(tmp_path: Path) -> None:
+    root = lib(
+        tmp_path,
+        {
+            "__init__.py": "def test():\n    return 1\n",
+            "tests/__init__.py": "def check():\n    return 1\n",
+            "conftest.py": "SETTING = 1\n",
+            "sub/__init__.py": "def f():\n    return 1\n",
+            "sub/tests/__init__.py": "def g():\n    return 1\n",
+        },
+        "tested",
+    )
+    objects = worker.surface(root, "tested")["objects"]
+    assert sorted(objects) == ["tested", "tested.sub", "tested.sub.f", "tested.test"]
+
+
 def test_a_namespace_package_is_a_module_with_no_notice_of_its_own(tmp_path: Path) -> None:
     root = lib(tmp_path, {"sub.py": "def f(x):\n    return x\n"}, "spaced")
     objects = worker.surface(root, "spaced")["objects"]

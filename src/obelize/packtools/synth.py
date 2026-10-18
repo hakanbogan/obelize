@@ -12,6 +12,7 @@ tests of the repository decide it.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import re
 import shutil
@@ -24,7 +25,7 @@ import yaml
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
-from obelize.apidiff.diff import successors
+from obelize.apidiff.diff import Successors
 from obelize.models.fields import DISPLAY_TEXT_LIMIT, printable
 from obelize.packs import loader
 from obelize.packs.schema import under_any
@@ -44,6 +45,11 @@ MAX_GROUPS: Final = 60
 # Beside the pack: for a removed name, the new names it may have become, for a model to read.
 HINTS: Final = "hints.json"
 HINTS_LIMIT: Final = 1 << 20
+# The most names one fixture uses: a pack for a large library names thousands, and the fixtures
+# only have to show each kind of change working, which a sample does.
+FIXTURE_NAMES: Final = 60
+# The most a pack file may be, with room under the loader's limit for the answer keys.
+PACK_BYTES: Final = 900_000
 _QUOTE_CHARS: Final = 240
 _LISTED: Final = 20
 _GENERIC: Final = {
@@ -76,6 +82,11 @@ class SynthError(ValueError):
     """Why a pack could not be made, in words for the person who asked."""
 
 
+class SynthTooLargeError(SynthError):
+    """A pack that would name more than a pack may hold: the library changed too much to flag name
+    by name, and only the names a repository uses can be."""
+
+
 class SynthDefectError(SynthError):
     """A pack obelize made that its own checks refuse: a bug, not a request to change."""
 
@@ -92,10 +103,13 @@ class Request:
     url: str
     sha256: str
     retrieved: dt.date
+    # The paths below the module that a repository uses: only changes to these, to what is under
+    # them and to what they are under are in the pack. `None` is every change.
+    scope: frozenset[str] | None = None
 
     @property
     def pack_id(self) -> str:
-        return pack_id(self.distribution, self.old, self.new)
+        return pack_id(self.distribution, self.old, self.new, self.scope)
 
     @property
     def label(self) -> str:
@@ -126,9 +140,14 @@ class _Flag:
     params: bool = False
 
 
-def pack_id(distribution: str, old: Version, new: Version) -> str:
-    """`<distribution>/<old>-to-<new>`, in the characters a pack id may have."""
+def pack_id(
+    distribution: str, old: Version, new: Version, scope: frozenset[str] | None = None
+) -> str:
+    """`<distribution>/<old>-to-<new>`, in the characters a pack id may have; a pack for the names a
+    repository uses ends with a digest of them, so it is not mistaken for the whole."""
     slug = re.sub(r"[^a-z0-9]+", "-", f"{old}-to-{new}".lower()).strip("-")
+    if scope is not None:
+        slug += "-for-" + hashlib.sha256("\n".join(sorted(scope)).encode()).hexdigest()[:8]
     return f"{canonicalize_name(distribution)}/{slug}"
 
 
@@ -159,8 +178,14 @@ def make(
             f"{request.distribution} {request.old} and {request.new} export the same names with "
             f"the same signatures, so there is nothing to synthesize.{hidden}"
         )
+    files = plan.files()
+    if len(files["pack.yaml"].encode()) > PACK_BYTES:
+        raise SynthTooLargeError(
+            f"{request.distribution} {request.old} to {request.new} changed {len(plan.symbols)} "
+            f"names, more than a pack holds."
+        )
     try:
-        for name, text in plan.files().items():
+        for name, text in files.items():
             path = folder / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding="utf-8", newline="\n")
@@ -190,8 +215,9 @@ def make(
 def _hint(folder: Path, plan: _Plan, old: Surface, new: Surface) -> None:
     request = plan.request
     found: dict[str, str] = {}
+    later = Successors(old, new)
     for path, one in plan.flags.items():
-        names = successors(old, new, path) if one.category == "removed" and path else []
+        names = later.of(path) if one.category == "removed" and path else []
         if names:
             listed = ", ".join(f"{request.module}.{name} ({kind})" for name, kind in names)
             found[f"{request.module}.{path}"] = _text(
@@ -218,7 +244,13 @@ def hints_for(reference: str) -> dict[str, str]:
     }
 
 
-def request(distribution: str, old: Version, new: Version, compared: libdiff.Comparison) -> Request:
+def request(
+    distribution: str,
+    old: Version,
+    new: Version,
+    compared: libdiff.Comparison,
+    scope: frozenset[str] | None = None,
+) -> Request:
     """The request for two releases that were compared: the newer file is what the pack cites."""
     file = compared.new
     try:
@@ -236,6 +268,7 @@ def request(distribution: str, old: Version, new: Version, compared: libdiff.Com
         url=file.url if file.url.startswith("https://") else page,
         sha256=file.sha256,
         retrieved=dt.datetime.now(dt.UTC).date(),
+        scope=scope,
     )
 
 
@@ -271,6 +304,22 @@ def _quote(text: str) -> str:
 
 def _text(text: str) -> str:
     return text if len(text) <= DISPLAY_TEXT_LIMIT else text[: DISPLAY_TEXT_LIMIT - 1] + "…"
+
+
+def _in_scope(path: str, scope: frozenset[str] | None) -> bool:
+    """Whether a repository that uses `scope` meets `path`: one of them, under one, or above one."""
+    if scope is None:
+        return True
+    parts = path.split(".")
+    return any(".".join(parts[:end]) in scope for end in range(1, len(parts) + 1)) or any(
+        used.startswith(f"{path}.") for used in scope
+    )
+
+
+def _lands(module: str, path: str, landed: str, exported: bool) -> str:
+    """Where the pack's rename of `path` puts it, as the schema reads it."""
+    stem = f"{module}.{path}".rpartition(".")[0]
+    return f"{_parent(stem) if exported else stem}.{_leaf(landed)}"
 
 
 def _leaf(path: str) -> str:
@@ -338,21 +387,30 @@ def _outermost(flags: Mapping[str, _Flag]) -> tuple[dict[str, _Flag], tuple[str,
     parameters changed stands for its members; one flagged for anything else (its bases, its kind,
     a notice) gives way to the members flagged under it, whose words say more.
     """
+    # Every name with a flag somewhere below it: a prefix of a flagged path's parent.
+    holding = {prefix for path in flags for prefix in _prefixes(_parent(path))}
     yielding = {
         path
         for path, one in flags.items()
-        if one.category in ("signature", "deprecated")
-        and not one.params
-        and any(other.startswith(f"{path}.") for other in flags)
+        if one.category in ("signature", "deprecated") and not one.params and path in holding
     }
     kept: dict[str, _Flag] = {}
     dropped: list[str] = sorted(yielding)
     for path in sorted(set(flags) - yielding):
-        if any(path.startswith(f"{outer}.") for outer in kept):
+        if any(prefix in kept for prefix in _prefixes(_parent(path))):
             dropped.append(path)
         else:
             kept[path] = flags[path]
     return kept, tuple(dropped)
+
+
+def _prefixes(path: str) -> list[str]:
+    """`a.b.c`, `a.b`, `a`: the names a dotted path is at or below."""
+    out = []
+    while path:
+        out.append(path)
+        path = _parent(path)
+    return out
 
 
 def _args(obj: Obj) -> str:
@@ -405,7 +463,7 @@ class _Plan:
 
         for change in changes:
             path, target = change.path, change.new_path
-            if change.type == "unseen":
+            if change.type == "unseen" or not _in_scope(path, request.scope):
                 continue
             if change.type == "renamed" and target is not None and _at_module(path, olds):
                 (with_calls if change.same_signature else references)[path] = target
@@ -429,6 +487,18 @@ class _Plan:
         for table in (with_calls, references, exports):
             for path, landed in list(table.items()):
                 if under_any(f"{request.module}.{landed}", flagged):
+                    place = f"{request.module}.{landed}"
+                    message = f"Moved in {label}: it is now {place}."
+                    flags[path] = _Flag("moved", message, _SUGGESTED["moved"])
+                    del table[path]
+        # Two old names that become one cannot both be renamed (the import would name it twice).
+        for table in (with_calls, references, exports):
+            landing = {
+                path: _lands(request.module, path, landed, table is exports)
+                for path, landed in table.items()
+            }
+            for path, landed in list(table.items()):
+                if sum(1 for there in landing.values() if there == landing[path]) > 1:
                     place = f"{request.module}.{landed}"
                     message = f"Moved in {label}: it is now {place}."
                     flags[path] = _Flag("moved", message, _SUGGESTED["moved"])
@@ -555,15 +625,16 @@ class _Plan:
             if table:
                 uses = [
                     self._use(path, label != "references", n)
-                    for n, path in enumerate(sorted(table))
+                    for n, path in enumerate(sorted(table)[:FIXTURE_NAMES])
                 ]
                 found[f"fixtures/positive/{_FIXTURES[label]}"] = _program(_DOCS[label], uses)
         if self.flags:
-            uses = [self._use(path, True, n) for n, path in enumerate(sorted(self.flags))]
+            names = sorted(self.flags)[:FIXTURE_NAMES]
+            uses = [self._use(path, True, n) for n, path in enumerate(names)]
             found["fixtures/positive/flagged.before.py"] = _program(_DOCS["flagged"], uses)
         landed = sorted(
             {*self.with_calls.values(), *self.references.values(), *self.exports.values()}
-        )
+        )[:FIXTURE_NAMES]
         kept = [self._read(path) for path in landed]
         found["fixtures/negative/already_new.py"] = _program(_DOCS["new"], kept)
         found["fixtures/positive/requirements.before.txt"] = _requirements(
