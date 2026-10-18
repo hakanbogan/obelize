@@ -421,7 +421,7 @@ anything was proposed.
 | `failure` | string or null | A [`provider failure`](#an-adapter-could-not-answer-providerfailure), set exactly when `outcome` is `unanswered`. |
 | `refusal` | string or null | A [`guard refusal`](#the-guard-refused-a-proposal-guardrefusal), set exactly when `outcome` is `guard_refused`. |
 | `detail` | string or null | One line from whichever decided; the endpoint's words are redacted, then cut. |
-| `proposal` | object or null | What came back, unvalidated (`path`, `start_line`, `end_line`, `symbol`, `replaces`, `replacement`, `rationale`), so a proposal naming `~/.bashrc` is refused **by name**, not lost in a parse error. |
+| `proposal` | object or null | What came back, unvalidated (`path`, `start_line`, `end_line`, `symbol`, `replaces`, `replacement`, `rationale`, `imports`), so a proposal naming `~/.bashrc` is refused **by name**, not lost in a parse error. |
 
 ### The four Phase 3 vocabularies
 
@@ -492,7 +492,7 @@ Is what it produces Python, and does it bring anything in:
 | `output_does_not_compile` | `compile()` refuses the result: a syntax error, a nesting too deep to read, or `await` outside `async`, which libcst accepts. Asked first, because libcst's parser dies on a deeply nested expression. |
 | `output_does_not_parse` | libcst refuses a result `compile()` accepted, or the result nests deeper than obelize can walk. |
 | `replacement_runs_past_its_range` | It changes how the following lines read (a trailing backslash or open bracket, or an opened block or string), though it parses and compiles. |
-| `import_outside_the_target` | It imports a module the pack does not target, `__import__` and `importlib.import_module` included. |
+| `import_outside_the_target` | It imports a module the pack does not target, `__import__` and `importlib.import_module` included, or lists such an import in `imports`. |
 | `name_outside_the_question` | It uses a name nothing licenses: not in the replaced lines, not bound by a target-module import or by itself, not an allowed builtin; never a double-underscore name. Catches `imp = __import__`, `exec("import os")`, `open(...)`, a module the file already imported. |
 
 #### What became of a proposal (`ProposalOutcome`)

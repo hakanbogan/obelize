@@ -1021,6 +1021,13 @@ def test_a_file_someone_else_migrated_moves_the_pin_like_one_the_rules_wrote() -
     )
 
 
+def test_a_row_left_in_a_file_someone_else_migrated_blocks_nothing() -> None:
+    plans = [planned(NO_CLIENT, "worker.py"), planned(NO_CLIENT, "other.py")]
+    assert manifests.survey(plans, elsewhere=["other.py"]) == manifests.Migration(
+        migrated=("other.py",), blocking=("worker.py",), excluded=()
+    )
+
+
 def test_a_prose_mention_does_not_block_and_a_mock_target_does() -> None:
     """`mock.patch` imports its target by name when entered; a docstring imports nothing."""
     plans = [planned(PROSE, "notes.py"), planned(MOCK_TARGET, "test_it.py")]

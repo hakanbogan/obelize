@@ -51,7 +51,13 @@ class Scripted:
 
 
 def propose(
-    start: int, end: int, replaces: str, replacement: str, *, tokens: int = 10
+    start: int,
+    end: int,
+    replaces: str,
+    replacement: str,
+    *,
+    tokens: int = 10,
+    imports: tuple[str, ...] = (),
 ) -> Callable[[base.Consultation], base.Reply]:
     def reply(consultation: base.Consultation) -> base.Reply:
         found = EditProposal(
@@ -62,6 +68,7 @@ def propose(
             replaces=replaces,
             replacement=replacement,
             rationale="Client.health replaces Client.ping.",
+            imports=imports,
         )
         return base.Reply(found, tokens, tokens + 1)
 
@@ -203,3 +210,111 @@ def test_a_hint_for_the_name_or_the_longest_name_above_it_is_added_to_the_pack_w
     assert all(
         "close" not in row.note for row in rows(found, loaded.pack, {"acme.kit.Other": "no"})
     )
+
+
+LATE = APP + "\n\ndef late():\n    import acme.kit\n"
+PING = "acme.kit.Client.ping"
+
+
+def tried(tmp_path: Path, source: str) -> tuple[Path, loader.LoadedPack]:
+    return write_tree(tmp_path / "work", {"app.py": source}), loader.load(PACK)
+
+
+def test_an_import_an_answer_adds_moves_the_places_still_waiting(tmp_path: Path) -> None:
+    work, loaded = tried(tmp_path, APP)
+    flagged = [Row("app.py", 5, PING, "n"), Row("app.py", 10, PING, "n")]
+    model = Scripted(
+        propose(
+            10,
+            10,
+            "    return acme.kit.Client.ping(client)",
+            "    return health(client)",
+            imports=("from acme.kit import health",),
+        ),
+        propose(
+            6,
+            6,
+            "    first = acme.kit.Client.ping(client)",
+            "    first = health(client)",
+        ),
+    )
+    done = resolve(work, flagged, provider=model, pack=loaded.pack, environ={})
+    assert [(one.row.line, one.outcome) for one in done.decisions] == [
+        (10, "edited"),
+        (5, "edited"),
+    ]
+    assert [asked.line for asked in model.asked] == [10, 6]
+    after = (work / "app.py").read_text()
+    assert after.startswith("import acme.kit\nfrom acme.kit import health\n")
+    assert "    first = health(client)\n    return acme.kit.Client.ping(client) and first" in after
+
+
+def test_the_import_of_a_name_is_covered_once_its_uses_moved_wherever_it_sits(
+    tmp_path: Path,
+) -> None:
+    work, loaded = tried(tmp_path, LATE)
+    flagged = [
+        Row("app.py", 1, PING, "n", True),
+        Row("app.py", 10, PING, "n"),
+        Row("app.py", 14, PING, "n", True),
+    ]
+    model = Scripted(
+        propose(
+            10,
+            10,
+            "    return acme.kit.Client.ping(client)",
+            "    value = acme.kit.Client.health(client)\n    return value",
+        )
+    )
+    done = resolve(work, flagged, provider=model, pack=loaded.pack, environ={})
+    assert [(one.row.line, one.outcome) for one in done.decisions] == [
+        (10, "edited"),
+        (14, "covered"),
+        (1, "covered"),
+    ]
+    assert len(model.asked) == 1
+    assert done.left == 0
+
+
+def test_the_import_of_a_name_whose_uses_were_not_all_moved_is_asked(tmp_path: Path) -> None:
+    work, loaded = tried(tmp_path, APP)
+    flagged = [
+        Row("app.py", 1, PING, "n", True),
+        Row("app.py", 5, PING, "n"),
+        Row("app.py", 10, PING, "n"),
+    ]
+    model = Scripted(
+        propose(
+            10,
+            10,
+            "    return acme.kit.Client.ping(client)",
+            "    return acme.kit.Client.health(client)",
+        ),
+        nothing,
+        nothing,
+    )
+    done = resolve(work, flagged, provider=model, pack=loaded.pack, environ={})
+    assert [(one.row.line, one.outcome) for one in done.decisions] == [
+        (10, "edited"),
+        (5, "nothing"),
+        (1, "nothing"),
+    ]
+    assert len(model.asked) == 3
+
+
+def test_an_import_outside_the_target_makes_the_answer_a_refusal(tmp_path: Path) -> None:
+    work, loaded = tried(tmp_path, APP)
+    model = Scripted(
+        propose(
+            10,
+            10,
+            "    return acme.kit.Client.ping(client)",
+            "    return health(client)",
+            imports=("from os import getcwd",),
+        )
+    )
+    done = resolve(
+        work, [Row("app.py", 10, PING, "n")], provider=model, pack=loaded.pack, environ={}
+    )
+    assert [one.outcome for one in done.decisions] == ["refused"]
+    assert (work / "app.py").read_text() == APP

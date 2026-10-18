@@ -9,6 +9,15 @@
           "title": "End Line",
           "type": "integer"
         },
+        "imports": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "title": "Imports",
+          "type": "array"
+        },
         "path": {
           "title": "Path",
           "type": "string"
@@ -42,7 +51,8 @@
         "symbol",
         "replaces",
         "replacement",
-        "rationale"
+        "rationale",
+        "imports"
       ],
       "title": "EditProposal",
       "type": "object"

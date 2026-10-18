@@ -38,6 +38,16 @@ class Row:
     line: int
     symbol: str | None
     note: str
+    # The import of a name, which has nothing to move by itself: its uses carry the change.
+    is_import: bool = False
+
+
+@dataclass(slots=True)
+class _Waiting:
+    """A place not yet asked about, and the line it is on in the copy now."""
+
+    row: Row
+    now: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,7 +91,13 @@ def rows(
                 and claims.claims(finding)
             ):
                 key = (finding.path, finding.line, finding.symbol)
-                row = Row(finding.path, finding.line, finding.symbol, note + _hint(finding, hints))
+                row = Row(
+                    finding.path,
+                    finding.line,
+                    finding.symbol,
+                    note + _hint(finding, hints),
+                    finding.kind == "import",
+                )
                 found.setdefault(key, row)
     return sorted(found.values(), key=lambda row: (row.path, row.line))
 
@@ -95,28 +111,50 @@ def resolve(
     environ: Mapping[str, str],
     limit: int = ASK_LIMIT,
 ) -> Resolved:
-    """Ask about each place and write the answers the guard accepts into `work`."""
+    """Ask about each place and write the answers the guard accepts into `work`.
+
+    The place with the most lines below it goes first, so an answer moves the places still waiting
+    as little as it can, and each is found again where the edits above or below it left it. The
+    import of a name is asked last: once every place that uses it moved, it is covered.
+    """
     decisions: list[Decision] = []
     tokens_in = tokens_out = asked = 0
     imports = pack.to_modules() or pack.match.imports
+    # What each name of the file in hand had moved, and what it had left.
+    moved: set[str | None] = set()
+    left: set[str | None] = set()
+
+    def decide(
+        one: _Waiting, outcome: Outcome, detail: str, proposal: EditProposal | None = None
+    ) -> None:
+        decisions.append(Decision(one.row, outcome, detail, proposal))
+        if not one.row.is_import:
+            (moved if outcome in ("edited", "covered") else left).add(one.row.symbol)
+
     for path in sorted({row.path for row in flagged}):
-        covered_from: int | None = None
-        for row in sorted((one for one in flagged if one.path == path), key=_line, reverse=True):
-            if covered_from is not None and row.line >= covered_from:
-                decisions.append(Decision(row, "covered", "an accepted answer replaced this line"))
+        waiting = [_Waiting(row, row.line) for row in flagged if row.path == path]
+        moved.clear()
+        left.clear()
+        while waiting:
+            uses = [w for w in waiting if not w.row.is_import]
+            one = max(uses or waiting, key=_now)
+            waiting.remove(one)
+            row = one.row
+            if row.is_import and row.symbol in moved and row.symbol not in left:
+                decide(one, "covered", "the places that use it were moved")
                 continue
             if asked >= limit:
-                decisions.append(Decision(row, "skipped", f"{limit} questions were asked already"))
+                decide(one, "skipped", f"{limit} questions were asked already")
                 continue
             data = (work / path).read_bytes()
-            context = base.excerpt(path, data, row.line, environ)
+            context = base.excerpt(path, data, one.now, environ)
             if context is None:
-                decisions.append(Decision(row, "skipped", "the file does not parse"))
+                decide(one, "skipped", "the file does not parse")
                 continue
             asked += 1
             consultation = base.Consultation(
                 context=context,
-                line=row.line,
+                line=one.now,
                 column=0,
                 symbol=row.symbol,
                 bail="flag_only_surface",
@@ -129,22 +167,29 @@ def resolve(
             try:
                 reply = provider.propose(consultation)
             except base.ProviderError as error:
-                decisions.append(Decision(row, "failed", f"{error.failure}: {error.detail}"))
+                decide(one, "failed", f"{error.failure}: {error.detail}")
                 continue
             tokens_in += reply.tokens_in
             tokens_out += reply.tokens_out
             if reply.proposal is None:
-                decisions.append(Decision(row, "nothing", "the model proposed no edit"))
+                decide(one, "nothing", "the model proposed no edit")
                 continue
             checked = guard.check(reply.proposal, consultation=consultation, root=work, before=data)
             if checked.after is None:
-                decisions.append(
-                    Decision(row, "refused", f"{checked.refusal}: {checked.detail}", reply.proposal)
-                )
+                decide(one, "refused", f"{checked.refusal}: {checked.detail}", reply.proposal)
                 continue
             (work / path).write_bytes(checked.after)
-            covered_from = reply.proposal.start_line
-            decisions.append(Decision(row, "edited", checked.detail, reply.proposal))
+            decide(one, "edited", checked.detail, reply.proposal)
+            first, last = reply.proposal.start_line, reply.proposal.end_line
+            longer = len(base.LINE_BREAK.split(reply.proposal.replacement)) - (last - first + 1)
+            for other in list(waiting):
+                if first <= other.now <= last:
+                    waiting.remove(other)
+                    decide(other, "covered", "an accepted answer replaced this line")
+                else:
+                    other.now += sum(count for at, count in checked.shifts if at <= other.now) + (
+                        longer if other.now > last else 0
+                    )
     return Resolved(tuple(decisions), tokens_in, tokens_out)
 
 
@@ -157,8 +202,8 @@ def _hint(finding: Finding, hints: Mapping[str, str] | None) -> str:
     return f" {hints[max(names, key=len)]}" if names and hints else ""
 
 
-def _line(row: Row) -> int:
-    return row.line
+def _now(waiting: _Waiting) -> int:
+    return waiting.now
 
 
 __all__ = ["ASK_LIMIT", "Decision", "Outcome", "Resolved", "Row", "resolve", "rows"]

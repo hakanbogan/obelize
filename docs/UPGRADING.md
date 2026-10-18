@@ -121,14 +121,15 @@ changed a clone's working tree.
   passed after, and the commit held the one file the agent edited. The dependency line, `mcp[cli]>=1.28.1`,
   carries an extra, so it was left, and the summary and the commit message said so.
 
-A third did not pass. `upgrade pydantic --from 1.10.26 --to 2.14.1 --agent claude_code` on a small
-scraper first flagged 55 places, most of them every `Field(...)` call, because the new release
-deprecates one of its parameters and gave `repr` a private default. Both are now left out of the
-pack, which flags 22, all `@validator`. The agent was asked about each and moved none: one reply
-imported the new name through `__import__`, which the guard refuses, and the rest proposed nothing.
-The library has one release for both APIs, so the pack writes nothing while a place is left, and the
-trial ended `inconclusive`. Moving `@validator` to `@field_validator` also needs the import and every
-decorator changed together, which a place-by-place agent does not do.
+A third needed two fixes before it passed. `upgrade pydantic --from 1.10.26 --to 2.14.1 --apply
+--yes --branch --agent claude_code` on a small scraper first flagged 55 places, most of them every
+`Field(...)` call, because the new release deprecates one of its parameters and gave `repr` a
+private default. Neither is a change a call shows, so the pack now flags 22, all `@validator`. The
+agent moved none of them: the replacement needed `field_validator`, imported at the top of the file,
+outside the lines it was sent. A proposal may now list the imports it needs, which obelize adds to
+the file's import block, and the import of a name is covered once every place that used it moved.
+The agent then moved the ten decorators, the 23 tests that passed before passed after, and the commit
+held the one file it edited and the dependency line.
 
 What they show is that the steps join up, on three repositories. They do not show how often a move
 passes: for that, the benchmark is the evidence.

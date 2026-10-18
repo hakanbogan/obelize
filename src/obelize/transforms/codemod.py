@@ -168,8 +168,8 @@ def run(
     if spec.client_symbol is not None and any(_relies(plan, spec) for plan in plans):
         files, plans = _elsewhere(files, plans, pack, spec)
     graded = _manifest_plan(scan, _edited(files, sources), plans, spec, elsewhere)
-    if manifests.coupled(spec) and _unfinished(plans, graded):
-        waiting = _withholding(plans, graded)
+    if manifests.coupled(spec) and _unfinished(plans, graded, elsewhere):
+        waiting = _withholding(plans, graded, elsewhere)
         files, plans = _together(files, plans)
         graded = _pins_held(graded, waiting)
     read = _edited(files, sources)
@@ -511,22 +511,34 @@ def _kept(outcome: Outcome, plan: ImpactPlan, pack: PackDocument) -> Outcome:
     )
 
 
-def _unfinished(plans: Sequence[ImpactPlan], graded: ManifestPlan) -> bool:
-    """Whether any row of the pack, in a file or a manifest, is withheld."""
+def _unfinished(
+    plans: Sequence[ImpactPlan], graded: ManifestPlan, elsewhere: Collection[str]
+) -> bool:
+    """Whether any row of the pack, in a file or a manifest, is withheld. A file someone else
+    migrated holds none: the places left in it were looked at."""
     return any(
         row.scan_status in WITHHELD
-        for row in (*(row for plan in plans for row in plan.findings), *graded.findings)
+        for row in (
+            *(row for plan in plans if plan.path not in elsewhere for row in plan.findings),
+            *graded.findings,
+        )
     )
 
 
-def _withholding(plans: Sequence[ImpactPlan], graded: ManifestPlan) -> tuple[str, ...]:
+def _withholding(
+    plans: Sequence[ImpactPlan], graded: ManifestPlan, elsewhere: Collection[str]
+) -> tuple[str, ...]:
     """The files that hold a withheld row: what every other row of the pack waits on.
 
     A pin withheld for a module only the legacy distribution installed waits on the files that
     import it, not on the manifest.
     """
     named = {
-        str(plan.path) for plan in plans for row in plan.findings if row.scan_status in WITHHELD
+        str(plan.path)
+        for plan in plans
+        if plan.path not in elsewhere
+        for row in plan.findings
+        if row.scan_status in WITHHELD
     }
     for row in graded.findings:
         if row.scan_status in WITHHELD:

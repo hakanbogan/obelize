@@ -7,7 +7,7 @@ import re
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from obelize.models.fields import (
     _DISTRIBUTION_NAME,
@@ -238,6 +238,15 @@ class EditProposal(_Frozen):
     replacement: str
     # For the report; it never reaches the tree.
     rationale: str
+    # Import statements the replacement needs, which obelize adds at module level: a name the new
+    # release spells another way is imported where the file imports the rest, not inside a class.
+    imports: tuple[str, ...] = Field(default=(), max_length=4)
+
+    @field_validator("imports", mode="before")
+    @classmethod
+    def _none_is_none(cls, value: object) -> object:
+        """A reply that says `null` for what it has none of means the same as one that is silent."""
+        return () if value is None else value
 
     @model_validator(mode="after")
     def _check(self) -> EditProposal:
@@ -253,8 +262,15 @@ class EditProposal(_Frozen):
         ):
             if not value.strip():
                 raise ValueError(f"{field} is empty, so the proposal names nothing")
-        for field in ("path", "symbol", "replaces", "replacement", "rationale"):
-            if _SURROGATE.search(getattr(self, field)):
+        for field, value in (
+            ("path", self.path),
+            ("symbol", self.symbol),
+            ("replaces", self.replaces),
+            ("replacement", self.replacement),
+            ("rationale", self.rationale),
+            *(("imports", entry) for entry in self.imports),
+        ):
+            if _SURROGATE.search(value):
                 raise ValueError(
                     f"{field} holds a lone surrogate, which no file or report can hold"
                 )

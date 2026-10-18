@@ -39,6 +39,14 @@ class Phase:
     # The traceback text of each test that failed or errored, as the junit file has it.
     failures: Mapping[str, str] = field(default_factory=dict)
 
+    def failure(self, test: str) -> str | None:
+        """Why `test` failed, or, if its module could not be collected, why that did not load."""
+        module = test.partition("::")[0]
+        for key in (test, f"::{module}", f"::{module.rpartition('.')[2]}"):
+            if key in self.failures:
+                return self.failures[key]
+        return None
+
 
 @dataclass(frozen=True, slots=True)
 class Verdict:

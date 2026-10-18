@@ -96,6 +96,16 @@ in the release that makes it.
   decides the value elsewhere, which a name cannot show. A trial that could not compare any test
   prints no counts, and names the dependency declaration that stopped the rules.
 - The guard lets a replacement name `classmethod`, `staticmethod`, `property`, `super` and `object`.
+- A model's or agent's proposal may carry `imports`, up to four plain `import` or `from ... import`
+  statements of the pack's target modules. The guard adds them at module level, to the file's own
+  `from m import ...` line when it has one, and refuses one that is not an import of a target or
+  that would change a line the proposal replaces. A file's places are asked about from the bottom,
+  each where the earlier answers left it, and the import of a name is covered once every place that
+  uses it moved, so a rename that needs a new import is no longer out of reach.
+- In a trial of a library that has one release for both APIs, a place left in a file the agent
+  moved no longer holds the dependency line: the import of a name whose uses all moved is covered,
+  and the places that remain in a file the agent edited were looked at. A test that fails because
+  its module would not import is put to the agent with the line pytest points at.
 
 ## [0.6.1] - 2026-10-18
 

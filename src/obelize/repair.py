@@ -19,8 +19,13 @@ if TYPE_CHECKING:
     from collections.abc import Collection, Mapping
     from pathlib import Path
 
-# A frame of Python's own traceback (`pytest --tb=native`), which is what the trial runs.
-_FRAME: Final = re.compile(r'^\s*File "([^"]+)", line (\d+), in (\S+)', re.MULTILINE)
+# A frame of Python's own traceback (`pytest --tb=native`), which is what the trial runs, or of the
+# short one pytest prints for a module that failed to import (`other.py:2: in <module>`).
+_FRAME: Final = re.compile(
+    r'^\s*File "(?P<file>[^"]+)", line (?P<at>\d+), in (?P<name>\S+)'
+    r"|^(?P<short>[^\s:]+\.py):(?P<line>\d+): in (?P<function>\S+)",
+    re.MULTILINE,
+)
 _NOTE_LIMIT: Final = 300
 
 
@@ -45,7 +50,9 @@ def rows(
     edits = {name for name in changed if not is_test(name)}
     found: dict[tuple[str, int], Row] = {}
     for test, text in sorted(failures.items()):
-        for given, line, function in reversed(_FRAME.findall(text)):
+        for frame in reversed(list(_FRAME.finditer(text))):
+            given = frame["file"] or frame["short"]
+            line, function = frame["at"] or frame["line"], frame["name"] or frame["function"]
             path = _inside(work, given)
             if path in edits:
                 tail = text.strip().splitlines()[-1].strip()[:_NOTE_LIMIT] if text.strip() else ""

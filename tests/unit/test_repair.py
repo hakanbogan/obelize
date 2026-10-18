@@ -72,3 +72,18 @@ def test_the_error_is_redacted_and_clipped_before_it_is_a_question(tmp_path: Pat
     [one] = rows(tmp_path, {"t::a": text}, {"pkg/app.py"}, {})
     assert secret not in one.note
     assert len(one.note) < 460
+
+
+def test_the_short_frames_pytest_prints_for_a_module_that_would_not_import_are_places(
+    tmp_path: Path,
+) -> None:
+    short = (
+        "Traceback:\n"
+        "test_other.py:1: in <module>\n"
+        "    import other\n"
+        "other.py:2: in <module>\n"
+        "    from acme_kit import removed_fn\n"
+        "E   ImportError: cannot import name 'removed_fn'\n"
+    )
+    [one] = rows(tmp_path, {"::test_other": short}, {"other.py"}, {})
+    assert (one.path, one.line, one.symbol) == ("other.py", 2, "<module>")

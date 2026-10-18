@@ -152,7 +152,7 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
         plan.say(
             f"Putting the {len(verdict.broken)} test(s) that broke to the model, round {number}"
         )
-        failed = {name: after.failures[name] for name in verdict.broken if name in after.failures}
+        failed = {name: text for name in verdict.broken if (text := after.failure(name))}
         repaired = plan.repair(work, failed, frozenset(touched))
         rounds.append((f"repair-{number}", repaired))
         touched |= set(repaired.edited)

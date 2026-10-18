@@ -297,6 +297,10 @@ def test_a_proposal_holds_a_path_that_climbs_out_of_the_repository() -> None:
         pytest.param(
             {"rationale": "\ud800"}, "rationale holds a lone surrogate", id="surrogate-why"
         ),
+        pytest.param(
+            {"imports": ["import \ud800"]}, "imports holds a lone surrogate", id="surrogate-import"
+        ),
+        pytest.param({"imports": ["import a"] * 5}, "at most 4", id="too-many-imports"),
     ],
 )
 def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], message: str) -> None:
@@ -314,6 +318,21 @@ def test_a_proposal_that_cannot_be_held_is_refused(overrides: dict[str, Any], me
 
     with pytest.raises(ValidationError, match=message):
         EditProposal(**fields)
+
+
+def test_a_reply_that_says_null_for_its_imports_has_none() -> None:
+    fields: dict[str, Any] = {
+        "path": "app.py",
+        "start_line": 4,
+        "end_line": 4,
+        "symbol": "x.Y",
+        "replaces": "x = Y()",
+        "replacement": "pass",
+        "rationale": "because",
+    }
+    assert EditProposal.model_validate({**fields, "imports": None}).imports == ()
+    assert EditProposal.model_validate(fields).imports == ()
+    assert EditProposal.model_validate({**fields, "imports": ["import x"]}).imports == ("import x",)
 
 
 def test_a_proposal_that_does_not_say_what_it_replaces_is_not_held() -> None:

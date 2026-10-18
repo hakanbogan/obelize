@@ -859,3 +859,180 @@ def test_a_star_import_of_the_target_licenses_no_name(tmp_path: Path) -> None:
     )
     assert checked.refusal == "name_outside_the_question"
     assert "'Client'" in checked.detail
+
+
+IMPORTED = b'''"""Models."""
+import re
+from pydantic import BaseModel, validator
+
+
+class M(BaseModel):
+    @validator("a")
+    def check(cls, value):
+        return value
+'''
+
+
+DECORATED = '    @field_validator("a")\n    @classmethod\n    def check(cls, value):'
+
+
+def imported(
+    root: Path,
+    imports: tuple[str, ...],
+    *,
+    source: bytes = IMPORTED,
+    first: int | None = None,
+    last: int | None = None,
+    replacement: str = DECORATED,
+) -> guard.Checked:
+    """The decorator of `check` is replaced, and `imports` are what the replacement needs."""
+    total = len(base.split_lines(source.decode()))
+    # The decorator and the `def` under it, unless the case names lines.
+    first = first or source.split(b"\n").index(b'    @validator("a")') + 1
+    last = last or first + 1
+    consultation = base.Consultation(
+        context=base.Context("m.py", 1, total, lines_of(source, (1, total))),
+        line=first,
+        column=4,
+        symbol="pydantic.validator",
+        bail="flag_only_surface",
+        pack_id="pydantic/1-to-2",
+        to_package="pydantic",
+        to_modules=("pydantic",),
+        limitations=(),
+    )
+    (root / "m.py").write_bytes(source)
+    one = EditProposal(
+        path="m.py",
+        start_line=first,
+        end_line=last,
+        symbol="pydantic.validator",
+        replaces=lines_of(source, (first, last)),
+        replacement=replacement,
+        rationale="because the test says so",
+        imports=imports,
+    )
+    return guard.check(one, consultation=consultation, root=root, before=source)
+
+
+def test_an_import_joins_the_line_the_file_already_has(tmp_path: Path) -> None:
+    checked = imported(tmp_path, ("from pydantic import field_validator",))
+    assert checked.refusal is None, checked.detail
+    assert checked.shifts == ()
+    text = (checked.after or b"").decode()
+    assert "from pydantic import BaseModel, validator, field_validator\n" in text
+    assert '    @field_validator("a")\n    @classmethod\n    def check' in text
+
+
+def test_an_import_the_file_has_adds_nothing(tmp_path: Path) -> None:
+    checked = imported(
+        tmp_path,
+        ("from pydantic import validator", "from pydantic import BaseModel"),
+        replacement='    @validator("a", pre=True)\n    @classmethod\n    def check(cls, value):',
+    )
+    assert checked.refusal is None, checked.detail
+    assert (checked.after or b"").decode().count("import") == 2
+
+
+def test_an_import_statement_the_file_has_is_not_added_again(tmp_path: Path) -> None:
+    source = IMPORTED.replace(b"from pydantic import BaseModel, validator\n", b"import pydantic\n")
+    checked = imported(
+        tmp_path,
+        ("import pydantic",),
+        source=source,
+        replacement=DECORATED.replace("@field_validator", "@pydantic.field_validator"),
+    )
+    assert checked.refusal is None, checked.detail
+    assert checked.shifts == ()
+    assert (checked.after or b"").decode().count("import pydantic") == 1
+
+
+def test_an_import_of_a_module_nothing_imports_follows_the_imports(tmp_path: Path) -> None:
+    source = IMPORTED.replace(b"from pydantic import BaseModel, validator\n", b"import pydantic\n")
+    checked = imported(tmp_path, ("from pydantic import field_validator",), source=source)
+    assert checked.refusal is None, checked.detail
+    assert checked.shifts == ((4, 1),)
+    text = (checked.after or b"").decode()
+    assert "import pydantic\nfrom pydantic import field_validator\n" in text
+    assert text.endswith(DECORATED + "\n        return value\n")
+
+
+def test_an_import_in_a_file_with_none_follows_the_docstring_or_comes_first(
+    tmp_path: Path,
+) -> None:
+    body = b'class M:\n    @validator("a")\n    def check(cls, value):\n        return value\n'
+    for source, at in ((b'"""Doc."""\n' + body, 2), (body, 1)):
+        checked = imported(tmp_path, ("from pydantic import field_validator",), source=source)
+        assert checked.refusal is None, checked.detail
+        assert checked.shifts == ((at, 1),)
+        assert (checked.after or b"").decode().splitlines()[at - 1].endswith("field_validator")
+
+
+@pytest.mark.parametrize(
+    "held",
+    [
+        pytest.param(b"from pydantic import (BaseModel, validator)\n", id="parenthesis"),
+        pytest.param(b"from pydantic import (\n    BaseModel,\n    validator,\n)\n", id="comma"),
+        pytest.param(b"import re; import pydantic\n", id="two-statements"),
+    ],
+)
+def test_a_line_that_is_not_plain_gets_no_name_but_a_line_of_its_own(
+    held: bytes, tmp_path: Path
+) -> None:
+    source = IMPORTED.replace(b"from pydantic import BaseModel, validator\n", held)
+    checked = imported(tmp_path, ("from pydantic import field_validator",), source=source)
+    assert checked.refusal is None, checked.detail
+    [(at, count)] = checked.shifts
+    assert count == 1
+    assert (checked.after or b"").decode().splitlines()[at - 1].endswith("field_validator")
+
+
+def test_a_joined_name_and_a_new_line_both_move_what_follows(tmp_path: Path) -> None:
+    checked = imported(tmp_path, ("from pydantic import field_validator", "import pydantic.errors"))
+    assert checked.refusal is None, checked.detail
+    assert checked.shifts == ((4, 1),)
+
+
+def test_an_import_that_is_not_one_import_of_a_target_is_refused(tmp_path: Path) -> None:
+    for entry, refusal in (
+        ("import os", "import_outside_the_target"),
+        ("from . import field_validator", "import_outside_the_target"),
+        ("from pydantic import *", "output_does_not_parse"),
+        ("x = 1", "output_does_not_parse"),
+        ("import pydantic; import os", "output_does_not_parse"),
+        ("from pydantic import (", "output_does_not_parse"),
+    ):
+        assert imported(tmp_path, (entry,)).refusal == refusal, entry
+
+
+def test_an_import_cannot_change_a_line_the_proposal_replaces(tmp_path: Path) -> None:
+    joined = imported(
+        tmp_path,
+        ("from pydantic import field_validator",),
+        first=3,
+        last=3,
+        replacement="from pydantic import BaseModel",
+    )
+    assert joined.refusal == "replacement_runs_past_its_range"
+    inside = imported(
+        tmp_path,
+        ("import pydantic.errors",),
+        first=2,
+        last=4,
+        replacement="import re\nfrom pydantic import BaseModel",
+    )
+    assert inside.refusal == "replacement_runs_past_its_range"
+    after = imported(
+        tmp_path,
+        ("import pydantic.errors",),
+        first=3,
+        last=3,
+        replacement="from pydantic import BaseModel, validator",
+    )
+    assert after.refusal is None, after.detail
+
+
+def test_an_import_is_checked_against_the_names_it_licenses(tmp_path: Path) -> None:
+    refused = imported(tmp_path, ())
+    assert refused.refusal == "name_outside_the_question"
+    assert imported(tmp_path, ("from pydantic import field_validator",)).refusal is None

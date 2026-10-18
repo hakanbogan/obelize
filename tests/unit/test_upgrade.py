@@ -568,6 +568,23 @@ def test_the_pin_follows_the_places_the_agent_moved_when_the_rules_wrote_nothing
     assert "A model edited other.py: read those lines first." in said
 
 
+def test_a_name_still_imported_in_a_file_the_agent_moved_does_not_hold_the_pin(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    imported = "import acme_kit\nfrom acme_kit import removed_fn\n\n\ndef gone(x):\n"
+    imported += "    return acme_kit.removed_fn(x)\n"
+    only = "import other\n\n\ndef test_gone():\n    assert other.gone(1) == 1\n"
+    # The import of a removed name fails the test that loads it, and the repair round removes it.
+    model = Agent("    return x", ("from acme_kit import removed_fn", "pass"))
+    monkeypatch.setattr(agent_cli, "build", lambda *_args, **_kwargs: model)
+    root = repo(trial, other__py=imported, test_other__py=only, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 0, result.output
+    name = "obelize/upgrade-acme-kit-2.0"
+    assert git(root, "show", f"{name}:requirements.txt").stdout.decode() != "acme-kit==1.0\n"
+    assert "could not be written" not in result.output
+
+
 def test_a_dependency_line_with_extras_is_left_and_the_commit_says_so(trial: Path) -> None:
     root = repo(
         trial,

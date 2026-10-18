@@ -7,11 +7,12 @@ proves an edit safe to apply, not correct: an accepted proposal is still a revie
 
 from __future__ import annotations
 
+import difflib
 import io
 import itertools
 import tokenize
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import libcst as cst
 from libcst.metadata import ExpressionContext, ExpressionContextProvider, PositionProvider
@@ -75,6 +76,9 @@ class Checked:
     refusal: GuardRefusal | None
     detail: str
     after: bytes | None = None
+    # (line, count) for each run of lines the proposal's imports added, in the numbering of the file
+    # as it was sent: a line at or below one is `count` lines further down in `after`.
+    shifts: tuple[tuple[int, int], ...] = ()
 
     @property
     def accepted(self) -> bool:
@@ -216,8 +220,19 @@ def _produced(
             f"instead of the value, and the lines it replaces hold none",
         )
 
-    spliced = _spliced(parts, lines[proposal.start_line - 1 : proposal.end_line])
-    text = "".join([*lines[: proposal.start_line - 1], *spliced, *lines[proposal.end_line :]])
+    shifts: tuple[tuple[int, int], ...] = ()
+    if proposal.imports:
+        made = _with_imports(source, lines, proposal, consultation.to_modules)
+        if not isinstance(made, _Imported):
+            return Checked(proposal, *made)
+        source, lines, shifts = made
+    # The proposal where it lies in `lines`, which its imports may have pushed down.
+    moved = sum(count for at, count in shifts if at <= proposal.start_line)
+    placed = proposal.model_copy(
+        update={"start_line": proposal.start_line + moved, "end_line": proposal.end_line + moved}
+    )
+    spliced = _spliced(parts, lines[placed.start_line - 1 : placed.end_line])
+    text = "".join([*lines[: placed.start_line - 1], *spliced, *lines[placed.end_line :]])
     try:
         after = text.encode(source.encoding)
     except UnicodeEncodeError as error:
@@ -235,9 +250,9 @@ def _produced(
         compile(after, proposal.path, "exec")
     except cheap.COMPILE_REFUSALS as error:
         return Checked(proposal, "output_does_not_compile", f"{proposal.path}: {_said(error)}")
-    last = proposal.start_line + len(parts) - 1
+    last = placed.start_line + len(parts) - 1
     tokens = _tokens(text, last)
-    longest = _longest_statement(tokens, proposal.start_line)
+    longest = _longest_statement(tokens, placed.start_line)
     if longest > REPLACEMENT_STATEMENT_TOKENS:
         return Checked(
             proposal,
@@ -267,7 +282,7 @@ def _produced(
             f"the result imports {outside}, and this pack targets {list(consultation.to_modules)}",
         )
 
-    unlicensed = _unlicensed(source, result, proposal, last, consultation.to_modules)
+    unlicensed = _unlicensed(source, result, placed, last, consultation.to_modules)
     if unlicensed:
         return Checked(
             proposal,
@@ -281,7 +296,155 @@ def _produced(
         f"{proposal.path} lines {proposal.start_line}..{proposal.end_line}, "
         f"{proposal.end_line - proposal.start_line + 1} replaced by {len(parts)}",
         after,
+        shifts,
     )
+
+
+_Body = list[cst.SimpleStatementLine | cst.BaseCompoundStatement]
+
+
+class _Imported(NamedTuple):
+    """The file with a proposal's imports added, and where that put lines in it."""
+
+    source: cst.Module
+    lines: list[str]
+    shifts: tuple[tuple[int, int], ...]
+
+
+def _with_imports(
+    source: cst.Module,
+    lines: Sequence[str],
+    proposal: EditProposal,
+    targets: tuple[str, ...],
+) -> _Imported | tuple[GuardRefusal, str]:
+    """`source` with the proposal's imports at module level, or why one is refused.
+
+    Each is one absolute `import` or `from ... import` of a target module. A name joins the file's
+    own `from m import ...` line when there is a plain one, else a line of its own follows the
+    imports at the top. Neither may touch a line the proposal replaces.
+    """
+    smalls: list[cst.Import | cst.ImportFrom] = []
+    for entry in proposal.imports:
+        small = _one_import(entry)
+        if isinstance(small, str):
+            return "output_does_not_parse", f"import {entry!r}: {small}"
+        smalls.append(small)
+    outside = sorted(
+        name
+        for small in smalls
+        for name in _imports(cst.Module(body=[cst.SimpleStatementLine(body=[small])]))
+        if not under_any(name, targets)
+    )
+    if outside:
+        return (
+            "import_outside_the_target",
+            f"the proposal imports {outside}, and this pack targets {list(targets)}",
+        )
+    body: _Body = list(source.body)
+    for small in smalls:
+        body = _joined(body, small)
+    joined = source.with_changes(body=body)
+    new = base.split_lines(joined.code)
+    shifts: list[tuple[int, int]] = []
+    first, last = proposal.start_line, proposal.end_line
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
+        None, lines, new, autojunk=False
+    ).get_opcodes():
+        if tag == "equal":
+            continue
+        # Lines `i1 + 1`..`i2` were changed; an insertion changes none, and lands before `i1 + 1`.
+        if (first <= i2 and i1 < last and tag != "insert") or first < i1 + 1 <= last:
+            return (
+                "replacement_runs_past_its_range",
+                f"an import cannot be added without changing lines {first}..{last}, "
+                f"which the proposal replaces",
+            )
+        if (grew := (j2 - j1) - (i2 - i1)) and tag != "replace":
+            shifts.append((i1 + 1, grew))
+        elif grew:
+            shifts.append((i2 + 1, grew))
+    return _Imported(joined, new, tuple(shifts))
+
+
+def _one_import(entry: str) -> cst.Import | cst.ImportFrom | str:
+    """The one import statement `entry` is, or why it is not one."""
+    try:
+        statement = cst.parse_statement(entry)
+    except (cst.ParserSyntaxError, SyntaxError) as error:
+        return _said(error)
+    if isinstance(statement, cst.SimpleStatementLine) and len(statement.body) == 1:
+        small = statement.body[0]
+        if isinstance(small, cst.Import) or (
+            isinstance(small, cst.ImportFrom) and not isinstance(small.names, cst.ImportStar)
+        ):
+            return small
+    return "not one import of named things"
+
+
+def _joined(body: _Body, small: cst.Import | cst.ImportFrom) -> _Body:
+    """`body` with `small` imported: already, or by a name added to a plain line, or on its own."""
+    start = 1 if body and _docstring(body[0]) else 0
+    run = list(itertools.takewhile(lambda at: _imports_only(body[at]), range(start, len(body))))
+    wanted = cst.Module(body=[]).code_for_node(small).strip()
+    for index in run:
+        line = body[index]
+        assert isinstance(line, cst.SimpleStatementLine)  # noqa: S101 - `_imports_only` said so
+        for held in line.body:
+            if cst.Module(body=[]).code_for_node(held).strip() == wanted:
+                return body
+        held = line.body[0]
+        if (
+            len(line.body) == 1
+            and isinstance(small, cst.ImportFrom)
+            and isinstance(held, cst.ImportFrom)
+            and not isinstance(small.names, cst.ImportStar)
+            and not isinstance(held.names, cst.ImportStar)
+            and _plain_from(held, small)
+        ):
+            fresh = [
+                alias
+                for alias in small.names
+                if all(_key(alias) != _key(have) for have in held.names)
+            ]
+            if not fresh:
+                return body
+            comma = cst.Comma(whitespace_after=cst.SimpleWhitespace(" "))
+            names = [*held.names[:-1], held.names[-1].with_changes(comma=comma), *fresh]
+            added = line.with_changes(body=[held.with_changes(names=names)])
+            return [*body[:index], added, *body[index + 1 :]]
+    at = run[-1] + 1 if run else start
+    return [*body[:at], cst.SimpleStatementLine(body=[small]), *body[at:]]
+
+
+def _docstring(statement: cst.BaseStatement) -> bool:
+    return (
+        isinstance(statement, cst.SimpleStatementLine)
+        and len(statement.body) == 1
+        and isinstance(statement.body[0], cst.Expr)
+        and isinstance(statement.body[0].value, cst.SimpleString | cst.ConcatenatedString)
+    )
+
+
+def _imports_only(statement: cst.BaseStatement) -> bool:
+    return isinstance(statement, cst.SimpleStatementLine) and all(
+        isinstance(small, cst.Import | cst.ImportFrom) for small in statement.body
+    )
+
+
+def _plain_from(held: cst.ImportFrom, small: cst.ImportFrom) -> bool:
+    """Whether `held` is `from m import a, b` with no parenthesis, `m` being `small`'s module."""
+    return (
+        not isinstance(held.names, cst.ImportStar)
+        and held.lpar is None
+        and not held.relative
+        and not small.relative
+        and _dotted(held.module) == _dotted(small.module)  # type: ignore[arg-type]
+        and held.names[-1].comma is cst.MaybeSentinel.DEFAULT
+    )
+
+
+def _key(alias: cst.ImportAlias) -> tuple[str | None, str | None]:
+    return _dotted(alias.name), _alias(alias)
 
 
 def _placed(

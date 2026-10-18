@@ -611,3 +611,17 @@ def test_a_move_to_another_distribution_installs_it_and_takes_the_old_one_out(
     assert "acme-new==1.0" in frozen
     assert "acme-kit" not in frozen
     assert "acme-kit==1.0" in (tmp_path / "evidence" / "old.txt").read_text()
+
+
+def test_a_test_that_is_gone_after_a_module_would_not_import_has_that_failure(
+    tmp_path: Path,
+) -> None:
+    after = tests.Phase(
+        phase(tmp_path).result,
+        {"::test_app": "error"},
+        {"::test_app": "ImportError", "pkg.test_x::test_a": "assert", "::test_x": "ImportError"},
+    )
+    assert after.failure("pkg.test_x::test_a") == "assert"
+    assert after.failure("test_app::test_a") == "ImportError"
+    assert after.failure("pkg.test_x::test_b") == "ImportError"
+    assert after.failure("other::test_a") is None
