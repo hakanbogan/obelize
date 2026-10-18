@@ -210,7 +210,7 @@ def test_metadata_that_is_not_the_json_api_is_no_metadata(
     served: fakeindex.FakeIndex, body: bytes, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     served.add("acme-kit", "1.0", {"__init__.py": ""})
-    monkeypatch.setattr(served, "_json", lambda _project: body)
+    monkeypatch.setattr(served, "_json", lambda *_args: body)
     assert index.metadata(_fetcher(served), "acme-kit") is None
 
 

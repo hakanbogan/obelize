@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
 
+WHEEL = "Wheel-Version: 1.0\nGenerator: tests\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
+
+
 def wheel(files: Mapping[str, str]) -> bytes:
     """A wheel holding `files`, relative path to source."""
     buffer = io.BytesIO()
@@ -94,7 +97,11 @@ class FakeIndex:
             data = wheel(
                 {
                     **body,
-                    f"{slug}-{version}.dist-info/METADATA": f"Name: {name}\nVersion: {version}\n",
+                    f"{slug}-{version}.dist-info/METADATA": (
+                        f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+                    ),
+                    f"{slug}-{version}.dist-info/WHEEL": WHEEL,
+                    f"{slug}-{version}.dist-info/RECORD": "",
                     f"{slug}-{version}.dist-info/top_level.txt": f"{package}\n",
                 }
             )
@@ -111,13 +118,23 @@ class FakeIndex:
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self) -> None:
+                self._answer(body=True)
+
+            def do_HEAD(self) -> None:
+                self._answer(body=False)
+
+            def _answer(self, *, body: bool) -> None:
                 index.asked.append(self.path)
-                status, kind, body = index._answer(self.path)
+                status, kind, content = index._answer(self.path)
+                if status == 200 and body is False:
+                    index.asked.pop()
                 self.send_response(status)
                 self.send_header("Content-Type", kind)
-                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Length", str(len(content)))
                 self.end_headers()
-                self.wfile.write(body)
+                if body:
+                    self.wfile.write(content)
 
             def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
                 return

@@ -470,6 +470,7 @@ HEAVY = [
     "obelize.scan.parse",
     "obelize.scan.walker",
     "obelize.transforms.codemod",
+    "obelize.trial.run",
     "obelize.verify.runner",
 ]
 

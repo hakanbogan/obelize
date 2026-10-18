@@ -12,7 +12,9 @@ only if your allowlist holds it or you pass `--trust-repo-config`. A command tha
 timeout is stopped, and its output is redacted before it is recorded. There is no telemetry, and no
 network access unless you configure a model in your own `~/.config/obelize/config.yml` or with
 `--model`, or run `pack synth`, which reads two releases of a library from the package index
-without installing or running anything.
+without installing or running anything. `upgrade --apply` is the one command that installs: it
+asks first, does it in a copy of the repository with environments outside it, and writes the move
+only if the tests agree.
 
 ## Before you run it
 

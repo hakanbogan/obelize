@@ -50,6 +50,12 @@ in the release that makes it.
   moved on: the release in use, the newest, the size of the gap, whether the library marks itself
   inactive, the release was withdrawn or has an advisory, and what can migrate it (a bundled pack,
   or two releases to compare). `--json` prints the rows, described by the new `outdated.schema.json`.
+- `obelize upgrade <distribution> --apply --yes` tries the move before it writes it: in a copy of the
+  repository and two environments made with uv (the release in use, and the release moved to), it
+  runs the repository's own tests before and after the migration, compares them test by test and
+  runs the ones that broke once more. The move is written only if no test that passed now fails; the
+  evidence is `.obelize/trials/<id>/`. It asks first, refuses a tree with uncommitted changes, and
+  exits `3` for tests that broke and `6` for a trial that could not judge.
 - `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
   it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
   migration as `fix` does without `--apply`. It writes nothing in the repository.

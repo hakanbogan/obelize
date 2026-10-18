@@ -455,6 +455,10 @@ that suits the move.
 | `--module <module>` | The module to compare, as for [`pack synth`](#obelize-pack-synth). |
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--offline` | Reach no host: use only what an earlier run kept in the cache. |
+| `--apply` | Try the move in a copy of the repository, and write it only if the tests agree ([a trial](#a-trial)). |
+| `--yes` | With `--apply`, agree to the trial without being asked. |
+| `--python <version>` | The Python the trial's environments use. Default: the repository's `.python-version`, else uv's own. |
+| `--test-command "<cmd>"` | The tests to run in the trial. Default: pytest, if the repository is set up for it. |
 
 The pack is, in this order: a known one (a bundled pack, or one in a directory of your own) that
 migrates the dependency from that release and, if you named `--to`, to that one; else the pack
@@ -464,6 +468,31 @@ run folder under `.obelize/`. Exit codes are `fix`'s, plus `2` for a dependency 
 name when `--from` is missing, a version or a library the index does not have, and nothing that
 changed between the releases, `6` for an index that could not be reached, and `1` for a pack
 obelize made that fails its own checks.
+
+### A trial
+
+`upgrade --apply` writes nothing until the move has been tried. It asks first, because a trial
+installs packages, which runs their build scripts, and runs the repository's tests: `--yes`, or an
+answer at a terminal when `CI` is not set; otherwise it exits `2`. A tree with uncommitted changes
+is refused (exit `5`) before anything starts. Then, in a copy of the repository made from the files
+git lists and in two environments made with [uv](https://docs.astral.sh/uv/), outside the
+repository:
+
+1. the dependencies are installed (from `uv.lock`, else `pyproject.toml`, else the
+   `requirements*.txt` at the top of the repository), plus pytest, once with the release in use and
+   once with the release moved to installed over it;
+2. the tests run on the unchanged copy with the first environment;
+3. the move is written to the copy;
+4. the tests run on the changed copy with the second environment, and the tests that failed are run
+   once more.
+
+A test is its junit `classname::name`. The move is **written to your repository** only if no test
+that passed in step 2 now fails, errors or is missing, not counting one that passed on the second
+try; the real write is `fix --apply` and ends `0` then. Otherwise nothing is written: exit `3` names
+the tests that broke, and exit `6` says the trial could not judge (no tests, no result obelize can
+read, no test that passed before, or a move that changed no file). Exit `6` also ends a trial whose
+environments could not be made. The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit
+file and output of each run, and what each environment held (`old.txt`, `new.txt`).
 
 ## `obelize pack validate`
 

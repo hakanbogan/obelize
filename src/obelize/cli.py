@@ -22,6 +22,8 @@ from obelize import __version__
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from packaging.version import Version
+
     from obelize.config import LoadedConfig, Overrides
     from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig, ScanSpec
     from obelize.net import Fetcher
@@ -30,12 +32,28 @@ if TYPE_CHECKING:
     from obelize.packs.schema import PackDocument
     from obelize.scan.runner import Scan, Tree
     from obelize.transforms.kinds.flag_only import Guide
+    from obelize.upgrade import Chosen
     from obelize.verify.runner import Mode
 
 # The finding statuses `scan --fail-on` can name: the ones that leave something to do.
 FAIL_ON = frozenset({"eligible", "needs_review", "unsupported"})
 
 # A bundled pack failing validation exits 1, not 7: the input was obelize's own.
+# `fix --apply` writing a change that no verification command judged.
+_NO_VERDICT = 6
+_CONSENT = (
+    "A trial installs the dependencies of this repository and the two releases with uv, which runs "
+    "the build scripts of what it installs, and runs the repository's tests, in a copy outside it."
+)
+# What each verdict a trial cannot judge asks of the person.
+_UNJUDGED = {
+    "no_tests": "No tests were found. Pass --test-command, or write the migration without a "
+    "trial: obelize fix --apply.",
+    "no_junit": "The tests produced no result obelize can read, so nothing was compared.",
+    "nothing_to_compare": "No test passed before the migration, or it changed no file, so "
+    "nothing was compared.",
+    "tests_broke": "",
+}
 _BUNDLED_DEFECT = (
     "This pack ships with obelize, so this is a bug in obelize. "
     "Please report it at https://github.com/hakanbogan/obelize/issues."
@@ -1080,14 +1098,43 @@ def upgrade(
     offline: bool = typer.Option(
         False, "--offline", help="Reach no host: use only what an earlier run kept in the cache."
     ),
+    apply_changes: bool = typer.Option(
+        False,
+        "--apply",
+        help="Try the move in a copy of the repository first: install both releases with uv and "
+        "run your tests before and after. Write it only if no test that passed now fails.",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="With --apply, agree to the trial: it installs packages, which runs their build "
+        "scripts, and runs your tests.",
+    ),
+    python: str | None = typer.Option(
+        None,
+        "--python",
+        metavar="<version>",
+        help="The Python the trial's environments use. Default: .python-version, else uv's own.",
+    ),
+    test_command: str | None = typer.Option(
+        None,
+        "--test-command",
+        metavar='"<cmd>"',
+        help="The tests to run in the trial, as one command. Default: pytest, if the repository "
+        "is set up for it.",
+    ),
 ) -> None:
-    """Show what moving one dependency to a newer release would change. Writes nothing.
+    """Show what moving one dependency to a newer release would change.
 
     Uses the pack that migrates the dependency when obelize has one, and otherwise makes
     one from the public API of the two releases and keeps it, as pack synth does. Then
-    plans the migration as fix does, without --apply, and prints the diff. Exit codes: as
-    fix, plus 2 for a dependency the manifests do not name and no --from, and 6 for an
-    index that could not be reached.
+    plans the migration as fix does and prints the diff, writing nothing. With --apply it
+    tries the move in a copy of the repository, in two environments made with uv, and runs
+    your tests before and after; the move is written only if no test that passed before
+    fails after. Exit codes: as fix, plus 2 for a dependency the manifests do not name and
+    no --from, or an --apply without --yes where no one can be asked, 3 for tests that
+    broke, and 6 for an index that could not be reached or a trial the tests could not
+    judge.
     """
     from obelize import index, libdiff, net
     from obelize import outdated as survey
@@ -1125,20 +1172,131 @@ def upgrade(
         typer.echo(error.detail, err=True)
         raise typer.Exit(2 if error.reason == "not_found" else 6) from error
     typer.echo(f"Moving {project.name} {now} to {target}. {chosen.note}", err=True)
-    fix(
-        pack=[chosen.reference],
-        repo=repo,
-        apply_changes=False,
-        allow_dirty=False,
-        verify_commands=None,
-        timeout=None,
-        non_interactive=True,
-        trust_repo_config=False,
-        provider=None,
-        accept_model=False,
-        show_context=False,
-        as_json=False,
+    if apply_changes:
+        _trial(
+            root,
+            chosen,
+            project.name,
+            now,
+            yes=yes,
+            python=python,
+            test_command=test_command,
+        )
+    try:
+        fix(
+            pack=[chosen.reference],
+            repo=repo,
+            apply_changes=apply_changes,
+            allow_dirty=False,
+            verify_commands=None,
+            timeout=None,
+            non_interactive=True,
+            trust_repo_config=False,
+            provider=None,
+            accept_model=False,
+            show_context=False,
+            as_json=False,
+        )
+    except typer.Exit as done:
+        # An apply with no verification command of its own ends `6`; the trial was the verification.
+        if apply_changes and done.exit_code == _NO_VERDICT:
+            raise typer.Exit(0) from done
+        raise
+
+
+def _trial(
+    root: Path,
+    chosen: Chosen,
+    distribution: str,
+    now: Version,
+    *,
+    yes: bool,
+    python: str | None,
+    test_command: str | None,
+) -> None:
+    """Try the move in a copy; return if the tests agree to it, else exit with why."""
+    from obelize import gitutil, net
+    from obelize.commands import CommandError
+    from obelize.commands import fix as fixer
+    from obelize.config import ConfigError
+    from obelize.evidence import run_dir
+    from obelize.models import ModelConfig
+    from obelize.packs import loader
+    from obelize.trial import copy, envs
+    from obelize.trial import run as trying
+
+    if not yes and not (sys.stdin.isatty() and "CI" not in os.environ and typer.confirm(_CONSENT)):
+        typer.echo(f"{_CONSENT}\nPass --yes to agree.", err=True)
+        raise typer.Exit(2)
+    # Refused before the trial, which can take minutes, and not after it.
+    dirty = gitutil.state(root).dirty
+    if dirty:
+        typer.echo(
+            "The tree has uncommitted changes. Commit or stash them, so the trial's copy is the "
+            "committed code and the move can be undone.",
+            err=True,
+        )
+        raise typer.Exit(5)
+    loaded = loader.load(chosen.reference, dirs=_pack_dirs())
+    named = run_dir.new_id()
+
+    def migrate(tree: Path) -> list[str]:
+        config, source = _settings(tree, _overrides(None, None, True))
+        outcome = fixer.run(
+            fixer.Request(
+                root=tree,
+                packs=(loaded,),
+                named=True,
+                config=config,
+                source=source,
+                cli_commands=(),
+                mode=_trust(non_interactive=True, trust_repo_config=False),
+                config_dir=_config_dir(),
+                environ=os.environ,
+                argv=_recorded_argv(),
+                apply=True,
+                say=_say,
+                model=ModelConfig(),
+            )
+        )
+        return [row.path for row in outcome.record.file_edits]
+
+    try:
+        done = trying.run(
+            trying.Plan(
+                root=root,
+                scratch=net.Cache.home(os.environ).directory / "trials" / named,
+                evidence=root / ".obelize" / "trials" / named,
+                distribution=distribution,
+                old=now,
+                install=chosen.install,
+                remove=chosen.remove,
+                environ=os.environ,
+                say=_say,
+                migrate=migrate,
+                python=python,
+                test_command=test_command,
+            )
+        )
+    except (copy.CopyError, envs.EnvError, CommandError, ConfigError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(6) from error
+    verdict = done.verdict
+    shown = _under(str(root), f".obelize/trials/{named}")
+    typer.echo(
+        f"Trial of {distribution} {now} to {chosen.install}: {verdict.status}"
+        f"{f' ({verdict.reason})' if verdict.reason else ''}; {verdict.compared} test(s) passed "
+        f"before, {len(verdict.broken)} broke, {len(verdict.flaky)} failed once and passed again. "
+        f"Evidence: {shown}",
+        err=True,
     )
+    for name in verdict.broken[:10]:
+        typer.echo(f"  broke: {name}", err=True)
+    if verdict.status == "fail":
+        raise typer.Exit(3)
+    if verdict.status != "pass":
+        typer.echo(_UNJUDGED[verdict.reason or "no_junit"], err=True)
+        raise typer.Exit(6)
 
 
 @pack_app.command("synth")

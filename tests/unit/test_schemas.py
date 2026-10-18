@@ -35,6 +35,7 @@ from obelize.models import (
     Sha256,
     UndoRecord,
 )
+from obelize.outdated import Document as OutdatedDocument
 from obelize.packs.schema import (
     CHANGE_KINDS,
     EnumMemberName,
@@ -69,6 +70,7 @@ def test_the_generated_schemas_are_the_documents_that_exist() -> None:
     assert NAMES == [
         "findings.schema.json",
         "model.schema.json",
+        "outdated.schema.json",
         "pack.schema.json",
         "plan.schema.json",
         "proposal.schema.json",
@@ -78,6 +80,7 @@ def test_the_generated_schemas_are_the_documents_that_exist() -> None:
     assert dict(generate.SCHEMAS) == {
         "findings.schema.json": FindingsDocument,
         "model.schema.json": ModelDocument,
+        "outdated.schema.json": OutdatedDocument,
         "pack.schema.json": PackDocument,
         "plan.schema.json": PlanDocument,
         "proposal.schema.json": ProposalRecord,

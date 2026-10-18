@@ -550,7 +550,8 @@ change lands with this file, the model and the schema together. `verify` and
 from a different obelize may be refused rather than half-read.
 
 `run.schema.json`, `findings.schema.json`, `plan.schema.json`,
-`undo.schema.json`, `model.schema.json` and `proposal.schema.json` in
+`undo.schema.json`, `model.schema.json`, `proposal.schema.json` and `outdated.schema.json` (the rows of
+`obelize outdated --json`, which no run folder holds) in
 `src/obelize/schemas/` are generated from the models and committed;
 `ci / schema-drift` fails when one is stale. Every object is closed and every
 field required, because every writer writes every field. A digest, a run id, an instant or a name

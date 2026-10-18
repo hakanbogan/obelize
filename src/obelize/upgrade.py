@@ -25,14 +25,18 @@ if TYPE_CHECKING:
 
     from obelize import index
     from obelize.net import Fetcher
+    from obelize.packs.schema import PackDocument
 
 
 @dataclass(frozen=True, slots=True)
 class Chosen:
-    """The pack to run: an id, or the path of a pack file, and how it came to be chosen."""
+    """The pack to run: an id, or the path of a pack file, how it came to be chosen, and what a
+    trial installs to stand for the release moved to (and the distribution it replaces)."""
 
     reference: str
     note: str
+    install: str
+    remove: str | None = None
 
 
 def choose(
@@ -55,12 +59,15 @@ def choose(
             and now in SpecifierSet(pack.from_.version)
             and (not targeted or target in SpecifierSet(pack.to.version))
         ):
-            return Chosen(pack.id, f"Using the pack {pack.id}.")
+            return Chosen(
+                pack.id, f"Using the pack {pack.id}.", *_installs(pack, project, target, targeted)
+            )
     folder = kept / synth.pack_id(project.name, now, target)
     if (folder / loader.PACK_FILENAME).is_file():
         return Chosen(
             str(folder / loader.PACK_FILENAME),
             "Using the pack made from these two releases before.",
+            f"{project.name}=={target}",
         )
     compared = libdiff.compare(fetcher, project, now, target, module=module)
     made = synth.make(
@@ -73,7 +80,19 @@ def choose(
     return Chosen(
         str(made.folder / loader.PACK_FILENAME),
         f"Made a pack from the public API of {project.name} {now} and {target}: {names} name(s).",
+        f"{project.name}=={target}",
     )
+
+
+def _installs(
+    pack: PackDocument, project: index.Project, target: Version, targeted: bool
+) -> tuple[str, str | None]:
+    """What the environment of a known pack's target holds: the release named, or the pack's own
+    range; and the distribution it replaces, if it is another."""
+    moved = canonicalize_name(pack.to.package) != project.name
+    if targeted and not moved:
+        return f"{pack.to.package}=={target}", None
+    return f"{pack.to.package}{pack.to.version}", project.name if moved else None
 
 
 __all__ = ["Chosen", "choose"]

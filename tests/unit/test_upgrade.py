@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import sys
+import sysconfig
 from typing import TYPE_CHECKING
 
 import pytest
-from typer.testing import CliRunner
+import typer
+from packaging.version import Version
+from typer.testing import CliRunner, Result
 
 import fakeindex
+from obelize import cli, index
+from obelize import upgrade as upgrading
 from obelize.cli import app
+from obelize.packs import loader
 from obelize.packtools import synth
 from support import committed
 
@@ -17,6 +24,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 runner = CliRunner()
+PYTHON = f"{sys.version_info.major}.{sys.version_info.minor}"
 
 V1 = "def old_greet(name):\n    return name\n\ndef removed_fn(x):\n    return x\n"
 V15 = (
@@ -26,6 +34,8 @@ V15 = (
     "    return greet(name)\n\ndef removed_fn(x):\n    return x\n"
 )
 V2 = "def greet(name):\n    return name\n"
+# Renamed like acme-kit, but the new name does something else, which only a test would show.
+SHOUT_V2 = "def greet(name):\n    return name.upper()\n"
 APP = "import acme_kit\n\n\ndef run(name):\n    return acme_kit.old_greet(name)\n"
 PDF = "import PyPDF2\n\n\ndef pages(path):\n    return PyPDF2.PdfReader(path).pages\n"
 
@@ -35,6 +45,10 @@ def served() -> Iterator[fakeindex.FakeIndex]:
     for found in fakeindex.FakeIndex().serve():
         for version, source in (("1.0", V1), ("1.5", V15), ("2.0", V2)):
             found.add("acme-kit", version, {"__init__.py": source}, module="acme_kit")
+        # Only a record that pytest is installed: the module comes from this interpreter.
+        found.add("pytest", "0", {}, module="")
+        for version, source in (("1.0", V1), ("1.5", V15), ("2.0", SHOUT_V2)):
+            found.add("shout-kit", version, {"__init__.py": source}, module="shout_kit")
         found.add("pypdf2", "3.0.1", {"__init__.py": "x = 1\n"}, module="PyPDF2")
         found.add("pypdf", "6.19.0", {"__init__.py": "x = 1\n"})
         yield found
@@ -140,3 +154,134 @@ def test_a_pack_obelize_made_and_cannot_stand_behind_is_a_defect(
 def test_a_repository_that_is_not_a_directory_exits_two(home: Path) -> None:
     result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(home / "nothing")])
     assert result.exit_code == 2
+
+
+# Applying, after a trial.
+
+TESTS = (
+    "import app\n\n\ndef test_hello():\n    assert app.hello('x') == 'x'\n\n\n"
+    "def test_again():\n    assert app.hello('y') == 'y'\n"
+)
+HELLO = "import acme_kit\n\n\ndef hello(name):\n    return acme_kit.old_greet(name)\n"
+
+
+@pytest.fixture
+def trial(home: Path, served: fakeindex.FakeIndex, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """uv installs from the fake index; pytest comes from the interpreter that runs these tests."""
+    monkeypatch.setenv("UV_DEFAULT_INDEX", served.url)
+    monkeypatch.setenv("UV_CACHE_DIR", str(home / "uv"))
+    monkeypatch.setenv("PYTHONPATH", sysconfig.get_paths()["purelib"])
+    monkeypatch.delenv("CI", raising=False)
+    return home
+
+
+def tried(root: Path, *extra: str) -> Result:
+    return runner.invoke(
+        app,
+        ["upgrade", "acme-kit", "--repo", str(root), "--python", PYTHON, "--apply", *extra],
+    )
+
+
+def test_a_move_whose_tests_pass_is_tried_in_a_copy_and_then_written(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes")
+    assert result.exit_code == 0, result.output
+    assert "Trial of acme-kit 1.0 to acme-kit==2.0: pass" in result.output
+    assert "2 test(s) passed before, 0 broke" in result.output
+    assert "acme_kit.greet(name)" in (root / "app.py").read_text()
+    assert (root / "requirements.txt").read_text() != "acme-kit==1.0\n"
+    folder = next((root / ".obelize" / "trials").iterdir())
+    assert (folder / "trial.json").is_file()
+
+
+def test_a_move_that_breaks_a_test_is_not_written(trial: Path) -> None:
+    hello = HELLO.replace("acme_kit", "shout_kit")
+    root = repo(trial, app__py=hello, test_app__py=TESTS, requirements__txt="shout-kit==1.0\n")
+    result = runner.invoke(
+        app,
+        ["upgrade", "shout-kit", "--repo", str(root), "--python", PYTHON, "--apply", "--yes"],
+    )
+    assert result.exit_code == 3, result.output
+    assert "broke: test_app::test_hello" in result.output
+    assert (root / "app.py").read_text() == hello
+    assert (root / "requirements.txt").read_text() == "shout-kit==1.0\n"
+
+
+def test_a_repository_with_no_tests_is_not_written_by_a_trial(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes")
+    assert result.exit_code == 6
+    assert "No tests were found" in result.output
+    assert (root / "app.py").read_text() == HELLO
+
+
+@pytest.mark.parametrize("ci", [False, True])
+def test_a_trial_is_not_run_without_the_persons_yes(
+    trial: Path, monkeypatch: pytest.MonkeyPatch, ci: bool
+) -> None:
+    if ci:
+        monkeypatch.setenv("CI", "true")
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    result = tried(root)
+    assert result.exit_code == 2
+    assert "Pass --yes to agree." in result.output
+    assert not (root / ".obelize" / "trials").exists()
+
+
+def test_a_trial_that_cannot_make_its_environments_exits_six(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS)
+    result = tried(root, "--from", "1.0", "--yes")
+    assert result.exit_code == 6
+    assert "no way to install" in result.output
+
+
+def test_a_dirty_tree_is_refused_before_the_trial_begins(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    (root / "app.py").write_text(HELLO + "# edited\n")
+    result = tried(root, "--yes")
+    assert result.exit_code == 5
+    assert "uncommitted changes" in result.output
+    assert not (root / ".obelize" / "trials").exists()
+
+
+def test_a_write_that_ends_for_another_reason_keeps_its_exit_code(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def review(**_found: object) -> None:
+        raise typer.Exit(4)
+
+    monkeypatch.setattr(cli, "fix", review)
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    assert tried(root, "--yes").exit_code == 4
+
+
+# Which pack, and what the environment of the release moved to holds.
+
+
+def project(name: str) -> index.Project:
+    return index.Project(name, ())
+
+
+@pytest.mark.parametrize(
+    ("name", "now", "target", "targeted", "install", "remove"),
+    [
+        ("pypdf2", "3.0.1", "3.0.1", False, "pypdf>=6.19", "pypdf2"),
+        ("openai", "0.28.1", "3.35.1", False, "openai>=1.109.1", None),
+        ("openai", "0.28.1", "1.109.1", True, "openai==1.109.1", None),
+    ],
+)
+def test_the_environment_of_a_known_pack_holds_the_distribution_and_range_the_pack_says(
+    name: str, now: str, target: str, targeted: bool, install: str, remove: str | None
+) -> None:
+    known = [loader.load(reference) for reference in loader.known()]
+    chosen = upgrading.choose(
+        None,  # type: ignore[arg-type]
+        project(name),
+        Version(now),
+        Version(target),
+        targeted=targeted,
+        module=None,
+        known=known,
+        kept=None,  # type: ignore[arg-type]
+    )
+    assert (chosen.install, chosen.remove) == (install, remove)

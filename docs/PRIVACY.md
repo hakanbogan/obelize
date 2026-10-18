@@ -68,6 +68,18 @@ The command exists to read two releases of a library, so it asks a package index
 - A proxy named in your environment is honoured, as for any tool of yours: this is your network, not
   a model's.
 
+## What `obelize upgrade --apply` installs
+
+Before it writes a move, `upgrade --apply` tries it: it copies the repository, installs its
+dependencies twice with uv (once with the release in use, once with the release moved to) and runs
+its tests in each. The copy and the environments are made in `$XDG_CACHE_HOME/obelize/trials` (or
+`~/.cache/obelize/trials`) and removed when the trial ends; what stays is its evidence, in
+`.obelize/trials/<id>/` of the repository: the junit files and output of each test run, what was
+installed in each environment, and the verdict. Installing reaches the index uv is configured for
+(`UV_INDEX_URL` and the like, not `network.index`) and runs the build scripts of what it installs;
+the tests run the code of the repository. Nothing about the repository or its tests is sent
+anywhere by obelize. A trial happens only if you pass `--yes` or answer yes at a terminal.
+
 ## What changes with the model adapter
 
 One optional model adapter can be asked about cases the rules refuse. It is off by default
