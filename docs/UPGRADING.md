@@ -86,3 +86,20 @@ workflow do it.
 - It cannot see a name a library builds when it is imported. If a module makes names on demand, the
   command counts the names it could not judge instead of calling them removed.
 - It installs only from the index uv is configured for, and only in a trial.
+
+## When places are left for a person
+
+Most real moves leave places that a pack made from two releases can only flag, and a library that
+keeps its import name has one release for both APIs, so the rules write nothing until every one has
+moved. With your own coding agent installed, obelize can put those places to it:
+
+```sh
+uvx obelize upgrade pydantic --apply --yes --branch --agent claude_code
+```
+
+In the trial's copy, each flagged place is sent to your `claude` program as a text question: the
+library's own words about it and the lines around it, nothing else, with every tool of the program
+turned off. The answer must pass the same guard as any model proposal. The accepted edits go into
+the copy, the rules then write the rest, and your tests judge the whole. Only a move the tests agree
+to is committed, and only to a branch; the commit message names the files the agent edited, which
+are the lines to read first. `--max-asks` limits how many places are asked about.

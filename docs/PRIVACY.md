@@ -80,6 +80,20 @@ installed in each environment, and the verdict. Installing reaches the index uv 
 the tests run the code of the repository. Nothing about the repository or its tests is sent
 anywhere by obelize. A trial happens only if you pass `--yes` or answer yes at a terminal.
 
+## What `obelize upgrade --agent` sends
+
+With `--agent claude_code` (or `agent.backend` in your own configuration), `upgrade --apply --branch`
+asks your `claude` program about the places the pack flags, one question each, up to `--max-asks`
+(50). A question is the same text the model adapter sends: the pack's id and target package, the
+file's path, the line and symbol, the pack's own words about the place and the lines around it
+(redacted by the same redactor, numbered), and nothing else of the repository. It goes to wherever
+your `claude` login sends a prompt, which is not obelize's to say and not a host obelize prints.
+The program is started in an empty directory with every tool off, no session saved, no MCP server,
+no skill and none of your settings, and with only the variables it needs for its login, its network
+and its terminal: a token for GitHub or a package index is not among them. Its answers are checked
+by the guard and written only to the trial's copy. `--agent` needs `--branch`, so nothing a model
+helped write reaches your working tree before you have read it on a branch.
+
 ## What changes with the model adapter
 
 One optional model adapter can be asked about cases the rules refuse. It is off by default

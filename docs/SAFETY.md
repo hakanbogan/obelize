@@ -16,7 +16,9 @@ network access unless you configure a model in your own `~/.config/obelize/confi
 `--model`, or run `pack synth`, which reads two releases of a library from the package index
 without installing or running anything. `upgrade --apply` is the one command that installs: it
 asks first, does it in a copy of the repository with environments outside it, and writes the move
-only if the tests agree.
+only if the tests agree. With `--agent`, the places a pack only flags are put to your own coding
+agent in that copy, as a text question with every tool of the program off; its answers pass the
+same guard as a model's, and they reach only a branch you read, never your working tree.
 
 ## Before you run it
 

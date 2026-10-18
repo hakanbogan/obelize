@@ -13,6 +13,7 @@ import shutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
+from obelize import resolve as resolving
 from obelize.trial import copy, envs, tests
 
 if TYPE_CHECKING:
@@ -41,6 +42,8 @@ class Plan:
     say: Callable[[str], None]
     # Writes the migration into a tree, and returns the paths it wrote.
     migrate: Callable[[Path], Sequence[str]]
+    # Puts what the migration left to a model, in a tree; none where no model was asked for.
+    resolve: Callable[[Path], resolving.Resolved] | None = None
     remove: str | None = None
     python: str | None = None
     test_command: str | None = None
@@ -55,6 +58,8 @@ class Trial:
     evidence: Path
     # What the migration wrote, by path: the bytes a branch is made of.
     changes: Mapping[str, bytes]
+    # The files a model edited, which are lines to review before the rest.
+    by_model: tuple[str, ...] = ()
 
 
 def run(plan: Plan) -> Trial:
@@ -114,6 +119,17 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
         index=1,
     )
     written = tuple(plan.migrate(work))
+    answered: resolving.Resolved | None = None
+    if not written and plan.resolve is not None:
+        answered = plan.resolve(work)
+        plan.say(
+            f"The model was asked about {len(answered.decisions)} place(s); "
+            f"{len(answered.edited)} file(s) were edited, {answered.left} place(s) are left"
+        )
+        written = tuple(plan.migrate(work)) if answered.edited else ()
+        if not written:
+            verdict = tests.Verdict("inconclusive", "unresolved", 0, (), ())
+            return _done(plan, verdict, (), command, work, answered)
     if not written:
         return _done(
             plan, tests.Verdict("inconclusive", "nothing_to_compare", 0, (), ()), (), command
@@ -141,7 +157,7 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
             environ=plan.environ,
             index=1,
         ).cases
-    return _done(plan, tests.judge(before, after, again), written, command, work)
+    return _done(plan, tests.judge(before, after, again), written, command, work, answered)
 
 
 def _done(
@@ -150,6 +166,7 @@ def _done(
     written: tuple[str, ...],
     command: tuple[str, ...] | None,
     work: Path | None = None,
+    answered: resolving.Resolved | None = None,
 ) -> Trial:
     document = {
         "distribution": plan.distribution,
@@ -163,9 +180,31 @@ def _done(
         "fixed": list(verdict.fixed),
         "flaky": list(verdict.flaky),
         "written": list(written),
+        "model": None
+        if answered is None
+        else {
+            "tokens_in": answered.tokens_in,
+            "tokens_out": answered.tokens_out,
+            "places": [_place(one) for one in answered.decisions],
+        },
     }
     (plan.evidence / "trial.json").write_text(
         json.dumps(document, indent=2) + "\n", encoding="utf-8"
     )
-    kept = {path: (work / path).read_bytes() for path in written} if work is not None else {}
-    return Trial(verdict, written, command, plan.evidence, kept)
+    kept = copy.changed(work) if work is not None else {}
+    by_model = () if answered is None else answered.edited
+    return Trial(verdict, tuple(kept) or written, command, plan.evidence, kept, by_model)
+
+
+def _place(one: resolving.Decision) -> dict[str, object]:
+    proposal = one.proposal
+    return {
+        "path": one.row.path,
+        "line": one.row.line,
+        "symbol": one.row.symbol,
+        "outcome": one.outcome,
+        "detail": one.detail,
+        "replacement": None if proposal is None else proposal.replacement,
+        "start_line": None if proposal is None else proposal.start_line,
+        "end_line": None if proposal is None else proposal.end_line,
+    }

@@ -71,6 +71,7 @@ row and on a row without an ADR.
 | ADR-064 | [Finding what to upgrade](adr/ADR-064-finding-what-to-upgrade.md) | Accepted | `obelize outdated` reads the manifests and asks the index for the gap, the flags (inactive, withdrawn, advisory) and what can migrate each dependency; `obelize upgrade` plans one move as a dry run with a known pack or one made from the two releases and kept in the cache. |
 | ADR-065 | [Trying an upgrade](adr/ADR-065-trying-an-upgrade.md) | Accepted | `upgrade --apply` tries a move in a copy of the repository with two uv environments (the release in use, and the release moved to), compares the repository's own tests test by test, re-runs what broke once, and writes only if no passing test now fails; it asks first and is the one place obelize installs. |
 | ADR-066 | [A branch on request](adr/ADR-066-a-branch-on-request.md) | Accepted | `upgrade --apply --branch` commits a move a trial passed to a new branch with git's plumbing (a temporary index, no checkout, no hook, no signature), never moves a branch that exists and never pushes. |
+| ADR-067 | [The flagged places](adr/ADR-067-the-flagged-places.md) | Accepted | `upgrade --apply --branch --agent claude_code` puts the places a pack only flags to the person's own `claude` as a text-only model (every tool, session, MCP server, skill and setting off, a fixed environment), checks each proposal with the guard, writes it to the trial's copy, lets the rules write the rest and the tests judge, and commits only to a branch. |
 
 ## Decisions not yet promoted to an ADR
 

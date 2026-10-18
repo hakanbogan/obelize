@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from obelize.outdated import Dependency
     from obelize.packs.loader import LoadedPack
     from obelize.packs.schema import PackDocument
+    from obelize.resolve import Resolved
     from obelize.scan.runner import Scan, Tree
     from obelize.transforms.kinds.flag_only import Guide
     from obelize.trial.run import Trial
@@ -54,6 +55,8 @@ _UNJUDGED = {
     "no_junit": "The tests produced no result obelize can read, so nothing was compared.",
     "nothing_to_compare": "No test passed before the migration, or it changed no file, so "
     "nothing was compared.",
+    "unresolved": "Places the pack flags are left, and the library has one release for both "
+    "APIs, so the rules write nothing until each has moved. See the trial's evidence.",
     "tests_broke": "",
 }
 _BUNDLED_DEFECT = (
@@ -1137,6 +1140,20 @@ def upgrade(
         metavar="<name>",
         help="The name of the branch --branch makes. Default: obelize/upgrade-<the new release>.",
     ),
+    agent: str | None = typer.Option(
+        None,
+        "--agent",
+        metavar="<backend>",
+        help="With --apply and --branch, put the places the pack only flags to your own coding "
+        "agent (claude_code), one at a time, in the trial's copy. Overrides agent.backend.",
+    ),
+    max_asks: int = typer.Option(
+        50,
+        "--max-asks",
+        min=1,
+        metavar="<n>",
+        help="The most places --agent is asked about in one trial.",
+    ),
 ) -> None:
     """Show what moving one dependency to a newer release would change.
 
@@ -1164,6 +1181,7 @@ def upgrade(
         )
         raise typer.Exit(2)
     try:
+        agent_name, agent_model = _agent(agent)
         config, _ = _settings(root, _overrides(None, None, False))
         fetcher = _fetcher(offline)
         project = index.project(fetcher, distribution)
@@ -1191,6 +1209,14 @@ def upgrade(
         typer.echo(error.detail, err=True)
         raise typer.Exit(2 if error.reason == "not_found" else 6) from error
     typer.echo(f"Moving {project.name} {now} to {target}. {chosen.note}", err=True)
+    wants_branch = bool(branch or branch_name)
+    if agent_name and not (apply_changes and wants_branch):
+        typer.echo(
+            "--agent puts code to a model, and what a model helped write is lines to review: "
+            "use --apply with --branch, so the move lands on a branch and not in your tree.",
+            err=True,
+        )
+        raise typer.Exit(2)
     if apply_changes:
         _trial(
             root,
@@ -1200,9 +1226,12 @@ def upgrade(
             yes=yes,
             python=python,
             test_command=test_command,
-            branch=(branch_name or _branch_name(chosen.install)) if branch or branch_name else None,
+            branch=(branch_name or _branch_name(chosen.install)) if wants_branch else None,
+            agent=agent_name,
+            agent_model=agent_model,
+            max_asks=max_asks,
         )
-        if branch or branch_name:
+        if wants_branch:
             raise typer.Exit(0)
     try:
         fix(
@@ -1224,6 +1253,56 @@ def upgrade(
         if apply_changes and done.exit_code == _NO_VERDICT:
             raise typer.Exit(0) from done
         raise
+
+
+def _agent(flag: str | None) -> tuple[str | None, str | None]:
+    """The coding agent asked about flagged places: the flag, else the user's own `agent` block."""
+    from obelize.providers import agent_cli
+    from obelize.verify.runner import user_config
+
+    block = user_config(_config_dir()).agent
+    chosen = flag or (None if block.backend == "none" else block.backend)
+    if chosen is not None and chosen not in agent_cli.BACKENDS:
+        backends = ", ".join(agent_cli.BACKENDS)
+        typer.echo(f"--agent takes one of {backends}, not {chosen!r}.", err=True)
+        raise typer.Exit(2)
+    return chosen, block.model
+
+
+def _resolver(
+    loaded: LoadedPack, backend: str, model: str | None, limit: int
+) -> Callable[[Path], Resolved]:
+    """What a trial calls to put the places a pack flags to the agent, in its copy."""
+    from obelize import resolve as resolving
+    from obelize.packs import loader
+    from obelize.providers import agent_cli, base
+    from obelize.scan import runner as scanner
+
+    try:
+        provider = agent_cli.build(backend, model, os.environ)
+    except base.ProviderError as error:
+        typer.echo(error.detail, err=True)
+        raise typer.Exit(6) from error
+    typer.echo(
+        f"The places {loaded.pack.id} flags will be put to {provider.program}, one at a time, "
+        f"with the lines around each (redacted) and the pack's words; your own login decides "
+        f"where they go. Nothing it writes reaches your files before your tests agree.",
+        err=True,
+    )
+
+    def resolve(tree: Path) -> Resolved:
+        config, _ = _settings(tree, _overrides(None, None, True))
+        found = scanner.scan(tree, config, loader.to_scan_spec(loaded), jobs=1).findings
+        return resolving.resolve(
+            tree,
+            resolving.rows(found, loaded.pack),
+            provider=provider,
+            pack=loaded.pack,
+            environ=os.environ,
+            limit=limit,
+        )
+
+    return resolve
 
 
 def _branch_name(install: str) -> str:
@@ -1249,8 +1328,13 @@ def _commit_branch(
         f"Upgrade {distribution} {now} to {install}\n\n"
         f"obelize {__version__} moved the code with the pack {pack}. In a copy of the repository, "
         f"the {verdict.compared} test(s) that passed before were run again after the move: "
-        f"{len(verdict.broken)} broke, {len(verdict.flaky)} failed once and passed again.\n\n"
-        f"Obelize-Trial: {named}\n"
+        f"{len(verdict.broken)} broke, {len(verdict.flaky)} failed once and passed again.\n"
+        + (
+            f"A model edited {', '.join(done.by_model)}: read those lines first.\n"
+            if done.by_model
+            else ""
+        )
+        + f"\nObelize-Trial: {named}\n"
     )
     try:
         commit = branching.commit(root, branch, done.changes, message)
@@ -1273,6 +1357,9 @@ def _trial(
     python: str | None,
     test_command: str | None,
     branch: str | None,
+    agent: str | None,
+    agent_model: str | None,
+    max_asks: int,
 ) -> None:
     """Try the move in a copy; return if the tests agree to it, else exit with why. With a branch
     name the move is committed there, and the caller ends."""
@@ -1300,6 +1387,7 @@ def _trial(
         raise typer.Exit(5)
     loaded = loader.load(chosen.reference, dirs=_pack_dirs())
     named = run_dir.new_id()
+    resolver = _resolver(loaded, agent, agent_model, max_asks) if agent else None
 
     def migrate(tree: Path) -> list[str]:
         config, source = _settings(tree, _overrides(None, None, True))
@@ -1335,6 +1423,7 @@ def _trial(
                 environ=os.environ,
                 say=_say,
                 migrate=migrate,
+                resolve=resolver,
                 python=python,
                 test_command=test_command,
             )

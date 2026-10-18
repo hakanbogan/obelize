@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import sysconfig
 from typing import TYPE_CHECKING
@@ -15,8 +16,10 @@ import fakeindex
 from obelize import cli, index
 from obelize import upgrade as upgrading
 from obelize.cli import app
+from obelize.models import EditProposal
 from obelize.packs import loader
 from obelize.packtools import synth
+from obelize.providers import agent_cli, base
 from support import committed, git
 
 if TYPE_CHECKING:
@@ -324,3 +327,129 @@ def test_a_branch_needs_a_trial(trial: Path) -> None:
     result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--branch"])
     assert result.exit_code == 2
     assert "needs --apply" in result.output
+
+
+# A model for the places a pack only flags.
+
+GONE = "import acme_kit\n\n\ndef gone(x):\n    return acme_kit.removed_fn(x)\n"
+WITH_GONE = TESTS + "\n\ndef test_gone():\n    import other\n\n    assert other.gone(1) == 1\n"
+
+
+class Agent:
+    """A model that answers the first question by replacing the line asked about."""
+
+    program = "claude"
+
+    def __init__(self, replacement: str | None) -> None:
+        self.replacement = replacement
+        self.asked: list[base.Consultation] = []
+
+    def request(self, consultation: base.Consultation) -> bytes:
+        return b""
+
+    def propose(self, consultation: base.Consultation) -> base.Reply:
+        self.asked.append(consultation)
+        if self.replacement is None:
+            return base.Reply(None)
+        line = consultation.line
+        proposal = EditProposal(
+            path=consultation.context.path,
+            start_line=line,
+            end_line=line,
+            symbol=consultation.symbol,
+            replaces="    return acme_kit.removed_fn(x)",
+            replacement=self.replacement,
+            rationale="removed_fn only returned its argument.",
+        )
+        return base.Reply(proposal, 11, 7)
+
+
+def agent_world(trial: Path, monkeypatch: pytest.MonkeyPatch, model: Agent) -> Path:
+    monkeypatch.setattr(agent_cli, "build", lambda *_args, **_kwargs: model)
+    return repo(
+        trial,
+        app__py=HELLO,
+        other__py=GONE,
+        test_app__py=WITH_GONE,
+        requirements__txt="acme-kit==1.0\n",
+    )
+
+
+def test_a_place_the_pack_flags_is_put_to_the_agent_and_the_move_it_allows_is_committed(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = Agent("    return x")
+    root = agent_world(trial, monkeypatch, model)
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 0, result.output
+    assert "will be put to claude, one at a time" in result.output
+    assert (
+        "The model was asked about 1 place(s); 1 file(s) were edited, 0 place(s) are left"
+        in result.output
+    )
+    assert model.asked[0].bail == "flag_only_surface"
+    assert "Removed in acme-kit 2.0" in (model.asked[0].note or "")
+    name = "obelize/upgrade-acme-kit-2.0"
+    assert git(root, "show", f"{name}:other.py").stdout.decode().endswith("    return x\n")
+    assert "acme_kit.greet(name)" in git(root, "show", f"{name}:app.py").stdout.decode()
+    assert git(root, "show", f"{name}:requirements.txt").stdout.decode() != "acme-kit==1.0\n"
+    said = git(root, "log", "-1", "--format=%B", name).stdout.decode()
+    assert "A model edited other.py: read those lines first." in said
+    assert (root / "other.py").read_text() == GONE
+    folder = next((root / ".obelize" / "trials").iterdir())
+    document = json.loads((folder / "trial.json").read_text())
+    assert document["model"]["places"][0]["outcome"] == "edited"
+    assert (document["model"]["tokens_in"], document["model"]["tokens_out"]) == (11, 7)
+
+
+def test_places_the_model_leaves_alone_leave_the_move_unwritten(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = agent_world(trial, monkeypatch, Agent(None))
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 6
+    assert "unresolved" in result.output
+    assert "Places the pack flags are left" in result.output
+    assert "obelize/upgrade-acme-kit-2.0" not in git(root, "branch").stdout.decode()
+
+
+def test_the_user_may_name_the_agent_in_the_config_file_instead_of_the_flag(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (trial / "config" / "obelize").mkdir(parents=True)
+    (trial / "config" / "obelize" / "config.yml").write_text(
+        "agent:\n  backend: claude_code\n  model: sonnet\n"
+    )
+    root = agent_world(trial, monkeypatch, Agent("    return x"))
+    result = tried(root, "--yes", "--branch")
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (["--agent", "claude_code"], "use --apply with --branch"),
+        (["--agent", "claude_code", "--apply"], "use --apply with --branch"),
+        (["--agent", "nonsense", "--apply", "--branch"], "--agent takes one of claude_code"),
+    ],
+)
+def test_an_agent_without_a_branch_or_that_does_not_exist_is_refused(
+    trial: Path, arguments: list[str], message: str
+) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), *arguments])
+    assert result.exit_code == 2
+    assert message in result.output
+
+
+def test_an_agent_that_cannot_be_asked_ends_the_trial_before_it_begins(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(*_args: object, **_kwargs: object) -> object:
+        raise base.ProviderError("endpoint_unreachable", "claude is not on PATH")
+
+    monkeypatch.setattr(agent_cli, "build", refuse)
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 6
+    assert "claude is not on PATH" in result.output

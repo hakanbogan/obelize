@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 Outcome = Literal["passed", "failed", "error", "skipped"]
 Status = Literal["pass", "fail", "inconclusive"]
-Reason = Literal["no_tests", "no_junit", "nothing_to_compare", "tests_broke"]
+Reason = Literal["no_tests", "no_junit", "nothing_to_compare", "unresolved", "tests_broke"]
 JUNIT_LIMIT: Final = 64 << 20
 _WORSE: Final = {"passed": 0, "skipped": 1, "failed": 2, "error": 3}
 

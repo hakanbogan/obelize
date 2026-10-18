@@ -461,6 +461,8 @@ that suits the move.
 | `--test-command "<cmd>"` | The tests to run in the trial. Default: pytest, if the repository is set up for it. |
 | `--branch` | With `--apply`, commit the move to a new branch and leave the working tree as it is. Nothing is pushed. |
 | `--branch-name <name>` | The branch `--branch` makes. Default: `obelize/upgrade-<the release moved to>`, such as `obelize/upgrade-pydantic-2.5.0`. Giving a name implies `--branch`. |
+| `--agent <backend>` | With `--apply` and `--branch`, put the places the pack only flags to your own coding agent, in the trial's copy (`claude_code`). Overrides `agent.backend`. |
+| `--max-asks <n>` | The most places `--agent` is asked about in one trial (at least 1). Default `50`. |
 
 The pack is, in this order: a known one (a bundled pack, or one in a directory of your own) that
 migrates the dependency from that release and, if you named `--to`, to that one; else the pack
@@ -500,7 +502,26 @@ name you gave (or the default), on top of `HEAD`, holding the files the move wro
 id as a trailer (`Obelize-Trial:`). It is built with git's plumbing from the bytes the trial wrote
 into its copy, so your working tree, your index and your uncommitted work are untouched, no hook runs and the
 commit is not signed. A branch that exists is never moved (exit `2`), and the command never pushes.
-Review it with `git log -p -1 <branch>`. The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit
+Review it with `git log -p -1 <branch>`.
+
+#### The places a pack only flags
+
+A library that keeps its import name across the move is one distribution for both APIs, so the
+rules write nothing while one flagged place is left, and a pack made from two releases flags most
+of what changed. `--agent claude_code` (with `--apply` and `--branch`) puts each flagged place to
+your own coding agent, in the trial's copy and before the rules run again: the agent is the
+`claude` program on your `PATH`, started in an empty directory with every tool off, no session, no
+MCP server, no skill and none of your settings (so no hook of yours runs), and with a fixed list of
+environment variables; a program that does not offer those restrictions is not used. It is sent the
+pack's own words about the place and the lines around it, redacted, as a text question, and asked
+for one edit of those lines or none. The guard that checks every model proposal checks it: it must
+stay inside what was sent, parse, and name or import nothing beyond the question. An accepted edit
+goes into the copy, the rules then write the rest, and your tests judge the whole. What the agent
+changed is named in the commit message and in `trial.json`, because it is the part to read first.
+Nothing it writes reaches your working tree: that is why `--agent` needs `--branch`.
+
+Your own login decides where the excerpts go, as it does for anything you ask `claude`; see
+[the privacy notes](PRIVACY.md#what-obelize-upgrade---agent-sends). The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit
 file and output of each run, and what each environment held (`old.txt`, `new.txt`).
 
 ## `obelize pack validate`
@@ -698,9 +719,9 @@ and `verify.timeout_s: "60"` are errors, and so is a YAML set, which has no orde
 | `allow_dirty` | boolean | `false` | Same as `--allow-dirty`. |
 | `max_file_bytes` | integer | `2000000` | Larger files are recorded as a limitation, not parsed. |
 
-**A `model:` block, `pack_dirs` and `network` are refused** (exit `2`): where your code and
-credentials go, which packs may rewrite your files and which index obelize reads code from are not
-a repository's choice. Configure them in
+**A `model:` block, `pack_dirs`, `network` and `agent` are refused** (exit `2`): where your code and
+credentials go, which packs may rewrite your files, which index obelize reads code from and which
+program your code is put to are not a repository's choice. Configure them in
 [your own file](#the-user-files-configobelize), or name a pack with `--pack`.
 
 ### The always-excluded set
@@ -874,12 +895,15 @@ The `model` keys are acted on by `obelize fix`. A value of another type is refus
 | `model.api_key_env` | string | `OBELIZE_MODEL_API_KEY` | Environment variable holding the key; the key never reaches configuration, logs or evidence. |
 | `model.log_prompts` | boolean | `false` | Keep raw prompts, which contain source, in the run folder. |
 
-The `network` keys are acted on by `obelize pack synth`.
+The `agent` keys are acted on by `obelize upgrade --apply --branch`; `network` by `pack synth`,
+`outdated` and `upgrade`.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `network.index` | string | `https://pypi.org` | The package index `pack synth` asks, as a Simple API address (`/simple` is added if it is missing). `OBELIZE_INDEX_URL` replaces it for one run; `OBELIZE_INDEX_AUTHORIZATION` is the value of an `Authorization` header, sent to this host and to none other. |
 | `network.offline` | boolean | `false` | Read releases only from the cache, as `--offline` does; `OBELIZE_OFFLINE` set to anything does too. |
+| `agent.backend` | `none` \| `claude_code` | `none` | The coding agent `upgrade --apply --branch` puts flagged places to, as `--agent` does. `none` asks no one. |
+| `agent.model` | string | unset | Passed to the program as its own model name or alias. |
 
 An allowlist entry matches a command that splits into the same arguments. An
 unreadable or invalid file is an error, never an empty allowlist.

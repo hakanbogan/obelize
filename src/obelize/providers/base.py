@@ -95,6 +95,8 @@ class Consultation:
     # Its import names (every `rename_import` `to_module`); the prompt and the guard both read it.
     to_modules: tuple[str, ...]
     limitations: tuple[str, ...]
+    # What the pack says about this row, where it flagged it: the library's own words and advice.
+    note: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

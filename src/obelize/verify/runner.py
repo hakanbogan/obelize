@@ -15,7 +15,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import (
@@ -77,6 +77,19 @@ class _UserNetwork(BaseModel):
         return net.index_url(value)
 
 
+class _UserAgent(BaseModel):
+    """A coding agent of the user's own that `upgrade --apply` may put the flagged places to.
+
+    Only the user says: what it is sent goes where its login sends it, so a repository never does.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    backend: Literal["none", "claude_code"] = "none"
+    # Passed to the program as its own model name or alias.
+    model: StrictStr | None = None
+
+
 class UserConfig(BaseModel):
     """`~/.config/obelize/config.yml`: the settings no repository may make.
 
@@ -88,6 +101,7 @@ class UserConfig(BaseModel):
     verify: _UserVerify = Field(default_factory=_UserVerify)
     model: ModelConfig = Field(default_factory=ModelConfig)
     network: _UserNetwork = Field(default_factory=_UserNetwork)
+    agent: _UserAgent = Field(default_factory=_UserAgent)
     # Where more migration packs live. A pack decides what is written and which imports a model may
     # add, so only the user names them: a repository never does.
     pack_dirs: tuple[StrictStr, ...] = ()

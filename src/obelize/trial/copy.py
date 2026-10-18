@@ -73,6 +73,20 @@ def make(root: Path, into: Path) -> Copied:
     return Copied(files, size, tuple(left))
 
 
+def changed(work: Path) -> dict[str, bytes]:
+    """The files of the copy that differ from the commit that made it, by path with their bytes:
+    what the migration wrote, wherever it came from. Deletions are not carried."""
+    status = gitutil.run(work, "status", "--porcelain", "-z", "--untracked-files=all")
+    if status is None:
+        raise CopyError("git could not say what changed in the copy")
+    found: dict[str, bytes] = {}
+    for record in status.split("\0"):
+        name = record[3:]
+        if name and not _excluded(name) and (work / name).is_file():
+            found[name] = (work / name).read_bytes()
+    return dict(sorted(found.items()))
+
+
 def _excluded(name: str) -> bool:
     """A path a copy leaves out: a git directory, the run folders, caches, a name that leaves."""
     parts = name.split("/")

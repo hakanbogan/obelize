@@ -264,6 +264,11 @@ def load(repo: Path) -> LoadedConfig:
             f"decide where your code and API key are sent. Put the model block in "
             f"~/.config/obelize/config.yml, or pass --model."
         )
+    if "agent" in data:
+        raise ConfigError(
+            f"{CONFIG_FILENAME}: an agent is not read from a repository, because it decides where "
+            f"your code is sent. Put agent in ~/.config/obelize/config.yml, or pass --agent."
+        )
     if "network" in data:
         raise ConfigError(
             f"{CONFIG_FILENAME}: network settings are not read from a repository, because the "

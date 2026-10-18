@@ -58,6 +58,13 @@ in the release that makes it.
   exits `3` for tests that broke and `6` for a trial that could not judge. `--branch` commits a
   passed move to a new branch instead of the working tree, with git's plumbing: no checkout, no hook,
   no signature, no push.
+- `obelize upgrade <distribution> --apply --branch --agent claude_code` puts the places a pack only
+  flags to your own `claude` program as a text-only model (every tool, session, MCP server, skill and
+  setting of yours off, a fixed list of environment variables), checks each answer with the guard,
+  writes it to the trial's copy, lets the rules write the rest and your tests judge. It needs
+  `--branch`, so nothing a model helped write reaches your working tree; the commit message names the
+  files it edited. `agent.backend` and `agent.model` in your own configuration do the same, and a
+  repository's `.obelize.yml` may not set `agent`.
 - `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
   it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
   migration as `fix` does without `--apply`. It writes nothing in the repository.
