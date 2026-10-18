@@ -125,7 +125,7 @@ def test_the_agent_is_started_with_every_capability_taken_away_in_an_empty_direc
     ):
         assert flag in argv
     assert seen["stdin"] == adapter.question(consultation())
-    assert "what the pack says about it: Renamed in acme-kit 2.0: use greet." in seen["stdin"]
+    assert "what is known about it: Renamed in acme-kit 2.0: use greet." in seen["stdin"]
     assert not seen["cwd"].startswith(str(tmp_path / "repo"))
     assert "GITHUB_TOKEN" not in seen["env"]
     assert "PYTHONPATH" not in seen["env"]

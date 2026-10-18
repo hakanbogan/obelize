@@ -103,3 +103,7 @@ turned off. The answer must pass the same guard as any model proposal. The accep
 the copy, the rules then write the rest, and your tests judge the whole. Only a move the tests agree
 to is committed, and only to a branch; the commit message names the files the agent edited, which
 are the lines to read first. `--max-asks` limits how many places are asked about.
+
+If tests that passed before the move fail after it, the agent is put those too, with the error
+and the line of your code the traceback points at, for up to `--max-rounds` rounds. It never edits
+a test.

@@ -1152,7 +1152,14 @@ def upgrade(
         "--max-asks",
         min=1,
         metavar="<n>",
-        help="The most places --agent is asked about in one trial.",
+        help="The most places --agent is asked about in one round.",
+    ),
+    max_rounds: int = typer.Option(
+        3,
+        "--max-rounds",
+        min=0,
+        metavar="<n>",
+        help="The most rounds --agent is put the tests that broke after the move. 0 asks none.",
     ),
 ) -> None:
     """Show what moving one dependency to a newer release would change.
@@ -1230,6 +1237,7 @@ def upgrade(
             agent=agent_name,
             agent_model=agent_model,
             max_asks=max_asks,
+            max_rounds=max_rounds,
         )
         if wants_branch:
             raise typer.Exit(0)
@@ -1271,12 +1279,15 @@ def _agent(flag: str | None) -> tuple[str | None, str | None]:
 
 def _resolver(
     loaded: LoadedPack, backend: str, model: str | None, limit: int
-) -> Callable[[Path], Resolved]:
-    """What a trial calls to put the places a pack flags to the agent, in its copy."""
+) -> tuple[Callable[[Path], Resolved], Callable[[Path, Mapping[str, str]], Resolved]]:
+    """What a trial calls to put the places a pack flags, and then the tests that broke, to the
+    agent, in its copy."""
+    from obelize import repair as repairing
     from obelize import resolve as resolving
     from obelize.packs import loader
     from obelize.providers import agent_cli, base
     from obelize.scan import runner as scanner
+    from obelize.trial import copy
 
     try:
         provider = agent_cli.build(backend, model, os.environ)
@@ -1284,9 +1295,10 @@ def _resolver(
         typer.echo(error.detail, err=True)
         raise typer.Exit(6) from error
     typer.echo(
-        f"The places {loaded.pack.id} flags will be put to {provider.program}, one at a time, "
-        f"with the lines around each (redacted) and the pack's words; your own login decides "
-        f"where they go. Nothing it writes reaches your files before your tests agree.",
+        f"The places {loaded.pack.id} flags, and then the tests the move broke, will be put to "
+        f"{provider.program}, one place at a time, with the lines around each (redacted) and "
+        f"the pack's words or the test's error; your own login decides where they go. Nothing it "
+        f"writes reaches your files before your tests agree.",
         err=True,
     )
 
@@ -1302,7 +1314,13 @@ def _resolver(
             limit=limit,
         )
 
-    return resolve
+    def repair(tree: Path, failures: Mapping[str, str]) -> Resolved:
+        found = repairing.rows(tree, failures, copy.changed(tree), os.environ)
+        return resolving.resolve(
+            tree, found, provider=provider, pack=loaded.pack, environ=os.environ, limit=limit
+        )
+
+    return resolve, repair
 
 
 def _branch_name(install: str) -> str:
@@ -1360,6 +1378,7 @@ def _trial(
     agent: str | None,
     agent_model: str | None,
     max_asks: int,
+    max_rounds: int,
 ) -> None:
     """Try the move in a copy; return if the tests agree to it, else exit with why. With a branch
     name the move is committed there, and the caller ends."""
@@ -1387,7 +1406,7 @@ def _trial(
         raise typer.Exit(5)
     loaded = loader.load(chosen.reference, dirs=_pack_dirs())
     named = run_dir.new_id()
-    resolver = _resolver(loaded, agent, agent_model, max_asks) if agent else None
+    resolver, repairer = _resolver(loaded, agent, agent_model, max_asks) if agent else (None, None)
 
     def migrate(tree: Path) -> list[str]:
         config, source = _settings(tree, _overrides(None, None, True))
@@ -1424,6 +1443,8 @@ def _trial(
                 say=_say,
                 migrate=migrate,
                 resolve=resolver,
+                repair=repairer,
+                max_rounds=max_rounds,
                 python=python,
                 test_command=test_command,
             )

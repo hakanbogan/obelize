@@ -27,7 +27,7 @@ cannot be held to a text answer would be a way for a repository's text to run a 
 
 ### D2. A flagged place is a question with the pack's words
 
-A `Consultation` may carry `note`, what the pack says about the row: for a flagged place, the
+A `Consultation` may carry `note`, what is known about the row: for a flagged place, the
 flagged change's message and suggestion, which for a pack made from two releases are the library's
 own words. The question is otherwise the adapter's: the file, the line, the symbol, the modules a
 proposal may import, and the redacted lines around the place. Each place is its own question, the
@@ -51,8 +51,23 @@ and `trial.json` records every place: the outcome, the guard's refusal or the pr
 This is the rule that a model's edit is never written unreviewed (ADR-003, ADR-039) held in the one
 place a trial makes a write.
 
+### D5. The tests the move broke are put to the agent, as places in the code that was changed
+
+When the tests that passed before fail after the move, each failing test's Python traceback
+(`--tb=native`, which the trial runs) is read for its innermost frame in a file the move wrote,
+a model edit included, that is not a test (a name `test_*`, `*_test.py`, `conftest.py`, or a
+directory `test` or `tests`). That frame is a place: the file, the line, and the function it is in
+for the symbol the guard asks a proposal to name, with the test's name and the last line of its
+error, redacted and cut to 300 characters, as the note. The places are asked about, checked and
+written as D2 and D3 say, the tests run again, and the rounds stop when the agent edits nothing,
+when no fewer tests break, or after `--max-rounds` (3). A test is the evidence, so a test file is
+never a place, and a failure that raises in a test file or in code the move did not touch (a wrong
+value, an assertion) has no place and is left to the person. A trial that still fails writes
+nothing.
+
 ## Consequences
 
 `docs/CLI.md`, `docs/PRIVACY.md` and `docs/THREAT_MODEL.md` (TM-13) describe the agent, what it is
 sent and what restricts it. The `model:` block and `fix` are unchanged: the agent is for `upgrade`.
-Repairing what the move broke, a loop on failing tests, is not part of this decision.
+The repair is limited to code the move wrote and to errors a traceback places there; widening it to
+other code, or to the text of a `mock.patch` in a test, is a decision of its own.

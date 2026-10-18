@@ -154,6 +154,24 @@ def test_a_file_that_vanishes_before_it_is_copied_is_left_out(
     assert copy.make(root, tmp_path / "copy").left == ("app.py",)
 
 
+def test_the_traceback_of_each_test_that_failed_or_errored_is_kept(tmp_path: Path) -> None:
+    path = junit(
+        tmp_path,
+        case("t::a"),
+        '<testcase classname="t" name="b"><failure message="short">  the traceback  </failure>'
+        "</testcase>",
+        '<testcase classname="t" name="c"><error message="only a message"/></testcase>',
+        case("t::d", "skipped"),
+        case("t::e", "failure"),
+    )
+    assert tests._failures(tests._junit(path)) == {
+        "t::b": "the traceback",
+        "t::c": "only a message",
+        "t::e": "",
+    }
+    assert tests._failures(None) == {}
+
+
 def test_a_copy_git_cannot_describe_is_an_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

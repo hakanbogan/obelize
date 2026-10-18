@@ -84,14 +84,16 @@ anywhere by obelize. A trial happens only if you pass `--yes` or answer yes at a
 
 With `--agent claude_code` (or `agent.backend` in your own configuration), `upgrade --apply --branch`
 asks your `claude` program about the places the pack flags, one question each, up to `--max-asks`
-(50). A question is the same text the model adapter sends: the pack's id and target package, the
+(50) a round and up to `--max-rounds` (3) rounds for the tests that broke after the move. A question is the same text the model adapter sends: the pack's id and target package, the
 file's path, the line and symbol, the pack's own words about the place and the lines around it
 (redacted by the same redactor, numbered), and nothing else of the repository. It goes to wherever
 your `claude` login sends a prompt, which is not obelize's to say and not a host obelize prints.
 The program is started in an empty directory with every tool off, no session saved, no MCP server,
 no skill and none of your settings, and with only the variables it needs for its login, its network
 and its terminal: a token for GitHub or a package index is not among them. Its answers are checked
-by the guard and written only to the trial's copy. `--agent` needs `--branch`, so nothing a model
+by the guard and written only to the trial's copy. For a test that broke, the question holds the
+test's name and the last line of its error (redacted and cut to 300 characters) in place of the
+pack's words; no test file is sent as a place to edit. `--agent` needs `--branch`, so nothing a model
 helped write reaches your working tree before you have read it on a branch.
 
 ## What changes with the model adapter

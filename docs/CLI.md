@@ -462,7 +462,8 @@ that suits the move.
 | `--branch` | With `--apply`, commit the move to a new branch and leave the working tree as it is. Nothing is pushed. |
 | `--branch-name <name>` | The branch `--branch` makes. Default: `obelize/upgrade-<the release moved to>`, such as `obelize/upgrade-pydantic-2.5.0`. Giving a name implies `--branch`. |
 | `--agent <backend>` | With `--apply` and `--branch`, put the places the pack only flags to your own coding agent, in the trial's copy (`claude_code`). Overrides `agent.backend`. |
-| `--max-asks <n>` | The most places `--agent` is asked about in one trial (at least 1). Default `50`. |
+| `--max-asks <n>` | The most places `--agent` is asked about in one round (at least 1). Default `50`. |
+| `--max-rounds <n>` | The most rounds `--agent` is put the tests that broke after the move (at least 0). Default `3`; `0` asks none. |
 
 The pack is, in this order: a known one (a bundled pack, or one in a directory of your own) that
 migrates the dependency from that release and, if you named `--to`, to that one; else the pack
@@ -519,6 +520,12 @@ stay inside what was sent, parse, and name or import nothing beyond the question
 goes into the copy, the rules then write the rest, and your tests judge the whole. What the agent
 changed is named in the commit message and in `trial.json`, because it is the part to read first.
 Nothing it writes reaches your working tree: that is why `--agent` needs `--branch`.
+
+If tests that passed before the move now fail, the agent is put them too, up to `--max-rounds`
+times (3). A failing test points, in its Python traceback, at the lines where it broke; where such a
+line is in a file the move wrote and is not a test, that place goes to the agent with the error, and
+the tests run again. A test file is never edited: it is the evidence. The rounds stop when the agent
+offers nothing or no fewer tests break, and a move whose tests still fail is not written.
 
 Your own login decides where the excerpts go, as it does for anything you ask `claude`; see
 [the privacy notes](PRIVACY.md#what-obelize-upgrade---agent-sends). The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit

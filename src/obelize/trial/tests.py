@@ -11,7 +11,7 @@ import os
 import shlex
 import tomllib
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Final, Literal
 
 from obelize.verify import runner as verifier
@@ -36,6 +36,8 @@ class Phase:
 
     result: CommandResult
     cases: Mapping[str, Outcome]
+    # The traceback text of each test that failed or errored, as the junit file has it.
+    failures: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,30 +108,50 @@ def run(
     (folder / f"{index}.output.txt").write_text(
         f"{done.command}\nexit {done.exit_code}, {done.status}\n\n{done.output}", encoding="utf-8"
     )
-    cases = cases_of(folder / done.junit) if done.junit else {}
-    return Phase(done, cases)
+    root = _junit(folder / done.junit) if done.junit else None
+    return Phase(done, _cases(root), _failures(root))
 
 
 def cases_of(path: Path) -> dict[str, Outcome]:
     """Each test a junit file reports and how it ended; an unreadable or hostile file, none."""
+    return _cases(_junit(path))
+
+
+def _junit(path: Path) -> ET.Element | None:
     try:
         with path.open("rb") as handle:
             data = handle.read(JUNIT_LIMIT + 1)
     except OSError:
-        return {}
+        return None
     if len(data) > JUNIT_LIMIT or b"<!DOCTYPE" in data or b"<!ENTITY" in data:
-        return {}
+        return None
     try:
-        root = ET.fromstring(data)  # noqa: S314 - no DOCTYPE or ENTITY, so no expansion
+        return ET.fromstring(data)  # noqa: S314 - no DOCTYPE or ENTITY, so no expansion
     except ET.ParseError:
-        return {}
+        return None
+
+
+def _cases(root: ET.Element | None) -> dict[str, Outcome]:
     found: dict[str, Outcome] = {}
-    for case in root.iter("testcase"):
-        name = f"{case.get('classname', '')}::{case.get('name', '')}"
+    for case in root.iter("testcase") if root is not None else ():
+        name = _name(case)
         ended = _ended(case)
         if name not in found or _WORSE[ended] > _WORSE[found[name]]:
             found[name] = ended
     return found
+
+
+def _failures(root: ET.Element | None) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for case in root.iter("testcase") if root is not None else ():
+        problem = case.find("error") if case.find("error") is not None else case.find("failure")
+        if problem is not None:
+            found.setdefault(_name(case), (problem.text or problem.get("message") or "").strip())
+    return found
+
+
+def _name(case: ET.Element) -> str:
+    return f"{case.get('classname', '')}::{case.get('name', '')}"
 
 
 def _ended(case: ET.Element) -> Outcome:

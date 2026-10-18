@@ -44,6 +44,9 @@ class Plan:
     migrate: Callable[[Path], Sequence[str]]
     # Puts what the migration left to a model, in a tree; none where no model was asked for.
     resolve: Callable[[Path], resolving.Resolved] | None = None
+    # Puts the tests that broke, by their tracebacks, to a model; none where no model was asked for.
+    repair: Callable[[Path, Mapping[str, str]], resolving.Resolved] | None = None
+    max_rounds: int = 3
     remove: str | None = None
     python: str | None = None
     test_command: str | None = None
@@ -129,17 +132,48 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
         written = tuple(plan.migrate(work)) if answered.edited else ()
         if not written:
             verdict = tests.Verdict("inconclusive", "unresolved", 0, (), ())
-            return _done(plan, verdict, (), command, work, answered)
+            return _done(plan, verdict, (), command, work, [("resolve", answered)])
     if not written:
         return _done(
             plan, tests.Verdict("inconclusive", "nothing_to_compare", 0, (), ()), (), command
         )
     plan.say(f"Running the tests on {plan.install}, with the migration written")
+    after, verdict = _tried(plan, work, new, later, before, "after", "again")
+    rounds = [("resolve", answered)] if answered is not None else []
+    for number in range(1, plan.max_rounds + 1):
+        if verdict.status != "fail" or plan.repair is None:
+            break
+        plan.say(
+            f"Putting the {len(verdict.broken)} test(s) that broke to the model, round {number}"
+        )
+        failed = {name: after.failures[name] for name in verdict.broken if name in after.failures}
+        repaired = plan.repair(work, failed)
+        rounds.append((f"repair-{number}", repaired))
+        if not repaired.edited:
+            break
+        after, again = _tried(plan, work, new, later, before, f"after-{number}", f"again-{number}")
+        stalled = len(again.broken) >= len(verdict.broken)
+        verdict = again
+        if stalled:
+            break
+    return _done(plan, verdict, written, command, work, rounds)
+
+
+def _tried(
+    plan: Plan,
+    work: Path,
+    env: envs.Env,
+    command: tuple[str, ...],
+    before: tests.Phase,
+    name: str,
+    retry: str,
+) -> tuple[tests.Phase, tests.Verdict]:
+    """The tests once on the new release, and the ones that broke once more to set flaky apart."""
     after = tests.run(
         work,
-        new,
-        later,
-        plan.evidence / "after",
+        env,
+        command,
+        plan.evidence / name,
         timeout_s=plan.timeout_s,
         environ=plan.environ,
         index=1,
@@ -150,14 +184,14 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
         plan.say(f"Running the {len(first.broken)} test(s) that broke once more")
         again = tests.run(
             work,
-            new,
-            (*later, "--lf"),
-            plan.evidence / "again",
+            env,
+            (*command, "--lf"),
+            plan.evidence / retry,
             timeout_s=plan.timeout_s,
             environ=plan.environ,
             index=1,
         ).cases
-    return _done(plan, tests.judge(before, after, again), written, command, work, answered)
+    return after, tests.judge(before, after, again)
 
 
 def _done(
@@ -166,7 +200,7 @@ def _done(
     written: tuple[str, ...],
     command: tuple[str, ...] | None,
     work: Path | None = None,
-    answered: resolving.Resolved | None = None,
+    rounds: Sequence[tuple[str, resolving.Resolved]] = (),
 ) -> Trial:
     document = {
         "distribution": plan.distribution,
@@ -180,19 +214,22 @@ def _done(
         "fixed": list(verdict.fixed),
         "flaky": list(verdict.flaky),
         "written": list(written),
-        "model": None
-        if answered is None
-        else {
-            "tokens_in": answered.tokens_in,
-            "tokens_out": answered.tokens_out,
-            "places": [_place(one) for one in answered.decisions],
-        },
+        "model": {
+            "tokens_in": sum(one.tokens_in for _, one in rounds),
+            "tokens_out": sum(one.tokens_out for _, one in rounds),
+            "rounds": [
+                {"name": name, "places": [_place(one) for one in done.decisions]}
+                for name, done in rounds
+            ],
+        }
+        if rounds
+        else None,
     }
     (plan.evidence / "trial.json").write_text(
         json.dumps(document, indent=2) + "\n", encoding="utf-8"
     )
     kept = copy.changed(work) if work is not None else {}
-    by_model = () if answered is None else answered.edited
+    by_model = tuple(sorted({path for _, one in rounds for path in one.edited}))
     return Trial(verdict, tuple(kept) or written, command, plan.evidence, kept, by_model)
 
 

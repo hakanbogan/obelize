@@ -138,7 +138,7 @@ def question(consultation: base.Consultation) -> str:
         f"the rules refused with: {consultation.bail}",
     ]
     if consultation.note:
-        lines.append(f"what the pack says about it: {consultation.note}")
+        lines.append(f"what is known about it: {consultation.note}")
     if consultation.limitations:
         lines += ["", PACK_NOTE, "", *(f"- {one}" for one in consultation.limitations)]
     # Numbered after redaction, so a number cannot split a secret. A colon, so a copied number

@@ -64,7 +64,9 @@ in the release that makes it.
   writes it to the trial's copy, lets the rules write the rest and your tests judge. It needs
   `--branch`, so nothing a model helped write reaches your working tree; the commit message names the
   files it edited. `agent.backend` and `agent.model` in your own configuration do the same, and a
-  repository's `.obelize.yml` may not set `agent`.
+  repository's `.obelize.yml` may not set `agent`. Tests that passed before the move and fail after it
+  are put to the agent too, with the error and the line of non-test code the traceback points at, for
+  up to `--max-rounds` rounds (3); a test file is never edited.
 - `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
   it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
   migration as `fix` does without `--apply`. It writes nothing in the repository.

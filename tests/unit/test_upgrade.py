@@ -336,12 +336,12 @@ WITH_GONE = TESTS + "\n\ndef test_gone():\n    import other\n\n    assert other.
 
 
 class Agent:
-    """A model that answers the first question by replacing the line asked about."""
+    """A model that answers the questions in turn, each by replacing one line, or by nothing."""
 
     program = "claude"
 
-    def __init__(self, replacement: str | None) -> None:
-        self.replacement = replacement
+    def __init__(self, replacement: str | None, *later: tuple[str, str]) -> None:
+        self.answers = [("    return acme_kit.removed_fn(x)", replacement), *later]
         self.asked: list[base.Consultation] = []
 
     def request(self, consultation: base.Consultation) -> bytes:
@@ -349,16 +349,18 @@ class Agent:
 
     def propose(self, consultation: base.Consultation) -> base.Reply:
         self.asked.append(consultation)
-        if self.replacement is None:
+        index = len(self.asked) - 1
+        replaces, replacement = self.answers[index] if index < len(self.answers) else ("", None)
+        if replacement is None:
             return base.Reply(None)
         line = consultation.line
         proposal = EditProposal(
             path=consultation.context.path,
             start_line=line,
             end_line=line,
-            symbol=consultation.symbol,
-            replaces="    return acme_kit.removed_fn(x)",
-            replacement=self.replacement,
+            symbol=consultation.symbol or "",
+            replaces=replaces,
+            replacement=replacement,
             rationale="removed_fn only returned its argument.",
         )
         return base.Reply(proposal, 11, 7)
@@ -382,7 +384,7 @@ def test_a_place_the_pack_flags_is_put_to_the_agent_and_the_move_it_allows_is_co
     root = agent_world(trial, monkeypatch, model)
     result = tried(root, "--yes", "--branch", "--agent", "claude_code")
     assert result.exit_code == 0, result.output
-    assert "will be put to claude, one at a time" in result.output
+    assert "will be put to claude, one place at a time" in result.output
     assert (
         "The model was asked about 1 place(s); 1 file(s) were edited, 0 place(s) are left"
         in result.output
@@ -398,7 +400,8 @@ def test_a_place_the_pack_flags_is_put_to_the_agent_and_the_move_it_allows_is_co
     assert (root / "other.py").read_text() == GONE
     folder = next((root / ".obelize" / "trials").iterdir())
     document = json.loads((folder / "trial.json").read_text())
-    assert document["model"]["places"][0]["outcome"] == "edited"
+    assert document["model"]["rounds"][0]["name"] == "resolve"
+    assert document["model"]["rounds"][0]["places"][0]["outcome"] == "edited"
     assert (document["model"]["tokens_in"], document["model"]["tokens_out"]) == (11, 7)
 
 
@@ -453,3 +456,48 @@ def test_an_agent_that_cannot_be_asked_ends_the_trial_before_it_begins(
     result = tried(root, "--yes", "--branch", "--agent", "claude_code")
     assert result.exit_code == 6
     assert "claude is not on PATH" in result.output
+
+
+# A test the move broke, put to the model with its traceback.
+
+BROKEN = ("    return acme_kit.removed_fn(x)", "    return x.missing")
+
+
+def test_a_test_the_move_broke_is_put_to_the_agent_and_the_repair_is_committed(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = Agent("    return x.missing", ("    return x.missing", "    return x"))
+    root = agent_world(trial, monkeypatch, model)
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 0, result.output
+    assert "Putting the 1 test(s) that broke to the model, round 1" in result.output
+    note = model.asked[1].note or ""
+    assert note.startswith("test_app::test_gone")
+    assert "AttributeError" in note
+    assert (model.asked[1].context.path, model.asked[1].line) == ("other.py", 5)
+    name = "obelize/upgrade-acme-kit-2.0"
+    assert git(root, "show", f"{name}:other.py").stdout.decode().endswith("    return x\n")
+    folder = next((root / ".obelize" / "trials").iterdir())
+    document = json.loads((folder / "trial.json").read_text())
+    assert [one["name"] for one in document["model"]["rounds"]] == ["resolve", "repair-1"]
+    assert document["model"]["tokens_in"] == 22
+    assert (folder / "after-1").is_dir()
+
+
+@pytest.mark.parametrize(
+    ("arguments", "model", "asked"),
+    [
+        (["--max-rounds", "0"], Agent("    return x.missing"), 1),
+        ([], Agent("    return x.missing"), 2),
+        ([], Agent("    return x.missing", ("    return x.missing", "    return x.other")), 2),
+    ],
+    ids=["no rounds", "the model offers nothing", "no fewer tests broke"],
+)
+def test_a_test_that_stays_broken_leaves_the_move_unwritten(
+    trial: Path, monkeypatch: pytest.MonkeyPatch, arguments: list[str], model: Agent, asked: int
+) -> None:
+    root = agent_world(trial, monkeypatch, model)
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code", *arguments)
+    assert result.exit_code == 3, result.output
+    assert len(model.asked) == asked
+    assert "obelize/upgrade-acme-kit-2.0" not in git(root, "branch").stdout.decode()

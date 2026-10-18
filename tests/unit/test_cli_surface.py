@@ -261,7 +261,7 @@ def test_a_flag_with_a_floor_states_it_in_the_contract() -> None:
             spelling = next(iter(option.param_decls or ()))
             row = next(line for line in section.splitlines() if line.startswith(f"| `{spelling}"))
             assert f"(at least {option.min})" in row, (command.name, spelling)
-    assert floors == 3
+    assert floors == 4
 
 
 def test_the_model_flag_names_every_provider_it_accepts() -> None:
