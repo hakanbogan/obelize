@@ -61,6 +61,7 @@ dependencies = [
   "pyyaml>=6.0.3",
   "packaging>=26.3",
   "pathspec>=1.1.1",
+  "griffelib>=2.3.2",
 ]
 
 # `uv sync`, or `pip install --group dev` with pip 25.1 or later (PEP 735).
@@ -208,8 +209,9 @@ omit = [
   "bench/work/*",
   # Repositories the harness migrates, run by subprocess from a copy in a temporary directory.
   "bench/fixtures/*",
-  # Runs only as `python -m obelize`, in a subprocess.
+  # Run only as `python -m obelize` and `python -m obelize.apidiff`, in a subprocess.
   "src/obelize/__main__.py",
+  "src/obelize/apidiff/__main__.py",
 ]
 plugins = ["coverage_conditional_plugin"]
 

@@ -37,6 +37,7 @@ Accepted; amended by ADR-021, ADR-022, ADR-049 and ADR-050.
   | `pyyaml>=6.0.3` | pack and config parsing, `safe_load` only |
   | `packaging>=26.3` | PEP 440 / requirement-line parsing for manifests |
   | `pathspec>=1.1.1` | `exclude` patterns, with git's own semantics (`GitIgnoreSpec`) |
+  | `griffelib>=2.3.2` | the public API of a release, read statically in a child process (ADR-062) |
 
   The model adapter (ADR-003) uses stdlib `urllib`, and every supported
   interpreter has `tomllib`. A new runtime dependency needs an ADR, because the

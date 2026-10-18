@@ -83,7 +83,7 @@ def _one(info: Path) -> set[str]:
     except (OSError, UnicodeDecodeError):
         record = ""
     paths = [line.rpartition(",,")[0] or line.split(",")[0] for line in record.splitlines()]
-    found = _packages(paths)
+    found = packages(paths)
     if found:
         return found
     try:
@@ -93,7 +93,7 @@ def _one(info: Path) -> set[str]:
     return {name for name in map(str.strip, top.splitlines()) if _valid(name)}
 
 
-def _packages(paths: Iterable[str]) -> set[str]:
+def packages(paths: Iterable[str]) -> set[str]:
     """The outermost packages and top-level modules the files of a distribution make."""
     packages = {
         posixpath.dirname(path).replace("/", ".")
@@ -140,4 +140,4 @@ def imported(tree: Tree, limit: int = 5) -> tuple[tuple[str, int], ...]:
     return tuple(ranked[:limit])
 
 
-__all__ = ["imported", "modules", "spec"]
+__all__ = ["imported", "modules", "packages", "spec"]
