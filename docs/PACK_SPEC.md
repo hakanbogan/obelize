@@ -602,7 +602,8 @@ Defined in [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md); a pack's fixtures and
 
 ## Fixtures
 
-`tests/packs/test_all_packs.py` checks, per bundled pack:
+`obelize pack test` runs the checks below over any pack, and `tests/packs/test_all_packs.py`
+holds the bundled ones to them and to more, per bundled pack:
 
 - the pack validates;
 - each change has a positive and a negative fixture;

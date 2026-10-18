@@ -10,6 +10,8 @@ obelize fix    [--pack <id|path>] [--repo .] [--apply] [--allow-dirty] [--verify
 obelize verify --run <id> [--repo .] [--verify "<cmd>"]...
 obelize undo   --run <id> [--repo .]
 obelize pack validate <id|path>
+obelize pack test     <id|path>
+obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
 ```
 
 `tests/unit/test_status_claims.py` holds this block equal to the registered commands, and

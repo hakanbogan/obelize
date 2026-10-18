@@ -23,6 +23,11 @@ in the release that makes it.
   Each place is `needs_review` with the new reason `no_pack_for_usage` and nothing is rewritten. The
   run records `source: inventory` in `packs[]` and holds no copy of a pack.
 
+- `obelize pack new <id> --from "<requirement>" --to "<requirement>" --guide <url>` makes a pack
+  that loads, with fixtures and sources to edit.
+- `obelize pack test <id|path>` runs a pack over its own fixtures and sources: the checks the three
+  bundled packs pass in the test suite, now available for a pack of your own.
+
 ### Changed
 
 - A scan that finds no pack to apply names the libraries the repository imports most and the

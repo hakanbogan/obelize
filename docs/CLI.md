@@ -16,6 +16,9 @@ obelize verify --run <id> [--repo .] [--verify "<cmd>"]... [--timeout <s>]
             [--non-interactive] [--trust-repo-config] [--json]
 obelize undo   --run <id> [--repo .] [--json]
 obelize pack validate <id|path>
+obelize pack test     <id|path>
+obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
+            [--module <module>] [--to-module <module>] [--requires-python <range>] [--dir <path>]
 ```
 
 `python -m obelize` runs the same commands where the `obelize` script is not
@@ -328,6 +331,54 @@ since a local pack need not ship fixtures (the last output line says so).
 Exit codes: `0` valid; `7` invalid YAML or schema; `2` nothing to read there;
 `1` a **bundled** pack is invalid (an obelize defect; the message links the
 issue tracker).
+
+## `obelize pack test`
+
+Run a pack over its own fixtures and sources. `pack validate` reads the pack alone; this
+command checks it against the files beside it, with the checks the three bundled packs pass in
+the test suite:
+
+- every fixture the pack names is on disk, every file under `fixtures/` is named, and every
+  answer key (`<name>.after.<ext>`) sits beside its input;
+- every change has a positive and a negative fixture;
+- every Python fixture parses, reads back byte for byte and compiles;
+- a positive fixture holds a prefilter token and a negative one does not, so the scan skips it
+  (a shared module's negatives are scanned instead and must find nothing to migrate);
+- an answer key exists for exactly the fixtures a run migrates whole, and each is what the rules
+  write into its fixture, the dependency fixture included;
+- applying the pack twice writes what applying it once did, and two runs write the same bytes;
+- `SOURCES.md` has a section for every change, none for a change that does not exist, and names the
+  source url and, if the pack records one, the hash of the page.
+
+| Argument | Description |
+|---|---|
+| `<id\|path>` | A pack id, a path to a pack file, or the folder that holds `pack.yaml`. |
+
+The output is one line per check, `ok` or `FAIL`, and under each failure the file and the reason.
+Exit codes: `0` every check passed; `7` a check failed, or the pack is invalid; `2` nothing to read
+there; `1` a **bundled** pack failed (an obelize defect).
+
+## `obelize pack new`
+
+Make a pack that loads, with fixtures and sources to edit. The skeleton renames one module and moves
+the dependency line, and its fixtures pass `pack test` as made. The `.after` files are what the
+rules wrote into the fixtures, so read them before you trust them.
+
+| Flag | Description |
+|---|---|
+| `<id>` | Required. The pack's id, `<provider>/<name>`, in lowercase letters, digits and hyphens. |
+| `--from "<requirement>"` | Required. The distribution to migrate from and the releases, with a lower bound: `"PyPDF2>=3,<4"`. |
+| `--to "<requirement>"` | Required. The distribution to migrate to and the releases: `"pypdf>=6.19"`. |
+| `--guide <url>` | Required. The https address of the official guide the migration follows. It is cited and never requested. |
+| `--module <module>` | The module code imports from the old distribution. Default: its name, with hyphens and dots as underscores. |
+| `--to-module <module>` | The module code imports from the new distribution. Default: its name, the same way. |
+| `--requires-python <range>` | The Pythons the new distribution installs on. Default `>=3.9`. |
+| `--dir <path>` | Where to make the pack's folder, `<provider>/<name>`. Default: the current directory. |
+
+It never writes into a folder that exists, and removes the one it made if the pack would not load.
+Exit codes: `0` made; `2` the request is wrong or the folder exists. To use the pack from any
+repository, put its directory in `pack_dirs` in your own `~/.config/obelize/config.yml`, or pass
+`--pack <folder>/pack.yaml`.
 
 ## Exit codes
 

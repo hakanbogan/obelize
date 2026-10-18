@@ -144,6 +144,8 @@ until nothing is left. [With a coding agent](docs/WITH_A_CODING_AGENT.md) has th
 | `obelize verify` | Runs the verification again for an applied run. |
 | `obelize undo` | Puts back the files a run wrote, unless they were edited since. |
 | `obelize pack validate` | Checks a migration pack against the [pack format](docs/PACK_SPEC.md). |
+| `obelize pack test` | Runs a migration pack over its own fixtures and sources. |
+| `obelize pack new` | Makes a migration pack that loads, with fixtures and sources to edit. |
 
 [docs/CLI.md](docs/CLI.md) has every flag and exit code. The formats, from the flags to the run
 folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability) lists each change.

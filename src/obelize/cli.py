@@ -831,7 +831,137 @@ def pack_validate(
     typer.echo(f"  changes      {len(pack.changes)}")
     typer.echo(f"  limitations  {len(pack.limitations)}")
     # A local pack may ship without fixtures; tests/packs/ checks the bundled ones.
-    typer.echo("  fixtures     not checked by this command")
+    typer.echo("  fixtures     not checked by this command; obelize pack test runs them")
+
+
+@pack_app.command("test")
+def pack_test(
+    reference: str = typer.Argument(
+        ...,
+        metavar="<id|path>",
+        help="A pack id, a path to a pack file, or the folder that holds it.",
+    ),
+) -> None:
+    """Check a migration pack against the fixtures and sources beside it.
+
+    Runs the pack over its own fixtures: each is on disk, each answer key is what the
+    rules write, a second run changes nothing, and every change cites a source. Exit
+    codes: 0 every check passed, 7 one failed, 2 pack not found, 1 a bundled pack
+    failed (a bug in obelize).
+    """
+    from obelize.config import ConfigError
+    from obelize.packs import check, loader
+
+    where = Path(reference)
+    named = str(where / loader.PACK_FILENAME) if where.is_dir() else reference
+    try:
+        loaded = loader.load(named, dirs=_pack_dirs())
+    except (loader.PackNotFoundError, ConfigError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(2) from error
+    except loader.PackInvalidError as error:
+        typer.echo(str(error), err=True)
+        if error.bundled:
+            typer.echo(_BUNDLED_DEFECT, err=True)
+            raise typer.Exit(1) from error
+        raise typer.Exit(7) from error
+
+    typer.echo(f"{loaded.pack.id} {loaded.pack.pack_version}")
+    results = check.run(loaded)
+    for result in results:
+        typer.echo(f"  {'ok  ' if result.ok else 'FAIL'}  {result.name}")
+        for problem in result.problems:
+            typer.echo(f"          - {problem}")
+    failed = sum(1 for result in results if not result.ok)
+    if not failed:
+        typer.echo(f"All {len(results)} checks passed.")
+        return
+    typer.echo(f"{failed} of {len(results)} checks failed.", err=True)
+    if loaded.bundled:
+        typer.echo(_BUNDLED_DEFECT, err=True)
+        raise typer.Exit(1)
+    raise typer.Exit(7)
+
+
+@pack_app.command("new")
+def pack_new(
+    pack_id: str = typer.Argument(
+        ...,
+        metavar="<id>",
+        help="The id of the new pack, <provider>/<name>: lowercase letters, digits and hyphens.",
+    ),
+    legacy: str = typer.Option(
+        ...,
+        "--from",
+        metavar='"<requirement>"',
+        help='The distribution to migrate from and the releases, such as "PyPDF2>=3,<4".',
+    ),
+    new: str = typer.Option(
+        ...,
+        "--to",
+        metavar='"<requirement>"',
+        help='The distribution to migrate to and the releases, such as "pypdf>=6.19".',
+    ),
+    guide: str = typer.Option(
+        ...,
+        "--guide",
+        metavar="<url>",
+        help="The https address of the official guide the migration follows. It is cited and "
+        "never requested.",
+    ),
+    module: str | None = typer.Option(
+        None,
+        "--module",
+        metavar="<module>",
+        help="The module code imports from the old distribution. Default: its name.",
+    ),
+    to_module: str | None = typer.Option(
+        None,
+        "--to-module",
+        metavar="<module>",
+        help="The module code imports from the new distribution. Default: its name.",
+    ),
+    requires_python: str = typer.Option(
+        ">=3.9",
+        "--requires-python",
+        metavar="<range>",
+        help="The Pythons the new distribution installs on.",
+    ),
+    directory: str = typer.Option(
+        ".",
+        "--dir",
+        metavar="<path>",
+        help="Where to make the pack's folder, <provider>/<name>. Defaults to the current "
+        "directory.",
+    ),
+) -> None:
+    """Make a migration pack that loads, with fixtures and sources to edit.
+
+    The pack renames one module and moves the dependency line, and its fixtures pass
+    obelize pack test as made. Exit codes: 0 made, 2 the request is wrong or the
+    folder exists.
+    """
+    from obelize.packs import scaffold
+
+    try:
+        made = scaffold.plan(
+            pack_id,
+            legacy,
+            new,
+            guide,
+            module=module,
+            to_module=to_module,
+            requires_python=requires_python,
+        )
+        files = scaffold.write(Path(directory), made)
+    except scaffold.ScaffoldError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(2) from error
+    shown = Path(directory) / made.provider / made.slug
+    typer.echo(f"Made {made.pack_id} in {shown}:")
+    for name in files:
+        typer.echo(f"  {name}")
+    typer.echo(f"Next: edit pack.yaml and SOURCES.md, then run obelize pack test {shown}")
 
 
 @app.callback()

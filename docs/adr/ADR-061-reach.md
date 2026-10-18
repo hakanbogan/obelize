@@ -51,6 +51,21 @@ The run folder records `source: inventory` and the hash of the spec, and holds n
 repository imports most and the command that lists one. `fix` has nothing to do for an inventory
 and is not offered.
 
+### D5. A pack is made and tested with the tool
+
+`obelize pack new` writes a pack that loads: one `rename_import` change and one
+`manifest_dependency` change for the two distributions the author names, a positive and a negative
+fixture for each, and a `SOURCES.md` with a section per change. The `.after` answer keys are what
+the rules write into the fixtures at that moment, so the skeleton passes at once; the pack and its
+sources say to read them. It refuses a folder that exists and removes the one it made if the pack
+would not load.
+
+`obelize pack test` runs the checks the bundled packs already pass in `tests/packs/`, moved into
+`src/obelize/packs/check.py` so that a pack of your own is held to the same standard: fixtures on
+disk and named, both kinds per change, parsing and prefilter, answer keys equal to what the rules
+write, a second run that changes nothing, equal bytes on two runs, and sources that match the
+changes. `pack validate` stays a reading of the pack alone, as before.
+
 ## Consequences
 
 `docs/CLI.md` documents the flags and replaces its CI recipe, which parsed the JSON with a one-line
