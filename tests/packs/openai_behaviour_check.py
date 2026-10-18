@@ -49,7 +49,9 @@ class Handler(BaseHTTPRequestHandler):
         )
         usage = {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
         # 0.28.1 sent `engine=` in the route with no model: the mock takes the engine for the model.
-        if match := re.match(r"/v1/engines/([^/]+)/", self.path):
+        # Searched, not anchored: the api_base fixture leaves a trailing slash on the base, which
+        # 0.28.1 joins to the route as `/v1//engines/`.
+        if match := re.search(r"/engines/([^/]+)/", self.path):
             body.setdefault("model", match[1])
         answer: dict[str, Any]
         if self.path.endswith("/audio/transcriptions") or self.path.endswith("/audio/translations"):
