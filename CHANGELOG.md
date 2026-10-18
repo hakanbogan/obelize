@@ -10,6 +10,33 @@ Every format obelize reads or writes is unstable through 0.x: the CLI surface, t
 format version, so a 0.x release can change any of them, and this file lists each format change
 in the release that makes it.
 
+## [0.6.1] - 2026-10-18
+
+This release changes words and metadata and none of the behaviour. No format changed.
+
+### Benchmark
+
+I did not run the benchmark again. Every number is 0.6.0's.
+
+### Changed
+
+- The PyPI description now reads "Verified codemods for breaking Python dependency upgrades", and
+  the project's keywords add `refactoring`, `breaking-changes`, `api-migration` and
+  `static-analysis`. `obelize --help` opens with the same line.
+- The README is shorter and opens with what obelize does and why a run can be trusted. The details
+  moved to pages of their own: Getting started, After a run, With a coding agent, Packs, Safety,
+  Limits and Testing, and a Glossary names the terms.
+- The product page and the roadmap say that obelize is a tool for verified dependency upgrades, and
+  list what I intend to build next as planned. Nothing on that list ships in this release.
+- Reader pages no longer name a decision or threat number in their text. The links to the
+  decisions stay.
+
+### Added
+
+- A documentation site at <https://hakanbogan.github.io/obelize/>, built from `docs/` with
+  MkDocs. ci builds it strictly on every push, and a `v*` tag publishes it. The project's
+  Documentation link on PyPI points there.
+
 ## [0.6.0] - 2026-10-18
 
 ### Benchmark
