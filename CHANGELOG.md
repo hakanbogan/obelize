@@ -10,16 +10,15 @@ Every format obelize reads or writes is unstable through 0.x: the CLI surface, t
 format version, so a 0.x release can change any of them, and this file lists each format change
 in the release that makes it.
 
-## [Unreleased]
+## [0.6.0] - 2026-10-18
 
 ### Benchmark
 
 I did not run the benchmark again for this version. Round 1's numbers are still 0.1.0's and are for
 the Gemini pack alone: 25 of 277 usages (9.0%) migrated in 20 repositories with no wrong edit. The
 scan record of gate 1 and the three `fix` dry runs were measured again against the packs and the
-engine of this version; their records read `obelize 0.5.0` because the version has not moved, and
-each pack's record is bound to the sha of the pack it was taken with, so a changed pack fails a test
-until it is measured again.
+engine of this version, and they read `obelize 0.6.0`. Each pack's record is bound to the sha of
+the pack it was taken with, so a changed pack fails a test until it is measured again.
 
 - Gate 1: scan precision is 100.0% and recall 98.4% over the same 64 usages in five repositories, and
   the zero-bail share is the 0.1.0 record's 57 of 80 repositories (71.2%). The record was taken
