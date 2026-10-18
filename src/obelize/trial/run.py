@@ -53,6 +53,8 @@ class Trial:
     written: tuple[str, ...]
     command: tuple[str, ...] | None
     evidence: Path
+    # What the migration wrote, by path: the bytes a branch is made of.
+    changes: Mapping[str, bytes]
 
 
 def run(plan: Plan) -> Trial:
@@ -139,11 +141,15 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
             environ=plan.environ,
             index=1,
         ).cases
-    return _done(plan, tests.judge(before, after, again), written, command)
+    return _done(plan, tests.judge(before, after, again), written, command, work)
 
 
 def _done(
-    plan: Plan, verdict: tests.Verdict, written: tuple[str, ...], command: tuple[str, ...] | None
+    plan: Plan,
+    verdict: tests.Verdict,
+    written: tuple[str, ...],
+    command: tuple[str, ...] | None,
+    work: Path | None = None,
 ) -> Trial:
     document = {
         "distribution": plan.distribution,
@@ -161,4 +167,5 @@ def _done(
     (plan.evidence / "trial.json").write_text(
         json.dumps(document, indent=2) + "\n", encoding="utf-8"
     )
-    return Trial(verdict, written, command, plan.evidence)
+    kept = {path: (work / path).read_bytes() for path in written} if work is not None else {}
+    return Trial(verdict, written, command, plan.evidence, kept)

@@ -17,7 +17,7 @@ from obelize import upgrade as upgrading
 from obelize.cli import app
 from obelize.packs import loader
 from obelize.packtools import synth
-from support import committed
+from support import committed, git
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -285,3 +285,42 @@ def test_the_environment_of_a_known_pack_holds_the_distribution_and_range_the_pa
         kept=None,  # type: ignore[arg-type]
     )
     assert (chosen.install, chosen.remove) == (install, remove)
+
+
+def test_a_move_whose_tests_pass_can_be_committed_to_a_branch_instead_of_the_tree(
+    trial: Path,
+) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes", "--branch")
+    assert result.exit_code == 0, result.output
+    assert (
+        "on the new branch obelize/upgrade-acme-kit-2.0; the working tree is unchanged"
+        in result.output
+    )
+    assert (root / "app.py").read_text() == HELLO
+    assert (
+        git(root, "show", "obelize/upgrade-acme-kit-2.0:app.py").stdout.decode().count("greet(")
+        == 1
+    )
+    said = git(root, "log", "-1", "--format=%B", "obelize/upgrade-acme-kit-2.0").stdout.decode()
+    assert said.startswith("Upgrade acme-kit 1.0 to acme-kit==2.0\n")
+    assert "Obelize-Trial: " in said
+
+
+def test_a_branch_the_person_names_is_the_one_made_and_one_that_exists_is_refused(
+    trial: Path,
+) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    made = tried(root, "--yes", "--branch-name", "chore/acme")
+    assert made.exit_code == 0, made.output
+    assert "chore/acme" in git(root, "branch").stdout.decode()
+    again = tried(root, "--yes", "--branch-name", "chore/acme")
+    assert again.exit_code == 2
+    assert "exists already" in again.output
+
+
+def test_a_branch_needs_a_trial(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--branch"])
+    assert result.exit_code == 2
+    assert "needs --apply" in result.output

@@ -55,7 +55,9 @@ in the release that makes it.
   runs the repository's own tests before and after the migration, compares them test by test and
   runs the ones that broke once more. The move is written only if no test that passed now fails; the
   evidence is `.obelize/trials/<id>/`. It asks first, refuses a tree with uncommitted changes, and
-  exits `3` for tests that broke and `6` for a trial that could not judge.
+  exits `3` for tests that broke and `6` for a trial that could not judge. `--branch` commits a
+  passed move to a new branch instead of the working tree, with git's plumbing: no checkout, no hook,
+  no signature, no push.
 - `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
   it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
   migration as `fix` does without `--apply`. It writes nothing in the repository.

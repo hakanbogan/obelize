@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import sys
 import time
 import warnings
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
     from obelize.packs.schema import PackDocument
     from obelize.scan.runner import Scan, Tree
     from obelize.transforms.kinds.flag_only import Guide
+    from obelize.trial.run import Trial
     from obelize.upgrade import Chosen
     from obelize.verify.runner import Mode
 
@@ -1123,6 +1125,18 @@ def upgrade(
         help="The tests to run in the trial, as one command. Default: pytest, if the repository "
         "is set up for it.",
     ),
+    branch: bool = typer.Option(
+        False,
+        "--branch",
+        help="With --apply, commit the move to a new branch and leave the working tree as it is. "
+        "Nothing is pushed.",
+    ),
+    branch_name: str | None = typer.Option(
+        None,
+        "--branch-name",
+        metavar="<name>",
+        help="The name of the branch --branch makes. Default: obelize/upgrade-<the new release>.",
+    ),
 ) -> None:
     """Show what moving one dependency to a newer release would change.
 
@@ -1131,10 +1145,10 @@ def upgrade(
     plans the migration as fix does and prints the diff, writing nothing. With --apply it
     tries the move in a copy of the repository, in two environments made with uv, and runs
     your tests before and after; the move is written only if no test that passed before
-    fails after. Exit codes: as fix, plus 2 for a dependency the manifests do not name and
-    no --from, or an --apply without --yes where no one can be asked, 3 for tests that
-    broke, and 6 for an index that could not be reached or a trial the tests could not
-    judge.
+    fails after, and --branch commits it to a new branch instead of the working tree.
+    Exit codes: as fix, plus 2 for a dependency the manifests do not name and no --from,
+    or an --apply without --yes where no one can be asked, 3 for tests that broke, and 6
+    for an index that could not be reached or a trial the tests could not judge.
     """
     from obelize import index, libdiff, net
     from obelize import outdated as survey
@@ -1144,6 +1158,11 @@ def upgrade(
     from obelize.packtools import synth
 
     root = Path(repo)
+    if (branch or branch_name) and not apply_changes:
+        typer.echo(
+            "--branch commits a move that a trial has passed, so it needs --apply.", err=True
+        )
+        raise typer.Exit(2)
     try:
         config, _ = _settings(root, _overrides(None, None, False))
         fetcher = _fetcher(offline)
@@ -1181,7 +1200,10 @@ def upgrade(
             yes=yes,
             python=python,
             test_command=test_command,
+            branch=(branch_name or _branch_name(chosen.install)) if branch or branch_name else None,
         )
+        if branch or branch_name:
+            raise typer.Exit(0)
     try:
         fix(
             pack=[chosen.reference],
@@ -1204,6 +1226,43 @@ def upgrade(
         raise
 
 
+def _branch_name(install: str) -> str:
+    """`obelize/upgrade-pydantic-2.5.0` for `pydantic==2.5.0`."""
+    return "obelize/upgrade-" + re.sub(r"[^a-z0-9.]+", "-", install.lower()).strip("-")
+
+
+def _commit_branch(
+    root: Path,
+    branch: str,
+    done: Trial,
+    pack: str,
+    distribution: str,
+    now: Version,
+    install: str,
+    named: str,
+) -> None:
+    """The move a trial passed, as one commit on a new branch; the working tree is not touched."""
+    from obelize import branch as branching
+
+    verdict = done.verdict
+    message = (
+        f"Upgrade {distribution} {now} to {install}\n\n"
+        f"obelize {__version__} moved the code with the pack {pack}. In a copy of the repository, "
+        f"the {verdict.compared} test(s) that passed before were run again after the move: "
+        f"{len(verdict.broken)} broke, {len(verdict.flaky)} failed once and passed again.\n\n"
+        f"Obelize-Trial: {named}\n"
+    )
+    try:
+        commit = branching.commit(root, branch, done.changes, message)
+    except branching.BranchError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(2) from error
+    typer.echo(
+        f"Committed {commit[:10]} on the new branch {branch}; the working tree is unchanged. "
+        f"Nothing was pushed.\nNext: git log -p -1 {branch}"
+    )
+
+
 def _trial(
     root: Path,
     chosen: Chosen,
@@ -1213,8 +1272,10 @@ def _trial(
     yes: bool,
     python: str | None,
     test_command: str | None,
+    branch: str | None,
 ) -> None:
-    """Try the move in a copy; return if the tests agree to it, else exit with why."""
+    """Try the move in a copy; return if the tests agree to it, else exit with why. With a branch
+    name the move is committed there, and the caller ends."""
     from obelize import gitutil, net
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
@@ -1297,6 +1358,8 @@ def _trial(
     if verdict.status != "pass":
         typer.echo(_UNJUDGED[verdict.reason or "no_junit"], err=True)
         raise typer.Exit(6)
+    if branch is not None:
+        _commit_branch(root, branch, done, loaded.pack.id, distribution, now, chosen.install, named)
 
 
 @pack_app.command("synth")

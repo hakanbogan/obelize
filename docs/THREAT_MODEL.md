@@ -278,7 +278,10 @@ rather than removed.
   command causes (a tracked file it changed) or a race comes after it.
 - Writes are atomic: a temporary file plus a rename. Only files on the plan are
   written.
-- Obelize never creates a branch, never commits, never pushes and never merges.
+- Obelize never pushes and never merges. It creates a branch and a commit only for `upgrade --apply
+  --branch`, with git's plumbing (`hash-object`, a temporary index, `write-tree`, `commit-tree`,
+  `update-ref`): the working tree and the index are not read or written, no hook runs because hooks
+  are looked for nowhere, nothing is signed, and a branch that exists is never moved.
 - `obelize undo --run <id>` restores only files whose current hash equals the
   recorded after-hash. A hand-edited file is skipped and reported with both
   hashes and the path of its pre-migration copy; there is no `undo --force`.

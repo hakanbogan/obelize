@@ -182,9 +182,10 @@ file stays as it was.
 
 ## Safety
 
-`scan`, and `fix` without `--apply`, change none of your files. obelize never commits, branches,
-pushes or merges, and writes only its own `.obelize/` folder and the files on its plan, each
-through a temporary file and a rename. A verification command runs only from your own
+`scan`, and `fix` without `--apply`, change none of your files. obelize never pushes or merges, and
+makes a branch and a commit only when you ask (`upgrade --apply --branch`), without touching your
+working tree. It writes only its own `.obelize/` folder and the files on its plan, each through a
+temporary file and a rename. A verification command runs only from your own
 configuration or a flag, or after you approve it at a prompt. [Safety](docs/SAFETY.md) lists what
 is mitigated and what is not, and [the threat model](docs/THREAT_MODEL.md) and
 [privacy notes](docs/PRIVACY.md) have the detail.

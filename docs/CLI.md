@@ -459,6 +459,8 @@ that suits the move.
 | `--yes` | With `--apply`, agree to the trial without being asked. |
 | `--python <version>` | The Python the trial's environments use. Default: the repository's `.python-version`, else uv's own. |
 | `--test-command "<cmd>"` | The tests to run in the trial. Default: pytest, if the repository is set up for it. |
+| `--branch` | With `--apply`, commit the move to a new branch and leave the working tree as it is. Nothing is pushed. |
+| `--branch-name <name>` | The branch `--branch` makes. Default: `obelize/upgrade-<the release moved to>`, such as `obelize/upgrade-pydantic-2.5.0`. Giving a name implies `--branch`. |
 
 The pack is, in this order: a known one (a bundled pack, or one in a directory of your own) that
 migrates the dependency from that release and, if you named `--to`, to that one; else the pack
@@ -491,7 +493,14 @@ that passed in step 2 now fails, errors or is missing, not counting one that pas
 try; the real write is `fix --apply` and ends `0` then. Otherwise nothing is written: exit `3` names
 the tests that broke, and exit `6` says the trial could not judge (no tests, no result obelize can
 read, no test that passed before, or a move that changed no file). Exit `6` also ends a trial whose
-environments could not be made. The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit
+environments could not be made.
+
+With `--branch`, a passed trial is committed instead of written: one commit on a new branch of the
+name you gave (or the default), on top of `HEAD`, holding the files the move wrote, with the trial's
+id as a trailer (`Obelize-Trial:`). It is built with git's plumbing from the bytes the trial wrote
+into its copy, so your working tree, your index and your uncommitted work are untouched, no hook runs and the
+commit is not signed. A branch that exists is never moved (exit `2`), and the command never pushes.
+Review it with `git log -p -1 <branch>`. The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit
 file and output of each run, and what each environment held (`old.txt`, `new.txt`).
 
 ## `obelize pack validate`

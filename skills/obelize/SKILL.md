@@ -51,4 +51,4 @@ the hand work on those places, and let obelize check that nothing is left.
 The migration is done when `uvx obelize scan` reports no row but `not_a_usage` and your tests pass.
 `obelize undo --run <id>` puts back the files a run wrote, unless they were edited since.
 
-Do not edit the files under `.obelize/`. obelize never commits or pushes; that is yours.
+Do not edit the files under `.obelize/`. obelize never pushes; it commits only to a new branch you ask for with `upgrade --apply --branch`.
