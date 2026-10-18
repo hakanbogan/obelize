@@ -7,13 +7,14 @@ decisions behind it are indexed in [DECISIONS.md](DECISIONS.md).
 ## Surface
 
 ```
-obelize scan   [--repo .] [--pack <id|path>]... [--json] [--jobs N] [--list-files]
+obelize scan   [--repo .] [--pack <id|path>]... [--json | --sarif] [--fail-on <status>]... [--jobs N]
+            [--list-files]
 obelize fix    [--pack <id|path>]... [--repo .] [--apply] [--allow-dirty] [--verify "<cmd>"]... [--timeout <s>]
             [--non-interactive] [--trust-repo-config] [--model <provider>] [--accept-model]
             [--show-context] [--json]
 obelize verify --run <id> [--repo .] [--verify "<cmd>"]... [--timeout <s>]
-            [--non-interactive] [--trust-repo-config]
-obelize undo   --run <id> [--repo .]
+            [--non-interactive] [--trust-repo-config] [--json]
+obelize undo   --run <id> [--repo .] [--json]
 obelize pack validate <id|path>
 ```
 
@@ -39,6 +40,8 @@ the repository.
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--pack <id\|path>` | A pack id or a pack file path; repeat it to run several, and only those run. Without it every known pack is tried over one read of the repository, and each one with a finding that is not `not_a_usage` runs ([several packs](#several-packs-in-one-run)). |
 | `--json` | Findings as JSON on stdout; the run folder's path on **stderr**. |
+| `--sarif` | Findings as [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format GitHub code scanning reads, on stdout instead of the table; the run folder's path on **stderr**. It cannot be combined with `--json`. One result per finding except `not_a_usage`; its rule is the finding's reason, or `eligible`, and its level is `note` for `eligible`, `warning` for `needs_review` and `error` for `unsupported`. Two runs over the same input print the same bytes. |
+| `--fail-on <status>` | Exit `4` when any finding has this status: `eligible`, `needs_review` or `unsupported`. Repeat it to name several. The output is the one you asked for, and the run folder records the exit code. |
 | `--jobs N` | Worker processes; `1` is in-process. Default `min(8, cpu_count - 1)`, in-process below 32 prefilter survivors; an explicit `N` is always used, up to the 61 a Windows process pool takes. Never changes the output. |
 | `--list-files` | Print the selected files in order and stop, reading no file. The pack is still loaded (an invalid one exits `7`). |
 
@@ -48,28 +51,37 @@ Writes a run folder and updates `.obelize/latest`
 and paths are in `run.json`), so runs over the same input compare equal.
 Evidence is written before anything is printed; failing to write it exits `1`.
 
-Exit codes: `0` done, findings or not, and also when no pack applies; `7` invalid pack; `2` usage
-error, including a `--pack` named twice, two packs that cannot run together, a `pack_dirs` entry
+Exit codes: `0` done, findings or not, and also when no pack applies; `4` a finding has a status
+`--fail-on` names; `7` invalid pack; `2` usage
+error, including a `--pack` named twice, a `--fail-on` that names another status, `--json` with `--sarif`, two packs that cannot run together, a `pack_dirs` entry
 that is not an existing directory, a `--repo` that is not a directory, `--jobs` below 1 or above 61 on Windows, and an unusable
 `.obelize.yml`; `1` unexpected error, including an unwritable run folder.
 
 ### A CI check
 
-To fail a CI job while the repository still uses the legacy SDK, read the
-findings `--json` prints:
+To fail a CI job while the repository still has something left to migrate, name the statuses that
+count:
 
 ```sh
-uvx obelize@X.Y.Z scan --json | python3 -c "import json, sys; rows = [r for r in json.load(sys.stdin)['findings'] if r['scan_status'] != 'not_a_usage']; [print(f\"::error file={r['path']},line={r['line']}::{r['symbol']} {r['scan_status']} {r['bail'] or ''}\") for r in rows]; sys.exit(1 if rows else 0)"
+uvx obelize@X.Y.Z scan --fail-on eligible --fail-on needs_review --fail-on unsupported
 ```
 
-It prints one GitHub Actions `::error` annotation per finding, on the file and line, and exits `1`
-if there is any, except `not_a_usage`, which is context only: a mention in a comment or string, or
-a legacy pin something else may still need. A legacy pin that nothing imports is a finding,
-`manifest_code_mismatch`: remove it, or filter that row out. A scan that fails prints no JSON, so the
-check exits `1` then as well. The run folder's path goes to stderr and stdout holds the JSON
-alone. The scan still writes its run folder under `.obelize/` in the checkout, and the `.gitignore`
-inside keeps it out of `git status`. Replace `X.Y.Z` with the version you tested, since any 0.x
-release can change the JSON ([CHANGELOG.md](../CHANGELOG.md#stability)).
+It exits `4` if any finding has one of those statuses and `0` otherwise. `not_a_usage` is context
+only (a mention in a comment or string, or a legacy pin something else may still need), so no
+status you can name matches it. A legacy pin that nothing imports is a finding,
+`manifest_code_mismatch`: remove it. The scan still writes its run folder under `.obelize/` in the
+checkout, and the `.gitignore` inside keeps it out of `git status`. Replace `X.Y.Z` with the version
+you tested, since any 0.x release can change the JSON ([CHANGELOG.md](../CHANGELOG.md#stability)).
+
+To see the findings in a pull request, upload the SARIF document to GitHub code scanning:
+
+```sh
+uvx obelize@X.Y.Z scan --sarif > obelize.sarif
+```
+
+Then give the `github/codeql-action/upload-sarif` step the file, in a job with the
+`security-events: write` permission. Never run it on `pull_request_target`: that event gives the
+job a token that can write, and a scan reads the pull request's files.
 
 **Monorepos.** The root is `--repo` (default: the current directory). The configuration,
 `.obelize/` and every `include` and `exclude` pattern are relative to it, and every dependency
@@ -220,6 +232,7 @@ Re-run an existing run's verification and update its evidence.
 | `--timeout <s>` | Override `verify.timeout_s` (at least 1). Neither set, it is 600. |
 | `--non-interactive` | Never prompt; refuse a repository command instead. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` for this run. |
+| `--json` | The run's record as JSON on stdout instead of the summary: the bytes of the `run.json` it wrote. The run folder's path goes to **stderr**, and the exit code is the verdict's. |
 
 If the files still match the run's `after_sha256`, the after-phase runs again;
 otherwise the result is `inconclusive` / `tree_changed` and nothing runs. If
@@ -245,6 +258,7 @@ Revert the files an applied run wrote.
 |---|---|
 | `--run <id>` | Required. The run id under `.obelize/runs/`. |
 | `--repo <path>` | Repository root. Default: the current directory. |
+| `--json` | What became of each file as JSON on stdout instead of the summary: the bytes of the `undo.json` it wrote. The run folder's path goes to **stderr**, and the exit code is `0` or `4` as before. |
 
 A file is reverted only if its current hash equals the run's after-hash, and
 only from a snapshot whose bytes match its content-addressed name. Otherwise it

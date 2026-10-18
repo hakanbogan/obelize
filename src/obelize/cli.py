@@ -22,9 +22,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from obelize.config import LoadedConfig, Overrides
-    from obelize.models import Config, ConfigOrigin, ModelConfig
+    from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig
     from obelize.packs.loader import LoadedPack
     from obelize.verify.runner import Mode
+
+# The finding statuses `scan --fail-on` can name: the ones that leave something to do.
+FAIL_ON = frozenset({"eligible", "needs_review", "unsupported"})
 
 # A bundled pack failing validation exits 1, not 7: the input was obelize's own.
 _BUNDLED_DEFECT = (
@@ -108,6 +111,19 @@ def scan(
         "--list-files",
         help="Print the files selected for the scan, in order, and stop.",
     ),
+    sarif: bool = typer.Option(
+        False,
+        "--sarif",
+        help="Print the findings as SARIF 2.1.0, which GitHub code scanning reads, instead of "
+        "the table. Two runs on the same input print the same bytes.",
+    ),
+    fail_on: list[str] | None = typer.Option(
+        None,
+        "--fail-on",
+        metavar="<status>",
+        help="Exit 4 when a finding has this status: eligible, needs_review or unsupported. "
+        "Repeat it to name several.",
+    ),
 ) -> None:
     """Find the call sites, imports and manifest entries a pack affects.
 
@@ -119,11 +135,16 @@ def scan(
     from obelize.commands import fix as fixer
     from obelize.config import ConfigError, with_fixture_dirs
     from obelize.evidence import report, run_dir
+    from obelize.evidence.sarif import document as sarif_document
     from obelize.models import FindingsDocument
     from obelize.scan import runner, walker
     from obelize.transforms.kinds import flag_only
 
     root = Path(repo)
+    if as_json and sarif:
+        typer.echo("--json and --sarif each replace the table; pass one.", err=True)
+        raise typer.Exit(2)
+    failing = _fail_on(fail_on)
     packs, named = _packs_or_exit(pack)
     started = run_dir.now()
     began = time.monotonic()
@@ -153,6 +174,8 @@ def scan(
         for guide in flag_only.guides(one.loaded.pack, one.scan.findings)
     )
     scan_ms = int((time.monotonic() - began) * 1000)
+    held = sum(1 for row in result.findings if row.scan_status in failing)
+    code: ExitCode = 4 if held else 0
 
     document = FindingsDocument(
         obelize_version=__version__,
@@ -173,6 +196,7 @@ def scan(
         finished=run_dir.now(),
         total_ms=int((time.monotonic() - began) * 1000),
         scan_ms=scan_ms,
+        exit_code=code,
     )
     try:
         written = run_dir.write(
@@ -189,17 +213,22 @@ def scan(
         raise typer.Exit(1) from error
 
     evidence = _under(repo, written.relative)
-    if as_json:
-        _document(findings)
+    if as_json or sarif:
+        _document(findings if as_json else sarif_document(result.findings, document.packs))
         # On stderr, so stdout stays the document; `obelize verify --run <id>` needs the id.
         typer.echo(f"Evidence: {evidence}", err=True)
-        return
-    label = ", ".join(f"{one.pack.id} {one.pack.pack_version}" for one in loaded)
-    fix_flags = report.flags(repo, pack or ())
-    for line in report.terminal(result, label or "no pack applies", evidence, guides, fix_flags):
-        typer.echo(line)
-    if not loaded:
-        typer.echo(f"No pack applies. Checked: {', '.join(chosen.tried) or 'none'}.")
+    else:
+        label = ", ".join(f"{one.pack.id} {one.pack.pack_version}" for one in loaded)
+        fix_flags = report.flags(repo, pack or ())
+        for line in report.terminal(
+            result, label or "no pack applies", evidence, guides, fix_flags
+        ):
+            typer.echo(line)
+        if not loaded:
+            typer.echo(f"No pack applies. Checked: {', '.join(chosen.tried) or 'none'}.")
+    if held:
+        typer.echo(f"--fail-on: {held} finding(s) have a status you named.", err=True)
+        raise typer.Exit(code)
 
 
 @app.command("fix")
@@ -393,6 +422,11 @@ def verify(
         "--trust-repo-config",
         help="Trust the verify.commands in this repository's .obelize.yml for this run.",
     ),
+    as_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Print the run's record as JSON, the bytes of its run.json, instead of the summary.",
+    ),
 ) -> None:
     """Re-run the verification phase for an existing run and update its evidence.
 
@@ -432,7 +466,12 @@ def verify(
         # The user's allowlist, read only when the repository asks for a command.
         typer.echo(str(error), err=True)
         raise typer.Exit(2) from error
-    for line in report.verified(outcome.record, _under(repo, outcome.evidence)):
+    evidence = _under(repo, outcome.evidence)
+    if as_json:
+        _document(outcome.record.model_dump_json(indent=2) + "\n")
+        typer.echo(f"Evidence: {evidence}", err=True)
+        raise typer.Exit(outcome.exit_code)
+    for line in report.verified(outcome.record, evidence):
         typer.echo(line)
     if not outcome.rewritten:
         typer.echo("Nothing was re-run, so nothing in the folder changed.")
@@ -449,6 +488,12 @@ def undo(
         "--repo",
         metavar="<path>",
         help="Repository root. Defaults to the current directory.",
+    ),
+    as_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Print what became of each file as JSON, the bytes of undo.json, instead of the "
+        "summary.",
     ),
 ) -> None:
     """Revert the files an applied run wrote, checked against its own hashes.
@@ -471,11 +516,27 @@ def undo(
     except CommandError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(error.code) from error
+    if as_json:
+        _document(outcome.record.model_dump_json(indent=2) + "\n")
+        typer.echo(f"Evidence: {_under(repo, outcome.evidence)}", err=True)
+        raise typer.Exit(outcome.exit_code)
     for line in report.reverted(
         outcome.record, _under(repo, outcome.folder), _under(repo, outcome.evidence)
     ):
         typer.echo(line)
     raise typer.Exit(outcome.exit_code)
+
+
+def _fail_on(named: list[str] | None) -> frozenset[str]:
+    """The statuses `--fail-on` names, or a usage error before anything is read."""
+    wanted = frozenset(named or ())
+    unknown = sorted(wanted - FAIL_ON)
+    if unknown:
+        typer.echo(
+            f"--fail-on takes {', '.join(sorted(FAIL_ON))}; got {', '.join(unknown)}.", err=True
+        )
+        raise typer.Exit(2)
+    return wanted
 
 
 def _recorded_argv() -> tuple[str, ...]:

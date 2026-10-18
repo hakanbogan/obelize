@@ -10,6 +10,15 @@ Every format obelize reads or writes is unstable through 0.x: the CLI surface, t
 format version, so a 0.x release can change any of them, and this file lists each format change
 in the release that makes it.
 
+## [Unreleased]
+
+### Added
+
+- `obelize scan --sarif` prints the findings as SARIF 2.1.0, which GitHub code scanning reads.
+- `obelize scan --fail-on <status>` exits `4` when a finding has the status you name (`eligible`,
+  `needs_review` or `unsupported`), and the run's `exit_code` records it.
+- `obelize verify --json` and `obelize undo --json` print the `run.json` and `undo.json` they wrote.
+
 ## [0.6.1] - 2026-10-18
 
 This release changes words and metadata and none of the behaviour. No format changed.
