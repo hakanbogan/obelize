@@ -114,10 +114,29 @@ proposal that breaks one is discarded:
 
 {"proposal": null} is a correct answer. A proposal you are not sure about is
 not.
+
+When the rules flagged a line but you can see that what it does is not touched
+by the change (a call that passes none of the arguments that changed, say), and
+no edit is needed, answer instead with the reason in one sentence:
+
+  {"proposal": null, "unchanged": "..."}
+
+The project's tests are the only check of that claim. Say it only when the lines
+you were sent show it; if you cannot tell, answer {"proposal": null}.
 """
+
+# The most of an "unchanged" reason that is kept.
+UNCHANGED_CHARS = 300
 
 # A fenced block's body; the tag cannot cross a newline or backtick, so an open fence eats nothing.
 FENCE = re.compile(r"```[^\n`]*\n(.*?)```", re.DOTALL)
+
+
+def unchanged_reason(answer: Mapping[str, Any]) -> str | None:
+    """The sentence a reply gives for a place that needs no edit, cut short, or `None`."""
+    reason = answer.get("unchanged")
+    text = " ".join(reason.split())[:UNCHANGED_CHARS].rstrip() if isinstance(reason, str) else ""
+    return text or None
 
 
 def endpoint(base_url: str) -> str:
@@ -247,7 +266,7 @@ class OpenAICompat:
             raise self._failure("answer_not_a_proposal", f"no proposal key in {sorted(answer)}")
         found = answer["proposal"]
         if found is None:
-            return base.Reply(None, tokens_in, tokens_out)
+            return base.Reply(None, tokens_in, tokens_out, unchanged_reason(answer))
         if not isinstance(found, dict):
             raise self._failure(
                 "answer_not_a_proposal", f"proposal is a {type(found).__name__}, not an object"

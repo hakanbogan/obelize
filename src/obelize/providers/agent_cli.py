@@ -135,7 +135,7 @@ class ClaudeCode:
             raise self._failure("answer_not_a_proposal", f"no proposal key in {sorted(answer)}")
         found = answer["proposal"]
         if found is None:
-            return base.Reply(None, tokens_in, tokens_out)
+            return base.Reply(None, tokens_in, tokens_out, adapter.unchanged_reason(answer))
         if not isinstance(found, dict):
             raise self._failure("answer_not_a_proposal", f"proposal is a {type(found).__name__}")
         try:

@@ -104,6 +104,10 @@ the copy, the rules then write the rest, and your tests judge the whole. Only a 
 to is committed, and only to a branch; the commit message names the files the agent edited, which
 are the lines to read first. `--max-asks` limits how many places are asked about.
 
+An answer may also list the imports it needs, which obelize adds at the top of the file, or say that
+a place needs no edit at all, such as a call that passes none of the arguments that changed. That
+claim writes nothing and only your tests check it, so the commit message names each such place.
+
 If tests that passed before the move fail after it, the agent is put those too, with the error
 and the line of your code the traceback points at, for up to `--max-rounds` rounds. It never edits
 a test.

@@ -318,3 +318,28 @@ def test_an_import_outside_the_target_makes_the_answer_a_refusal(tmp_path: Path)
     )
     assert [one.outcome for one in done.decisions] == ["refused"]
     assert (work / "app.py").read_text() == APP
+
+
+def test_a_place_the_model_says_needs_no_edit_is_settled_and_so_is_the_import_of_its_name(
+    tmp_path: Path,
+) -> None:
+    def unchanged(_consultation: base.Consultation) -> base.Reply:
+        return base.Reply(None, 3, 2, "No argument that changed is passed.")
+
+    work, loaded = tried(tmp_path, APP)
+    flagged = [
+        Row("app.py", 1, PING, "n", True),
+        Row("app.py", 5, PING, "n"),
+        Row("app.py", 10, PING, "n"),
+    ]
+    model = Scripted(unchanged, unchanged)
+    done = resolve(work, flagged, provider=model, pack=loaded.pack, environ={})
+    assert [(one.row.line, one.outcome) for one in done.decisions] == [
+        (10, "unchanged"),
+        (5, "unchanged"),
+        (1, "covered"),
+    ]
+    assert done.decisions[0].detail == "No argument that changed is passed."
+    assert (done.left, done.edited, done.settled) == (0, (), ("app.py",))
+    assert done.unchanged == ("app.py:10", "app.py:5")
+    assert (work / "app.py").read_text() == APP

@@ -64,6 +64,8 @@ class Trial:
     changes: Mapping[str, bytes]
     # The files a model edited, which are lines to review before the rest.
     by_model: tuple[str, ...] = ()
+    # The places (`path:line`) a model said need no edit, which only the tests checked.
+    unchanged: tuple[str, ...] = ()
 
 
 def run(plan: Plan) -> Trial:
@@ -131,13 +133,14 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
         answered = plan.resolve(work)
         plan.say(
             f"The model was asked about {len(answered.decisions)} place(s); "
-            f"{len(answered.edited)} file(s) were edited, {answered.left} place(s) are left"
+            f"{len(answered.edited)} file(s) were edited, {len(answered.unchanged)} place(s) "
+            f"need no edit, {answered.left} place(s) are left"
         )
         # A place left holds a pack of one distribution still: the rules would write nothing.
         if answered.left:
             verdict = tests.Verdict("inconclusive", "unresolved", 0, (), ())
             return _done(plan, verdict, (), command, work, [("resolve", answered)], set())
-        written = tuple(plan.migrate(work, answered.edited)) if answered.edited else ()
+        written = tuple(plan.migrate(work, answered.settled)) if answered.settled else ()
         touched = {*written, *answered.edited}
     if not touched:
         return _done(
@@ -238,7 +241,8 @@ def _done(
     )
     kept = {path: (work / path).read_bytes() for path in sorted(touched)} if work else {}
     by_model = tuple(sorted({path for _, one in rounds for path in one.edited}))
-    return Trial(verdict, tuple(kept) or written, command, plan.evidence, kept, by_model)
+    unchanged = tuple(place for _, one in rounds for place in one.unchanged)
+    return Trial(verdict, tuple(kept) or written, command, plan.evidence, kept, by_model, unchanged)
 
 
 def _place(one: resolving.Decision) -> dict[str, object]:

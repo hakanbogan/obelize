@@ -136,6 +136,21 @@ def test_the_agent_is_started_with_every_capability_taken_away_in_an_empty_direc
 def test_no_proposal_is_an_answer(tmp_path: Path) -> None:
     reply = agent(fake(tmp_path, answer={"proposal": None})).propose(consultation())
     assert reply.proposal is None
+    assert reply.unchanged is None
+
+
+def test_a_place_that_needs_no_edit_is_an_answer_with_its_reason(tmp_path: Path) -> None:
+    said = {"proposal": None, "unchanged": "  The call passes none of\nthe changed arguments. "}
+    reply = agent(fake(tmp_path, answer=said)).propose(consultation())
+    assert (reply.proposal, reply.unchanged) == (
+        None,
+        "The call passes none of the changed arguments.",
+    )
+    for odd in ("", "   ", 3, None):
+        blank = agent(fake(tmp_path, answer={"proposal": None, "unchanged": odd}))
+        assert blank.propose(consultation()).unchanged is None
+    long = agent(fake(tmp_path, answer={"proposal": None, "unchanged": "x " * 400}))
+    assert len(long.propose(consultation()).unchanged or "") == adapter.UNCHANGED_CHARS - 1
 
 
 @pytest.mark.parametrize(

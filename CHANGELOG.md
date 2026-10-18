@@ -106,6 +106,9 @@ in the release that makes it.
   moved no longer holds the dependency line: the import of a name whose uses all moved is covered,
   and the places that remain in a file the agent edited were looked at. A test that fails because
   its module would not import is put to the agent with the line pytest points at.
+- The agent may answer that a flagged place needs no edit (`"unchanged"`, with a sentence). The
+  place is settled and nothing is written for it, a file settled that way holds no dependency line
+  back, and the evidence and the commit message name each such place: only the tests check it.
 
 ## [0.6.1] - 2026-10-18
 

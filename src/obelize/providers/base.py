@@ -106,6 +106,8 @@ class Reply:
     proposal: EditProposal | None
     tokens_in: int = 0
     tokens_out: int = 0
+    # Why the place needs no edit, where the model said so; only `resolve` reads it.
+    unchanged: str | None = None
 
 
 class ModelProvider(Protocol):

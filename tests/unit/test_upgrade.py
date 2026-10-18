@@ -415,6 +415,17 @@ class Agent:
         return base.Reply(proposal, 11, 7)
 
 
+class Unchanged(Agent):
+    """A model that says every place it is asked about needs no edit."""
+
+    def __init__(self) -> None:
+        super().__init__(None)
+
+    def propose(self, consultation: base.Consultation) -> base.Reply:
+        self.asked.append(consultation)
+        return base.Reply(None, 5, 3, "Nothing here is called by anything that changed.")
+
+
 def agent_world(trial: Path, monkeypatch: pytest.MonkeyPatch, model: Agent) -> Path:
     monkeypatch.setattr(agent_cli, "build", lambda *_args, **_kwargs: model)
     return repo(
@@ -435,8 +446,8 @@ def test_a_place_the_pack_flags_is_put_to_the_agent_and_the_move_it_allows_is_co
     assert result.exit_code == 0, result.output
     assert "will be put to claude, one place at a time" in result.output
     assert (
-        "The model was asked about 1 place(s); 1 file(s) were edited, 0 place(s) are left"
-        in result.output
+        "The model was asked about 1 place(s); 1 file(s) were edited, 0 place(s) need no edit, "
+        "0 place(s) are left" in result.output
     )
     assert model.asked[0].bail == "flag_only_surface"
     assert "Removed in acme-kit 2.0" in (model.asked[0].note or "")
@@ -583,6 +594,40 @@ def test_a_name_still_imported_in_a_file_the_agent_moved_does_not_hold_the_pin(
     name = "obelize/upgrade-acme-kit-2.0"
     assert git(root, "show", f"{name}:requirements.txt").stdout.decode() != "acme-kit==1.0\n"
     assert "could not be written" not in result.output
+
+
+def test_a_place_the_agent_says_needs_no_edit_is_settled_and_only_the_tests_check_it(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = Unchanged()
+    monkeypatch.setattr(agent_cli, "build", lambda *_args, **_kwargs: model)
+    root = repo(
+        trial,
+        app__py=HELLO,
+        other__py=GONE,
+        test_app__py=TESTS,
+        requirements__txt="acme-kit==1.0\n",
+    )
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 0, result.output
+    assert "0 file(s) were edited, 1 place(s) need no edit, 0 place(s) are left" in result.output
+    name = "obelize/upgrade-acme-kit-2.0"
+    said = git(root, "log", "-1", "--format=%B", name).stdout.decode()
+    assert (
+        "A model said 1 flagged place(s) need no edit (other.py:5); only the tests checked" in said
+    )
+    assert git(root, "show", f"{name}:other.py").stdout.decode() == GONE
+    assert git(root, "show", f"{name}:requirements.txt").stdout.decode() != "acme-kit==1.0\n"
+
+
+def test_a_claim_that_a_place_needs_no_edit_is_wrong_when_a_test_breaks(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = agent_world(trial, monkeypatch, Unchanged())
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 3, result.output
+    assert "broke: test_app::test_gone" in result.output
+    assert git(root, "branch", "--list", "obelize/*").stdout.decode().strip() == ""
 
 
 def test_a_dependency_line_with_extras_is_left_and_the_commit_says_so(trial: Path) -> None:

@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 
 # The most places one trial asks about: each is a request to a model, which costs money and time.
 ASK_LIMIT: Final = 50
-Outcome = Literal["edited", "nothing", "refused", "covered", "failed", "skipped"]
+Outcome = Literal["edited", "nothing", "refused", "covered", "unchanged", "failed", "skipped"]
+SETTLED: Final = ("edited", "covered", "unchanged")
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +71,19 @@ class Resolved:
 
     @property
     def left(self) -> int:
-        return sum(1 for one in self.decisions if one.outcome not in ("edited", "covered"))
+        return sum(1 for one in self.decisions if one.outcome not in SETTLED)
+
+    @property
+    def settled(self) -> tuple[str, ...]:
+        """The files with a place moved, covered or judged to need nothing."""
+        return tuple(sorted({one.row.path for one in self.decisions if one.outcome in SETTLED}))
+
+    @property
+    def unchanged(self) -> tuple[str, ...]:
+        """`path:line` of each place the model judged to need no edit."""
+        return tuple(
+            f"{one.row.path}:{one.row.line}" for one in self.decisions if one.outcome == "unchanged"
+        )
 
 
 def rows(
@@ -113,9 +126,10 @@ def resolve(
 ) -> Resolved:
     """Ask about each place and write the answers the guard accepts into `work`.
 
-    The place with the most lines below it goes first, so an answer moves the places still waiting
-    as little as it can, and each is found again where the edits above or below it left it. The
-    import of a name is asked last: once every place that uses it moved, it is covered.
+    A place the model says needs no edit is settled on the tests' word. The place with the most
+    lines below it goes first, so an answer moves the places still waiting as little as it can, and
+    each is found again where the edits above or below it left it. The import of a name is asked
+    last: once every place that uses it was settled, it is covered.
     """
     decisions: list[Decision] = []
     tokens_in = tokens_out = asked = 0
@@ -129,7 +143,7 @@ def resolve(
     ) -> None:
         decisions.append(Decision(one.row, outcome, detail, proposal))
         if not one.row.is_import:
-            (moved if outcome in ("edited", "covered") else left).add(one.row.symbol)
+            (moved if outcome in SETTLED else left).add(one.row.symbol)
 
     for path in sorted({row.path for row in flagged}):
         waiting = [_Waiting(row, row.line) for row in flagged if row.path == path]
@@ -172,7 +186,10 @@ def resolve(
             tokens_in += reply.tokens_in
             tokens_out += reply.tokens_out
             if reply.proposal is None:
-                decide(one, "nothing", "the model proposed no edit")
+                if reply.unchanged:
+                    decide(one, "unchanged", reply.unchanged)
+                else:
+                    decide(one, "nothing", "the model proposed no edit")
                 continue
             checked = guard.check(reply.proposal, consultation=consultation, root=work, before=data)
             if checked.after is None:

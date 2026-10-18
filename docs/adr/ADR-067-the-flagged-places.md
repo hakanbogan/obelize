@@ -81,6 +81,20 @@ For a removed name, `pack synth` keeps beside the pack the new names closest to 
 `PACKS.md`), and the note sent with the place ends with them. Without them an agent can only answer
 from what it knows of the new release, which for a release newer than the agent is nothing.
 
+### D8. A proposal may bring its imports, and a place may need no edit
+
+A rename often needs a name imported at the top of the file, outside the lines a place is sent.
+A proposal may therefore list up to four imports, each a plain `import` or `from ... import` of a
+module the pack targets. The guard refuses any other, adds the rest to the file's import block (to
+its own `from m import ...` line when it has one) and licenses the names they bind. A file's places
+are asked from the bottom, each where the earlier answers left it, and the import of a name is
+covered once every place that used it was settled.
+
+A place the pack flags may be one the change does not touch, such as a call that passes none of the
+arguments that changed. The agent may say so in a sentence (`"unchanged"`). The place is then
+settled, listed in the trial's evidence and named in the commit message, and nothing is written for
+it: only the tests check the claim. A file the agent settled holds no dependency line back.
+
 ## Consequences
 
 `docs/CLI.md`, `docs/PRIVACY.md` and `docs/THREAT_MODEL.md` (TM-13) describe the agent, what it is

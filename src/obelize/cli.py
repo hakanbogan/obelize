@@ -1356,6 +1356,13 @@ def _commit_branch(
             else ""
         )
         + (
+            f"A model said {len(done.unchanged)} flagged place(s) need no edit "
+            f"({', '.join(done.unchanged[:5])}{', ...' if len(done.unchanged) > 5 else ''}); "
+            f"only the tests checked that.\n"
+            if done.unchanged
+            else ""
+        )
+        + (
             f"Not written, for you to change: the dependency line at {', '.join(held)}.\n"
             if held
             else ""
