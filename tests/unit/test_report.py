@@ -31,9 +31,11 @@ from obelize.models import (
     RunRecord,
     UndoFile,
     UndoRecord,
+    VerifyPhaseRecord,
     VerifyRecord,
     Withheld,
 )
+from obelize.native import shell
 from obelize.packs import loader
 from obelize.scan import runner, runtime
 from obelize.transforms.kinds.flag_only import Guide
@@ -692,6 +694,26 @@ def test_a_code_span_outlasts_the_backticks_inside_it() -> None:
     assert report._code("echo `date`") == "`` echo `date` ``"
     assert report._code("a`b") == "``a`b``"
     assert report._code("`a`") == "`` `a` ``"
+
+
+def test_the_hint_for_a_failing_baseline_names_the_interpreter_this_system_spells() -> None:
+    """The fix command's version of this runs a `#!` script, which Windows cannot."""
+    row = CommandRecord(
+        command="pytest -q",
+        source="cli",
+        status="fail",
+        reason="command_failed",
+        exit_code=1,
+        duration_ms=1,
+        in_obelize_environment=True,
+    )
+    baseline = VerifyPhaseRecord(status="fail", reason="command_failed", commands=(row,))
+    verify = VerifyRecord(status="inconclusive", reason="baseline_failed", baseline=baseline)
+    tests = f'--verify "/path/to/your/project/{shell.VENV_PYTHON} -m pytest -q"'
+    assert report._hints(verify, report._bare) == [
+        "pytest -q failed, and its program came from the environment obelize runs in, which may "
+        f"not be your project's. To run your project's tests, name its interpreter: {tests}."
+    ]
 
 
 def test_a_forged_note_above_the_real_one_cuts_nothing(quiet: Path) -> None:
