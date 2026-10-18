@@ -7,6 +7,7 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
+import yaml
 from packaging.version import Version
 from typer.testing import CliRunner
 
@@ -433,8 +434,8 @@ def test_a_flag_under_a_flagged_class_is_left_out_and_said_so() -> None:
     )
     assert list(made.flags) == ["Client"]
     assert made.dropped == ("Client.old_method", "Client.ping")
-    assert "Left out because a class above them is flagged" in made._sources()
-    assert synth._CLASS_NOTE in made._pack()
+    assert "Left out, as a class above them stands for them" in made._sources()
+    assert synth._CLASS_NOTE in yaml.safe_load(made._pack())["limitations"]
 
 
 @pytest.mark.parametrize(
@@ -678,3 +679,14 @@ def test_the_minor_lines_between_are_read_newest_first_until_every_removed_name_
     )
     assert result.exit_code == 0, result.output
     assert "rename-with-calls: 1 name(s)" in result.output
+
+
+def test_a_class_flagged_only_for_its_bases_gives_way_to_the_members_flagged_under_it() -> None:
+    made = plan(
+        ApiChange("bases_changed", "Client", detail="Base"),
+        ApiChange("deprecated", "Client.old_method", message="use new_method"),
+    )
+    assert list(made.flags) == ["Client.old_method"]
+    assert made.dropped == ("Client",)
+    alone = plan(ApiChange("bases_changed", "Client", detail="Base"))
+    assert list(alone.flags) == ["Client"]

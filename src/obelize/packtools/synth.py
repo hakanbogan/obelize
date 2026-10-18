@@ -62,7 +62,8 @@ _LIMITATIONS: Final = (
     "through the module are.",
 )
 _CLASS_NOTE: Final = (
-    "A name under a flagged class is reported as that class, so the class's message stands for it."
+    "A name under a class whose parameters changed is reported as that class, and a class flagged "
+    "only for its bases or its kind is left to the members flagged under it."
 )
 
 
@@ -116,6 +117,8 @@ class _Flag:
     category: str
     message: str
     suggestion: str
+    # Whether a parameter of it changed, which no message about its members says.
+    params: bool = False
 
 
 def pack_id(distribution: str, old: Version, new: Version) -> str:
@@ -277,21 +280,34 @@ def _signature_text(label: str, change: ApiChange) -> str:
             return f"It changed from {change.detail} in {label}."
 
 
-def _merge(entries: Sequence[tuple[str, str, str]]) -> _Flag:
+def _merge(entries: Sequence[tuple[str, str, str, bool]]) -> _Flag:
     """One name's reasons as one flag: the first's category and advice, every message in order."""
-    category, _, suggestion = entries[0]
+    category, _, suggestion, _ = entries[0]
     seen: list[str] = []
-    for _, message, _ in entries:
+    for _, message, _, _ in entries:
         if message not in seen:
             seen.append(message)
-    return _Flag(category, _text(" ".join(seen)), suggestion)
+    params = any(params for *_, params in entries)
+    return _Flag(category, _text(" ".join(seen)), suggestion, params)
 
 
 def _outermost(flags: Mapping[str, _Flag]) -> tuple[dict[str, _Flag], tuple[str, ...]]:
-    """The flagged names no other flagged name contains, and the ones left out."""
+    """The flagged names no other flagged name contains, and the ones left out.
+
+    Two changes may not flag one surface, so a class and its members cannot both be. A class whose
+    parameters changed stands for its members; one flagged for anything else (its bases, its kind,
+    a notice) gives way to the members flagged under it, whose words say more.
+    """
+    yielding = {
+        path
+        for path, one in flags.items()
+        if one.category in ("signature", "deprecated")
+        and not one.params
+        and any(other.startswith(f"{path}.") for other in flags)
+    }
     kept: dict[str, _Flag] = {}
-    dropped: list[str] = []
-    for path in sorted(flags):
+    dropped: list[str] = sorted(yielding)
+    for path in sorted(set(flags) - yielding):
         if any(path.startswith(f"{outer}.") for outer in kept):
             dropped.append(path)
         else:
@@ -340,10 +356,12 @@ class _Plan:
         with_calls: dict[str, str] = {}
         references: dict[str, str] = {}
         exports: dict[str, str] = {}
-        parts: dict[str, list[tuple[str, str, str]]] = {}
+        parts: dict[str, list[tuple[str, str, str, bool]]] = {}
 
-        def flag(path: str, category: str, message: str, suggestion: str) -> None:
-            parts.setdefault(path, []).append((category, message, suggestion))
+        def flag(
+            path: str, category: str, message: str, suggestion: str, *, params: bool = False
+        ) -> None:
+            parts.setdefault(path, []).append((category, message, suggestion, params))
 
         for change in changes:
             path, target = change.path, change.new_path
@@ -362,7 +380,9 @@ class _Plan:
                 said = f" The library said: {_quote(change.message)}" if change.message else ""
                 flag(path, "deprecated", f"Deprecated in {label}.{said}", _SUGGESTED["deprecated"])
             else:
-                flag(path, "signature", _signature_text(label, change), _SUGGESTED["signature"])
+                changed = change.type.startswith("param_") or change.type == "default_changed"
+                text = _signature_text(label, change)
+                flag(path, "signature", text, _SUGGESTED["signature"], params=changed)
         flags = {path: _merge(entries) for path, entries in parts.items()}
         # A new name must not be one the pack looks for, or the rewritten file is a finding again.
         flagged = tuple(f"{request.module}.{path}" for path in flags)
@@ -577,7 +597,7 @@ class _Plan:
                 f"## {change['id']}\n\n{change['citation']}.\n\nNames: {shown}{more}.\n"
             )
         dropped = ", ".join(f"`{name}`" for name in self.dropped[:_LISTED])
-        left = f"\nLeft out because a class above them is flagged: {dropped}.\n" if dropped else ""
+        left = f"\nLeft out, as a class above them stands for them: {dropped}.\n" if dropped else ""
         return (
             f"""# Sources for `{request.pack_id}`
 

@@ -135,7 +135,8 @@ def kit(tmp_path: Path) -> Path:
         {
             "__init__.py": KIT,
             "_impl.py": (
-                "LIMIT = 5\n\nclass Client:\n    def __init__(self, key, *, timeout=3.0): ...\n"
+                "LIMIT = 5\n\nclass Client:\n    def __init__(self, key, *, timeout=3.0): ...\n\n"
+                "    def get(self, url):\n        return url\n"
             ),
             "util.py": "def helper(x): ...\n",
             "broken.py": "def (:\n",
@@ -190,6 +191,8 @@ def test_a_class_is_its_bases_its_constructor_and_its_members(kit: Path) -> None
     }
     assert objects["acme_kit.Client"]["params"] is not None
     assert objects["acme_kit.Thing.Inner"]["params"] is None
+    # A re-exported class is read again under the name code writes: a member is reached through it.
+    assert [one["name"] for one in objects["acme_kit.Client.get"]["params"]] == ["url"]
     assert [one["name"] for one in objects["acme_kit.Thing.method"]["params"]] == ["a", "b"]
     assert [one["name"] for one in objects["acme_kit.Thing.make"]["params"]] == ["x"]
     assert [one["name"] for one in objects["acme_kit.Thing.build"]["params"]] == ["y"]
@@ -592,12 +595,15 @@ def test_the_module_itself_is_the_empty_path() -> None:
 
 def test_a_name_missing_from_a_module_that_makes_names_when_asked_is_unseen_not_removed() -> None:
     old = {"f": fn(req("x")), "sub": Obj("", "module"), "sub.g": fn(req("x"))}
-    everywhere = {"": Obj("", "module", lazy=True), "sub": Obj("", "module")}
-    found = [(one.type, one.path) for one in api.diff(*surfaces(old, everywhere))]
-    assert found == [("unseen", "f"), ("unseen", "sub.g")]
+    root_only = {"": Obj("", "module", lazy=True), "sub": Obj("", "module")}
+    found = [(one.type, one.path) for one in api.diff(*surfaces(old, root_only))]
+    assert found == [("unseen", "f"), ("removed", "sub.g")]
     only_below = {"sub": Obj("", "module", lazy=True)}
     found = [(one.type, one.path) for one in api.diff(*surfaces(old, only_below))]
     assert found == [("removed", "f"), ("unseen", "sub.g")]
+    module_gone = {"": Obj("", "module", lazy=True)}
+    found = [(one.type, one.path) for one in api.diff(*surfaces(old, module_gone))]
+    assert found == [("unseen", "f"), ("unseen", "sub.g")]
 
 
 def test_the_ancestors_of_a_name_are_the_places_it_could_come_from() -> None:

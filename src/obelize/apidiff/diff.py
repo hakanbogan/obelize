@@ -63,7 +63,6 @@ def diff(old: Surface, new: Surface, *, before: Sequence[Surface] = ()) -> tuple
     appeared = {path: one for path, one in news.items() if path not in olds}
     # A name the old release already re-exported from the place that is now gone is the same object.
     reexported = {one.target: path for path, one in olds.items() if one.target and path in news}
-    lazy = {path for path, one in news.items() if one.lazy}
     found: list[ApiChange] = []
     gone: set[str] = set()
     for path, one in olds.items():
@@ -74,7 +73,7 @@ def diff(old: Surface, new: Surface, *, before: Sequence[Surface] = ()) -> tuple
             gone.add(path)
             if _inherits(path, news):
                 continue
-            if lazy.intersection(_ancestors(path)):
+            if _made_lazily(path, news):
                 found.append(ApiChange("unseen", path))
                 continue
             found.append(
@@ -109,6 +108,11 @@ def _parent(path: str) -> str:
 def _bases(one: Obj) -> tuple[str, ...]:
     """What a class derives from; `object` is what every class derives from, written or not."""
     return tuple(base for base in one.bases if base != "object")
+
+
+def _made_lazily(path: str, news: Mapping[str, Obj]) -> bool:
+    """Whether the nearest module of the newer release above a name makes names when asked."""
+    return next((news[above].lazy for above in _ancestors(path) if above in news), False)
 
 
 def _ancestors(path: str) -> list[str]:

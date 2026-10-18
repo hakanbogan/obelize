@@ -92,7 +92,7 @@ class _Walker:
             if name in _DYNAMIC or (_private(name) and name not in exported):
                 continue
             if member.is_alias:
-                self._alias(module, name, member, exported)
+                self._alias(module, name, member, exported, depth)
             elif member.is_module:
                 if depth < MAX_DEPTH:
                     self.visit(member, depth + 1)
@@ -110,8 +110,9 @@ class _Walker:
     def _public(self, dotted: str, name: str, exported: set[str]) -> bool:
         return dotted.split(".")[0] == self.package or name in exported
 
-    def _alias(self, parent: Any, name: str, member: Any, exported: set[str]) -> None:
-        """A name re-exported from elsewhere is a public name; its target is the object."""
+    def _alias(self, parent: Any, name: str, member: Any, exported: set[str], depth: int) -> None:
+        """A name re-exported from elsewhere is a public name; its target is the object, and a
+        class is read again under the name code writes, since a member is reached through it."""
         path = f"{parent.path}.{name}"
         try:
             target = member.final_target
@@ -121,18 +122,22 @@ class _Walker:
                 self.objects[path] = {"kind": "alias", "target": str(member.target_path)}
             return
         # A target griffe could follow is in this package: it loaded nothing else.
+        if target.is_class:
+            self._class(target, depth, path)
+            self.objects[path]["target"] = target.path
+            return
         if target.is_function:
             record = self._function(target, in_class=False)
-        elif target.is_class:
-            record = self._class_record(target)
         elif target.is_attribute:
             record = self._attribute(target)
         else:
             return
         self.objects[path] = {**record, "target": target.path}
 
-    def _class(self, member: Any, depth: int) -> None:
-        self.objects[member.path] = self._class_record(member)
+    def _class(self, member: Any, depth: int, path: str | None = None) -> None:
+        """The class, and its members, under `path` (default: where it is defined)."""
+        path = path or member.path
+        self.objects[path] = self._class_record(member)
         if depth >= MAX_DEPTH:
             return
         for name, inner in list(member.members.items()):
@@ -142,11 +147,11 @@ class _Walker:
             if inner.is_alias or _private(name) or name == "__init__":
                 continue
             if inner.is_function:
-                self.objects[inner.path] = self._function(inner, in_class=True)
+                self.objects[f"{path}.{name}"] = self._function(inner, in_class=True)
             elif inner.is_class:
-                self._class(inner, depth + 1)
+                self._class(inner, depth + 1, f"{path}.{name}")
             else:
-                self.objects[inner.path] = self._attribute(inner)
+                self.objects[f"{path}.{name}"] = self._attribute(inner)
 
     def _class_record(self, member: Any) -> dict[str, Any]:
         init = member.members.get("__init__")
