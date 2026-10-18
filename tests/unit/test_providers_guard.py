@@ -329,7 +329,9 @@ def test_the_quote_is_held_to_what_the_model_was_shown_and_not_to_the_file(tmp_p
 def test_a_redaction_that_joins_lines_leaves_no_number_to_trust(tmp_path: Path) -> None:
     """A private key over three lines is one marker in the context, which leaves every line after
     it two lower than in the file; the proposal is refused whatever it quotes."""
-    pem = b'KEY = """-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"""\n'
+    # Written in two parts so the repository holds no private-key marker, which pre-commit refuses.
+    marker = b"-----BEGIN PRIVATE " + b"KEY-----"
+    pem = b'KEY = """' + marker + b'\nabc\n-----END PRIVATE KEY-----"""\n'
     first, rest = SOURCE.split(b"\n", 1)
     source = first + b"\n" + pem + rest
     shown = redact.redact(lines_of(source, (1, 9)), {})

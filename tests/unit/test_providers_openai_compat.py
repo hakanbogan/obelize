@@ -482,15 +482,23 @@ def test_a_body_loads_takes_and_dumps_refuses_is_not_a_completion_and_not_a_cras
 
 
 @pytest.mark.parametrize(
-    "content",
-    ["[" * 100_000, '{"proposal": ' + "[" * 100_000 + "]" * 100_000 + "}"],
+    ("content", "failures"),
+    [
+        ("[" * 100_000, {"answer_not_json"}),
+        # Whether `loads` reads 100,000 levels depends on the build and its stack (3.14 and later
+        # size the limit by the C stack): where it does, the object is read and is no proposal.
+        (
+            '{"proposal": ' + "[" * 100_000 + "]" * 100_000 + "}",
+            {"answer_not_json", "answer_not_a_proposal"},
+        ),
+    ],
     ids=["array", "inside_an_object"],
 )
-def test_an_answer_nested_past_the_parser_is_not_json_and_not_a_crash(
-    monkeypatch: pytest.MonkeyPatch, content: str
+def test_an_answer_nested_past_the_parser_is_refused_and_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, content: str, failures: set[str]
 ) -> None:
-    """Every reading of the content fails the same way, so none is an object."""
-    assert _refusal(monkeypatch, _completion(content)).failure == "answer_not_json"
+    """Each reading of the content fails, or reads something that is not a proposal."""
+    assert _refusal(monkeypatch, _completion(content)).failure in failures
 
 
 def test_an_answer_that_is_json_and_not_an_object_is_prose(

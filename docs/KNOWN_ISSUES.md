@@ -41,6 +41,13 @@ limit can still overrun it, and is then left as it was. An implicit string conca
 counted either. A few hundred parts are refused by libcst's own recursion limit, with the
 sentence for invalid Python (500 parts were on Python 3.12, and 200 were not).
 
+On Windows, blocks nested as deep as Python allows (99 `if` or `def` statements inside each other)
+overflow the stack of libcst's native parser on CPython 3.12 and 3.15, and the process ends without
+a report; 3.14 survives it. The depth gate does not see it, since 99 nested blocks cost fewer levels
+than the limit, and the same file was parsed the same way before. The smallest depth that overflows
+is not measured, and no real file is known to nest blocks past a few dozen. Linux and macOS parse
+the 99.
+
 Two rules pair a statement or an expression with its finding by the line it starts on rather than
 by its binding; I know of no input where that pairs the wrong ones. The check for a module that
 another file imports or reads a constant off matches modules by their last name, so another
