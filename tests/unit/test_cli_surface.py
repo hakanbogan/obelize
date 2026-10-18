@@ -450,6 +450,7 @@ def test_main_disables_colour_before_anything_is_rendered(monkeypatch: pytest.Mo
 # `--help` stays under 300 ms by importing these inside command bodies (cli.py). Timing is flaky on
 # a shared runner; the import graph is not.
 HEAVY = [
+    "griffe",
     "libcst",
     "pydantic",
     "yaml",
@@ -460,9 +461,12 @@ HEAVY = [
     "obelize.config",
     "obelize.evidence.run_dir",
     "obelize.fsutil",
+    "obelize.libdiff",
     "obelize.models",
+    "obelize.net",
     "obelize.packs.loader",
     "obelize.packs.schema",
+    "obelize.packtools.synth",
     "obelize.scan.parse",
     "obelize.scan.walker",
     "obelize.transforms.codemod",

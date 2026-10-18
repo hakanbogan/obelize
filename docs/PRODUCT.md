@@ -25,7 +25,7 @@ Three properties define the boundary:
 
 - Local-first. Scan, patch and verification run on your machine, with no account, hosted
   runner or required service, and no network call unless you configure a model endpoint
-  ([PRIVACY.md](PRIVACY.md)).
+  or ask it to read a library's releases from the package index ([PRIVACY.md](PRIVACY.md)).
 - Evidence over confidence. Every finding carries a file, line, resolved symbol and a
   `confidence_reason` from a closed vocabulary, and every run writes `.obelize/runs/<id>/`. No
   numeric confidence score is reported until calibration data backs one.

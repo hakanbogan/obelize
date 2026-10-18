@@ -72,6 +72,18 @@ def loopback(host: str) -> bool:
         return False
 
 
+def index_url(value: str) -> str:
+    """An index as the person typed it, without its trailing slash: https, or http to this machine,
+    with a host and nothing a request would have to carry besides (a credential, a query)."""
+    parts = urlsplit(value)
+    host = parts.hostname or ""
+    if parts.scheme != "https" and not (parts.scheme == "http" and loopback(host)):
+        raise ValueError(f"{value!r} is not an index address: use https, or http to this machine")
+    if not host or parts.username or parts.password or parts.query or parts.fragment:
+        raise ValueError(f"{value!r} is not an index address: a host and a path, nothing else")
+    return value.rstrip("/")
+
+
 class Cache:
     """Answers kept on disk by the key of the request, for the person alone."""
 

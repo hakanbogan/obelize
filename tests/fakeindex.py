@@ -84,10 +84,10 @@ class FakeIndex:
         **info: Any,
     ) -> str:
         """Release `version` of `name` whose importable package `module` holds `source` (file name
-        in the package to text); returns the file name."""
-        package = module or name.replace("-", "_")
+        in the package to text; `module=""` puts the paths at the top); returns the file name."""
+        package = name.replace("-", "_") if module is None else module
         project = self.projects.setdefault(name, Project(name))
-        body = {f"{package}/{path}": text for path, text in source.items()}
+        body = {f"{package}/{path}" if package else path: text for path, text in source.items()}
         slug = name.replace("-", "_")
         if kind == "wheel":
             filename = f"{slug}-{version}-py3-none-any.whl"

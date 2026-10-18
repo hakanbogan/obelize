@@ -18,9 +18,17 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictStr,
+    ValidationError,
+    field_validator,
+)
 
-from obelize import _yaml
+from obelize import _yaml, net
 from obelize.config import ConfigError, refusal
 from obelize.models import CommandResult, CommandSource, ConfiguredCommand, ModelConfig
 from obelize.native import processes
@@ -52,6 +60,23 @@ class _UserVerify(BaseModel):
     allow: tuple[ConfiguredCommand, ...] = ()
 
 
+class _UserNetwork(BaseModel):
+    """Which index a command that reads releases asks, and whether it may ask at all.
+
+    Only the user says: an index decides which code obelize reads, so a repository never does.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    index: StrictStr = "https://pypi.org"
+    offline: StrictBool = False
+
+    @field_validator("index")
+    @classmethod
+    def _address(cls, value: str) -> str:
+        return net.index_url(value)
+
+
 class UserConfig(BaseModel):
     """`~/.config/obelize/config.yml`: the settings no repository may make.
 
@@ -62,6 +87,7 @@ class UserConfig(BaseModel):
 
     verify: _UserVerify = Field(default_factory=_UserVerify)
     model: ModelConfig = Field(default_factory=ModelConfig)
+    network: _UserNetwork = Field(default_factory=_UserNetwork)
     # Where more migration packs live. A pack decides what is written and which imports a model may
     # add, so only the user names them: a repository never does.
     pack_dirs: tuple[StrictStr, ...] = ()

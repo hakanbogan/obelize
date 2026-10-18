@@ -79,6 +79,12 @@ def test_a_bundled_pack_validates_under_its_own_id(bundled: loader.LoadedPack) -
     assert bundled.sha256 == hashlib.sha256(bundled.path.read_bytes()).hexdigest()
 
 
+def test_a_bundled_pack_cites_a_guide_or_a_reference_and_never_a_comparison(
+    bundled: loader.LoadedPack,
+) -> None:
+    assert bundled.pack.source.type in ("official_guide", "sdk_reference")
+
+
 def test_every_bundled_pack_is_named_where_a_reader_or_a_workflow_looks(
     bundled: loader.LoadedPack,
 ) -> None:

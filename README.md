@@ -20,7 +20,7 @@ proof. obelize sits between them:
 - It runs your test command before the change and after it. A run is verified when the tests that
   passed on the old code still pass on the new.
 - It runs on your machine, with no account and no telemetry, and makes no network call unless you
-  configure a model yourself.
+  configure a model yourself or ask it to read a library's releases from the package index.
 
 ## Example
 
@@ -147,6 +147,7 @@ until nothing is left. [With a coding agent](docs/WITH_A_CODING_AGENT.md) has th
 | `obelize pack validate` | Checks a migration pack against the [pack format](docs/PACK_SPEC.md). |
 | `obelize pack test` | Runs a migration pack over its own fixtures and sources. |
 | `obelize pack new` | Makes a migration pack that loads, with fixtures and sources to edit. |
+| `obelize pack synth` | Makes a migration pack from the public API of two releases of a library, read from the package index without installing or running anything. |
 
 [docs/CLI.md](docs/CLI.md) has every flag and exit code. The formats, from the flags to the run
 folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability) lists each change.
@@ -159,7 +160,8 @@ folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability
 | `openai/openai-0-to-1` | Seven calls (`ChatCompletion.create` and six more) to the module client, the reads of their results, `api_base`, three exception classes and the dependency line. | Async and streamed calls, Azure, other resources, and any call whose arguments or result reads it has not checked. |
 | `py-pdf/pypdf2-to-pypdf` | The import, the names that exist unchanged on both sides, and the dependency line. | The names `PyPDF2` 3.0.0 removed and the ones `pypdf` dropped. |
 
-Your own packs load from a directory your `~/.config/obelize/config.yml` lists as `pack_dirs`.
+Your own packs load from a directory your `~/.config/obelize/config.yml` lists as `pack_dirs`. For a
+library that has none, `obelize pack synth` makes one from the public API of two of its releases.
 [Packs](docs/PACKS.md) says what each bundled pack covers, and the [roadmap](docs/ROADMAP.md) says
 which migrations come next.
 

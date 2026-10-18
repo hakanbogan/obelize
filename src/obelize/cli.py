@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
     from obelize.config import LoadedConfig, Overrides
     from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig, ScanSpec
+    from obelize.net import Fetcher
     from obelize.packs.loader import LoadedPack
     from obelize.packs.schema import PackDocument
     from obelize.scan.runner import Scan, Tree
@@ -971,6 +972,102 @@ def pack_new(
     for name in files:
         typer.echo(f"  {name}")
     typer.echo(f"Next: edit pack.yaml and SOURCES.md, then run obelize pack test {shown}")
+
+
+@pack_app.command("synth")
+def pack_synth(
+    distribution: str = typer.Argument(
+        ..., metavar="<distribution>", help="The library on the package index, such as acme-kit."
+    ),
+    old: str = typer.Option(
+        ..., "--from", metavar="<version>", help="The release the code is written for."
+    ),
+    new: str | None = typer.Option(
+        None,
+        "--to",
+        metavar="<version>",
+        help="The release to move to. Default: the newest that is neither withdrawn nor a "
+        "pre-release.",
+    ),
+    module: str | None = typer.Option(
+        None,
+        "--module",
+        metavar="<module>",
+        help="The module to compare, when the library has more than one. Default: the one both "
+        "releases have.",
+    ),
+    directory: str = typer.Option(
+        ".",
+        "--dir",
+        metavar="<path>",
+        help="Where to make the pack's folder, <provider>/<name>. Defaults to the current "
+        "directory.",
+    ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="Reach no host: read only what an earlier run kept in the cache.",
+    ),
+) -> None:
+    """Make a migration pack from what two releases of a library offer.
+
+    Downloads the two releases from the package index (and the last one between
+    them), reads what each exports without importing or building anything, and
+    writes a pack for the names that were renamed, moved or removed, with the
+    library's own deprecation messages where it gave any. Every host is printed
+    before it is contacted. Exit codes: 0 made, 2 the request is wrong or the
+    folder exists, 6 the releases could not be fetched or read, 1 a pack obelize
+    made fails its own checks.
+    """
+    from obelize import index, libdiff
+    from obelize.config import ConfigError
+    from obelize.net import NetworkError
+    from obelize.packtools import synth
+
+    try:
+        fetcher = _fetcher(offline)
+        project = index.project(fetcher, distribution)
+        before = libdiff.version(old)
+        after = libdiff.version(new) if new else libdiff.newest(project)
+        compared = libdiff.compare(fetcher, project, before, after, module=module)
+        asked = synth.request(project.name, before, after, compared)
+        made = synth.make(Path(directory), asked, compared.old_surface, compared.changes)
+    except (ConfigError, libdiff.LibraryError, synth.SynthError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1 if isinstance(error, synth.SynthDefectError) else 2) from error
+    except NetworkError as error:
+        typer.echo(error.detail, err=True)
+        raise typer.Exit(2 if error.reason == "not_found" else 6) from error
+    shown = Path(directory) / made.pack_id
+    typer.echo(f"Made {made.pack_id} in {shown}:")
+    for change, count in made.covered.items():
+        typer.echo(f"  {change}: {count} name(s)")
+    if made.unseen:
+        typer.echo(
+            f"{made.unseen} name(s) could not be judged: the newer release makes its exports "
+            f"when it is imported, so a name not seen may still be there."
+        )
+    typer.echo(f"Next: obelize pack test {shown}, then obelize scan --pack {shown}/pack.yaml")
+
+
+def _fetcher(offline: bool) -> Fetcher:
+    """The seam to the index, as the person's own settings say, telling each host it reaches."""
+    from obelize import net
+    from obelize.config import ConfigError
+    from obelize.verify.runner import user_config
+
+    network = user_config(_config_dir()).network
+    try:
+        address = net.index_url(os.environ.get("OBELIZE_INDEX_URL") or network.index)
+    except ValueError as error:
+        raise ConfigError(f"OBELIZE_INDEX_URL: {error}") from error
+    return net.Fetcher(
+        index=address,
+        offline=offline or network.offline or "OBELIZE_OFFLINE" in os.environ,
+        cache=net.Cache.home(os.environ),
+        credentials=os.environ.get("OBELIZE_INDEX_AUTHORIZATION"),
+        say=lambda line: typer.echo(line, err=True),
+    )
 
 
 @app.command("mcp")

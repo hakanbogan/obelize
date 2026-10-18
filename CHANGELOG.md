@@ -39,6 +39,20 @@ in the release that makes it.
 - `action.yml` is a GitHub Action that runs a scan, annotates each place on its file and line,
   uploads the findings to code scanning if asked and fails the job on the statuses you name.
   `.pre-commit-hooks.yaml` offers the same scan as the hook `obelize-scan`.
+- `obelize pack synth <distribution> --from <version>` makes a pack for a library that has none. It
+  asks the package index for two releases and the last one between them, opens each for its source
+  and nothing else, reads what each exports without importing or building anything, and writes a
+  pack: a name the library's deprecation message says to replace is renamed, a name moved up out of
+  a submodule is moved, everything else that changed is flagged with the library's own words, and
+  the dependency line moves. The pack must pass `pack test` or it is not kept. Every host is printed
+  before it is contacted, answers are cached for you alone, and `--offline` uses only the cache.
+- `~/.config/obelize/config.yml` takes `network.index` and `network.offline`, and the environment
+  `OBELIZE_INDEX_URL`, `OBELIZE_INDEX_AUTHORIZATION` and `OBELIZE_OFFLINE` do the same for one run.
+  A repository's `.obelize.yml` may not set `network`: it is refused, as `model` is.
+- `source.type` of a pack may be `api_diff`, the type of a pack made by `pack synth`. A bundled pack
+  never is.
+- griffelib is the seventh runtime dependency. It reads a release's API in a child process and is
+  loaded by no other command.
 
 ### Changed
 

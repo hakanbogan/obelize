@@ -20,6 +20,8 @@ obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
             [--module <module>] [--to-module <module>] [--requires-python <range>] [--dir <path>]
+obelize pack synth    <distribution> --from <version> [--to <version>] [--module <module>]
+            [--dir <path>] [--offline]
 ```
 
 `python -m obelize` runs the same commands where the `obelize` script is not
@@ -473,6 +475,43 @@ Exit codes: `0` made; `2` the request is wrong or the folder exists. To use the 
 repository, put its directory in `pack_dirs` in your own `~/.config/obelize/config.yml`, or pass
 `--pack <folder>/pack.yaml`.
 
+## `obelize pack synth`
+
+Make a pack from what two releases of a library offer, for a library that has none. The command
+asks the package index for the project, downloads the two releases and the newest final release
+between them, opens each for its Python source and nothing else, reads what each exports without
+importing or building anything, and compares them. Every host is printed on standard error before
+it is contacted.
+
+The pack renames a name the library's own deprecation message says to use another for (`old_greet
+is deprecated, use greet instead`), moves up a name that left a submodule for its package, flags the
+rest for a person (removed, moved elsewhere, a signature that changed, deprecated) with the
+library's words where it gave any, and moves the dependency line. Its fixtures are written from the
+comparison and its `.after` files from the rules, as `pack new` does, and the pack is held to
+`pack test` before it is kept. A change the rules cannot make as the comparison says is not made.
+
+| Flag | Description |
+|---|---|
+| `<distribution>` | Required. The library on the index, such as `acme-kit`. |
+| `--from <version>` | Required. The release the code is written for. |
+| `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release. |
+| `--module <module>` | The module to compare, when the library has more than one. Default: the one both releases have, or the one named like the library. |
+| `--dir <path>` | Where to make the pack's folder, `<provider>/<from>-to-<to>`. Default: the current directory. |
+| `--offline` | Reach no host: read only what an earlier run kept in the cache. |
+
+A name is renamed or moved only on evidence the two surfaces carry: it kept its name and signature
+and has a body, or the library's message names one name beside it. Everything else that left the API
+is flagged, never rewritten, and a pack made from two releases says in its limitations that a change
+in what a function does is not in it. The tests of the repository show that.
+
+It never writes into a folder that exists, and removes the one it made if the pack fails its own
+checks. Which index it asks, and whether it may ask at all, are in
+[your own configuration file](#the-user-files-configobelize), never in a repository's. Exit codes:
+`0` made; `2` the request is wrong (a version or a library the index does not have, a module to
+choose, nothing that changed, a folder that exists, a release that cannot be read); `6` the index
+could not be reached or answered, or `--offline` found nothing kept; `1` a pack obelize made fails
+its own checks.
+
 ## Exit codes
 
 Shared by every command; unstable through 0.x
@@ -486,7 +525,7 @@ Shared by every command; unstable through 0.x
 | `3` | Verification failed after patch |
 | `4` | Nothing applied / manual review required |
 | `5` | Policy refusal (dirty tree or one git cannot describe, untrusted verification command, path escape) |
-| `6` | Verification produced no verdict (`inconclusive`, or `not_run` for any reason other than `policy_refused`) |
+| `6` | Verification produced no verdict (`inconclusive`, or `not_run` for any reason other than `policy_refused`); for `pack synth`, the index could not be reached |
 | `7` | The pack is not valid |
 
 `2` (argument parsing) and `1` (the top-level handler) take precedence; among
@@ -567,8 +606,9 @@ and `verify.timeout_s: "60"` are errors, and so is a YAML set, which has no orde
 | `allow_dirty` | boolean | `false` | Same as `--allow-dirty`. |
 | `max_file_bytes` | integer | `2000000` | Larger files are recorded as a limitation, not parsed. |
 
-**A `model:` block and `pack_dirs` are refused** (exit `2`): where your code and credentials go,
-and which packs may rewrite your files, are not a repository's choice. Configure them in
+**A `model:` block, `pack_dirs` and `network` are refused** (exit `2`): where your code and
+credentials go, which packs may rewrite your files and which index obelize reads code from are not
+a repository's choice. Configure them in
 [your own file](#the-user-files-configobelize), or name a pack with `--pack`.
 
 ### The always-excluded set
@@ -699,8 +739,9 @@ at once, and only an `.exe` or `.com` program runs: a batch file is refused.
 
 Outside every repository, so no checkout can write them (`$XDG_CONFIG_HOME` is
 honoured). On Windows the folder is `%USERPROFILE%\.config\obelize` unless `HOME`
-is set. `config.yml` holds the three settings a repository may not make: the
-allowlist, the model and the directories of your own packs. Unknown keys are an error, and so is
+is set. `config.yml` holds the four settings a repository may not make: the
+allowlist, the model, the directories of your own packs and the index a command that reads
+releases asks. Unknown keys are an error, and so is
 a file larger than 1 MiB.
 
 ```yaml
@@ -711,6 +752,9 @@ verify:
     - "python -m mypy src"
 pack_dirs:
   - /home/me/obelize-packs  # absolute; each holds <provider>/<slug>/pack.yaml
+network:
+  index: https://pypi.org   # https, or http to this machine; no credential or query
+  offline: false            # true: a command that reads releases uses only its cache
 model:
   provider: none            # the default; no network call is made while it is `none`
   # base_url: "http://localhost:11434/v1"
@@ -737,6 +781,13 @@ The `model` keys are acted on by `obelize fix`. A value of another type is refus
 | `model.model` | string | unset | Model name sent to the endpoint. |
 | `model.api_key_env` | string | `OBELIZE_MODEL_API_KEY` | Environment variable holding the key; the key never reaches configuration, logs or evidence. |
 | `model.log_prompts` | boolean | `false` | Keep raw prompts, which contain source, in the run folder. |
+
+The `network` keys are acted on by `obelize pack synth`.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `network.index` | string | `https://pypi.org` | The package index `pack synth` asks, as a Simple API address (`/simple` is added if it is missing). `OBELIZE_INDEX_URL` replaces it for one run; `OBELIZE_INDEX_AUTHORIZATION` is the value of an `Authorization` header, sent to this host and to none other. |
+| `network.offline` | boolean | `false` | Read releases only from the cache, as `--offline` does; `OBELIZE_OFFLINE` set to anything does too. |
 
 An allowlist entry matches a command that splits into the same arguments. An
 unreadable or invalid file is an error, never an empty allowlist.

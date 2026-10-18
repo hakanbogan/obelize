@@ -41,3 +41,25 @@ The `PyPDF2` pack moves the import and the names both libraries share, and the d
 `PyPDF2` itself warns that it "is deprecated. Please move to the `pypdf` library instead." What the
 pack cannot move, such as the camelCase classes that `PyPDF2` 3.0.0 removed, stays in the report
 ([KNOWN_ISSUES.md](KNOWN_ISSUES.md#the-pypdf2-pack) lists what it does not see).
+
+## A library with no pack
+
+`obelize pack synth <distribution> --from <version>` makes a pack for any library on the package
+index, from what two of its releases export. It downloads the two releases and the newest of each
+minor line between them (only their Python source is opened, and nothing is installed, built or
+run), reads each one's public API statically, and compares them. What it can show, it writes:
+
+- A name the library's own deprecation message says to replace, with one name beside it that exists
+  in the newer release, is renamed; a call is rewritten too only when the signature did not change.
+- A name that left a submodule for its package is moved up, if it kept its name and signature.
+- Every other change is flagged, never rewritten, with the library's words where it gave any: a name
+  that was removed, moved elsewhere or deprecated, a parameter that was renamed, removed, made
+  required or given another default, a class whose bases changed.
+- The dependency line moves to the newer release and its major version.
+
+What two surfaces cannot show is what a function does. A pack made this way says so in its
+limitations, cites the file of the newer release with its hash, and is never bundled: the
+tests of your repository are what show whether a migration holds. A library that builds its exports
+when it is imported (a module `__getattr__`) hides names, and the command counts them instead of
+calling them removed. `pack synth` prints every host before it reaches it, and `--offline` uses only
+what an earlier run kept.

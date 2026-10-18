@@ -55,6 +55,10 @@ class Obj:
     target: str | None = None
     value: str | None = None
     trivial: bool = False
+    # A module that makes names when they are asked for: a name not seen in it may exist.
+    lazy: bool = False
+    # What a class gets from its bases, which a member that moved up to one is still among.
+    inherited: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,12 +68,13 @@ class Surface:
     truncated: bool = False
 
     def relative(self) -> dict[str, Obj]:
-        """The objects by path below the module, so two releases of a module that moved compare."""
+        """The objects by path below the module, so two releases of a module that moved compare;
+        the module itself is `""`."""
         prefix = f"{self.module}."
         return {
-            path.removeprefix(prefix): one
+            path.removeprefix(prefix) if path != self.module else "": one
             for path, one in self.objects.items()
-            if path.startswith(prefix)
+            if path.startswith(prefix) or path == self.module
         }
 
 
@@ -121,6 +126,8 @@ def _objects(raw: dict[str, dict[str, Any]]) -> dict[str, Obj]:
             target=entry.get("target"),
             value=entry.get("value"),
             trivial=bool(entry.get("trivial")),
+            lazy=bool(entry.get("lazy")),
+            inherited=tuple(entry.get("inherited") or ()),
         )
     return found
 

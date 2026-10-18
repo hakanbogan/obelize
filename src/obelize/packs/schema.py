@@ -56,8 +56,9 @@ ChangeKind = Literal[
 ]
 CHANGE_KINDS: frozenset[ChangeKind] = frozenset(get_args(ChangeKind))
 
-# Closed: pack review admits only the vendor's own migration guide or API reference.
-SourceType = Literal["official_guide", "sdk_reference"]
+# Closed: pack review admits only the vendor's own migration guide or API reference. `api_diff` is
+# a pack that `obelize pack synth` made from two releases; it is never bundled (tested).
+SourceType = Literal["official_guide", "sdk_reference", "api_diff"]
 
 # SDK facts that drive refusals live in code: a pack may carry nothing that drives behaviour.
 # PACK_SPEC must name each value (tested).

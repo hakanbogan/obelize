@@ -79,5 +79,6 @@ process, so `obelize --help` and the commands that do not read a release do not 
 
 Reading a release is the first thing obelize does that is not a function of the repository and the
 installed pack, so the hosts it reaches, the cache it keeps and the files it writes are in
-`docs/THREAT_MODEL.md` and `docs/PRIVACY.md` with the first command that uses them. The seam can
-be pointed at a local index in tests, so no test needs the network.
+`docs/THREAT_MODEL.md` (B8, TM-12) and `docs/PRIVACY.md`, with `pack synth` (ADR-063), the first
+command that uses them. The seam can be pointed at a local index in tests, so no test needs the
+network.

@@ -962,6 +962,14 @@ def test_a_repository_cannot_name_the_pack_directories_a_run_loads(tmp_path: Pat
         load(tmp_path)
 
 
+def test_a_repository_cannot_name_the_index_a_command_reads_releases_from(tmp_path: Path) -> None:
+    (tmp_path / CONFIG_FILENAME).write_text(
+        "network: {index: https://example.com}\n", encoding="utf-8"
+    )
+    with pytest.raises(ConfigError, match="network settings are not read from a repository"):
+        load(tmp_path)
+
+
 @pytest.mark.parametrize(
     ("path", "expected"),
     [

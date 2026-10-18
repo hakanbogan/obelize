@@ -11,7 +11,8 @@ command from the repository's `.obelize.yml` runs only once you approve it at a 
 only if your allowlist holds it or you pass `--trust-repo-config`. A command that runs past your
 timeout is stopped, and its output is redacted before it is recorded. There is no telemetry, and no
 network access unless you configure a model in your own `~/.config/obelize/config.yml` or with
-`--model`.
+`--model`, or run `pack synth`, which reads two releases of a library from the package index
+without installing or running anything.
 
 ## Before you run it
 

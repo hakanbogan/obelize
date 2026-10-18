@@ -1,9 +1,10 @@
 # Privacy
 
-## v0: no network, no telemetry
+## v0: no network unless you ask, no telemetry
 
-- No network call unless you configure the model adapter (below): no update check, no pack
-  download, no crash report.
+- No network call unless you configure the model adapter (below) or run `obelize pack synth`
+  (below): no update check, no pack download, no crash report. `scan`, `fix`, `verify`, `undo` and
+  `mcp` never reach a network.
 - No telemetry code at all: no usage counters, no identifiers, no ping.
 - No account.
 - Everything Obelize writes goes into the repository you pointed it at, bar two places. While
@@ -46,6 +47,26 @@ What reduces the exposure:
 
 `patch.diff` and `snapshots/` hold your code exactly as it is, secrets included, because a
 snapshot you cannot restore from is useless. **Review a run folder before you share it.**
+
+## What `obelize pack synth` reaches
+
+The command exists to read two releases of a library, so it asks a package index for them:
+
+- The index is yours: PyPI unless your own `~/.config/obelize/config.yml` (`network.index`) or
+  `OBELIZE_INDEX_URL` names another. A repository's `.obelize.yml` cannot name one and is refused.
+  Plain `http://` is accepted only for this machine.
+- It asks for the project's page (the library's name is in the address), the files of the releases
+  it compares and, where the index has one, nothing else. The files come from the host the page
+  names, which for PyPI is `files.pythonhosted.org`. It sends no cookie, no body, nothing from your
+  repository and nothing about your machine beyond a `User-Agent` of the form `obelize/<version>`
+  and what any HTTPS request carries. An `Authorization` value in `OBELIZE_INDEX_AUTHORIZATION` goes
+  to the index host and to none other, and a redirect to another host is refused.
+- Each host is printed on standard error before it is contacted, once.
+- Answers are kept for you alone in `$XDG_CACHE_HOME/obelize` or `~/.cache/obelize`: a project page
+  for an hour, a file for good, named by its hash. `--offline` or `network.offline: true` reaches no
+  host and uses only what is kept. Delete the directory to forget them.
+- A proxy named in your environment is honoured, as for any tool of yours: this is your network, not
+  a model's.
 
 ## What changes with the model adapter
 

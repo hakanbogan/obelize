@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from obelize import __version__
-from obelize.net import USER_AGENT, Cache, Fetcher, NetworkError, loopback
+from obelize.net import USER_AGENT, Cache, Fetcher, NetworkError, index_url, loopback
 from platforms import posix_only
 
 if TYPE_CHECKING:
@@ -326,3 +326,34 @@ def test_a_cache_on_windows_is_a_directory_or_nothing(tmp_path: Path) -> None:
 def test_a_cache_directory_under_a_file_is_not_usable(tmp_path: Path) -> None:
     (tmp_path / "file").write_text("x", encoding="utf-8")
     assert not Cache(tmp_path / "file" / "cache").usable()
+
+
+@pytest.mark.parametrize(
+    ("given", "kept"),
+    [
+        ("https://pypi.org", "https://pypi.org"),
+        ("https://pypi.org/", "https://pypi.org"),
+        ("https://example.com/root/simple/", "https://example.com/root/simple"),
+        ("http://127.0.0.1:8080/simple", "http://127.0.0.1:8080/simple"),
+        ("http://localhost/simple", "http://localhost/simple"),
+    ],
+)
+def test_an_index_address_is_kept_without_its_trailing_slash(given: str, kept: str) -> None:
+    assert index_url(given) == kept
+
+
+@pytest.mark.parametrize(
+    "given",
+    [
+        "http://example.com/simple",
+        "ftp://example.com",
+        "https://user:secret@example.com/simple",
+        "https://example.com/simple?token=1",
+        "https://example.com/simple#top",
+        "https:///simple",
+        "pypi.org",
+    ],
+)
+def test_an_index_address_that_could_leak_or_downgrade_is_refused(given: str) -> None:
+    with pytest.raises(ValueError, match="not an index address"):
+        index_url(given)

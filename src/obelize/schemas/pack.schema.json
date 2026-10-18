@@ -801,7 +801,8 @@
         "type": {
           "enum": [
             "official_guide",
-            "sdk_reference"
+            "sdk_reference",
+            "api_diff"
           ],
           "title": "Type",
           "type": "string"

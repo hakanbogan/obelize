@@ -72,8 +72,8 @@ validated as a command.
 
 ### D7. One primary source, a per-claim `SOURCES.md`, and the measurement outranks the page
 
-`source` is one mapping whose `type` is `official_guide` or `sdk_reference`;
-its `sha256` is optional, as a fabricated hash is worse than none. `SOURCES.md`
+`source` is one mapping whose `type` is `official_guide`, `sdk_reference` or, for a
+pack made from two releases, `api_diff` (ADR-063); its `sha256` is optional, as a fabricated hash is worse than none. `SOURCES.md`
 has one section per `changes[].id`, asserted both ways. What moved is cited to
 the guide, which exact names are legal to a measurement; where they disagree,
 the pack carries the measurement and `SOURCES.md` says so.

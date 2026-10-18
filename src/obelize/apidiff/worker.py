@@ -24,6 +24,7 @@ MAX_OBJECTS: Final = 200_000
 MAX_DEPTH: Final = 8
 VALUE_CHARS: Final = 80
 _DEPRECATED_CATEGORIES: Final = ("Deprecat", "FutureWarning")
+_DYNAMIC: Final = frozenset({"__getattr__", "__dir__"})
 
 
 def main(argv: list[str]) -> int:
@@ -70,11 +71,16 @@ class _Walker:
 
     def visit(self, module: Any, depth: int) -> None:
         exported = {str(one) for one in module.exports or ()}
-        self.objects[module.path] = {"kind": "module", "deprecated": self._module_notice(module)}
+        self.objects[module.path] = {
+            "kind": "module",
+            "deprecated": self._module_notice(module),
+            # A `__getattr__` makes names when they are asked for, so a name not seen is not gone.
+            "lazy": "__getattr__" in module.members,
+        }
         for name, member in list(module.members.items()):
             if self._full():
                 return
-            if _private(name) and name not in exported:
+            if name in _DYNAMIC or (_private(name) and name not in exported):
                 continue
             if member.is_alias:
                 self._alias(module, name, member, exported)
@@ -140,6 +146,7 @@ class _Walker:
         return {
             "kind": "class",
             "bases": [str(base) for base in member.bases],
+            "inherited": _inherited(member),
             # A class with no `__init__` of its own has no signature to compare.
             "params": _params(init, in_class=True) if has_init else None,
             "deprecated": decorated
@@ -191,6 +198,11 @@ class _Walker:
 def _located(member: Any) -> tuple[Path, int, int] | None:
     path, first, last = member.filepath, member.lineno, member.endlineno
     return (path, first, last) if isinstance(path, Path) and first and last else None
+
+
+def _inherited(member: Any) -> list[str]:
+    """The public names a class gets from the classes it derives from, as far as they resolve."""
+    return sorted(name for name in member.inherited_members if not _private(name))
 
 
 def _private(name: str) -> bool:

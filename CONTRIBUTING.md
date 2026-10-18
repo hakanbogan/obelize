@@ -13,6 +13,7 @@ obelize mcp    [--repo .] [--trust-repo-config] [--read-only]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
+obelize pack synth    <distribution> --from <version>
 ```
 
 `tests/unit/test_status_claims.py` holds this block equal to the registered commands, and

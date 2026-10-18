@@ -229,7 +229,7 @@ def test_a_warning_run_on_import_is_the_modules_and_a_function_s_is_not(tmp_path
 def test_a_namespace_package_is_a_module_with_no_notice_of_its_own(tmp_path: Path) -> None:
     root = lib(tmp_path, {"sub.py": "def f(x):\n    return x\n"}, "spaced")
     objects = worker.surface(root, "spaced")["objects"]
-    assert objects["spaced"] == {"kind": "module", "deprecated": None}
+    assert objects["spaced"] == {"kind": "module", "deprecated": None, "lazy": False}
     assert "spaced.sub.f" in objects
 
 
@@ -373,8 +373,10 @@ def surfaces(
     return make(old), make(new)
 
 
-def changes(old: dict[str, Obj], new: dict[str, Obj], **kwargs: Surface) -> list[tuple[str, ...]]:
-    found = api.diff(*surfaces(old, new), **kwargs)
+def changes(
+    old: dict[str, Obj], new: dict[str, Obj], before: tuple[Surface, ...] = ()
+) -> list[tuple[str, ...]]:
+    found = api.diff(*surfaces(old, new), before=before)
     return [
         (one.type, one.path, one.new_path or one.param or "", one.new_param or "") for one in found
     ]
@@ -417,8 +419,30 @@ def test_what_beneath_a_removed_name_is_not_reported_again() -> None:
 def test_the_message_the_library_gave_before_it_removed_a_name_is_kept() -> None:
     old, new = surfaces({"f": fn(req("x"))}, {})
     before = surfaces({"f": fn(req("x"), deprecated="use g")}, {})[0]
-    [one] = api.diff(old, new, before=before)
+    [one] = api.diff(old, new, before=[before])
     assert one.message == "use g"
+
+
+def test_the_newest_release_that_still_has_a_name_is_the_one_whose_words_count() -> None:
+    old, new = surfaces({"f": fn(req("x")), "g": fn(req("x"))}, {})
+    newest = surfaces({"g": fn(req("x"), deprecated="g will go")}, {})[0]
+    older = surfaces(
+        {"f": fn(req("x"), deprecated="f will go"), "g": fn(req("x"), deprecated="old")}, {}
+    )[0]
+    said = {one.path: one.message for one in api.diff(old, new, before=[newest, older])}
+    assert said == {"f": "f will go", "g": "g will go"}
+
+
+def test_a_member_that_moved_up_to_a_base_class_is_still_the_class_s() -> None:
+    old = {"C": Obj("", "class", ()), "C.m": fn(req("x")), "C.n": fn(req("x"))}
+    new = {"C": Obj("", "class", (), inherited=("m",))}
+    assert changes(old, new) == [("removed", "C.n", "", "")]
+
+
+def test_object_as_a_base_is_what_every_class_has() -> None:
+    old = {"C": Obj("", "class", (), bases=("object",)), "D": Obj("", "class", (), bases=("Base",))}
+    new = {"C": Obj("", "class", ()), "D": Obj("", "class", (), bases=("Base",))}
+    assert changes(old, new) == []
 
 
 def test_a_name_changing_kind_or_bases_is_reported() -> None:
@@ -502,3 +526,90 @@ def test_module_prefixes_are_dropped_so_a_moved_module_compares() -> None:
     old = Surface("oldlib", {"oldlib.f": fn(req("x"))})
     new = Surface("newlib", {"newlib.f": fn(req("x"))})
     assert api.diff(old, new) == ()
+
+
+def test_a_name_the_librarys_message_says_to_use_is_what_it_was_renamed_to() -> None:
+    old = {"old_greet": fn(req("name"), deprecated="old_greet is deprecated, use greet instead")}
+    new = {"greet": fn(req("name"))}
+    [one] = api.diff(*surfaces(old, new))
+    assert (one.type, one.path, one.new_path, one.same_signature) == (
+        "renamed",
+        "old_greet",
+        "greet",
+        True,
+    )
+
+
+def test_a_rename_by_message_may_change_the_signature() -> None:
+    old = {"f": fn(req("a"), deprecated="f is replaced by g")}
+    [one] = api.diff(*surfaces(old, {"g": fn(req("b"))}))
+    assert (one.type, one.new_path, one.same_signature) == ("renamed", "g", False)
+
+
+@pytest.mark.parametrize(
+    ("message", "new"),
+    [
+        pytest.param("f is deprecated", {"g": fn(req("a"))}, id="a warning that names no use"),
+        pytest.param("use g or h", {"g": fn(req("a")), "h": fn(req("a"))}, id="two candidates"),
+        pytest.param("use g", {"g": Obj("", "class", (req("a"),))}, id="another kind"),
+        pytest.param("use g", {"x.g": fn(req("a"))}, id="another place"),
+        pytest.param("use something", {"other": fn(req("a"))}, id="a name that is not there"),
+        pytest.param(None, {"g": fn(req("a"))}, id="no message"),
+    ],
+)
+def test_a_name_that_no_message_pairs_with_one_is_removed(
+    message: str | None, new: dict[str, Obj]
+) -> None:
+    [one] = api.diff(*surfaces({"f": fn(req("a"), deprecated=message)}, new))
+    assert one.type == "removed"
+
+
+def test_a_module_that_makes_names_when_asked_is_lazy_and_its_hook_is_not_a_name(
+    tmp_path: Path,
+) -> None:
+    root = lib(
+        tmp_path,
+        {
+            "__init__.py": "def __getattr__(name):\n    raise AttributeError(name)\n\n"
+            "def __dir__():\n    return []\n\ndef real(x):\n    return x\n",
+            "sub.py": "def f(x):\n    return x\n",
+        },
+        "lazy",
+    )
+    objects = worker.surface(root, "lazy")["objects"]
+    assert objects["lazy"]["lazy"] is True
+    assert objects["lazy.sub"]["lazy"] is False
+    assert "lazy.__getattr__" not in objects
+    assert "lazy.__dir__" not in objects
+    assert "lazy.real" in objects
+
+
+def test_the_module_itself_is_the_empty_path() -> None:
+    surface_ = Surface("lib", {"lib": Obj("lib", "module", lazy=True), "lib.f": fn(req("x"))})
+    assert set(surface_.relative()) == {"", "f"}
+    assert surface_.relative()[""].lazy is True
+
+
+def test_a_name_missing_from_a_module_that_makes_names_when_asked_is_unseen_not_removed() -> None:
+    old = {"f": fn(req("x")), "sub": Obj("", "module"), "sub.g": fn(req("x"))}
+    everywhere = {"": Obj("", "module", lazy=True), "sub": Obj("", "module")}
+    found = [(one.type, one.path) for one in api.diff(*surfaces(old, everywhere))]
+    assert found == [("unseen", "f"), ("unseen", "sub.g")]
+    only_below = {"sub": Obj("", "module", lazy=True)}
+    found = [(one.type, one.path) for one in api.diff(*surfaces(old, only_below))]
+    assert found == [("removed", "f"), ("unseen", "sub.g")]
+
+
+def test_the_ancestors_of_a_name_are_the_places_it_could_come_from() -> None:
+    assert api._ancestors("a.b.C") == ["a.b", "a", ""]
+    assert api._ancestors("f") == [""]
+
+
+def test_a_required_parameter_a_star_args_already_took_is_no_new_requirement() -> None:
+    star = Param("args", "variadic positional", None, False)
+    old = {"f": fn(star), "g": fn(star)}
+    new = {
+        "f": fn(req("a"), req("b", "keyword-only"), star),
+        "g": fn(req("a")),
+    }
+    assert changes(old, new) == [("param_required_added", "f", "b", "")]

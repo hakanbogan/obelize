@@ -66,7 +66,9 @@ source:
   Markdown or HTML character, since it goes into the report) and `retrieved_at` are
   required. The URL is never requested.
 - `type` is `official_guide` or `sdk_reference`, the sources pack review
-  admits.
+  admits, or `api_diff`, a pack that `obelize pack synth` made from the public API of two
+  releases, whose `url` is the file of the newer one and whose `sha256` is that file's. A
+  bundled pack is never `api_diff`.
 - `sha256`, optional, hashes the page as retrieved so a reviewer can see it
   change. An absent hash beats a fabricated one.
 - The pack's `SOURCES.md` has **one section per `changes[].id`** (both
