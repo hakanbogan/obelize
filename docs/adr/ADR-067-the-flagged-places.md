@@ -65,6 +65,22 @@ never a place, and a failure that raises in a test file or in code the move did 
 value, an assertion) has no place and is left to the person. A trial that still fails writes
 nothing.
 
+### D6. The pin follows what the agent moved, and what cannot be written is said
+
+The dependency line moves when the rules migrated a file. A pack of flags alone (the synthesized
+pack of a library that renamed little) migrates none, so files the agent edited count as migrated
+for the pin (`fix` takes them as files migrated elsewhere), and a trial whose every flagged place is
+moved runs its tests even when the rules wrote nothing. A place left unresolved ends the trial with
+the reason `unresolved`, since the repository would be half moved. A dependency line the rules cannot
+write (a requirement with extras, which the new release may not have) is named, as `path:line`, in
+the summary and in the commit message, for the person to change by hand.
+
+### D7. The agent is told the names the new release added
+
+For a removed name, `pack synth` keeps beside the pack the new names closest to it (`hints.json`,
+`PACKS.md`), and the note sent with the place ends with them. Without them an agent can only answer
+from what it knows of the new release, which for a release newer than the agent is nothing.
+
 ## Consequences
 
 `docs/CLI.md`, `docs/PRIVACY.md` and `docs/THREAT_MODEL.md` (TM-13) describe the agent, what it is

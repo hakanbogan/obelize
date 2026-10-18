@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Final, Literal
 
 if TYPE_CHECKING:
@@ -37,6 +38,16 @@ _VARIADIC: Final = ("variadic positional", "variadic keyword")
 _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 # A message that tells the reader what replaces a name, as opposed to one that only warns.
 _REPLACEMENT: Final = re.compile(r"\b(use|replaced|renamed|instead|favou?r|supersed\w*)\b", re.I)
+
+
+# Kinds of name worth offering as what a removed one became.
+_NAMED: Final = frozenset({"class", "function", "module", "alias"})
+# How alike two spellings must be, when no word is shared, for one to be offered for the other.
+_SPELT: Final = 0.6
+_WORD: Final = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
+# How many names are offered, and how many names below a module are looked at.
+SUCCESSORS: Final = 6
+_MEMBERS: Final = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +114,11 @@ def _inherits(path: str, news: Mapping[str, Obj]) -> bool:
 
 def _parent(path: str) -> str:
     return path.rpartition(".")[0]
+
+
+def _in_class(objects: Mapping[str, Obj], path: str) -> bool:
+    above = objects.get(_parent(path))
+    return above is not None and above.kind == "class"
 
 
 def _bases(one: Obj) -> tuple[str, ...]:
@@ -239,4 +255,50 @@ def _renamed(old: Param, new: Param, index: int, params: tuple[Param, ...]) -> b
     )
 
 
-__all__ = ["ApiChange", "ChangeType", "diff"]
+def successors(old: Surface, new: Surface, path: str) -> list[tuple[str, str]]:
+    """The names only `new` has that the removed `path` may have become: the path and kind of each,
+    closest first. Words in the names and place decide, so it is a guess to put in front of a
+    reader, never a name to rewrite to. A module stands for the names in it; a method is offered
+    other methods, and any other name the names that are not."""
+    olds, news = old.relative(), new.relative()
+    below = olds.get(path) is not None and olds[path].kind == "module"
+    gone = [
+        one
+        for one in olds
+        if (one == path or (below and _parent(one) == path)) and olds[one].kind in _NAMED
+    ][:_MEMBERS]
+    member = _in_class(olds, path)
+    appeared = [
+        one
+        for one, found in news.items()
+        if one not in olds and found.kind in _NAMED and _in_class(news, one) == member
+    ]
+    best: dict[str, float] = {}
+    for former in gone:
+        words = _words(former.rpartition(".")[2])
+        for found in appeared:
+            leaf = found.rpartition(".")[2]
+            theirs = _words(leaf)
+            alike = len(words & theirs) / max(1, min(len(words), len(theirs)))
+            if not alike:
+                matcher = SequenceMatcher(None, former.rpartition(".")[2].lower(), leaf.lower())
+                if matcher.real_quick_ratio() >= _SPELT and matcher.quick_ratio() >= _SPELT:
+                    alike = matcher.ratio() if matcher.ratio() >= _SPELT else 0.0
+            # A method is offered the other methods of the class, whatever they are called.
+            same = member and _parent(found) == _parent(former)
+            if not alike and not same:
+                continue
+            shared = sum(
+                1 for a, b in zip(found.split("."), former.split("."), strict=False) if a == b
+            )
+            best[found] = max(best.get(found, 0.0), alike + shared / 10 + (0.5 if same else 0.0))
+    ranked = sorted(best, key=lambda one: (-best[one], one))[:SUCCESSORS]
+    return [(one, news[one].kind) for one in ranked]
+
+
+def _words(name: str) -> frozenset[str]:
+    """The words of a name: `FastMCP` is `fast` and `mcp`, `old_greet` is `old` and `greet`."""
+    return frozenset(one.lower() for one in _WORD.findall(name))
+
+
+__all__ = ["SUCCESSORS", "ApiChange", "ChangeType", "diff", "successors"]

@@ -587,6 +587,24 @@ def test_a_module_that_makes_names_when_asked_is_lazy_and_its_hook_is_not_a_name
     assert "lazy.real" in objects
 
 
+def test_a_module_that_takes_every_name_of_another_package_is_lazy_and_one_of_its_own_is_not(
+    tmp_path: Path,
+) -> None:
+    root = lib(
+        tmp_path,
+        {
+            "__init__.py": "from outside import *\nfrom . import inner as inner\n",
+            "inner.py": "from mirror.other import *\nfrom .other import *\n",
+            "other.py": "def f(x):\n    return x\n",
+        },
+        "mirror",
+    )
+    objects = worker.surface(root, "mirror")["objects"]
+    assert objects["mirror"]["lazy"] is True
+    assert objects["mirror.inner"]["lazy"] is False
+    assert objects["mirror.other"]["lazy"] is False
+
+
 def test_the_module_itself_is_the_empty_path() -> None:
     surface_ = Surface("lib", {"lib": Obj("lib", "module", lazy=True), "lib.f": fn(req("x"))})
     assert set(surface_.relative()) == {"", "f"}
@@ -714,3 +732,54 @@ def test_a_name_declared_and_not_read_is_not_compared_but_may_say_it_is_going() 
         ("deprecated", "C", "use D")
     ]
     assert changes({"A": Obj("", "name")}, {"A": fn(req("x"))}) == []
+
+
+def seen(**kinds: str) -> Surface:
+    return Surface(
+        "acme", {f"acme.{path.replace('__', '.')}": Obj("", kind) for path, kind in kinds.items()}
+    )
+
+
+def test_a_removed_class_is_offered_the_new_names_that_share_a_word_with_it() -> None:
+    old = seen(server="module", server__fastmcp="module", server__fastmcp__FastMCP="class")
+    new = seen(
+        server="module",
+        server__mcpserver="module",
+        server__mcpserver__MCPServer="class",
+        server__ReadStream="class",
+        other__Widget="class",
+        server__table="attribute",
+        server__mcpserver__MCPServer__run="function",
+    )
+    assert api.successors(old, new, "server.fastmcp") == [("server.mcpserver.MCPServer", "class")]
+    assert api.successors(old, new, "server.fastmcp.FastMCP") == [
+        ("server.mcpserver.MCPServer", "class")
+    ]
+
+
+def test_a_name_with_no_word_in_common_is_offered_only_when_it_is_spelt_alike() -> None:
+    old = seen(colour="function", paint="function")
+    new = seen(color="function", zzzzz="function")
+    assert api.successors(old, new, "colour") == [("color", "function")]
+    assert api.successors(old, new, "paint") == []
+
+
+def test_a_name_that_is_not_removed_a_kind_that_is_no_name_and_distant_ones_are_not_offered() -> (
+    None
+):
+    old = seen(Client="class", Client__ping="function", keep="function")
+    new = seen(Client="class", Client__ping="function", keep="function", zzzzz="function")
+    assert api.successors(old, new, "keep") == []
+    assert api.successors(old, new, "absent") == []
+    after = seen(
+        Client="class", Client__ping="function", Client__health="function", health="function"
+    )
+    assert api.successors(old, after, "Client.ping") == [("Client.health", "function")]
+
+
+def test_no_more_than_the_limit_are_offered_closest_first() -> None:
+    old = seen(Thing="class")
+    new = seen(**{f"Thing{number}": "class" for number in range(1, 10)}, Thin="class")
+    found = api.successors(old, new, "Thing")
+    assert len(found) == api.SUCCESSORS
+    assert found[0] == ("Thin", "class") or found[0][0].startswith("Thing")

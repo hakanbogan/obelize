@@ -19,7 +19,7 @@ from obelize.trial import copy, envs, run, tests
 from support import committed, git
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Collection, Mapping
     from pathlib import Path
 
 needs_uv = pytest.mark.skipif(shutil.which("uv") is None, reason="uv makes the environments")
@@ -455,7 +455,7 @@ def plan(
     return run.Plan(**{**found, **changes})  # type: ignore[arg-type]
 
 
-def renamed(work: Path) -> tuple[str, ...]:
+def renamed(work: Path, _elsewhere: Collection[str] = ()) -> tuple[str, ...]:
     path = work / "app.py"
     path.write_text(path.read_text().replace("old_greet", "greet"))
     return ("app.py",)
@@ -492,7 +492,7 @@ def test_a_migration_that_leaves_tests_broken_on_the_new_release_fails_the_trial
     tmp_path: Path, offline: Mapping[str, str]
 ) -> None:
     repository(tmp_path)
-    done = run.run(plan(tmp_path, offline, lambda _work: ("app.py",)))
+    done = run.run(plan(tmp_path, offline, lambda _work, _e: ("app.py",)))
     assert (done.verdict.status, done.verdict.reason) == ("fail", "tests_broke")
     assert len(done.verdict.broken) == 2
     assert (tmp_path / "evidence" / "again" / "1.junit.xml").is_file()
@@ -531,7 +531,7 @@ def test_a_migration_that_writes_nothing_leaves_nothing_to_compare(
     tmp_path: Path, offline: Mapping[str, str]
 ) -> None:
     repository(tmp_path)
-    done = run.run(plan(tmp_path, offline, lambda _work: ()))
+    done = run.run(plan(tmp_path, offline, lambda _work, _e: ()))
     assert (done.verdict.status, done.verdict.reason) == ("inconclusive", "nothing_to_compare")
 
 
@@ -596,7 +596,7 @@ def test_a_move_to_another_distribution_installs_it_and_takes_the_old_one_out(
 ) -> None:
     repository(tmp_path)
 
-    def moved(work: Path) -> tuple[str, ...]:
+    def moved(work: Path, _elsewhere: Collection[str]) -> tuple[str, ...]:
         path = work / "app.py"
         path.write_text(
             path.read_text()

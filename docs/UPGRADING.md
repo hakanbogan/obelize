@@ -107,3 +107,19 @@ are the lines to read first. `--max-asks` limits how many places are asked about
 If tests that passed before the move fail after it, the agent is put those too, with the error
 and the line of your code the traceback points at, for up to `--max-rounds` rounds. It never edits
 a test.
+
+## Two runs on real repositories
+
+Both ran on a public repository, `academic-mcp` at the commit the benchmark pins, and neither changed
+the clone's working tree.
+
+- `upgrade PyPDF2 --apply --yes --branch`: the bundled pack changed the import in 19 files and the
+  dependency line to `pypdf`. The 60 tests that passed before the move all passed after it, and a commit was made.
+- `upgrade mcp --from 1.28.1 --to 2.3.0 --apply --yes --branch --agent claude_code`: no pack existed,
+  so one was made from the two releases. It flagged the three places that used `FastMCP`, and the
+  agent moved them, given the new names that `hints.json` offered. The 99 tests that passed before
+  passed after, and the commit held the one file the agent edited. The dependency line, `mcp[cli]>=1.28.1`,
+  carries an extra, so it was left, and the summary and the commit message said so.
+
+What they show is that the steps join up, on two repositories. They do not show how often a move
+passes: for that, the benchmark is the evidence.

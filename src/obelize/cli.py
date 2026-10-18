@@ -1279,7 +1279,7 @@ def _agent(flag: str | None) -> tuple[str | None, str | None]:
 
 
 def _resolver(
-    loaded: LoadedPack, backend: str, model: str | None, limit: int
+    loaded: LoadedPack, backend: str, model: str | None, limit: int, hints: Mapping[str, str]
 ) -> tuple[
     Callable[[Path], Resolved], Callable[[Path, Mapping[str, str], Collection[str]], Resolved]
 ]:
@@ -1309,7 +1309,7 @@ def _resolver(
         found = scanner.scan(tree, config, loader.to_scan_spec(loaded), jobs=1).findings
         return resolving.resolve(
             tree,
-            resolving.rows(found, loaded.pack),
+            resolving.rows(found, loaded.pack, hints),
             provider=provider,
             pack=loaded.pack,
             environ=os.environ,
@@ -1339,6 +1339,7 @@ def _commit_branch(
     now: Version,
     install: str,
     named: str,
+    held: Sequence[str],
 ) -> None:
     """The move a trial passed, as one commit on a new branch; the working tree is not touched."""
     from obelize import branch as branching
@@ -1354,6 +1355,11 @@ def _commit_branch(
             if done.by_model
             else ""
         )
+        + (
+            f"Not written, for you to change: the dependency line at {', '.join(held)}.\n"
+            if held
+            else ""
+        )
         + f"\nObelize-Trial: {named}\n"
     )
     try:
@@ -1361,6 +1367,11 @@ def _commit_branch(
     except branching.BranchError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(2) from error
+    if held:
+        typer.echo(
+            f"The dependency line at {', '.join(held)} could not be written: change it by hand.",
+            err=True,
+        )
     typer.echo(
         f"Committed {commit[:10]} on the new branch {branch}; the working tree is unchanged. "
         f"Nothing was pushed.\nNext: git log -p -1 {branch}"
@@ -1391,6 +1402,7 @@ def _trial(
     from obelize.evidence import run_dir
     from obelize.models import ModelConfig
     from obelize.packs import loader
+    from obelize.packtools import synth
     from obelize.trial import copy, envs
     from obelize.trial import run as trying
 
@@ -1408,9 +1420,15 @@ def _trial(
         raise typer.Exit(5)
     loaded = loader.load(chosen.reference, dirs=_pack_dirs())
     named = run_dir.new_id()
-    resolver, repairer = _resolver(loaded, agent, agent_model, max_asks) if agent else (None, None)
+    hints = synth.hints_for(chosen.reference)
+    resolver, repairer = (
+        _resolver(loaded, agent, agent_model, max_asks, hints) if agent else (None, None)
+    )
 
-    def migrate(tree: Path) -> list[str]:
+    # Dependency lines the last run of the rules could not write, as `path:line`.
+    held: list[str] = []
+
+    def migrate(tree: Path, elsewhere: Collection[str]) -> list[str]:
         config, source = _settings(tree, _overrides(None, None, True))
         outcome = fixer.run(
             fixer.Request(
@@ -1427,8 +1445,14 @@ def _trial(
                 apply=True,
                 say=_say,
                 model=ModelConfig(),
+                elsewhere=tuple(sorted(elsewhere)),
             )
         )
+        held[:] = [
+            f"{row.path}:{row.line}"
+            for row in outcome.manifest_plan.findings
+            if row.scan_status == "needs_review"
+        ]
         return [row.path for row in outcome.record.file_edits]
 
     try:
@@ -1471,7 +1495,9 @@ def _trial(
         typer.echo(_UNJUDGED[verdict.reason or "no_junit"], err=True)
         raise typer.Exit(6)
     if branch is not None:
-        _commit_branch(root, branch, done, loaded.pack.id, distribution, now, chosen.install, named)
+        _commit_branch(
+            root, branch, done, loaded.pack.id, distribution, now, chosen.install, named, held
+        )
 
 
 @pack_app.command("synth")
@@ -1531,7 +1557,9 @@ def pack_synth(
         after = libdiff.version(new) if new else libdiff.newest(project)
         compared = libdiff.compare(fetcher, project, before, after, module=module)
         asked = synth.request(project.name, before, after, compared)
-        made = synth.make(Path(directory), asked, compared.old_surface, compared.changes)
+        made = synth.make(
+            Path(directory), asked, compared.old_surface, compared.changes, compared.new_surface
+        )
     except (ConfigError, libdiff.LibraryError, synth.SynthError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1 if isinstance(error, synth.SynthDefectError) else 2) from error

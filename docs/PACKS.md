@@ -57,9 +57,15 @@ run), reads each one's public API statically, and compares them. What it can sho
   required or given another default, a class whose bases changed.
 - The dependency line moves to the newer release and its major version.
 
+For a name the newer release removed, the command also writes `hints.json` beside the pack: the
+names that release has and the older one did not, closest first by the words in the name (`FastMCP`
+and `MCPServer` share `mcp`) and, for a method, by place. They are guesses, shown to a person or to
+the agent of [UPGRADING.md](UPGRADING.md) with the library's own words, and never written to your
+code by a rule.
+
 What two surfaces cannot show is what a function does. A pack made this way says so in its
 limitations, cites the file of the newer release with its hash, and is never bundled: the
 tests of your repository are what show whether a migration holds. A library that builds its exports
-when it is imported (a module `__getattr__`) hides names, and the command counts them instead of
-calling them removed. `pack synth` prints every host before it reaches it, and `--offline` uses only
+when it is imported (a module `__getattr__`, or `from other_package import *`) hides names, and the
+command counts them instead of calling them removed. `pack synth` prints every host before it reaches it, and `--offline` uses only
 what an earlier run kept.

@@ -115,10 +115,17 @@ class Run:
         return tuple(outcome for outcome in self.outcomes if outcome.written)
 
 
-def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: ScanSpec) -> Run:
+def run(
+    scan: Scan,
+    sources: Mapping[str, bytes],
+    pack: PackDocument,
+    spec: ScanSpec,
+    elsewhere: Collection[str] = (),
+) -> Run:
     """Run `pack` over `sources` (scan path to bytes, manifests included) and re-grade.
 
-    A scanned file missing from `sources` is left alone; one with an `eligible` row raises.
+    A scanned file missing from `sources` is left alone; one with an `eligible` row raises. Files
+    in `elsewhere` were migrated by someone else, and the pins follow them.
     """
     results = {result.path: result for result in scan.results}
     _check(results, sources, scan.followed)
@@ -160,7 +167,7 @@ def run(scan: Scan, sources: Mapping[str, bytes], pack: PackDocument, spec: Scan
 
     if spec.client_symbol is not None and any(_relies(plan, spec) for plan in plans):
         files, plans = _elsewhere(files, plans, pack, spec)
-    graded = _manifest_plan(scan, _edited(files, sources), plans, spec)
+    graded = _manifest_plan(scan, _edited(files, sources), plans, spec, elsewhere)
     if manifests.coupled(spec) and _unfinished(plans, graded):
         waiting = _withholding(plans, graded)
         files, plans = _together(files, plans)
@@ -576,7 +583,11 @@ def _left(outcome: Outcome) -> Outcome:
 
 
 def _manifest_plan(
-    scan: Scan, sources: Mapping[str, bytes], plans: Sequence[ImpactPlan], spec: ScanSpec
+    scan: Scan,
+    sources: Mapping[str, bytes],
+    plans: Sequence[ImpactPlan],
+    spec: ScanSpec,
+    elsewhere: Collection[str],
 ) -> ManifestPlan:
     """The manifest pin check over what the rules leave, re-reading declarations from the
     bytes (one reader)."""
@@ -587,6 +598,7 @@ def _manifest_plan(
         scan.transitive,
         paired=manifests.coupled(spec),
         modern=scan.modern,
+        elsewhere=elsewhere,
     )
     followed = dict(scan.followed)
     declared = [

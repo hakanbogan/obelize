@@ -550,3 +550,50 @@ def test_a_test_that_stays_broken_leaves_the_move_unwritten(
     assert result.exit_code == 3, result.output
     assert len(model.asked) == asked
     assert "obelize/upgrade-acme-kit-2.0" not in git(root, "branch").stdout.decode()
+
+
+def test_the_pin_follows_the_places_the_agent_moved_when_the_rules_wrote_nothing(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    only = "import other\n\n\ndef test_gone():\n    assert other.gone(1) == 1\n"
+    model = Agent("    return x")
+    monkeypatch.setattr(agent_cli, "build", lambda *_args, **_kwargs: model)
+    root = repo(trial, other__py=GONE, test_other__py=only, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes", "--branch", "--agent", "claude_code")
+    assert result.exit_code == 0, result.output
+    name = "obelize/upgrade-acme-kit-2.0"
+    assert git(root, "show", f"{name}:other.py").stdout.decode().endswith("    return x\n")
+    assert git(root, "show", f"{name}:requirements.txt").stdout.decode() != "acme-kit==1.0\n"
+    said = git(root, "log", "-1", "--format=%B", name).stdout.decode()
+    assert "A model edited other.py: read those lines first." in said
+
+
+def test_a_dependency_line_with_extras_is_left_and_the_commit_says_so(trial: Path) -> None:
+    root = repo(
+        trial,
+        pdf__py=PDF,
+        test_pdf__py="import pdf\n\n\ndef test_imports():\n    assert pdf.pages\n",
+        requirements__txt="PyPDF2[crypto]==3.0.1\n",
+    )
+    result = runner.invoke(
+        app,
+        [
+            "upgrade",
+            "PyPDF2",
+            "--repo",
+            str(root),
+            "--python",
+            PYTHON,
+            "--apply",
+            "--yes",
+            "--branch",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "The dependency line at requirements.txt:1 could not be written" in result.output
+    name = "obelize/upgrade-pypdf-6.19"
+    said = git(root, "log", "-1", "--format=%B", name).stdout.decode()
+    assert "Not written, for you to change: the dependency line at requirements.txt:1." in said
+    shown = git(root, "show", "--stat", "--format=", name).stdout.decode()
+    assert "pdf.py" in shown
+    assert "requirements.txt" not in shown

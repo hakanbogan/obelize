@@ -77,6 +77,8 @@ class Request:
     model: ModelConfig = field(default_factory=ModelConfig)
     # Whether a flag, and not only the user's file, asked for the model.
     model_flagged: bool = False
+    # Files someone else has migrated already (a trial's model edits): the pins follow them.
+    elsewhere: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -362,7 +364,7 @@ def _fold(request: Request, chosen: Chosen) -> list[_Pass]:
         scan = one.scan
         if written & {row.path for row in scan.findings if row.scan_status != "not_a_usage"}:
             scan = scanner.scan(request.root, request.config, spec, jobs=None, tree=current)
-        driven = _driven(current, scan, one.loaded, spec)
+        driven = _driven(current, scan, one.loaded, spec, request.elsewhere)
         if scan.blocked:
             driven = codemod.blocked(driven, scan.blocked[0].reason)
         passes.append(_Pass(one.loaded, scan, driven))
@@ -374,12 +376,16 @@ def _fold(request: Request, chosen: Chosen) -> list[_Pass]:
 
 
 def _driven(
-    tree: scanner.Tree, scan: scanner.Scan, loaded: LoadedPack, spec: ScanSpec
+    tree: scanner.Tree,
+    scan: scanner.Scan,
+    loaded: LoadedPack,
+    spec: ScanSpec,
+    elsewhere: tuple[str, ...] = (),
 ) -> codemod.Run:
     """Every rule of one pack over the tree, as one value."""
     sources = {path: entry.data for path, entry in tree.entries.items() if entry.data is not None}
     try:
-        return codemod.run(scan, sources, loaded.pack, spec)
+        return codemod.run(scan, sources, loaded.pack, spec, elsewhere)
     except codemod.CodemodError as error:
         raise CommandError(f"the run could not be planned: {error}. Nothing was written.", 1) from (
             error

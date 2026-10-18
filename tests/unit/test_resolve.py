@@ -187,3 +187,19 @@ def test_a_file_that_does_not_parse_is_not_asked_about(tmp_path: Path) -> None:
     assert [(one.outcome, one.detail) for one in done.decisions] == [
         ("skipped", "the file does not parse")
     ]
+
+
+def test_a_hint_for_the_name_or_the_longest_name_above_it_is_added_to_the_pack_words(
+    world: tuple[Path, loader.LoadedPack, list[Row]],
+) -> None:
+    work, loaded, _ = world
+    found = scanner.scan(work, Config(), loader.to_scan_spec(loaded), jobs=1).findings
+    hints = {"acme.kit.Client": "wide", "acme.kit.Client.ping": "close", "acme.kit.Other": "no"}
+    notes = {row.note.rsplit(" ", 1)[-1] for row in rows(found, loaded.pack, hints)}
+    assert notes == {"close"}
+    assert {
+        row.note.rsplit(" ", 1)[-1] for row in rows(found, loaded.pack, {"acme.kit": "up"})
+    } == {"up"}
+    assert all(
+        "close" not in row.note for row in rows(found, loaded.pack, {"acme.kit.Other": "no"})
+    )

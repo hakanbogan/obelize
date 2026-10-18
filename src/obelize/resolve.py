@@ -63,8 +63,11 @@ class Resolved:
         return sum(1 for one in self.decisions if one.outcome not in ("edited", "covered"))
 
 
-def rows(findings: Sequence[Finding], pack: PackDocument) -> list[Row]:
-    """The withheld rows a flagged change of `pack` claims, each with that change's words."""
+def rows(
+    findings: Sequence[Finding], pack: PackDocument, hints: Mapping[str, str] | None = None
+) -> list[Row]:
+    """The withheld rows a flagged change of `pack` claims, each with that change's words and, if
+    `hints` hold one for the name or the longest name above it, that."""
     found: dict[tuple[str, int, str | None], Row] = {}
     for change in pack.changes:
         if not isinstance(change, FlagOnlyChange):
@@ -78,7 +81,8 @@ def rows(findings: Sequence[Finding], pack: PackDocument) -> list[Row]:
                 and claims.claims(finding)
             ):
                 key = (finding.path, finding.line, finding.symbol)
-                found.setdefault(key, Row(finding.path, finding.line, finding.symbol, note))
+                row = Row(finding.path, finding.line, finding.symbol, note + _hint(finding, hints))
+                found.setdefault(key, row)
     return sorted(found.values(), key=lambda row: (row.path, row.line))
 
 
@@ -142,6 +146,15 @@ def resolve(
             covered_from = reply.proposal.start_line
             decisions.append(Decision(row, "edited", checked.detail, reply.proposal))
     return Resolved(tuple(decisions), tokens_in, tokens_out)
+
+
+def _hint(finding: Finding, hints: Mapping[str, str] | None) -> str:
+    names = [
+        name
+        for name in hints or ()
+        if finding.symbol and (finding.symbol == name or finding.symbol.startswith(f"{name}."))
+    ]
+    return f" {hints[max(names, key=len)]}" if names and hints else ""
 
 
 def _line(row: Row) -> int:

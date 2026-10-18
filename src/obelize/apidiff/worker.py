@@ -56,12 +56,14 @@ def surface(root: Path, module: str) -> dict[str, Any]:
 class _Facts(NamedTuple):
     """What one file says that griffe does not: each deprecation warning's line and message, the
     messages of those run on import, the lines of the functions that are stubs, and the names a
-    module-level `__getattr__` makes (`None`: it makes names it does not list)."""
+    module-level `__getattr__` makes (`None`: it makes names it does not list), and the modules it
+    imports every name from (`from m import *`)."""
 
     calls: list[tuple[int, str]]
     at_import: list[str]
     trivial: set[int]
     made: dict[str, str | None] | None
+    wildcards: list[str]
 
 
 class _Walker:
@@ -77,8 +79,9 @@ class _Walker:
         self.objects[module.path] = {
             "kind": "module",
             "deprecated": self._module_notice(module),
-            # A `__getattr__` that lists no names makes any, so a name not seen may be there.
-            "lazy": "__getattr__" in module.members and made is None,
+            # A `__getattr__` that lists no names makes any, and so does a wildcard import from
+            # outside the package, so a name not seen may be there.
+            "lazy": ("__getattr__" in module.members and made is None) or self._mirrors(module),
         }
         # Names a module declares or makes, which no statement defines: known, not read.
         for name in sorted({*exported, *(made or ())} - set(module.members)):
@@ -209,6 +212,13 @@ class _Walker:
             return {}
         return self._facts(path).made
 
+    def _mirrors(self, module: Any) -> bool:
+        """Whether the module takes every name of another package, which is not read."""
+        path = module.filepath
+        if not isinstance(path, Path):
+            return False
+        return any(name.split(".")[0] != self.package for name in self._facts(path).wildcards)
+
     def _module_notice(self, module: Any) -> str | None:
         # A namespace package has no file of its own.
         path = module.filepath
@@ -268,7 +278,15 @@ def _file_facts(path: Path) -> _Facts:
             calls.append((node.lineno, text))
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _empty(node.body):
             trivial.add(node.lineno)
-    return _Facts(calls, list(_at_import(tree.body)), trivial, _made(tree))
+    wildcards = [
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module
+        and node.level == 0
+        and any(one.name == "*" for one in node.names)
+    ]
+    return _Facts(calls, list(_at_import(tree.body)), trivial, _made(tree), wildcards)
 
 
 def _made(tree: ast.Module) -> dict[str, str | None] | None:

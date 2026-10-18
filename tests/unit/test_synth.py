@@ -690,3 +690,36 @@ def test_a_class_flagged_only_for_its_bases_gives_way_to_the_members_flagged_und
     assert made.dropped == ("Client",)
     alone = plan(ApiChange("bases_changed", "Client", detail="Base"))
     assert list(alone.flags) == ["Client"]
+
+
+def test_the_names_a_removed_one_may_have_become_are_written_beside_the_pack(
+    tmp_path: Path,
+) -> None:
+    new = old_surface(gone_now=fn(req("a")), sub=Obj("", "module"))
+    made = synth.make(tmp_path, REQUEST, WORLD, [ApiChange("removed", "gone")], new)
+    assert synth.hints_for(str(made.folder / "pack.yaml")) == {
+        "acme_kit.gone": (
+            "Names acme-kit 2.0 has that the older release did not, closest in spelling first: "
+            "acme_kit.gone_now (function)."
+        )
+    }
+
+
+def test_there_are_no_hints_without_the_newer_surface_or_a_name_that_could_stand_for_the_old(
+    tmp_path: Path,
+) -> None:
+    bare = synth.make(tmp_path / "a", REQUEST, WORLD, [ApiChange("removed", "gone")])
+    assert not (bare.folder / synth.HINTS).exists()
+    unlike = old_surface(zzzzz=fn())
+    far = synth.make(tmp_path / "b", REQUEST, WORLD, [ApiChange("removed", "gone")], unlike)
+    assert not (far.folder / synth.HINTS).exists()
+
+
+@pytest.mark.parametrize("text", [None, "not json", "[1]", '{"a": 1, "b": "kept"}'])
+def test_hints_are_read_only_as_names_with_text(tmp_path: Path, text: str | None) -> None:
+    (tmp_path / "pack.yaml").write_text("x")
+    if text is not None:
+        (tmp_path / synth.HINTS).write_text(text)
+    expected = {"b": "kept"} if text and "kept" in text else {}
+    assert synth.hints_for(str(tmp_path / "pack.yaml")) == expected
+    assert synth.hints_for("py-pdf/pypdf2-to-pypdf") == {}

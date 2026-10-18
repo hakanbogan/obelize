@@ -40,8 +40,9 @@ class Plan:
     install: str
     environ: Mapping[str, str]
     say: Callable[[str], None]
-    # Writes the migration into a tree, and returns the paths it wrote.
-    migrate: Callable[[Path], Sequence[str]]
+    # Writes the migration into a tree, and returns the paths it wrote. The files given were
+    # migrated by someone else, and the pins follow them.
+    migrate: Callable[[Path, Collection[str]], Sequence[str]]
     # Puts what the migration left to a model, in a tree; none where no model was asked for.
     resolve: Callable[[Path], resolving.Resolved] | None = None
     # Puts the tests that broke, by their tracebacks, to a model; none where no model was asked for.
@@ -123,7 +124,7 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
         environ=plan.environ,
         index=1,
     )
-    written = tuple(plan.migrate(work))
+    written = tuple(plan.migrate(work, ()))
     answered: resolving.Resolved | None = None
     touched = set(written)
     if not written and plan.resolve is not None:
@@ -132,12 +133,13 @@ def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:
             f"The model was asked about {len(answered.decisions)} place(s); "
             f"{len(answered.edited)} file(s) were edited, {answered.left} place(s) are left"
         )
-        written = tuple(plan.migrate(work)) if answered.edited else ()
-        touched = {*written, *answered.edited}
-        if not written:
+        # A place left holds a pack of one distribution still: the rules would write nothing.
+        if answered.left:
             verdict = tests.Verdict("inconclusive", "unresolved", 0, (), ())
-            return _done(plan, verdict, (), command, work, [("resolve", answered)], touched)
-    if not written:
+            return _done(plan, verdict, (), command, work, [("resolve", answered)], set())
+        written = tuple(plan.migrate(work, answered.edited)) if answered.edited else ()
+        touched = {*written, *answered.edited}
+    if not touched:
         return _done(
             plan, tests.Verdict("inconclusive", "nothing_to_compare", 0, (), ()), (), command
         )

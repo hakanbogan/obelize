@@ -66,7 +66,10 @@ in the release that makes it.
   files it edited. `agent.backend` and `agent.model` in your own configuration do the same, and a
   repository's `.obelize.yml` may not set `agent`. Tests that passed before the move and fail after it
   are put to the agent too, with the error and the line of non-test code the traceback points at, for
-  up to `--max-rounds` rounds (3); a test file is never edited.
+  up to `--max-rounds` rounds (3); a test file is never edited. A place the pack flags is sent with
+  the new names closest to the removed one, which `pack synth` keeps in `hints.json` beside the
+  pack, and the dependency line follows the places the agent moved. A dependency line the rules
+  cannot write is named in the summary and the commit message.
 - `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
   it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
   migration as `fix` does without `--apply`. It writes nothing in the repository.

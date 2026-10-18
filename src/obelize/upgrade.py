@@ -75,6 +75,7 @@ def choose(
         synth.request(project.name, now, target, compared),
         compared.old_surface,
         compared.changes,
+        compared.new_surface,
     )
     names = sum(made.covered.values()) - made.covered.get("dependency-line", 0)
     return Chosen(

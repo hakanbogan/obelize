@@ -290,15 +290,17 @@ def survey(
     *,
     paired: bool = False,
     modern: bool = False,
+    elsewhere: Iterable[str] = (),
 ) -> Migration:
-    """The pin-edit conditions from the per-file plans, plus what no plan carries.
+    """The pin-edit conditions from the per-file plans, plus what no plan carries. `elsewhere` are
+    files someone else has migrated, which move the pin as a file the rules wrote does.
 
     A file migrated if any row is eligible; it blocks if a non-eligible row still loads the
     distribution (`IMPORTING` or a mock target). `unanalysed` files block like an import. Where
     `paired` (see `coupled`) no import marks the old API, so any withheld row blocks. `modern` is
     whether any file uses a name only the new API defines (`uses_new_names`).
     """
-    migrated: set[str] = set()
+    migrated: set[str] = set(elsewhere)
     blocking: set[str] = set()
     for plan in plans:
         for row in plan.findings:

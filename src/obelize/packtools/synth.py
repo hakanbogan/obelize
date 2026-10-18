@@ -12,6 +12,7 @@ tests of the repository decide it.
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 import shutil
 import tempfile
@@ -23,6 +24,7 @@ import yaml
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
+from obelize.apidiff.diff import successors
 from obelize.models.fields import DISPLAY_TEXT_LIMIT, printable
 from obelize.packs import loader
 from obelize.packs.schema import under_any
@@ -39,6 +41,9 @@ if TYPE_CHECKING:
 
 # More groups of one kind than this are folded into one that says less.
 MAX_GROUPS: Final = 60
+# Beside the pack: for a removed name, the new names it may have become, for a model to read.
+HINTS: Final = "hints.json"
+HINTS_LIMIT: Final = 1 << 20
 _QUOTE_CHARS: Final = 240
 _LISTED: Final = 20
 _GENERIC: Final = {
@@ -132,9 +137,11 @@ def make(
     request: Request,
     old: Surface,
     changes: Sequence[ApiChange],
+    new: Surface | None = None,
 ) -> Made:
     """Make `<directory>/<provider>/<slug>/`, load it and check it; a folder that exists is never
-    written into, and one that does not pass `pack test` is removed."""
+    written into, and one that does not pass `pack test` is removed. With the newer surface, the
+    names a removed one may have become are written beside the pack (`HINTS`)."""
     folder = directory / request.pack_id
     if folder.exists():
         raise SynthError(
@@ -175,7 +182,40 @@ def make(
     except SynthDefectError:
         shutil.rmtree(folder, ignore_errors=True)
         raise
+    if new is not None:
+        _hint(folder, plan, old, new)
     return Made(folder, request.pack_id, plan.covered(), plan.unseen)
+
+
+def _hint(folder: Path, plan: _Plan, old: Surface, new: Surface) -> None:
+    request = plan.request
+    found: dict[str, str] = {}
+    for path, one in plan.flags.items():
+        names = successors(old, new, path) if one.category == "removed" and path else []
+        if names:
+            listed = ", ".join(f"{request.module}.{name} ({kind})" for name, kind in names)
+            found[f"{request.module}.{path}"] = _text(
+                f"Names {request.label} has that the older release did not, closest in spelling "
+                f"first: {listed}."
+            )
+    if found:
+        (folder / HINTS).write_text(json.dumps(found, indent=2) + "\n", encoding="utf-8")
+
+
+def hints_for(reference: str) -> dict[str, str]:
+    """What `make` wrote beside the pack at `reference`; none for a pack that is not a file's."""
+    try:
+        with (Path(reference).parent / HINTS).open("rb") as handle:
+            document = json.loads(handle.read(HINTS_LIMIT))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(document, dict):
+        return {}
+    return {
+        printable(name): printable(text)
+        for name, text in document.items()
+        if isinstance(name, str) and isinstance(text, str)
+    }
 
 
 def request(distribution: str, old: Version, new: Version, compared: libdiff.Comparison) -> Request:
