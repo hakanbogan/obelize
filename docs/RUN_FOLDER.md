@@ -219,6 +219,7 @@ run records `not_run` / `dry_run`). `commands` is empty whenever `status` is
 | `reason` | string or null | From the vocabulary in [CLI.md](CLI.md#verification-status-and-exit-code), which maps both to the exit code. `null` only on `pass`. |
 | `commands` | array | One entry per command, in the order they ran. See [`verify.commands[]`](#verifycommands). |
 | `baseline` | object or null | `status`, `reason` and `commands` before the patch, one level deep. A failed baseline makes the run `inconclusive` / `baseline_failed`, never `fail`. A write refused after the baseline ran keeps it under `not_run` / `no_changes_to_verify`. |
+| `edited` | array | The files the run wrote whose bytes were not the run's when `obelize verify --current` checked the tree as it stood, sorted; empty for any other verification. |
 
 ### `verify.commands[]`
 

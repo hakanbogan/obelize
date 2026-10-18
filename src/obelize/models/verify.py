@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field, model_validator
 
-from obelize.models.fields import RelativePath, RunnableCommand, _Frozen
+from obelize.models.fields import RelativePath, RunnableCommand, _Frozen, sorted_unique
 from obelize.models.vocabulary import (
     COMMAND_REASONS,
     REASONS_BY_STATUS,
@@ -196,12 +196,18 @@ class VerifyPhaseRecord(_Frozen):
 
 
 class VerifyRecord(VerifyPhaseRecord):
-    """The `verify` object of `run.json`: the after-patch phase plus the baseline that gates it."""
+    """The `verify` object of `run.json`: the after-patch phase plus the baseline that gates it.
+
+    `edited` names the files the run wrote whose bytes were not the run's when `obelize verify
+    --current` checked the tree as it stood, and is empty for any other verification.
+    """
 
     baseline: VerifyPhaseRecord | None = None
+    edited: tuple[RelativePath, ...] = ()
 
     @model_validator(mode="after")
     def _check_the_baseline(self) -> VerifyRecord:
+        sorted_unique(self.edited, "edited")
         _check_gate(
             self.status,
             self.reason,

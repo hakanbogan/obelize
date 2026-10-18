@@ -686,7 +686,7 @@
     },
     "VerifyRecord": {
       "additionalProperties": false,
-      "description": "The `verify` object of `run.json`: the after-patch phase plus the baseline that gates it.",
+      "description": "The `verify` object of `run.json`: the after-patch phase plus the baseline that gates it.\n\n`edited` names the files the run wrote whose bytes were not the run's when `obelize verify\n--current` checked the tree as it stood, and is empty for any other verification.",
       "properties": {
         "baseline": {
           "anyOf": [
@@ -705,6 +705,15 @@
             "$ref": "#/$defs/CommandRecord"
           },
           "title": "Commands",
+          "type": "array"
+        },
+        "edited": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Edited",
           "type": "array"
         },
         "reason": {
@@ -746,7 +755,8 @@
         "status",
         "reason",
         "commands",
-        "baseline"
+        "baseline",
+        "edited"
       ],
       "title": "VerifyRecord",
       "type": "object"

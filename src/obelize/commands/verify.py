@@ -37,6 +37,8 @@ class Request:
     ask: Callable[[str], bool] | None = None
     # Told before the tests, which can run for minutes in silence.
     say: Callable[[str], None] | None = None
+    # Check the tree as it stands, where it differs from what the run wrote, instead of refusing.
+    current: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +57,7 @@ def run(request: Request) -> Outcome:
         loaded = run_dir.load(request.root, request.run_id)
     except run_dir.EvidenceError as error:
         raise CommandError(str(error), 2) from error
-    recorded = _verifiable(loaded.record)
+    recorded = _verifiable(loaded.record, current=request.current)
 
     if verdicts.settled(recorded):
         # Settled already: nothing ran at fix time and nothing runs now; the record answers.
@@ -69,8 +71,11 @@ def run(request: Request) -> Outcome:
     began = time.monotonic()
     with TemporaryDirectory(prefix="obelize-verify-", ignore_cleanup_errors=True) as scratch:
         junit = Path(scratch)
-        result = _stale(request, loaded.record) or _run(request, junit)
-        verified = run_dir.verification(result, after_junit=reports(junit))
+        edited = _edited(request, loaded.record) if request.current else ()
+        result = (None if request.current else _stale(request, loaded.record)) or _run(
+            request, junit
+        )
+        verified = run_dir.verification(result, after_junit=reports(junit), edited=edited)
 
     code = _expected(verified.record)
     record = run_dir.reverified(loaded.record, verified, exit_code=code, ms=elapsed_ms(began))
@@ -81,12 +86,20 @@ def run(request: Request) -> Outcome:
     return Outcome(exit_code=code, record=record, evidence=loaded.relative)
 
 
+def _edited(request: Request, record: RunRecord) -> tuple[str, ...]:
+    """The files the run wrote that are not the run's bytes now, or cannot be read."""
+    return tuple(
+        row.path
+        for row in record.file_edits
+        # The name first: read by path, Windows opens `aux.py` as a device.
+        if fsutil.unusable(row.path) or fsutil.digest(request.root / row.path) != row.after_sha256
+    )
+
+
 def _stale(request: Request, record: RunRecord) -> VerifyResult | None:
     """`inconclusive` / `tree_changed`, or `None` when every file the run wrote is unchanged."""
-    for row in record.file_edits:
-        # The name first: read by path, Windows opens `aux.py` as a device.
-        if fsutil.unusable(row.path) or fsutil.digest(request.root / row.path) != row.after_sha256:
-            return VerifyResult(status="inconclusive", reason="tree_changed")
+    if _edited(request, record):
+        return VerifyResult(status="inconclusive", reason="tree_changed")
     return None
 
 
@@ -133,17 +146,22 @@ def _expected(record: VerifyRecord) -> ExitCode:
     return code
 
 
-def _verifiable(record: RunRecord) -> VerifyRecord:
-    """This run's verification, or a usage error (exit 2) when it has no after-state."""
+def _verifiable(record: RunRecord, *, current: bool) -> VerifyRecord:
+    """This run's verification, or a usage error (exit 2) when it has no after-state.
+
+    The tree as it stands is a state of its own, so with `current` a run that wrote nothing has
+    one to check: the files someone else migrated.
+    """
     if record.mode != "apply":
         raise CommandError(
             f"{record.run_id} is a {record.mode!r} run: it wrote no file, so there is "
             f"nothing to verify. Run obelize fix --apply to produce one.",
             2,
         )
-    if not record.file_edits:
+    if not record.file_edits and not current:
         raise CommandError(
-            f"{record.run_id} wrote no file, so there is nothing to verify.",
+            f"{record.run_id} wrote no file, so there is nothing to verify. "
+            f"--current checks the tree as it stands.",
             2,
         )
     # `RunRecord` refuses an apply with no verification, so this narrows a type.

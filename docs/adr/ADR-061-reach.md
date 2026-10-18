@@ -66,6 +66,17 @@ disk and named, both kinds per change, parsing and prefilter, answer keys equal 
 write, a second run that changes nothing, equal bytes on two runs, and sources that match the
 changes. `pack validate` stays a reading of the pack alone, as before.
 
+### D6. A verification can be run on the tree as it stands
+
+`obelize verify` answers `inconclusive` / `tree_changed` when a file the run wrote is no longer
+the run's bytes, which is right when the question is whether obelize's change works. It is the
+wrong answer when someone finished the migration, a person or a coding agent editing the files
+obelize left, and wants the tests to say whether the result holds. `--current` runs the
+verification commands on the tree as it stands, through the same trust rules, and records in
+`verify.edited` the files whose bytes differ from the run's, so the record still says that the
+verdict is not about obelize's own bytes. It works for an apply that wrote nothing, because the
+agent may have written everything, and not for a dry run, which has no verification to replace.
+
 ## Consequences
 
 `docs/CLI.md` documents the flags and replaces its CI recipe, which parsed the JSON with a one-line

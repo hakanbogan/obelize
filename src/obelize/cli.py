@@ -459,6 +459,12 @@ def verify(
         "--trust-repo-config",
         help="Trust the verify.commands in this repository's .obelize.yml for this run.",
     ),
+    current: bool = typer.Option(
+        False,
+        "--current",
+        help="Check the tree as it stands, even where it differs from what the run wrote, and "
+        "record which files differ. Without it such a run is inconclusive.",
+    ),
     as_json: bool = typer.Option(
         False,
         "--json",
@@ -494,6 +500,7 @@ def verify(
                 environ=os.environ,
                 ask=_ask,
                 say=_say,
+                current=current,
             )
         )
     except CommandError as error:

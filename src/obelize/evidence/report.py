@@ -444,7 +444,17 @@ def verified(record: RunRecord, evidence: str) -> list[str]:
         f"obelize verify  {record.run_id}",
         "",
         _verdict(record.verify),
+        *_edited(record.verify),
         f"Evidence: {evidence}",
+    ]
+
+
+def _edited(verify: VerifyRecord) -> list[str]:
+    """Where `--current` checked a tree that is no longer the one the run wrote."""
+    if not verify.edited:
+        return []
+    return [f"The tree differs from what the run wrote in {len(verify.edited)} file(s):"] + [
+        f"  {printable(path)}" for path in verify.edited
     ]
 
 
@@ -492,6 +502,12 @@ def superseded(document_text: str, record: RunRecord, when: str) -> str:
     verdict = f"`{record.verify.status}`" + (
         f" (`{record.verify.reason}`)" if record.verify.reason else ""
     )
+    # Said in the same line: a repeat replaces the note as one heading and one paragraph.
+    edited = (
+        f" The tree had changed since the run in {len(record.verify.edited)} file(s) it wrote."
+        if record.verify.edited
+        else ""
+    )
     # One line, since a repeat finds the note as a heading and one paragraph; a newline in a
     # command is spelled out.
     ran = ", ".join(_code(printable(row.command)) for row in record.verify.commands)
@@ -508,8 +524,8 @@ def superseded(document_text: str, record: RunRecord, when: str) -> str:
             _NOTE,
             f"`obelize verify` checked this run again at {when}: {verdict}"
             + (f", with {ran}" if ran else "")
-            + f". The section above shows the first result; `run.json` and `verify/verify.json` "
-            f"hold the new one. {before}",
+            + f".{edited} The section above shows the first result; `run.json` and "
+            f"`verify/verify.json` hold the new one. {before}",
             "",
         ]
     )

@@ -13,7 +13,7 @@ obelize fix    [--pack <id|path>]... [--repo .] [--apply] [--allow-dirty] [--ver
             [--non-interactive] [--trust-repo-config] [--model <provider>] [--accept-model]
             [--show-context] [--json]
 obelize verify --run <id> [--repo .] [--verify "<cmd>"]... [--timeout <s>]
-            [--non-interactive] [--trust-repo-config] [--json]
+            [--non-interactive] [--trust-repo-config] [--current] [--json]
 obelize undo   --run <id> [--repo .] [--json]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
@@ -255,10 +255,13 @@ Re-run an existing run's verification and update its evidence.
 | `--timeout <s>` | Override `verify.timeout_s` (at least 1). Neither set, it is 600. |
 | `--non-interactive` | Never prompt; refuse a repository command instead. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` for this run. |
+| `--current` | Check the tree as it stands, even where it differs from what the run wrote, and record which files differ in `verify.edited` instead of answering `tree_changed`. A run that wrote no file can be checked this way. |
 | `--json` | The run's record as JSON on stdout instead of the summary: the bytes of the `run.json` it wrote. The run folder's path goes to **stderr**, and the exit code is the verdict's. |
 
 If the files still match the run's `after_sha256`, the after-phase runs again;
-otherwise the result is `inconclusive` / `tree_changed` and nothing runs. If
+otherwise the result is `inconclusive` / `tree_changed` and nothing runs, unless you pass
+`--current`, which runs it on the tree as it stands (a person or an agent finished the migration by
+hand) and lists the files that differ. If
 the run's baseline did not pass, nothing runs and the recorded verdict stands.
 Commands come from your configuration and trust is decided again, never from
 the run folder, which a repository could forge (a forged record). Only the

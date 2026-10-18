@@ -28,6 +28,11 @@ in the release that makes it.
 - `obelize pack test <id|path>` runs a pack over its own fixtures and sources: the checks the three
   bundled packs pass in the test suite, now available for a pack of your own.
 
+- `obelize verify --current` runs a run's verification on the tree as it stands instead of
+  answering `tree_changed`, and records the files that differ from what the run wrote in
+  `verify.edited` (a new field of `run.json`, empty for any other verification). A run that wrote no
+  file can be checked this way, so someone else's migration can be verified.
+
 ### Changed
 
 - A scan that finds no pack to apply names the libraries the repository imports most and the

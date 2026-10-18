@@ -288,6 +288,7 @@ def verification(
     *,
     after_junit: Mapping[str, bytes] | None = None,
     baseline_junit: Mapping[str, bytes] | None = None,
+    edited: Sequence[str] = (),
 ) -> Verified:
     """The folder's verification; junit maps stay per phase, as runner names collide across them."""
     files: list[tuple[str, bytes]] = []
@@ -303,6 +304,7 @@ def verification(
             reason=after.reason,
             commands=after.commands,
             baseline=baseline,
+            edited=tuple(sorted(edited)),
         ),
         files=tuple(files),
     )
