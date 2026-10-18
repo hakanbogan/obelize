@@ -2,11 +2,13 @@
 
 Where this page and the code disagree, the code and [CLI.md](CLI.md) win.
 
-## What Obelize is
+## What obelize is
 
-A local-first command-line tool that migrates Python code across versions of an external SDK
-or API and leaves an evidence trail a reviewer can check: which file is affected, whether the
-fix is correct, whether your tests still pass. The chain:
+A local-first command-line tool for verified dependency upgrades. When a Python library makes a
+breaking change, obelize rewrites the code it can prove safe to change, refuses the rest with a
+reason, and checks the result against your own tests. Today it ships three migrations, from
+`google-generativeai` to `google-genai`, from `openai` 0.x to 1.x and from `PyPDF2` to `pypdf`;
+they are examples of the method, and the [roadmap](ROADMAP.md) says where it goes next. The chain:
 
 ```
 change source (a migration pack citing an official guide)
@@ -30,20 +32,16 @@ Three properties define the boundary:
 - Refusal is a valid outcome. A transformation that is not a 1:1 semantic match is marked
   `needs_review` or `unsupported` with a reason code, not guessed.
 
-Obelize is not an API diff engine, a general-purpose coding agent, or an LLM that migrates code
-on its own. Its one model adapter is an optional fallback for ambiguous cases, behind a guard.
+obelize is not a general-purpose coding agent, and it does not let a model migrate code on its own.
+Its one model adapter is an optional fallback for ambiguous cases, behind a guard, and it works
+beside a coding agent: the agent edits, and obelize reports what is left and runs the check.
 
 ## Who it is for
 
-A developer or small team with Python code on GitHub that integrates an external API or SDK.
+A developer or small team with Python code on GitHub that depends on a library which is retired or
+has made a breaking release.
 
-## Layer boundary
-
-v0 is the open-source command-line tool and nothing else, all on your machine. A hosted product
-is out of scope and has no code. Being open source or using a CST is not by itself a
-defensible advantage.
-
-## v0 scope
+## What ships today
 
 - The commands in [CLI.md](CLI.md#surface); `fix` is dry-run unless given `--apply`.
 - Three bundled packs, `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and
@@ -52,22 +50,28 @@ defensible advantage.
 - Two example repositories, `examples/gemini-legacy-app` and `examples/quickstart`.
 - The evidence run folder, the benchmark protocol and a published result file.
 
-## v0 non-goals
+## Planned
+
+The [roadmap](ROADMAP.md) lists these in the order I intend to build them. None of them ships until
+the changelog says so, and the README describes only what ships.
+
+- Finding a library's breaking changes without a bundled pack, and listing the affected places.
+- Tools for writing a pack, and a registry to share one.
+- A server that lets a coding agent call obelize, and a GitHub Action and pre-commit hook.
+- An optional network step that reads a package index and a migration guide.
+- Isolated environments for the old and the new release, so one command runs your tests on both.
+- Commits on a branch you ask for, and a pipeline that opens the pull request.
+
+## Not planned
 
 An issue asking for one of these is closed with a link here.
 
 - A SaaS or cloud product, or any hosted component.
 - A dashboard or web UI.
 - A GitHub App.
-- Automatic pull requests, commits, branches or merges.
-- `pack create`.
-- Remote pack download or a pack registry.
-- Pack signing.
 - Telemetry of any kind.
-- More than one model adapter.
-- An advanced cache.
-- The `--guide` flow that reads a migration guide directly.
-- Finding migrations without a pack, and checking HTTP API integrations.
+- A command that pushes, or opens a pull request itself.
+- Checking HTTP API integrations.
 
 ## What would make this a product
 
@@ -96,28 +100,31 @@ by adding work.
   scan, puts the failure table first and gives each rewrite number with its `n`.
 - Gate 5: on 2026-11-03, I count what needs no telemetry: downloads outside CI
   by installer (PyPI's public BigQuery data), issues and migration-case reports, and stars. An
-  outside post in Discussions counts as a report, and the date does not move. No
-  outside issue, report or pull request means feature work stops, five interviews are held,
-  and a pivot is decided (scan-only, a different migration family, or stopping).
+  outside post in Discussions counts as a report, and the date does not move. The count is a
+  measurement and does not stop the work on the [roadmap](ROADMAP.md): with no outside issue,
+  report or pull request, I hold five interviews and decide whether the direction is right
+  ([the decision](adr/ADR-059-verified-dependency-upgrades.md)).
 
 ## Neighbouring tools
 
 As of October 2026, from each project's own public material, which states its claims about
 itself; re-check before any public comparison.
 
-- Portover, closest to Obelize's long-term direction: detects call sites in consenting
-  consumer repositories for provider-driven breaking changes, tests the result in a micro
-  virtual machine and opens migration pull requests with evidence (JavaScript/Node and Python).
-  Closed-source SaaS, no CLI; pilots by email.
+- Moderne, built on OpenRewrite, added Python support in February 2026 and publishes recipes for
+  Python version upgrades, the standard-library modules PEP 594 removed, `datetime.utcnow`,
+  Pydantic, pandas and LangChain. It is a platform with a command-line tool and an MCP server, and
+  at least one Python recipe is under a proprietary licence.
+- Codemod and ast-grep run pattern rules over a syntax tree; ast-grep supports Python under the MIT
+  licence, and Codemod is JavaScript and TypeScript first.
 - GitHub can assign security-focused Dependabot alerts to coding agents that open draft
-  remediation pull requests; Renovate covers dependency updates; OpenRewrite and Moderne cover
-  bulk source transformation; oasdiff and Bump.sh cover API diffing.
+  remediation pull requests, and Renovate covers dependency updates.
+- AWS Transform custom has an agent write the edits from a definition authored in conversation, and
+  checks them with the build and test command you give it.
+- Portover detects call sites in consenting consumer repositories for provider-driven breaking
+  changes, tests the result in a micro virtual machine and opens migration pull requests with
+  evidence (JavaScript/Node and Python). Closed-source SaaS, no CLI; pilots by email.
 
 OpenAI's own `openai migrate` command was removed in `openai` 2.35.0, and `bump-pydantic` is
-archived. A coding agent, given a library's migration guide, edits more than Obelize does, and
-that is the nearest competitor; Obelize is the part around it that an agent's own report cannot
+archived. A coding agent, given a library's migration guide, edits more than obelize does, and
+that is the nearest competitor; obelize is the part around it that an agent's own report cannot
 be: a deterministic scan that says what is left, a diff that changes nothing else, and an undo.
-
-Obelize has to earn, not assert, its difference: free local scanning and fixing that works,
-distribution starting with the individual developer, usage and impact evidence for specific
-provider migrations, and a verified change with a reproducible, model-free path.

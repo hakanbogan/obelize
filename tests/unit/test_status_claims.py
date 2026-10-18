@@ -182,7 +182,7 @@ def test_a_number_no_document_would_spell_is_refused() -> None:
 
 
 # Documents that write 10 and above in digits, and smaller numbers in words.
-DIGITS = frozenset({"README.md"})
+DIGITS = frozenset({"README.md", "docs/PACKS.md", "docs/TESTING.md"})
 
 
 def written(n: int, *, digits: bool) -> str:
@@ -266,10 +266,10 @@ COUNTS: tuple[tuple[str, str, int], ...] = (
         "and {n} cases over the commands",
         _cases_in("tests/fixtures/commands/answers.yaml"),
     ),
-    ("README.md", "the {n} changes the migration makes", len(_pack()["changes"])),  # type: ignore[arg-type]
-    ("README.md", "and {n} limitations. The limitations say", len(_pack()["limitations"])),  # type: ignore[arg-type]
-    ("README.md", "lists {n} gaps the fixtures do not cover", _coverage_gaps(closed=False)),
-    ("README.md", "{n} of them closed", _coverage_gaps(closed=True)),
+    ("docs/PACKS.md", "the {n} changes the migration makes", len(_pack()["changes"])),  # type: ignore[arg-type]
+    ("docs/PACKS.md", "and {n} limitations. The limitations say", len(_pack()["limitations"])),  # type: ignore[arg-type]
+    ("docs/TESTING.md", "lists {n} gaps the fixtures do not cover", _coverage_gaps(closed=False)),
+    ("docs/TESTING.md", "{n} of them closed", _coverage_gaps(closed=True)),
     ("tests/fixtures/scan/COVERAGE.md", "{n} are written down", _coverage_gaps(closed=False)),
     ("tests/fixtures/scan/COVERAGE.md", "**{n} are closed**", _coverage_gaps(closed=True)),
     (

@@ -18,7 +18,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `star_import` | `from google.generativeai import *`. Of a shared module, only one from the module itself or from a legacy symbol (`from openai.types import *` is not). Names it may bind are separate findings with `confidence_reason: star_import_candidate`. |
 | `text_mention` | The prefilter token in a string, comment or docstring, on a line with no AST finding. |
 | `manifest` | A dependency declaration in a `*requirement*.txt` file (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. A `*requirements*.in` or `*constraints*.txt` file is read too but never written: its declarations are reported as `manifest_pin_shape_unsupported`. Lockfiles are not read: a line edit would break their hashes. |
-| `parse_error` | libcst or `compile()` refused the file, it is nested past the depth limit ([ADR-017](adr/ADR-017-input-gates.md) D1), or obelize raised on it (`internal_error`, D9). Reported, never edited. |
+| `parse_error` | libcst or `compile()` refused the file, it is nested past the depth limit ([the input gates decision](adr/ADR-017-input-gates.md)), or obelize raised on it (`internal_error`, D9). Reported, never edited. |
 
 ## 2. `Finding.confidence_reason`: why we believe it (16 values)
 
@@ -209,7 +209,7 @@ Outside `LADDER`, since nothing on their row competes:
 - `transforms/codemod.py`'s four (`usage_unmapped`, the two output gates,
   `configure_consumed_elsewhere`): fix-time, only on an `eligible` row. A pack
   that is its own target gets `repo_not_fully_migrated` on its source rows the
-  same way (ADR-031 D12).
+  same way ([the codemod driver decision](adr/ADR-031-codemod-driver.md)).
 - Call-rewrite bails: fix-time, one per group.
   `transforms/kinds/generative_model_calls.py` declares its order: the client,
   then the group's shape, then the constructor.
@@ -286,7 +286,7 @@ except that §11 and §12 share five values (§12).
 | `auto` | The rule produced the edit; it is in `patch.diff`. | `auto` |
 | `needs_review` | A bail fired; described in REPORT.md, not written. | `needs_review` |
 | `unsupported` | No rule can express the change; no suggestion. | `unsupported` |
-| `model_proposed` | A model's edit for a withheld row, passing every [ADR-003](adr/ADR-003-model-adapter.md) guard. Written **only** with `--apply` *and* `--accept-model`. | none, and never |
+| `model_proposed` | A model's edit for a withheld row, passing every [the model adapter decision](adr/ADR-003-model-adapter.md) guard. Written **only** with `--apply` *and* `--accept-model`. | none, and never |
 
 `not_a_usage` names no edit. `model_proposed` is no fixture verdict: a
 hand-written key cannot grade a model's answer without assuming it.
@@ -296,7 +296,7 @@ model-free headline ([BENCHMARK.md](BENCHMARK.md)).
 
 ## 9. `Binding.kind`: how a legacy object was bound (4 values)
 
-The closed-world table of [ADR-006](adr/ADR-006-pack-carries-no-code.md): a
+The closed-world table of [the no-code pack decision](adr/ADR-006-pack-carries-no-code.md): a
 method call is rewritten only when the receiver's whole world is visible.
 
 | Value | Pattern | `scope` | v0 |
@@ -333,7 +333,7 @@ run's [`counts`](RUN_FOLDER.md#counts) use this split; `plan` and `apply` use
 A path the walker did not hand on; closed because silently dropped files look
 like an empty repository. `src/obelize/scan/walker.py` raises these;
 `src/obelize/fsutil.py` decides the five shared with §12
-([THREAT_MODEL.md](THREAT_MODEL.md) TM-2).
+([the threat model](THREAT_MODEL.md)).
 
 | Value | Raised when |
 |---|---|

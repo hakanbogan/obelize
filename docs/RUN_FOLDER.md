@@ -108,7 +108,7 @@ report is empty. Neither is ever absent.
 | `platform` | object | all | `{system, release, machine}` from `platform`. |
 | `git_sha` | string or null | all | `HEAD` at the start of the run; `null` when the target is not the top of a git repository. |
 | `git_branch` | string or null | all | The current branch; `null` when detached or when the target is not the top of a git repository. |
-| `git_dirty` | boolean or null | all | Whether a tracked file anywhere in the repository had uncommitted changes at the start. **`false` outside git**, where the dirty-tree refusal (TM-8) cannot protect you; **`null` when git could not say**, which refuses an apply as `tree_unknown`. |
+| `git_dirty` | boolean or null | all | Whether a tracked file anywhere in the repository had uncommitted changes at the start. **`false` outside git**, where the dirty-tree refusal cannot protect you; **`null` when git could not say**, which refuses an apply as `tree_unknown`. |
 | `packs` | array | all | One row per pack the run used, in id order; empty when none applied. See [`packs[]`](#packs). |
 | `config` | object | all | See [`config`](#config). |
 | `counts` | object | all | See [`counts`](#counts). |
@@ -129,7 +129,7 @@ report is empty. Neither is ever absent.
 | `pack_version` | string | The pack content's own semver. |
 | `sha256` | string | 64 lowercase hex characters, matching `packs/<id>/pack.sha256` and the copy in `pack.yaml`. |
 | `source` | string | `bundled` or `file`. No path: it could be absolute and outside the repository. |
-| `blocked` | string or null | `runtime_unsupported` when the project declares a Python the new distribution does not install on (read from `pyproject.toml`, `setup.cfg`, Poetry's key, a `Pipfile`'s `[requires]` or a string `python_requires=` in `setup.py`), `legacy_version_unsupported` when the legacy distribution is pinned below the pack's floor, unpinned, or undeclared while the code uses it, or `new_version_unsupported` when a manifest pins the new distribution so that it admits no release the pack writes (`pypdf==3.0.0`): this pack reports its findings, its rows are withheld for that reason, and it proposes no migration. An unparsable declaration leaves it unblocked. A pack that names its newest legacy release does not block on an unpinned declaration unless the repository shows another release: code or text that names a class or module that release lacks is one ([ADR-056](adr/ADR-056-newest-legacy-release.md)). The message of a `legacy_version_unsupported` block adds that a pin moves the release and not the code, so a call to a name the pinned release removed is ported first. |
+| `blocked` | string or null | `runtime_unsupported` when the project declares a Python the new distribution does not install on (read from `pyproject.toml`, `setup.cfg`, Poetry's key, a `Pipfile`'s `[requires]` or a string `python_requires=` in `setup.py`), `legacy_version_unsupported` when the legacy distribution is pinned below the pack's floor, unpinned, or undeclared while the code uses it, or `new_version_unsupported` when a manifest pins the new distribution so that it admits no release the pack writes (`pypdf==3.0.0`): this pack reports its findings, its rows are withheld for that reason, and it proposes no migration. An unparsable declaration leaves it unblocked. A pack that names its newest legacy release does not block on an unpinned declaration unless the repository shows another release: code or text that names a class or module that release lacks is one ([the newest-release decision](adr/ADR-056-newest-legacy-release.md)). The message of a `legacy_version_unsupported` block adds that a pin moves the release and not the code, so a call to a name the pinned release removed is ported first. |
 | `assumed` | string or null | What the pack took a legacy declaration for where it names no version, or one below the pack's floor that admits it: the pack's `from.newest`, such as `3.0.1`, or, for a pack that names `from.since`, the range `from.version`, such as `>=0.27.0,<1`, where the code uses a name only that range defines. `null` when nothing was assumed: a declaration that already reaches the floor (`PyPDF2>=3`) is not, and neither is any run of a pack that names neither field. The terminal and `REPORT.md` say so too. |
 
 When several packs ran, each ran over what the ones before it wrote, in id order, so an edit's `line`
@@ -484,7 +484,7 @@ Is what it produces Python, and does it bring anything in:
 
 | Value | Meaning |
 |---|---|
-| `replacement_too_large` | Over ADR-037's size limits: too many lines, too many bytes, or one statement of more than 500 tokens, which libcst's parser may not survive. |
+| `replacement_too_large` | Over [the size limits of a model's replacement](adr/ADR-037-proposal-validation.md): too many lines, too many bytes, or one statement of more than 500 tokens, which libcst's parser may not survive. |
 | `replacement_not_displayable` | A control, format or surrogate character other than tab or line break: the line a reviewer reads is not the line that runs. |
 | `replacement_carries_redaction` | It holds `[REDACTED`, the placeholder for a secret the model was shown instead of the value, and the lines it replaces hold none: written as it stands it would put the word in the file. |
 | `replacement_not_encodable` | Not writable in the file's own encoding. |

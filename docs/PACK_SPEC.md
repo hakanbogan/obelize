@@ -1,10 +1,11 @@
 # MigrationPack specification
 
 _The schema is `src/obelize/packs/schema.py`, and `src/obelize/schemas/pack.schema.json` is generated
-from it; `tests/packs/` holds this document's vocabularies and refusals equal to it. Decisions:
-ADR-006, [ADR-018](adr/ADR-018-pack-schema.md),
-[ADR-053](adr/ADR-053-shared-module-migrations.md),
-[ADR-056](adr/ADR-056-newest-legacy-release.md)._
+from it; `tests/packs/` holds this document's vocabularies and refusals equal to it. The decisions
+behind it: [a pack carries no code](adr/ADR-006-pack-carries-no-code.md),
+[the pack schema](adr/ADR-018-pack-schema.md),
+[shared-module migrations](adr/ADR-053-shared-module-migrations.md) and
+[the newest legacy release](adr/ADR-056-newest-legacy-release.md)._
 
 `pack.schema.json` states the shape of each value (the patterns of ids, symbols, versions and
 digests, and the length of display text). It cannot state the rules on a dotted call, a result path
@@ -14,7 +15,7 @@ passes it can still be refused: `obelize pack validate` is authoritative.
 A MigrationPack declares one migration between two versions of one SDK: which
 symbols to find and which rule kind handles each. How a rewrite is done lives in
 Python, in a fixed registry of rule kinds. A pack is **untrusted data**
-(boundary B1 in [THREAT_MODEL.md](THREAT_MODEL.md)), parsed by a closed
+(see [the threat model](THREAT_MODEL.md#trust-boundaries)), parsed by a closed
 pydantic model (`extra="forbid"`) and never executed, templated or run as a
 command.
 
@@ -83,7 +84,7 @@ layout:
 ```
 
 The width a rewritten call wraps at, chosen by the pack (100 by default); obelize reads no
-formatter setting ([ADR-026](adr/ADR-026-client-placement-layout.md)). A wrapped call ends with a
+formatter setting ([the client placement decision](adr/ADR-026-client-placement-layout.md)). A wrapped call ends with a
 trailing comma, so a formatter with a wider limit keeps it. A narrower limit, the formatter's own
 layout of chains and comprehensions, and an import sorter can still change the written lines: run
 them on the changed files after `fix --apply`. One number per pack, never per change.
@@ -115,7 +116,7 @@ one below the floor, or a local build of a release (`==3.0.1+corp`), is blocked
 (`legacy_version_unsupported`): the rules were measured above it, on the public releases.
 A pack whose distribution has a last release inside its range can name it, and a declaration that
 installs that release is then taken as it, unless the repository shows another one
-([ADR-056](adr/ADR-056-newest-legacy-release.md)).
+([the newest-release decision](adr/ADR-056-newest-legacy-release.md)).
 
 A pack whose two sides are two distributions also stops a repository that declares the new one so
 that it admits no release `to.version` allows (`pypdf==3.0.0`, `pypdf<6`): the rewrite would leave
@@ -208,7 +209,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
 | `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `now_caught_by` (what the new class derives from and the old one did not) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
-| `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [ADR-021](adr/ADR-021-dependency-manifests-verdict.md) D13) |
+| `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
 
 **`legacy_error_modules`**: a rewritten call in a `try` whose handler names an
 exception from one of these modules is refused as `error_class_changed`; the
@@ -347,7 +348,7 @@ class that is called, raised or derived from, a handler whose `as` name has an a
 handler that a handler ahead of it in one `try` may now catch for (it names a class in
 `now_caught_by` or none the rule can tell) are `error_class_changed` or `attribute_removed`; a
 `from` import that names a class the change does not rename is `from_import_unmigrated_symbol`, and
-a renamed class the file already binds is `alias_collision` ([ADR-057](adr/ADR-057-rename-symbol.md)).
+a renamed class the file already binds is `alias_collision` ([the symbol rename decision](adr/ADR-057-rename-symbol.md)).
 The schema checks that every symbol is a path of three names or more under `match.symbols`, that none
 renames onto a keyword or onto a name `match.symbols` lists, that no two land on one name, that none is
 claimed by another change or under a symbol a `flag_only` change refuses, that `now_caught_by` is
@@ -391,18 +392,18 @@ line to its message and suggestion. A resolved name is
 claimed by `symbols` or `attributes`, a `dynamic` or `text_mention` finding by
 `patterns`, so a surface is reported once: a pack in which two `flag_only` changes name one is refused. `scan` and `fix` print the message
 and the suggestion once for each change that claimed a finding, and `REPORT.md`
-repeats them under Guidance ([ADR-054](adr/ADR-054-pack-guidance-in-the-report.md)).
+repeats them under Guidance ([the pack guidance decision](adr/ADR-054-pack-guidance-in-the-report.md)).
 
 **`manifest_dependency.to_name` is written verbatim**; PEP 503 folding only
 decides whether two names are one distribution. `from_name` and `to_name` may be one: `openai==0.28.1` becomes `openai>=1.109.1`, the two sides told apart by the pack's `from.version` and `to.version`. A declaration whose lowest admitted version `to.version` already admits (`openai==3.26.0`, `openai>=2`) has arrived: it is left as written, with no row, while one that admits the old API (`openai>=0.28.1,<3`) is rewritten. One distribution holds both APIs, so such
 a pack is **coupled**: while any row of the pack is withheld, no file is written
 and the pin stays (`repo_not_fully_migrated`,
-[ADR-053](adr/ADR-053-shared-module-migrations.md) D6). A declaration whose rewrite
+[the shared-module decision](adr/ADR-053-shared-module-migrations.md)). A declaration whose rewrite
 would drop or duplicate something (extras, a direct URL, a hash, a requirement that goes over
 several lines, an editable requirement, a local archive, a non-version table
 value, a duplicated key or declaration) is `manifest_pin_shape_unsupported` and left alone. For a coupled pack the scan raises it too, once
 anything migrated, for a declaration with no pin the rule can write (extras, a URL, a hash, an
-editable requirement, an archive, a non-version value), so the whole pack is withheld ([ADR-053](adr/ADR-053-shared-module-migrations.md) D12).
+editable requirement, an archive, a non-version value), so the whole pack is withheld ([the shared-module decision](adr/ADR-053-shared-module-migrations.md)).
 
 ### Parameter constraints fixed by the Phase 0 spikes
 
@@ -510,7 +511,7 @@ default is a `limitations` line plus a bail in `generative_model_calls`.
 Some libraries keep the module name across a major version (`openai` 0 to 1).
 Then `import openai` says nothing about which API a file was written for, and
 `match.shared: true` changes what counts as legacy
-([ADR-053](adr/ADR-053-shared-module-migrations.md)):
+([the shared-module decision](adr/ADR-053-shared-module-migrations.md)):
 
 - Only the names `match.symbols` lists are legacy, by dotted segment:
   `openai.Image` covers `openai.Image.create` and not `openai.ImageX`, however
@@ -640,7 +641,7 @@ and skipping the check without it would let a wrong name through CI.
 
 A **shared** pack (`match.shared`) cannot install both sides in one environment,
 so its two halves are held differently
-([ADR-053](adr/ADR-053-shared-module-migrations.md) D8):
+([the shared-module decision](adr/ADR-053-shared-module-migrations.md)):
 
 - The legacy side is a committed snapshot of the old release's public names
   (with their kinds), submodules and error classes, and of the class each of a dozen responses to

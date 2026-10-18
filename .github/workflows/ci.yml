@@ -77,6 +77,27 @@ jobs:
         # No hook environments are cached: a run on a release tag restores no cache.
         run: uv run pre-commit run --all-files --show-diff-on-failure
 
+  docs:
+    name: docs (the site builds strictly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.15"
+
+      - name: mkdocs build --strict
+        # A broken link, a page missing from the navigation's targets or a bad hook fails here.
+        run: uv run --only-group docs mkdocs build --strict
+
   lock:
     name: lock (uv.lock is in sync)
     runs-on: ubuntu-latest

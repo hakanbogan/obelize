@@ -32,21 +32,21 @@ an attacker gains.
 ## Scope
 
 `scan`, `fix`, `verify`, `undo` and `pack validate` read a repository, write files, spawn
-process groups and, with a model configured, open a socket. The trust boundaries (B1-B6), and
-each threat with its mitigation and test, are in
+process groups and, with a model configured, open a socket. The trust boundaries, and each threat
+with its mitigation and test, are in
 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md#trust-boundaries).
 
 ### In scope: report these privately
 
-- Writing outside the repository root (B5): a path traversal, symlink, submodule or
+- Writing outside the repository root: a path traversal, symlink, submodule or
   absolute path that lands a write anywhere but a regular file inside the root that is on the
   impact plan.
-- Running a command from a pack or another remote source (B1, B4): a pack's
+- Running a command from a pack or another remote source: a pack's
   `verification.suggestions` running, or a repository's `.obelize.yml` command running in CI or
   non-interactively without `--trust-repo-config`.
-- Leaking a secret into evidence or a model payload (B2, B6): a secret from the environment,
+- Leaking a secret into evidence or a model payload: a secret from the environment,
   a `.env`-style file or an excluded path reaching a run folder, a log or a request body.
-- Applying an unvalidated model proposal (B3): a model response reaching the working tree
+- Applying an unvalidated model proposal: a model response reaching the working tree
   without passing the [guard](docs/THREAT_MODEL.md#tm-4-in-detail), or without
   `--apply --accept-model`.
 - Anything else that makes Obelize run code, reach the network, or modify git state (commit,

@@ -21,8 +21,8 @@
       negative fixture per rule change.
 - [ ] If a migration pack changed: the pack PR review checklist in
       [CONTRIBUTING.md](https://github.com/hakanbogan/obelize/blob/main/CONTRIBUTING.md#pack-pr-review-checklist) is satisfied.
-- [ ] Docs updated where they make claims: the commands table in `README.md` and a
-      `CHANGELOG.md` entry under `[Unreleased]`.
+- [ ] Docs updated where they make claims: the commands table in `README.md`, the page under
+      `docs/` that describes the change, and a `CHANGELOG.md` entry under `[Unreleased]`.
 - [ ] No new runtime dependency, or the ADR that justifies it: <!-- docs/adr/ADR-0NN-....md -->
 - [ ] A changed contract (subcommand/flag names, defaults, exit codes, `run.json` fields,
       `.obelize.yml` keys, run folder layout) changes its document, model and schema in the

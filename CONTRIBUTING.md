@@ -41,12 +41,15 @@ uv run pre-commit run --all-files
 uv run mypy
 uv run mypy --platform win32
 uv run --only-group workflows zizmor .github
+uv run --only-group docs mkdocs build --strict
 ```
 
 `uv run mypy` is strict over `src`, `tests` and `bench`, and `--platform win32` checks them as
 Windows sees them. `uv sync` installs the `dev` group; `pip install -e . --group dev` (pip 25.1
 or later) installs the same, but `uv.lock` is authoritative and CI checks it with `uv lock --check`.
-zizmor audits the workflows, and with `GH_TOKEN` set it also runs its online audits. CI gates
+zizmor audits the workflows, and with `GH_TOKEN` set it also runs its online audits. The last
+command builds the [documentation site](https://hakanbogan.github.io/obelize/) from `docs/`; a
+broken link there fails it. CI gates
 coverage on each system's newest Python only: `uv run --python 3.15 pytest` is that gate, and
 `pytest --no-cov` is the quicker run.
 
@@ -201,7 +204,7 @@ Labels: `bug`, `migration-case`, `pack`, `question`, `needs-repro`, `roadmap`, `
   reproduction, or the issue gets `needs-repro`, is marked stale after 14 days and closed at 30.
   Reopening with the missing detail is welcome.
 - Out-of-scope requests are closed as `wontfix-v0` with a link to the non-goals in
-  [docs/PRODUCT.md](docs/PRODUCT.md#v0-non-goals).
+  [docs/PRODUCT.md](docs/PRODUCT.md#not-planned).
 - Security issues do not belong in the tracker. See [SECURITY.md](SECURITY.md).
 
 ## Maintenance

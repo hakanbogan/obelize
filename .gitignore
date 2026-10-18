@@ -34,3 +34,6 @@ bench/work/
 
 # OS
 .DS_Store
+
+# The built documentation site (mkdocs.yml).
+/site/

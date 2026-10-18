@@ -703,7 +703,7 @@ def test_a_run_on_a_release_tag_restores_no_cache() -> None:
                 assert not step.get("uses", "").startswith("actions/cache"), path.name
             for step in _setup_uv_steps(job):
                 assert step.get("with", {}).get("enable-cache", "auto") in ("auto", False)
-    assert tagged == ["ci.yml", "release.yml"]
+    assert tagged == ["ci.yml", "docs.yml", "release.yml"]
 
 
 def test_every_step_that_installs_uv_installs_the_same_exact_release() -> None:
@@ -813,9 +813,27 @@ def test_only_an_upload_job_can_ask_for_an_oidc_token_and_each_waits_in_an_envir
             if (job.get("permissions") or {}).get("id-token") == "write":
                 minting.add((path.name, name, job["environment"]["name"]))
     assert minting == {
+        ("docs.yml", "deploy", "github-pages"),
         ("release.yml", "publish", "pypi"),
         ("release.yml", "publish-testpypi", "testpypi"),
     }
+
+
+def test_the_site_is_published_by_a_v_tag_or_by_hand_after_a_strict_build() -> None:
+    document = _workflow("docs.yml")
+    triggers = _triggers(document)
+    assert set(triggers) == {"push", "workflow_dispatch"}
+    assert triggers["push"] == {"tags": ["v*"]}
+    assert document["permissions"] == {"contents": "read"}
+    assert _job("docs.yml", "deploy")["needs"] == "build"
+    assert _job("docs.yml", "deploy")["permissions"] == {"pages": "write", "id-token": "write"}
+    assert _step("docs.yml", "build", "mkdocs build --strict")["run"].endswith(
+        "mkdocs build --strict"
+    )
+
+
+def test_ci_builds_the_site_strictly_on_every_push_and_pull_request() -> None:
+    assert _step("ci.yml", "docs", "mkdocs build --strict")["run"].endswith("mkdocs build --strict")
 
 
 def test_the_rehearsal_is_numbered_by_hand_only_and_before_the_version_check() -> None:

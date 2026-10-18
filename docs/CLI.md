@@ -1,8 +1,8 @@
 # Command-line interface
 
-A release requires real `--help` output and exit codes to match this page
-([RELEASING.md](RELEASING.md)). The decisions behind it are indexed in
-[DECISIONS.md](DECISIONS.md).
+Every command, flag and exit code of obelize. `obelize <command> --help` prints the same text in
+your terminal, and a release is checked against this page ([RELEASING.md](RELEASING.md)). The
+decisions behind it are indexed in [DECISIONS.md](DECISIONS.md).
 
 ## Surface
 

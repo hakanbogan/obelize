@@ -1,6 +1,6 @@
 ---
 name: obelize
-description: Migrate Python code off a retired library (google-generativeai, PyPDF2, openai 0.x) with obelize, then finish by hand what it leaves. Use when a repository still imports one of them.
+description: Migrate Python code off a retired library (google-generativeai, PyPDF2, openai 0.x) with obelize, which rewrites what it can prove and lists the rest, then finish by hand what it leaves and let your tests check it. Use when a repository still imports one of them.
 ---
 
 # Migrating with obelize

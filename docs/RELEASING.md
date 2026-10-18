@@ -47,6 +47,14 @@ gh api repos/hakanbogan/obelize/environments/pypi/deployment-branch-policies \
 
 The first must list `required_reviewers`, and the second must print exactly `[["tag","v*"]]`.
 
+## GitHub Pages
+
+`docs.yml` publishes the documentation site from a `v*` tag. Once, before the first tag that
+carries the site's address as the project's Documentation link, set Settings, Pages, Source to
+GitHub Actions, check that the `github-pages` environment accepts `main` and `v*` tags, and run
+`gh workflow run docs.yml --ref main`. The build runs `mkdocs build --strict` and ci runs it on
+every push, so a page that does not build never reaches a tag.
+
 ## Release checklist
 
 Run in order. A failed step stops the release.
@@ -100,7 +108,8 @@ Run in order. A failed step stops the release.
     `pack validate` and a scan of `examples/quickstart`. On my own machine,
     `uvx --refresh obelize@<version> --version` must print the version.
 11. GitHub release. Read the release the workflow created from the changelog section, with
-    `dist/` attached.
+    `dist/` attached. Then open the [documentation site](https://hakanbogan.github.io/obelize/),
+    which `docs.yml` published from the same tag, and read its changelog page.
 12. Announcement. The repository link, a 60-90 second recording, the technical write-up, the
     benchmark table with every `n` and a list of what obelize does not do.
     [PRODUCT.md](PRODUCT.md#what-would-make-this-a-product) says how the benchmark result

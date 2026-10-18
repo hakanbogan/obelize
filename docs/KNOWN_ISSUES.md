@@ -362,7 +362,7 @@ thousand files, with the workers a fraction of that.
 
 A `PyPDF2` requirement with no version, or with a range that reaches below 3 but admits 3.0.1
 (`PyPDF2>=2.10`), is taken as 3.0.1, the last release PyPI has, unless the repository shows another
-one ([ADR-056](adr/ADR-056-newest-legacy-release.md)); the run says it did. That is a claim about an
+one ([the newest-release decision](adr/ADR-056-newest-legacy-release.md)); the run says it did. That is a claim about an
 install nobody ran, and it is wrong where the evidence is not in the repository's files:
 
 - The environment the code runs in. A virtual environment outside the repository, a container image
