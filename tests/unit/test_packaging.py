@@ -42,6 +42,16 @@ def test_the_dev_tools_are_a_dependency_group_and_nothing_else(pyproject: dict[s
     assert "dev" in pyproject["dependency-groups"]
 
 
+def test_the_description_is_a_search_result_that_names_each_bundled_migration(
+    pyproject: dict[str, Any],
+) -> None:
+    """PyPI shows it as the one line under the name and truncates what runs long."""
+    description = pyproject["project"]["description"]
+    assert len(description) <= 200
+    for package in ("google-generativeai", "google-genai", "openai", "PyPDF2", "pypdf"):
+        assert package in description
+
+
 def _hook_repositories() -> list[dict[str, Any]]:
     repos = yaml.safe_load(HOOKS.read_text(encoding="utf-8"))["repos"]
     assert isinstance(repos, list)

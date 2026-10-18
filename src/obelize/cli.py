@@ -34,7 +34,7 @@ _BUNDLED_DEFECT = (
 
 app = typer.Typer(
     name="obelize",
-    help="Migrate Python code across external SDK versions, with evidence. "
+    help="Verified codemods for breaking Python dependency upgrades. "
     "Supported migrations: google-generativeai to google-genai, openai 0.x to 1.x, "
     "PyPDF2 to pypdf.",
     no_args_is_help=True,

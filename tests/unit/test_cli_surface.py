@@ -58,7 +58,7 @@ def test_python_dash_m_runs_the_cli() -> None:
 def test_help_exits_zero() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "Migrate Python code across external SDK versions" in result.stdout
+    assert "Verified codemods for breaking Python dependency upgrades" in result.stdout
 
 
 def test_no_arguments_shows_help_and_usage_exit_code() -> None:
