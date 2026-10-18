@@ -1102,17 +1102,27 @@ class RenameSettingParams(_Closed):
 
 
 class RenameSymbolParams(_Closed):
-    """Names a kept package's submodule defined, which the new release exports from the package."""
+    """Names a kept package or module defined, which the new release spells another way.
+
+    `symbols` are the names a submodule defined that the new release exports from the package
+    above it. `renamed` are the names that stay where they are and take another spelling.
+    """
 
     # A legacy dotted path in a submodule, and the name it takes in the package above it.
-    symbols: dict[QualifiedName, PlainName]
+    symbols: dict[QualifiedName, PlainName] = Field(default_factory=dict)
+    # A legacy dotted path (module and name), and the name it takes in that same module.
+    renamed: dict[QualifiedName, PlainName] = Field(default_factory=dict)
+    # Whether a call of a renamed name is rewritten like any other reference. The default refuses
+    # it, because a new class is built from other arguments; a pack that says `allowed` asserts
+    # that the name takes the arguments it took.
+    calls: Literal["refused", "allowed"] = "refused"
     # What the new release derives a renamed class from that the old one did not derive its class
     # from: a handler for one of them ahead of a renamed class now catches what it did not.
     now_caught_by: tuple[QualifiedName, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> RenameSymbolParams:
-        if not self.symbols:
+        if not self.symbols and not self.renamed:
             raise ValueError("a rename_symbol rule must name a symbol")
         sorted_unique(self.now_caught_by, "now_caught_by")
         landed: dict[str, str] = {}
@@ -1122,14 +1132,29 @@ class RenameSymbolParams(_Closed):
                     f"symbols names a member of a submodule, so it is a path of three names or "
                     f"more: got {key!r}"
                 )
-            target = f"{key.rpartition('.')[0].rpartition('.')[0]}.{new}"
-            if target in landed:
+            self._land(landed, "symbols", key, f"{key.rpartition('.')[0].rpartition('.')[0]}.{new}")
+        for key, new in self.renamed.items():
+            if key.count(".") < 1:
                 raise ValueError(
-                    f"symbols[{key!r}] and symbols[{landed[target]!r}] are both renamed onto "
-                    f"{target!r}"
+                    f"renamed names a member of a module, so it is a path of two names or "
+                    f"more: got {key!r}"
                 )
-            landed[target] = key
+            if key.rpartition(".")[2] == new:
+                raise ValueError(
+                    f"renamed[{key!r}] takes the name it has; there is nothing to rename"
+                )
+            if key in self.symbols:
+                raise ValueError(f"{key!r} is in symbols and in renamed; it moves or it is renamed")
+            self._land(landed, "renamed", key, f"{key.rpartition('.')[0]}.{new}")
         return self
+
+    @staticmethod
+    def _land(landed: dict[str, str], field: str, key: str, target: str) -> None:
+        if target in landed:
+            raise ValueError(
+                f"{field}[{key!r}] and {landed[target]} are both renamed onto {target!r}"
+            )
+        landed[target] = f"{field}[{key!r}]"
 
 
 # The reason a shape row carries, which is what a change's `patterns` claim it by: two ids with one
@@ -1397,7 +1422,7 @@ class PackDocument(_Closed):
             elif isinstance(change, RenameSettingChange):
                 claimed = tuple(change.params.settings)
             elif isinstance(change, RenameSymbolChange):
-                claimed = tuple(change.params.symbols)
+                claimed = (*change.params.symbols, *change.params.renamed)
             else:
                 continue
             for symbol in claimed:
@@ -1469,19 +1494,35 @@ class PackDocument(_Closed):
                     for key, new in change.params.settings.items()
                 }
             elif isinstance(change, RenameSymbolChange):
-                field = "symbols"
-                lands = {
-                    key: f"{key.rpartition('.')[0].rpartition('.')[0]}.{new}"
-                    for key, new in change.params.symbols.items()
-                }
+                for field, lands in (
+                    (
+                        "symbols",
+                        {
+                            key: f"{key.rpartition('.')[0].rpartition('.')[0]}.{new}"
+                            for key, new in change.params.symbols.items()
+                        },
+                    ),
+                    (
+                        "renamed",
+                        {
+                            key: f"{key.rpartition('.')[0]}.{new}"
+                            for key, new in change.params.renamed.items()
+                        },
+                    ),
+                ):
+                    self._check_lands_clear(change.id, field, lands)
+                continue
             else:
                 continue
-            for key, landed in lands.items():
-                if under_any(landed, self.match.symbols):
-                    raise ValueError(
-                        f"changes[{change.id!r}].params.{field}[{key!r}] is renamed onto "
-                        f"{landed!r}, which match.symbols lists as legacy"
-                    )
+            self._check_lands_clear(change.id, field, lands)
+
+    def _check_lands_clear(self, change_id: str, field: str, lands: dict[str, str]) -> None:
+        for key, landed in lands.items():
+            if under_any(landed, self.match.symbols):
+                raise ValueError(
+                    f"changes[{change_id!r}].params.{field}[{key!r}] is renamed onto "
+                    f"{landed!r}, which match.symbols lists as legacy"
+                )
 
     def _check_a_renamed_symbol_is_not_under_a_refused_one(self) -> None:
         """The scan grades a refused prefix first, so a symbol under one would never be renamed."""
@@ -1494,6 +1535,8 @@ class PackDocument(_Closed):
         for change in self.changes:
             if not isinstance(change, RenameSymbolChange):
                 continue
+            # `renamed` needs no such check: the new name stays in the module, so a refused prefix
+            # of the old one covers the new, and the landing check has refused the pack already.
             for key in change.params.symbols:
                 if under_any(key, refused):
                     raise ValueError(
@@ -1674,6 +1717,7 @@ class PackDocument(_Closed):
                 symbols.update(change.params.settings)
             elif isinstance(change, RenameSymbolChange):
                 symbols.update(change.params.symbols)
+                symbols.update(change.params.renamed)
         return frozenset(symbols)
 
     @staticmethod
@@ -1702,7 +1746,10 @@ class PackDocument(_Closed):
         if isinstance(change, RenameSettingChange):
             return tuple(("settings", key) for key in change.params.settings)
         if isinstance(change, RenameSymbolChange):
-            return tuple(("symbols", key) for key in change.params.symbols)
+            return (
+                *(("symbols", key) for key in change.params.symbols),
+                *(("renamed", key) for key in change.params.renamed),
+            )
         if isinstance(change, FlagOnlyChange):
             return (
                 *(("symbols", symbol) for symbol in change.params.symbols),

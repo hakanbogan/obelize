@@ -207,7 +207,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `generative_model_calls` | `ctor_symbol`, `methods` map, `method_returns` map, `generation_config_keys`, `config_class`, `legacy_config_symbol`, `legacy_config_aliases`, `legacy_config_kwarg`, `ctor_order` (legacy signature order, **not** sorted), `ctor_model_kwarg`, `ctor_config_fields` (a mapping literal among them must already be a turn of `history`'s shape, since it is carried as written), `ctor_afc_kwargs`, `model_kwarg`, `stream_kwarg`, `model_name_prefix`, `rewrites`, `response_attrs_now_none`, `response_legacy_error`, `legacy_error_modules`; `safety` (`legacy_kwarg`, `legacy_category_key`, `legacy_threshold_key`, `legacy_category_class`, `legacy_threshold_class`, `category_map`, `threshold_map`, `category_members`, `threshold_members`, `setting_class`, `category_class`, `threshold_class`, `category_kwarg`, `threshold_kwarg`, `config_field`) and `history` (`role_key`, `parts_key`, `text_key`, `roles`). A `rewrites` entry: `new_call`, `root`, `stream_call`, `positional_to_kw`, `arg_map`, `afc_kwargs`, `history_kwarg`, `contents_kwarg` (what the model is asked; a list of turns is reshaped), `coroutine`, `config_kwarg`, `semantic_kwargs` |
 | `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `aliases`, `positional_to_kw`, `keywords`, `positive_numbers`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes`, `literal_prefixes`, `value_maps`, `warnings`, `warnings_unless` |
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
-| `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `now_caught_by` (what the new class derives from and the old one did not) |
+| `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `renamed` (a legacy dotted path to the name it takes in the same module), `calls` (`refused`, the default, or `allowed`), `now_caught_by` (what the new class derives from and the old one did not) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
 
@@ -353,6 +353,17 @@ The schema checks that every symbol is a path of three names or more under `matc
 renames onto a keyword or onto a name `match.symbols` lists, that no two land on one name, that none is
 claimed by another change or under a symbol a `flag_only` change refuses, that `now_caught_by` is
 sorted and de-duplicated, and that the pack is `shared`.
+
+`renamed` is the other shape, for a name that stays in its module and takes another spelling:
+`acme.kit.old_greet` becomes `acme.kit.greet`. A reference (`acme.kit.old_greet`, or through an alias
+of the module) and the name on a `from acme.kit import old_greet` line change; the module's own
+import does not, and an alias given on the `from` line keeps its own name. A new name the file
+already binds is `alias_collision`. A call is `error_class_changed` unless the change says
+`calls: allowed`, which asserts that the name takes the arguments it took and is the pack author's
+claim to test; use `rewrite_call` where the arguments change. The schema checks that every name is a
+path of two names or more under `match.symbols`, that none keeps its name, none lands on another
+name, on a keyword or on one `match.symbols` lists, that none is also in `symbols` or claimed by
+another change, and that the pack is `shared`.
 
 **`flag_only`** never edits code: it reports a finding with a message and a
 suggestion, for anything that is not 1:1. Its channels:

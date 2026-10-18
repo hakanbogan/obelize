@@ -42,6 +42,10 @@ in the release that makes it.
 
 ### Changed
 
+- A `rename_symbol` change may carry `renamed`, a name that stays in its module and takes
+  another spelling, and `calls: allowed`, which lets a call of a renamed name be rewritten. The
+  defaults leave every pack as it was, and the pack schema, `docs/PACK_SPEC.md` and the negative
+  corpus describe the new fields.
 - `obelize undo` skips a recorded path in `.git/` or `.obelize/` as `outside_root`: a run never
   writes either, so a run folder that names one was forged.
 - A scan that finds no pack to apply names the libraries the repository imports most and the

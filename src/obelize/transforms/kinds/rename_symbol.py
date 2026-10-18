@@ -1,11 +1,17 @@
-"""`rename_symbol`: a name a submodule of a kept package defined, which the new release exports from
-the package (`openai.error.RateLimitError` is `openai.RateLimitError`).
+"""`rename_symbol`: a name a kept package defined, which the new release spells another way.
 
-The submodule goes out of a reference, of `import openai.error` and of `from openai.error import X`.
-Refused: a reference that is called, raised or derived from, since a new class is built from other
-arguments; an `except` clause that reads an attribute of its bound name; and a clause that a handler
-ahead of it may now catch for, because the new class derives from bases the old one did not
-(`now_caught_by`) and a handler naming one of them, or one that cannot be told, was no obstacle.
+Two shapes. A name a submodule of the package defined, which the new release exports from the
+package (`openai.error.RateLimitError` is `openai.RateLimitError`): the submodule goes out of a
+reference, of `import openai.error` and of `from openai.error import X`. Refused: a reference that
+is called, raised or derived from, since a new class is built from other arguments; an `except`
+clause that reads an attribute of its bound name; and a clause that a handler ahead of it may now
+catch for, because the new class derives from bases the old one did not (`now_caught_by`) and a
+handler naming one of them, or one that cannot be told, was no obstacle.
+
+And a name that stays in its module and takes another spelling (`lib.old` is `lib.new`, the pack's
+`renamed`): a reference, and the name on a `from lib import old` line, change; the module's own
+import does not. A call is refused unless the pack says `calls: allowed`, which asserts that the
+name takes the arguments it took.
 """
 
 from __future__ import annotations
@@ -46,8 +52,11 @@ class RenameSymbol:
     def __init__(self, change: RenameSymbolChange) -> None:
         self._id = change.id
         self._symbols = change.params.symbols
+        self._renamed = change.params.renamed
+        self._calls = change.params.calls == "allowed"
         self._bases = frozenset(change.params.now_caught_by)
         self._modules = frozenset(symbol.rpartition(".")[0] for symbol in self._symbols)
+        self._kept = frozenset(symbol.rpartition(".")[0] for symbol in self._renamed)
 
     @property
     def consumes(self) -> frozenset[str]:
@@ -60,12 +69,14 @@ class RenameSymbol:
 
     @property
     def renames(self) -> frozenset[str]:
-        return frozenset(self._symbols)
+        return frozenset(self._symbols) | frozenset(self._renamed)
 
     def claims(self, finding: Finding) -> bool:
         if finding.kind == "import":
-            return finding.symbol in self._modules
-        return finding.kind in {"attribute", "call"} and finding.symbol in self._symbols
+            return finding.symbol in self._modules or finding.symbol in self._renamed
+        return finding.kind in {"attribute", "call"} and (
+            finding.symbol in self._symbols or finding.symbol in self._renamed
+        )
 
     def apply(self, context: RuleContext) -> tuple[Edit, ...]:
         eligible = sorted(
@@ -86,6 +97,8 @@ class RenameSymbol:
         try:
             if finding.kind == "import":
                 self._import(context, tree, position)
+            elif finding.symbol in self._renamed:
+                self._rename(context, tree, finding, position)
             else:
                 self._reference(context, tree, finding, position)
         except BailError as bail:
@@ -98,10 +111,28 @@ class RenameSymbol:
             )
         return Edit(path=context.path, line=finding.line, status="auto", rule_id=self._id)
 
+    def _rename(
+        self, context: RuleContext, tree: Tree, finding: Finding, position: Position
+    ) -> None:
+        """A name that stays in its module: its last name changes where it is written out."""
+        if finding.kind == "call" and not self._calls:
+            raise BailError("error_class_changed")
+        symbol = finding.symbol or ""
+        old, new = symbol.rpartition(".")[2], self._renamed[symbol]
+        node = cast(
+            "cst.Attribute | cst.Name",
+            tree.attribute(position, symbol) or tree.name(position, symbol),
+        )
+        if isinstance(node, cst.Attribute):
+            context.rewrites.set(node, node.with_changes(attr=cst.Name(new)))
+        elif node.value == old:
+            # A bound name follows its import unless the import gave it an alias of its own.
+            context.rewrites.set(node, cst.Name(new))
+
     def _reference(
         self, context: RuleContext, tree: Tree, finding: Finding, position: Position
     ) -> None:
-        if finding.kind == "call":
+        if finding.kind == "call" and not self._calls:
             raise BailError("error_class_changed")
         symbol = finding.symbol or ""
         # A resolved reference is a chain or a bound name; a string annotation is a mention only.
@@ -203,6 +234,8 @@ class RenameSymbol:
         source: str,
         entries: Sequence[cst.ImportAlias],
     ) -> cst.ImportFrom:
+        if source in self._kept:
+            return self._kept_from(context, small, source, entries)
         if source not in self._modules:
             # `from openai import error` binds the submodule, which has no spelling to move to.
             if any(f"{source}.{dotted_name(entry.name)}" in self._modules for entry in entries):
@@ -218,6 +251,22 @@ class RenameSymbol:
                 raise BailError("alias_collision")
             renamed.append(entry.with_changes(name=cst.Name(new)))
         return small.with_changes(module=dotted(source.rpartition(".")[0]), names=renamed)
+
+    def _kept_from(
+        self,
+        context: RuleContext,
+        small: cst.ImportFrom,
+        source: str,
+        entries: Sequence[cst.ImportAlias],
+    ) -> cst.ImportFrom:
+        """`from lib import old [as x]` names the new spelling; the module and the rest stay."""
+        changed = []
+        for entry in entries:
+            new = self._renamed.get(f"{source}.{dotted_name(entry.name)}")
+            if new is not None and entry.asname is None and context.imports.bound(new):
+                raise BailError("alias_collision")
+            changed.append(entry if new is None else entry.with_changes(name=cst.Name(new)))
+        return small.with_changes(names=changed)
 
 
 def _handler(tree: Tree, node: cst.CSTNode) -> cst.ExceptHandler | cst.ExceptStarHandler | None:

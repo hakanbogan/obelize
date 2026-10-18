@@ -1042,8 +1042,17 @@
     },
     "RenameSymbolParams": {
       "additionalProperties": false,
-      "description": "Names a kept package's submodule defined, which the new release exports from the package.",
+      "description": "Names a kept package or module defined, which the new release spells another way.\n\n`symbols` are the names a submodule defined that the new release exports from the package\nabove it. `renamed` are the names that stay where they are and take another spelling.",
       "properties": {
+        "calls": {
+          "default": "refused",
+          "enum": [
+            "refused",
+            "allowed"
+          ],
+          "title": "Calls",
+          "type": "string"
+        },
         "now_caught_by": {
           "default": [],
           "items": {
@@ -1052,6 +1061,17 @@
           },
           "title": "Now Caught By",
           "type": "array"
+        },
+        "renamed": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "title": "Renamed",
+          "type": "object"
         },
         "symbols": {
           "additionalProperties": false,
@@ -1065,9 +1085,6 @@
           "type": "object"
         }
       },
-      "required": [
-        "symbols"
-      ],
       "title": "RenameSymbolParams",
       "type": "object"
     },

@@ -269,6 +269,24 @@ def _introduces(*names: str, one: bool = True, shared: bool = True) -> Callable[
     return mutate
 
 
+def _renamed(
+    *,
+    legacy: list[str] | None = None,
+    more: tuple[Document, ...] = (),
+    **params: Any,
+) -> Callable[[Document], None]:
+    """A shared module with names listed as legacy, and the rename rule's params set to `params`."""
+
+    def mutate(document: Document) -> None:
+        document["match"].update(
+            shared=True, symbols=legacy or ["demo_legacy.configure", "demo_legacy.old"]
+        )
+        document["changes"][1]["params"] = params
+        document["changes"].extend(more)
+
+    return mutate
+
+
 def _symbols_without_a_submodule_map(document: Document) -> None:
     for key in ("submodule_map", "alias_fallbacks"):
         document["changes"][1]["params"].pop(key)
@@ -1695,6 +1713,86 @@ CASES: tuple[Case, ...] = (
                 },
             )
         ),
+    ),
+    # rename_symbol, a name that stays in its module and takes another spelling.
+    Case(
+        name="a_renamed_name_with_no_module",
+        defect="a name with no module to stay in, which is a rename of the package itself",
+        path=f"{EXTRA}.params",
+        says="renamed names a member of a module, so it is a path of two names or more",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(renamed={"old": "new"}),
+    ),
+    Case(
+        name="a_renamed_name_that_keeps_its_name",
+        defect="a rename onto the name it has, which changes nothing",
+        path=f"{EXTRA}.params",
+        says="takes the name it has; there is nothing to rename",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(renamed={"demo_legacy.old": "old"}),
+    ),
+    Case(
+        name="a_name_both_moved_and_renamed",
+        defect="a name that leaves its submodule and stays in its module at once",
+        path=f"{EXTRA}.params",
+        says="is in symbols and in renamed; it moves or it is renamed",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(
+            symbols={"demo_legacy.errors.Busy": "Busy"},
+            renamed={"demo_legacy.errors.Busy": "Fault"},
+        ),
+    ),
+    Case(
+        name="two_names_renamed_onto_one",
+        defect="two names that would be one in the module",
+        path=f"{EXTRA}.params",
+        says="are both renamed onto 'demo_legacy.new'",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(renamed={"demo_legacy.old": "new", "demo_legacy.older": "new"}),
+    ),
+    Case(
+        name="a_name_renamed_onto_a_listed_legacy_name",
+        defect="a rename that lands on a name `symbols` lists, so the result is found again",
+        path="",
+        says="which match.symbols lists as legacy",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(
+            legacy=["demo_legacy.configure", "demo_legacy.new", "demo_legacy.old"],
+            renamed={"demo_legacy.old": "new"},
+        ),
+    ),
+    Case(
+        name="a_renamed_name_outside_the_listed_legacy_names",
+        defect="a renamed name the package's imports reach but `symbols` does not list",
+        path="",
+        says="under nothing in match.symbols",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(legacy=["demo_legacy.configure"], renamed={"demo_legacy.old": "new"}),
+    ),
+    Case(
+        name="two_changes_that_claim_one_renamed_name",
+        defect="two rules on one name, so the order of the list would pick",
+        path="",
+        says="two changes claim 'demo_legacy.old'",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(
+            renamed={"demo_legacy.old": "new"},
+            more=(
+                {
+                    **SYMBOL_CHANGE,
+                    "id": "again",
+                    "params": {"renamed": {"demo_legacy.old": "newer"}},
+                },
+            ),
+        ),
+    ),
+    Case(
+        name="calls_that_are_neither_refused_nor_allowed",
+        defect="a switch with a third position nothing reads",
+        path=f"{EXTRA}.params.calls",
+        says="Input should be 'refused' or 'allowed'",
+        extra=SYMBOL_CHANGE,
+        mutate=_renamed(renamed={"demo_legacy.old": "new"}, calls="sometimes"),
     ),
     # rewrite_call rooted on the module: where it is spelled, and what it reads of the result.
     Case(

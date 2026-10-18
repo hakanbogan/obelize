@@ -18,15 +18,15 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=512]
       - id: end-of-file-fixer
-        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/packs/generic/.*/fixtures/|tests/fixtures/)'
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/packs/generic/.*/fixtures/|tests/fixtures/)'
       - id: detect-private-key
       - id: check-merge-conflict
       - id: mixed-line-ending
         args: [--fix=lf]
-        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/packs/generic/.*/fixtures/|tests/fixtures/)'
 
   # Ruff runs from the project environment, so uv.lock is the one place its version is written.
   - repo: local
@@ -37,14 +37,14 @@ repos:
         language: system
         types: [python]
         require_serial: true
-        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/packs/generic/.*/fixtures/|tests/fixtures/)'
       - id: ruff-format
         name: ruff format
         entry: uv run --frozen ruff format --force-exclude
         language: system
         types: [python]
         require_serial: true
-        exclude: '^(src/obelize/packs/.*/fixtures/|tests/fixtures/)'
+        exclude: '^(src/obelize/packs/.*/fixtures/|tests/packs/generic/.*/fixtures/|tests/fixtures/)'
 
       # Fixture builders are code inside `tests/fixtures/`, which the hooks above treat as data.
       # One mypy hook per builder: two `_build.py` modules in one run are refused as duplicates.

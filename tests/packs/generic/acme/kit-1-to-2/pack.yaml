@@ -1,0 +1,67 @@
+# A pack for the test suite, over an invented library: acme-kit 2 keeps the module's name and
+# renames a function. It exercises a rule the three bundled packs do not use this way.
+id: acme/kit-1-to-2
+pack_version: 0.1.0
+provider: acme
+language: python
+
+source:
+  type: official_guide
+  url: https://example.invalid/acme-kit/migrating
+  retrieved_at: 2026-10-18
+
+from:
+  package: acme-kit
+  version: ">=1,<2"
+to:
+  package: acme-kit
+  version: ">=2,<3"
+  requires_python: ">=3.9"
+
+match:
+  imports:
+    - acme.kit
+  shared: true
+  symbols:
+    - acme.kit.Client.ping
+    - acme.kit.old_greet
+  prefilter_tokens:
+    - acme
+
+changes:
+  - id: rename-functions
+    kind: rename_symbol
+    citation: "Acme Kit 2 notes, 'Renamed functions'"
+    params:
+      calls: allowed
+      renamed:
+        acme.kit.old_greet: greet
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/references.before.py
+
+  - id: dependency-line
+    kind: manifest_dependency
+    citation: "Acme Kit 2 notes, 'Installing'"
+    params:
+      from_name: acme-kit
+      to_name: acme-kit
+      to_spec: ">=2,<3"
+    fixtures:
+      - fixtures/negative/requirements_already_new.txt
+      - fixtures/positive/requirements.before.txt
+
+  - id: flag-ping
+    kind: flag_only
+    citation: "Acme Kit 2 notes, 'Dropped'"
+    params:
+      symbols:
+        - acme.kit.Client.ping
+      message: Client.ping is gone in acme-kit 2.
+      suggestion: Call Client.health instead, which returns a bool.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/dropped_ping.before.py
+
+limitations:
+  - "Only the names listed are renamed; a name reached through getattr or a string is not found."

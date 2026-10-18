@@ -142,6 +142,7 @@ src = ["src", "tests"]
 extend-exclude = [
   "tests/fixtures",
   "src/obelize/packs/*/*/fixtures",
+  "tests/packs/generic/*/*/fixtures",
   "examples",
   "bench/fixtures",
 ]
@@ -175,7 +176,7 @@ strict = true
 files = ["src", "tests", "bench"]
 # Fixtures are data; `bench/work/` holds checkouts of other people's repositories.
 exclude = [
-  "^(tests/fixtures/|src/obelize/packs/[^/]+/[^/]+/fixtures/|examples/|bench/work/|bench/fixtures/)"
+  "^(tests/fixtures/|src/obelize/packs/[^/]+/[^/]+/fixtures/|tests/packs/generic/[^/]+/[^/]+/fixtures/|examples/|bench/work/|bench/fixtures/)"
 ]
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
