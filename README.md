@@ -2,7 +2,8 @@
 
 Verified codemods for breaking Python dependency upgrades. obelize rewrites the code it can prove
 safe to change, tells you why it left the rest, and runs your tests before and after. It ships
-migrations from `google-generativeai` to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`.
+migrations from `google-generativeai` to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`,
+and for any other library it makes one from two releases.
 
 [![PyPI](https://img.shields.io/pypi/v/obelize)](https://pypi.org/project/obelize/)
 [![Python](https://img.shields.io/pypi/pyversions/obelize)](https://pypi.org/project/obelize/)
@@ -125,6 +126,26 @@ The exit code says what is left, and most runs end with a `Next:` line naming th
 [After a run](docs/AFTER_A_RUN.md) explains each code. For `openai`, 0.x and 1.x are one install,
 so it takes four steps instead: see [Getting started](docs/GETTING_STARTED.md#openai-0x-to-1x).
 
+## Upgrading a dependency
+
+For a library with no pack, obelize makes one from the public API of two of its releases and tries
+the move in a copy of your repository:
+
+```bash
+uvx obelize outdated
+uvx obelize upgrade pydantic
+uvx obelize upgrade pydantic --apply --yes --branch --agent claude_code
+```
+
+`outdated` lists what has moved on. `upgrade` is a dry run: it plans the move and prints the diff.
+With `--apply --yes` it installs the old and the new release into two environments made with uv,
+runs your tests in each, and writes the move only if no test that passed before fails after;
+`--branch` commits it to a new branch and leaves your working tree alone. `--agent` puts the places a
+pack can only flag, and then the tests the move broke, to your own coding agent one at a time, with
+every tool of the agent turned off, and obelize checks each answer before it reaches the copy. The
+tests are the check: a weak suite proves little. [Upgrading a dependency](docs/UPGRADING.md) has the
+steps and the four runs on three public repositories.
+
 ## With a coding agent
 
 An agent migrates more than obelize does, and obelize gives the migration a check. A study of 321
@@ -145,7 +166,7 @@ until nothing is left. [With a coding agent](docs/WITH_A_CODING_AGENT.md) has th
 | `obelize undo` | Puts back the files a run wrote, unless they were edited since. |
 | `obelize mcp` | Serves obelize to a coding agent over the Model Context Protocol, with tools that take no command and no consent. |
 | `obelize outdated` | Lists the dependencies a repository declares that the package index says have moved on, and what can migrate each. |
-| `obelize upgrade` | Shows what moving one dependency to a newer release would change, with a bundled pack or one made from the two releases. |
+| `obelize upgrade` | Shows what moving one dependency to a newer release would change, with a bundled pack or one made from the two releases. `--apply` tries the move in a copy and runs your tests before and after. |
 | `obelize pack validate` | Checks a migration pack against the [pack format](docs/PACK_SPEC.md). |
 | `obelize pack test` | Runs a migration pack over its own fixtures and sources. |
 | `obelize pack new` | Makes a migration pack that loads, with fixtures and sources to edit. |

@@ -119,8 +119,8 @@ a test.
 
 ## Runs on real repositories
 
-The first two ran on a public repository, `academic-mcp` at the commit the benchmark pins, and none
-changed a clone's working tree.
+The first two runs were on a public repository, `academic-mcp` at the commit the benchmark pins, and
+none changed a clone's working tree.
 
 - `upgrade PyPDF2 --apply --yes --branch`: the bundled pack changed the import in 19 files and the
   dependency line to `pypdf`. The 60 tests that passed before the move all passed after it, and a commit was made.
@@ -130,8 +130,9 @@ changed a clone's working tree.
   passed after, and the commit held the one file the agent edited. The dependency line, `mcp[cli]>=1.28.1`,
   carries an extra, so it was left, and the summary and the commit message said so.
 
-A third needed two fixes before it passed. `upgrade pydantic --from 1.10.26 --to 2.14.1 --apply
---yes --branch --agent claude_code` on a small scraper first flagged 55 places, most of them every
+The third run needed two fixes before it passed. `upgrade pydantic --from 1.10.26 --to 2.14.1 --apply
+--yes --branch --agent claude_code` on a small scraper (`THSR-Ticket`, whose tests that need the
+network were left out with `--test-command`) first flagged 55 places, most of them every
 `Field(...)` call, because the new release deprecates one of its parameters and gave `repr` a
 private default. Neither is a change a call shows, so the pack now flags 22, all `@validator`. The
 agent moved none of them: the replacement needed `field_validator`, imported at the top of the file,
@@ -140,12 +141,12 @@ the file's import block, and the import of a name is covered once every place th
 The agent then moved the ten decorators, the 23 tests that passed before passed after, and the commit
 held the one file it edited and the dependency line.
 
-A fourth, `ga4gh/openapi-test-runner` at the same command with pydantic 1.10.13, flagged nine places
+The fourth, on `ga4gh/openapi-test-runner` with pydantic 1.10.13 and the same flags, flagged nine places
 (`validator`, `EmailStr.validate`, `pydantic.tools`). The agent moved the validators, rewrote
 `EmailStr.validate(x)` as `TypeAdapter(EmailStr).validate_python(x)`, joined both new names to the
 import line the files already had, and the 55 tests that passed before passed after. It also added a
 check for `None` that a version 2 validator needs, which is why the commit message names the files it
 edited.
 
-What they show is that the steps join up, on four repositories. They do not show how often a move
+What they show is that the steps join up, in four runs on three repositories. They do not show how often a move
 passes: for that, the benchmark is the evidence.

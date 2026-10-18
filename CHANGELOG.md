@@ -89,6 +89,8 @@ in the release that makes it.
   corpus describe the new fields.
 - `obelize undo` skips a recorded path in `.git/` or `.obelize/` as `outside_root`: a run never
   writes either, so a run folder that names one was forged.
+- The package description, keywords and README say what `upgrade` does, and the development status
+  is Beta.
 - A scan that finds no pack to apply names the libraries the repository imports most and the
   command that lists one.
 - A pack made by `pack synth` no longer flags a function because one of its parameters is
