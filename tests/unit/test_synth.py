@@ -440,7 +440,7 @@ def test_a_flag_under_a_flagged_class_is_left_out_and_said_so() -> None:
 @pytest.mark.parametrize(
     ("change", "text"),
     [
-        (ApiChange("param_renamed", "f", param="a", new_param="b"), "`a` is named `b`"),
+        (ApiChange("param_renamed", "f", param="a", new_param="b"), "`b` takes its place"),
         (ApiChange("param_removed", "f", param="a"), "`a` was removed"),
         (ApiChange("param_required_added", "f", param="a"), "`a` is required"),
         (
@@ -647,7 +647,7 @@ def test_a_pack_made_beside_a_lazy_module_says_how_many_names_it_could_not_judge
         "lazy-kit",
         "2.0",
         {
-            "__init__.py": "def __getattr__(name):\n    raise AttributeError(name)\n\n"
+            "__init__.py": "def __getattr__(name):\n    return globals()[name]\n\n"
             "def f(x):\n    return x\n\ndef h(b):\n    return b\n"
         },
         module="lazy_kit",

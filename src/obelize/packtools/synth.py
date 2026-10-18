@@ -260,7 +260,9 @@ def _signature_text(label: str, change: ApiChange) -> str:
     param = f"`{change.param}`"
     match change.type:
         case "param_renamed":
-            return f"Parameter {param} is named `{change.new_param}` in {label}."
+            return (
+                f"Parameter {param} was removed in {label}; `{change.new_param}` takes its place."
+            )
         case "param_removed":
             return f"Parameter {param} was removed in {label}."
         case "param_required_added":

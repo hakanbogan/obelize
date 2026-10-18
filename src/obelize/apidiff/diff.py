@@ -176,6 +176,11 @@ def _alike(old: Obj, new: Obj) -> bool:
 
 
 def _changed(path: str, old: Obj, new: Obj, message: str | None) -> Iterator[ApiChange]:
+    if "name" in (old.kind, new.kind):
+        # A name declared and not read has no shape to compare, but may say it is going.
+        if new.deprecated is not None and old.deprecated is None:
+            yield ApiChange("deprecated", path, message=new.deprecated)
+        return
     if old.kind != new.kind:
         yield ApiChange("kind_changed", path, detail=f"{old.kind} -> {new.kind}")
         return

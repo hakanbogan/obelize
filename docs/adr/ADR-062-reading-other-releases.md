@@ -58,6 +58,14 @@ never executed, with a memory limit and a deadline, because griffe parses with t
 into plain objects. `allow_inspection` is off, so a compiled module is a name without a signature
 and is reported as unseen, not as removed.
 
+A module that makes names when they are asked for is read for the names it makes: a `__getattr__`
+that compares the name it is asked for with names it lists, or looks it up in a table of them, makes
+those names (each with the deprecation message of its branch), and one that uses the name in any
+other way may make any, so every name missing from that module is reported as unseen and never as
+removed. The names a package lists in `__all__` and defines nowhere are known the same way, with no
+shape to compare. A member that moved to a base class is not removed, and `object` is the base of
+every class, written or not.
+
 Two things griffe does not give are read from the files directly: the message of a call to
 `warnings.warn` with a deprecation category (and of a `@deprecated` decorator), which is the
 library's own account of what replaces a name, and whether a function is a stub, which decides

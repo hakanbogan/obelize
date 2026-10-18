@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Final, NamedTuple
 import griffe
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
 # What one surface may hold, and how deep a class may nest.
 MAX_OBJECTS: Final = 200_000
@@ -55,11 +55,13 @@ def surface(root: Path, module: str) -> dict[str, Any]:
 
 class _Facts(NamedTuple):
     """What one file says that griffe does not: each deprecation warning's line and message, the
-    messages of those run on import, and the lines of the functions that are stubs."""
+    messages of those run on import, the lines of the functions that are stubs, and the names a
+    module-level `__getattr__` makes (`None`: it makes names it does not list)."""
 
     calls: list[tuple[int, str]]
     at_import: list[str]
     trivial: set[int]
+    made: dict[str, str | None] | None
 
 
 class _Walker:
@@ -71,12 +73,19 @@ class _Walker:
 
     def visit(self, module: Any, depth: int) -> None:
         exported = {str(one) for one in module.exports or ()}
+        made = self._made(module)
         self.objects[module.path] = {
             "kind": "module",
             "deprecated": self._module_notice(module),
-            # A `__getattr__` makes names when they are asked for, so a name not seen is not gone.
-            "lazy": "__getattr__" in module.members,
+            # A `__getattr__` that lists no names makes any, so a name not seen may be there.
+            "lazy": "__getattr__" in module.members and made is None,
         }
+        # Names a module declares or makes, which no statement defines: known, not read.
+        for name in sorted({*exported, *(made or ())} - set(module.members)):
+            self.objects[f"{module.path}.{name}"] = {
+                "kind": "name",
+                "deprecated": (made or {}).get(name),
+            }
         for name, member in list(module.members.items()):
             if self._full():
                 return
@@ -188,6 +197,13 @@ class _Walker:
         located = _located(member)
         return located is not None and located[1] in self._facts(located[0]).trivial
 
+    def _made(self, module: Any) -> dict[str, str | None] | None:
+        """The names the module's `__getattr__` makes; nothing, for a module without one."""
+        path = module.filepath
+        if "__getattr__" not in module.members or not isinstance(path, Path):
+            return {}
+        return self._facts(path).made
+
     def _module_notice(self, module: Any) -> str | None:
         # A namespace package has no file of its own.
         path = module.filepath
@@ -247,7 +263,118 @@ def _file_facts(path: Path) -> _Facts:
             calls.append((node.lineno, text))
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _empty(node.body):
             trivial.add(node.lineno)
-    return _Facts(calls, list(_at_import(tree.body)), trivial)
+    return _Facts(calls, list(_at_import(tree.body)), trivial, _made(tree))
+
+
+def _made(tree: ast.Module) -> dict[str, str | None] | None:
+    """The names a module-level `__getattr__` makes, each with the deprecation message of the branch
+    that makes it, or `None` if it uses the name it is asked for in any way but to compare it with
+    names it lists (or to look it up in a table of them) and to say it has none."""
+    function = next(
+        (
+            one
+            for one in tree.body
+            if isinstance(one, ast.FunctionDef) and one.name == "__getattr__"
+        ),
+        None,
+    )
+    if function is None or not function.args.args:
+        return None
+    asked = function.args.args[0].arg
+    tables = _tables(tree)
+    made: dict[str, str | None] = {}
+    understood: set[int] = set()
+    for node in ast.walk(function):
+        if isinstance(node, ast.If) and (listed := _listed(node.test, asked, tables)) is not None:
+            said = next(
+                (
+                    text
+                    for one in ast.walk(node)
+                    if isinstance(one, ast.Call) and (text := _warning(one))
+                ),
+                None,
+            )
+            made.update(dict.fromkeys(listed[0], said))
+            understood.update(listed[1])
+        elif isinstance(node, ast.Subscript | ast.Call) and (
+            looked := _looked_up(node, asked, tables)
+        ):
+            made.update(dict.fromkeys(looked[0]))
+            understood.update(looked[1])
+        elif isinstance(node, ast.Raise):
+            understood.update(id(one) for one in ast.walk(node) if _is(one, asked))
+    uses = [one for one in ast.walk(function) if _is(one, asked)]
+    return made if all(id(one) in understood for one in uses) else None
+
+
+def _is(node: ast.AST, name: str) -> bool:
+    return isinstance(node, ast.Name) and node.id == name
+
+
+def _strings(nodes: Sequence[ast.expr | None]) -> list[str] | None:
+    """The strings of a list of constants, or `None` if any is something else."""
+    found = [
+        one.value for one in nodes if isinstance(one, ast.Constant) and isinstance(one.value, str)
+    ]
+    return found if len(found) == len(nodes) else None
+
+
+def _tables(tree: ast.Module) -> dict[str, list[str]]:
+    """Module-level names bound to a dict, set, list or tuple of strings, with those strings."""
+    found: dict[str, list[str]] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value = node.targets[0], node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            target, value = node.target, node.value
+        else:
+            continue
+        keys = value.keys if isinstance(value, ast.Dict) else getattr(value, "elts", None)
+        strings = None if keys is None else _strings(keys)
+        if isinstance(target, ast.Name) and strings is not None:
+            found[target.id] = strings
+    return found
+
+
+def _listed(
+    test: ast.expr, asked: str, tables: dict[str, list[str]]
+) -> tuple[list[str], list[int]] | None:
+    """The names `asked == "x"` or `asked in (...)` lists, and the uses of `asked` it covers."""
+    if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and _is(test.left, asked)):
+        return None
+    right, op = test.comparators[0], test.ops[0]
+    if isinstance(op, ast.Eq):
+        listed = _strings([right])
+    elif isinstance(op, ast.In):
+        table = tables.get(right.id) if isinstance(right, ast.Name) else None
+        listed = table if table is not None else _strings(getattr(right, "elts", [None]))
+    else:
+        listed = None
+    return None if listed is None else (listed, [id(test.left)])
+
+
+def _looked_up(
+    node: ast.AST, asked: str, tables: dict[str, list[str]]
+) -> tuple[list[str], list[int]] | None:
+    """The names of a table that `table[asked]` or `table.get(asked)` reads."""
+    if (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Name)
+        and _is(node.slice, asked)
+    ):
+        table, use = node.value.id, node.slice
+    elif (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "get"
+        and isinstance(node.func.value, ast.Name)
+        and len(node.args) == 1
+        and _is(node.args[0], asked)
+    ):
+        table, use = node.func.value.id, node.args[0]
+    else:
+        return None
+    return (tables[table], [id(use)]) if table in tables else None
 
 
 def _empty(body: list[ast.stmt]) -> bool:

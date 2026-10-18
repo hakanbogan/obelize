@@ -570,7 +570,7 @@ def test_a_module_that_makes_names_when_asked_is_lazy_and_its_hook_is_not_a_name
     root = lib(
         tmp_path,
         {
-            "__init__.py": "def __getattr__(name):\n    raise AttributeError(name)\n\n"
+            "__init__.py": "def __getattr__(name):\n    return globals()[name]\n\n"
             "def __dir__():\n    return []\n\ndef real(x):\n    return x\n",
             "sub.py": "def f(x):\n    return x\n",
         },
@@ -613,3 +613,98 @@ def test_a_required_parameter_a_star_args_already_took_is_no_new_requirement() -
         "g": fn(req("a")),
     }
     assert changes(old, new) == [("param_required_added", "f", "b", "")]
+
+
+PRECISE = """
+import warnings
+
+_TABLE = {"C": 1, "D": 2}
+
+
+def New():
+    return 1
+
+
+def __getattr__(name):
+    if name == "Old":
+        warnings.warn("Old is deprecated, use New instead", DeprecationWarning)
+        return New
+    if name in ("A", "B"):
+        return 1
+    if name in _TABLE:
+        return _TABLE[name]
+    raise AttributeError(f"module has no attribute {name!r}")
+"""
+
+
+def test_a_getattr_that_lists_what_it_makes_makes_those_names_and_no_others(tmp_path: Path) -> None:
+    objects = worker.surface(lib(tmp_path, {"__init__.py": PRECISE}, "precise"), "precise")[
+        "objects"
+    ]
+    assert objects["precise"]["lazy"] is False
+    assert objects["precise.Old"] == {
+        "kind": "name",
+        "deprecated": "Old is deprecated, use New instead",
+    }
+    assert {name for name, one in objects.items() if one["kind"] == "name"} == {
+        "precise.Old",
+        "precise.A",
+        "precise.B",
+        "precise.C",
+        "precise.D",
+    }
+    assert objects["precise.A"]["deprecated"] is None
+
+
+@pytest.mark.parametrize(
+    "hook",
+    [
+        "def __getattr__(name):\n    import importlib\n    return importlib.import_module(name)\n",
+        "def __getattr__(name):\n    return globals()[name]\n",
+        "def __getattr__(name):\n    if name.startswith('x'):\n        return 1\n    return 2\n",
+        "def __getattr__(name):\n    if name != 'x':\n        raise AttributeError(name)\n"
+        "    return 1\n",
+        "def __getattr__(*args):\n    raise AttributeError\n",
+        "if True:\n    def __getattr__(name):\n        return 1\n",
+        "__getattr__ = lambda name: 1\n",
+    ],
+)
+def test_a_getattr_that_uses_the_name_in_any_other_way_may_make_any_name(
+    tmp_path: Path, hook: str
+) -> None:
+    objects = worker.surface(lib(tmp_path, {"__init__.py": hook}, "vague"), "vague")["objects"]
+    assert objects["vague"]["lazy"] is True
+
+
+def test_a_getattr_that_looks_names_up_in_a_table_makes_the_names_of_the_table(
+    tmp_path: Path,
+) -> None:
+    source = (
+        "_T: dict = {'a': 1}\n_N = [1, 2]\n(_X, _Y) = ('x', 'y')\nimport os\n\n"
+        "def __getattr__(name):\n    found = _T.get(name)\n    return found\n"
+    )
+    objects = worker.surface(lib(tmp_path, {"__init__.py": source}, "tabled"), "tabled")["objects"]
+    assert objects["tabled"]["lazy"] is False
+    assert objects["tabled.a"]["kind"] == "name"
+
+
+def test_a_name_a_package_exports_and_defines_nowhere_is_known_and_not_read(tmp_path: Path) -> None:
+    source = "__all__ = ['here', 'elsewhere']\n\ndef here():\n    return 1\n"
+    objects = worker.surface(lib(tmp_path, {"__init__.py": source}, "declared"), "declared")[
+        "objects"
+    ]
+    assert objects["declared.elsewhere"] == {"kind": "name", "deprecated": None}
+    assert objects["declared.here"]["kind"] == "function"
+
+
+def test_a_name_declared_and_not_read_is_not_compared_but_may_say_it_is_going() -> None:
+    old = {"A": fn(req("x")), "B": fn(req("x"), deprecated="B will go"), "C": fn(req("x"))}
+    new = {
+        "A": Obj("", "name"),
+        "B": Obj("", "name", deprecated="B will go"),
+        "C": Obj("", "name", deprecated="use D"),
+    }
+    assert [(one.type, one.path, one.message) for one in api.diff(*surfaces(old, new))] == [
+        ("deprecated", "C", "use D")
+    ]
+    assert changes({"A": Obj("", "name")}, {"A": fn(req("x"))}) == []
