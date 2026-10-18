@@ -25,7 +25,9 @@ if TYPE_CHECKING:
 
 Outcome = Literal["passed", "failed", "error", "skipped"]
 Status = Literal["pass", "fail", "inconclusive"]
-Reason = Literal["no_tests", "no_junit", "nothing_to_compare", "unresolved", "tests_broke"]
+Reason = Literal[
+    "no_tests", "no_junit", "timeout", "nothing_to_compare", "unresolved", "tests_broke"
+]
 JUNIT_LIMIT: Final = 64 << 20
 _WORSE: Final = {"passed": 0, "skipped": 1, "failed": 2, "error": 3}
 
@@ -178,6 +180,8 @@ def judge(before: Phase | None, after: Phase | None, rerun: Mapping[str, Outcome
     if before is None:
         return Verdict("inconclusive", "no_tests", 0, (), ())
     if not before.cases:
+        if before.result.reason == "timeout":
+            return Verdict("inconclusive", "timeout", 0, (), ())
         return Verdict("inconclusive", "no_junit", 0, (), ())
     passed = sorted(name for name, ended in before.cases.items() if ended == "passed")
     if not passed:

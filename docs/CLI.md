@@ -17,7 +17,7 @@ obelize verify --run <id> [--repo .] [--verify "<cmd>"]... [--timeout <s>]
 obelize undo   --run <id> [--repo .] [--json]
 obelize mcp    [--repo .] [--trust-repo-config] [--read-only]
 obelize outdated [--repo .] [--all] [--json] [--offline]
-obelize upgrade <distribution> [--from <version>] [--to <version>] [--module <module>] [--repo .]
+obelize upgrade [<distribution>] [--from <version>] [--to <version>] [--module <module>] [--repo .]
             [--offline]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
@@ -449,7 +449,7 @@ that suits the move.
 
 | Flag | Description |
 |---|---|
-| `<distribution>` | Required. The dependency to move, as the manifests name it. |
+| `<distribution>` | The dependency to move, as the manifests name it. Without one, the command lists the dependencies behind a major release that obelize can migrate, as [`outdated`](#obelize-outdated) does, and where a person can be asked, asks which (a number or a name). Where no one can be asked it prints the list and exits `2`. |
 | `--from <version>` | The release the code is written for. Default: the one the manifests pin, else their lower bound; required when they name none. |
 | `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release. |
 | `--module <module>` | The module to compare, as for [`pack synth`](#obelize-pack-synth). |
@@ -459,6 +459,7 @@ that suits the move.
 | `--yes` | With `--apply`, agree to the trial without being asked. |
 | `--python <version>` | The Python the trial's environments use. Default: the repository's `.python-version`, else uv's own. |
 | `--test-command "<cmd>"` | The tests to run in the trial. Default: pytest, if the repository is set up for it. |
+| `--timeout <seconds>` | How long the tests of the trial may run, each time. Default: `1800` (at least 1). Tests that do not finish are an `inconclusive` trial that says so. |
 | `--branch` | With `--apply`, commit the move to a new branch and leave the working tree as it is. Nothing is pushed. |
 | `--branch-name <name>` | The branch `--branch` makes. Default: `obelize/upgrade-<the release moved to>`, such as `obelize/upgrade-pydantic-2.5.0`. Giving a name implies `--branch`. |
 | `--agent <backend>` | With `--apply` and `--branch`, put the places the pack only flags to your own coding agent, in the trial's copy (`claude_code`). Overrides `agent.backend`. |

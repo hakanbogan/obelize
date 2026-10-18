@@ -20,6 +20,8 @@ from obelize.models import EditProposal
 from obelize.packs import loader
 from obelize.packtools import synth
 from obelize.providers import agent_cli, base
+from obelize.trial import copy
+from obelize.trial import run as trying
 from support import committed, git
 
 if TYPE_CHECKING:
@@ -155,6 +157,38 @@ def test_a_library_too_large_to_flag_whole_needs_a_repository_that_can_be_read(
     nothing = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(plain)])
     assert nothing.exit_code == 2
     assert "nothing to flag" in nothing.output
+
+
+def test_upgrade_with_no_dependency_lists_those_behind_and_asks_where_a_person_can_be(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt="acme-kit==1.0\n")
+    listed = runner.invoke(app, ["upgrade", "--repo", str(root)])
+    assert listed.exit_code == 2
+    assert " 1 acme-kit" in listed.output
+    assert "Name one of them: obelize upgrade <distribution>" in listed.output
+    monkeypatch.setattr(cli, "_interactive", lambda: True)
+    for answer in ("1\n", "acme-kit\n", "\n"):
+        picked = runner.invoke(app, ["upgrade", "--repo", str(root)], input=answer)
+        assert picked.exit_code == 0, picked.output
+        assert "Moving acme-kit 1.0 to 2.0." in picked.output
+    wrong = runner.invoke(app, ["upgrade", "--repo", str(root)], input="3\n")
+    assert wrong.exit_code == 2
+    assert "'3' is none of the 1 listed" in wrong.output
+
+
+def test_upgrade_with_no_dependency_and_no_index_to_ask_exits_six(home: Path) -> None:
+    root = repo(home, app__py=APP, requirements__txt="acme-kit==1.0\n")
+    result = runner.invoke(app, ["upgrade", "--repo", str(root), "--offline"])
+    assert result.exit_code == 6
+    assert "The index could not be reached for any dependency." in result.output
+
+
+def test_upgrade_with_no_dependency_behind_says_so(home: Path) -> None:
+    root = repo(home, app__py=APP, requirements__txt="acme-kit==2.0\n")
+    result = runner.invoke(app, ["upgrade", "--repo", str(root)])
+    assert result.exit_code == 0, result.output
+    assert "none behind a major release that can be moved" in result.output
 
 
 def test_a_distribution_a_bundled_pack_migrates_uses_it(home: Path) -> None:
@@ -344,6 +378,22 @@ def test_a_trial_that_cannot_make_its_environments_exits_six(trial: Path) -> Non
     result = tried(root, "--from", "1.0", "--yes")
     assert result.exit_code == 6
     assert "no way to install" in result.output
+
+
+def test_the_time_the_tests_may_take_reaches_the_trial(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[int] = []
+
+    def stop(plan: trying.Plan) -> trying.Trial:
+        seen.append(plan.timeout_s)
+        raise copy.CopyError("stopped here")
+
+    monkeypatch.setattr(trying, "run", stop)
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    assert tried(root, "--yes", "--timeout", "7").exit_code == 6
+    assert tried(root, "--yes").exit_code == 6
+    assert seen == [7, trying.TEST_TIMEOUT_S]
 
 
 def test_a_dirty_tree_is_refused_before_the_trial_begins(trial: Path) -> None:

@@ -96,6 +96,10 @@ in the release that makes it.
   decides the value elsewhere, which a name cannot show. A trial that could not compare any test
   prints no counts, and names the dependency declaration that stopped the rules.
 - The guard lets a replacement name `classmethod`, `staticmethod`, `property`, `super` and `object`.
+- `obelize upgrade --timeout <seconds>` sets how long the trial's tests may run, and a trial whose
+  tests did not finish is reported as that, not as having produced no result.
+- `obelize upgrade` with no dependency lists those behind a major release that obelize can migrate
+  and asks which to move; where no one can be asked it prints the list and exits `2`.
 - `pack synth --used-by <path>` makes the pack for the names the code in a folder reaches through
   its imports, and `upgrade` does so by itself for a library that changed more names than a pack
   file holds (pandas, for one), and keeps the pack for that repository. A star import of the

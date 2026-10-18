@@ -140,5 +140,12 @@ the file's import block, and the import of a name is covered once every place th
 The agent then moved the ten decorators, the 23 tests that passed before passed after, and the commit
 held the one file it edited and the dependency line.
 
-What they show is that the steps join up, on three repositories. They do not show how often a move
+A fourth, `ga4gh/openapi-test-runner` at the same command with pydantic 1.10.13, flagged nine places
+(`validator`, `EmailStr.validate`, `pydantic.tools`). The agent moved the validators, rewrote
+`EmailStr.validate(x)` as `TypeAdapter(EmailStr).validate_python(x)`, joined both new names to the
+import line the files already had, and the 55 tests that passed before passed after. It also added a
+check for `None` that a version 2 validator needs, which is why the commit message names the files it
+edited.
+
+What they show is that the steps join up, on four repositories. They do not show how often a move
 passes: for that, the benchmark is the evidence.

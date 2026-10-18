@@ -410,6 +410,19 @@ def test_tests_that_say_nothing_before_are_no_evidence(
     assert (verdict.status, verdict.reason) == ("inconclusive", reason)
 
 
+def test_tests_that_ran_out_of_time_before_are_said_to_have(tmp_path: Path) -> None:
+    result = CommandResult(
+        command="pytest",
+        source="cli",
+        status="inconclusive",
+        reason="timeout",
+        exit_code=-15,
+        duration_ms=1,
+    )
+    verdict = tests.judge(tests.Phase(result, {}), None, {})
+    assert (verdict.status, verdict.reason) == ("inconclusive", "timeout")
+
+
 def test_tests_that_run_nowhere_after_are_a_break(tmp_path: Path) -> None:
     verdict = tests.judge(phase(tmp_path, a="passed"), None, {})
     assert (verdict.status, verdict.broken) == ("fail", ("a",))

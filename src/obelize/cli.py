@@ -53,6 +53,8 @@ _UNJUDGED = {
     "no_tests": "No tests were found. Pass --test-command, or write the migration without a "
     "trial: obelize fix --apply.",
     "no_junit": "The tests produced no result obelize can read, so nothing was compared.",
+    "timeout": "The tests did not finish in time, so nothing was compared. Raise --timeout, or "
+    "name the part that runs on its own with --test-command.",
     "nothing_to_compare": "No test passed before the migration, or it changed no file, so "
     "nothing was compared.",
     "unresolved": "Places the pack flags are left, and the library has one release for both "
@@ -1053,6 +1055,51 @@ def outdated(
         typer.echo(f"Next: {step}")
 
 
+def _interactive() -> bool:
+    return sys.stdin.isatty()
+
+
+def _picked(fetcher: Fetcher, root: Path, config: Config) -> str:
+    """The dependency to move when none was named: the one a person picks from those behind that
+    obelize can migrate. Where no one can be asked, the list and the command are all there is."""
+    from obelize import outdated as survey
+
+    rows = survey.survey(fetcher, _declared(root, config), _known_packs())
+    if survey.unreachable(rows):
+        typer.echo("The index could not be reached for any dependency.", err=True)
+        raise typer.Exit(6)
+    movable = [
+        row
+        for row in rows
+        if survey.worth_showing(row)
+        and row.error is None
+        and row.knowledge in ("bundled", "synthesizable")
+    ]
+    if not movable:
+        typer.echo(f"{len(rows)} dependencies read, none behind a major release that can be moved.")
+        raise typer.Exit(0)
+    head, *body = survey.table(movable)
+    typer.echo(f"   {head}", err=True)
+    for number, line in enumerate(body, start=1):
+        typer.echo(f"{number:>2} {line}", err=True)
+    if not _interactive():
+        typer.echo("Name one of them: obelize upgrade <distribution>", err=True)
+        raise typer.Exit(2)
+    answer = typer.prompt("Which one? A number or a name", default="1", err=True).strip()
+    chosen = next(
+        (
+            row.distribution
+            for number, row in enumerate(movable, start=1)
+            if answer in (str(number), row.distribution)
+        ),
+        None,
+    )
+    if chosen is None:
+        typer.echo(f"{answer!r} is none of the {len(movable)} listed.", err=True)
+        raise typer.Exit(2)
+    return chosen
+
+
 def _declared(root: Path, config: Config) -> list[Dependency]:
     """The distributions the repository's manifests declare, read without parsing any source."""
     from obelize import outdated as survey
@@ -1078,8 +1125,11 @@ def _known_packs() -> list[LoadedPack]:
 
 @app.command("upgrade")
 def upgrade(
-    distribution: str = typer.Argument(
-        ..., metavar="<distribution>", help="The dependency to move to a newer release."
+    distribution: str | None = typer.Argument(
+        None,
+        metavar="[<distribution>]",
+        help="The dependency to move to a newer release. Default: the one you pick from the "
+        "list of those behind, where a person can be asked.",
     ),
     old: str | None = typer.Option(
         None,
@@ -1127,6 +1177,13 @@ def upgrade(
         metavar='"<cmd>"',
         help="The tests to run in the trial, as one command. Default: pytest, if the repository "
         "is set up for it.",
+    ),
+    timeout: int | None = typer.Option(
+        None,
+        "--timeout",
+        metavar="<seconds>",
+        min=1,
+        help="How long the tests of the trial may run, each time. Default: 1800.",
     ),
     branch: bool = typer.Option(
         False,
@@ -1191,6 +1248,8 @@ def upgrade(
         agent_name, agent_model = _agent(agent)
         config, _ = _settings(root, _overrides(None, None, False))
         fetcher = _fetcher(offline)
+        if distribution is None:
+            distribution = _picked(fetcher, root, config)
         project = index.project(fetcher, distribution)
         target = libdiff.version(new) if new else libdiff.newest(project)
         declared = next((one for one in _declared(root, config) if one.name == project.name), None)
@@ -1235,6 +1294,7 @@ def upgrade(
             yes=yes,
             python=python,
             test_command=test_command,
+            timeout=timeout,
             branch=(branch_name or _branch_name(chosen.install)) if wants_branch else None,
             agent=agent_name,
             agent_model=agent_model,
@@ -1395,6 +1455,7 @@ def _trial(
     yes: bool,
     python: str | None,
     test_command: str | None,
+    timeout: int | None,
     branch: str | None,
     agent: str | None,
     agent_model: str | None,
@@ -1484,6 +1545,7 @@ def _trial(
                 max_rounds=max_rounds,
                 python=python,
                 test_command=test_command,
+                **({"timeout_s": timeout} if timeout else {}),
             )
         )
     except (copy.CopyError, envs.EnvError, CommandError, ConfigError) as error:
