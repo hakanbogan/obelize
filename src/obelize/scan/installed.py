@@ -94,7 +94,7 @@ _OVERLAP: Final = 1 << 12
 _LIMIT: Final = 32 << 20
 
 # A virtual environment kept in the repository, and where one holds the installed distributions.
-_ENVIRONMENTS: Final = (".venv", "venv", "env")
+ENVIRONMENTS: Final = (".venv", "venv", "env")
 
 
 def contrary(
@@ -429,7 +429,7 @@ def _on_disk(
     )
     listed = set(walk.listed)
     for directory in sorted({"", *(posixpath.dirname(row.path) for row in rows)}):
-        for name in _names(root / directory):
+        for name in names(root / directory):
             path = posixpath.join(directory, name)
             if path not in listed and (
                 manifests.is_lock(path) or manifests.layout(path) in manifests.PIP
@@ -437,27 +437,27 @@ def _on_disk(
                 return path
     # `lexists` first: nearly every directory holds none of the three, and a listing costs more.
     for directory in sorted({"", *map(posixpath.dirname, listed)}):
-        for environment in _ENVIRONMENTS:
+        for environment in ENVIRONMENTS:
             here = posixpath.join(directory, environment)
             if not os.path.lexists(root / here):
                 continue
-            for packages in _site_packages(root / here):
-                for name in _names(root / here / packages):
+            for packages in site_packages(root / here):
+                for name in names(root / here / packages):
                     found = installed.fullmatch(name)
                     if found and _outside(taken, Version(found["release"])):
                         return posixpath.join(here, packages, name)
     return ""
 
 
-def _site_packages(environment: Path) -> Iterator[str]:
+def site_packages(environment: Path) -> Iterator[str]:
     """Where an environment keeps its installed distributions, on Windows and elsewhere."""
     yield "Lib/site-packages"
-    for name in _names(environment / "lib"):
+    for name in names(environment / "lib"):
         if name.startswith("python"):
             yield f"lib/{name}/site-packages"
 
 
-def _names(directory: Path) -> list[str]:
+def names(directory: Path) -> list[str]:
     """What is in `directory`, listed and never followed; nothing where it cannot be listed."""
     try:
         with os.scandir(directory) as entries:
@@ -466,4 +466,4 @@ def _names(directory: Path) -> list[str]:
         return []
 
 
-__all__ = ["contrary", "unsearched"]
+__all__ = ["ENVIRONMENTS", "contrary", "names", "site_packages", "unsearched"]

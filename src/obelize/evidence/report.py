@@ -68,6 +68,13 @@ FIX_SPLIT: tuple[tuple[str, str], ...] = (
 # A tree dirty only through untracked planned files; the `Next:` line recognises its refusal by it.
 UNTRACKED = "commit them (git add, then git commit), or pass --allow-dirty"
 
+# Under the table of an inventory, where no row can be eligible and `fix` has nothing to try.
+INVENTORY_LEGEND = (
+    "Columns: line, kind, symbol, status, reason. Every place of the library is needs_review "
+    "because no migration pack covers it: obelize lists it and rewrites nothing. not_a_usage: "
+    "shown for context only."
+)
+
 # Under a scan's table; `SCAN_VOCABULARY.md`, which defines the codes, is not installed.
 LEGEND = (
     "Columns: line, kind, symbol, status, reason (blank when eligible). eligible: obelize fix "
@@ -133,6 +140,8 @@ def terminal(
     evidence: str | None,
     guides: Sequence[Guide] = (),
     fix: str = "",
+    *,
+    inventory: bool = False,
 ) -> list[str]:
     """`obelize scan`'s non-JSON output; `fix` is `flags(...)` for the command it suggests."""
     lines = [f"obelize scan  {pack}", ""]
@@ -150,7 +159,7 @@ def terminal(
         lines.extend(_rows(findings))
         lines.append("")
     if scan.findings:
-        lines.extend([LEGEND, ""])
+        lines.extend([INVENTORY_LEGEND if inventory else LEGEND, ""])
     lines.append(_headline(scan.counts, SPLIT))
     lines.extend(_repository(scan.manifests))
     lines.extend(_unwritten(scan.unwritten, _bare))

@@ -139,7 +139,7 @@ until nothing is left. [With a coding agent](docs/WITH_A_CODING_AGENT.md) has th
 
 | Command | What it does |
 |---|---|
-| `obelize scan` | Lists the imports, calls and dependency lines the migration affects, and edits nothing. |
+| `obelize scan` | Lists the imports, calls and dependency lines a migration affects, or with `--library` every use of a library that has no pack, and edits nothing. |
 | `obelize fix` | Plans the migration and prints its diff. `--apply` writes it, and `--verify` runs your tests before and after. |
 | `obelize verify` | Runs the verification again for an applied run. |
 | `obelize undo` | Puts back the files a run wrote, unless they were edited since. |

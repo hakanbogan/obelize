@@ -379,7 +379,11 @@ def scan(
         paired=coupled,
         modern=modern,
     )
-    declarations = manifests.plan(declared, migration, spec)
+    declarations = (
+        manifests.context(declared, spec)
+        if spec.inventory
+        else manifests.plan(declared, migration, spec)
+    )
     floor = runtime.detect(selection.manifests, tree.contents, spec)
 
     findings = tuple(

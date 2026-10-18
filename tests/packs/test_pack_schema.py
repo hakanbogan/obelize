@@ -1181,7 +1181,8 @@ PROJECTED = {
 
 def test_the_projection_fills_every_field_of_the_scan_spec() -> None:
     """Across the bundled packs: one fills what another has no use for (`shared`, the floor)."""
-    assert set(ScanSpec.model_fields) == PROJECTED
+    # `inventory` is set by `scan --library` on a spec no pack made, never by a pack.
+    assert set(ScanSpec.model_fields) == PROJECTED | {"inventory"}
     specs = [loader.to_scan_spec(loader.load(identifier)) for identifier in loader.bundled_ids()]
     empty = [name for name in PROJECTED if not any(getattr(spec, name) for spec in specs)]
     assert empty == [], f"no bundled pack fills {empty}, so nothing exercises them"

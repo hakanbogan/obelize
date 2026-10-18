@@ -57,6 +57,7 @@ if TYPE_CHECKING:
         RefusalCode,
         RunMode,
         RunModel,
+        ScanSpec,
         VerifyPhase,
         VerifyResult,
     )
@@ -782,16 +783,41 @@ def _platform() -> RunPlatform:
 @dataclass(frozen=True, slots=True)
 class Used:
     """A pack a run used, the declaration that stopped it if the repository did, and the release
-    it took for a declaration that names none."""
+    it took for a declaration that names none; or, with `listed`, the inventory of a library that
+    has no pack, which leaves no copy of one in the run folder."""
 
-    loaded: LoadedPack
+    loaded: LoadedPack | None
     blocked: Blocked | None = None
     assumed: str | None = None
+    listed: ScanSpec | None = None
 
     @classmethod
     def of(cls, loaded: LoadedPack, scan: Scan) -> Used:
         released = scan.assumed[0][1] if scan.assumed else None
         return cls(loaded, scan.blocked[0] if scan.blocked else None, released)
+
+    @classmethod
+    def inventory(cls, spec: ScanSpec) -> Used:
+        return cls(None, listed=spec)
+
+    def record(self) -> RunPack:
+        if self.listed is not None:
+            spec = self.listed
+            return RunPack(
+                id=spec.pack_id,
+                pack_version=spec.pack_version,
+                sha256=spec.pack_sha256,
+                source="inventory",
+            )
+        assert self.loaded is not None  # noqa: S101 - `of` and `inventory` are the only makers
+        return RunPack(
+            id=self.loaded.pack.id,
+            pack_version=self.loaded.pack.pack_version,
+            sha256=self.loaded.sha256,
+            source="bundled" if self.loaded.bundled else "file",
+            blocked=None if self.blocked is None else self.blocked.reason,
+            assumed=self.assumed,
+        )
 
 
 def refs(packs: Sequence[LoadedPack]) -> tuple[PackRef, ...]:
@@ -803,17 +829,7 @@ def refs(packs: Sequence[LoadedPack]) -> tuple[PackRef, ...]:
 
 
 def _packs(packs: Sequence[Used]) -> tuple[RunPack, ...]:
-    return tuple(
-        RunPack(
-            id=used.loaded.pack.id,
-            pack_version=used.loaded.pack.pack_version,
-            sha256=used.loaded.sha256,
-            source="bundled" if used.loaded.bundled else "file",
-            blocked=None if used.blocked is None else used.blocked.reason,
-            assumed=used.assumed,
-        )
-        for used in sorted(packs, key=lambda used: used.loaded.pack.id)
-    )
+    return tuple(sorted((used.record() for used in packs), key=lambda pack: pack.id))
 
 
 def _config(config: Config, source: ConfigOrigin) -> RunConfig:

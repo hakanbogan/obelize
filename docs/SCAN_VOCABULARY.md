@@ -150,11 +150,12 @@ summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACT
 
 ### The run
 
-The codemod driver's own codes.
+The codemod driver's own codes, and the one an inventory gives every place.
 
 | Code | Raised when | What to do |
 |---|---|---|
 | `usage_unmapped` | A detected usage no change rewrites (a free function referenced, not called; a `methods` entry with no `rewrites`). Writing the file would strand it behind a rewritten import, so the file is left alone. | Migrate the usage by hand; no rewrite covers it, so the file was left alone. |
+| `no_pack_for_usage` | A place of a library listed with `scan --library`, which no migration pack covers. Every import, call and attribute of the library carries it, so nothing in an inventory is eligible. | Migrate the usage by hand; no migration pack covers this library, so it is listed and nothing is rewritten. |
 | `configure_consumed_elsewhere` | Another in-scope module with no `configure` stays on the legacy SDK and relies on this file's process-wide default, which the rewrite would remove. The file is left alone; a `mock.patch` target does not count. | Migrate the modules that rely on this file's configure call, or give each its own, then run again. |
 
 ## 5. Warning codes (`Edit.warnings[]`)
@@ -183,7 +184,7 @@ the defect's code on its rows and `file_not_fully_migrated` on the rest
 
 | Rung | What fired | Raised by |
 |:---:|---|---|
-| 1 | the pack refuses the surface outright (`flag_only_surface`, `attribute_removed`) | `scan/analysis.py` |
+| 1 | the pack refuses the surface outright (`flag_only_surface`, `attribute_removed`), or no pack covers the library (`no_pack_for_usage`) | `scan/analysis.py` |
 | 2 | a file-level gate (`input_does_not_parse`, `internal_error`, `roundtrip_mismatch`, `output_does_not_parse`, `output_names_unresolved`) | `scan/parse.py`, `scan/runner.py`; `output_does_not_parse` and `output_names_unresolved` `transforms/codemod.py`, on the bytes a run would write, and `internal_error` there on a file a rule raised on |
 | 3 | a whole-file resolution defect (`module_alias_rebound`, `conditional_binding`, `star_import`) or where an import statement sits (`local_import`, `lazy_import`) | `scan/analysis.py` |
 | 4 | the module's client (`client_source_unresolved`, `multiple_configure_calls`) | `impact/planner.py` |
@@ -247,6 +248,7 @@ other.
 | `file_not_fully_migrated` | Atomicity: the import resolved, something else did not. |
 | `repo_not_fully_migrated` | Atomicity of a pack whose one distribution holds both APIs: the import is one the pack would rewrite, and a row elsewhere in the repository is withheld. |
 | `usage_unmapped` | No rule of the pack rewrites this statement. |
+| `no_pack_for_usage` | The scan is an inventory of a library no pack covers. |
 | `runtime_unsupported` | A `fix` run withheld every row of a pack the repository's declared Python rules out. |
 | `legacy_version_unsupported` | A `fix` run withheld every row of a pack the repository's legacy pin rules out. |
 | `new_version_unsupported` | A `fix` run withheld every row of a pack the repository's pin of the new distribution rules out. |

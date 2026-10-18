@@ -22,8 +22,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from obelize.config import LoadedConfig, Overrides
-    from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig
+    from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig, ScanSpec
     from obelize.packs.loader import LoadedPack
+    from obelize.packs.schema import PackDocument
+    from obelize.scan.runner import Scan, Tree
+    from obelize.transforms.kinds.flag_only import Guide
     from obelize.verify.runner import Mode
 
 # The finding statuses `scan --fail-on` can name: the ones that leave something to do.
@@ -124,6 +127,20 @@ def scan(
         help="Exit 4 when a finding has this status: eligible, needs_review or unsupported. "
         "Repeat it to name several.",
     ),
+    library: str | None = typer.Option(
+        None,
+        "--library",
+        metavar="<distribution>",
+        help="List every place the repository uses this library, with no pack. Nothing can be "
+        "rewritten. Its modules are the ones it installed in a .venv, venv or env directory in "
+        "the repository, else those --module names, else its name.",
+    ),
+    modules: list[str] | None = typer.Option(
+        None,
+        "--module",
+        metavar="<module>",
+        help="A module of --library to list, as it is imported. Repeat it to name several.",
+    ),
 ) -> None:
     """Find the call sites, imports and manifest entries a pack affects.
 
@@ -136,7 +153,7 @@ def scan(
     from obelize.config import ConfigError, with_fixture_dirs
     from obelize.evidence import report, run_dir
     from obelize.evidence.sarif import document as sarif_document
-    from obelize.models import FindingsDocument
+    from obelize.models import FindingsDocument, PackRef
     from obelize.scan import runner, walker
     from obelize.transforms.kinds import flag_only
 
@@ -145,7 +162,8 @@ def scan(
         typer.echo("--json and --sarif each replace the table; pass one.", err=True)
         raise typer.Exit(2)
     failing = _fail_on(fail_on)
-    packs, named = _packs_or_exit(pack)
+    _library_flags(library, modules, pack)
+    packs, named = ([], False) if library else _packs_or_exit(pack)
     started = run_dir.now()
     began = time.monotonic()
     try:
@@ -158,28 +176,46 @@ def scan(
             for path in walker.walk(root, scanned).files:
                 typer.echo(path)
             return
-        chosen = fixer.select(root, configuration.config, packs, named=named, jobs=jobs)
+        if library:
+            listing = _listing(root, configuration.config, library, modules or [], jobs)
+        else:
+            chosen = fixer.select(root, configuration.config, packs, named=named, jobs=jobs)
     except ConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(2) from error
     except CommandError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(error.code) from error
-    result = runner.merged([one.scan for one in chosen.packs], chosen.tree)
-    loaded = [one.loaded for one in chosen.packs]
-    documents = [one.pack for one in loaded]
-    guides = tuple(
-        guide
-        for one in chosen.packs
-        for guide in flag_only.guides(one.loaded.pack, one.scan.findings)
-    )
+    loaded: list[LoadedPack]
+    documents: list[PackDocument]
+    guides: tuple[Guide, ...]
+    fixtures: tuple[str, ...]
+    tried: tuple[str, ...]
+    refs: tuple[PackRef, ...]
+    if library:
+        spec, result = listing
+        loaded, documents, guides, fixtures, tried = [], [], (), (), ()
+        used = [run_dir.Used.inventory(spec)]
+        refs = (PackRef(id=spec.pack_id, version=spec.pack_version, sha256=spec.pack_sha256),)
+    else:
+        result = runner.merged([one.scan for one in chosen.packs], chosen.tree)
+        loaded = [one.loaded for one in chosen.packs]
+        documents = [one.pack for one in loaded]
+        guides = tuple(
+            guide
+            for one in chosen.packs
+            for guide in flag_only.guides(one.loaded.pack, one.scan.findings)
+        )
+        fixtures, tried = chosen.fixture_dirs, chosen.tried
+        used = [run_dir.Used.of(one.loaded, one.scan) for one in chosen.packs]
+        refs = run_dir.refs(loaded)
     scan_ms = int((time.monotonic() - began) * 1000)
     held = sum(1 for row in result.findings if row.scan_status in failing)
     code: ExitCode = 4 if held else 0
 
     document = FindingsDocument(
         obelize_version=__version__,
-        packs=run_dir.refs(loaded),
+        packs=refs,
         counts=result.counts,
         findings=result.findings,
     )
@@ -187,7 +223,7 @@ def scan(
     record = run_dir.compose(
         run_id=run_dir.new_id(started),
         scan=result,
-        packs=[run_dir.Used.of(one.loaded, one.scan) for one in chosen.packs],
+        packs=used,
         config=configuration.config,
         source=configuration.source,
         git=gitutil.state(root),
@@ -204,9 +240,7 @@ def scan(
             record,
             findings,
             loaded,
-            report.document(
-                record, result, guides=guides, packs=documents, fixture_dirs=chosen.fixture_dirs
-            ),
+            report.document(record, result, guides=guides, packs=documents, fixture_dirs=fixtures),
         )
     except run_dir.EvidenceError as error:
         typer.echo(str(error), err=True)
@@ -219,13 +253,16 @@ def scan(
         typer.echo(f"Evidence: {evidence}", err=True)
     else:
         label = ", ".join(f"{one.pack.id} {one.pack.pack_version}" for one in loaded)
+        label = label or (refs[0].id if library else "no pack applies")
         fix_flags = report.flags(repo, pack or ())
         for line in report.terminal(
-            result, label or "no pack applies", evidence, guides, fix_flags
+            result, label, evidence, guides, fix_flags, inventory=bool(library)
         ):
             typer.echo(line)
-        if not loaded:
-            typer.echo(f"No pack applies. Checked: {', '.join(chosen.tried) or 'none'}.")
+        if not loaded and not library:
+            typer.echo(f"No pack applies. Checked: {', '.join(tried) or 'none'}.")
+            for line in _popular(chosen.tree, report.flags(repo)):
+                typer.echo(line)
     if held:
         typer.echo(f"--fail-on: {held} finding(s) have a status you named.", err=True)
         raise typer.Exit(code)
@@ -537,6 +574,66 @@ def _fail_on(named: list[str] | None) -> frozenset[str]:
         )
         raise typer.Exit(2)
     return wanted
+
+
+def _library_flags(library: str | None, modules: list[str] | None, pack: list[str] | None) -> None:
+    """`--library` and `--module` as a pair, and never beside a pack, before anything is read."""
+    if library is None:
+        if modules:
+            typer.echo("--module names a module of --library; pass --library too.", err=True)
+            raise typer.Exit(2)
+        return
+    if pack:
+        typer.echo(
+            "--library lists a library that has no pack and --pack names one; pass one of them.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+
+def _popular(tree: Tree, where: str) -> list[str]:
+    """What to try when no pack applies: the libraries the repository imports most."""
+    from obelize.scan import inventory
+
+    popular = inventory.imported(tree)
+    if not popular:
+        return []
+    named = ", ".join(f"{name} ({count} file{'s' * (count != 1)})" for name, count in popular)
+    first = popular[0][0]
+    return [
+        f"The repository imports these most: {named}.",
+        f"Next: obelize scan --library {first} --module {first}{where} lists every place it uses "
+        f"one.",
+    ]
+
+
+def _listing(
+    root: Path, config: Config, library: str, modules: list[str], jobs: int | None
+) -> tuple[ScanSpec, Scan]:
+    """The inventory of `library` over one read of the repository: the spec and its scan."""
+    from obelize.config import ConfigError
+    from obelize.models import QUALIFIED_NAME
+    from obelize.scan import inventory, runner
+
+    bad = [name for name in modules if not QUALIFIED_NAME.fullmatch(name)]
+    if bad:
+        raise ConfigError(f"--module takes dotted module names, got {', '.join(bad)}.")
+    found = () if modules else inventory.modules(root, library)
+    chosen = tuple(modules) or found or (library.replace("-", "_").replace(".", "_"),)
+    where = (
+        "named with --module"
+        if modules
+        else "installed in an environment in the repository"
+        if found
+        else "taken from its name; pass --module if it is imported under another"
+    )
+    try:
+        spec = inventory.spec(library, chosen)
+    except ValueError as error:
+        raise ConfigError(f"--library takes a distribution name, got {library!r}.") from error
+    typer.echo(f"Listing the uses of {library}: {', '.join(chosen)} ({where}).", err=True)
+    tree = runner.read(root, config, [spec])
+    return spec, runner.scan(root, config, spec, jobs=jobs, tree=tree)
 
 
 def _recorded_argv() -> tuple[str, ...]:

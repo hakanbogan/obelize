@@ -1002,7 +1002,7 @@ def test_an_ignored_environment_that_holds_the_newest_or_nothing_of_ours_is_not_
 
 def test_an_environment_that_cannot_be_listed_is_nothing(tmp_path: Path) -> None:
     root = git_repo(tmp_path, {**REQUIRED, ".venv": "a file, not a directory\n"}, ".venv\n")
-    assert installed._names(root / ".venv") == []
+    assert installed.names(root / ".venv") == []
     assert contrary(root) == ""
 
 

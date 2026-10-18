@@ -424,7 +424,8 @@
         "source": {
           "enum": [
             "bundled",
-            "file"
+            "file",
+            "inventory"
           ],
           "title": "Source",
           "type": "string"
@@ -808,7 +809,8 @@
             "types_import_typing_only",
             "error_class_changed",
             "usage_unmapped",
-            "configure_consumed_elsewhere"
+            "configure_consumed_elsewhere",
+            "no_pack_for_usage"
           ],
           "title": "Bail",
           "type": "string"
@@ -870,7 +872,8 @@
                   "types_import_typing_only",
                   "error_class_changed",
                   "usage_unmapped",
-                  "configure_consumed_elsewhere"
+                  "configure_consumed_elsewhere",
+                  "no_pack_for_usage"
                 ],
                 "type": "string"
               },

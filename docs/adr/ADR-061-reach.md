@@ -34,6 +34,23 @@ is context and cannot be named. The run folder records the exit code the process
 so a program reads the record that is on disk and the existing schemas describe it. The exit code
 is the verdict's, and the run folder's path goes to stderr, as for `scan --json`.
 
+### D4. A library with no pack is listed, never rewritten
+
+`obelize scan --library <distribution>` runs the scanner over a spec made on the spot, with the
+modules the distribution installed as its legacy modules and no symbol list, so every import, call
+and attribute of the library is a finding. Each is `needs_review` with the new reason
+`no_pack_for_usage`, graded at the first rung beside a pack's refusals, and an import may carry it.
+The library's lines in a manifest are context (`not_a_usage`), because nothing migrates and no pin
+moves. The modules come from `--module`, else from the distribution's `RECORD` in an environment
+kept in the repository (a namespace package gives the package under it, not every library that
+shares the namespace), else from the distribution's name. Nothing is imported, so reading an
+environment runs no code.
+
+The run folder records `source: inventory` and the hash of the spec, and holds no copy of a pack.
+`--library` cannot be combined with `--pack`. When no pack applies, the table names the modules the
+repository imports most and the command that lists one. `fix` has nothing to do for an inventory
+and is not offered.
+
 ## Consequences
 
 `docs/CLI.md` documents the flags and replaces its CI recipe, which parsed the JSON with a one-line

@@ -18,6 +18,15 @@ in the release that makes it.
 - `obelize scan --fail-on <status>` exits `4` when a finding has the status you name (`eligible`,
   `needs_review` or `unsupported`), and the run's `exit_code` records it.
 - `obelize verify --json` and `obelize undo --json` print the `run.json` and `undo.json` they wrote.
+- `obelize scan --library <distribution>` lists every place a repository uses a library that has
+  no pack, with `--module` to name the modules when the library is imported under another name.
+  Each place is `needs_review` with the new reason `no_pack_for_usage` and nothing is rewritten. The
+  run records `source: inventory` in `packs[]` and holds no copy of a pack.
+
+### Changed
+
+- A scan that finds no pack to apply names the libraries the repository imports most and the
+  command that lists one.
 
 ## [0.6.1] - 2026-10-18
 

@@ -242,6 +242,7 @@ def test_the_import_bail_list_is_a_pinned_subset_of_the_bail_codes() -> None:
         "file_not_fully_migrated",
         "repo_not_fully_migrated",
         "usage_unmapped",
+        "no_pack_for_usage",
         "runtime_unsupported",
         "legacy_version_unsupported",
         "new_version_unsupported",

@@ -7,8 +7,8 @@ decisions behind it are indexed in [DECISIONS.md](DECISIONS.md).
 ## Surface
 
 ```
-obelize scan   [--repo .] [--pack <id|path>]... [--json | --sarif] [--fail-on <status>]... [--jobs N]
-            [--list-files]
+obelize scan   [--repo .] [--pack <id|path>]... [--library <distribution> [--module <module>]...]
+            [--json | --sarif] [--fail-on <status>]... [--jobs N] [--list-files]
 obelize fix    [--pack <id|path>]... [--repo .] [--apply] [--allow-dirty] [--verify "<cmd>"]... [--timeout <s>]
             [--non-interactive] [--trust-repo-config] [--model <provider>] [--accept-model]
             [--show-context] [--json]
@@ -39,6 +39,8 @@ the repository.
 |---|---|
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--pack <id\|path>` | A pack id or a pack file path; repeat it to run several, and only those run. Without it every known pack is tried over one read of the repository, and each one with a finding that is not `not_a_usage` runs ([several packs](#several-packs-in-one-run)). |
+| `--library <distribution>` | List every place the repository uses a library, with no pack ([an inventory](#listing-a-library-with-no-pack)). It cannot be combined with `--pack`. |
+| `--module <module>` | A module of `--library` to list, as it is imported. Repeat it to name several. |
 | `--json` | Findings as JSON on stdout; the run folder's path on **stderr**. |
 | `--sarif` | Findings as [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format GitHub code scanning reads, on stdout instead of the table; the run folder's path on **stderr**. It cannot be combined with `--json`. One result per finding except `not_a_usage`; its rule is the finding's reason, or `eligible`, and its level is `note` for `eligible`, `warning` for `needs_review` and `error` for `unsupported`. Two runs over the same input print the same bytes. |
 | `--fail-on <status>` | Exit `4` when any finding has this status: `eligible`, `needs_review` or `unsupported`. Repeat it to name several. The output is the one you asked for, and the run folder records the exit code. |
@@ -56,6 +58,24 @@ Exit codes: `0` done, findings or not, and also when no pack applies; `4` a find
 error, including a `--pack` named twice, a `--fail-on` that names another status, `--json` with `--sarif`, two packs that cannot run together, a `pack_dirs` entry
 that is not an existing directory, a `--repo` that is not a directory, `--jobs` below 1 or above 61 on Windows, and an unusable
 `.obelize.yml`; `1` unexpected error, including an unwritable run folder.
+
+### Listing a library with no pack
+
+When no pack applies, `scan` prints the libraries the repository imports most. To see every place
+the code uses one, name it:
+
+```sh
+uvx obelize scan --library requests
+```
+
+An inventory lists each import, call and attribute of the library's modules and writes nothing.
+Every place is `needs_review` with the reason `no_pack_for_usage`, since no migration pack says how
+to move it, and the library's lines in a dependency manifest are context. The modules are, in this
+order: the ones `--module` names; the ones the library installed in a `.venv`, `venv` or `env`
+directory in the repository, read from its `RECORD` without importing anything; the library's name.
+A library imported under another name (`PyYAML` is `yaml`) needs `--module` when it is not
+installed in the repository. The run folder records the pack as `inventory/<distribution>`, with a
+hash of the modules it listed and no copy of a pack.
 
 ### A CI check
 

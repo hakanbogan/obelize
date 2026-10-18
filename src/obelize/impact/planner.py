@@ -51,6 +51,7 @@ LADDER: Final[dict[BailCode, int]] = {
 # Most specific first, rungs 1-6. Within a rung only two orders co-fire: `dataflow.ORDER`, and
 # `receiver_unresolved` after the group codes, since the group names a real binding.
 ORDER: Final[tuple[BailCode, ...]] = (
+    "no_pack_for_usage",
     "attribute_removed",
     "flag_only_surface",
     parse.PARSE_BAIL,

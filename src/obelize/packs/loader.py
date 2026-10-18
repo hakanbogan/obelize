@@ -332,6 +332,7 @@ _WHEN_SET: Final[frozenset[str]] = frozenset(
         "new_names",
         "declare_transitive",
         "flag_only_variables",
+        "inventory",
     }
 )
 

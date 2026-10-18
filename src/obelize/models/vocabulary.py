@@ -102,6 +102,7 @@ BailCode = Literal[
     # The run
     "usage_unmapped",
     "configure_consumed_elsewhere",
+    "no_pack_for_usage",
 ]
 BAIL_CODES: frozenset[BailCode] = frozenset(get_args(BailCode))
 
@@ -269,6 +270,10 @@ BAIL_ACTIONS: dict[BailCode, str] = {
         "Migrate the modules that rely on this file's configure call, or give each its own, then "
         "run again."
     ),
+    "no_pack_for_usage": (
+        "Migrate the usage by hand; no migration pack covers this library, so it is listed and "
+        "nothing is rewritten."
+    ),
 }
 
 WarningCode = Literal[
@@ -340,6 +345,7 @@ IMPORT_BAILS: frozenset[BailCode] = frozenset(
         "file_not_fully_migrated",
         "repo_not_fully_migrated",
         "usage_unmapped",
+        "no_pack_for_usage",
         "runtime_unsupported",
         "legacy_version_unsupported",
         "new_version_unsupported",
@@ -591,7 +597,7 @@ CONFIG_ORIGINS: frozenset[ConfigOrigin] = frozenset(get_args(ConfigOrigin))
 
 # No pack path is recorded: it could be absolute on the scanning machine (TM-1); the sha256 and
 # the copy in the run folder identify the pack.
-PackOrigin = Literal["bundled", "file"]
+PackOrigin = Literal["bundled", "file", "inventory"]
 
 # docs/CLI.md's exit codes, shared by every command (test_cli_surface.py checks both ways).
 ExitCode = Literal[0, 1, 2, 3, 4, 5, 6, 7]

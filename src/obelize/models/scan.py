@@ -368,6 +368,8 @@ class ScanSpec(_Frozen):
     flag_only_variables: tuple[str, ...] = ()
     # The new SDK keeps the module's name, so only `symbols` (and what lies under them) is legacy.
     shared: bool = False
+    # A library with no pack: every place that uses it is listed, none is rewritten.
+    inventory: bool = False
     # Set only where one distribution is both sides: the versions of it that are the new API.
     new_range: str | None = None
     # Modules that came with the legacy pin, which the manifest pin check inspects before the

@@ -471,6 +471,18 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
     )
 
 
+def context(found: Sequence[Declaration], spec: ScanSpec) -> ManifestPlan:
+    """The declarations of the library an inventory lists, as context: nothing migrates, so no pin
+    moves and no declaration is graded."""
+    name = canonicalize_name(spec.legacy_distribution)
+    rows = [
+        _row(declaration, spec.legacy_distribution, None, absent=True)
+        for declaration in found
+        if declaration.name == name
+    ]
+    return ManifestPlan(findings=tuple(sorted(rows, key=lambda row: row.sort_key)))
+
+
 def _placed(
     found: Sequence[Declaration], undeclared: Sequence[tuple[str, str]], spec: ScanSpec
 ) -> dict[tuple[str, int, int], tuple[str, ...]] | None:
@@ -1203,6 +1215,7 @@ __all__ = [
     "Migration",
     "Reading",
     "constrains",
+    "context",
     "declarations",
     "includes",
     "is_lock",

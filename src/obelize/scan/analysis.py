@@ -51,6 +51,7 @@ BAILS: frozenset[BailCode] = frozenset(
         "lazy_import",
         "local_import",
         "module_alias_rebound",
+        "no_pack_for_usage",
         "receiver_unresolved",
         "roundtrip_mismatch",
         "star_import",
@@ -61,6 +62,7 @@ BAILS: frozenset[BailCode] = frozenset(
 RUNG: Final[dict[BailCode, int]] = {
     "attribute_removed": 1,
     "flag_only_surface": 1,
+    "no_pack_for_usage": 1,
     "roundtrip_mismatch": 2,
     "star_import": 3,
     "conditional_binding": 3,
@@ -364,7 +366,9 @@ class _Pass:
         )
 
     def _grade(self, kind: FindingKind, symbol: str) -> tuple[ScanStatus, BailCode | None]:
-        """Rung 1: a surface the pack refuses outright."""
+        """Rung 1: a surface the pack refuses outright, or any place of a library with no pack."""
+        if self._spec.inventory:
+            return "needs_review", "no_pack_for_usage"
         if kind != "import" and symbol in self._spec.removed_attributes:
             return "unsupported", "attribute_removed"
         if any(
