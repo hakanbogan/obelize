@@ -17,6 +17,8 @@ to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`.
 - [Getting started](GETTING_STARTED.md) installs obelize and takes one migration from a dry run to
   a verified change.
 - [After a run](AFTER_A_RUN.md) explains the exit codes and what to do with the places it left.
+- [Upgrading a dependency](UPGRADING.md) finds what is behind, makes a pack for a library that has
+  none, tries the move with your tests in a copy and keeps it, on a branch if you ask.
 - [With a coding agent](WITH_A_CODING_AGENT.md) hands those places to an agent and keeps the check.
 
 ## How it earns trust

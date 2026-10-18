@@ -225,7 +225,8 @@ snapshot from 2026-09-22 that I have not measured again. I have not measured the
 The [documentation site](https://hakanbogan.github.io/obelize/) has everything below, and each page
 is a file under [docs/](docs/).
 
-- [Getting started](docs/GETTING_STARTED.md), [After a run](docs/AFTER_A_RUN.md) and
+- [Getting started](docs/GETTING_STARTED.md), [After a run](docs/AFTER_A_RUN.md),
+  [Upgrading a dependency](docs/UPGRADING.md) and
   [With a coding agent](docs/WITH_A_CODING_AGENT.md).
 - [CLI](docs/CLI.md), [Pack format](docs/PACK_SPEC.md), [Run folder](docs/RUN_FOLDER.md) and
   [Glossary](docs/GLOSSARY.md).
