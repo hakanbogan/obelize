@@ -25,6 +25,7 @@ Recipe = Literal["lock", "project", "requirements"]
 # An install that has not finished in this long has not, and a trial should not wait for it.
 INSTALL_TIMEOUT_S: Final = 1800
 _TAIL: Final = 1200
+_LOCKS: Final = ("UV_FROZEN", "UV_LOCKED")
 
 
 class EnvError(Exception):
@@ -106,7 +107,11 @@ def make(
         sync = ["sync", *(["--frozen"] if kind == "lock" else [])]
         if interpreter:
             sync += ["--python", interpreter]
-        _step(sync, work, {**environ, "UV_PROJECT_ENVIRONMENT": str(path)})
+        # With no lock file to hold to, a `UV_FROZEN` or `UV_LOCKED` in the shell would refuse.
+        held = {
+            name: value for name, value in environ.items() if kind == "lock" or name not in _LOCKS
+        }
+        _step(sync, work, {**held, "UV_PROJECT_ENVIRONMENT": str(path)})
         found = Env(path, kind)
     install(found, "pytest", work=work, environ=environ)
     return found

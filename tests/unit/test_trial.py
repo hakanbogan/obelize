@@ -458,7 +458,9 @@ def test_a_project_with_no_build_system_is_synced_into_the_environment_asked_for
     )
     work = tmp_path / "work"
     copy.make(root, work)
-    found = envs.make(work, tmp_path / "old", python=PYTHON, environ=offline, say=print)
+    # A shell that holds uv to a lock file, as ci does, has none to hold a project without one to.
+    frozen = {**offline, "UV_FROZEN": "1", "UV_LOCKED": "1"}
+    found = envs.make(work, tmp_path / "old", python=PYTHON, environ=frozen, say=print)
     assert found.recipe == "project"
     assert "acme-kit==1.0" in envs.freeze(found, work=work, environ=offline)
 
