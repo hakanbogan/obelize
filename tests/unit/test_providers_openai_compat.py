@@ -154,6 +154,12 @@ def test_a_pack_with_no_limitations_sends_no_pack_note() -> None:
     assert message.splitlines()[9] == adapter.CONTEXT_BEGIN
 
 
+def test_what_is_known_about_the_place_is_sent_when_there_is_something() -> None:
+    message = adapter.question(_consultation(note="Renamed in 2.0: use greet."))
+    assert "what is known about it: Renamed in 2.0: use greet." in message
+    assert "what is known about it" not in adapter.question(_consultation(note=""))
+
+
 def test_what_a_pack_does_not_handle_is_sent_as_a_note_and_a_list() -> None:
     message = adapter.question(_consultation(limitations=("one thing", "another")))
     assert f"\n{adapter.PACK_NOTE}\n" in message
