@@ -18,7 +18,9 @@ obelize undo   --run <id> [--repo .] [--json]
 obelize mcp    [--repo .] [--trust-repo-config] [--read-only]
 obelize outdated [--repo .] [--all] [--json] [--offline]
 obelize upgrade [<distribution>] [--from <version>] [--to <version>] [--module <module>] [--repo .]
-            [--offline]
+            [--offline] [--apply] [--yes] [--python <version>] [--test-command "<cmd>"]
+            [--timeout <seconds>] [--branch] [--branch-name <name>] [--agent <backend>]
+            [--max-asks <n>] [--max-rounds <n>]
 obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
@@ -77,7 +79,7 @@ the code uses one, name it:
 uvx obelize scan --library requests
 ```
 
-An inventory lists each import, call and attribute of the library's modules and writes nothing.
+An inventory lists each import, call and attribute of the library's modules and rewrites nothing.
 Every place is `needs_review` with the reason `no_pack_for_usage`, since no migration pack says how
 to move it, and the library's lines in a dependency manifest are context. The modules are, in this
 order: the ones `--module` names; the ones the library installed in a `.venv`, `venv` or `env`
@@ -301,7 +303,7 @@ Re-run an existing run's verification and update its evidence.
 | `--timeout <s>` | Override `verify.timeout_s` (at least 1). Neither set, it is 600. |
 | `--non-interactive` | Never prompt; refuse a repository command instead. |
 | `--trust-repo-config` | Trust the repository's `verify.commands` for this run. |
-| `--current` | Check the tree as it stands, even where it differs from what the run wrote, and record which files differ in `verify.edited` instead of answering `tree_changed`. A run that wrote no file can be checked this way. |
+| `--current` | Check the tree as it stands, even where it differs from what the run wrote, and record which files differ in `verify.edited` instead of answering `tree_changed`. An `--apply` run that wrote no file can be checked this way. |
 | `--json` | The run's record as JSON on stdout instead of the summary: the bytes of the `run.json` it wrote. The run folder's path goes to **stderr**, and the exit code is the verdict's. |
 
 If the files still match the run's `after_sha256`, the after-phase runs again;
@@ -317,7 +319,8 @@ carried into the new record.
 
 Exit codes: `0` `pass`; `3` `fail`; `6` `inconclusive`, or `not_run` other than
 `policy_refused`; `5` `policy_refused`; `2` usage error, including a malformed
-run id, a missing or unreadable run folder, a run that wrote no file, a
+run id, a missing or unreadable run folder, a run that wrote no file (or, with `--current`, one
+that was not an `--apply`), a
 `--verify` that needs a shell or does not split into arguments, and an invalid
 `~/.config/obelize/config.yml`; `1` unexpected error, including a result that
 could not be recorded.
@@ -417,7 +420,8 @@ Exit codes of the command: `0` the client closed the stream; `2` `--repo` is not
 ## `obelize outdated`
 
 List the dependencies a repository declares that the package index says have moved on. It reads the
-manifests, asks the index about each distribution, and installs nothing and writes nothing. Every
+manifests, asks the index about each distribution, and installs nothing and writes no file in the
+repository; the answers are cached for you. Every
 host is printed on standard error before it is contacted.
 
 | Flag | Description |
@@ -443,15 +447,14 @@ configuration file); `6` the index answered no question for any distribution.
 
 ## `obelize upgrade`
 
-Show what moving one dependency to a newer release would change, and write nothing in the
-repository. It plans the migration as [`fix`](#obelize-fix) does without `--apply`, with the pack
+Show what moving one dependency to a newer release would change, and write no file of your code. It plans the migration as [`fix`](#obelize-fix) does without `--apply`, with the pack
 that suits the move.
 
 | Flag | Description |
 |---|---|
-| `<distribution>` | The dependency to move, as the manifests name it. Without one, the command lists the dependencies behind a major release that obelize can migrate, as [`outdated`](#obelize-outdated) does, and where a person can be asked, asks which (a number or a name). Where no one can be asked it prints the list and exits `2`. |
+| `<distribution>` | The dependency to move, as the manifests name it. Without one, the command lists the dependencies that [`outdated`](#obelize-outdated) shows (a flag, or a major release behind) and obelize can migrate, and where a person can be asked, asks which (a number or a name). Where no one can be asked it prints the list and exits `2`. |
 | `--from <version>` | The release the code is written for. Default: the one the manifests pin, else their lower bound; required when they name none. |
-| `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release. |
+| `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release, or a pre-release if the library has no other. |
 | `--module <module>` | The module to compare, as for [`pack synth`](#obelize-pack-synth). |
 | `--repo <path>` | Repository root. Default: the current directory. |
 | `--offline` | Reach no host: use only what an earlier run kept in the cache. |
@@ -480,7 +483,7 @@ obelize made that fails its own checks.
 `upgrade --apply` writes nothing until the move has been tried. It asks first, because a trial
 installs packages, which runs their build scripts, and runs the repository's tests: `--yes`, or an
 answer at a terminal when `CI` is not set; otherwise it exits `2`. A tree with uncommitted changes
-is refused (exit `5`) before anything starts. Then, in a copy of the repository made from the files
+to tracked files is refused (exit `5`) before anything starts. Then, in a copy of the repository made from the files
 git lists and in two environments made with [uv](https://docs.astral.sh/uv/), outside the
 repository:
 
@@ -498,9 +501,11 @@ imports before the move and not after it is a break.
 
 A test is its junit `classname::name`. The move is **written to your repository** only if no test
 that passed in step 2 now fails, errors or is missing, not counting one that passed on the second
-try; the real write is `fix --apply` and ends `0` then. Otherwise nothing is written: exit `3` names
-the tests that broke, and exit `6` says the trial could not judge (no tests, no result obelize can
-read, no test that passed before, or a move that changed no file). Exit `6` also ends a trial whose
+try. The write itself is `fix --apply`, whose exit code `upgrade` returns, except that the lack of a
+verification command of its own, which the trial stood in for, is `0`. Otherwise nothing is written:
+exit `3` names the tests that broke, and exit `6` says the trial could not judge (no tests, no
+result obelize can read, no test that passed before, tests that did not finish, a move that changed
+no file, or a place left for a person). Exit `6` also ends a trial whose
 environments could not be made.
 
 With `--branch`, a passed trial is committed instead of written: one commit on a new branch of the
@@ -515,11 +520,14 @@ Review it with `git log -p -1 <branch>`.
 A library that keeps its import name across the move is one distribution for both APIs, so the
 rules write nothing while one flagged place is left, and a pack made from two releases flags most
 of what changed. `--agent claude_code` (with `--apply` and `--branch`) puts each flagged place to
-your own coding agent, in the trial's copy and before the rules run again: the agent is the
+your own coding agent, in the trial's copy and before the rules run again, when the first run of
+the rules wrote nothing, which a library with one release for both APIs always does until every
+place has moved: the agent is the
 `claude` program on your `PATH`, started in an empty directory with every tool off, no session, no
-MCP server, no skill and none of your settings (so no hook of yours runs), and with a fixed list of
-environment variables; a program that does not offer those restrictions is not used. It is sent the
-pack's own words about the place and the lines around it, redacted, as a text question, and asked
+MCP server, no skill and none of your settings (so no hook of yours runs), and with an allowlist of
+environment variables ([which](PRIVACY.md#what-an-agent-run-sends)); a program that does not offer
+those restrictions is not used. It is sent the pack's own words about the place, the closest new
+names `hints.json` offers if there are any, and the lines around it, redacted, as a text question, and asked
 for one edit of those lines or none. The guard that checks every model proposal checks it: it must
 stay inside what was sent, parse, and name or import nothing beyond the question. An accepted edit
 goes into the copy, the rules then write the rest, and your tests judge the whole. What the agent
@@ -529,11 +537,12 @@ Nothing it writes reaches your working tree: that is why `--agent` needs `--bran
 If tests that passed before the move now fail, the agent is put them too, up to `--max-rounds`
 times (3). A failing test points, in its Python traceback, at the lines where it broke; where such a
 line is in a file the move wrote and is not a test, that place goes to the agent with the error, and
-the tests run again. A test file is never edited: it is the evidence. The rounds stop when the agent
+the tests run again. These rounds never edit a test file, since it is the evidence; a flagged place
+in a test file is asked about like any other, in the first pass. The rounds stop when the agent
 offers nothing or no fewer tests break, and a move whose tests still fail is not written.
 
 Your own login decides where the excerpts go, as it does for anything you ask `claude`; see
-[the privacy notes](PRIVACY.md#what-obelize-upgrade---agent-sends). The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit
+[the privacy notes](PRIVACY.md#what-an-agent-run-sends). The evidence is `.obelize/trials/<id>/`: `trial.json`, the junit
 file and output of each run, and what each environment held (`old.txt`, `new.txt`).
 
 ## `obelize pack validate`
@@ -603,9 +612,11 @@ repository, put its directory in `pack_dirs` in your own `~/.config/obelize/conf
 ## `obelize pack synth`
 
 Make a pack from what two releases of a library offer, for a library that has none. The command
-asks the package index for the project, downloads the two releases and the newest final release
-between them, opens each for its Python source and nothing else, reads what each exports without
-importing or building anything, and compares them. Every host is printed on standard error before
+asks the package index for the project, downloads the two releases and, for the names that left, the
+newest release of each minor line between them (at most six, newest first, until each name is found),
+opens each for its Python source and the files that name its modules (`METADATA`, `RECORD`,
+`top_level.txt` and `entry_points.txt`) and nothing else, reads what each exports without importing
+or building anything, and compares them. Every host is printed on standard error before
 it is contacted.
 
 The pack renames a name the library's own deprecation message says to use another for (`old_greet
@@ -619,7 +630,7 @@ comparison and its `.after` files from the rules, as `pack new` does, and the pa
 |---|---|
 | `<distribution>` | Required. The library on the index, such as `acme-kit`. |
 | `--from <version>` | Required. The release the code is written for. |
-| `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release. |
+| `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release, or a pre-release if the library has no other. |
 | `--module <module>` | The module to compare, when the library has more than one. Default: the one both releases have, or the one named like the library. |
 | `--used-by <path>` | Flag only the names the Python code in this folder reaches through its imports, for a library that changed more names than a pack can hold (pandas, for one): the command says so and exits `2` without it. A star import of the library leaves no telling which names are used, and is refused. The pack's id ends with a digest of the names. |
 | `--dir <path>` | Where to make the pack's folder, `<provider>/<from>-to-<to>`. Default: the current directory. |
@@ -651,7 +662,7 @@ Shared by every command; unstable through 0.x
 | `3` | Verification failed after patch |
 | `4` | Nothing applied / manual review required |
 | `5` | Policy refusal (dirty tree or one git cannot describe, untrusted verification command, path escape) |
-| `6` | Verification produced no verdict (`inconclusive`, or `not_run` for any reason other than `policy_refused`); for `pack synth`, the index could not be reached |
+| `6` | Verification produced no verdict (`inconclusive`, or `not_run` for any reason other than `policy_refused`); for `pack synth`, `outdated` and `upgrade`, the index could not be reached; for `upgrade`, a trial that could not judge or whose environments could not be made |
 | `7` | The pack is not valid |
 
 `2` (argument parsing) and `1` (the top-level handler) take precedence; among
@@ -865,9 +876,9 @@ at once, and only an `.exe` or `.com` program runs: a batch file is refused.
 
 Outside every repository, so no checkout can write them (`$XDG_CONFIG_HOME` is
 honoured). On Windows the folder is `%USERPROFILE%\.config\obelize` unless `HOME`
-is set. `config.yml` holds the four settings a repository may not make: the
-allowlist, the model, the directories of your own packs and the index a command that reads
-releases asks. Unknown keys are an error, and so is
+is set. `config.yml` holds the five settings a repository may not make: the
+allowlist, the model, the directories of your own packs, the index a command that reads releases
+asks and the coding agent `upgrade` may put places to. Unknown keys are an error, and so is
 a file larger than 1 MiB.
 
 ```yaml
@@ -914,7 +925,7 @@ The `agent` keys are acted on by `obelize upgrade --apply --branch`; `network` b
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `network.index` | string | `https://pypi.org` | The package index `pack synth` asks, as a Simple API address (`/simple` is added if it is missing). `OBELIZE_INDEX_URL` replaces it for one run; `OBELIZE_INDEX_AUTHORIZATION` is the value of an `Authorization` header, sent to this host and to none other. |
-| `network.offline` | boolean | `false` | Read releases only from the cache, as `--offline` does; `OBELIZE_OFFLINE` set to anything does too. |
+| `network.offline` | boolean | `false` | Read releases only from the cache and keep a trial's installs to uv's own cache, as `--offline` does; `OBELIZE_OFFLINE` set to anything does too. |
 | `agent.backend` | `none` \| `claude_code` | `none` | The coding agent `upgrade --apply --branch` puts flagged places to, as `--agent` does. `none` asks no one. |
 | `agent.model` | string | unset | Passed to the program as its own model name or alias. |
 

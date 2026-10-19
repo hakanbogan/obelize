@@ -7,11 +7,12 @@ Where this page and the code disagree, the code and [CLI.md](CLI.md) win.
 A local-first command-line tool for verified dependency upgrades. When a Python library makes a
 breaking change, obelize rewrites the code it can prove safe to change, refuses the rest with a
 reason, and checks the result against your own tests. Today it ships three migrations, from
-`google-generativeai` to `google-genai`, from `openai` 0.x to 1.x and from `PyPDF2` to `pypdf`;
-they are examples of the method, and the [roadmap](ROADMAP.md) says where it goes next. The chain:
+`google-generativeai` to `google-genai`, from `openai` 0.x to 1.x and from `PyPDF2` to `pypdf`, and
+it makes a pack for another library from two of its releases; they are examples of the method, and
+the [roadmap](ROADMAP.md) says where it goes next. The chain:
 
 ```
-change source (a migration pack citing an official guide)
+change source (a migration pack: a bundled one cites an official guide, one made from two releases cites them)
   -> source and schema validation
   -> repository scan and impact candidates
   -> call-site evidence and a migration plan
@@ -33,8 +34,11 @@ Three properties define the boundary:
   `needs_review` or `unsupported` with a reason code, not guessed.
 
 obelize is not a general-purpose coding agent, and it does not let a model migrate code on its own.
-Its one model adapter is an optional fallback for ambiguous cases, behind a guard, and it works
-beside a coding agent: the agent edits, and obelize reports what is left and runs the check.
+Its models, an endpoint you configure or your own `claude` program in a trial, are optional
+fallbacks for the places a rule cannot write, behind a guard. In a trial only your tests decide
+whether what they wrote stays; an endpoint's edits are written on request and are lines to review.
+It works beside a coding agent: the agent edits, and obelize reports what is
+left and runs the check.
 
 ## Who it is for
 
@@ -47,6 +51,15 @@ has made a breaking release.
 - Three bundled packs, `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and
   `py-pdf/pypdf2-to-pypdf`, and packs of your own from directories your config lists, several to a
   run.
+- Finding a library's breaking changes without a bundled pack: `scan --library` lists the places a
+  library with no pack touches, and `pack synth` makes a pack from two releases of it.
+- `outdated` and `upgrade`, which try a move in a copy of the repository with two environments and
+  your own tests, write it only if no test that passed now fails, and can commit it to a branch you
+  ask for, with your own `claude` program moving the places a pack can only flag.
+- Tools for writing a pack, `pack new` and `pack test`.
+- A server that lets a coding agent call obelize, `obelize mcp`, and a GitHub Action and pre-commit
+  hook that run a scan.
+- An optional network step that reads a package index, with every host named first and `--offline`.
 - Two example repositories, `examples/gemini-legacy-app` and `examples/quickstart`.
 - The evidence run folder, the benchmark protocol and a published result file.
 
@@ -55,12 +68,11 @@ has made a breaking release.
 The [roadmap](ROADMAP.md) lists these in the order I intend to build them. None of them ships until
 the changelog says so, and the README describes only what ships.
 
-- Finding a library's breaking changes without a bundled pack, and listing the affected places.
-- Tools for writing a pack, and a registry to share one.
-- A server that lets a coding agent call obelize, and a GitHub Action and pre-commit hook.
-- An optional network step that reads a package index and a migration guide.
-- Isolated environments for the old and the new release, so one command runs your tests on both.
-- Commits on a branch you ask for, and a pipeline that opens the pull request.
+- Renaming a member across a class hierarchy, rewriting a pattern a pack declares, and rule kinds
+  from plugins.
+- Reading a migration guide to draft rules, and a pipeline that opens the pull request of an
+  upgrade.
+- A registry to share a pack, and existing fixers such as ruff behind the same evidence.
 
 ## Not planned
 

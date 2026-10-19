@@ -2,8 +2,9 @@
 
 obelize can move a dependency to a newer release when no one has written a pack for it. It reads
 two releases of the library, writes a pack from what changed, plans the move, tries it with your own
-tests and, if they agree, keeps it. This page is the whole path. Every command reaches the package
-index and says which host first; none of it needs an account.
+tests and, if they agree, keeps it. This page is the whole path. A command that reads the package
+index says which host it will contact first, and none of them needs an account; `--agent` uses the
+login of your own `claude`.
 
 ## 1. See what is behind
 
@@ -25,15 +26,17 @@ uvx obelize upgrade pydantic
 
 `upgrade` takes the release your dependency files name and the newest release, and uses the pack
 that suits the move. If obelize has none, it reads the two releases (and the newest of each minor
-line between them, since a library warns before it removes) and writes one, as
+line between them, at most six, since a library warns before it removes) and writes one, as
 [`pack synth`](CLI.md#obelize-pack-synth) does. Then it plans the migration like `fix` and prints
-the diff. Nothing in your repository is written.
+the diff. No file of your code is written; its run folder goes under `.obelize/`.
 
 What the made pack does is deliberately small:
 
-- A name the library's own deprecation message says to replace, with one name beside it, is renamed.
+- A module-level name that the library's own deprecation message says to replace, with one name
+  beside it, is renamed. A method or another member is flagged instead.
 - A name that moved up out of a submodule is moved up.
-- Everything else that changed is flagged with the library's words, never rewritten: what was
+- Everything else that changed is flagged and never rewritten, with the library's own message where
+  it gave one: what was
   removed or moved, a parameter that was renamed, removed or made required, a default that changed,
   a class whose bases changed, a name that is deprecated.
 - The dependency line moves to the new release.
@@ -57,10 +60,12 @@ The evidence (the junit files, the output, what each environment held and the ve
 
 It asks first because installing runs the build scripts of the packages it installs and the tests
 run your code. `--yes` is the answer for a pipeline, and a terminal is asked. A tree with
-uncommitted changes is refused before anything starts.
+uncommitted changes to tracked files is refused before anything starts.
 
 Exit `3` means tests broke, with their names; exit `6` means the trial could not judge: no tests,
-no result obelize can read, no test that passed before, or a move that changed no file. Without
+no result obelize can read, no test that passed before, tests that did not finish within
+`--timeout`, a move that changed no file, a place left for a person, or environments that could
+not be made. Without
 tests, write the migration with `obelize fix --apply` and check it another way.
 
 ## 4. Keep it on a branch
@@ -78,7 +83,7 @@ workflow do it.
 
 - It writes a move to the whole repository or to none of it. A library that keeps its import name
   across the move is one distribution for both APIs, so one place that obelize cannot migrate holds
-  every other file. Most real repositories have such a place, and the trial then ends `6` until a
+  every other file. A real repository often has such a place, and the trial then ends `6` until a
   person or an agent has moved it. [With a coding agent](WITH_A_CODING_AGENT.md) hands those places
   over and keeps the check.
 - It finds a name through the module (`pydantic.BaseModel.parse_obj`), not through an object whose
@@ -94,7 +99,7 @@ reached any other way, through an object's attribute for one, is not among them.
 
 ## When places are left for a person
 
-Most real moves leave places that a pack made from two releases can only flag, and a library that
+A real move often leaves places that a pack made from two releases can only flag, and a library that
 keeps its import name has one release for both APIs, so the rules write nothing until every one has
 moved. With your own coding agent installed, obelize can put those places to it:
 
@@ -103,8 +108,9 @@ uvx obelize upgrade pydantic --apply --yes --branch --agent claude_code
 ```
 
 In the trial's copy, each flagged place is sent to your `claude` program as a text question: the
-library's own words about it and the lines around it, nothing else, with every tool of the program
-turned off. The answer must pass the same guard as any model proposal. The accepted edits go into
+pack's words about it (the library's own message where it gave one), the closest new names that
+`hints.json` offers if there are any, and the lines around it, nothing else, with every tool of the
+program turned off. The answer must pass the same guard as any model proposal. The accepted edits go into
 the copy, the rules then write the rest, and your tests judge the whole. Only a move the tests agree
 to is committed, and only to a branch; the commit message names the files the agent edited, which
 are the lines to read first. `--max-asks` limits how many places are asked about.
@@ -134,8 +140,8 @@ The third run needed two fixes before it passed. `upgrade pydantic --from 1.10.2
 --yes --branch --agent claude_code` on a small scraper (`THSR-Ticket`, whose tests that need the
 network were left out with `--test-command`) first flagged 55 places, most of them every
 `Field(...)` call, because the new release deprecates one of its parameters and gave `repr` a
-private default. Neither is a change a call shows, so the pack now flags 22, all `@validator`. The
-agent moved none of them: the replacement needed `field_validator`, imported at the top of the file,
+private default. Neither is a change a call shows, so the pack now flags only the `@validator`
+places. The agent moved none of them: the replacement needed `field_validator`, imported at the top of the file,
 outside the lines it was sent. A proposal may now list the imports it needs, which obelize adds to
 the file's import block, and the import of a name is covered once every place that used it moved.
 The agent then moved the ten decorators, the 23 tests that passed before passed after, and the commit

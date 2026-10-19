@@ -12,6 +12,68 @@ in the release that makes it.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-19
+
+obelize can now move a dependency that no one has written a pack for. `obelize upgrade` finds what is
+behind, makes a pack from two releases of the library, tries the move in a copy of your repository
+with your own tests and writes it only if no test that passed now fails. With your own coding agent
+it also moves the places a pack can only flag, and it can commit the result to a branch. Around it
+are the pieces that let a pipeline and a coding agent use obelize: SARIF, `--fail-on`, an MCP
+server, a GitHub Action and a pre-commit hook. Everything new is reached by a command or a flag,
+apart from the few changes listed under Changed, and what the three bundled packs write is what it
+was.
+
+### Benchmark
+
+I did not run round 1 again. Its numbers are still 0.1.0's and are for the Gemini pack alone: 25 of
+277 usages (9.0%) migrated in 20 repositories with no wrong edit. I did take Gate 1's scan and the
+three dry runs again with this release, over the same 80 repositories each at the same commits.
+All 320 records are the ones 0.6.0 gave, finding for finding and withheld row for withheld row, so
+they now read `obelize 0.7.0` and nothing else in them moved.
+
+The commands added in this release have no benchmark of their own. Four runs of `upgrade` on three
+public repositories ([docs/UPGRADING.md](docs/UPGRADING.md#runs-on-real-repositories)) passed their
+own tests before and after the move. They show that the steps join up, not how often a move
+passes.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has a new section on upgrading a dependency. What it
+names:
+
+- A trial installs packages and runs their build scripts, and your tests, as you on your machine. The
+  question it asks first is the only gate: nothing sandboxes them.
+- A library that keeps its import name across the move is one distribution for both APIs, so
+  `upgrade` writes to the whole repository or to none of it. A trial of a real repository ends in
+  exit `6` until the places a pack only flags have been moved, by you or by `--agent`.
+- A name is found through its module (`pydantic.BaseModel.parse_obj`), not through an object whose
+  class obelize cannot tell, such as a subclass you wrote. `User.parse_obj(...)` and `.dict()` are
+  not seen, and a method that is deprecated but still works shows only if a test breaks.
+- A parameter that was renamed, removed or made required is flagged and never rewritten.
+- A requirement with extras (`mcp[cli]>=1.28.1`) is left as it was, and the summary and the commit
+  message say so.
+- The environment for the release in use holds today's resolution of the dependencies you did not
+  pin, so a test that fails there for that reason is not blamed on the move.
+- A module that makes its names when it is imported (pydantic 2's top level, for one) is counted as
+  names obelize could not judge, not as removed.
+- A failing test whose error names no line of your code cannot be put to the agent.
+- The agent is asked about the places a pack flags only when the first run of the rules wrote
+  nothing, as it does for a library that keeps its import name. Where the rules wrote some files, it
+  sees only the places where tests then broke.
+- A flagged place in a test file is put to the agent like any other. Only the repair rounds leave
+  test files alone, and the commit message names every file the agent edited.
+- A library that changed more names than a pack file holds (pandas) gets a pack for the names your
+  code reaches through its imports, and a name reached any other way is not in it.
+- It reads Python only, the trial needs uv, and `claude` is the one agent program it can use.
+
+The formats that changed are `pack.yaml` (`source.type: api_diff`, and `rename_symbol`'s `renamed` and
+`calls`, with `symbols` no longer required), the model proposal (`imports`, and the reason
+`no_pack_for_usage`), `findings.json`, `plan.json` and `run.json` (the reason `no_pack_for_usage`,
+`packs[].source: inventory` and `verify.edited`), the user config (`network` and `agent`) and the
+JSON Schemas, which gain `outdated.schema.json`. `pack synth` writes a new file, `hints.json`,
+beside the pack it makes, and a trial writes a new folder, `.obelize/trials/<id>/`, with a
+`trial.json` that no schema describes yet.
+
 ### Added
 
 - `obelize scan --sarif` prints the findings as SARIF 2.1.0, which GitHub code scanning reads.
@@ -28,54 +90,84 @@ in the release that makes it.
   bundled packs pass in the test suite, now available for a pack of your own.
 - `obelize verify --current` runs a run's verification on the tree as it stands instead of
   answering `tree_changed`, and records the files that differ from what the run wrote in
-  `verify.edited` (a new field of `run.json`, empty for any other verification). A run that wrote no
-  file can be checked this way, so someone else's migration can be verified.
+  `verify.edited` (a new field of `run.json`, empty for any other verification). An `--apply` run
+  that wrote no file can be checked this way, so a migration that an agent made by hand can be
+  verified.
 - `obelize mcp` serves obelize to a coding agent over the Model Context Protocol, on standard input
-  and output and with no new dependency. Seven tools (`obelize_scan`, `obelize_plan`,
-  `obelize_apply`, `obelize_residue`, `obelize_verify`, `obelize_report`, `obelize_undo`) run the
-  commands and return what they print; `obelize_residue` lists the places obelize could not migrate
-  with the code around each. No tool takes a command, a path, a model or a consent, and `--read-only`
-  leaves out the two that write files.
+  and output and with no new dependency. Seven tools: `obelize_scan`, `obelize_plan`,
+  `obelize_apply`, `obelize_verify` and `obelize_undo` run the commands and return what they print,
+  `obelize_report` returns a run's `REPORT.md`, and `obelize_residue` lists the places obelize could
+  not migrate with the code around each. No tool takes a command, a path, a model or a consent, and
+  `--read-only` leaves out the two that write files.
 - `action.yml` is a GitHub Action that runs a scan, annotates each place on its file and line,
   uploads the findings to code scanning if asked and fails the job on the statuses you name.
   `.pre-commit-hooks.yaml` offers the same scan as the hook `obelize-scan`.
 - `obelize pack synth <distribution> --from <version>` makes a pack for a library that has none. It
-  asks the package index for two releases and the last one between them, opens each for its source
-  and nothing else, reads what each exports without importing or building anything, and writes a
-  pack: a name the library's deprecation message says to replace is renamed, a name moved up out of
-  a submodule is moved, everything else that changed is flagged with the library's own words, and
-  the dependency line moves. The pack must pass `pack test` or it is not kept. Every host is printed
-  before it is contacted, answers are cached for you alone, and `--offline` uses only the cache.
+  asks the package index for two releases and, for the names that left, the newest release of each
+  minor line between them (at most six, newest first, until each name is found), opens each for its
+  Python source and the metadata that names its modules, reads what each exports without importing
+  or building anything, and writes a pack: a name the library's deprecation message says to replace
+  is renamed, a name moved up out of a submodule is moved, everything else that changed is flagged
+  with the library's own message where it gave one, and the dependency line moves. The pack must
+  pass `pack test` or it is not kept. Every host is printed before it is contacted, answers are
+  cached for you alone, and `--offline` uses only the cache.
+  - A function is not flagged only because one of its parameters is deprecated or because a
+    parameter's default became a sentinel such as `_Unset`: the library decides the value
+    elsewhere, which a name cannot show. Two old names that become one new name are flagged and not
+    renamed.
+  - A wheel's compiled library does not stop the archive from being read (numpy), and a fixture
+    names at most 60 of a large library's names.
+  - `--used-by <path>` makes the pack for the names the code in a folder reaches through its
+    imports, for a library that changed more names than a pack file holds (pandas, for one).
+    `upgrade` does so by itself and keeps the pack for that repository. A star import of the library
+    is refused, since it leaves no telling which names are used.
 - `obelize outdated` lists the dependencies a repository declares that the package index says have
   moved on: the release in use, the newest, the size of the gap, whether the library marks itself
   inactive, the release was withdrawn or has an advisory, and what can migrate it (a bundled pack,
-  or two releases to compare). `--json` prints the rows, described by the new `outdated.schema.json`.
+  or two releases to compare). It lists a dependency only if it has a flag or a major gap, unless
+  you pass `--all`. `--json` prints the rows, described by the new `outdated.schema.json`.
+- `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
+  it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
+  migration as `fix` does without `--apply`. It writes no file of your code, only its run folder
+  under `.obelize/`. With no dependency it lists those that `outdated` shows and obelize can
+  migrate, and asks which to move; where no one can be asked it prints the list and exits `2`.
 - `obelize upgrade <distribution> --apply --yes` tries the move before it writes it: in a copy of the
   repository and two environments made with uv (the release in use, and the release moved to), it
   runs the repository's own tests before and after the migration, compares them test by test and
   runs the ones that broke once more. The move is written only if no test that passed now fails; the
-  evidence is `.obelize/trials/<id>/`. It asks first, refuses a tree with uncommitted changes, and
-  exits `3` for tests that broke and `6` for a trial that could not judge. `--branch` commits a
-  passed move to a new branch instead of the working tree, with git's plumbing: no checkout, no hook,
-  no signature, no push.
+  evidence is `.obelize/trials/<id>/`. It asks first, refuses a tree with uncommitted changes to
+  tracked files, and exits `3` for tests that broke and `6` for a trial that could not judge.
+  `--timeout <seconds>` sets how long the tests may run, and tests that did not finish are reported
+  as that. `--offline` keeps uv to its cache. `--branch` commits a passed move to a new branch
+  instead of the working tree, with git's plumbing: no checkout, no hook, no signature, no push.
 - `obelize upgrade <distribution> --apply --branch --agent claude_code` puts the places a pack only
   flags to your own `claude` program as a text-only model (every tool, session, MCP server, skill and
-  setting of yours off, a fixed list of environment variables), checks each answer with the guard,
-  writes it to the trial's copy, lets the rules write the rest and your tests judge. It needs
-  `--branch`, so nothing a model helped write reaches your working tree; the commit message names the
-  files it edited. `agent.backend` and `agent.model` in your own configuration do the same, and a
-  repository's `.obelize.yml` may not set `agent`. Tests that passed before the move and fail after it
-  are put to the agent too, with the error and the line of non-test code the traceback points at, for
-  up to `--max-rounds` rounds (3); a test file is never edited. A place the pack flags is sent with
-  the new names closest to the removed one, which `pack synth` keeps in `hints.json` beside the
-  pack, and the dependency line follows the places the agent moved. A dependency line the rules
-  cannot write is named in the summary and the commit message.
-- `obelize upgrade <distribution>` shows what moving one dependency to a newer release would change:
-  it uses the pack that migrates it, or makes one from the two releases and keeps it, then plans the
-  migration as `fix` does without `--apply`. It writes nothing in the repository.
+  setting of yours off, and an environment cut down to the variables a login and a network need,
+  [listed in the privacy notes](docs/PRIVACY.md#what-an-agent-run-sends)), checks each answer with
+  the guard, writes it to the trial's copy, lets the rules write the rest and your tests judge. It
+  needs `--branch`, so nothing a model helped write reaches your working tree; the commit message
+  names the files it edited. `agent.backend` and `agent.model` in your own configuration do the
+  same where `--apply --branch` is given, and a repository's `.obelize.yml` may not set `agent`.
+  - A place the pack flags is sent with the new names closest to the removed one, which `pack synth`
+    keeps in `hints.json` beside the pack, and the dependency line follows the places the agent
+    moved. A dependency line the rules cannot write is named in the summary and the commit message.
+  - An answer may list `imports`, up to four plain `import` or `from ... import` statements of the
+    pack's target modules, which the guard adds at module level, to the file's own `from m import
+    ...` line when it has one. A file's places are asked about from the bottom, each where the
+    earlier answers left it, and the import of a name is covered once every place that uses it moved.
+  - An answer may be that a place needs no edit (`"unchanged"`, with a sentence). The place is
+    settled and nothing is written for it, and the evidence and the commit message name such places:
+    only the tests check them.
+  - In a library that has one release for both APIs, a place left in a file the agent moved does not
+    hold the dependency line.
+  - Tests that passed before the move and fail after it are put to the agent too, with the error and
+    the line of non-test code the traceback points at, for up to `--max-rounds` rounds (3). A test
+    that fails because its module would not import is put with the line pytest points at. The rounds
+    never edit a test file.
 - `~/.config/obelize/config.yml` takes `network.index` and `network.offline`, and the environment
-  `OBELIZE_INDEX_URL`, `OBELIZE_INDEX_AUTHORIZATION` and `OBELIZE_OFFLINE` do the same for one run.
-  A repository's `.obelize.yml` may not set `network`: it is refused, as `model` is.
+  `OBELIZE_INDEX_URL` and `OBELIZE_OFFLINE` do the same for one run. `OBELIZE_INDEX_AUTHORIZATION`
+  holds the value of an `Authorization` header, sent to the index host and no other. A repository's
+  `.obelize.yml` may not set `network`: it is refused, as `model` is.
 - `source.type` of a pack may be `api_diff`, the type of a pack made by `pack synth`. A bundled pack
   never is.
 - griffelib is the seventh runtime dependency. It reads a release's API in a child process and is
@@ -89,40 +181,12 @@ in the release that makes it.
   corpus describe the new fields.
 - `obelize undo` skips a recorded path in `.git/` or `.obelize/` as `outside_root`: a run never
   writes either, so a run folder that names one was forged.
-- The package description, keywords and README say what `upgrade` does, and the development status
-  is Beta.
+- A model's proposal may carry `imports`, as an agent's may, and the guard lets a replacement name
+  `classmethod`, `staticmethod`, `property`, `super` and `object`.
 - A scan that finds no pack to apply names the libraries the repository imports most and the
   command that lists one.
-- A pack made by `pack synth` no longer flags a function because one of its parameters is
-  deprecated, or because a parameter's default became a sentinel such as `_Unset`: the library
-  decides the value elsewhere, which a name cannot show. A trial that could not compare any test
-  prints no counts, and names the dependency declaration that stopped the rules.
-- The guard lets a replacement name `classmethod`, `staticmethod`, `property`, `super` and `object`.
-- `obelize upgrade --timeout <seconds>` sets how long the trial's tests may run, and a trial whose
-  tests did not finish is reported as that, not as having produced no result.
-- `obelize upgrade` with no dependency lists those behind a major release that obelize can migrate
-  and asks which to move; where no one can be asked it prints the list and exits `2`.
-- `pack synth --used-by <path>` makes the pack for the names the code in a folder reaches through
-  its imports, and `upgrade` does so by itself for a library that changed more names than a pack
-  file holds (pandas, for one), and keeps the pack for that repository. A star import of the
-  library is refused, since it leaves no telling which names are used.
-- `pack synth` no longer writes an invalid pack when two old names become one new name: they are
-  flagged. A wheel's compiled library no longer stops the archive from being read (numpy), a
-  fixture names at most 60 of a large library's names, and the scan looks a name's prefixes up
-  instead of walking every name of the pack.
-- A model's or agent's proposal may carry `imports`, up to four plain `import` or `from ... import`
-  statements of the pack's target modules. The guard adds them at module level, to the file's own
-  `from m import ...` line when it has one, and refuses one that is not an import of a target or
-  that would change a line the proposal replaces. A file's places are asked about from the bottom,
-  each where the earlier answers left it, and the import of a name is covered once every place that
-  uses it moved, so a rename that needs a new import is no longer out of reach.
-- In a trial of a library that has one release for both APIs, a place left in a file the agent
-  moved no longer holds the dependency line: the import of a name whose uses all moved is covered,
-  and the places that remain in a file the agent edited were looked at. A test that fails because
-  its module would not import is put to the agent with the line pytest points at.
-- The agent may answer that a flagged place needs no edit (`"unchanged"`, with a sentence). The
-  place is settled and nothing is written for it, a file settled that way holds no dependency line
-  back, and the evidence and the commit message name each such place: only the tests check it.
+- The package description, keywords and README say what `upgrade` does, and the development status
+  is Beta.
 
 ## [0.6.1] - 2026-10-18
 

@@ -2,12 +2,19 @@
 
 ## v0: no network unless you ask, no telemetry
 
-- No network call unless you configure the model adapter (below) or run `obelize pack synth`
-  (below): no update check, no pack download, no crash report. `scan`, `fix`, `verify`, `undo` and
-  `mcp` never reach a network.
+- No network call unless you ask for one: by configuring the model adapter (below), by running a
+  command that reads a package index (`pack synth`, `outdated` or `upgrade`, below), or with
+  `upgrade --apply`, which installs packages with uv, and `upgrade --agent`, which starts your own
+  `claude` program. There is no update check, no pack download and no crash report. `scan`,
+  `verify`, `undo` and `mcp` never reach a network, and `fix` reaches only a model endpoint you
+  configured.
 - No telemetry code at all: no usage counters, no identifiers, no ping.
 - No account.
-- Everything Obelize writes goes into the repository you pointed it at, bar two places. While
+- Everything Obelize writes goes into the repository you pointed it at, bar three places. The
+  cache in `$XDG_CACHE_HOME/obelize` (or `~/.cache/obelize`) holds what the package index
+  answered, the releases it sent, the packs `pack synth` and `upgrade` made and, while a trial runs,
+  its copy of the repository and its environments (below); `pack new` and `pack synth` write the
+  pack's folder where `--dir` says. While
   verification commands run, their JUnit XML, which can hold test output, sits in a temporary
   directory under your system's temp folder and is removed afterwards. When you approve a
   verification command from a repository's `.obelize.yml`, the repository's path, the command and
@@ -48,16 +55,21 @@ What reduces the exposure:
 `patch.diff` and `snapshots/` hold your code exactly as it is, secrets included, because a
 snapshot you cannot restore from is useless. **Review a run folder before you share it.**
 
-## What `obelize pack synth` reaches
+## What the package index sees
 
-The command exists to read two releases of a library, so it asks a package index for them:
+`pack synth` and `upgrade` read two releases of a library, and `outdated` asks about every library
+your manifests declare, so they ask a package index:
 
 - The index is yours: PyPI unless your own `~/.config/obelize/config.yml` (`network.index`) or
   `OBELIZE_INDEX_URL` names another. A repository's `.obelize.yml` cannot name one and is refused.
   Plain `http://` is accepted only for this machine.
-- It asks for the project's page (the library's name is in the address), the files of the releases
-  it compares and, where the index has one, nothing else. The files come from the host the page
-  names, which for PyPI is `files.pythonhosted.org`. It sends no cookie, no body, nothing from your
+- `pack synth` and `upgrade` ask for the project's page (the library's name is in the address) and
+  the files of the releases they compare. `outdated` asks, for each distribution your manifests
+  declare, for its project page and for the index's JSON metadata of the newest release and of the
+  release you use, so the name of every dependency you declare, a private one included, and the
+  release in use are in the addresses it requests, so point it only at an index that may know them.
+  The files come from the host the page
+  names, which for PyPI is `files.pythonhosted.org`. None of them sends a cookie, a body, nothing from your
   repository and nothing about your machine beyond a `User-Agent` of the form `obelize/<version>`
   and what any HTTPS request carries. An `Authorization` value in `OBELIZE_INDEX_AUTHORIZATION` goes
   to the index host and to none other, and a redirect to another host is refused.
@@ -76,24 +88,30 @@ its tests in each. The copy and the environments are made in `$XDG_CACHE_HOME/ob
 `~/.cache/obelize/trials`) and removed when the trial ends; what stays is its evidence, in
 `.obelize/trials/<id>/` of the repository: the junit files and output of each test run, what was
 installed in each environment, and the verdict. Installing reaches the index uv is configured for
-(`UV_INDEX_URL` and the like, not `network.index`) and runs the build scripts of what it installs;
-the tests run the code of the repository. Nothing about the repository or its tests is sent
+(`UV_INDEX_URL` and the like, not `network.index`) and runs the build scripts of what it installs,
+and with `--offline`, `network.offline` or `OBELIZE_OFFLINE` it is kept to uv's own cache; the tests
+run the code of the repository. Nothing about the repository or its tests is sent
 anywhere by obelize. A trial happens only if you pass `--yes` or answer yes at a terminal.
 
-## What `obelize upgrade --agent` sends
+## What an agent run sends
 
 With `--agent claude_code` (or `agent.backend` in your own configuration), `upgrade --apply --branch`
 asks your `claude` program about the places the pack flags, one question each, up to `--max-asks`
 (50) a round and up to `--max-rounds` (3) rounds for the tests that broke after the move. A question is the same text the model adapter sends: the pack's id and target package, the
-file's path, the line and symbol, the pack's own words about the place and the lines around it
-(redacted by the same redactor, numbered), and nothing else of the repository. It goes to wherever
+file's path, the line and symbol, the pack's own words about the place, the new names closest to a
+removed one where `pack synth` kept them in `hints.json`, and the lines around it (redacted by the
+same redactor, numbered), and nothing else of the repository. It goes to wherever
 your `claude` login sends a prompt, which is not obelize's to say and not a host obelize prints.
 The program is started in an empty directory with every tool off, no session saved, no MCP server,
-no skill and none of your settings, and with only the variables it needs for its login, its network
-and its terminal: a token for GitHub or a package index is not among them. Its answers are checked
+no skill and none of your settings, and with a short list of variables: `PATH`, `HOME`, the proxy and
+certificate variables of your network, and any beginning `ANTHROPIC_`, `CLAUDE_`, `AWS_`, `GOOGLE_`
+or `VERTEX_`, which are what a login to Claude through Anthropic, Bedrock or Vertex uses. A token
+for GitHub or a package index is not among them. Its answers are checked
 by the guard and written only to the trial's copy. For a test that broke, the question holds the
 test's name and the last line of its error (redacted and cut to 300 characters) in place of the
-pack's words; no test file is sent as a place to edit. `--agent` needs `--branch`, so nothing a model
+pack's words, and a test that broke is never itself the place to edit. A place the pack flags in a
+test file is asked about like any other, and the commit message names every file the agent edited.
+`--agent` needs `--branch`, so nothing a model
 helped write reaches your working tree before you have read it on a branch.
 
 ## What changes with the model adapter

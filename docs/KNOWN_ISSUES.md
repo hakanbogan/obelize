@@ -108,6 +108,50 @@ few passes do more work than they need to (a second scope resolution of the rewr
 `fix` takes about three seconds for a file of 800 calls and ten for 3,200, in step with the number
 of calls.
 
+## Upgrading a dependency
+
+[`obelize upgrade`](UPGRADING.md) writes a move to the whole repository or to none of it when the
+library keeps its import name, since the old and the new API are then one distribution. A real
+repository often has a place that a pack made from two releases can only flag, so the trial ends
+`6` until a person or `--agent` has moved it. Writing the places that are safe to write while the rest
+wait would leave a repository half migrated, which neither release installs.
+
+A trial installs packages and runs their build scripts, and your tests, as you, on your machine,
+with your network and your files in reach. The question it asks first is the only gate: nothing
+sandboxes the installs or the tests, so run it only on a repository whose dependencies and tests
+you would run anyway.
+
+A name is found through its module (`pydantic.BaseModel.parse_obj`), not through an object whose
+class the scan cannot tell, such as a subclass you wrote, so `User.parse_obj(...)` and `.dict()` are
+not seen. A method that is deprecated and still works is therefore noticed only if a test breaks,
+and the repair rounds can put it to the agent only then.
+
+A pack made from two releases flags a parameter that was renamed, removed or made required, and a
+default that changed, in a sentence built from the two signatures. It does not rewrite the call. A requirement with
+extras (`mcp[cli]>=1.28.1`) is not rewritten either: the dependency line is left, and the summary and
+the commit message name it.
+
+The environment for the release you use is made today, from the pins your files hold, so an
+unpinned dependency resolves to its newest release there. A test that fails in it for that reason
+fails before the move too and is not counted against it. A library that makes its names when it is
+imported (pydantic 2's top level, for one) cannot be judged by reading its source: the names are
+counted as ones obelize could not judge, and are neither migrated nor called removed.
+
+`--agent` is asked about the places a pack flags only when the first run of the rules wrote nothing,
+as it does for a library that keeps its import name. Where the rules did write some files, it sees
+only the places where tests then broke. A flagged place in a test file is asked about like any
+other, so the commit message, which names every file the agent edited, is where to look first.
+
+A failing test whose error shows no line of your code, such as a wrong value with no traceback
+through a file the move wrote, cannot be placed, and the agent is not asked about it. A library that
+changed more names than a pack file holds gets a pack for the names your code reaches through its
+imports, which is the smaller part of the library: a name reached any other way is not in it, and a
+star import of the library is refused.
+
+The pack made for a very large library (pandas) can repeat a name under each module that exports
+it, so the file is large. `claude` is the one agent program obelize can use, and only the trial can
+install anything, with uv.
+
 ## Data files and formats
 
 The input documents refuse a number, flag or string of the wrong type. The JSON Schemas I

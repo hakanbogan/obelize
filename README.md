@@ -3,7 +3,7 @@
 Verified codemods for breaking Python dependency upgrades. obelize rewrites the code it can prove
 safe to change, tells you why it left the rest, and runs your tests before and after. It ships
 migrations from `google-generativeai` to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`,
-and for any other library it makes one from two releases.
+and for another library it makes one from two of its releases.
 
 [![PyPI](https://img.shields.io/pypi/v/obelize)](https://pypi.org/project/obelize/)
 [![Python](https://img.shields.io/pypi/pyversions/obelize)](https://pypi.org/project/obelize/)
@@ -14,12 +14,12 @@ A library that breaks its API is slow to leave by hand, and a coding agent edits
 proof. obelize sits between them:
 
 - It rewrites a place only when it can resolve the call and prove the rewrite with a
-  [migration pack](docs/GLOSSARY.md#migration-pack), a reviewed file of data that cites the
-  library's own guide. Every other place stays as written and is listed with its reason.
+  [migration pack](docs/GLOSSARY.md#migration-pack), a file of data: the bundled ones are reviewed
+  and cite the library's own guide. Every other place stays as written and is listed with its reason.
 - It changes nothing until you pass `--apply`, refuses to write over uncommitted changes, and
   `undo` puts the files back.
-- It runs your test command before the change and after it. A run is verified when the tests that
-  passed on the old code still pass on the new.
+- It runs your tests before the change and after it. A run is verified when they passed before and
+  still pass after, and `upgrade` compares them test by test.
 - It runs on your machine, with no account and no telemetry, and makes no network call unless you
   configure a model yourself or ask it to read a library's releases from the package index.
 
@@ -205,9 +205,11 @@ file stays as it was.
 
 `scan`, and `fix` without `--apply`, change none of your files. obelize never pushes or merges, and
 makes a branch and a commit only when you ask (`upgrade --apply --branch`), without touching your
-working tree. It writes only its own `.obelize/` folder and the files on its plan, each through a
-temporary file and a rename. A verification command runs only from your own
-configuration or a flag, or after you approve it at a prompt. [Safety](docs/SAFETY.md) lists what
+working tree. In your repository it writes only its own `.obelize/` folder and the files on its
+plan, each through a temporary file and a rename, and it keeps what it reads from the package index
+in your cache folder. `upgrade --apply` is the one command that installs packages: it asks
+first and does it in a copy of the repository, with environments outside it. A verification command
+runs only from your own configuration or a flag, or after you approve it at a prompt. [Safety](docs/SAFETY.md) lists what
 is mitigated and what is not, and [the threat model](docs/THREAT_MODEL.md) and
 [privacy notes](docs/PRIVACY.md) have the detail.
 

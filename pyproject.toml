@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "obelize"
 dynamic = ["version", "readme"]
-description = "Verified Python dependency upgrades: rewrites what it can prove, hands the rest to your agent, keeps the move if tests pass. Ships google-generativeai to google-genai, openai to 1.x, PyPDF2 to pypdf."
+description = "Verified Python dependency upgrades: rewrites what it can prove, can ask an agent for the rest, keeps a move if tests pass. Ships google-generativeai to google-genai, openai to 1.x, PyPDF2 to pypdf."
 requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]

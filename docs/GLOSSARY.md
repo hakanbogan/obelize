@@ -5,9 +5,10 @@ links to it.
 
 ## Migration pack
 
-A reviewed data file that describes one migration between two versions of a library: which symbols
-to find, which [rule kind](#rule-kind) handles each, and the official guide that backs it. A pack
-holds no code. obelize parses it with a closed schema and never executes it. The format is in
+A data file that describes one migration between two versions of a library: which symbols to find,
+which [rule kind](#rule-kind) handles each, and what backs it: the official guide for a bundled
+pack, the public API of the two releases for one that `pack synth` made. A pack holds no code.
+obelize parses it with a closed schema and never executes it. The format is in
 [Pack format](PACK_SPEC.md), and the three that ship are in [Packs](PACKS.md).
 
 ## Rule kind

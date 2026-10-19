@@ -23,8 +23,8 @@ to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`.
 
 ## How it earns trust
 
-- A [migration pack](GLOSSARY.md#migration-pack) is reviewed data that cites the library's own
-  guide, and it holds no code.
+- A [migration pack](GLOSSARY.md#migration-pack) is data, and it holds no code. The bundled ones are
+  reviewed and cite the library's own guide; one made from two releases says what it was made from.
 - A rewrite happens only where obelize can resolve the call and prove the edit. Everything else
   stays as written, with a [reason](GLOSSARY.md#reason).
 - Your tests run before and after, so a change is [verified](GLOSSARY.md#verified) against
