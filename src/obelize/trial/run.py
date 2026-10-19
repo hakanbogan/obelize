@@ -9,7 +9,6 @@ around.
 from __future__ import annotations
 
 import json
-import shutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
@@ -107,7 +106,7 @@ def run(plan: Plan) -> Trial:
         )
         return _judged(plan, work, old, new)
     finally:
-        shutil.rmtree(plan.scratch, ignore_errors=True)
+        copy.remove(plan.scratch)
 
 
 def _judged(plan: Plan, work: Path, old: envs.Env, new: envs.Env) -> Trial:

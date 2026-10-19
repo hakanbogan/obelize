@@ -132,8 +132,8 @@ class Cache:
         somebody else chose. Absent is usable, since `put` makes it for the person alone."""
         try:
             status = self.directory.stat()
-        except FileNotFoundError:
-            return True
+        except FileNotFoundError:  # Windows says so, too, of a path below a file
+            return not any(parent.is_file() for parent in self.directory.parents)
         except OSError:
             return False
         if os.name == "nt":  # pragma: windows-only

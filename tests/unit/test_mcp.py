@@ -48,7 +48,7 @@ def tree(tmp_path: Path) -> Path:
             "app.py": LEGACY,
             "left.py": ESCAPING,
             "requirements.txt": "google-generativeai==0.8.6\n",
-            ".obelize.yml": f"verify:\n  commands:\n    - '{PYTHON} -c pass'\n",
+            ".obelize.yml": "verify:\n  commands:\n    - " + json.dumps(f"{PYTHON} -c pass") + "\n",
         },
     )
 

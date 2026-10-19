@@ -12,6 +12,7 @@ import pytest
 
 from obelize import archive
 from obelize.archive import ArchiveError, unpack
+from platforms import posix_only
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -127,7 +128,8 @@ def test_the_directory_to_unpack_into_is_new(tmp_path: Path) -> None:
         "acme/../../evil.py",
         "/etc/evil.py",
         "..\\evil.py",
-        "acme\\evil.py",
+        # zipfile reads a backslash as a slash where the system's separator is one.
+        pytest.param("acme\\evil.py", marks=posix_only("zipfile on Windows reads it as a slash")),
         "C:evil.py",
         "acme/app.py:stream",
         "acme/con.py",

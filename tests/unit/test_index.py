@@ -58,7 +58,11 @@ def test_a_project_the_index_does_not_have_is_not_found(served: fakeindex.FakeIn
     assert raised.value.reason == "not_found"
 
 
-@pytest.mark.parametrize("body", [b"not json", b"[]", b'{"files": 3}', b"[" * 100_000])
+@pytest.mark.parametrize(
+    "body",
+    [b"not json", b"[]", b'{"files": 3}', b"[" * 100_000],
+    ids=["text", "list", "files-not-a-list", "deep"],
+)
 def test_a_page_that_is_not_a_project_page_is_refused(
     served: fakeindex.FakeIndex, body: bytes, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -205,7 +209,11 @@ def test_an_index_without_the_json_api_or_the_project_has_no_metadata(
     assert index.metadata(_fetcher(served), "nothing-here") is None
 
 
-@pytest.mark.parametrize("body", [b"not json", b"[]", b'{"info": 3}', b"[" * 100_000])
+@pytest.mark.parametrize(
+    "body",
+    [b"not json", b"[]", b'{"info": 3}', b"[" * 100_000],
+    ids=["text", "list", "info-not-an-object", "deep"],
+)
 def test_metadata_that_is_not_the_json_api_is_no_metadata(
     served: fakeindex.FakeIndex, body: bytes, monkeypatch: pytest.MonkeyPatch
 ) -> None:

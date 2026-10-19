@@ -8,6 +8,7 @@ to run no hook.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import stat
@@ -20,6 +21,7 @@ from obelize.models import Config
 from obelize.scan import walker
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 # What a trial refuses to copy: more than a repository of source holds.
@@ -71,6 +73,19 @@ def make(root: Path, into: Path) -> Copied:
             target.chmod(0o755)
     _commit(into)
     return Copied(files, size, tuple(left))
+
+
+def remove(path: Path) -> None:
+    """Delete a scratch tree: git writes its objects read-only, which Windows will not delete."""
+
+    def writable(
+        function: Callable[[str], object], name: str, _error: BaseException
+    ) -> None:  # pragma: windows-only
+        with contextlib.suppress(OSError):
+            os.chmod(name, stat.S_IWRITE)
+            function(name)
+
+    shutil.rmtree(path, onexc=writable)
 
 
 def _excluded(name: str) -> bool:
