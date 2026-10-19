@@ -1246,6 +1246,8 @@ def upgrade(
         raise typer.Exit(2)
     try:
         agent_name, agent_model = _agent(agent)
+        if agent is None and not (apply_changes and (branch or branch_name)):
+            agent_name = None
         config, _ = _settings(root, _overrides(None, None, False))
         fetcher = _fetcher(offline)
         if distribution is None:
@@ -1300,6 +1302,7 @@ def upgrade(
             agent_model=agent_model,
             max_asks=max_asks,
             max_rounds=max_rounds,
+            offline=_offline(offline),
         )
         if wants_branch:
             raise typer.Exit(0)
@@ -1461,9 +1464,10 @@ def _trial(
     agent_model: str | None,
     max_asks: int,
     max_rounds: int,
+    offline: bool,
 ) -> None:
     """Try the move in a copy; return if the tests agree to it, else exit with why. With a branch
-    name the move is committed there, and the caller ends."""
+    name the move is committed there, and the caller ends. Offline, uv installs from its cache."""
     from obelize import gitutil, net
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
@@ -1528,6 +1532,7 @@ def _trial(
         return [row.path for row in outcome.record.file_edits]
 
     try:
+        run_dir.home_of(root.resolve())
         done = trying.run(
             trying.Plan(
                 root=root,
@@ -1537,7 +1542,7 @@ def _trial(
                 old=now,
                 install=chosen.install,
                 remove=chosen.remove,
-                environ=os.environ,
+                environ={**os.environ, "UV_OFFLINE": "1"} if offline else os.environ,
                 say=_say,
                 migrate=migrate,
                 resolve=resolver,
@@ -1548,7 +1553,13 @@ def _trial(
                 **({"timeout_s": timeout} if timeout else {}),
             )
         )
-    except (copy.CopyError, envs.EnvError, CommandError, ConfigError) as error:
+    except (
+        copy.CopyError,
+        envs.EnvError,
+        CommandError,
+        ConfigError,
+        run_dir.EvidenceError,
+    ) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(6) from error
     verdict = done.verdict
@@ -1623,8 +1634,9 @@ def pack_synth(
 ) -> None:
     """Make a migration pack from what two releases of a library offer.
 
-    Downloads the two releases from the package index (and the last one between
-    them), reads what each exports without importing or building anything, and
+    Downloads the two releases from the package index (and, for the names that
+    left, the newest of each minor line between them, at most six), reads what
+    each exports without importing or building anything, and
     writes a pack for the names that were renamed, moved or removed, with the
     library's own deprecation messages where it gave any. Every host is printed
     before it is contacted. Exit codes: 0 made, 2 the request is wrong or the
@@ -1673,6 +1685,13 @@ def pack_synth(
     typer.echo(f"Next: obelize pack test {shown}, then obelize scan --pack {shown}/pack.yaml")
 
 
+def _offline(flag: bool) -> bool:
+    """`--offline`, the person's `network.offline` or `OBELIZE_OFFLINE` in the environment."""
+    from obelize.verify.runner import user_config
+
+    return flag or user_config(_config_dir()).network.offline or "OBELIZE_OFFLINE" in os.environ
+
+
 def _fetcher(offline: bool) -> Fetcher:
     """The seam to the index, as the person's own settings say, telling each host it reaches."""
     from obelize import net
@@ -1686,7 +1705,7 @@ def _fetcher(offline: bool) -> Fetcher:
         raise ConfigError(f"OBELIZE_INDEX_URL: {error}") from error
     return net.Fetcher(
         index=address,
-        offline=offline or network.offline or "OBELIZE_OFFLINE" in os.environ,
+        offline=_offline(offline),
         cache=net.Cache.home(os.environ),
         credentials=os.environ.get("OBELIZE_INDEX_AUTHORIZATION"),
         say=lambda line: typer.echo(line, err=True),
@@ -1730,7 +1749,9 @@ def mcp(
 
     # A client that goes away while a reply is written leaves nobody to tell.
     with contextlib.suppress(BrokenPipeError):
-        server.serve(tools.Session(root.resolve(), trust=trust_repo_config, read_only=read_only))
+        server.serve(
+            tools.Session.start(root.resolve(), trust=trust_repo_config, read_only=read_only)
+        )
 
 
 @app.callback()

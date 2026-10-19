@@ -396,7 +396,7 @@ def journal(root: Path, run_id: str, plan: Planned) -> None:
 
     So an interrupted apply leaves what `undo` needs, and a bad folder fails before a file changes.
     """
-    home = _home(root)
+    home = home_of(root)
     runs = _directory(home / RUNS)
     folder = runs / run_id
     rows = RunJournal(run_id=run_id, file_edits=plan.document.files)
@@ -429,7 +429,7 @@ def write(
     snapshots and journal are removed after `run.json`.
     """
     _agree(record, fix)
-    home = _home(root)
+    home = home_of(root)
     runs = _directory(home / RUNS)
     folder = runs / record.run_id
     try:
@@ -843,7 +843,7 @@ def _config(config: Config, source: ConfigOrigin) -> RunConfig:
     )
 
 
-def _home(root: Path) -> Path:
+def home_of(root: Path) -> Path:
     """`.obelize/`, given its ignore file unless something is at that name already."""
     home = _directory(root / HOME)
     try:
@@ -925,6 +925,7 @@ __all__ = [
     "artefacts",
     "compose",
     "compose_fix",
+    "home_of",
     "instant",
     "interrupted",
     "journal",

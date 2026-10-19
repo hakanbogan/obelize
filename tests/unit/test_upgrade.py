@@ -597,6 +597,37 @@ def test_the_user_may_name_the_agent_in_the_config_file_instead_of_the_flag(
     assert result.exit_code == 0, result.output
 
 
+def test_an_agent_in_the_config_file_does_not_stop_a_dry_run_or_a_move_with_no_branch(
+    trial: Path,
+) -> None:
+    (trial / "config" / "obelize").mkdir(parents=True)
+    (trial / "config" / "obelize" / "config.yml").write_text("agent:\n  backend: claude_code\n")
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    dry = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert dry.exit_code == 0, dry.output
+    assert "acme_kit.greet(name)" in dry.output
+    written = tried(root, "--yes")
+    assert written.exit_code == 0, written.output
+    assert "acme_kit.greet(name)" in (root / "app.py").read_text()
+
+
+def test_the_evidence_of_a_trial_is_ignored_by_git_like_a_run_folder(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes", "--branch")
+    assert result.exit_code == 0, result.output
+    assert (root / ".obelize" / ".gitignore").read_text() == "*\n"
+    assert git(root, "status", "--porcelain").stdout.decode().strip() == ""
+
+
+def test_offline_keeps_the_trials_installs_to_uvs_cache(trial: Path) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    assert runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)]).exit_code == 0
+    result = tried(root, "--yes", "--offline")
+    assert result.exit_code == 6, result.output
+    assert "uv pip failed" in result.output
+    assert (root / "app.py").read_text() == HELLO
+
+
 @pytest.mark.parametrize(
     ("arguments", "message"),
     [

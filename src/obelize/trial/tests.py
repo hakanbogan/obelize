@@ -186,6 +186,8 @@ def judge(before: Phase | None, after: Phase | None, rerun: Mapping[str, Outcome
     passed = sorted(name for name, ended in before.cases.items() if ended == "passed")
     if not passed:
         return Verdict("inconclusive", "nothing_to_compare", 0, (), ())
+    if after is not None and not after.cases and after.result.reason == "timeout":
+        return Verdict("inconclusive", "timeout", len(passed), (), ())
     now = after.cases if after is not None else {}
     broken = tuple(name for name in passed if now.get(name, "error") in ("failed", "error"))
     flaky = tuple(name for name in broken if rerun.get(name) == "passed")

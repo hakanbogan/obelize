@@ -557,6 +557,19 @@ def test_the_command_refuses_a_repository_that_is_not_a_directory(tmp_path: Path
     assert "is not a directory" in result.output
 
 
+def test_the_command_pins_the_configuration_that_the_trust_it_is_given_covers(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sessions: list[tools.Session] = []
+    monkeypatch.setattr(server, "serve", sessions.append)
+    result = runner.invoke(app, ["mcp", "--repo", str(tree), "--trust-repo-config"])
+    assert result.exit_code == 0
+    assert sessions[0].flags == ["--trust-repo-config"]
+    (tree / ".obelize.yml").write_text("verify:\n  commands: []\n", encoding="utf-8")
+    with pytest.raises(tools.ToolError, match="not the file the server was started with"):
+        _ = sessions[0].flags
+
+
 def test_a_client_that_goes_away_mid_reply_ends_the_server_quietly(
     tree: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
