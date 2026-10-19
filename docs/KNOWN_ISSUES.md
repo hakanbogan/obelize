@@ -150,7 +150,8 @@ star import of the library is refused.
 
 The pack made for a very large library (pandas) can repeat a name under each module that exports
 it, so the file is large. `claude` is the one agent program obelize can use, and only the trial can
-install anything, with uv.
+install anything, with uv. The agent is started the same way on Windows, but its tests stand in for
+it with an executable script and run on Linux and macOS only.
 
 ## Data files and formats
 

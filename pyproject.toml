@@ -220,10 +220,15 @@ plugins = ["coverage_conditional_plugin"]
 
 # Each platform measures its own half of `native/` and never imports the other's. `_win32.py`
 # imports anywhere, but only Windows calls into it. bench is POSIX-only tooling, and its tests
-# skip on Windows.
+# skip on Windows. `agent_cli` starts the person's agent, which its tests stand in for with an
+# executable script, so Windows measures none of it.
 [tool.coverage.coverage_conditional_plugin.omit]
 "sys_platform != 'win32'" = ["src/obelize/native/*_windows.py", "src/obelize/native/_win32.py"]
-"sys_platform == 'win32'" = ["src/obelize/native/*_posix.py", "bench/*"]
+"sys_platform == 'win32'" = [
+  "src/obelize/native/*_posix.py",
+  "src/obelize/providers/agent_cli.py",
+  "bench/*",
+]
 
 # A selector's import line for one platform is left out of the other's measurement.
 [tool.coverage.coverage_conditional_plugin.rules]

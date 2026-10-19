@@ -134,7 +134,7 @@ class Cache:
             status = self.directory.stat()
         except FileNotFoundError:  # Windows says so, too, of a path below a file
             return not any(parent.is_file() for parent in self.directory.parents)
-        except OSError:
+        except OSError:  # pragma: posix-only
             return False
         if os.name == "nt":  # pragma: windows-only
             return stat.S_ISDIR(status.st_mode)

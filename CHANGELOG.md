@@ -64,7 +64,8 @@ names:
   test files alone, and the commit message names every file the agent edited.
 - A library that changed more names than a pack file holds (pandas) gets a pack for the names your
   code reaches through its imports, and a name reached any other way is not in it.
-- It reads Python only, the trial needs uv, and `claude` is the one agent program it can use.
+- It reads Python only, the trial needs uv, and `claude` is the one agent program it can use. The
+  agent's tests run on Linux and macOS, not on Windows.
 
 The formats that changed are `pack.yaml` (`source.type: api_diff`, and `rename_symbol`'s `renamed` and
 `calls`, with `symbols` no longer required), the model proposal (`imports`, and the reason

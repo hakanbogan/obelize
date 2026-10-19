@@ -221,7 +221,7 @@ def _made(session: Session, arguments: Arguments) -> str:
 
 
 def _evidence(err: str) -> str | None:
-    found = re.findall(r"^Evidence: (.+)$", err, re.MULTILINE)
+    found = re.findall(r"^Evidence: (.+?)\r?$", err, re.MULTILINE)
     return found[-1] if found else None
 
 
@@ -269,9 +269,9 @@ def described(
     payload: dict[str, Any] = {"exit_code": done.code, "meaning": MEANING.get(done.code, "")}
     evidence = _evidence(done.err)
     if evidence:
-        payload["evidence"] = evidence
+        payload["evidence"] = evidence.replace("\\", "/")
         # The run folder is named by the run, which the next call asks for by id.
-        payload["run"] = PurePosixPath(evidence.replace("\\", "/")).name
+        payload["run"] = PurePosixPath(payload["evidence"]).name
         session.made.add(payload["run"])
     try:
         document = json.loads(done.out)

@@ -59,7 +59,7 @@ def make(root: Path, into: Path) -> Copied:
         except OSError:
             left.append(name)
             continue
-        if not stat.S_ISREG(status.st_mode):
+        if not stat.S_ISREG(status.st_mode):  # pragma: posix-only
             left.append(name)
             continue
         files += 1
@@ -69,7 +69,7 @@ def make(root: Path, into: Path) -> Copied:
         target = into / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
-        if status.st_mode & 0o111:
+        if status.st_mode & 0o111:  # pragma: posix-only
             target.chmod(0o755)
     _commit(into)
     return Copied(files, size, tuple(left))

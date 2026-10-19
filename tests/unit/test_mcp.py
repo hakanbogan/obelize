@@ -570,6 +570,12 @@ def test_the_command_pins_the_configuration_that_the_trust_it_is_given_covers(
         _ = sessions[0].flags
 
 
+def test_the_evidence_a_windows_command_prints_has_no_carriage_return_in_it() -> None:
+    printed = "Evidence: .obelize\\runs\\20261019T000000Z-ab12cd34\r\nNext: nothing\r\n"
+    assert tools._evidence(printed) == ".obelize\\runs\\20261019T000000Z-ab12cd34"
+    assert tools._evidence("Next: nothing\n") is None
+
+
 def test_a_client_that_goes_away_mid_reply_ends_the_server_quietly(
     tree: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
