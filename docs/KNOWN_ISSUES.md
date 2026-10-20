@@ -152,10 +152,12 @@ with your network and your files in reach. The question it asks first is the onl
 sandboxes the installs or the tests, so run it only on a repository whose dependencies and tests
 you would run anyway.
 
-A name is found through its module (`pydantic.BaseModel.parse_obj`), not through an object whose
-class the scan cannot tell, such as a subclass you wrote, so `User.parse_obj(...)` and `.dict()` are
-not seen. A method that is deprecated and still works is therefore noticed only if a test breaks,
-and the repair rounds can put it to the agent only then.
+A pack made by `pack synth` reads a method through a class of yours only where the library's
+message says plainly which method replaces it and a call can move to it; the others, such as
+`copy`, are flagged where they are read off a receiver the scan can type, and not found where it
+cannot ([members of a class](#members-of-a-class)). A method that is deprecated and still works is
+therefore noticed only if a test breaks when it is read off a receiver nothing types, and the repair
+rounds can put it to the agent only then.
 
 A pack made from two releases flags a parameter that was renamed, removed or made required, and a
 default that changed, in a sentence built from the two signatures. It does not rewrite the call. A requirement with

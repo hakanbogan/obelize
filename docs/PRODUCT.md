@@ -56,7 +56,9 @@ has made a breaking release.
 - `outdated` and `upgrade`, which try a move in a copy of the repository with two environments and
   your own tests, write it only if no test that passed now fails, and can commit it to a branch you
   ask for, with your own `claude` program moving the places a pack can only flag.
-- Tools for writing a pack, `pack new` and `pack test`.
+- Tools for writing a pack, `pack new` and `pack test`, and kinds a pack can use to rename a member
+  of a class, rewrite a call from the shape of its arguments, or hand a change to a plugin you
+  install and allow.
 - A server that lets a coding agent call obelize, `obelize mcp`, and a GitHub Action and pre-commit
   hook that run a scan.
 - An optional network step that reads a package index, with every host named first and `--offline`.
@@ -68,8 +70,6 @@ has made a breaking release.
 The [roadmap](ROADMAP.md) lists these in the order I intend to build them. None of them ships until
 the changelog says so, and the README describes only what ships.
 
-- Renaming a member across a class hierarchy, rewriting a pattern a pack declares, and rule kinds
-  from plugins.
 - Reading a migration guide to draft rules, and a pipeline that opens the pull request of an
   upgrade.
 - A registry to share a pack, and existing fixers such as ruff behind the same evidence.

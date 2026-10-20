@@ -91,8 +91,9 @@ workflow do it.
   every other file. A real repository often has such a place, and the trial then ends `6` until a
   person or an agent has moved it. [With a coding agent](WITH_A_CODING_AGENT.md) hands those places
   over and keeps the check.
-- It finds a name through the module (`pydantic.BaseModel.parse_obj`), not through an object whose
-  class it cannot tell, such as a subclass of `BaseModel` you wrote.
+- It finds a method through a class of yours (`User(BaseModel)` and `user.dict()`) only where the
+  file shows what `user` is: a call of the class, `self`, an annotated parameter. A value a function
+  returned, or a field of another object, is not found.
 - It cannot see a name a library builds when it is imported. If a module makes names on demand, the
   command counts the names it could not judge instead of calling them removed.
 - It installs only from the index uv is configured for, and only in a trial.

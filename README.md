@@ -184,7 +184,10 @@ folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability
 | `py-pdf/pypdf2-to-pypdf` | The import, the names that exist unchanged on both sides, and the dependency line. | The names `PyPDF2` 3.0.0 removed and the ones `pypdf` dropped. |
 
 Your own packs load from a directory your `~/.config/obelize/config.yml` lists as `pack_dirs`. For a
-library that has none, `obelize pack synth` makes one from the public API of two of its releases.
+library that has none, `obelize pack synth` makes one from the public API of two of its releases. A
+pack can rename a method of a library's class wherever your code reads it off an instance of a class
+you wrote, rewrite a call from the shape of its arguments, or hand a change to a
+[plugin](docs/PLUGINS.md) you install and allow ([the pack format](docs/PACK_SPEC.md)).
 [Packs](docs/PACKS.md) says what each bundled pack covers, and the [roadmap](docs/ROADMAP.md) says
 which migrations come next.
 

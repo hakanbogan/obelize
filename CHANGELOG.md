@@ -12,6 +12,55 @@ in the release that makes it.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-21
+
+A pack can say more than it could. It can rename a method of a library's class where your code
+reads it off an instance of a class you wrote, rewrite a call from the shape of its arguments, and
+hand a change to a plugin you install and allow, and `pack synth` uses the first for the methods a
+library's own message says plainly to replace. Everything new is reached by a pack that uses it,
+and what the three bundled packs write is what it was.
+
+### Benchmark
+
+I took Gate 1's scan and the three dry runs again with this release, over the same 80 repositories
+each at the same commits. 319 of the 320 records are the ones 0.7.0 gave, finding for finding and
+withheld row for withheld row, and now read `obelize 0.8.0`. The other, `ZeroTang05/cyber-doctor` of
+the PyPDF2 frame, has been deleted from GitHub and cannot be fetched, so it is recorded as errored
+and that frame's shares are over 79 repositories.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has two new sections, on members of a class and on
+plugins. What they name:
+
+- A member is renamed only where the file shows what its receiver is: a call of a class that
+  derives from the library's, `self` and `cls` in a method of one, an annotated parameter or
+  variable, a name every assignment of which is one. A value a function returned, a field of
+  another object, an argument with no annotation and a loop variable are left as they are, and
+  not reported.
+- A class is found by the name an import gives it, at the module level of the files the walk
+  selects. One made in a function, by `type(...)`, in an excluded directory or through `from module
+  import *` is not found, nor is a mixin that comes from another library.
+- If any class of the repository defines a member a pack renames, no read of it off a receiver of the
+  library's class is renamed (`member_overridden`), since the receiver may be an instance of the
+  subclass that defines it.
+- A pattern spells only names of the module it calls (spelled as the file spelled the module), a pure
+  builtin or a metavariable; a call written without its module has none to spell by. An expression a
+  pattern would run twice or never is left for you, and the order a pattern writes its arguments in may
+  change the order their side effects run in.
+- A plugin is code of yours: obelize does not sandbox it, limit it, or read what it sends. It is found
+  with the working directory off the import path, so a plugin you develop must be installed.
+- `pack synth` renames only a method whose deprecation message says no more than which method to
+  use; `copy` and `from_orm` of pydantic stay flags, with the library's words.
+
+The formats that changed are `pack.yaml` (the kinds `rename_member`, `rewrite_pattern` and `plugin`,
+with `members`, `takes`, `before`, `after`, `where`, `plugin` and `requires_plugins`), the reasons
+and codes of `findings.json`, `plan.json` and `run.json` (`receiver_typed_by_class`,
+`member_overridden` and `pattern_unmatched`), `run.json` (`packs[].plugins`) and the user config
+(`plugins`), with the JSON Schemas that describe them. `pack synth` writes `rename_member` where it
+wrote a flag, and a scan of a pack that renames members of a class reads the class headers of every
+Python file first and parses a file that names a class deriving from one.
+
 ### Added
 
 - A pack can rename a member of a class (`rename_member`): `user.dict()` becomes `user.model_dump()`
@@ -20,15 +69,13 @@ in the release that makes it.
   variable, a name every assignment of which is one) and leaves any other alone. A class that another
   file of the repository defines is found, through the names its imports give it, though the file that
   uses it never names the library. A member that a class defines itself is withheld as
-  `member_overridden`. The kind is new, no bundled pack
-  uses it, and no format changed apart from the new kind, reason and code.
+  `member_overridden`. No bundled pack uses the kind.
 - A pack can rewrite a call from the shape of its arguments (`rewrite_pattern`): two one-line
   templates with `$name` for any expression, such as `pydantic.parse_obj_as($t, $v)` to
   `pydantic.TypeAdapter($t).validate_python($v)`, or `$m.dict(exclude=$e)` to
   `$m.model_dump(exclude=$e)` on an instance of a named class. The call is found by its name and
   compared with the first template by form; a call of another shape is withheld as
-  `pattern_unmatched`. No bundled pack uses the kind, and no format changed apart from the new kind
-  and code.
+  `pattern_unmatched`. No bundled pack uses the kind.
 - A rule kind can come from a plugin: a distribution you install that registers an entry point in
   the group `obelize.kinds`, which a pack names with `kind: plugin` beside `requires_plugins`.
   A plugin is code that runs in obelize's process with your rights, so nothing is imported until you
@@ -42,6 +89,7 @@ in the release that makes it.
   (pydantic 1 to 2: `parse_obj`, `construct`, `schema`, and `dict`, `json` and `update_forward_refs`
   with `takes`). A call that passes a keyword the new method lacks is left for you. What a pack flags
   on such a class is flagged where it is read off an instance as well.
+
 
 ## [0.7.0] - 2026-10-19
 

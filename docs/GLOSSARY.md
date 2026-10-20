@@ -15,7 +15,25 @@ obelize parses it with a closed schema and never executes it. The format is in
 
 One of the fixed ways obelize rewrites code, such as renaming an import or moving a call to a
 client object. A pack chooses a rule kind for each change it declares, and the rewrite itself lives
-in obelize, not in the pack.
+in obelize, not in the pack. A [plugin](#plugin) can provide one more.
+
+## Member
+
+A method or attribute of a class, such as `dict` of pydantic's `BaseModel`. A `rename_member` change
+renames it where your code reads it off an instance of the class, or of a class of yours that
+derives from it, and the file shows what the receiver is ([why](adr/ADR-068-rename-member.md)).
+
+## Pattern
+
+Two one-line templates in a pack, `before` and `after`, in which `$name` stands for any expression.
+A call is found by the name it is of and compared with `before` by form; `after` is written over
+what it bound ([why](adr/ADR-069-rewrite-pattern.md)). A template is read by libcst and never run.
+
+## Plugin
+
+A rule kind that a distribution you installed provides, which a pack can name. It is code that runs
+in obelize's process with your rights, so it runs only once you have allowed it in your own
+configuration, and obelize does not contain it ([how to write one](PLUGINS.md)).
 
 ## Codemod
 

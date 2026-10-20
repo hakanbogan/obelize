@@ -52,6 +52,15 @@ Four runs on three public repositories passed their own tests before and after t
 ([the runs](UPGRADING.md#runs-on-real-repositories)). That shows the steps join up, not how often a
 move passes; the benchmark of this mode is still to come.
 
+A pack can say more than it could. `rename_member` renames a method or attribute of a library
+class wherever the file shows what a receiver is, in a class of yours or in another file of the
+repository ([why](adr/ADR-068-rename-member.md)), `rewrite_pattern` rewrites a call from the shape
+of its arguments with two templates ([why](adr/ADR-069-rewrite-pattern.md)), and a plugin you
+install and allow can provide a rule kind of its own ([why](adr/ADR-070-plugins.md), [how to
+write one](PLUGINS.md)). `pack synth` writes the first for the methods a library's message plainly
+replaces: pydantic 1 to 2 gives `parse_obj`, `construct`, `schema`, `dict`, `json` and
+`update_forward_refs`.
+
 Around the commands are the pieces a pipeline and a coding agent use. `scan --library` lists every
 use of a library that has no pack, `pack new` and `pack test` help write one, `scan --sarif` and
 `--fail-on` serve a CI step, `verify --current` checks a tree that someone else edited, and
@@ -66,16 +75,14 @@ The commands above do that for a library whose changes two releases show. This i
 intend to build the rest in. Nothing below ships until the changelog says so, each step is its own
 release, and an option I add defaults to today's behaviour.
 
-1. Extension. Rename a method or attribute across a class hierarchy, so that `.dict()` on a
-   subclass you wrote is found, rewrite a pattern a pack declares, load rule kinds from Python
-   plugins you install and allow, and let the kinds the three packs use cover more shapes.
-2. Guides and more places. Read a migration guide and draft a rule from it, rewrite a dependency
-   line that carries extras, use an agent program other than `claude`, and let the GitHub Action
-   open the pull request of an upgrade. The command itself never pushes.
-3. Ecosystem. A registry of packs, existing fixers such as ruff behind the same evidence, writing
+1. Guides and more places. Read a migration guide and draft a rule from it, rewrite a dependency
+   line that carries extras, use an agent program other than `claude`, let the GitHub Action open
+   the pull request of an upgrade, and let the kinds the three bundled packs use cover more shapes.
+   The command itself never pushes.
+2. Ecosystem. A registry of packs, existing fixers such as ruff behind the same evidence, writing
    notebooks, packs for the Python runtime itself (`pkg_resources`, the modules PEP 594 removed,
    `datetime.utcnow`) and hand-checked packs for the libraries people ask about most.
-4. 1.0. Stable formats, with only additions after it, and a published benchmark of the pack-free
+3. 1.0. Stable formats, with only additions after it, and a published benchmark of the pack-free
    mode.
 
 TypeScript is a separate plan.
