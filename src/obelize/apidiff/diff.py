@@ -43,7 +43,9 @@ _SENTINEL: Final = re.compile(
 # A message that tells the reader what replaces a name, as opposed to one that only warns.
 _REPLACEMENT: Final = re.compile(r"\b(use|replaced|renamed|instead|favou?r|supersed\w*)\b", re.I)
 # A message that says no more than which name to use: anything else it says may be a step to take.
-_USE: Final = re.compile(r"^(?:[^.;]*;\s*)?use\s+`?([A-Za-z_]\w*)`?\s+instead\.?$", re.I)
+_USE: Final = re.compile(
+    r"^(?:[^.;]*\bdeprecated\b[^.;]*;\s*)?use\s+`?([A-Za-z_]\w*)`?\s+instead\.?$", re.I
+)
 _POSITIONAL: Final = ("positional-only", "positional or keyword")
 _KEYWORDED: Final = ("positional or keyword", "keyword-only")
 
@@ -246,6 +248,11 @@ def _changed(
             yield moved
 
 
+def names_only(message: str | None) -> bool:
+    """Whether a message says no more than which name to use instead."""
+    return message is not None and _USE.match(" ".join(message.split())) is not None
+
+
 def _deprecation(
     path: str, old: Obj, message: str, members: Mapping[str, Sequence[tuple[str, Obj]]]
 ) -> ApiChange:
@@ -281,8 +288,23 @@ def _accepts(old: Obj, new: Obj) -> bool:
         return False
     there = {one.name: one for one in new.params}
     named = {one.name for one in old.params}
-    return all(one.name in there and there[one.name].kind == one.kind for one in old.params) and (
-        not any(one.required for one in new.params if one.name not in named)
+    return all(
+        one.name in there and there[one.name].kind == one.kind and _carries(one, there[one.name])
+        for one in old.params
+    ) and not any(one.required for one in new.params if one.name not in named)
+
+
+def _carries(old: Param, new: Param) -> bool:
+    """Whether a call that gives or omits a parameter means the same to the new one: it did not
+    become required, and its default is the same or is now "not given" (`None`, a sentinel)."""
+    if old.default is None:
+        return True
+    if new.default is None:
+        return False
+    return (
+        old.default == new.default
+        or new.default == "None"
+        or bool(_SENTINEL.fullmatch(new.default))
     )
 
 
@@ -300,8 +322,10 @@ def _takes(old: Obj, new: Obj) -> tuple[str, ...] | None:
     added = [one for one in new.params if one.name not in old_names]
     kinds = {one.kind for one in new.params}
     spread = any(one.kind == "variadic positional" for one in old.params)
+    there = {one.name: one for one in new.params}
     if (
         not _positions(old, new)
+        or any(not _carries(one, there[one.name]) for one in old.params if one.name in there)
         or any(one.required for one in added)
         or any(one.required or one.kind in _POSITIONAL for one in went)
         or "variadic keyword" in kinds
@@ -418,4 +442,12 @@ def _words(name: str) -> frozenset[str]:
     return frozenset(one.lower() for one in _WORD.findall(name))
 
 
-__all__ = ["SUCCESSORS", "ApiChange", "ChangeType", "Successors", "diff", "successors"]
+__all__ = [
+    "SUCCESSORS",
+    "ApiChange",
+    "ChangeType",
+    "Successors",
+    "diff",
+    "names_only",
+    "successors",
+]

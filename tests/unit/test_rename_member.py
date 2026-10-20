@@ -12,6 +12,7 @@ from pathlib import Path
 import acme
 import libcst as cst
 import pytest
+from shapes import BINDINGS, UNBOUND
 
 from obelize.models import Edit, ImpactPlan, MemberClass, ScanSpec
 from obelize.packs import loader
@@ -281,10 +282,10 @@ def test_a_member_the_repository_defines_keeps_its_file_as_it_was() -> None:
     )
     code, edits = tidy(source)
     assert (code, edits) == (source, [])
-    # The scan grades each row; the file's other row is withheld by atomicity when it is planned.
+    # A class below `Square` defines the member, so no read of it is the library's any more.
     assert [(row[1], row[2]) for row in acme.statuses(scanned(source))] == [
         ("needs_review", "member_overridden"),
-        ("eligible", None),
+        ("needs_review", "member_overridden"),
     ]
 
 
@@ -378,3 +379,71 @@ def test_a_takes_entry_names_a_member_and_sorted_keywords() -> None:
     ):
         with pytest.raises(ValueError, match=says):
             RenameMemberParams(members=members, takes=takes)
+
+
+# What a class binds in any statement and in any branch is the class's own, however it is bound.
+
+
+@pytest.mark.parametrize("body", BINDINGS)
+def test_a_member_a_class_binds_by_any_statement_is_the_repositorys_own(body: str) -> None:
+    source = HEAD.replace("    pass", f"    {body}") + "\n\nSquare().old_area()\n"
+    assert [(row[1], row[2]) for row in acme.statuses(scanned(source))] == [
+        ("needs_review", "member_overridden")
+    ]
+
+
+@pytest.mark.parametrize("body", UNBOUND)
+def test_what_a_class_does_not_bind_at_its_own_level_is_not_a_member_it_defines(body: str) -> None:
+    source = HEAD.replace("    pass", f"    {body}") + "\n\nSquare().old_area()\n"
+    assert [(row[1], row[2]) for row in acme.statuses(scanned(source))] == [("eligible", None)]
+
+
+def test_a_receiver_that_is_a_star_parameter_is_a_tuple_or_a_dict_and_no_shape() -> None:
+    source = (
+        HEAD
+        + "def f(*items: Square, **named: Square):\n    return items.old_area(), named.to_dict\n"
+    )
+    assert found(source) == []
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "case [shape, _]:",
+        "case Square() as shape:",
+        "case {'k': 1, **shape}:",
+        "case [*shape]:",
+        "case shape:",
+    ],
+)
+def test_a_name_a_match_pattern_binds_is_no_longer_the_shape_it_was(case: str) -> None:
+    source = (
+        HEAD
+        + "shape = Square()\n\n\ndef f(value):\n    match value:\n"
+        + f"        {case}\n            return shape.old_area()\n"
+    )
+    assert found(source) == []
+
+
+def test_a_pattern_that_binds_nothing_leaves_the_name_typed() -> None:
+    source = (
+        HEAD
+        + "shape = Square()\n\n\ndef f(value):\n    match value:\n"
+        + "        case {'k': 1}:\n            return shape.old_area()\n"
+        + "        case [*_]:\n            return 0\n        case _:\n            return 1\n"
+    )
+    assert [row[3] for row in found(source)] == [f"{BASE}.old_area"]
+
+
+def test_a_subclass_that_defines_the_member_withholds_it_for_the_classes_above_it() -> None:
+    source = (
+        HEAD
+        + "class Ring(Square):\n    def f(self):\n        return self.old_area()\n\n\n"
+        + "class Sub(Ring):\n    def old_area(self):\n        return 5\n\n\n"
+        + "def g(item: Ring, other: Square):\n    return item.old_area(), other.to_dict\n"
+    )
+    assert [(row[1], row[2]) for row in acme.statuses(scanned(source))] == [
+        ("needs_review", "member_overridden"),
+        ("needs_review", "member_overridden"),
+        ("eligible", None),
+    ]

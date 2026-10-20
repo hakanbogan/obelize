@@ -163,6 +163,7 @@ ignore = [
 # libcst dispatches on `visit_<NodeType>`: renaming a method silently stops the visitor.
 "src/obelize/scan/analysis.py" = ["N802"]
 "src/obelize/scan/manifests.py" = ["N802"]
+"src/obelize/scan/members.py" = ["N802"]
 "src/obelize/providers/base.py" = ["N802"]
 "src/obelize/providers/guard.py" = ["N802"]
 

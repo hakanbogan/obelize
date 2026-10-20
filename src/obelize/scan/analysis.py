@@ -183,6 +183,20 @@ class _Nodes(cst.CSTVisitor):
         self.strings: list[cst.SimpleString | cst.FormattedString] = []
         self.attributes: list[cst.Attribute] = []
         self.handlers: list[cst.ExceptHandler | cst.ExceptStarHandler] = []
+        # What a `match` statement's patterns bind, which libcst does not record as assignments.
+        self.captures: set[str] = set()
+
+    def visit_MatchAs(self, node: cst.MatchAs) -> None:
+        if node.name is not None:
+            self.captures.add(node.name.value)
+
+    def visit_MatchStar(self, node: cst.MatchStar) -> None:
+        if node.name is not None:
+            self.captures.add(node.name.value)
+
+    def visit_MatchMapping(self, node: cst.MatchMapping) -> None:
+        if node.rest is not None:
+            self.captures.add(node.rest.value)
 
     def visit_Import(self, node: cst.Import) -> None:
         self.imports.append(node)
@@ -857,6 +871,9 @@ class _Pass:
             parents=self._parents,
             qualified=lambda node: qualified_names(self._qnp, node),
             derived=self._classes.lookup,
+            shadow=self._classes.shadow,
+            overridden=self._classes.overridden,
+            captured=frozenset(nodes.captures),
         )
         for hit in members.read(self._spec, source):
             self._add(

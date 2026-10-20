@@ -10,11 +10,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from shapes import BINDINGS, UNBOUND
 
 from obelize.models import Config
 from obelize.packs import loader
 from obelize.packtools import check
-from obelize.scan import classes, members, runner
+from obelize.scan import analysis, classes, members, parse, runner
 
 PACK = Path(__file__).resolve().parents[1] / "packs" / "generic" / "acme" / "shapes-1-to-2"
 LOADED = loader.load(str(PACK / "pack.yaml"))
@@ -257,3 +258,135 @@ def test_a_repository_with_no_derived_class_keeps_the_bytes_it_kept(tmp_path: Pa
     tree = runner.read(tmp_path, Config(), (SPEC,))
     assert tree.derived is classes.EMPTY
     assert tree.entries["app.py"].data is None
+
+
+def judged(files: dict[str, str], path: str) -> list[tuple[int, str, str | None]]:
+    """What the scan says of one file of an in-memory repository, given what the rest derives."""
+    read = parse.gates(path, files[path].encode())
+    result = analysis.analyse(read, SPEC, indexed(files).restricted(SPEC))
+    return [(row.line, row.scan_status, row.bail) for row in result.findings]
+
+
+MIXIN = "class Walker:\n    def old_area(self):\n        return 0\n"
+PLAIN = "class Walker:\n    pass\n"
+USE = "from models import Square\n\n\ndef f():\n    return Square().old_area()\n"
+
+
+@pytest.mark.parametrize("bases", ["Walker, Shape", "Shape, Walker"])
+def test_a_class_of_another_file_beside_the_library_one_may_define_the_member_first(
+    bases: str,
+) -> None:
+    files = {
+        "mixins.py": MIXIN,
+        "models.py": f"from mixins import Walker\n{FROM}class Square({bases}):\n    pass\n",
+        "use.py": USE,
+    }
+    assert judged(files, "use.py") == [(5, "needs_review", "member_overridden")]
+    # The same, where the class is read in the file that defines it.
+    files["models.py"] += "\n\nSquare().old_area()\n"
+    assert judged(files, "models.py") == [(9, "needs_review", "member_overridden")]
+    assert indexed(files).shadow("mixins.Walker") == {"old_area"}
+    assert indexed(files).shadow("other.Walker") == frozenset()
+
+
+def test_a_class_of_another_file_beside_the_library_one_that_defines_nothing_changes_nothing() -> (
+    None
+):
+    files = {
+        "mixins.py": PLAIN,
+        "models.py": f"from mixins import Walker\n{FROM}class Square(Walker, Shape):\n    pass\n",
+        "use.py": USE,
+    }
+    assert judged(files, "use.py") == [(5, "eligible", None)]
+
+
+@pytest.mark.parametrize("body", [f"    {one}" for one in BINDINGS])
+def test_a_member_bound_in_a_class_of_another_file_in_any_way_is_the_repositorys_own(
+    body: str,
+) -> None:
+    files = {"models.py": f"{FROM}class Square(Shape):\n{body}\n", "use.py": USE}
+    assert indexed(files).lookup("models.Square") == members.Lineage(BASE, frozenset({"old_area"}))
+    assert judged(files, "use.py") == [(5, "needs_review", "member_overridden")]
+
+
+MODEL = f"{FROM}class Square(Shape):\n    pass\n"
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "from models import Square\nSquare = wrap(Square)\nSquare().old_area()\n",
+        "from models import Square\nif FLAG:\n    Square = Other\n\nSquare().old_area()\n",
+        "try:\n    from models import Square\nexcept ImportError:\n"
+        "    class Square:\n        pass\nSquare().old_area()\n",
+        "import models\nmodels = wrap(models)\nmodels.Square().old_area()\n",
+    ],
+)
+def test_a_class_name_an_import_binds_and_something_else_rebinds_is_no_longer_that_class(
+    use: str,
+) -> None:
+    assert judged({"models.py": MODEL, "use.py": use}, "use.py") == []
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "from models import Square\nSquare().old_area()\n",
+        "import models\nmodels.Square().old_area()\n",
+        "from models import Square as Other\nOther().old_area()\n",
+    ],
+)
+def test_a_class_name_only_imports_bind_is_that_class(use: str) -> None:
+    [(_line, status, _bail)] = judged({"models.py": MODEL, "use.py": use}, "use.py")
+    assert status == "eligible"
+
+
+@pytest.mark.parametrize(
+    "later",
+    [
+        "class Square:\n    def old_area(self):\n        return 1\n",
+        "Square = Other\n",
+        "def Square():\n    pass\n",
+        "del Square\n",
+        "class Square(Shape):\n    pass\n",
+        "from other import Square\n",
+        "for Square in range(3):\n    pass\n",
+    ],
+)
+def test_a_class_a_module_binds_more_than_once_is_none_of_them(later: str) -> None:
+    files = {"models.py": MODEL + later, "use.py": USE}
+    assert indexed(files).lookup("models.Square") is None
+    assert judged(files, "use.py") == []
+
+
+def test_a_subclass_of_another_file_that_defines_the_member_withholds_it_above_it() -> None:
+    files = {
+        "models.py": MODEL,
+        "sub.py": (
+            "from models import Square\n\n\nclass Sub(Square):\n"
+            "    def old_area(self):\n        return 5\n"
+        ),
+        "use.py": (
+            "from models import Square\n\n\ndef f(item: Square):\n"
+            "    return item.old_area(), item.to_dict\n"
+        ),
+    }
+    assert judged(files, "use.py") == [
+        (5, "needs_review", "member_overridden"),
+        (5, "eligible", None),
+    ]
+    assert indexed(files).overridden == {(BASE, "old_area")}
+
+
+def test_a_header_with_a_very_long_base_list_is_read_without_its_bases() -> None:
+    long = ", ".join(f"Base{number}" for number in range(400))
+    found = classes.heads(f"class Wide({long}):\n    pass\n".encode())
+    assert found == (("Wide", ""),)
+
+
+@pytest.mark.parametrize("body", [f"    {one}" for one in UNBOUND])
+def test_what_a_class_of_another_file_does_not_bind_at_its_own_level_is_not_its_member(
+    body: str,
+) -> None:
+    files = {"models.py": f"{FROM}class Square(Shape):\n{body}\n", "use.py": USE}
+    assert indexed(files).lookup("models.Square") == LEAF

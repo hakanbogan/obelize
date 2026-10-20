@@ -25,7 +25,7 @@ import yaml
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
-from obelize.apidiff.diff import Successors
+from obelize.apidiff.diff import Successors, names_only
 from obelize.models.fields import DISPLAY_TEXT_LIMIT, printable
 from obelize.packs import loader
 from obelize.packs.schema import under_any
@@ -359,6 +359,7 @@ def _member_move(change: ApiChange) -> bool:
         change.type in ("deprecated", "renamed")
         and change.new_path is not None
         and (change.same_signature or change.takes is not None)
+        and names_only(change.message)
     )
 
 

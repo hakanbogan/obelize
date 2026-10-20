@@ -13,19 +13,20 @@ from __future__ import annotations
 
 import ast
 import re
+from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from obelize.scan.members import Lineage, combine
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Mapping
+    from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 
     from obelize.models import ScanSpec
 
 # The header of a class, on bytes: its name and what is between the brackets, however many lines.
 _HEAD = re.compile(
-    rb"^[ \t]*class[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*(?:\(([^)]*)\))?", re.MULTILINE
+    rb"^[ \t]*class[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*(?:\(([^)]{0,1000})\))?", re.MULTILINE
 )
 _AS = re.compile(rb"\b([A-Za-z_][A-Za-z0-9_]*)[ \t]+as[ \t]+([A-Za-z_][A-Za-z0-9_]*)")
 _WORDS = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -60,13 +61,18 @@ class Derived:
 
 
 class Index:
-    """The derived classes of a repository, and where every class of those names is defined."""
+    """The derived classes of a repository, where every class of those names is defined, and what
+    the classes that derive from nothing but sit beside one in a base list define."""
 
     def __init__(
-        self, derived: Collection[Derived] = (), defined: Collection[tuple[str, str]] = ()
+        self,
+        derived: Collection[Derived] = (),
+        defined: Collection[tuple[str, str]] = (),
+        shadows: Collection[tuple[str, str, frozenset[str]]] = (),
     ) -> None:
         self.derived = tuple(sorted(derived, key=lambda one: (one.name, one.module)))
         self.defined = tuple(sorted(defined))
+        self.shadows = tuple(sorted(shadows, key=lambda one: (one[0], one[1], sorted(one[2]))))
         self._by_name: dict[str, list[Derived]] = {}
         for one in self.derived:
             self._by_name.setdefault(one.name, []).append(one)
@@ -75,10 +81,18 @@ class Index:
     def names(self) -> frozenset[str]:
         return frozenset(self._by_name)
 
+    @property
+    def overridden(self) -> frozenset[tuple[str, str]]:
+        """Each (library class, member) that a class of the repository derived from it defines."""
+        return frozenset(
+            (one.lineage.base, name) for one in self.derived for name in one.lineage.overrides
+        )
+
     def restricted(self, spec: ScanSpec) -> Index:
         """What `spec` reads: the classes that derive from one of its own."""
         bases = {entry.class_symbol for entry in spec.member_classes}
-        return Index([one for one in self.derived if one.lineage.base in bases], self.defined)
+        kept = [one for one in self.derived if one.lineage.base in bases]
+        return Index(kept, self.defined, self.shadows)
 
     def mentions(self, data: bytes) -> bool:
         """Whether `data` spells the name of a derived class, so that a file may use one."""
@@ -102,6 +116,18 @@ class Index:
         if not found or rival or len(bases) != 1:
             return None
         return Lineage(next(iter(bases)), frozenset().union(*(o.lineage.overrides for o in found)))
+
+    def shadow(self, qualified: str) -> frozenset[str]:
+        """What the classes of the repository that this import may name, and that derive from
+        nothing a pack names, define."""
+        module, _, name = qualified.rpartition(".")
+        return frozenset().union(
+            *(
+                defined
+                for called, place, defined in self.shadows
+                if called == name and _within(module, place)
+            )
+        )
 
 
 EMPTY = Index()
@@ -129,7 +155,8 @@ def build(
     """The index of the classes that derive from one of `members`' keys, from each file's headers.
 
     `contents` gives the bytes of the files that define a class a header says may derive from one,
-    and `spelled` the names that imports give others (`Shape as Base` is `("Base", "Shape")`).
+    or that a header puts in a base list beside one (a mixin that can define a member first), and
+    `spelled` the names that imports give others (`Shape as Base` is `("Base", "Shape")`).
     """
     names = _candidates(found, leaves(members), spelled)
     if not names:
@@ -140,11 +167,20 @@ def build(
         for name, _ in heads_of
         if name in names
     }
+    beside = {
+        word
+        for heads_of in found.values()
+        for name, bases in heads_of
+        if name in names
+        for word in _WORDS.findall(bases)
+    } - names
     classes: list[_Class] = []
     for path, heads_of in sorted(found.items()):
-        if any(name in names for name, _ in heads_of) and (data := contents(path)) is not None:
+        wanted = any(name in names or name in beside for name, _ in heads_of)
+        if wanted and (data := contents(path)) is not None:
             classes.extend(_classes(module_of(path), data))
-    return Index(_derive(classes, members, defined), defined)
+    derived, shadows = _derive(classes, members, defined)
+    return Index(derived, defined, shadows)
 
 
 def _candidates(
@@ -175,6 +211,8 @@ class _Class:
     # Each base as the import qualifies it, or bare where the module defines it.
     bases: tuple[str, ...]
     defined: frozenset[str]
+    # Whether the module binds the name once, by this class: any other binding makes it unknown.
+    only: bool
 
 
 def _classes(module: str, data: bytes) -> list[_Class]:
@@ -183,8 +221,15 @@ def _classes(module: str, data: bytes) -> list[_Class]:
     except (SyntaxError, ValueError, RecursionError, MemoryError):
         return []
     imports = _imports(tree)
+    bound = Counter(_bound(tree.body))
     return [
-        _Class(module, node.name, _bases(node, imports), _defined(node))
+        _Class(
+            module,
+            node.name,
+            _bases(node, imports),
+            frozenset(_bound(node.body)),
+            bound[node.name] == 1,
+        )
         for node in tree.body
         if isinstance(node, ast.ClassDef)
     ]
@@ -227,25 +272,55 @@ def _dotted(node: ast.expr) -> str:
     return ""
 
 
-def _defined(node: ast.ClassDef) -> frozenset[str]:
-    names: set[str] = set()
-    for statement in node.body:
-        if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
-            names.add(statement.name)
-        elif isinstance(statement, ast.Assign):
-            names.update(one.id for one in statement.targets if isinstance(one, ast.Name))
-        elif isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
-            names.add(statement.target.id)
-    return frozenset(names)
+def _bound(nodes: Iterable[ast.AST]) -> list[str]:
+    """The names statements bind at their own level, by any statement and in any branch: never
+    those inside a function, a lambda or a nested class, whose own name is bound."""
+    names: list[str] = []
+    for node in nodes:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            names.append(node.name)
+            continue
+        if isinstance(node, ast.Assign | ast.Delete):
+            names.extend(one for target in node.targets for one in _stored(target))
+        elif isinstance(
+            node, ast.AnnAssign | ast.AugAssign | ast.NamedExpr | ast.For | ast.AsyncFor
+        ):
+            names.extend(_stored(node.target))
+        elif isinstance(node, ast.withitem) and node.optional_vars is not None:
+            names.extend(_stored(node.optional_vars))
+        elif isinstance(node, ast.ExceptHandler) and node.name is not None:
+            names.append(node.name)
+        elif isinstance(node, ast.Import | ast.ImportFrom):
+            names.extend(alias.asname or alias.name.partition(".")[0] for alias in node.names)
+        names.extend(
+            _bound(
+                child for child in ast.iter_child_nodes(node) if not isinstance(child, ast.Lambda)
+            )
+        )
+    return names
+
+
+def _stored(target: ast.expr) -> list[str]:
+    """The names an assignment target binds: `a, (b, *c) = ...` binds three."""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, ast.Tuple | ast.List):
+        return [one for element in target.elts for one in _stored(element)]
+    if isinstance(target, ast.Starred):
+        return _stored(target.value)
+    return []
 
 
 def _derive(
     classes: list[_Class],
     members: Mapping[str, frozenset[str]],
     defined: Collection[tuple[str, str]],
-) -> list[Derived]:
-    """The lineage of each class, to a fixed point: a class can derive from one found later."""
-    local = {(one.module, one.name): one for one in classes}
+) -> tuple[list[Derived], list[tuple[str, str, frozenset[str]]]]:
+    """The lineage of each class, to a fixed point (a class can derive from one found later), and
+    what the classes with none define."""
+    local: dict[tuple[str, str], list[_Class]] = {}
+    for one in classes:
+        local.setdefault((one.module, one.name), []).append(one)
     found: dict[tuple[str, str], Lineage] = {}
     grown, rounds = True, 0
     while grown and rounds <= len(classes):
@@ -254,34 +329,50 @@ def _derive(
         )
         grown = False
         for one in classes:
-            lineage = _lineage(one, local, found, members, index)
-            if lineage is not None and found.get((one.module, one.name)) != lineage:
+            lineage = _lineage(one, local, found, members, index, classes)
+            if one.only and lineage is not None and found.get((one.module, one.name)) != lineage:
                 found[(one.module, one.name)] = lineage
                 grown = True
         rounds += 1
-    return [Derived(module, name, one) for (module, name), one in found.items()]
+    derived = [Derived(module, name, one) for (module, name), one in found.items()]
+    shadows = [
+        (one.name, one.module, one.defined)
+        for one in classes
+        if (one.module, one.name) not in found
+    ]
+    return derived, shadows
 
 
 def _lineage(
     one: _Class,
-    local: Mapping[tuple[str, str], _Class],
+    local: Mapping[tuple[str, str], list[_Class]],
     found: Mapping[tuple[str, str], Lineage],
     members: Mapping[str, frozenset[str]],
     index: Index,
+    classes: Sequence[_Class],
 ) -> Lineage | None:
     lineages: set[Lineage] = set()
     shadowed: set[str] = set()
     for base in one.bases:
-        beside = local.get((one.module, base))
+        beside = local.get((one.module, base), [])
         lineage: Lineage | None
         if base in members:
             lineage = Lineage(base, frozenset())
-        elif beside is not None:
+        elif beside:
             lineage = found.get((one.module, base))
         else:
             lineage = index.lookup(base)
         if lineage is not None:
             lineages.add(lineage)
-        elif beside is not None:
-            shadowed |= beside.defined
+        elif beside:
+            shadowed.update(*(other.defined for other in beside))
+        else:
+            module, _, name = base.rpartition(".")
+            shadowed.update(
+                *(
+                    other.defined
+                    for other in classes
+                    if other.name == name and _within(module, other.module)
+                )
+            )
     return combine(lineages, set(one.defined), shadowed, members)

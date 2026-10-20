@@ -35,7 +35,9 @@ one (not a static method); a parameter or a variable annotated as one, including
 `X | None` and a string naming a class the file defines once. A name with an assignment that is none of
 these is not typed, so `shape = Square(); shape = make()` is left alone.
 
-Typing is by class and never by the member's name: `response.json()` is not `BaseModel.json`
+A class name that an import binds is the class only if imports are all that bind it: a name something
+else rebinds, in a branch or a `try`, is none. A name a `match` pattern binds is none, and so is
+`*items: Square`, which is a tuple. Typing is by class and never by the member's name: `response.json()` is not `BaseModel.json`
 because both are called `json`. A receiver nothing types is not reported and not guessed at, so a
 pack lists it among its `limitations`; a pack must already say what it does not handle. This differs
 from the receivers of `generative_model_calls`, which hold the whole object (a constructor, every use
@@ -44,11 +46,15 @@ changes, so what else the program does with the value does not matter.
 
 ### D3. A member the repository defines is not the library's
 
-If a class of the file defines the member (a method, an assignment or an annotated field), or a
-class between it and the library's class does, the new name would run another function. The row is
-`member_overridden`, a new code of the binding rung, and the file stays as it was like any other
-withheld file. A class of the file that does not derive from the library's but sits in a base list
-beside it counts too, since it can come first in the method resolution order.
+If a class defines the member, by any statement and in any branch (a method, an assignment, an
+annotated field, an import, a `for` target, a definition under an `if`), the new name would run
+another function. The row is `member_overridden`, a new code of the binding rung, and the file stays
+as it was like any other withheld file. It counts when a class between the receiver's class and the
+library's defines it, when a class of the repository that sits in the base list beside the library's
+does (a mixin of this file or of another, which can come first in the method resolution order), and
+when a class *below* the receiver's class defines it: the receiver may be an instance of that class,
+so the member is no more the library's wherever the repository derives a class that defines it. A
+mixin the repository does not define, from another library, is not read.
 
 ### D4. The projection
 
@@ -75,7 +81,8 @@ A class is found by the name an import gives it and the module the import comes 
 must run through the dotted path of the file that defines the class, so that a package that
 re-exports it and a relative import both reach it. A name the repository defines more than once is
 a class only if every definition the import could mean derives from the same library class; one that
-derives from nothing, or from another, makes it none. A file that names a derived class is parsed
+derives from nothing, or from another, makes it none. A module that binds the name any other way as
+well (a second class, an assignment, a definition, a `del`) gives no class of it. A file that names a derived class is parsed
 whether or not it names the library, so a scan may parse more files than it did. The index reads the
 module level of each file: a class defined in a function, or made by `type(...)`, is not found, nor is
 one defined in a file the walk does not select. This changes ADR-005's "no `FullRepoManager`" only

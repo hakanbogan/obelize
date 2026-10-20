@@ -925,3 +925,60 @@ def test_a_method_the_old_release_warned_of_a_parameter_of_is_paired_when_a_call
     unsafe = moved(fn(req("a"), req("b")), fn(req("a")), before=True)
     assert [row for row in unsafe if row.type == "deprecated"] == []
     assert moved(fn(req("a")), fn(req("a")), "going", before=True) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        # A parameter that was optional is required, and a default that is another value.
+        (fn(opt("x")), fn(req("x"))),
+        (fn(opt("x", kind="keyword-only")), fn(req("x", "keyword-only"))),
+        (fn(opt("indent", "None")), fn(opt("indent", "4"))),
+        (fn(opt("n", "1")), fn(opt("n", "2"))),
+        # Beside a parameter that went: the shared one changed.
+        (
+            fn(opt("a", "1", "keyword-only"), opt("flag", "False", "keyword-only")),
+            fn(req("a", "keyword-only")),
+        ),
+    ],
+)
+def test_a_method_whose_shared_parameter_changed_what_a_call_means_is_named_and_not_paired(
+    old: Obj, new: Obj
+) -> None:
+    [one] = [row for row in moved(old, new) if row.type == "deprecated"]
+    assert (one.new_path, one.same_signature, one.takes) == ("C.new", False, None)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        (fn(req("x")), fn(opt("x"))),
+        (fn(opt("x", "False")), fn(opt("x", "False"))),
+        (fn(opt("x", "False")), fn(opt("x", "None"))),
+        (fn(opt("x", "3")), fn(opt("x", "_NotGiven"))),
+    ],
+)
+def test_a_parameter_that_became_optional_or_not_given_or_kept_its_default_is_carried(
+    old: Obj, new: Obj
+) -> None:
+    [one] = [row for row in moved(old, new) if row.type == "deprecated"]
+    assert (one.new_path, one.same_signature) == ("C.new", True)
+
+
+@pytest.mark.parametrize(
+    ("message", "names"),
+    [
+        ("The `old` method is deprecated; use `new` instead.", True),
+        ("Deprecated; use new instead", True),
+        ("Use `new` instead.", True),
+        ("Call `connect()` first; use `post` instead.", False),
+        ("Call connect() first, then use post instead.", False),
+        ("The `old` method is deprecated; use `new` instead. See the docs.", False),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_a_message_names_only_when_it_says_no_more_than_which_name_to_use(
+    message: str | None, names: bool
+) -> None:
+    assert api.names_only(message) is names

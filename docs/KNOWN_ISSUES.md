@@ -118,7 +118,11 @@ the old name working with a warning, as pydantic 2 does, what is left still runs
 derive from the library's are found in the files the walk selects, at their module level, by the name
 an import gives them: a class made in a function or by `type(...)`, one in an excluded directory, and
 one reached by `from module import *` are not found. A name the repository defines twice, once as a
-class that derives from nothing, is not told from the derived one.
+class that derives from nothing, is not told from the derived one, and one that a module binds twice
+is no class at all. If any class of the repository defines a member the pack renames (a method of
+a subclass is enough), no read of that member off a receiver of the class is renamed, since the
+receiver may be an instance of the subclass; the rows are held as `member_overridden`. A mixin that
+comes from another library is not read for what it defines.
 
 ## Upgrading a dependency
 

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 import libcst as cst
-from libcst.metadata import Assignment, GlobalScope, QualifiedNameSource
+from libcst.metadata import Assignment, GlobalScope, ImportAssignment, QualifiedNameSource
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping, Sequence
@@ -69,6 +69,13 @@ class Source:
     qualified: Callable[[cst.CSTNode], set[QualifiedName]]
     # What another module of the repository defines: a class by the name an import gives it.
     derived: Callable[[str], Lineage | None]
+    # The renamed members a class of the repository that is no library's defines, by the name an
+    # import gives it: such a class beside the library's in a base list can define one first.
+    shadow: Callable[[str], frozenset[str]]
+    # Every (class, member) some class of the repository derived from the class defines itself.
+    overridden: frozenset[tuple[str, str]]
+    # The names a `match` statement binds, which libcst does not record as assignments.
+    captured: frozenset[str]
 
 
 def read(spec: ScanSpec, source: Source) -> list[Hit]:
@@ -94,6 +101,13 @@ class _Reader:
         self._lineages: dict[int, Lineage | None] = {}
 
     def hits(self) -> list[Hit]:
+        for class_def in self._source.classes:
+            self._lineage(class_def)
+        # A subclass that defines a member is reached through a receiver typed as any class above
+        # it, so the member is no more the library's wherever the repository defines it.
+        below = {
+            (one.base, name) for one in self._lineages.values() if one for name in one.overrides
+        } | self._source.overridden
         found = []
         for attribute in self._source.attributes:
             member = attribute.attr.value
@@ -109,7 +123,7 @@ class _Reader:
                     called=isinstance(parent, cst.Call) and parent.func is attribute,
                     symbol=f"{typed.lineage.base}.{member}",
                     reason=typed.reason,
-                    overridden=member in typed.lineage.overrides,
+                    overridden=(typed.lineage.base, member) in below,
                 )
             )
         return found
@@ -130,6 +144,8 @@ class _Reader:
 
     def _name(self, node: cst.Name, depth: int) -> Typed | None:
         """A name is typed when every assignment of it says the same class."""
+        if node.value in self._source.captured:
+            return None
         scope = self._source.scopes.get(node)
         found = {self._assigned(item, scope, depth) for item in _assignments(scope, node.value)}
         return next(iter(found)) if len(found) == 1 else None
@@ -155,6 +171,9 @@ class _Reader:
 
     def _param(self, param: cst.Param) -> Typed | None:
         """A parameter is what it is annotated as; `self` and `cls` are the class they are in."""
+        if param.star:
+            # `*items: Square` is a tuple of them, and `**named: Square` a dict.
+            return None
         if param.annotation is not None:
             return self._by_class(self._annotated(param.annotation.annotation))
         parameters = self._source.parents.get(param)
@@ -184,11 +203,22 @@ class _Reader:
             if name.source is QualifiedNameSource.IMPORT
         }
         if imported:
+            # A name an import binds and something else rebinds is no longer the class imported.
+            if not self._only_imports(node):
+                return None
             lineages = {self._source.derived(name) for name in imported}
             return next(iter(lineages)) if len(lineages) == 1 else None
         defined = self._defined_by(node)
         lineages = {self._lineage(class_def) for class_def in defined}
         return next(iter(lineages)) if defined and len(lineages) == 1 else None
+
+    def _only_imports(self, node: cst.BaseExpression) -> bool:
+        """Whether the name an expression starts with is bound by imports and by nothing else."""
+        while isinstance(node, cst.Attribute):
+            node = node.value
+        name = node.value if isinstance(node, cst.Name) else ""
+        bound = _assignments(self._source.scopes.get(node), name)
+        return bool(bound) and all(isinstance(item, ImportAssignment) for item in bound)
 
     def _defined_by(self, node: cst.CSTNode) -> list[cst.ClassDef]:
         """The classes of this file that every assignment of a name is, or none."""
@@ -219,10 +249,13 @@ class _Reader:
             if lineage is not None:
                 found.add(lineage)
                 continue
-            # A class of this file that is no library's can still define the member first.
+            # A class of the repository that is no library's can still define the member first.
             shadowed |= {
                 one for mixin in self._defined_by(argument.value) for one in _defined(mixin)
             }
+            for name in self._source.qualified(argument.value):
+                if name.source is QualifiedNameSource.IMPORT:
+                    shadowed |= self._source.shadow(name.name)
         self._lineages[key] = combine(found, _defined(class_def), shadowed, self._members)
         return self._lineages[key]
 
@@ -256,22 +289,57 @@ def _assignments(scope: Scope | None, name: str) -> Collection[BaseAssignment]:
 
 
 def _defined(class_def: cst.ClassDef) -> set[str]:
-    """The names a class body defines itself: a method, an assignment or an annotated field."""
-    names: set[str] = set()
-    for statement in class_def.body.body:
-        if isinstance(statement, cst.FunctionDef):
-            names.add(statement.name.value)
-        elif isinstance(statement, cst.SimpleStatementLine):
-            for small in statement.body:
-                targets = (
-                    [target.target for target in small.targets]
-                    if isinstance(small, cst.Assign)
-                    else [small.target]
-                    if isinstance(small, cst.AnnAssign)
-                    else []
-                )
-                names.update(one.value for one in targets if isinstance(one, cst.Name))
-    return names
+    """The names a class body binds at its own level, by any statement and in any branch."""
+    bound = _Bound()
+    class_def.body.visit(bound)
+    return bound.names
+
+
+class _Bound(cst.CSTVisitor):
+    """The names bound in a body: never those inside a function, a lambda or a nested class."""
+
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> bool:
+        self.names.add(node.name.value)
+        return False
+
+    def visit_ClassDef(self, node: cst.ClassDef) -> bool:
+        self.names.add(node.name.value)
+        return False
+
+    def visit_Lambda(self, node: cst.Lambda) -> bool:
+        return False
+
+    def visit_AssignTarget(self, node: cst.AssignTarget) -> None:
+        self._store(node.target)
+
+    def visit_AnnAssign(self, node: cst.AnnAssign) -> None:
+        self._store(node.target)
+
+    def visit_AugAssign(self, node: cst.AugAssign) -> None:
+        self._store(node.target)
+
+    def visit_For(self, node: cst.For) -> None:
+        self._store(node.target)
+
+    def visit_NamedExpr(self, node: cst.NamedExpr) -> None:
+        self._store(node.target)
+
+    def visit_AsName(self, node: cst.AsName) -> None:
+        self._store(node.name)
+
+    def visit_ImportAlias(self, node: cst.ImportAlias) -> None:
+        if node.asname is None:
+            self.names.add(node.evaluated_name.partition(".")[0])
+
+    def _store(self, target: cst.BaseExpression) -> None:
+        if isinstance(target, cst.Name):
+            self.names.add(target.value)
+        elif isinstance(target, cst.Tuple | cst.List):
+            for element in target.elements:
+                self._store(element.value)
 
 
 def _leaf(node: cst.BaseExpression) -> str:

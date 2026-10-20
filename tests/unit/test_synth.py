@@ -383,7 +383,13 @@ def test_every_kind_of_change_becomes_the_part_of_the_pack_that_says_it() -> Non
     made = plan(
         ApiChange("renamed", "old_greet", "greet", same_signature=True),
         ApiChange("renamed", "loud", "shout", same_signature=False),
-        ApiChange("renamed", "Client.old_method", "Client.new_method", same_signature=True),
+        ApiChange(
+            "renamed",
+            "Client.old_method",
+            "Client.new_method",
+            same_signature=True,
+            message="use new_method instead",
+        ),
         ApiChange("moved", "sub.Thing", "Thing", same_signature=True),
         ApiChange("moved", "sub.helper", "other.helper", same_signature=True),
         ApiChange("removed", "gone", message="gone is deprecated, use stale"),
@@ -396,7 +402,9 @@ def test_every_kind_of_change_becomes_the_part_of_the_pack_that_says_it() -> Non
     assert made.with_calls == {"old_greet": "greet"}
     assert made.references == {"loud": "shout"}
     assert made.exports == {"sub.Thing": "Thing"}
-    assert made.members == {"Client.old_method": synth._Member("new_method", None, "")}
+    assert made.members == {
+        "Client.old_method": synth._Member("new_method", None, "use new_method instead")
+    }
     assert sorted(made.flags) == ["Client.ping", "LIMIT", "gone", "kw", "stale", "sub.helper"]
     assert "other.helper" in made.flags["sub.helper"].message
     assert "gone is deprecated, use stale" in made.flags["gone"].message
@@ -799,6 +807,12 @@ def test_a_pack_for_the_names_a_folder_uses_is_made_and_a_star_import_is_refused
 
 # Methods of a class that the library renamed.
 
+
+def use(name: str) -> str:
+    """What a library says of a method that went: only which one to use."""
+    return f"The method is deprecated; use `{name}` instead."
+
+
 MEMBERS = old_surface(
     Client=Obj("", "class", None),
     Client__ping=fn(req("host"), Param("timeout", "keyword-only", "1", False)),
@@ -821,13 +835,15 @@ def test_a_method_the_library_renamed_becomes_a_member_rename_with_a_derived_cla
                 "deprecated",
                 "Client.ping",
                 "Client.probe",
-                message="use probe",
+                message=use("probe"),
                 same_signature=True,
             ),
             ApiChange(
-                "deprecated", "Client.fetch", "Client.get", message="use get", takes=("url",)
+                "deprecated", "Client.fetch", "Client.get", message=use("get"), takes=("url",)
             ),
-            ApiChange("renamed", "Client.send", "Client.post", same_signature=True),
+            ApiChange(
+                "renamed", "Client.send", "Client.post", message=use("post"), same_signature=True
+            ),
         ],
     )
     assert made.covered["rename-members"] == 3
@@ -858,22 +874,32 @@ def test_a_method_the_old_spelling_of_which_the_pack_would_flag_beside_it_is_fla
 ):
     made = plan(
         ApiChange(
-            "deprecated", "Client.old_method", "Client.ping", message="x", same_signature=True
+            "deprecated",
+            "Client.old_method",
+            "Client.ping",
+            message=use("ping"),
+            same_signature=True,
         ),
         ApiChange("deprecated", "Client.ping", message="ping is going"),
     )
     assert made.members == {}
     assert made.flags["Client.old_method"].category == "deprecated"
-    assert "x" in made.flags["Client.old_method"].message
+    assert "use `ping` instead" in made.flags["Client.old_method"].message
 
 
 def test_methods_that_would_become_one_name_are_flagged_instead_of_all_renamed() -> None:
     made = plan(
         ApiChange(
-            "deprecated", "Client.old_method", "Client.fresh", message="a", same_signature=True
+            "deprecated",
+            "Client.old_method",
+            "Client.fresh",
+            message=use("fresh"),
+            same_signature=True,
         ),
-        ApiChange("deprecated", "Client.ping", "Client.fresh", message="b", same_signature=True),
-        ApiChange("renamed", "Client.sub", "Client.next", same_signature=True),
+        ApiChange(
+            "deprecated", "Client.ping", "Client.fresh", message=use("fresh"), same_signature=True
+        ),
+        ApiChange("renamed", "Client.sub", "Client.next", message=use("next"), same_signature=True),
     )
     assert sorted(made.members) == ["Client.sub"]
     assert sorted(made.flags) == ["Client.old_method", "Client.ping"]
@@ -882,9 +908,15 @@ def test_methods_that_would_become_one_name_are_flagged_instead_of_all_renamed()
 def test_a_method_that_lands_on_another_methods_old_name_is_flagged_instead() -> None:
     made = plan(
         ApiChange(
-            "deprecated", "Client.old_method", "Client.ping", message="a", same_signature=True
+            "deprecated",
+            "Client.old_method",
+            "Client.ping",
+            message=use("fresh"),
+            same_signature=True,
         ),
-        ApiChange("deprecated", "Client.ping", "Client.fresh", message="b", same_signature=True),
+        ApiChange(
+            "deprecated", "Client.ping", "Client.fresh", message=use("fresh"), same_signature=True
+        ),
     )
     assert sorted(made.members) == ["Client.ping"]
     assert sorted(made.flags) == ["Client.old_method"]
@@ -894,7 +926,11 @@ def test_a_method_under_a_class_flagged_as_a_whole_is_flagged_not_renamed() -> N
     made = plan(
         ApiChange("param_removed", "Client", param="key"),
         ApiChange(
-            "deprecated", "Client.old_method", "Client.fresh", message="a", same_signature=True
+            "deprecated",
+            "Client.old_method",
+            "Client.fresh",
+            message=use("fresh"),
+            same_signature=True,
         ),
     )
     assert made.members == {}
@@ -904,8 +940,12 @@ def test_a_method_under_a_class_flagged_as_a_whole_is_flagged_not_renamed() -> N
 def test_a_method_the_signature_changes_of_which_the_rename_replaces_are_not_flagged_too() -> None:
     made = plan(
         ApiChange("param_removed", "Client.old_method", param="loose"),
-        ApiChange("deprecated", "Client.old_method", "Client.fresh", message="a", takes=()),
-        ApiChange("deprecated", "Client.ping", "Client.probe", message="b", same_signature=True),
+        ApiChange(
+            "deprecated", "Client.old_method", "Client.fresh", message=use("fresh"), takes=()
+        ),
+        ApiChange(
+            "deprecated", "Client.ping", "Client.probe", message=use("fresh"), same_signature=True
+        ),
     )
     assert sorted(made.members) == ["Client.old_method", "Client.ping"]
     assert made.flags == {}
@@ -913,9 +953,9 @@ def test_a_method_the_signature_changes_of_which_the_rename_replaces_are_not_fla
 
 
 def test_a_deprecation_that_names_a_method_a_call_cannot_move_to_is_a_flag_with_the_words() -> None:
-    made = plan(ApiChange("deprecated", "Client.ping", "Client.probe", message="use probe"))
+    made = plan(ApiChange("deprecated", "Client.ping", "Client.probe", message=use("probe")))
     assert made.members == {}
-    assert made.flags["Client.ping"].message.endswith("The library said: use probe")
+    assert made.flags["Client.ping"].message.endswith(f"The library said: {use('probe')}")
 
 
 def test_a_pack_whose_renamed_methods_all_take_what_they_took_has_no_takes_table(
@@ -925,8 +965,22 @@ def test_a_pack_whose_renamed_methods_all_take_what_they_took_has_no_takes_table
         tmp_path,
         REQUEST,
         MEMBERS,
-        [ApiChange("renamed", "Client.send", "Client.post", same_signature=True)],
+        [
+            ApiChange(
+                "renamed", "Client.send", "Client.post", message=use("post"), same_signature=True
+            )
+        ],
     )
     pack = yaml.safe_load((made.folder / "pack.yaml").read_text())
     change = next(one for one in pack["changes"] if one["kind"] == "rename_member")
     assert change["params"] == {"members": {"acme_kit.Client.send": "post"}}
+
+
+def test_a_renamed_method_whose_message_says_more_than_which_to_use_is_flagged() -> None:
+    said = "Call connect() first, then use post instead."
+    made = plan(
+        ApiChange("renamed", "Client.send", "Client.post", message=said, same_signature=True)
+    )
+    assert made.members == {}
+    assert made.flags["Client.send"].category == "moved"
+    assert "acme_kit.Client.post" in made.flags["Client.send"].message
