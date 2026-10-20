@@ -24,8 +24,10 @@ match:
   shared: true
   symbols:
     - acme.shapes.Shape.old_area
+    - acme.shapes.Shape.render
     - acme.shapes.Shape.retired
     - acme.shapes.Shape.to_dict
+    - acme.shapes.make_square
   prefilter_tokens:
     - acme
 
@@ -45,6 +47,30 @@ changes:
       - fixtures/positive/overridden.before.py
       - fixtures/positive/receivers.before.py
       - fixtures/positive/refused_call.before.py
+
+  - id: rewrite-calls
+    kind: rewrite_pattern
+    citation: "Acme Shapes 2 notes, 'Constructors'"
+    params:
+      before: acme.shapes.make_square($n)
+      after: acme.shapes.Square(side=$n)
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/patterns.before.py
+      - fixtures/positive/unmatched.before.py
+
+  - id: rewrite-members
+    kind: rewrite_pattern
+    citation: "Acme Shapes 2 notes, 'Drawing'"
+    params:
+      before: $s.render($w)
+      after: $s.draw(width=$w)
+      where:
+        s: acme.shapes.Shape
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/patterns.before.py
+      - fixtures/positive/unmatched.before.py
 
   - id: flag-retired
     kind: flag_only

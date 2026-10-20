@@ -39,6 +39,7 @@ from obelize.packs.schema import (
     ManifestDependencyChange,
     PackDocument,
     RenameMemberChange,
+    RewritePatternChange,
     under_any,
 )
 
@@ -237,6 +238,9 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         elif isinstance(change, RenameMemberChange):
             for owner, names in change.params.classes().items():
                 members.setdefault(owner, set()).update(names)
+        elif isinstance(change, RewritePatternChange):
+            if (member := change.params.members()) is not None:
+                members.setdefault(member[0], set()).add(member[1])
         elif isinstance(change, FlagOnlyChange):
             attributes.update(change.params.attributes)
             flagged.update(change.params.symbols)

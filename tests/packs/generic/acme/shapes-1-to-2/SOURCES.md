@@ -16,6 +16,14 @@ acme-shapes 2 renamed `Shape.old_area` to `Shape.area` and `Shape.to_dict` to `S
 with the arguments they took, except that `to_dict` takes only `indent` of the keywords the old
 one did.
 
+## rewrite-calls
+
+acme-shapes 2 builds a square by `Square(side=...)`; `make_square(n)` is gone.
+
+## rewrite-members
+
+acme-shapes 2 draws with `Shape.draw(width=...)`, which `Shape.render(width)` was.
+
 ## flag-retired
 
 acme-shapes 2 dropped `Shape.retired`.

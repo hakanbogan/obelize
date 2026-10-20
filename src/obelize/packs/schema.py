@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Annotated, Literal, Union, get_args
+from typing import TYPE_CHECKING, Annotated, Literal, Union, get_args
 from urllib.parse import urlsplit
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -22,8 +22,12 @@ from pydantic import (
     Field,
     StrictBool,
     StrictInt,
+    ValidationInfo,
     model_validator,
 )
+
+if TYPE_CHECKING:
+    from obelize import pattern
 
 from obelize.models import (
     QUALIFIED_NAME,
@@ -52,6 +56,7 @@ ChangeKind = Literal[
     "rename_setting",
     "rename_symbol",
     "rename_member",
+    "rewrite_pattern",
     "flag_only",
     "manifest_dependency",
 ]
@@ -1159,6 +1164,83 @@ class RenameSymbolParams(_Closed):
         landed[target] = f"{field}[{key!r}]"
 
 
+def _template(value: str, info: ValidationInfo) -> str:
+    """A template one line long that reads as the forms a template may hold."""
+    from obelize import pattern
+
+    unsafe = terminal_unsafe(value)
+    if unsafe is not None:
+        raise ValueError(f"must not carry a control, format or surrogate character; {unsafe}")
+    try:
+        pattern.parse(value)
+    except pattern.TemplateError as error:
+        raise ValueError(f"{info.field_name} {error}") from error
+    return value
+
+
+Template = Annotated[str, AfterValidator(_template), schema_hint(minLength=1, maxLength=2000)]
+
+
+class RewritePatternParams(_Closed):
+    """A call of a name, written as the new release spells it, found by a pattern of its shape.
+
+    `before` is a call, `after` the expression that replaces it, and `$name` stands for any
+    expression `before` has in that place. The call is of a qualified name written out
+    (`pydantic.parse_obj_as($type, $value)`) or of a member of a class (`$m.dict(exclude=$e)`, with
+    `where` naming the class `$m` is an instance of).
+    """
+
+    before: Template
+    after: Template
+    # The class of the metavariable a member call is made on.
+    where: dict[PlainName, QualifiedName] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check(self) -> RewritePatternParams:
+        from obelize import pattern
+
+        before, after = pattern.parse(self.before), pattern.parse(self.after)
+        try:
+            found = pattern.anchor(before, self.where)
+        except pattern.TemplateError as error:
+            raise ValueError(f"before {error}") from error
+        wanted = {found.receiver} if found.receiver else set()
+        if set(self.where) != wanted:
+            raise ValueError(
+                f"where names {sorted(set(self.where) - wanted)}, which `before` does not make "
+                f"its call on; it names a class for the metavariable a member call is made on"
+            )
+        unbound = sorted(after.names - before.names)
+        if unbound:
+            raise ValueError(f"after uses ${unbound[0]}, which before does not bind")
+        if found.receiver and found.symbol.rpartition(".")[2] in after.attributes:
+            raise ValueError(
+                f"after reads `.{found.symbol.rpartition('.')[2]}`, the member before is found by, "
+                f"so the rewritten call is found again"
+            )
+        parent = found.symbol.rpartition(".")[0]
+        for name in sorted(pattern.new_names(after)):
+            if found.receiver or not name.startswith(f"{parent}."):
+                raise ValueError(
+                    f"after spells {name}, a name nothing imports; it may spell only names beside "
+                    f"the one called ({parent}), and none on a member call"
+                )
+            if name == found.symbol:
+                raise ValueError(f"after calls {name}, the name before is found by")
+        return self
+
+    def anchor(self) -> pattern.Anchor:
+        """The qualified name the call is of."""
+        from obelize import pattern
+
+        return pattern.anchor(pattern.parse(self.before), self.where)
+
+    def members(self) -> tuple[str, str] | None:
+        """The class and member of a member call, which the scan must read off a receiver."""
+        owner, _, member = self.anchor().symbol.rpartition(".")
+        return (owner, member) if self.where else None
+
+
 class RenameMemberParams(_Closed):
     """Members of a class that the new release spells another way, wherever an instance is seen.
 
@@ -1334,6 +1416,11 @@ class RenameMemberChange(_ChangeBase):
     params: RenameMemberParams
 
 
+class RewritePatternChange(_ChangeBase):
+    kind: Literal["rewrite_pattern"]
+    params: RewritePatternParams
+
+
 class FlagOnlyChange(_ChangeBase):
     kind: Literal["flag_only"]
     params: FlagOnlyParams
@@ -1355,6 +1442,7 @@ Change = Annotated[
         RenameSettingChange,
         RenameSymbolChange,
         RenameMemberChange,
+        RewritePatternChange,
         FlagOnlyChange,
         ManifestDependencyChange,
     ],
@@ -1490,6 +1578,8 @@ class PackDocument(_Closed):
                 claimed = (*change.params.symbols, *change.params.renamed)
             elif isinstance(change, RenameMemberChange):
                 claimed = tuple(change.params.members)
+            elif isinstance(change, RewritePatternChange):
+                claimed = (change.params.anchor().symbol,)
             else:
                 continue
             for symbol in claimed:
@@ -1585,6 +1675,15 @@ class PackDocument(_Closed):
                     key: f"{key.rpartition('.')[0]}.{new}"
                     for key, new in change.params.members.items()
                 }
+            elif isinstance(change, RewritePatternChange):
+                from obelize import pattern
+
+                field = "after"
+                template = pattern.parse(change.params.after)
+                lands = {name: name for name in pattern.new_names(template)}
+                if (members := change.params.members()) is not None:
+                    # The members of the class that `after` reads off a receiver.
+                    lands |= {name: f"{members[0]}.{name}" for name in template.attributes}
             else:
                 continue
             self._check_lands_clear(change.id, field, lands)
@@ -1612,6 +1711,8 @@ class PackDocument(_Closed):
                 field, keys = "symbols", tuple(change.params.symbols)
             elif isinstance(change, RenameMemberChange):
                 field, keys = "members", tuple(change.params.members)
+            elif isinstance(change, RewritePatternChange):
+                field, keys = "before", (change.params.anchor().symbol,)
             else:
                 continue
             for key in keys:
@@ -1797,6 +1898,8 @@ class PackDocument(_Closed):
                 symbols.update(change.params.renamed)
             elif isinstance(change, RenameMemberChange):
                 symbols.update(change.params.members)
+            elif isinstance(change, RewritePatternChange):
+                symbols.add(change.params.anchor().symbol)
         return frozenset(symbols)
 
     @staticmethod
@@ -1831,6 +1934,8 @@ class PackDocument(_Closed):
             )
         if isinstance(change, RenameMemberChange):
             return tuple(("members", key) for key in change.params.members)
+        if isinstance(change, RewritePatternChange):
+            return (("before", change.params.anchor().symbol),)
         if isinstance(change, FlagOnlyChange):
             return (
                 *(("symbols", symbol) for symbol in change.params.symbols),

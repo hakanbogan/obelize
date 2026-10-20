@@ -101,6 +101,7 @@ BailCode = Literal[
     "flag_only_surface",
     "types_import_typing_only",
     "error_class_changed",
+    "pattern_unmatched",
     # The run
     "usage_unmapped",
     "configure_consumed_elsewhere",
@@ -165,6 +166,9 @@ BAIL_ACTIONS: dict[BailCode, str] = {
     ),
     "receiver_method_unmapped": (
         "Migrate the call by hand; the pack has no rewrite for this method."
+    ),
+    "pattern_unmatched": (
+        "Migrate the call by hand; the pack's pattern for it does not cover this shape of call."
     ),
     "member_overridden": (
         "Migrate the call by hand; a class of this file defines the member itself, so the new "

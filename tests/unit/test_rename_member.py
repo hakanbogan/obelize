@@ -51,8 +51,8 @@ def tidy(source: str) -> tuple[str, list[Edit]]:
     return acme.transform(source, RENAME, spec=SPEC)
 
 
-def test_the_projection_names_the_class_and_the_members_renamed_or_flagged_on_it() -> None:
-    members = ("old_area", "retired", "to_dict")
+def test_the_projection_names_the_class_and_the_members_it_renames_flags_or_rewrites() -> None:
+    members = ("old_area", "render", "retired", "to_dict")
     assert SPEC.member_classes == (MemberClass(class_symbol=BASE, members=members),)
     assert SPEC.members_of(BASE) == members
     assert SPEC.members_of("acme.shapes.Other") == ()

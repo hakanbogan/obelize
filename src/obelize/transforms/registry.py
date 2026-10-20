@@ -19,6 +19,7 @@ from obelize.transforms.kinds.rename_member import RenameMember
 from obelize.transforms.kinds.rename_setting import RenameSetting
 from obelize.transforms.kinds.rename_symbol import RenameSymbol
 from obelize.transforms.kinds.rewrite_call import RewriteCall
+from obelize.transforms.kinds.rewrite_pattern import RewritePattern
 
 if TYPE_CHECKING:
     from obelize.packs.schema import PackDocument
@@ -34,6 +35,7 @@ RULES: Final[dict[ChangeKind, type[Rule]]] = {
     RenameSetting.kind: RenameSetting,
     RenameSymbol.kind: RenameSymbol,
     RenameMember.kind: RenameMember,
+    RewritePattern.kind: RewritePattern,
     FlagOnly.kind: FlagOnly,
 }
 

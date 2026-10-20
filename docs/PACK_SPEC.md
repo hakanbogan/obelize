@@ -195,8 +195,8 @@ to:
 
 ## Rule kind registry
 
-The nine kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
-one. All nine are implemented: `registry.IMPLEMENTED`
+The ten kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
+one. All ten are implemented: `registry.IMPLEMENTED`
 (`src/obelize/transforms/registry.py`) equals the schema's set, and
 `tests/packs/test_all_packs.py` reads the registry. A method listed in
 `generative_model_calls.methods` but absent from `rewrites` is recognised, and
@@ -211,6 +211,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
 | `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `renamed` (a legacy dotted path to the name it takes in the same module), `calls` (`refused`, the default, or `allowed`), `now_caught_by` (what the new class derives from and the old one did not) |
 | `rename_member` | `members` (a legacy dotted path of a class and one of its members, to the name the member takes on that class), `takes` (for a member whose new spelling takes fewer keywords: the keywords it takes) |
+| `rewrite_pattern` | `before` and `after` (templates: Python expressions with `$name` for any expression), `where` (the class of the metavariable a member call is made on) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
 
@@ -389,6 +390,23 @@ as a method, an assignment or an annotated field, or one between it and the libr
 every member is a path of three names or more under `match.symbols`, that none keeps its name, is renamed
 again, lands on another or on a name `match.symbols` lists, that every `takes` entry is a member with
 sorted keywords, that none is claimed by another change or under a symbol a `flag_only` change refuses ([the member rename decision](adr/ADR-068-rename-member.md)).
+
+**`rewrite_pattern`** is for a call that changes shape in a way no other kind says. `before` is a
+call and `after` the expression that replaces it, each on one line and at most 2000 characters, with
+`$name` for any expression: `pydantic.parse_obj_as($type, $value)` becomes
+`pydantic.TypeAdapter($type).validate_python($value)`, and `$m.dict(exclude=$e)` with `where: {m:
+pydantic.BaseModel}` becomes `$m.model_dump(exclude=$e)`. A template holds names, attributes, calls,
+numbers, strings, tuples, lists, dictionaries, subscripts with one index and unary operators, and no
+`*` or `**` argument. The call is found by the name it is of and its arguments are compared with
+`before` by form: positional ones in order, keywords by name and not by order. A call of another
+shape is `pattern_unmatched` and left for a person. `after` may spell a name only beside the name
+called (the same module), written as the file spelled that module; a call written without its module
+(`from pydantic import parse_obj_as`) is `from_import_unmigrated_symbol`. The schema checks that both
+templates read, that `before` is a call of a qualified name or of a member of the class `where` names
+(and `where` names nothing else), that `after` binds only metavariables `before` does, spells no
+name beyond the one called's module and not the name called, and no name `match.symbols` lists
+as legacy; that the called name is under `match.symbols`, and claimed by no other change
+([the pattern decision](adr/ADR-069-rewrite-pattern.md)).
 
 **`flag_only`** never edits code: it reports a finding with a message and a
 suggestion, for anything that is not 1:1. Its channels:

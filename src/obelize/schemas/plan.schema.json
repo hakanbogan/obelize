@@ -61,6 +61,7 @@
                   "flag_only_surface",
                   "types_import_typing_only",
                   "error_class_changed",
+                  "pattern_unmatched",
                   "usage_unmapped",
                   "configure_consumed_elsewhere",
                   "no_pack_for_usage"
@@ -142,6 +143,7 @@
                 "flag_only_surface",
                 "types_import_typing_only",
                 "error_class_changed",
+                "pattern_unmatched",
                 "usage_unmapped",
                 "configure_consumed_elsewhere",
                 "no_pack_for_usage"

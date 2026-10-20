@@ -194,6 +194,15 @@ MEMBER_CHANGE: Document = {
     "params": {"members": {"demo_legacy.Model.old": "new"}},
 }
 
+# A call rewritten from the shape of its arguments.
+PATTERN_CHANGE: Document = {
+    "id": "pattern",
+    "kind": "rewrite_pattern",
+    "citation": "Guide, Calls",
+    "fixtures": ["fixtures/negative/none.py", "fixtures/positive/one.before.py"],
+    "params": {"before": "demo_legacy.old($a)", "after": "demo_legacy.new($a)"},
+}
+
 MANIFEST_CHANGE: Document = {
     "id": "manifest-dependency",
     "kind": "manifest_dependency",
@@ -317,6 +326,35 @@ def _member(
 def _member_of_a_refused_class(document: Document) -> None:
     """A module that moves, with a method renamed on a class that another rule only reports."""
     document["changes"][1]["params"] = {"members": {"demo_legacy.Model.old": "new"}}
+    flagged = {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.Model"]}
+    document["changes"].append({**FLAG_CHANGE, "id": "flag-model", "params": flagged})
+
+
+def _pattern(
+    *,
+    legacy: list[str] | None = None,
+    more: tuple[Document, ...] = (),
+    **params: Any,
+) -> Callable[[Document], None]:
+    """A shared module with the called name listed as legacy, and the pattern's params `params`."""
+
+    def mutate(document: Document) -> None:
+        document["match"].update(
+            shared=True, symbols=legacy or ["demo_legacy.configure", "demo_legacy.old"]
+        )
+        document["changes"][1]["params"] = {**PATTERN_CHANGE["params"], **params}
+        document["changes"].extend(more)
+
+    return mutate
+
+
+def _pattern_of_a_refused_class(document: Document) -> None:
+    """A module that moves, with a pattern for a member of a class another rule only reports."""
+    document["changes"][1]["params"] = {
+        "before": "$m.old($a)",
+        "after": "$m.renamed($a)",
+        "where": {"m": "demo_legacy.Model"},
+    }
     flagged = {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.Model"]}
     document["changes"].append({**FLAG_CHANGE, "id": "flag-model", "params": flagged})
 
@@ -1946,6 +1984,201 @@ CASES: tuple[Case, ...] = (
                     **MEMBER_CHANGE,
                     "id": "again",
                     "params": {"members": {"demo_legacy.Model.old": "newer"}},
+                },
+            ),
+        ),
+    ),
+    # rewrite_pattern: a call of a name, rewritten from the shape of its arguments.
+    Case(
+        name="a_pattern_that_is_no_call",
+        defect="a template that is a name, which has no arguments to take the shape of",
+        path=f"{EXTRA}.params",
+        says="before is no call; a pattern is a call of a name",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(before="demo_legacy.old"),
+    ),
+    Case(
+        name="a_pattern_template_that_does_not_parse",
+        defect="a template that is not an expression",
+        path=f"{EXTRA}.params.before",
+        says="before does not parse",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(before="demo_legacy.old("),
+    ),
+    Case(
+        name="a_pattern_template_with_a_form_a_template_cannot_hold",
+        defect="a template with a lambda, which a call cannot be compared with by form",
+        path=f"{EXTRA}.params.after",
+        says="after holds a Lambda",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="demo_legacy.new(lambda: $a)"),
+    ),
+    Case(
+        name="a_pattern_template_that_is_too_long",
+        defect="a template that is a program",
+        path=f"{EXTRA}.params.before",
+        says="over the 2000 a template may be",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(before="demo_legacy.old(" + "x, " * 700 + "$a)"),
+    ),
+    Case(
+        name="a_pattern_template_with_a_control_character",
+        defect="a template that spans lines or moves a terminal",
+        path=f"{EXTRA}.params.after",
+        says="must not carry a control, format or surrogate character",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="demo_legacy.new(\n$a)"),
+    ),
+    Case(
+        name="a_pattern_that_builds_with_a_metavariable_it_never_bound",
+        defect="a new expression that reads an expression the old one did not hold",
+        path=f"{EXTRA}.params",
+        says="after uses $b, which before does not bind",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="demo_legacy.new($a, $b)"),
+    ),
+    Case(
+        name="a_pattern_that_names_a_class_for_nothing",
+        defect="a `where` entry for a metavariable no member call is made on",
+        path=f"{EXTRA}.params",
+        says="where names ['a']",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(where={"a": "demo_legacy.Model"}),
+    ),
+    Case(
+        name="a_pattern_member_call_with_no_class",
+        defect="a member call of a metavariable whose class nothing says",
+        path=f"{EXTRA}.params",
+        says="whose class `where` does not name",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(before="$m.old($a)", after="$m.new($a)"),
+    ),
+    Case(
+        name="a_pattern_that_calls_something_that_is_not_a_qualified_name",
+        defect="a call of a bare name, which no import says where it is from",
+        path=f"{EXTRA}.params",
+        says="calls something that is not a qualified name",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(before="old($a)"),
+    ),
+    Case(
+        name="a_pattern_that_spells_a_name_nothing_imports",
+        defect="a new expression with a name from another module, which no import writes",
+        path=f"{EXTRA}.params",
+        says="a name nothing imports",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="other_lib.new($a)"),
+    ),
+    Case(
+        name="a_pattern_that_builds_with_the_name_it_is_found_by",
+        defect="a new expression that calls the old name, so the result is found again",
+        path=f"{EXTRA}.params",
+        says="the name before is found by",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="demo_legacy.old($a)"),
+    ),
+    Case(
+        name="a_pattern_that_builds_a_name_the_scan_lists_as_legacy",
+        defect="a new name that `symbols` lists, so the rewritten call is a finding again",
+        path="",
+        says="which match.symbols lists as legacy",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(
+            legacy=["demo_legacy.configure", "demo_legacy.new", "demo_legacy.old"],
+        ),
+    ),
+    Case(
+        name="a_pattern_for_a_name_outside_the_listed_legacy_names",
+        defect="a called name the module's name reaches but `symbols` does not list",
+        path="",
+        says="under nothing in match.symbols",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(legacy=["demo_legacy.configure"]),
+    ),
+    Case(
+        name="a_pattern_that_reads_the_member_it_is_found_by",
+        defect="a new expression that still calls the member, so the rewritten call is found again",
+        path=f"{EXTRA}.params",
+        says="the member before is found by",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(
+            legacy=["demo_legacy.Model.old", "demo_legacy.configure"],
+            before="$m.old($a)",
+            after="$m.old(1, $a)",
+            where={"m": "demo_legacy.Model"},
+        ),
+    ),
+    Case(
+        name="a_pattern_that_builds_a_member_the_scan_lists_as_legacy",
+        defect="a new member that `symbols` lists on the class, so the result is a finding again",
+        path="",
+        says="which match.symbols lists as legacy",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(
+            legacy=[
+                "demo_legacy.Model.new",
+                "demo_legacy.Model.old",
+                "demo_legacy.configure",
+            ],
+            before="$m.old($a)",
+            after="$m.new($a)",
+            where={"m": "demo_legacy.Model"},
+        ),
+    ),
+    Case(
+        name="a_pattern_for_a_member_under_a_refused_prefix",
+        defect="a member of a class a flag_only rule reports, which the scan grades first",
+        path="",
+        says="is under a symbol a flag_only rule refuses",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern_of_a_refused_class,
+    ),
+    Case(
+        name="a_pattern_template_that_reaches_the_interpreter",
+        defect="a template with a dunder name, which no pack of data may write",
+        path=f"{EXTRA}.params.after",
+        says="a name that reaches the interpreter",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="demo_legacy.new($a).__class__"),
+    ),
+    Case(
+        name="a_pattern_that_spells_a_builtin_that_reaches_out",
+        defect="a new expression that calls `eval`, which is no builtin that only builds a value",
+        path=f"{EXTRA}.params",
+        says="a name nothing imports",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="eval($a)"),
+    ),
+    Case(
+        name="a_pattern_template_nested_too_deeply_to_read",
+        defect="a template that overruns the reader, which must refuse it and not crash",
+        path=f"{EXTRA}.params.after",
+        says="nested too deeply",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="[" * 200 + "$a" + "]" * 200),
+    ),
+    Case(
+        name="two_changes_that_claim_one_pattern_name",
+        defect="two rules on one name, so the order of the list would pick",
+        path="",
+        says="two changes claim 'demo_legacy.old'",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(
+            more=({**PATTERN_CHANGE, "id": "again", "params": {**PATTERN_CHANGE["params"]}},),
+        ),
+    ),
+    Case(
+        name="a_pattern_name_both_rewritten_and_refused",
+        defect="a name rewritten by one rule and reported by another",
+        path="",
+        says="is both rewritten and refused",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(
+            more=(
+                {
+                    **FLAG_CHANGE,
+                    "id": "flag-old",
+                    "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.old"]},
                 },
             ),
         ),

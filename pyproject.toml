@@ -164,6 +164,7 @@ ignore = [
 "src/obelize/scan/analysis.py" = ["N802"]
 "src/obelize/scan/manifests.py" = ["N802"]
 "src/obelize/scan/members.py" = ["N802"]
+"src/obelize/pattern.py" = ["N802"]
 "src/obelize/providers/base.py" = ["N802"]
 "src/obelize/providers/guard.py" = ["N802"]
 

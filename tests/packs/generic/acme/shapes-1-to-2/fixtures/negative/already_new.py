@@ -13,4 +13,4 @@ class Square(Shape):
 
 def measure(item: Square, other):
     other.old_area()
-    return item.area(), item.as_dict(), acme.shapes.Shape.area
+    return item.area(), item.as_dict(), acme.shapes.Shape.area, acme.shapes.Square(side=1), item.draw(width=2)

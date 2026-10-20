@@ -22,6 +22,13 @@ in the release that makes it.
   uses it never names the library. A member that a class defines itself is withheld as
   `member_overridden`. The kind is new, no bundled pack
   uses it, and no format changed apart from the new kind, reason and code.
+- A pack can rewrite a call from the shape of its arguments (`rewrite_pattern`): two one-line
+  templates with `$name` for any expression, such as `pydantic.parse_obj_as($t, $v)` to
+  `pydantic.TypeAdapter($t).validate_python($v)`, or `$m.dict(exclude=$e)` to
+  `$m.model_dump(exclude=$e)` on an instance of a named class. The call is found by its name and
+  compared with the first template by form; a call of another shape is withheld as
+  `pattern_unmatched`. No bundled pack uses the kind, and no format changed apart from the new kind
+  and code.
 - `pack synth` writes `rename_member` for a method the library deprecated, or removed after saying so,
   with a message that says only which method to use, when a call of the old one can move to the new
   (pydantic 1 to 2: `parse_obj`, `construct`, `schema`, and `dict`, `json` and `update_forward_refs`

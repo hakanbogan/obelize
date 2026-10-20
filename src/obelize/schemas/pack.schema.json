@@ -1436,6 +1436,83 @@
       "title": "RewriteCallParams",
       "type": "object"
     },
+    "RewritePatternChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rewrite_pattern",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RewritePatternParams"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "RewritePatternChange",
+      "type": "object"
+    },
+    "RewritePatternParams": {
+      "additionalProperties": false,
+      "description": "A call of a name, written as the new release spells it, found by a pattern of its shape.\n\n`before` is a call, `after` the expression that replaces it, and `$name` stands for any\nexpression `before` has in that place. The call is of a qualified name written out\n(`pydantic.parse_obj_as($type, $value)`) or of a member of a class (`$m.dict(exclude=$e)`, with\n`where` naming the class `$m` is an instance of).",
+      "properties": {
+        "after": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "After",
+          "type": "string"
+        },
+        "before": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Before",
+          "type": "string"
+        },
+        "where": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+              "type": "string"
+            }
+          },
+          "title": "Where",
+          "type": "object"
+        }
+      },
+      "required": [
+        "before",
+        "after"
+      ],
+      "title": "RewritePatternParams",
+      "type": "object"
+    },
     "SafetySettings": {
       "additionalProperties": false,
       "description": "The safety table: legacy safety strings and enum members, and the new members they become.",
@@ -1620,7 +1697,8 @@
             "rename_member": "#/$defs/RenameMemberChange",
             "rename_setting": "#/$defs/RenameSettingChange",
             "rename_symbol": "#/$defs/RenameSymbolChange",
-            "rewrite_call": "#/$defs/RewriteCallChange"
+            "rewrite_call": "#/$defs/RewriteCallChange",
+            "rewrite_pattern": "#/$defs/RewritePatternChange"
           },
           "propertyName": "kind"
         },
@@ -1645,6 +1723,9 @@
           },
           {
             "$ref": "#/$defs/RenameMemberChange"
+          },
+          {
+            "$ref": "#/$defs/RewritePatternChange"
           },
           {
             "$ref": "#/$defs/FlagOnlyChange"
