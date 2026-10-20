@@ -30,7 +30,7 @@ from obelize.models import (
     ScanSpec,
 )
 from obelize.native import processes
-from obelize.scan import analysis, installed, manifests, parse, reach, runtime, walker
+from obelize.scan import analysis, classes, installed, manifests, parse, reach, runtime, walker
 from obelize.scan.manifests import Followed
 
 # Candidates (prefilter survivors, not selected files) before the default starts processes: the
@@ -56,6 +56,7 @@ HOLDS: Final = (
 
 # Set once per worker process by `_initialise` rather than pickled with every task.
 _SPEC: ScanSpec | None = None
+_DERIVED: classes.Index = classes.EMPTY
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,8 +202,10 @@ def ordered(results: Iterable[FileResult]) -> tuple[FileResult, ...]:
     return tuple(sorted(results, key=sort_key))
 
 
-def examine(candidate: Candidate, spec: ScanSpec) -> FileResult:
-    """A worker's whole job: a pure function of bytes and spec, the cache key.
+def examine(
+    candidate: Candidate, spec: ScanSpec, derived: classes.Index = classes.EMPTY
+) -> FileResult:
+    """A worker's whole job: a pure function of bytes, spec and the classes derived.
 
     No exception ends the run over one file: it is a `parse_error` row, which holds the repository
     as an unparsable file does.
@@ -211,13 +214,13 @@ def examine(candidate: Candidate, spec: ScanSpec) -> FileResult:
     try:
         read = parse.gates(path, data)
         try:
-            return _graded(path, candidate.sha256, read, spec)
+            return _graded(path, candidate.sha256, read, spec, derived)
         except (RecursionError, MemoryError) as error:
             # Parsed but too deep for the analysis visitors: one finding, never edited.
             read = parse.does_not_parse(path, data, "libcst", error)
-            return _graded(path, candidate.sha256, read, spec)
+            return _graded(path, candidate.sha256, read, spec, derived)
     except Exception as error:
-        return _graded(path, candidate.sha256, parse.crashed(path, data, error), spec)
+        return _graded(path, candidate.sha256, parse.crashed(path, data, error), spec, derived)
 
 
 def payload(result: FileResult) -> dict[str, Any]:
@@ -263,6 +266,8 @@ class Tree:
     config: Config
     walk: walker.Walk
     entries: dict[str, Entry]
+    # The classes that derive from one that a pack renames members of.
+    derived: classes.Index = classes.EMPTY
 
     def contents(self, path: str) -> tuple[bytes | None, tuple[parse.Limitation, ...]]:
         """The bytes a scan reads: held, or from disk for what was dropped or never selected."""
@@ -281,7 +286,8 @@ def read(root: Path, config: Config, specs: Sequence[ScanSpec]) -> Tree:
     """Walk and read every selected file once.
 
     Bytes are kept only for a manifest, or a file one of `specs` could look at: its prefilter
-    token or a module only the legacy distribution installed occurs in it.
+    token or a module only the legacy distribution installed occurs in it. A pack that renames
+    members of a class also looks at a file that names a class of the repository deriving from one.
     """
     walk = walker.follow(
         root, config, walker.walk(root, config), lambda path: parse.contents(root, path, config)[0]
@@ -294,6 +300,9 @@ def read(root: Path, config: Config, specs: Sequence[ScanSpec]) -> Tree:
             *(row.module.rpartition(".")[2] for row in spec.transitive_modules),
         )
     ]
+    members = _members(specs)
+    headers: dict[str, classes.Heads] = {}
+    spelled: set[tuple[str, str]] = set()
     entries: dict[str, Entry] = {}
     manifest_names = set(walk.manifests)
     for path in dict.fromkeys((*walk.files, *walk.manifests)):
@@ -301,9 +310,41 @@ def read(root: Path, config: Config, specs: Sequence[ScanSpec]) -> Tree:
         if data is None:
             entries[path] = Entry(None, "", refused)
             continue
+        if members and path.endswith(".py"):
+            headers[path] = classes.heads(data)
+            spelled |= classes.aliases(data)
         keep = path in manifest_names or any(needle in data for needle in needles)
         entries[path] = Entry(data if keep else None, fsutil.sha256(data))
-    return Tree(root, config, walk, entries)
+    tree = Tree(root, config, walk, entries)
+    if not members:
+        return tree
+    derived = classes.build(
+        headers, lambda path: tree.contents(path)[0], members, frozenset(spelled)
+    )
+    return replace(tree, entries=_users(tree, derived), derived=derived)
+
+
+def _members(specs: Sequence[ScanSpec]) -> dict[str, frozenset[str]]:
+    """Every class some pack renames members of, and which."""
+    found: dict[str, set[str]] = {}
+    for spec in specs:
+        for entry in spec.member_classes:
+            found.setdefault(entry.class_symbol, set()).update(entry.members)
+    return {symbol: frozenset(names) for symbol, names in found.items()}
+
+
+def _users(tree: Tree, derived: classes.Index) -> dict[str, Entry]:
+    """The entries, with the bytes of each file that names a derived class kept as well."""
+    if not derived.names:
+        return tree.entries
+    kept = dict(tree.entries)
+    for path in tree.walk.files:
+        entry = tree.entries[path]
+        if entry.data is None and entry.sha256 and path.endswith(".py"):
+            data, _refused = parse.contents(tree.root, path, tree.config)
+            if data is not None and derived.mentions(data):
+                kept[path] = Entry(data, entry.sha256)
+    return kept
 
 
 def scan(
@@ -321,14 +362,15 @@ def scan(
     """
     tree = tree or read(root, config, (spec,))
     selection = tree.walk
-    candidates, results = _sift(tree, selection.files, spec)
+    derived = tree.derived.restricted(spec)
+    candidates, results = _sift(tree, selection.files, spec, derived)
 
     workers = worker_count(jobs)
     if workers == 1 or (jobs is None and len(candidates) < POOL_THRESHOLD):
         workers = 1
-        results.extend(examine(candidate, spec) for candidate in candidates)
+        results.extend(examine(candidate, spec, derived) for candidate in candidates)
     else:
-        results.extend(_pooled(candidates, spec, workers))
+        results.extend(_pooled(candidates, spec, workers, derived))
     # After every plan, before the manifest pass: does another module reach a model a rewrite
     # would delete?
     files = reach.revised(selection.files, ordered(results), tree.contents)
@@ -437,21 +479,26 @@ def scan(
 
 
 def _sift(
-    tree: Tree, files: Sequence[str], spec: ScanSpec
+    tree: Tree, files: Sequence[str], spec: ScanSpec, derived: classes.Index
 ) -> tuple[list[Candidate], list[FileResult]]:
-    """Finish the unreadable and prefilter-eliminated files, return the rest to parse."""
+    """Finish the unreadable and prefilter-eliminated files, return the rest to parse.
+
+    A file that names a class of the repository deriving from one the pack renames members of is
+    parsed too, though it names nothing of the library."""
     candidates: list[Candidate] = []
     finished: list[FileResult] = []
     for path in files:
         entry = tree.entries[path]
         if entry.sha256 == "":
             read = parse.Read(path=path, status="not_read", limitations=entry.limitations)
-            finished.append(_graded(path, "", read, spec))
+            finished.append(_graded(path, "", read, spec, derived))
             continue
         data = entry.data
-        if data is None or not parse.candidate(data, spec.prefilter_tokens):
+        if data is None or not (
+            parse.candidate(data, spec.prefilter_tokens) or derived.mentions(data)
+        ):
             read = parse.Read(path=path, status="not_a_candidate", data=data)
-            finished.append(_graded(path, entry.sha256, read, spec))
+            finished.append(_graded(path, entry.sha256, read, spec, derived))
             continue
         candidates.append(Candidate(path=path, sha256=entry.sha256, data=data))
     return candidates, finished
@@ -523,7 +570,9 @@ def _modern(tree: Tree, spec: ScanSpec) -> bool:
     )
 
 
-def _pooled(candidates: Sequence[Candidate], spec: ScanSpec, workers: int) -> list[FileResult]:
+def _pooled(
+    candidates: Sequence[Candidate], spec: ScanSpec, workers: int, derived: classes.Index
+) -> list[FileResult]:
     """Grade candidates in `workers` spawned processes.
 
     `BrokenProcessPool` propagates on purpose: an in-process fallback would hide an interpreter
@@ -533,15 +582,16 @@ def _pooled(candidates: Sequence[Candidate], spec: ScanSpec, workers: int) -> li
         max_workers=workers,
         mp_context=multiprocessing.get_context(START_METHOD),
         initializer=_initialise,
-        initargs=(spec.model_dump_json(),),
+        initargs=(spec.model_dump_json(), derived),
     ) as executor:
         tasks = [(candidate.path, candidate.sha256, candidate.data) for candidate in candidates]
         return [restore(row) for row in executor.map(_work, tasks)]
 
 
-def _initialise(spec: str) -> None:
-    global _SPEC
+def _initialise(spec: str, derived: classes.Index = classes.EMPTY) -> None:
+    global _SPEC, _DERIVED
     _SPEC = ScanSpec.model_validate_json(spec)
+    _DERIVED = derived
     warnings.simplefilter("ignore", SyntaxWarning)  # as in `cli.main`: a spawned process is new
 
 
@@ -552,12 +602,14 @@ def _work(task: tuple[str, str, bytes]) -> dict[str, Any]:
         raise RuntimeError("a scan worker ran before its initializer; this is an obelize defect")
     path, digest, data = task
     candidate = Candidate(path=path, sha256=digest, data=data)
-    return payload(examine(candidate, spec))
+    return payload(examine(candidate, spec, _DERIVED))
 
 
-def _graded(path: str, digest: str, read: parse.Read, spec: ScanSpec) -> FileResult:
+def _graded(
+    path: str, digest: str, read: parse.Read, spec: ScanSpec, derived: classes.Index
+) -> FileResult:
     """Grade any read, tree or not, so an empty plan is an output rather than a special case."""
-    result = analysis.analyse(read, spec)
+    result = analysis.analyse(read, spec, derived)
     return FileResult(
         path=path,
         sha256=digest,

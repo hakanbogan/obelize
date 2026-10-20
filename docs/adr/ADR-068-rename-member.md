@@ -62,7 +62,26 @@ annotation, `self` or `cls`; a name bound to a call keeps `receiver_bound_same_s
 `receiver_bound_module_const`. A row is positioned at the member's own name, so that a call
 (`Square().old_area()`) and the receiver it starts with are not one position.
 
-### D5. A pack for the test suite
+### D5. A class of another file
+
+A program rarely defines its model and uses it in one file. Before any file is analysed, the scan
+reads the class headers of every Python file with a regular expression, finds the names whose bases
+may lead to a class a pack names (by what the bases spell, and what an import calls them with `as`),
+and reads the files that define one with `ast`, which is far cheaper than the analysis. The result,
+an index of the derived classes with what each defines, goes to every worker beside the pack's
+projection. It is not part of `ScanSpec`, whose digest is a property of the pack.
+
+A class is found by the name an import gives it and the module the import comes from: the module
+must run through the dotted path of the file that defines the class, so that a package that
+re-exports it and a relative import both reach it. A name the repository defines more than once is
+a class only if every definition the import could mean derives from the same library class; one that
+derives from nothing, or from another, makes it none. A file that names a derived class is parsed
+whether or not it names the library, so a scan may parse more files than it did. The index reads the
+module level of each file: a class defined in a function, or made by `type(...)`, is not found, nor is
+one defined in a file the walk does not select. This changes ADR-005's "no `FullRepoManager`" only
+by this one input, and no pack without member classes pays for it.
+
+### D6. A pack for the test suite
 
 `tests/packs/generic/acme/shapes-1-to-2` is an invented library that derives classes the way
 programs do. It uses the kind in every receiver shape and in the refused one, and is held to the
@@ -72,5 +91,4 @@ reads the generic packs as well.
 ## Consequences
 
 The pack schema, `docs/PACK_SPEC.md`, `docs/SCAN_VOCABULARY.md`, the JSON schemas and the negative
-corpus describe and refuse the new fields. A class defined in another file of the repository is not
-found by this decision alone.
+corpus describe and refuse the new fields.

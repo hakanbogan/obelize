@@ -67,7 +67,11 @@ Accepted; amended by ADR-021, ADR-022, ADR-049 and ADR-050.
   findings only**: the manifest verdict depends on every other file and on the
   `.obelize.yml` exclusions, so `scan/manifests.py` is a repository-level pass
   after every file is scanned
-  ([ADR-021](ADR-021-dependency-manifests-verdict.md)).
+  ([ADR-021](ADR-021-dependency-manifests-verdict.md)). A pack that renames the members of a
+  class adds one more input, the classes of the repository that derive from the library's, read
+  from class headers before any file is analysed and handed to every worker, so a file's scan is then
+  a function of the bytes, the pack and that index ([ADR-068](ADR-068-rename-member.md)); it is no
+  `FullRepoManager`, which would resolve every file against every other.
 
 ## Consequences
 

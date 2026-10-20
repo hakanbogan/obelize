@@ -108,6 +108,18 @@ few passes do more work than they need to (a second scope resolution of the rewr
 `fix` takes about three seconds for a file of 800 calls and ten for 3,200, in step with the number
 of calls.
 
+## Members of a class
+
+A pack that renames the member of a class (`rename_member`) renames it only where the scan can tell
+what the receiver is. A value a function returned, a field of another object, an argument with no
+annotation and a loop variable are left as they are, and are not reported, since reporting every
+`.json()` of a file that also uses a model would drown the ones that matter. Where the library keeps
+the old name working with a warning, as pydantic 2 does, what is left still runs. The classes that
+derive from the library's are found in the files the walk selects, at their module level, by the name
+an import gives them: a class made in a function or by `type(...)`, one in an excluded directory, and
+one reached by `from module import *` are not found. A name the repository defines twice, once as a
+class that derives from nothing, is not told from the derived one.
+
 ## Upgrading a dependency
 
 [`obelize upgrade`](UPGRADING.md) writes a move to the whole repository or to none of it when the

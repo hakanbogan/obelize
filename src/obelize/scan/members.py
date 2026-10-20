@@ -227,13 +227,7 @@ class _Reader:
             shadowed |= {
                 one for mixin in self._defined_by(argument.value) for one in _defined(mixin)
             }
-        bases = {one.base for one in found}
-        if len(bases) != 1:
-            return None
-        base = next(iter(bases))
-        carried = frozenset().union(*(one.overrides for one in found))
-        own = (_defined(class_def) | shadowed) & self._members[base]
-        self._lineages[key] = Lineage(base, carried | own)
+        self._lineages[key] = combine(found, _defined(class_def), shadowed, self._members)
         return self._lineages[key]
 
     def _base(self, node: cst.BaseExpression) -> Lineage | None:
@@ -242,6 +236,22 @@ class _Reader:
             if name.source is QualifiedNameSource.IMPORT and name.name in self._members:
                 return Lineage(name.name, frozenset())
         return self._class(node)
+
+
+def combine(
+    found: Collection[Lineage],
+    own: set[str],
+    shadowed: set[str],
+    members: Mapping[str, frozenset[str]],
+) -> Lineage | None:
+    """The lineage a class has from those of its bases and the names it, and the classes beside
+    them in its base list, define; bases from two libraries' classes leave it none."""
+    bases = {one.base for one in found}
+    if len(bases) != 1:
+        return None
+    base = next(iter(bases))
+    carried = frozenset().union(*(one.overrides for one in found))
+    return Lineage(base, carried | ((own | shadowed) & members[base]))
 
 
 def _assignments(scope: Scope | None, name: str) -> Collection[BaseAssignment]:

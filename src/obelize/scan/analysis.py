@@ -41,6 +41,7 @@ from obelize.models import (
     ScanStatus,
 )
 from obelize.scan import members
+from obelize.scan.classes import EMPTY, Index
 from obelize.scan.parse import Read
 
 # Closed here, where raised; `tests/oracle/` asserts the split with `impact/`.
@@ -150,11 +151,12 @@ class Analysis:
     receivers: tuple[Receiver, ...]
 
 
-def analyse(read: Read, spec: ScanSpec) -> Analysis:
-    """Resolve the legacy usages in one read file."""
+def analyse(read: Read, spec: ScanSpec, classes: Index = EMPTY) -> Analysis:
+    """Resolve the legacy usages in one read file; `classes` are what the rest of the repository
+    derives from a library's class."""
     if read.module is None:
         return Analysis(path=read.path, findings=read.findings, receivers=())
-    return _Pass(read.path, read.module, spec, read.bail).run()
+    return _Pass(read.path, read.module, spec, read.bail, classes).run()
 
 
 def qualified_names(
@@ -231,8 +233,11 @@ class _Nodes(cst.CSTVisitor):
 class _Pass:
     """One file's analysis; single use."""
 
-    def __init__(self, path: str, module: cst.Module, spec: ScanSpec, bail: BailCode | None):
+    def __init__(
+        self, path: str, module: cst.Module, spec: ScanSpec, bail: BailCode | None, classes: Index
+    ):
         self._path = path
+        self._classes = classes
         self._module = module
         self._spec = spec
         self._gate = bail
@@ -851,6 +856,7 @@ class _Pass:
             scopes=self._scopes,
             parents=self._parents,
             qualified=lambda node: qualified_names(self._qnp, node),
+            derived=self._classes.lookup,
         )
         for hit in members.read(self._spec, source):
             self._add(

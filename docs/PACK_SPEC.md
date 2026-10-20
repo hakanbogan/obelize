@@ -377,7 +377,10 @@ one, a parameter or a variable annotated as one (`Optional[User]` and `User | No
 the class itself (`User.parse_obj`). Only the member's name changes, so the pack asserts that the member
 takes the arguments it took; use `rewrite_call` where they change. A value nothing types (an argument
 with no annotation, what a function returned, a field of another object) is left as it is and not
-reported, so a pack states that in `limitations`. A class of the file that defines the member itself,
+reported, so a pack states that in `limitations`. A class of another file is found too: the scan
+reads the class headers of the repository first, so `class Admin(User)` in one file and `Admin()` in a
+third need no import of the library, by the name an import gives the class and the module it comes
+from. A class of the file that defines the member itself,
 as a method, an assignment or an annotated field, or one between it and the library's class does, is
 `member_overridden`: the new name would run another function. List the members in `match.symbols`
 (they are read through the class's module as well, `acme.shapes.Shape.old_area(item)`). The schema checks that

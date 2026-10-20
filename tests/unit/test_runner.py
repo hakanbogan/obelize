@@ -312,10 +312,10 @@ def test_a_file_too_deep_for_the_analysis_is_one_unparsable_file(
     """The trees that parse still overrun the visitors' stack when nested deeply enough."""
     real = analysis.analyse
 
-    def overrun(read: parse.Read, spec: Any) -> Any:
+    def overrun(read: parse.Read, spec: Any, *rest: Any) -> Any:
         if read.module is not None:
             raise RecursionError
-        return real(read, spec)
+        return real(read, spec, *rest)
 
     monkeypatch.setattr(analysis, "analyse", overrun)
     candidate = runner.Candidate(path="app.py", sha256="0" * 64, data=LEGACY.encode())
@@ -331,10 +331,10 @@ def _raise_on(monkeypatch: pytest.MonkeyPatch, path: str, error: Exception) -> N
     """Make the analysis of one file's tree raise, as a defect in obelize would."""
     real = analysis.analyse
 
-    def analyse(read: parse.Read, spec: Any) -> Any:
+    def analyse(read: parse.Read, spec: Any, *rest: Any) -> Any:
         if read.path == path and read.module is not None:
             raise error
-        return real(read, spec)
+        return real(read, spec, *rest)
 
     monkeypatch.setattr(analysis, "analyse", analyse)
 
