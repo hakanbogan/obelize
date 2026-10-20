@@ -1914,6 +1914,26 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        name="a_takes_entry_for_a_member_the_rule_does_not_rename",
+        defect="a keyword list for a member nothing renames, so no call is ever checked against it",
+        path=f"{EXTRA}.params",
+        says="is not a member in members, so no call is checked",
+        extra=MEMBER_CHANGE,
+        mutate=_member(
+            members={"demo_legacy.Model.old": "new"}, takes={"demo_legacy.Model.other": ["a"]}
+        ),
+    ),
+    Case(
+        name="a_takes_entry_that_is_not_sorted",
+        defect="a keyword list in an order a reader cannot check",
+        path=f"{EXTRA}.params",
+        says="must be sorted and de-duplicated",
+        extra=MEMBER_CHANGE,
+        mutate=_member(
+            members={"demo_legacy.Model.old": "new"}, takes={"demo_legacy.Model.old": ["b", "a"]}
+        ),
+    ),
+    Case(
         name="two_changes_that_claim_one_member",
         defect="two rules on one member, so the order of the list would pick",
         path="",

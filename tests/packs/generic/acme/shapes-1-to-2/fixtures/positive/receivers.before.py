@@ -42,7 +42,7 @@ def measure(item: Square, other: "Circle", maybe: Optional[Ring] = None):
     maybe.old_area()
     local = Circle()
     local.to_dict()
-    return Square().old_area(), Square.to_dict, shape.old_area
+    return Square().old_area(), Square.to_dict, shape.old_area, shape.to_dict(indent=2)
 
 
 def through_the_library(item):

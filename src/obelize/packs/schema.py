@@ -1168,11 +1168,21 @@ class RenameMemberParams(_Closed):
 
     # A legacy dotted path (module, class and member), and the name the member takes on that class.
     members: dict[QualifiedName, PlainName]
+    # For a member whose new spelling takes fewer keywords than the old one did: the keywords it
+    # takes. A call that passes another, or a `*` or `**` argument, is refused; a member with no
+    # entry is renamed whatever it is called with.
+    takes: dict[QualifiedName, tuple[PlainName, ...]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check(self) -> RenameMemberParams:
         if not self.members:
             raise ValueError("a rename_member rule must name a member")
+        for key, names in self.takes.items():
+            if key not in self.members:
+                raise ValueError(
+                    f"takes[{key!r}] is not a member in members, so no call is checked"
+                )
+            sorted_unique(names, f"takes[{key!r}]")
         landed: dict[str, str] = {}
         for key, new in self.members.items():
             owner, _, old = key.rpartition(".")

@@ -42,6 +42,10 @@ _SENTINEL: Final = re.compile(
 )
 # A message that tells the reader what replaces a name, as opposed to one that only warns.
 _REPLACEMENT: Final = re.compile(r"\b(use|replaced|renamed|instead|favou?r|supersed\w*)\b", re.I)
+# A message that says no more than which name to use: anything else it says may be a step to take.
+_USE: Final = re.compile(r"^(?:[^.;]*;\s*)?use\s+`?([A-Za-z_]\w*)`?\s+instead\.?$", re.I)
+_POSITIONAL: Final = ("positional-only", "positional or keyword")
+_KEYWORDED: Final = ("positional or keyword", "keyword-only")
 
 
 # Kinds of name worth offering as what a removed one became.
@@ -58,7 +62,9 @@ _MEMBERS: Final = 30
 class ApiChange:
     """One change. `path` is the name in the old release, below the module; `new_path` where it is
     now; `param` the parameter concerned; `message` the library's own words, if it said any;
-    `same_signature` that a name paired with another takes the arguments it took."""
+    `same_signature` that a name paired with another takes the arguments it took. For a deprecated
+    member whose message names the one to use: `new_path` is that one, and `takes` the keywords it
+    takes where it takes fewer than the old did and a call could still move."""
 
     type: ChangeType
     path: str
@@ -68,6 +74,7 @@ class ApiChange:
     message: str | None = None
     detail: str = ""
     same_signature: bool = False
+    takes: tuple[str, ...] | None = None
 
 
 def diff(old: Surface, new: Surface, *, before: Sequence[Surface] = ()) -> tuple[ApiChange, ...]:
@@ -109,7 +116,7 @@ def diff(old: Surface, new: Surface, *, before: Sequence[Surface] = ()) -> tuple
                 )
             )
         else:
-            found.extend(_changed(path, one, news[path], message))
+            found.extend(_changed(path, one, news[path], message, members))
     return tuple(found)
 
 
@@ -209,7 +216,13 @@ def _alike(old: Obj, new: Obj) -> bool:
     return old.kind != "attribute" and old.params == new.params and _bases(old) == _bases(new)
 
 
-def _changed(path: str, old: Obj, new: Obj, message: str | None) -> Iterator[ApiChange]:
+def _changed(
+    path: str,
+    old: Obj,
+    new: Obj,
+    message: str | None,
+    members: Mapping[str, Sequence[tuple[str, Obj]]],
+) -> Iterator[ApiChange]:
     if "name" in (old.kind, new.kind):
         # A name declared and not read has no shape to compare, but may say it is going.
         if new.deprecated is not None and old.deprecated is None:
@@ -223,9 +236,79 @@ def _changed(path: str, old: Obj, new: Obj, message: str | None) -> Iterator[Api
     if old.params is not None and new.params is not None:
         yield from _signature(path, old.params, new.params)
     if new.deprecated is not None and old.deprecated is None:
-        yield ApiChange("deprecated", path, message=new.deprecated)
+        yield _deprecation(path, old, new.deprecated, members)
     elif message is not None and new.deprecated is None:
-        yield ApiChange("deprecated", path, message=message)
+        yield _deprecation(path, old, message, members)
+    elif new.deprecated is not None:
+        # The old release warned of one of its parameters, which is no notice of the name going.
+        moved = _deprecation(path, old, new.deprecated, members)
+        if moved.same_signature or moved.takes is not None:
+            yield moved
+
+
+def _deprecation(
+    path: str, old: Obj, message: str, members: Mapping[str, Sequence[tuple[str, Obj]]]
+) -> ApiChange:
+    """A deprecation, with the method it says to use where it says no more than that and a call of
+    the old one can move to it (as it is, or when it passes only what the new one takes)."""
+    plain = ApiChange("deprecated", path, message=message)
+    said = _USE.match(" ".join(message.split()))
+    if old.kind != "function" or said is None:
+        return plain
+    named = [
+        (new_path, one)
+        for new_path, one in members.get(_parent(path), ())
+        if new_path.rpartition(".")[2] == said[1] and new_path != path
+    ]
+    if len(named) != 1 or named[0][1].kind != "function" or named[0][1].deprecated is not None:
+        return plain
+    target, new = named[0]
+    if _accepts(old, new):
+        return ApiChange("deprecated", path, new_path=target, message=message, same_signature=True)
+    return ApiChange("deprecated", path, new_path=target, message=message, takes=_takes(old, new))
+
+
+def _positions(old: Obj, new: Obj) -> bool:
+    """Whether the positional parameters of `old` keep their places in `new`."""
+    first = [one.name for one in old.params or () if one.kind in _POSITIONAL]
+    return [one.name for one in new.params or () if one.kind in _POSITIONAL][: len(first)] == first
+
+
+def _accepts(old: Obj, new: Obj) -> bool:
+    """Whether every call of `old` is one of `new`: each parameter is there as the same kind, at
+    the same place, and nothing new is required."""
+    if old.params is None or new.params is None or not _positions(old, new):
+        return False
+    there = {one.name: one for one in new.params}
+    named = {one.name for one in old.params}
+    return all(one.name in there and there[one.name].kind == one.kind for one in old.params) and (
+        not any(one.required for one in new.params if one.name not in named)
+    )
+
+
+def _takes(old: Obj, new: Obj) -> tuple[str, ...] | None:
+    """The keywords `new` takes, if a call of `old` that passes only those means the same to it.
+
+    The positional parameters keep their places, nothing new is required, and every parameter that
+    went was optional and not positional; otherwise a call could not move by a rename. A new
+    method that takes any keyword says nothing of which ones.
+    """
+    if old.params is None or new.params is None:
+        return None
+    old_names, new_names = {one.name for one in old.params}, {one.name for one in new.params}
+    went = [one for one in old.params if one.name not in new_names]
+    added = [one for one in new.params if one.name not in old_names]
+    kinds = {one.kind for one in new.params}
+    spread = any(one.kind == "variadic positional" for one in old.params)
+    if (
+        not _positions(old, new)
+        or any(one.required for one in added)
+        or any(one.required or one.kind in _POSITIONAL for one in went)
+        or "variadic keyword" in kinds
+        or (spread and "variadic positional" not in kinds)
+    ):
+        return None
+    return tuple(sorted(one.name for one in new.params if one.kind in _KEYWORDED))
 
 
 def _signature(path: str, old: tuple[Param, ...], new: tuple[Param, ...]) -> Iterator[ApiChange]:

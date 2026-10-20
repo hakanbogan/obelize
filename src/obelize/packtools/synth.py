@@ -132,6 +132,16 @@ class Made:
 
 
 @dataclass(frozen=True, slots=True)
+class _Member:
+    """A method the library deprecated for another of its class: the new name, the keywords the new
+    one takes where a call must be checked against them, and what the library said."""
+
+    new: str
+    takes: tuple[str, ...] | None
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
 class _Flag:
     category: str
     message: str
@@ -336,6 +346,22 @@ def _at_module(path: str, olds: Mapping[str, Obj]) -> bool:
     return not parent or (parent in olds and olds[parent].kind == "module")
 
 
+def _of_class(path: str, olds: Mapping[str, Obj]) -> bool:
+    """Whether `path` is a member of a class."""
+    parent = olds.get(_parent(path))
+    return parent is not None and parent.kind == "class"
+
+
+def _member_move(change: ApiChange) -> bool:
+    """Whether a deprecation or a removal names the method to use, and a call of the old one can
+    move to it."""
+    return (
+        change.type in ("deprecated", "renamed")
+        and change.new_path is not None
+        and (change.same_signature or change.takes is not None)
+    )
+
+
 def _up_one(path: str, target: str, olds: Mapping[str, Obj]) -> bool:
     """Whether `target` is `path` taken out of its submodule into the package above it."""
     parent = _parent(path)
@@ -434,6 +460,8 @@ class _Plan:
     references: Mapping[str, str]
     # Taken out of a submodule (old path -> new path, in the package above it).
     exports: Mapping[str, str]
+    # Methods of a class that the library deprecated for another (old path -> the new one).
+    members: Mapping[str, _Member]
     flags: Mapping[str, _Flag]
     dropped: tuple[str, ...]
     olds: Mapping[str, Obj]
@@ -443,7 +471,7 @@ class _Plan:
     def symbols(self) -> tuple[str, ...]:
         """What the scan looks for: the names, and the submodules the exports leave, whose
         imports are rewritten with them."""
-        names = {*self.with_calls, *self.references, *self.exports, *self.flags}
+        names = {*self.with_calls, *self.references, *self.exports, *self.members, *self.flags}
         names |= {_parent(path) for path in self.exports}
         return tuple(sorted(f"{self.request.module}.{name}" for name in names))
 
@@ -454,6 +482,7 @@ class _Plan:
         with_calls: dict[str, str] = {}
         references: dict[str, str] = {}
         exports: dict[str, str] = {}
+        members: dict[str, _Member] = {}
         parts: dict[str, list[tuple[str, str, str, bool]]] = {}
 
         def flag(
@@ -461,9 +490,19 @@ class _Plan:
         ) -> None:
             parts.setdefault(path, []).append((category, message, suggestion, params))
 
+        moved = {
+            change.path
+            for change in changes
+            if _member_move(change) and _of_class(change.path, olds)
+        }
         for change in changes:
             path, target = change.path, change.new_path
             if change.type == "unseen" or not _in_scope(path, request.scope):
+                continue
+            if path in moved:
+                # What the old spelling's own signature says is no more than the new one's.
+                if change.type in ("deprecated", "renamed") and target is not None:
+                    members[path] = _Member(_leaf(target), change.takes, change.message or "")
                 continue
             if change.type == "renamed" and target is not None and _at_module(path, olds):
                 (with_calls if change.same_signature else references)[path] = target
@@ -504,8 +543,22 @@ class _Plan:
                     flags[path] = _Flag("moved", message, _SUGGESTED["moved"])
                     del table[path]
         kept, dropped = _outermost(flags)
+        # A new name that is one the pack looks for, or one another member lands on, is flagged.
+        standing = tuple(f"{request.module}.{path}" for path in kept)
+        landing = {
+            path: f"{request.module}.{_parent(path)}.{one.new}" for path, one in members.items()
+        }
+        looked = {f"{request.module}.{path}" for path in members}
+        for path, one in list(members.items()):
+            twice = sum(1 for there in landing.values() if there == landing[path]) > 1
+            if twice or landing[path] in looked or under_any(landing[path], standing):
+                said = f" The library said: {_quote(one.message)}" if one.message else ""
+                note = f"Deprecated in {label}.{said}"
+                flags[path] = _Flag("deprecated", note, _SUGGESTED["deprecated"])
+                del members[path]
+        kept, dropped = _outermost(flags)
         unseen = sum(1 for change in changes if change.type == "unseen")
-        return cls(request, with_calls, references, exports, kept, dropped, olds, unseen)
+        return cls(request, with_calls, references, exports, members, kept, dropped, olds, unseen)
 
     def covered(self) -> dict[str, int]:
         return {change["id"]: len(_names(change)) for change in self.changes()}
@@ -529,6 +582,8 @@ class _Plan:
                     old, new = self._home(path), self._home(landed)
                     text = re.sub(rf"\bimport {re.escape(old)}\b", f"import {new}", text)
             found[name] = text
+        if self.members:
+            found[_MEMBERS_FIXTURE] = self._members_program(renamed=True)
         return found
 
     def changes(self) -> list[dict[str, Any]]:
@@ -560,6 +615,35 @@ class _Plan:
                     "fixtures": [
                         "fixtures/negative/already_new.py",
                         f"fixtures/positive/{_FIXTURES[label]}",
+                    ],
+                }
+            )
+        if self.members:
+            module = request.module
+            params: dict[str, Any] = {
+                "members": {
+                    f"{module}.{path}": one.new for path, one in sorted(self.members.items())
+                }
+            }
+            takes = {
+                f"{module}.{path}": list(one.takes)
+                for path, one in sorted(self.members.items())
+                if one.takes is not None
+            }
+            if takes:
+                params["takes"] = takes
+            out.append(
+                {
+                    "id": "rename-members",
+                    "kind": "rename_member",
+                    "citation": _text(
+                        f"{request.distribution} {request.old} and {request.new}, public API: "
+                        f"a method the library's deprecation message replaces"
+                    ),
+                    "params": params,
+                    "fixtures": [
+                        "fixtures/negative/already_new.py",
+                        f"fixtures/positive/{_MEMBERS_FIXTURE}",
                     ],
                 }
             )
@@ -628,6 +712,8 @@ class _Plan:
                     for n, path in enumerate(sorted(table)[:FIXTURE_NAMES])
                 ]
                 found[f"fixtures/positive/{_FIXTURES[label]}"] = _program(_DOCS[label], uses)
+        if self.members:
+            found[f"fixtures/positive/{_MEMBERS_FIXTURE}"] = self._members_program(renamed=False)
         if self.flags:
             names = sorted(self.flags)[:FIXTURE_NAMES]
             uses = [self._use(path, True, n) for n, path in enumerate(names)]
@@ -636,6 +722,10 @@ class _Plan:
             {*self.with_calls.values(), *self.references.values(), *self.exports.values()}
         )[:FIXTURE_NAMES]
         kept = [self._read(path) for path in landed]
+        kept += [
+            self._read(f"{_parent(path)}.{one.new}")
+            for path, one in sorted(self.members.items())[:FIXTURE_NAMES]
+        ]
         found["fixtures/negative/already_new.py"] = _program(_DOCS["new"], kept)
         found["fixtures/positive/requirements.before.txt"] = _requirements(
             f"{request.distribution}=={request.old}", _NOTE
@@ -644,6 +734,25 @@ class _Plan:
             f"{request.distribution}{request.target}", "Already migrated, and the rule adds no pin."
         )
         return found
+
+    def _members_program(self, *, renamed: bool) -> str:
+        """A class derived from each library class that has a renamed method, and a call of each
+        method on an instance of it: as the old release spells it, or as the rules write it."""
+        chosen = sorted(self.members)[:FIXTURE_NAMES]
+        classes = sorted({_parent(path) for path in chosen})
+        module = self.request.module
+        imports = sorted({self._home(parent) for parent in classes})
+        head = "\n".join(f"import {name}" for name in imports)
+        bases = "\n\n\n".join(
+            f"class Derived{number}({module}.{parent}):\n    pass"
+            for number, parent in enumerate(classes)
+        )
+        calls = "\n".join(
+            f"    Derived{classes.index(_parent(path))}()."
+            f"{self.members[path].new if renamed else _leaf(path)}({_args(self.olds[path])})"
+            for path in chosen
+        )
+        return f'"""{_DOCS["members"]}"""\n\n{head}\n\n\n{bases}\n\n\ndef uses():\n{calls}\n'
 
     def _home(self, path: str) -> str:
         """The module a name is imported from: the nearest one above it, or the package."""
@@ -738,7 +847,9 @@ _FIXTURES: Final = {
     "references": "renamed_references.before.py",
     "exports": "moved_up.before.py",
 }
+_MEMBERS_FIXTURE: Final = "renamed_members.before.py"
 _DOCS: Final = {
+    "members": "Methods the library deprecated for another, called on a class derived from theirs.",
     "with_calls": "Names the library renamed, which obelize reads and calls the old way.",
     "references": "Names the library renamed, which obelize reads and never calls.",
     "exports": "Names the library moved out of a submodule into its package.",
@@ -774,7 +885,7 @@ def _names(change: Mapping[str, Any]) -> list[str]:
     params = change["params"]
     if change["kind"] == "manifest_dependency":
         return [params["to_name"]]
-    return sorted(params.get("symbols") or params.get("renamed") or ())
+    return sorted(params.get("symbols") or params.get("renamed") or params.get("members") or ())
 
 
 def _fold(

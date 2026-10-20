@@ -24,6 +24,7 @@ match:
   shared: true
   symbols:
     - acme.shapes.Shape.old_area
+    - acme.shapes.Shape.retired
     - acme.shapes.Shape.to_dict
   prefilter_tokens:
     - acme
@@ -36,10 +37,26 @@ changes:
       members:
         acme.shapes.Shape.old_area: area
         acme.shapes.Shape.to_dict: as_dict
+      takes:
+        acme.shapes.Shape.to_dict:
+          - indent
     fixtures:
       - fixtures/negative/already_new.py
       - fixtures/positive/overridden.before.py
       - fixtures/positive/receivers.before.py
+      - fixtures/positive/refused_call.before.py
+
+  - id: flag-retired
+    kind: flag_only
+    citation: "Acme Shapes 2 notes, 'Dropped'"
+    params:
+      symbols:
+        - acme.shapes.Shape.retired
+      message: Shape.retired is gone in acme-shapes 2.
+      suggestion: Read Shape.size instead.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/retired.before.py
 
   - id: dependency-line
     kind: manifest_dependency

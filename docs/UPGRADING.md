@@ -33,7 +33,12 @@ the diff. No file of your code is written; its run folder goes under `.obelize/`
 What the made pack does is deliberately small:
 
 - A module-level name that the library's own deprecation message says to replace, with one name
-  beside it, is renamed. A method or another member is flagged instead.
+  beside it, is renamed.
+- A method of a class that the library's message says to replace with another method of the class
+  (`use model_dump instead`, and no more than that) is renamed where your code reads it off an
+  instance of the class or of a class of yours that derives from it. If the new method takes fewer
+  keywords than the old one, a call that passes one it lacks is left for you; if a call could not
+  move by a rename (a positional parameter went, a required one is new), the method is flagged.
 - A name that moved up out of a submodule is moved up.
 - Everything else that changed is flagged and never rewritten, with the library's own message where
   it gave one: what was

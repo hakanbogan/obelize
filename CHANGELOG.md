@@ -22,6 +22,11 @@ in the release that makes it.
   uses it never names the library. A member that a class defines itself is withheld as
   `member_overridden`. The kind is new, no bundled pack
   uses it, and no format changed apart from the new kind, reason and code.
+- `pack synth` writes `rename_member` for a method the library deprecated, or removed after saying so,
+  with a message that says only which method to use, when a call of the old one can move to the new
+  (pydantic 1 to 2: `parse_obj`, `construct`, `schema`, and `dict`, `json` and `update_forward_refs`
+  with `takes`). A call that passes a keyword the new method lacks is left for you. What a pack flags
+  on such a class is flagged where it is read off an instance as well.
 
 ## [0.7.0] - 2026-10-19
 

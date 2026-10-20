@@ -55,10 +55,6 @@ class Hit:
     overridden: bool
 
 
-def _nothing(name: str) -> Lineage | None:
-    return None
-
-
 @dataclass(frozen=True, slots=True)
 class Source:
     """What one file gives the reader: its nodes, and the metadata libcst resolved over them."""
@@ -72,7 +68,7 @@ class Source:
     parents: Mapping[cst.CSTNode, cst.CSTNode]
     qualified: Callable[[cst.CSTNode], set[QualifiedName]]
     # What another module of the repository defines: a class by the name an import gives it.
-    derived: Callable[[str], Lineage | None] = _nothing
+    derived: Callable[[str], Lineage | None]
 
 
 def read(spec: ScanSpec, source: Source) -> list[Hit]:

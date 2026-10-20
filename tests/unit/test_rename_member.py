@@ -50,9 +50,10 @@ def tidy(source: str) -> tuple[str, list[Edit]]:
     return acme.transform(source, RENAME, spec=SPEC)
 
 
-def test_the_projection_names_the_class_and_the_members_renamed_on_it() -> None:
-    assert SPEC.member_classes == (MemberClass(class_symbol=BASE, members=("old_area", "to_dict")),)
-    assert SPEC.members_of(BASE) == ("old_area", "to_dict")
+def test_the_projection_names_the_class_and_the_members_renamed_or_flagged_on_it() -> None:
+    members = ("old_area", "retired", "to_dict")
+    assert SPEC.member_classes == (MemberClass(class_symbol=BASE, members=members),)
+    assert SPEC.members_of(BASE) == members
     assert SPEC.members_of("acme.shapes.Other") == ()
     assert (SPEC.constructor_symbols, SPEC.supported_methods) == ((), ())
 
@@ -324,3 +325,56 @@ def test_a_member_class_names_a_class_and_the_plain_names_renamed_on_it(
 ) -> None:
     with pytest.raises(ValueError, match=says):
         MemberClass(**fields)
+
+
+def test_a_member_the_pack_flags_is_flagged_on_a_receiver_too() -> None:
+    source = HEAD + "def check(item: Square):\n    return item.retired\n"
+    rows = acme.statuses(scanned(source))
+    assert rows == [(9, "needs_review", "flag_only_surface")]
+
+
+def test_the_flagged_member_is_the_flag_rules_and_not_the_renames() -> None:
+    row = scanned(HEAD + "def check(item: Square):\n    return item.retired\n").findings[0]
+    assert (row.symbol, RenameMember(RENAME).claims(row)) == (f"{BASE}.retired", False)
+
+
+@pytest.mark.parametrize(
+    ("call", "status"),
+    [
+        ("item.to_dict(indent=2)", "auto"),
+        ("item.to_dict()", "auto"),
+        ("item.to_dict(depth=1)", "needs_review"),
+        ("item.to_dict(indent=1, depth=1)", "needs_review"),
+        ("item.to_dict(*rest)", "needs_review"),
+        ("item.to_dict(**rest)", "needs_review"),
+        ("item.old_area(depth=1)", "auto"),
+    ],
+)
+def test_a_call_the_new_spelling_takes_fewer_keywords_for_is_refused_when_it_passes_one_it_lacks(
+    call: str, status: str
+) -> None:
+    source = HEAD + f"def check(item: Square, rest):\n    return {call}\n"
+    code, edits = tidy(source)
+    assert [row.status for row in edits] == [status]
+    assert (code == source) is (status == "needs_review")
+    if status == "needs_review":
+        assert [row.reason for row in edits] == ["unsupported_kwarg"]
+
+
+def test_a_member_read_that_is_not_a_call_is_renamed_whatever_the_new_spelling_takes() -> None:
+    code, edits = tidy(HEAD + "def check(item: Square):\n    return item.to_dict\n")
+    assert code.endswith("return item.as_dict\n")
+    assert [row.status for row in edits] == ["auto"]
+
+
+def test_a_takes_entry_names_a_member_and_sorted_keywords() -> None:
+    from obelize.packs.schema import RenameMemberParams
+
+    members = {f"{BASE}.to_dict": "as_dict"}
+    assert RenameMemberParams(members=members, takes={f"{BASE}.to_dict": ()}).takes
+    for takes, says in (
+        ({f"{BASE}.other": ("a",)}, "is not a member in members"),
+        ({f"{BASE}.to_dict": ("b", "a")}, "must be sorted"),
+    ):
+        with pytest.raises(ValueError, match=says):
+            RenameMemberParams(members=members, takes=takes)

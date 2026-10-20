@@ -826,3 +826,102 @@ def test_no_more_than_the_limit_are_offered_closest_first() -> None:
     found = api.successors(old, new, "Thing")
     assert len(found) == api.SUCCESSORS
     assert found[0] == ("Thin", "class") or found[0][0].startswith("Thing")
+
+
+# A method the library deprecated for another of its class, and what a call can carry across.
+
+CLASS = Obj("", "class")
+SAYS = "The `old` method is deprecated; use `new` instead."
+
+
+def moved(old: Obj, new: Obj, message: str = SAYS, *, before: bool = False) -> list[api.ApiChange]:
+    """The changes of a class whose `old` method carries a notice and which gained a `new` one."""
+    warned = fn(*(old.params or ()), deprecated="a parameter is going") if before else old
+    return list(
+        api.diff(
+            *surfaces(
+                {"C": CLASS, "C.old": warned},
+                {
+                    "C": CLASS,
+                    "C.old": Obj("", "function", old.params, deprecated=message),
+                    "C.new": new,
+                },
+            )
+        )
+    )
+
+
+def test_a_deprecated_method_that_says_which_to_use_is_paired_with_it() -> None:
+    [one] = moved(fn(req("a")), fn(req("a"), opt("b", kind="keyword-only")))
+    assert (one.type, one.path, one.new_path) == ("deprecated", "C.old", "C.new")
+    assert (one.same_signature, one.takes) == (True, None)
+    assert one.message == SAYS
+
+
+def test_a_method_that_takes_fewer_keywords_is_paired_with_the_ones_it_takes() -> None:
+    old = fn(req("a"), opt("gone", kind="keyword-only"), opt("rest", kind="variadic keyword"))
+    new = fn(req("a"), opt("fresh", kind="keyword-only"))
+    changed = moved(old, new)
+    [one] = [row for row in changed if row.type == "deprecated"]
+    assert (one.new_path, one.same_signature, one.takes) == ("C.new", False, ("a", "fresh"))
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        # A positional parameter that went, or moved.
+        (fn(req("a"), req("b")), fn(req("a"))),
+        (fn(req("a"), req("b")), fn(req("b"), req("a"))),
+        # A required one that went, and one newly required.
+        (fn(req("a"), req("flag", "keyword-only")), fn(req("a"))),
+        (fn(req("a")), fn(req("a"), req("flag", "keyword-only"))),
+        # `*args` the new one does not take; `**kwargs` it does, which says nothing of which.
+        (fn(req("a"), opt("rest", kind="variadic positional")), fn(req("a"))),
+        (
+            fn(req("a"), opt("gone", kind="keyword-only")),
+            fn(req("a"), opt("more", kind="variadic keyword")),
+        ),
+    ],
+)
+def test_a_method_a_call_could_not_move_to_by_a_rename_is_named_and_not_paired(
+    old: Obj, new: Obj
+) -> None:
+    [one] = [row for row in moved(old, new) if row.type == "deprecated"]
+    assert (one.new_path, one.same_signature, one.takes) == ("C.new", False, None)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "The `old` method is deprecated; use `new` instead. See the docs for `include`.",
+        "The `old` method is deprecated; use `new` and json.dumps instead.",
+        "The `old` method is deprecated; set `x=True` and use `new` instead.",
+        "The `old` method is deprecated; use `missing` instead.",
+        "The `old` method is deprecated.",
+    ],
+)
+def test_a_message_that_says_more_than_which_to_use_pairs_nothing(message: str) -> None:
+    [one] = moved(fn(req("a")), fn(req("a")), message)
+    assert (one.new_path, one.same_signature, one.takes, one.message) == (
+        None,
+        False,
+        None,
+        message,
+    )
+
+
+def test_a_method_that_is_no_function_or_is_itself_deprecated_is_not_what_to_use() -> None:
+    [one] = moved(fn(req("a")), Obj("", "attribute"))
+    assert one.new_path is None
+    [one] = moved(fn(req("a")), fn(req("a"), deprecated="going"))
+    assert one.new_path is None
+    [one] = moved(Obj("", "function"), fn(req("a")))
+    assert (one.new_path, one.same_signature, one.takes) == ("C.new", False, None)
+
+
+def test_a_method_the_old_release_warned_of_a_parameter_of_is_paired_when_a_call_can_move() -> None:
+    [one] = moved(fn(req("a")), fn(req("a")), before=True)
+    assert (one.new_path, one.same_signature) == ("C.new", True)
+    unsafe = moved(fn(req("a"), req("b")), fn(req("a")), before=True)
+    assert [row for row in unsafe if row.type == "deprecated"] == []
+    assert moved(fn(req("a")), fn(req("a")), "going", before=True) == []

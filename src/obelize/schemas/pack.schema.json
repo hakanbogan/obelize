@@ -978,6 +978,20 @@
           },
           "title": "Members",
           "type": "object"
+        },
+        "takes": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "items": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "title": "Takes",
+          "type": "object"
         }
       },
       "required": [

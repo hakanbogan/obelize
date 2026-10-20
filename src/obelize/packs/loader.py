@@ -244,6 +244,13 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
             variables.update(change.params.variables)
         elif isinstance(change, ManifestDependencyChange):
             declare_transitive = change.params.declare_transitive
+    # What a pack flags on a class it renames members of is read off a receiver the same way.
+    for owner, listed in members.items():
+        listed.update(
+            symbol.rpartition(".")[2]
+            for symbol in flagged | attributes
+            if symbol.rpartition(".")[0] == owner
+        )
     floor = bounds(SpecifierSet(pack.from_.version))[0]
     return ScanSpec(
         pack_id=pack.id,

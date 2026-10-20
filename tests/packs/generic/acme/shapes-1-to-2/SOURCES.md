@@ -13,7 +13,12 @@ An invented library, for the test suite. One section per `changes[].id`.
 ## rename-members
 
 acme-shapes 2 renamed `Shape.old_area` to `Shape.area` and `Shape.to_dict` to `Shape.as_dict`,
-with the arguments they took.
+with the arguments they took, except that `to_dict` takes only `indent` of the keywords the old
+one did.
+
+## flag-retired
+
+acme-shapes 2 dropped `Shape.retired`.
 
 ## dependency-line
 

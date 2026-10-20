@@ -81,7 +81,28 @@ module level of each file: a class defined in a function, or made by `type(...)`
 one defined in a file the walk does not select. This changes ADR-005's "no `FullRepoManager`" only
 by this one input, and no pack without member classes pays for it.
 
-### D6. A pack for the test suite
+### D6. A call the new spelling does not take
+
+A method often takes fewer keywords than the one it replaces (`dict(skip_defaults=...)` is
+`model_dump(...)`, which has no `skip_defaults`). `takes` names, for such a member, the keywords the
+new spelling takes. A call that passes another keyword, or a `*` or `**` argument, is
+`unsupported_kwarg` and left for a person; a member read that is not a call, and a member with no
+entry, are renamed whatever it is called with. Calls that pass nothing the new spelling lacks are
+the ones a rename moves safely, and are most of them.
+
+### D7. What `pack synth` writes
+
+A class member that the library deprecated, or removed after saying so, with a message that says no
+more than which method to use (`use `model_dump` instead`), is a `rename_member` when a call of the
+old one can move to the new: its positional parameters keep their places, nothing is newly required,
+and every parameter that went was optional, a keyword and not a splat (then `takes` is written).
+A message that adds anything (`set `from_attributes=True` and use `model_validate``, `see the
+docstring for `include``) names a step the rename would not take, and the member is flagged with the
+library's words as before, as is a member another method's rename would land on. What the pack
+flags on a class it renames members of is also read off a typed receiver, so a method that stays
+flagged (`copy`) holds the file as it does when it is read through the library's module.
+
+### D8. A pack for the test suite
 
 `tests/packs/generic/acme/shapes-1-to-2` is an invented library that derives classes the way
 programs do. It uses the kind in every receiver shape and in the refused one, and is held to the

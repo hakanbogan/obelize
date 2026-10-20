@@ -210,7 +210,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rewrite_call` | `legacy_symbol`, `new_call` (dotted path under the client, or after the root the author wrote when `root` is `module`), `root` (`client`, the default, or `module`), `arg_map`, `aliases`, `positional_to_kw`, `keywords`, `positive_numbers`, `config_class`, `config_kwargs`, `config_kwarg`, `result_access_flags`, `result_attribute_flags` (fields the new result lacks; reading one is `attribute_removed`), `result_paths` (the reads of the result that carry), `legacy_error_modules`, `dispatch_prefixes`, `literal_prefixes`, `value_maps`, `warnings`, `warnings_unless` |
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
 | `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `renamed` (a legacy dotted path to the name it takes in the same module), `calls` (`refused`, the default, or `allowed`), `now_caught_by` (what the new class derives from and the old one did not) |
-| `rename_member` | `members` (a legacy dotted path of a class and one of its members, to the name the member takes on that class) |
+| `rename_member` | `members` (a legacy dotted path of a class and one of its members, to the name the member takes on that class), `takes` (for a member whose new spelling takes fewer keywords: the keywords it takes) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
 
@@ -375,7 +375,9 @@ class and the member, and the scan finds the instances: a call of a class the fi
 derives from the library's, a name every assignment of which is one, `self` and `cls` in a method of
 one, a parameter or a variable annotated as one (`Optional[User]` and `User | None` as `User`), and
 the class itself (`User.parse_obj`). Only the member's name changes, so the pack asserts that the member
-takes the arguments it took; use `rewrite_call` where they change. A value nothing types (an argument
+takes the arguments it took, and `takes` narrows that for a member whose new spelling takes fewer
+keywords: a call that passes another, or a `*` or `**` argument, is `unsupported_kwarg`; use `rewrite_call`
+where the arguments change. What a `flag_only` change flags on the class is read off a receiver as well. A value nothing types (an argument
 with no annotation, what a function returned, a field of another object) is left as it is and not
 reported, so a pack states that in `limitations`. A class of another file is found too: the scan
 reads the class headers of the repository first, so `class Admin(User)` in one file and `Admin()` in a
@@ -385,8 +387,8 @@ as a method, an assignment or an annotated field, or one between it and the libr
 `member_overridden`: the new name would run another function. List the members in `match.symbols`
 (they are read through the class's module as well, `acme.shapes.Shape.old_area(item)`). The schema checks that
 every member is a path of three names or more under `match.symbols`, that none keeps its name, is renamed
-again, lands on another or on a name `match.symbols` lists, that none is claimed by another change or
-under a symbol a `flag_only` change refuses ([the member rename decision](adr/ADR-068-rename-member.md)).
+again, lands on another or on a name `match.symbols` lists, that every `takes` entry is a member with
+sorted keywords, that none is claimed by another change or under a symbol a `flag_only` change refuses ([the member rename decision](adr/ADR-068-rename-member.md)).
 
 **`flag_only`** never edits code: it reports a finding with a message and a
 suggestion, for anything that is not 1:1. Its channels:
