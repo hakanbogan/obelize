@@ -316,6 +316,26 @@ class MethodReturn(_Frozen):
         return self
 
 
+class MemberClass(_Frozen):
+    """A class whose members a pack renames: they are renamed on its instances, and on those of
+    every class that derives from it."""
+
+    class_symbol: str
+    members: tuple[str, ...]
+
+    @model_validator(mode="after")
+    def _check(self) -> MemberClass:
+        if not QUALIFIED_NAME.fullmatch(self.class_symbol):
+            raise ValueError(f"class_symbol must be a qualified name, got {self.class_symbol!r}")
+        if not self.members:
+            raise ValueError(f"{self.class_symbol} has no member to rename; drop the entry instead")
+        sorted_unique(self.members, "members")
+        bad = [name for name in self.members if not name.isidentifier()]
+        if bad:
+            raise ValueError(f"members takes plain names, got {bad}")
+        return self
+
+
 class ProvidedModule(_Frozen):
     """A module the legacy distribution installed and the new one does not.
 
@@ -377,6 +397,9 @@ class ScanSpec(_Frozen):
     constructor_symbols: tuple[str, ...] = ()
     supported_methods: tuple[ReceiverMethods, ...] = ()
     method_returns: tuple[MethodReturn, ...] = ()
+    # Unlike `supported_methods`, a receiver here is no object the new SDK replaces: its members
+    # are renamed where it is seen, whatever else is done with it.
+    member_classes: tuple[MemberClass, ...] = ()
     removed_attributes: tuple[str, ...] = ()
     flag_only_symbols: tuple[str, ...] = ()
     flag_only_patterns: tuple[FlagOnlyPattern, ...] = ()
@@ -459,6 +482,7 @@ class ScanSpec(_Frozen):
         receivers = tuple(entry.receiver for entry in self.supported_methods)
         sorted_unique(receivers, "supported_methods")
         sorted_unique(tuple(entry.method for entry in self.method_returns), "method_returns")
+        sorted_unique(tuple(entry.class_symbol for entry in self.member_classes), "member_classes")
         for entry in self.method_returns:
             owner, _, method = entry.method.rpartition(".")
             if method not in self.methods_for(owner):
@@ -480,6 +504,13 @@ class ScanSpec(_Frozen):
                 f"their methods would never resolve"
             )
         return self
+
+    def members_of(self, class_symbol: str) -> tuple[str, ...]:
+        """The members a pack renames on `class_symbol`, or `()`."""
+        return next(
+            (entry.members for entry in self.member_classes if entry.class_symbol == class_symbol),
+            (),
+        )
 
     def methods_for(self, receiver: str) -> tuple[str, ...]:
         """The supported methods of `receiver`, or `()` when it has none.
@@ -657,6 +688,7 @@ __all__ = [
     "FindingsDocument",
     "ImpactPlan",
     "ManifestPlan",
+    "MemberClass",
     "MethodReturn",
     "PackRef",
     "ProvidedModule",

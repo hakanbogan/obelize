@@ -1,0 +1,56 @@
+# A pack for the test suite, over an invented library: acme-shapes 2 keeps the module's name and
+# renames two members of a class that programs derive their own classes from.
+id: acme/shapes-1-to-2
+pack_version: 0.1.0
+provider: acme
+language: python
+
+source:
+  type: official_guide
+  url: https://example.invalid/acme-shapes/migrating
+  retrieved_at: 2026-10-20
+
+from:
+  package: acme-shapes
+  version: ">=1,<2"
+to:
+  package: acme-shapes
+  version: ">=2,<3"
+  requires_python: ">=3.9"
+
+match:
+  imports:
+    - acme.shapes
+  shared: true
+  symbols:
+    - acme.shapes.Shape.old_area
+    - acme.shapes.Shape.to_dict
+  prefilter_tokens:
+    - acme
+
+changes:
+  - id: rename-members
+    kind: rename_member
+    citation: "Acme Shapes 2 notes, 'Renamed methods'"
+    params:
+      members:
+        acme.shapes.Shape.old_area: area
+        acme.shapes.Shape.to_dict: as_dict
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/overridden.before.py
+      - fixtures/positive/receivers.before.py
+
+  - id: dependency-line
+    kind: manifest_dependency
+    citation: "Acme Shapes 2 notes, 'Installing'"
+    params:
+      from_name: acme-shapes
+      to_name: acme-shapes
+      to_spec: ">=2,<3"
+    fixtures:
+      - fixtures/negative/requirements_already_new.txt
+      - fixtures/positive/requirements.before.txt
+
+limitations:
+  - "A member is renamed only on a value the file shows to be a Shape or a class derived from one; a value a function returned, or one read from a field, is left as it is."

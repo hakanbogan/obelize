@@ -26,7 +26,9 @@ IMPACT_OWNED: frozenset[BailCode] = (
 # Raised only where `compile()` accepts a `lazy import` (3.15), so no key grades it on every
 # interpreter: `tests/unit/test_analysis.py` does. `no_pack_for_usage` is raised only for the spec
 # of `scan --library`, which no pack makes, so `tests/unit/test_inventory.py` grades it.
-UNKEYED: frozenset[BailCode] = frozenset({"lazy_import", "no_pack_for_usage"})
+# `member_overridden` is raised only for a pack that renames members of a class, which the oracle's
+# pack does not, so `tests/unit/test_rename_member.py` grades it.
+UNKEYED: frozenset[BailCode] = frozenset({"lazy_import", "member_overridden", "no_pack_for_usage"})
 
 # Graded but unranked by §6: a manifest row names one declaration, so `manifest_code_mismatch`
 # never meets `repo_not_fully_migrated`; `model_object_read_elsewhere` lands only where none fired.

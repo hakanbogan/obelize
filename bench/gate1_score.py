@@ -48,6 +48,7 @@ RESOLVED_REASONS: frozenset[str] = frozenset(
         "receiver_bound_same_scope",
         "receiver_bound_module_const",
         "receiver_bound_self_attr",
+        "receiver_typed_by_class",
     }
 )
 UNRESOLVED_REASONS: frozenset[str] = frozenset(

@@ -922,6 +922,70 @@
       "title": "RenameImportParams",
       "type": "object"
     },
+    "RenameMemberChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rename_member",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RenameMemberParams"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "RenameMemberChange",
+      "type": "object"
+    },
+    "RenameMemberParams": {
+      "additionalProperties": false,
+      "description": "Members of a class that the new release spells another way, wherever an instance is seen.\n\nAn instance of the class, or of one that derives from it, is renamed the same: a pack names\nthe class that defines the members, and what derives from it in the repository is found.",
+      "properties": {
+        "members": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "title": "Members",
+          "type": "object"
+        }
+      },
+      "required": [
+        "members"
+      ],
+      "title": "RenameMemberParams",
+      "type": "object"
+    },
     "RenameSettingChange": {
       "additionalProperties": false,
       "properties": {
@@ -1539,6 +1603,7 @@
             "generative_model_calls": "#/$defs/GenerativeModelCallsChange",
             "manifest_dependency": "#/$defs/ManifestDependencyChange",
             "rename_import": "#/$defs/RenameImportChange",
+            "rename_member": "#/$defs/RenameMemberChange",
             "rename_setting": "#/$defs/RenameSettingChange",
             "rename_symbol": "#/$defs/RenameSymbolChange",
             "rewrite_call": "#/$defs/RewriteCallChange"
@@ -1563,6 +1628,9 @@
           },
           {
             "$ref": "#/$defs/RenameSymbolChange"
+          },
+          {
+            "$ref": "#/$defs/RenameMemberChange"
           },
           {
             "$ref": "#/$defs/FlagOnlyChange"

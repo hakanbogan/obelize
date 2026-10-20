@@ -20,7 +20,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `manifest` | A dependency declaration in a `*requirement*.txt` file (or `requirements/<name>.txt`), `pyproject.toml`, `Pipfile`, `setup.py` or `setup.cfg`. A `*requirements*.in` or `*constraints*.txt` file is read too but never written: its declarations are reported as `manifest_pin_shape_unsupported`. Lockfiles are not read: a line edit would break their hashes. |
 | `parse_error` | libcst or `compile()` refused the file, it is nested past the depth limit ([the input gates decision](adr/ADR-017-input-gates.md)), or obelize raised on it (`internal_error`, D9). Reported, never edited. |
 
-## 2. `Finding.confidence_reason`: why we believe it (16 values)
+## 2. `Finding.confidence_reason`: why we believe it (17 values)
 
 | Value | Meaning |
 |---|---|
@@ -32,6 +32,7 @@ grades the fixtures against them. §6 and §7 derive from §1-§5.
 | `receiver_bound_same_scope` | The receiver is a local bound in the same scope. |
 | `receiver_bound_module_const` | The receiver is a module-level constant, used in a function or method of the same module. |
 | `receiver_bound_self_attr` | The receiver is `self.<attr>`, matched on (enclosing `ClassDef`, first-parameter name, attribute name). |
+| `receiver_typed_by_class` | The receiver is a class of the repository that derives from one a pack renames members of (`User.parse_obj`), `self` or `cls` in a method of one, or a parameter or a variable annotated as one. |
 | `receiver_unresolved` | The receiver has no resolvable binding. |
 | `dynamic_access` | Reached by name at run time: `importlib.import_module("…")`, `__import__("…")`, a `sys.modules[…]` assignment or a dict literal handed to it. A write of an environment variable the pack names (`os.environ[…] =`, `putenv`) is this too. `getattr(<alias>, "X")` is `module_alias_rebound`. Of a shared module, the bare module fetched by its string counts too. |
 | `star_import` | Bound by a star import; the names are unknown. |
@@ -97,6 +98,7 @@ summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACT
 | `class_attr_binding` | The constructor is a class-body attribute. Out of scope in v0. | Build the object in a method or at module level, not in the class body, or migrate it by hand. |
 | `receiver_unresolved` | A supported method on a receiver with no binding record, including an unbound constructor result. A call on a name only ever assigned the new SDK's client is none. | Bind the receiver to a name assigned once from its constructor, or migrate the call by hand. |
 | `receiver_method_unmapped` | A supported method in the pack's `methods` with no `rewrites` entry; the whole group is withheld. | Migrate the call by hand; the pack has no rewrite for this method. |
+| `member_overridden` | A member a pack renames (`rename_member`) is read off an instance of a class that defines it, or of one that derives from such a class: the new name would run another function. | Migrate the call by hand; a class of this file defines the member itself, so the new name would run another function. |
 | `internal_error` | obelize itself raised on the file, in the scan (the file is one `parse_error` row) or in a `fix` run (each row the scan graded `eligible` is withheld). The file is left alone, and `limitations[]` names the exception class and never its message. A defect in obelize, reported so one file does not end the run. | Migrate the file by hand; obelize raised on it, so it was left alone. |
 
 ### Client
@@ -188,7 +190,7 @@ the defect's code on its rows and `file_not_fully_migrated` on the rest
 | 2 | a file-level gate (`input_does_not_parse`, `internal_error`, `roundtrip_mismatch`, `output_does_not_parse`, `output_names_unresolved`) | `scan/parse.py`, `scan/runner.py`; `output_does_not_parse` and `output_names_unresolved` `transforms/codemod.py`, on the bytes a run would write, and `internal_error` there on a file a rule raised on |
 | 3 | a whole-file resolution defect (`module_alias_rebound`, `conditional_binding`, `star_import`) or where an import statement sits (`local_import`, `lazy_import`) | `scan/analysis.py` |
 | 4 | the module's client (`client_source_unresolved`, `multiple_configure_calls`) | `impact/planner.py` |
-| 5 | the binding group (`receiver_unresolved`, `model_object_escapes`, `class_attr_binding`, `multiple_assignments`) | `receiver_unresolved` by `scan/analysis.py`, the rest by `impact/dataflow.py` |
+| 5 | the binding group (`receiver_unresolved`, `model_object_escapes`, `class_attr_binding`, `multiple_assignments`), or the class an instance is of (`member_overridden`) | `receiver_unresolved` and `member_overridden` by `scan/analysis.py`, the rest by `impact/dataflow.py` |
 | 6 | atomicity (`file_not_fully_migrated`, `repo_not_fully_migrated`, `transitive_dependency_in_use`) | `impact/planner.py`, `scan/manifests.py`; at fix time `transforms/codemod.py` also puts `repo_not_fully_migrated` on the source rows of a pack whose new distribution is its legacy one, import rows included |
 
 Each module declares `BAILS`, and `RUNG` when laddered; `impact/planner.py`
@@ -196,8 +198,8 @@ merges them into `LADDER` and `ORDER` (most specific first), checked by
 `tests/unit/test_planner.py`. `tests/oracle/test_scan_against_the_oracle.py`
 checks that the raised codes equal the graded ones. A later pass may only move a
 finding to a **more specific** code, never out of `needs_review`. Within a rung:
-`impact/dataflow.py`'s `ORDER`, then `receiver_unresolved`, since the group
-names a real binding.
+`impact/dataflow.py`'s `ORDER`, then `member_overridden`, then
+`receiver_unresolved`, since the group names a real binding.
 
 Outside `LADDER`, since nothing on their row competes:
 

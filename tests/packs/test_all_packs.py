@@ -31,6 +31,7 @@ from obelize.transforms import manifest as manifest_rules
 
 ROOT = Path(__file__).resolve().parents[2]
 NEGATIVE = Path(__file__).resolve().parent / "_negative"
+GENERIC = Path(__file__).resolve().parent / "generic"
 BUILDER = NEGATIVE / "_build.py"
 GEMINI_ID = "gemini/google-generativeai-to-google-genai"
 OPENAI_ID = "openai/openai-0-to-1"
@@ -339,10 +340,14 @@ def test_sources_records_the_hash_of_the_page_the_pack_cites(bundled: loader.Loa
     assert bundled.pack.source.url in text
 
 
-def test_the_bundled_packs_use_every_kind_and_the_registry_says_which_one_runs() -> None:
-    """The scanner reads every declared kind; only the registry says which ones can apply."""
+def test_the_packs_use_every_kind_and_the_registry_says_which_one_runs() -> None:
+    """The scanner reads every declared kind; only the registry says which ones can apply.
+
+    A kind no bundled pack needs is used by a pack of an invented library (`generic/`).
+    """
+    references = [*BUNDLED_IDS, *map(str, sorted(GENERIC.glob("*/*/pack.yaml")))]
     declared = {
-        change.kind for reference in BUNDLED_IDS for change in loader.load(reference).pack.changes
+        change.kind for reference in references for change in loader.load(reference).pack.changes
     }
     assert declared == IMPLEMENTED_KINDS == schema.CHANGE_KINDS
     # `registry.RULES` holds only parsed-file kinds; the manifest kind is in `MANIFEST_RULES`.

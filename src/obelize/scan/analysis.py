@@ -40,6 +40,7 @@ from obelize.models import (
     ScanSpec,
     ScanStatus,
 )
+from obelize.scan import members
 from obelize.scan.parse import Read
 
 # Closed here, where raised; `tests/oracle/` asserts the split with `impact/`.
@@ -50,6 +51,7 @@ BAILS: frozenset[BailCode] = frozenset(
         "flag_only_surface",
         "lazy_import",
         "local_import",
+        "member_overridden",
         "module_alias_rebound",
         "no_pack_for_usage",
         "receiver_unresolved",
@@ -69,6 +71,7 @@ RUNG: Final[dict[BailCode, int]] = {
     "module_alias_rebound": 3,
     "local_import": 3,
     "lazy_import": 3,
+    "member_overridden": 5,
     "receiver_unresolved": 5,
 }
 
@@ -282,6 +285,7 @@ class _Pass:
         self._quoted_annotations()
         self._star_candidates()
         self._bindings()
+        self._members()
         self._unresolved_receivers()
         self._mentions()
         return Analysis(
@@ -832,6 +836,29 @@ class _Pass:
             seen.add(id(node))
             self._add(
                 node, "method_call" if isinstance(node, cst.Call) else "attribute", reason, symbol
+            )
+
+    def _members(self) -> None:
+        """A member a pack renames, read off an instance of a class it names or one derived."""
+        if not self._spec.member_classes:
+            return
+        nodes = self._nodes
+        source = members.Source(
+            classes=nodes.classes,
+            attributes=nodes.attributes,
+            annotated=nodes.ann_assigns,
+            values=self._value_of,
+            scopes=self._scopes,
+            parents=self._parents,
+            qualified=lambda node: qualified_names(self._qnp, node),
+        )
+        for hit in members.read(self._spec, source):
+            self._add(
+                hit.node,
+                "method_call" if hit.called else "attribute",
+                hit.reason,
+                hit.symbol,
+                bail="member_overridden" if hit.overridden else None,
             )
 
     def _propagate(self) -> bool:

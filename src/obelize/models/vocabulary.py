@@ -28,6 +28,7 @@ ConfidenceReason = Literal[
     "receiver_bound_same_scope",
     "receiver_bound_module_const",
     "receiver_bound_self_attr",
+    "receiver_typed_by_class",
     "receiver_unresolved",
     "dynamic_access",
     "star_import",
@@ -62,6 +63,7 @@ BailCode = Literal[
     "class_attr_binding",
     "receiver_unresolved",
     "receiver_method_unmapped",
+    "member_overridden",
     # Client
     "multiple_configure_calls",
     "client_source_unresolved",
@@ -163,6 +165,10 @@ BAIL_ACTIONS: dict[BailCode, str] = {
     ),
     "receiver_method_unmapped": (
         "Migrate the call by hand; the pack has no rewrite for this method."
+    ),
+    "member_overridden": (
+        "Migrate the call by hand; a class of this file defines the member itself, so the new "
+        "name would run another function."
     ),
     "multiple_configure_calls": "Call configure once in the module, or migrate the module by hand.",
     "client_source_unresolved": (

@@ -24,6 +24,7 @@ from obelize.transforms.kinds import flag_only
 
 ROOT = Path(__file__).resolve().parents[2]
 NEGATIVE = Path(__file__).resolve().parent / "_negative"
+GENERIC = Path(__file__).resolve().parent / "generic"
 BUILDER = NEGATIVE / "_build.py"
 PACK_SPEC = ROOT / "docs" / "PACK_SPEC.md"
 ADR_006 = ROOT / "docs" / "adr" / "ADR-006-pack-carries-no-code.md"
@@ -1161,6 +1162,7 @@ PROJECTED = {
     "constructor_symbols",
     "supported_methods",
     "method_returns",
+    "member_classes",
     "removed_attributes",
     "flag_only_symbols",
     "flag_only_patterns",
@@ -1180,12 +1182,16 @@ PROJECTED = {
 
 
 def test_the_projection_fills_every_field_of_the_scan_spec() -> None:
-    """Across the bundled packs: one fills what another has no use for (`shared`, the floor)."""
+    """Across the packs: one fills what another has no use for (`shared`, the floor)."""
     # `inventory` is set by `scan --library` on a spec no pack made, never by a pack.
     assert set(ScanSpec.model_fields) == PROJECTED | {"inventory"}
-    specs = [loader.to_scan_spec(loader.load(identifier)) for identifier in loader.bundled_ids()]
+    generic = (path.as_posix() for path in sorted(GENERIC.glob("*/*/pack.yaml")))
+    specs = [
+        loader.to_scan_spec(loader.load(identifier))
+        for identifier in (*loader.bundled_ids(), *generic)
+    ]
     empty = [name for name in PROJECTED if not any(getattr(spec, name) for spec in specs)]
-    assert empty == [], f"no bundled pack fills {empty}, so nothing exercises them"
+    assert empty == [], f"no pack fills {empty}, so nothing exercises them"
 
 
 def test_the_legacy_floor_is_the_lower_bound_of_the_range_the_pack_migrates_from() -> None:
@@ -1393,7 +1399,8 @@ def test_the_projection_digest_ignores_the_pack_identity_and_the_gates_and_nothi
         "new_version": ">=9.9",
     }
     exercised: set[str] = set()
-    for identifier in loader.bundled_ids():
+    generic = (path.as_posix() for path in sorted(GENERIC.glob("*/*/pack.yaml")))
+    for identifier in (*loader.bundled_ids(), *generic):
         spec = loader.to_scan_spec(loader.load(identifier))
         baseline = loader.spec_digest(spec)
         assert loader.spec_digest(spec.model_copy(update=identity)) == baseline

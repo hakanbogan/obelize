@@ -12,6 +12,15 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Added
+
+- A pack can rename a member of a class (`rename_member`): `user.dict()` becomes `user.model_dump()`
+  where `User` derives from the library's `BaseModel`. The scan types a receiver from what the file
+  shows (a call of such a class, `self` and `cls` in a method of one, an annotated parameter or
+  variable, a name every assignment of which is one) and leaves any other alone. A member that a class
+  of the file defines itself is withheld as `member_overridden`. The kind is new, no bundled pack
+  uses it, and no format changed apart from the new kind, reason and code.
+
 ## [0.7.0] - 2026-10-19
 
 obelize can now move a dependency that no one has written a pack for. `obelize upgrade` finds what is

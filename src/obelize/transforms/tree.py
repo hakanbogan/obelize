@@ -88,6 +88,10 @@ class Tree:
             None,
         )
 
+    def member(self, position: Position) -> cst.Attribute | None:
+        """The attribute whose member name starts at `position`, where a finding names one."""
+        return self._members.get(position)
+
     def name(self, position: Position, symbol: str) -> cst.Name | None:
         """The bare name a finding names (a from-imported one), or None where it names a chain."""
         return next(
@@ -107,6 +111,12 @@ class Tree:
     @cached_property
     def _attributes(self) -> dict[Position, list[cst.Attribute]]:
         return self._at(cst.Attribute)
+
+    @cached_property
+    def _members(self) -> dict[Position, cst.Attribute]:
+        return {
+            self.start(node.attr): node for node in self._pos if isinstance(node, cst.Attribute)
+        }
 
     @cached_property
     def _names(self) -> dict[Position, list[cst.Name]]:

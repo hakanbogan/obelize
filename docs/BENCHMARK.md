@@ -330,7 +330,7 @@ only:
 
 | | Values |
 |---|---|
-| Resolved | `direct_import_resolved`, `alias_resolved`, `from_import_resolved`, `receiver_bound_same_scope`, `receiver_bound_module_const`, `receiver_bound_self_attr` |
+| Resolved | `direct_import_resolved`, `alias_resolved`, `from_import_resolved`, `receiver_bound_same_scope`, `receiver_bound_module_const`, `receiver_bound_self_attr`, `receiver_typed_by_class` |
 | Unresolved | `conditional_binding`, `module_alias_rebound`, `receiver_unresolved`, `dynamic_access`, `star_import`, `star_import_candidate` |
 
 `string_or_comment_mention`, `mock_patch_target`, `manifest_dependency` and

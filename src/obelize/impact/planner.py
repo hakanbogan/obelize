@@ -65,6 +65,7 @@ ORDER: Final[tuple[BailCode, ...]] = (
     "multiple_configure_calls",
     "client_source_unresolved",
     *dataflow.ORDER,
+    "member_overridden",
     "receiver_unresolved",
     ATOMICITY_BAIL,
 )

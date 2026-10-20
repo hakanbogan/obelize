@@ -110,6 +110,7 @@ class Rewrites:
 
     def __init__(self) -> None:
         self._by_id: dict[int, cst.BaseExpression] = {}
+        self._members: dict[int, str] = {}
         self._statements: dict[int, cst.BaseSmallStatement] = {}
         self._dropped: set[int] = set()
         self._leading: dict[int, tuple[cst.EmptyLine, ...]] = {}
@@ -120,6 +121,13 @@ class Rewrites:
 
     def get(self, node: cst.CSTNode) -> cst.BaseExpression | None:
         return self._by_id.get(id(node))
+
+    def rename_member(self, node: cst.Attribute, new: str) -> None:
+        """Spell the member of `node` another way, over whatever else a rule makes of its value."""
+        self._members[id(node)] = new
+
+    def member(self, node: cst.Attribute) -> str | None:
+        return self._members.get(id(node))
 
     def set_statement(
         self, node: cst.BaseSmallStatement, replacement: cst.BaseSmallStatement
@@ -331,7 +339,13 @@ class _Apply(cst.CSTTransformer):
     def leave_Attribute(  # noqa: N802 - libcst dispatches on the node name
         self, original_node: cst.Attribute, updated_node: cst.Attribute
     ) -> cst.BaseExpression:
-        return self._rewrites.get(original_node) or updated_node
+        replacement = self._rewrites.get(original_node)
+        if replacement is not None:
+            return replacement
+        member = self._rewrites.member(original_node)
+        if member is None:
+            return updated_node
+        return updated_node.with_changes(attr=updated_node.attr.with_changes(value=member))
 
     def leave_SimpleString(  # noqa: N802 - libcst dispatches on the node name
         self, original_node: cst.SimpleString, updated_node: cst.SimpleString

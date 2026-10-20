@@ -23,6 +23,7 @@ from pydantic import ValidationError
 from obelize import _yaml
 from obelize.models import (
     FlagOnlyPattern,
+    MemberClass,
     MethodReturn,
     ProvidedModule,
     ReceiverMethods,
@@ -37,6 +38,7 @@ from obelize.packs.schema import (
     GenerativeModelCallsChange,
     ManifestDependencyChange,
     PackDocument,
+    RenameMemberChange,
     under_any,
 )
 
@@ -217,6 +219,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     constructors: set[str] = set()
     methods: dict[str, tuple[str, ...]] = {}
     returns: dict[str, str] = {}
+    members: dict[str, set[str]] = {}
     attributes: set[str] = set()
     flagged: set[str] = set()
     patterns: set[FlagOnlyPattern] = set()
@@ -231,6 +234,9 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
             constructors.add(change.params.ctor_symbol)
             methods.update(change.params.methods)
             returns.update(change.params.method_returns)
+        elif isinstance(change, RenameMemberChange):
+            for owner, names in change.params.classes().items():
+                members.setdefault(owner, set()).update(names)
         elif isinstance(change, FlagOnlyChange):
             attributes.update(change.params.attributes)
             flagged.update(change.params.symbols)
@@ -266,6 +272,10 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         ),
         method_returns=tuple(
             MethodReturn(method=method, receiver=returns[method]) for method in sorted(returns)
+        ),
+        member_classes=tuple(
+            MemberClass(class_symbol=owner, members=tuple(sorted(members[owner])))
+            for owner in sorted(members)
         ),
         removed_attributes=tuple(sorted(attributes)),
         flag_only_symbols=tuple(sorted(flagged)),
@@ -333,6 +343,7 @@ _WHEN_SET: Final[frozenset[str]] = frozenset(
         "declare_transitive",
         "flag_only_variables",
         "inventory",
+        "member_classes",
     }
 )
 

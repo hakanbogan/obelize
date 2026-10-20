@@ -185,6 +185,15 @@ SYMBOL_CHANGE: Document = {
     },
 }
 
+# A method of a class that the new release spells another way.
+MEMBER_CHANGE: Document = {
+    "id": "members",
+    "kind": "rename_member",
+    "citation": "Guide, Methods",
+    "fixtures": ["fixtures/negative/none.py", "fixtures/positive/one.before.py"],
+    "params": {"members": {"demo_legacy.Model.old": "new"}},
+}
+
 MANIFEST_CHANGE: Document = {
     "id": "manifest-dependency",
     "kind": "manifest_dependency",
@@ -285,6 +294,31 @@ def _renamed(
         document["changes"].extend(more)
 
     return mutate
+
+
+def _member(
+    *,
+    legacy: list[str] | None = None,
+    more: tuple[Document, ...] = (),
+    **params: Any,
+) -> Callable[[Document], None]:
+    """A shared module with the member listed as legacy, and the rename rule's params `params`."""
+
+    def mutate(document: Document) -> None:
+        document["match"].update(
+            shared=True, symbols=legacy or ["demo_legacy.Model.old", "demo_legacy.configure"]
+        )
+        document["changes"][1]["params"] = params
+        document["changes"].extend(more)
+
+    return mutate
+
+
+def _member_of_a_refused_class(document: Document) -> None:
+    """A module that moves, with a method renamed on a class that another rule only reports."""
+    document["changes"][1]["params"] = {"members": {"demo_legacy.Model.old": "new"}}
+    flagged = {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.Model"]}
+    document["changes"].append({**FLAG_CHANGE, "id": "flag-model", "params": flagged})
 
 
 def _symbols_without_a_submodule_map(document: Document) -> None:
@@ -1793,6 +1827,108 @@ CASES: tuple[Case, ...] = (
         says="Input should be 'refused' or 'allowed'",
         extra=SYMBOL_CHANGE,
         mutate=_renamed(renamed={"demo_legacy.old": "new"}, calls="sometimes"),
+    ),
+    # rename_member: a method of a class, on the instances of it and of what derives from it.
+    Case(
+        name="a_rename_member_with_no_member",
+        defect="a rule that renames nothing",
+        path=f"{EXTRA}.params",
+        says="a rename_member rule must name a member",
+        extra=MEMBER_CHANGE,
+        mutate=_member(members={}),
+    ),
+    Case(
+        name="a_member_with_no_class",
+        defect="a member of a module, which is a rename of a name and not of a member",
+        path=f"{EXTRA}.params",
+        says="names a member of a class, so it is a path of three names or more",
+        extra=MEMBER_CHANGE,
+        mutate=_member(members={"demo_legacy.old": "new"}),
+    ),
+    Case(
+        name="a_member_that_keeps_its_name",
+        defect="a rename onto the name it has, which changes nothing",
+        path=f"{EXTRA}.params",
+        says="takes the name it has; there is nothing to rename",
+        extra=MEMBER_CHANGE,
+        mutate=_member(members={"demo_legacy.Model.old": "old"}),
+    ),
+    Case(
+        name="a_member_renamed_again",
+        defect="a name that is a rename's target and another's key, so the result is read again",
+        path=f"{EXTRA}.params",
+        says="is renamed onto 'new', which members renames again",
+        extra=MEMBER_CHANGE,
+        mutate=_member(members={"demo_legacy.Model.old": "new", "demo_legacy.Model.new": "newer"}),
+    ),
+    Case(
+        name="two_members_renamed_onto_one",
+        defect="two methods that would be one name on the class",
+        path=f"{EXTRA}.params",
+        says="are both renamed onto 'demo_legacy.Model.new'",
+        extra=MEMBER_CHANGE,
+        mutate=_member(members={"demo_legacy.Model.old": "new", "demo_legacy.Model.older": "new"}),
+    ),
+    Case(
+        name="a_member_renamed_onto_a_listed_legacy_name",
+        defect="a rename that lands on a name `symbols` lists, so the result is found again",
+        path="",
+        says="which match.symbols lists as legacy",
+        extra=MEMBER_CHANGE,
+        mutate=_member(
+            legacy=["demo_legacy.Model.new", "demo_legacy.Model.old", "demo_legacy.configure"],
+            members={"demo_legacy.Model.old": "new"},
+        ),
+    ),
+    Case(
+        name="a_member_outside_the_listed_legacy_names",
+        defect="a member the module's name reaches but `symbols` does not list",
+        path="",
+        says="under nothing in match.symbols",
+        extra=MEMBER_CHANGE,
+        mutate=_member(legacy=["demo_legacy.configure"], members={"demo_legacy.Model.old": "new"}),
+    ),
+    Case(
+        name="a_member_under_a_refused_prefix",
+        defect="a member of a class a flag_only rule reports, which the scan grades first",
+        path="",
+        says="is under a symbol a flag_only rule refuses",
+        extra=MEMBER_CHANGE,
+        mutate=_member_of_a_refused_class,
+    ),
+    Case(
+        name="a_member_both_renamed_and_refused",
+        defect="a member renamed by one rule and reported by another",
+        path="",
+        says="is both rewritten and refused",
+        extra=MEMBER_CHANGE,
+        mutate=_member(
+            members={"demo_legacy.Model.old": "new"},
+            more=(
+                {
+                    **FLAG_CHANGE,
+                    "id": "flag-old",
+                    "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.Model.old"]},
+                },
+            ),
+        ),
+    ),
+    Case(
+        name="two_changes_that_claim_one_member",
+        defect="two rules on one member, so the order of the list would pick",
+        path="",
+        says="two changes claim 'demo_legacy.Model.old'",
+        extra=MEMBER_CHANGE,
+        mutate=_member(
+            members={"demo_legacy.Model.old": "new"},
+            more=(
+                {
+                    **MEMBER_CHANGE,
+                    "id": "again",
+                    "params": {"members": {"demo_legacy.Model.old": "newer"}},
+                },
+            ),
+        ),
     ),
     # rewrite_call rooted on the module: where it is spelled, and what it reads of the result.
     Case(

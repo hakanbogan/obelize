@@ -51,6 +51,7 @@ ChangeKind = Literal[
     "rewrite_call",
     "rename_setting",
     "rename_symbol",
+    "rename_member",
     "flag_only",
     "manifest_dependency",
 ]
@@ -1158,6 +1159,53 @@ class RenameSymbolParams(_Closed):
         landed[target] = f"{field}[{key!r}]"
 
 
+class RenameMemberParams(_Closed):
+    """Members of a class that the new release spells another way, wherever an instance is seen.
+
+    An instance of the class, or of one that derives from it, is renamed the same: a pack names
+    the class that defines the members, and what derives from it in the repository is found.
+    """
+
+    # A legacy dotted path (module, class and member), and the name the member takes on that class.
+    members: dict[QualifiedName, PlainName]
+
+    @model_validator(mode="after")
+    def _check(self) -> RenameMemberParams:
+        if not self.members:
+            raise ValueError("a rename_member rule must name a member")
+        landed: dict[str, str] = {}
+        for key, new in self.members.items():
+            owner, _, old = key.rpartition(".")
+            if owner.count(".") < 1:
+                raise ValueError(
+                    f"members names a member of a class, so it is a path of three names or "
+                    f"more: got {key!r}"
+                )
+            if old == new:
+                raise ValueError(
+                    f"members[{key!r}] takes the name it has; there is nothing to rename"
+                )
+            target = f"{owner}.{new}"
+            if target in self.members:
+                raise ValueError(
+                    f"members[{key!r}] is renamed onto {new!r}, which members renames again"
+                )
+            if target in landed:
+                raise ValueError(
+                    f"members[{key!r}] and {landed[target]} are both renamed onto {target!r}"
+                )
+            landed[target] = f"members[{key!r}]"
+        return self
+
+    def classes(self) -> dict[str, tuple[str, ...]]:
+        """Each class named, and the members of it that are renamed."""
+        found: dict[str, list[str]] = {}
+        for key in self.members:
+            owner, _, member = key.rpartition(".")
+            found.setdefault(owner, []).append(member)
+        return {owner: tuple(sorted(names)) for owner, names in sorted(found.items())}
+
+
 # The reason a shape row carries, which is what a change's `patterns` claim it by: two ids with one
 # reason claim the same rows (`transforms.kinds.flag_only.REASONS` is the same table, tested).
 PATTERN_REASONS: dict[FlagOnlyPattern, ConfidenceReason] = {
@@ -1271,6 +1319,11 @@ class RenameSymbolChange(_ChangeBase):
     params: RenameSymbolParams
 
 
+class RenameMemberChange(_ChangeBase):
+    kind: Literal["rename_member"]
+    params: RenameMemberParams
+
+
 class FlagOnlyChange(_ChangeBase):
     kind: Literal["flag_only"]
     params: FlagOnlyParams
@@ -1291,6 +1344,7 @@ Change = Annotated[
         RewriteCallChange,
         RenameSettingChange,
         RenameSymbolChange,
+        RenameMemberChange,
         FlagOnlyChange,
         ManifestDependencyChange,
     ],
@@ -1424,6 +1478,8 @@ class PackDocument(_Closed):
                 claimed = tuple(change.params.settings)
             elif isinstance(change, RenameSymbolChange):
                 claimed = (*change.params.symbols, *change.params.renamed)
+            elif isinstance(change, RenameMemberChange):
+                claimed = tuple(change.params.members)
             else:
                 continue
             for symbol in claimed:
@@ -1513,6 +1569,12 @@ class PackDocument(_Closed):
                 ):
                     self._check_lands_clear(change.id, field, lands)
                 continue
+            elif isinstance(change, RenameMemberChange):
+                field = "members"
+                lands = {
+                    key: f"{key.rpartition('.')[0]}.{new}"
+                    for key, new in change.params.members.items()
+                }
             else:
                 continue
             self._check_lands_clear(change.id, field, lands)
@@ -1534,14 +1596,18 @@ class PackDocument(_Closed):
             for symbol in change.params.symbols
         )
         for change in self.changes:
-            if not isinstance(change, RenameSymbolChange):
-                continue
             # `renamed` needs no such check: the new name stays in the module, so a refused prefix
             # of the old one covers the new, and the landing check has refused the pack already.
-            for key in change.params.symbols:
+            if isinstance(change, RenameSymbolChange):
+                field, keys = "symbols", tuple(change.params.symbols)
+            elif isinstance(change, RenameMemberChange):
+                field, keys = "members", tuple(change.params.members)
+            else:
+                continue
+            for key in keys:
                 if under_any(key, refused):
                     raise ValueError(
-                        f"changes[{change.id!r}].params.symbols[{key!r}] is under a symbol a "
+                        f"changes[{change.id!r}].params.{field}[{key!r}] is under a symbol a "
                         f"flag_only rule refuses, which the scan grades first, so it would never "
                         f"be renamed"
                     )
@@ -1719,6 +1785,8 @@ class PackDocument(_Closed):
             elif isinstance(change, RenameSymbolChange):
                 symbols.update(change.params.symbols)
                 symbols.update(change.params.renamed)
+            elif isinstance(change, RenameMemberChange):
+                symbols.update(change.params.members)
         return frozenset(symbols)
 
     @staticmethod
@@ -1751,6 +1819,8 @@ class PackDocument(_Closed):
                 *(("symbols", key) for key in change.params.symbols),
                 *(("renamed", key) for key in change.params.renamed),
             )
+        if isinstance(change, RenameMemberChange):
+            return tuple(("members", key) for key in change.params.members)
         if isinstance(change, FlagOnlyChange):
             return (
                 *(("symbols", symbol) for symbol in change.params.symbols),

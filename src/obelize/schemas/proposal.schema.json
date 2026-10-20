@@ -81,6 +81,7 @@
         "class_attr_binding",
         "receiver_unresolved",
         "receiver_method_unmapped",
+        "member_overridden",
         "multiple_configure_calls",
         "client_source_unresolved",
         "client_name_collision",

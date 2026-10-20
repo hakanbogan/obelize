@@ -15,6 +15,7 @@ from obelize.transforms.kinds.flag_only import FlagOnly
 from obelize.transforms.kinds.generative_model_calls import GenerativeModelCalls
 from obelize.transforms.kinds.manifest_dependency import ManifestDependency
 from obelize.transforms.kinds.rename_import import RenameImport
+from obelize.transforms.kinds.rename_member import RenameMember
 from obelize.transforms.kinds.rename_setting import RenameSetting
 from obelize.transforms.kinds.rename_symbol import RenameSymbol
 from obelize.transforms.kinds.rewrite_call import RewriteCall
@@ -32,6 +33,7 @@ RULES: Final[dict[ChangeKind, type[Rule]]] = {
     RewriteCall.kind: RewriteCall,
     RenameSetting.kind: RenameSetting,
     RenameSymbol.kind: RenameSymbol,
+    RenameMember.kind: RenameMember,
     FlagOnly.kind: FlagOnly,
 }
 
