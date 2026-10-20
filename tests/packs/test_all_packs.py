@@ -343,13 +343,14 @@ def test_sources_records_the_hash_of_the_page_the_pack_cites(bundled: loader.Loa
 def test_the_packs_use_every_kind_and_the_registry_says_which_one_runs() -> None:
     """The scanner reads every declared kind; only the registry says which ones can apply.
 
-    A kind no bundled pack needs is used by a pack of an invented library (`generic/`).
+    A kind no bundled pack needs is used by a pack of an invented library (`generic/`). `plugin` is
+    the exception: a pack that uses it needs a plugin installed, which `test_plugins.py` does.
     """
     references = [*BUNDLED_IDS, *map(str, sorted(GENERIC.glob("*/*/pack.yaml")))]
     declared = {
         change.kind for reference in references for change in loader.load(reference).pack.changes
     }
-    assert declared == IMPLEMENTED_KINDS == schema.CHANGE_KINDS
+    assert declared | {"plugin"} == IMPLEMENTED_KINDS == schema.CHANGE_KINDS
     # `registry.RULES` holds only parsed-file kinds; the manifest kind is in `MANIFEST_RULES`.
     assert frozenset(registry.RULES) < schema.CHANGE_KINDS
 

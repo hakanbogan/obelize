@@ -13,7 +13,7 @@ import sys
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from obelize.packs import loader
 from obelize.scan import manifests
@@ -21,6 +21,9 @@ from obelize.scan import manifests
 # Shared with the gate-1 scorer, so both agree on what a usage is.
 from . import read_yaml
 from .gate1_score import ACTIONABLE_KINDS
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "bench" / "candidates.yaml"
@@ -104,7 +107,8 @@ def surfaces() -> tuple[Surface, ...]:
 
     found: list[Surface] = []
     for change in loader.load(DEFAULT_PACK).pack.changes:
-        params: dict[str, Any] = change.params.model_dump()
+        # A bundled pack has no plugin change, whose `params` is a plain mapping.
+        params: dict[str, Any] = cast("BaseModel", change.params).model_dump()
         symbols: set[str] = set()
         if change.kind == "rename_import":
             symbols.add(params["from_module"])

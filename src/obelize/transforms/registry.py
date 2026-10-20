@@ -14,6 +14,7 @@ from obelize.transforms.kinds.configure_to_client import ConfigureToClient
 from obelize.transforms.kinds.flag_only import FlagOnly
 from obelize.transforms.kinds.generative_model_calls import GenerativeModelCalls
 from obelize.transforms.kinds.manifest_dependency import ManifestDependency
+from obelize.transforms.kinds.plugin import Plugin
 from obelize.transforms.kinds.rename_import import RenameImport
 from obelize.transforms.kinds.rename_member import RenameMember
 from obelize.transforms.kinds.rename_setting import RenameSetting
@@ -36,6 +37,7 @@ RULES: Final[dict[ChangeKind, type[Rule]]] = {
     RenameSymbol.kind: RenameSymbol,
     RenameMember.kind: RenameMember,
     RewritePattern.kind: RewritePattern,
+    Plugin.kind: Plugin,
     FlagOnly.kind: FlagOnly,
 }
 

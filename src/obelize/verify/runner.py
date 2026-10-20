@@ -30,7 +30,14 @@ from pydantic import (
 
 from obelize import _yaml, net
 from obelize.config import ConfigError, refusal
-from obelize.models import CommandResult, CommandSource, ConfiguredCommand, ModelConfig
+from obelize.models import (
+    CommandResult,
+    CommandSource,
+    ConfiguredCommand,
+    DistributionName,
+    ModelConfig,
+    PlainName,
+)
 from obelize.native import processes
 from obelize.verify import redact
 
@@ -90,6 +97,19 @@ class _UserAgent(BaseModel):
     model: StrictStr | None = None
 
 
+class _UserPlugin(BaseModel):
+    """A plugin that may run: the distribution that provides it, and the entry point it may provide.
+
+    Only the user says: a plugin is code that runs in this process with the user's rights, so a
+    repository never does.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    distribution: DistributionName
+    name: PlainName
+
+
 class UserConfig(BaseModel):
     """`~/.config/obelize/config.yml`: the settings no repository may make.
 
@@ -105,6 +125,8 @@ class UserConfig(BaseModel):
     # Where more migration packs live. A pack decides what is written and which imports a model may
     # add, so only the user names them: a repository never does.
     pack_dirs: tuple[StrictStr, ...] = ()
+    # The plugins that may run: pairs of a distribution and an entry point it provides.
+    plugins: tuple[_UserPlugin, ...] = ()
 
     @field_validator("pack_dirs")
     @classmethod

@@ -26,6 +26,7 @@ evaluated in it would be code execution inside a tool that edits the user's tree
 | `rename_symbol` | a name a kept package's submodule defined, under the name the new release exports from the package, in a reference and in the import that names it |
 | `rename_member` | a member of a class under the name the new release gives it, where an instance of the class, or of one the repository derives from it, is read |
 | `rewrite_pattern` | a call of a qualified name, or of a member of a class, rewritten from the shape of its arguments by two templates |
+| `plugin` | a rule a plugin the user installed provides, named by its entry point ([ADR-070](ADR-070-plugins.md)) |
 | `flag_only` | report a surface, never rewrite it |
 | `manifest_dependency` | rewrite or report a dependency declaration in a manifest |
 

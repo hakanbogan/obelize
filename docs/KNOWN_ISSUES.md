@@ -108,6 +108,21 @@ few passes do more work than they need to (a second scope resolution of the rewr
 `fix` takes about three seconds for a file of 800 calls and ten for 3,200, in step with the number
 of calls.
 
+## Plugins
+
+A plugin is code of the user's, trusted as far as the user allowed it: it runs in obelize's process
+with the user's rights, and obelize does not sandbox it, limit its time or its memory, or read what
+it sends. The allowlist names a distribution and an entry point, not a release or a hash, so a
+distribution updated after it was allowed is the one that runs; the run folder records the release
+and the hash of the bytes of its `RECORD` (what `sha256sum` gives) to show which. An editable
+install has a `RECORD` too, but one that lists a `.pth` file and the metadata, so its hash does not
+change when the plugin's source does. Plugins are found with the working directory taken off the
+path, which `python -m obelize` puts first, so a plugin developed in the directory a person runs
+obelize from must be installed. A plugin is imported when a run loads a pack that requires it,
+whether or not that pack finds anything; for every known pack (none named) a pack whose plugin is
+not allowed is left out and said so. The interface is `obelize.plugin`, and it is not stable through
+0.x beyond a line in the changelog; libcst's range is part of it.
+
 ## Members of a class
 
 A pack that renames the member of a class (`rename_member`) renames it only where the scan can tell

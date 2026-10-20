@@ -37,6 +37,7 @@ from obelize.models import (
     RunLimitation,
     RunPack,
     RunPlatform,
+    RunPlugin,
     RunPython,
     RunRecord,
     RunRefusal,
@@ -46,6 +47,7 @@ from obelize.models import (
     VerifyRecord,
     Withheld,
 )
+from obelize.transforms import plugins
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -819,6 +821,15 @@ class Used:
             source="bundled" if self.loaded.bundled else "file",
             blocked=None if self.blocked is None else self.blocked.reason,
             assumed=self.assumed,
+            plugins=tuple(
+                RunPlugin(
+                    name=one.name,
+                    distribution=one.distribution,
+                    version=one.version,
+                    record_sha256=one.record_sha256,
+                )
+                for one in plugins.used(self.loaded.pack)
+            ),
         )
 
 

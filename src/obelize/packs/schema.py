@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import TYPE_CHECKING, Annotated, Literal, Union, get_args
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Union, get_args
 from urllib.parse import urlsplit
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -57,6 +57,7 @@ ChangeKind = Literal[
     "rename_symbol",
     "rename_member",
     "rewrite_pattern",
+    "plugin",
     "flag_only",
     "manifest_dependency",
 ]
@@ -1416,6 +1417,24 @@ class RenameMemberChange(_ChangeBase):
     params: RenameMemberParams
 
 
+class PluginRequirement(_Closed):
+    """A rule kind the user's own plugin provides, and the releases of its distribution a pack was
+    written against. The pack names the plugin by its entry point and trusts nothing about it:
+    whether it may run is the user's to say (`plugins` in `~/.config/obelize/config.yml`)."""
+
+    name: PlainName
+    version: Pep440Specifier
+
+
+class PluginChange(_ChangeBase):
+    """A change made by a plugin's rule; its `params` are read by the plugin's own model, when the
+    plugin is loaded, since nothing here can say what they hold."""
+
+    kind: Literal["plugin"]
+    plugin: PlainName
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class RewritePatternChange(_ChangeBase):
     kind: Literal["rewrite_pattern"]
     params: RewritePatternParams
@@ -1443,6 +1462,7 @@ Change = Annotated[
         RenameSymbolChange,
         RenameMemberChange,
         RewritePatternChange,
+        PluginChange,
         FlagOnlyChange,
         ManifestDependencyChange,
     ],
@@ -1489,6 +1509,7 @@ class PackDocument(_Closed):
     limitations: tuple[DisplayText, ...]
     layout: Layout = Field(default_factory=Layout)
     verification: Verification | None = None
+    requires_plugins: tuple[PluginRequirement, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> PackDocument:
@@ -1517,6 +1538,7 @@ class PackDocument(_Closed):
         self._check_what_the_code_may_prove_is_looked_for()
         self._check_what_the_new_side_introduces_is_not_legacy()
         self._check_what_is_declared_for_a_transitive_module_is_listed()
+        self._check_the_plugins_a_pack_names_are_the_ones_it_requires()
         return self
 
     def to_modules(self) -> tuple[str, ...]:
@@ -1530,6 +1552,22 @@ class PackDocument(_Closed):
                 }
             )
         )
+
+    def _check_the_plugins_a_pack_names_are_the_ones_it_requires(self) -> None:
+        """A requirement no change uses asks the user to trust code for nothing, and a change that
+        names a plugin the pack does not require would run code the pack never declared."""
+        names = [one.name for one in self.requires_plugins]
+        if names != sorted(set(names)):
+            raise ValueError(f"requires_plugins must be sorted and de-duplicated by name: {names}")
+        used = {change.plugin for change in self.changes if isinstance(change, PluginChange)}
+        if used - set(names):
+            raise ValueError(
+                f"changes name {sorted(used - set(names))}, which requires_plugins does not list"
+            )
+        if set(names) - used:
+            raise ValueError(
+                f"requires_plugins lists {sorted(set(names) - used)}, which no change uses"
+            )
 
     def _check_change_ids(self) -> None:
         seen: set[str] = set()

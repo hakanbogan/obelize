@@ -146,6 +146,12 @@ def load(reference: str, root: Path | None = None, dirs: Sequence[Path] = ()) ->
         pack = PackDocument.model_validate(document)
     except ValidationError as error:
         raise PackInvalidError(reference, problems(error), bundled=bundled) from error
+    if bundled and pack.requires_plugins:
+        raise PackInvalidError(
+            reference,
+            ["requires_plugins: a bundled pack runs no code of the user's and asks for none"],
+            bundled=bundled,
+        )
     if _PACK_ID.fullmatch(reference) and path != Path(reference) and pack.id != reference:
         raise PackInvalidError(
             reference, [f"id: {pack.id!r} is not the id its directory spells"], bundled=bundled

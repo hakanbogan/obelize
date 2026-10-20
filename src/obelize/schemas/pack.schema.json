@@ -820,6 +820,77 @@
       "title": "PackSource",
       "type": "object"
     },
+    "PluginChange": {
+      "additionalProperties": false,
+      "description": "A change made by a plugin's rule; its `params` are read by the plugin's own model, when the\nplugin is loaded, since nothing here can say what they hold.",
+      "properties": {
+        "citation": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "plugin",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "plugin": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Plugin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "plugin"
+      ],
+      "title": "PluginChange",
+      "type": "object"
+    },
+    "PluginRequirement": {
+      "additionalProperties": false,
+      "description": "A rule kind the user's own plugin provides, and the releases of its distribution a pack was\nwritten against. The pack names the plugin by its entry point and trusts nothing about it:\nwhether it may run is the user's to say (`plugins` in `~/.config/obelize/config.yml`).",
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "PluginRequirement",
+      "type": "object"
+    },
     "RenameImportChange": {
       "additionalProperties": false,
       "properties": {
@@ -1693,6 +1764,7 @@
             "flag_only": "#/$defs/FlagOnlyChange",
             "generative_model_calls": "#/$defs/GenerativeModelCallsChange",
             "manifest_dependency": "#/$defs/ManifestDependencyChange",
+            "plugin": "#/$defs/PluginChange",
             "rename_import": "#/$defs/RenameImportChange",
             "rename_member": "#/$defs/RenameMemberChange",
             "rename_setting": "#/$defs/RenameSettingChange",
@@ -1726,6 +1798,9 @@
           },
           {
             "$ref": "#/$defs/RewritePatternChange"
+          },
+          {
+            "$ref": "#/$defs/PluginChange"
           },
           {
             "$ref": "#/$defs/FlagOnlyChange"
@@ -1775,6 +1850,14 @@
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
       "title": "Provider",
       "type": "string"
+    },
+    "requires_plugins": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PluginRequirement"
+      },
+      "title": "Requires Plugins",
+      "type": "array"
     },
     "source": {
       "$ref": "#/$defs/PackSource"

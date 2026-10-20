@@ -416,6 +416,14 @@
           "title": "Pack Version",
           "type": "string"
         },
+        "plugins": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RunPlugin"
+          },
+          "title": "Plugins",
+          "type": "array"
+        },
         "sha256": {
           "pattern": "^[0-9a-f]{64}$",
           "title": "Sha256",
@@ -437,7 +445,8 @@
         "sha256",
         "source",
         "blocked",
-        "assumed"
+        "assumed",
+        "plugins"
       ],
       "title": "RunPack",
       "type": "object"
@@ -465,6 +474,45 @@
         "machine"
       ],
       "title": "RunPlatform",
+      "type": "object"
+    },
+    "RunPlugin": {
+      "additionalProperties": false,
+      "description": "A plugin a pack required and the run loaded: where it came from, and what was installed.",
+      "properties": {
+        "distribution": {
+          "title": "Distribution",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "record_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Sha256"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "distribution",
+        "version",
+        "record_sha256"
+      ],
+      "title": "RunPlugin",
       "type": "object"
     },
     "RunPython": {

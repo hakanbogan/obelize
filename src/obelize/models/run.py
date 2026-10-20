@@ -140,6 +140,17 @@ class RunPlatform(_Frozen):
     machine: str
 
 
+class RunPlugin(_Frozen):
+    """A plugin a pack required and the run loaded: where it came from, and what was installed."""
+
+    name: str
+    distribution: str
+    version: str
+    # The hash of the distribution's `RECORD`, which lists the hash of every file it installed;
+    # `None` where the installer left none (an editable install).
+    record_sha256: Sha256 | None = None
+
+
 class RunPack(_Frozen):
     """The pack a run used: which one, its own version, and its exact bytes."""
 
@@ -151,6 +162,8 @@ class RunPack(_Frozen):
     blocked: BlockedReason | None = None
     # The release taken where a declaration names none that rules the pack's newest one out.
     assumed: str | None = None
+    # The plugins the pack required, which were loaded in this process.
+    plugins: tuple[RunPlugin, ...] = ()
 
 
 class RunConfig(_Frozen):
@@ -613,6 +626,7 @@ __all__ = [
     "RunModel",
     "RunPack",
     "RunPlatform",
+    "RunPlugin",
     "RunPython",
     "RunRecord",
     "RunRefusal",

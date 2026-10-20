@@ -789,6 +789,30 @@ def _pack_dirs() -> tuple[Path, ...]:
     return tuple(Path(entry) for entry in user_config(_config_dir()).pack_dirs)
 
 
+def _activate_plugins(packs: Sequence[LoadedPack], *, named: bool = True) -> tuple[LoadedPack, ...]:
+    """Load the plugins the packs require, or exit 7 saying why one cannot run: one the user has
+    not allowed, one missing, the wrong release, or one that does not load.
+
+    For packs the user named, that stops the run. For every known pack (none was named) a pack
+    whose plugin cannot run is left out and said so, since it is not what the person asked for.
+    """
+    from obelize.transforms import plugins
+    from obelize.verify.runner import user_config
+
+    permits = [
+        plugins.Permit(one.distribution, one.name) for one in user_config(_config_dir()).plugins
+    ]
+    try:
+        done = plugins.activate((one.pack for one in packs), permits, skip=not named)
+    except plugins.PluginError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(7) from error
+    left = dict(done.skipped)
+    for name, why in done.skipped:
+        typer.echo(f"{name} was left out: {why}", err=True)
+    return tuple(one for one in packs if one.pack.id not in left)
+
+
 def _packs_or_exit(references: list[str] | None) -> tuple[tuple[LoadedPack, ...], bool]:
     """The packs a run tries, and whether the user named them; exit 2 / 7 / 1 as `pack validate`.
 
@@ -815,7 +839,7 @@ def _packs_or_exit(references: list[str] | None) -> tuple[tuple[LoadedPack, ...]
             typer.echo(_BUNDLED_DEFECT, err=True)
             raise typer.Exit(1) from error
         raise typer.Exit(7) from error
-    return loaded, bool(references)
+    return _activate_plugins(loaded, named=bool(references)), bool(references)
 
 
 pack_app = typer.Typer(
@@ -865,6 +889,11 @@ def pack_validate(
     )
     typer.echo(f"  changes      {len(pack.changes)}")
     typer.echo(f"  limitations  {len(pack.limitations)}")
+    if pack.requires_plugins:
+        names = ", ".join(one.name for one in pack.requires_plugins)
+        typer.echo(
+            f"  plugins      {names} (not loaded by this command, so their params are not read)"
+        )
     # A local pack may ship without fixtures; tests/packs/ checks the bundled ones.
     typer.echo("  fixtures     not checked by this command; obelize pack test runs them")
 
@@ -903,6 +932,7 @@ def pack_test(
         raise typer.Exit(7) from error
 
     typer.echo(f"{loaded.pack.id} {loaded.pack.pack_version}")
+    _activate_plugins([loaded])
     results = check.run(loaded)
     for result in results:
         typer.echo(f"  {'ok  ' if result.ok else 'FAIL'}  {result.name}")
@@ -1492,6 +1522,7 @@ def _trial(
         )
         raise typer.Exit(5)
     loaded = loader.load(chosen.reference, dirs=_pack_dirs())
+    _activate_plugins([loaded])
     named = run_dir.new_id()
     hints = synth.hints_for(chosen.reference)
     resolver, repairer = (

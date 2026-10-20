@@ -743,9 +743,10 @@ and `verify.timeout_s: "60"` are errors, and so is a YAML set, which has no orde
 | `allow_dirty` | boolean | `false` | Same as `--allow-dirty`. |
 | `max_file_bytes` | integer | `2000000` | Larger files are recorded as a limitation, not parsed. |
 
-**A `model:` block, `pack_dirs`, `network` and `agent` are refused** (exit `2`): where your code and
-credentials go, which packs may rewrite your files, which index obelize reads code from and which
-program your code is put to are not a repository's choice. Configure them in
+**A `model:` block, `pack_dirs`, `network`, `agent` and `plugins` are refused** (exit `2`): where
+your code and credentials go, which packs may rewrite your files, which index obelize reads code
+from, which program your code is put to and which plugins run in obelize's process are not a
+repository's choice. Configure them in
 [your own file](#the-user-files-configobelize), or name a pack with `--pack`.
 
 ### The always-excluded set
@@ -889,6 +890,9 @@ verify:
     - "python -m mypy src"
 pack_dirs:
   - /home/me/obelize-packs  # absolute; each holds <provider>/<slug>/pack.yaml
+plugins:
+  - distribution: acme-fixer  # code that runs with your rights: see "Writing a plugin"
+    name: fixer               # the entry point it provides
 network:
   index: https://pypi.org   # https, or http to this machine; no credential or query
   offline: false            # true: a command that reads releases uses only its cache
@@ -900,6 +904,10 @@ model:
   # api_key_env: OBELIZE_MODEL_API_KEY
   # log_prompts: false
 ```
+
+`plugins` allows each rule kind a distribution of yours provides (see [Writing a
+plugin](PLUGINS.md)): a pack that requires a plugin not listed here stops with exit `7` before any
+file is read.
 
 `pack_dirs` adds to the packs the wheel carries: a pack there is chosen by id like a bundled one,
 and an id the wheel or another directory already holds is refused. Each entry must be an

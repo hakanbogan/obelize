@@ -275,6 +275,11 @@ def load(repo: Path) -> LoadedConfig:
             f"index decides which code obelize reads. Put network in "
             f"~/.config/obelize/config.yml."
         )
+    if "plugins" in data:
+        raise ConfigError(
+            f"{CONFIG_FILENAME}: plugins are not read from a repository, because a plugin is code "
+            f"that runs with your rights. Put plugins in ~/.config/obelize/config.yml."
+        )
     if "pack_dirs" in data:
         raise ConfigError(
             f"{CONFIG_FILENAME}: pack directories are not read from a repository, because a pack "

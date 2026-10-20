@@ -41,6 +41,7 @@ nav:
       - Command line: CLI.md
       - Packs: PACKS.md
       - Pack format: PACK_SPEC.md
+      - Writing a plugin: PLUGINS.md
       - Scan vocabulary: SCAN_VOCABULARY.md
       - Run folder: RUN_FOLDER.md
       - Glossary: GLOSSARY.md

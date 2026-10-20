@@ -29,6 +29,14 @@ in the release that makes it.
   compared with the first template by form; a call of another shape is withheld as
   `pattern_unmatched`. No bundled pack uses the kind, and no format changed apart from the new kind
   and code.
+- A rule kind can come from a plugin: a distribution you install that registers an entry point in
+  the group `obelize.kinds`, which a pack names with `kind: plugin` beside `requires_plugins`.
+  A plugin is code that runs in obelize's process with your rights, so nothing is imported until you
+  allow its distribution and entry point in `~/.config/obelize/config.yml` (a repository's
+  `.obelize.yml` may not, and a bundled pack never asks); a pack that needs one you have not allowed
+  stops with exit code `7` before any file is read. The run folder records each plugin's release and
+  the hash of its `RECORD`. The interface is `obelize.plugin`, described in
+  [Writing a plugin](docs/PLUGINS.md); obelize does not contain what a plugin does.
 - `pack synth` writes `rename_member` for a method the library deprecated, or removed after saying so,
   with a message that says only which method to use, when a call of the old one can move to the new
   (pydantic 1 to 2: `parse_obj`, `construct`, `schema`, and `dict`, `json` and `update_forward_refs`
