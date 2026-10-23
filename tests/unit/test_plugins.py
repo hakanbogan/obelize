@@ -241,7 +241,7 @@ def test_a_loaded_plugins_rule_is_the_rule_of_its_change_in_a_run(
     loaded = loader.load(str(path))
     work = tmp_path / "repo"
     work.mkdir()
-    (work / "app.py").write_text("import acme\n\nacme.old(1)\n", encoding="utf-8")
+    (work / "app.py").write_text("import acme\n\nacme.old(1)\n", encoding="utf-8", newline="\n")
     run = check.migrate(loaded, work)
     assert run.files[0].after.decode() == "import acme\n\nacme.new_call(1)\n"
     assert [(edit.status, edit.rule_id) for edit in run.edits] == [("auto", "fix")]
