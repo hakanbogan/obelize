@@ -8,6 +8,7 @@ so what a pattern matches is what a person reading it sees.
 
 from __future__ import annotations
 
+import ast
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -20,6 +21,10 @@ if TYPE_CHECKING:
 
 # Longer than any pattern a person writes, and short enough that no pack carries a program.
 LIMIT: Final = 2000
+# Levels a template may nest in `ast`'s tree: a person's has under ten, and libcst's native parser
+# overruns the stack of a Windows process on a deeper one, which kills the run where `ast` raises.
+DEPTH: Final = 40
+_DEEP: Final = "is nested too deeply to read"
 _META: Final = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)")
 _PREFIX: Final = "obelize_meta_"
 
@@ -98,16 +103,16 @@ def parse(text: str) -> Template:
         raise TemplateError(f"is {len(text)} characters long, over the {LIMIT} a template may be")
     if _PREFIX in text:
         raise TemplateError(f"holds {_PREFIX!r}, which a template reserves for its own names")
+    source = _META.sub(lambda found: _PREFIX + found[1], text)
+    _looked_at(source)
     try:
-        tree = cst.parse_expression(_META.sub(lambda found: _PREFIX + found[1], text))
+        tree = cst.parse_expression(source)
         found = _Forms()
         tree.visit(found)
         spelled: set[str] = set()
         _spelled(tree, spelled)
     except cst.ParserSyntaxError as error:
         raise TemplateError(f"does not parse: {error.message}") from error
-    except RecursionError as error:
-        raise TemplateError("is nested too deeply to read") from error
     return Template(
         tree,
         frozenset(found.uses),
@@ -116,6 +121,25 @@ def parse(text: str) -> Template:
         frozenset(found.attributes),
         found.strings,
     )
+
+
+def _looked_at(source: str) -> None:
+    """Raise `TemplateError` for a template Python refuses or finds nested past `DEPTH`.
+
+    Asked before libcst, which `ast` answers with an exception where libcst's parser overruns the
+    stack; walked without recursion, since the input is what overruns it.
+    """
+    try:
+        stack: list[tuple[ast.AST, int]] = [(ast.parse(source.strip(), mode="eval"), 0)]
+        while stack:
+            node, depth = stack.pop()
+            if depth > DEPTH:
+                raise TemplateError(_DEEP)
+            stack.extend((child, depth + 1) for child in ast.iter_child_nodes(node))
+    except SyntaxError as error:
+        raise TemplateError(f"does not parse: {error.msg}") from error
+    except (RecursionError, MemoryError) as error:
+        raise TemplateError(_DEEP) from error
 
 
 def _meta(node: cst.CSTNode) -> str | None:

@@ -392,8 +392,8 @@ again, lands on another or on a name `match.symbols` lists, that every `takes` e
 sorted keywords, that none is claimed by another change or under a symbol a `flag_only` change refuses ([the member rename decision](adr/ADR-068-rename-member.md)).
 
 **`rewrite_pattern`** is for a call that changes shape in a way no other kind says. `before` is a
-call and `after` the expression that replaces it, each on one line and at most 2000 characters, with
-`$name` for any expression: `pydantic.parse_obj_as($type, $value)` becomes
+call and `after` the expression that replaces it, each on one line, at most 2000 characters and 40
+levels deep in Python's syntax tree, with `$name` for any expression: `pydantic.parse_obj_as($type, $value)` becomes
 `pydantic.TypeAdapter($type).validate_python($value)`, and `$m.dict(exclude=$e)` with `where: {m:
 pydantic.BaseModel}` becomes `$m.model_dump(exclude=$e)`. A template holds names, attributes, calls,
 numbers, strings, tuples, lists, dictionaries, subscripts with one index and unary operators, and no

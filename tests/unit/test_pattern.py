@@ -3,6 +3,7 @@ built."""
 
 from __future__ import annotations
 
+import ast
 import re
 
 import libcst as cst
@@ -51,14 +52,36 @@ def bound(before: str, text: str, *, spelled: bool = False) -> dict[str, str] | 
         ("lib.f($a).__class__", "__class__, a name that reaches the interpreter"),
         ("lib.f('$HOME')", "holds a $name inside a string"),
         ("lib.f('a' '$n')", "holds a ConcatenatedString"),
-        ("[" * 200 + "$n" + "]" * 200, "nested too deeply"),
+        (" lib.f(1)", "does not parse"),
+        ("[" * 200 + "$n" + "]" * 200, "nested"),
         ("-" * 330 + "$n", "nested too deeply"),
-        ("lib.f(" + "f(" * 500 + "$n" + ")" * 500 + ")", "nested too deeply"),
+        ("lib.f(" + "f(" * 500 + "$n" + ")" * 500 + ")", "nested"),
     ],
 )
 def test_a_template_that_cannot_be_read_is_refused_with_why(text: str, says: str) -> None:
     with pytest.raises(pattern.TemplateError, match=re.escape(says)):
         pattern.parse(text)
+
+
+def test_a_template_nests_as_deep_as_the_limit_and_no_deeper() -> None:
+    """Counted in `ast`'s tree: each operator is a level, with the name and its context below."""
+    assert pattern.parse("-" * (pattern.DEPTH - 2) + "$n").names == {"n"}
+    with pytest.raises(pattern.TemplateError, match="nested too deeply"):
+        pattern.parse("-" * (pattern.DEPTH - 1) + "$n")
+
+
+@pytest.mark.parametrize("error", [RecursionError, MemoryError])
+def test_a_template_ast_cannot_build_a_tree_for_is_too_deep_to_read(
+    monkeypatch: pytest.MonkeyPatch, error: type[Exception]
+) -> None:
+    """3.14 compiles a chain of terms that `ast` cannot turn into objects."""
+
+    def overrun(*_args: object, **_kwargs: object) -> None:
+        raise error
+
+    monkeypatch.setattr(ast, "parse", overrun)
+    with pytest.raises(pattern.TemplateError, match="nested too deeply"):
+        pattern.parse("lib.f(1)")
 
 
 def test_a_template_is_the_expression_and_the_metavariables_in_it() -> None:

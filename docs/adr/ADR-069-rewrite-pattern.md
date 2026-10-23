@@ -15,12 +15,14 @@ was a flag. A new kind, `rewrite_pattern`, takes the shape from two templates a 
 ### D1. Two templates
 
 `before` is a call and `after` the expression that replaces it, each a Python expression on one
-line, at most 2000 characters, in which `$name` stands for any expression. A template is parsed once
-by libcst, never run and never read as a regular expression, and holds only names, attributes,
-calls, numbers, strings, tuples, lists, dictionaries, subscripts with one index and unary
-operators; a `*` or `**` argument, a lambda, an operator between two values and the rest are
-refused when the pack loads, so what a pattern matches is what a person reading it sees. A
-metavariable stands for an expression and never names an attribute or a keyword.
+line, at most 2000 characters and 40 levels deep in Python's syntax tree, in which `$name` stands
+for any expression. A template is parsed once by libcst, never run and never read as a regular
+expression. Its depth is counted by `ast` first, since libcst's native parser overruns the stack of
+a Windows process on a deeper one. It holds only names, attributes, calls, numbers, strings,
+tuples, lists, dictionaries, subscripts with one index and unary operators; a `*` or `**` argument,
+a lambda, an operator between two values and the rest are refused when the pack loads, so what a
+pattern matches is what a person reading it sees. A metavariable stands for an expression and never
+names an attribute or a keyword.
 
 ### D2. A call is found by its name and compared by its arguments
 
