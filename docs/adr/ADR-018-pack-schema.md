@@ -3,7 +3,7 @@
 ## Status
 
 Accepted; amended by [ADR-019](ADR-019-resolution-detection-rules.md) (D8) and
-[ADR-025](ADR-025-rule-protocol-import-manager.md) (D6), ADR-050, ADR-051 and ADR-053.
+[ADR-025](ADR-025-rule-protocol-import-manager.md) (D6), ADR-050, ADR-051, ADR-053 and ADR-071.
 
 ## Decision
 
@@ -42,7 +42,7 @@ nothing and reads like a clean repository:
 | Every `match.imports` module contains some `prefilter_token` | A prefilter that drops every file the pack is about |
 | At most one `configure_to_client` change, and one when a change rewrites calls onto the client | `ScanSpec.client_symbol` is one module-wide answer, absent for a library with no client |
 | A symbol is rewritten or refused, never both | List order, which no reader sees, would decide |
-| A `manifest_dependency` rule names the two distributions the pack migrates | A third distribution is not this migration |
+| A `manifest_dependency` rule names the two distributions the pack migrates, so a side that is the Python has none (ADR-071) | A third distribution is not this migration |
 | Every receiver in `methods` is the `ctor_symbol` or the value of a `method_returns` entry (ADR-019 D8) | Methods on a receiver nothing produces never resolve |
 
 Inside one change, a `symbol_map` may not map a symbol a `flag_only`

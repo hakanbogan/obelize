@@ -13,10 +13,11 @@ from packaging.version import Version
 from typer.testing import CliRunner, Result
 
 import fakeindex
-from obelize import cli, index
+from obelize import cli, index, libdiff
 from obelize import upgrade as upgrading
 from obelize.cli import app
 from obelize.models import EditProposal
+from obelize.net import Fetcher
 from obelize.packs import loader
 from obelize.packtools import synth
 from obelize.providers import agent_cli, base
@@ -197,6 +198,54 @@ def test_a_distribution_a_bundled_pack_migrates_uses_it(home: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "Using the pack py-pdf/pypdf2-to-pypdf." in result.output
     assert "Moving pypdf2 3.0.1 to pypdf" in result.output
+
+
+def test_a_module_the_python_or_setuptools_holds_is_no_dependency_to_upgrade(home: Path) -> None:
+    root = repo(home, app__py="import pkg_resources\n", requirements__txt="requests\n")
+    result = runner.invoke(app, ["upgrade", "pkg_resources", "--repo", str(root)])
+    assert result.exit_code == 2
+    assert "is a module of the Python or of setuptools" in result.output
+    assert "obelize fix --pack setuptools/pkg-resources-to-importlib" in result.output
+
+
+def test_a_distribution_of_that_name_the_manifests_declare_is_upgraded_as_any_other(
+    home: Path,
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt="datetime==1.0\n")
+    result = runner.invoke(app, ["upgrade", "datetime", "--repo", str(root)])
+    assert "is a module of the Python" not in result.output
+
+
+def test_a_pack_whose_new_side_is_a_python_is_never_chosen_to_move_a_dependency(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """It is skipped, so the search goes on to the two releases, which this stops at."""
+    known = [loader.load("setuptools/pkg-resources-to-importlib")]
+
+    def compare(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("reached the two releases")
+
+    monkeypatch.setattr(libdiff, "compare", compare)
+    with pytest.raises(RuntimeError, match="reached the two releases"):
+        upgrading.choose(
+            Fetcher(index="http://127.0.0.1:1/simple"),
+            index.Project(name="setuptools", files=()),
+            Version("81.0.0"),
+            Version("84.2.1"),
+            targeted=False,
+            module=None,
+            known=known,
+            kept=tmp_path,
+        )
+
+
+def test_the_module_a_pack_of_the_python_matches_names_that_pack() -> None:
+    known = [loader.load(reference) for reference in loader.known()]
+    assert upgrading.runtime_pack(known, "pkg_resources") == "setuptools/pkg-resources-to-importlib"
+    assert upgrading.runtime_pack(known, "datetime") == "python/datetime-utcnow"
+    assert upgrading.runtime_pack(known, "asyncore") == "python/removed-stdlib-modules"
+    assert upgrading.runtime_pack(known, "PyPDF2") is None
+    assert upgrading.runtime_pack(known, "setuptools") is None
 
 
 def test_a_release_the_person_names_is_one_the_pack_must_reach(home: Path) -> None:

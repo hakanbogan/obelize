@@ -1546,3 +1546,90 @@ def test_a_shared_pack_asks_no_symbols_entry_for_the_enums_a_model_rule_reads() 
     document["match"]["symbols"] = [name for name in listed if name != "demo_legacy.Model"]
     with pytest.raises(ValidationError, match=r"names 'demo_legacy\.Model'"):
         build(document)
+
+
+def python_pack(**sides: Any) -> dict[str, Any]:
+    """The smallest valid pack with the Python on both sides; its one change flags the module."""
+    document = minimal(**{"from": {"python": ">=3.12"}, "to": {"python": ">=3.2"}, **sides})
+    document["changes"] = [with_change(builder.FLAG_CHANGE)["changes"][1]]
+    return document
+
+
+def test_a_side_may_be_the_pythons_it_runs_on() -> None:
+    pack = build(python_pack())
+    assert (pack.from_.package, pack.from_.python) == (None, ">=3.12")
+    assert pack.to.pythons() == ">=3.2"
+    assert (pack.from_.label(), pack.to.label()) == ("Python >=3.12", "Python >=3.2")
+    assert not pack.one_distribution()
+
+
+def test_a_distribution_is_labelled_by_its_name_and_range_and_gated_by_requires_python() -> None:
+    pack = build(minimal())
+    assert (pack.from_.label(), pack.to.label()) == ("demo-legacy <1", "demo-modern >=1")
+    assert pack.to.pythons() == ">=3.9"
+    assert pack.from_.versions().contains("0.9")
+
+
+def test_a_side_that_is_a_python_admits_every_release_of_no_distribution() -> None:
+    assert build(python_pack()).from_.versions().contains("99")
+
+
+def test_a_pack_may_start_from_a_distribution_and_end_on_the_python() -> None:
+    """`pkg_resources` is a module of setuptools below 82, and what replaces it is standard."""
+    pack = build(python_pack(**{"from": {"package": "demo-legacy", "version": "<82"}}))
+    assert (pack.from_.label(), pack.to.label()) == ("demo-legacy <82", "Python >=3.2")
+    assert not pack.one_distribution()
+
+
+def test_the_modules_a_pattern_imports_are_modules_the_pack_writes() -> None:
+    document = with_change(
+        builder.PATTERN_CHANGE, after="demo_other.helper.go($a)", imports=["demo_other.helper"]
+    )
+    document["match"].update(shared=True, symbols=["demo_legacy.configure", "demo_legacy.old"])
+    assert build(document).to_modules() == ("demo_other.helper",)
+
+
+def test_a_pattern_reaches_its_names_through_the_imports_it_lists() -> None:
+    change = {
+        **builder.PATTERN_CHANGE,
+        "params": {
+            "before": "demo_legacy.old($a)",
+            "after": "demo_legacy.new(demo_other.helper.make(demo_other.size($a)))",
+            "imports": ["demo_other", "demo_other.helper"],
+        },
+    }
+    document = minimal()
+    document["match"].update(shared=True, symbols=["demo_legacy.configure", "demo_legacy.old"])
+    document["changes"].append(change)
+    params = build(document).changes[1].params
+    assert isinstance(params, schema.RewritePatternParams)
+    assert params.beside() is True
+    assert params.reached() == {
+        "demo_other.helper.make": ("demo_other", "demo_other.helper"),
+        "demo_other.size": ("demo_other",),
+    }
+    assert params.through("demo_other.helper.make") == ("demo_other", "demo_other.helper")
+
+
+def test_a_name_beside_the_one_called_is_spelled_as_the_file_spelled_it_whatever_is_listed() -> (
+    None
+):
+    """`datetime.datetime.now` is beside `datetime.datetime.utcnow` and also under `datetime`."""
+    loaded = loader.load("python/datetime-utcnow").pack
+    change = loaded.changes[0]
+    assert isinstance(change, schema.RewritePatternChange)
+    assert change.params.beside() is True
+    assert set(change.params.reached()) == {"datetime.timezone.utc"}
+
+
+def test_a_pack_of_the_python_projects_no_distribution_and_the_pythons_it_runs_on() -> None:
+    spec = loader.to_scan_spec(loader.load("python/datetime-utcnow"))
+    assert (spec.legacy_distribution, spec.new_distribution) == ("", "")
+    assert (spec.requires_python, spec.legacy_floor, spec.legacy_range) == (">=3.2", None, "")
+    assert (spec.new_range, spec.new_version) == (None, None)
+
+
+def test_a_pack_from_a_distribution_to_the_python_projects_only_the_old_side() -> None:
+    spec = loader.to_scan_spec(loader.load("setuptools/pkg-resources-to-importlib"))
+    assert (spec.legacy_distribution, spec.new_distribution) == ("setuptools", "")
+    assert (spec.requires_python, spec.legacy_floor, spec.legacy_range) == (">=3.10", None, "<82")

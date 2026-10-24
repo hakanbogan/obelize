@@ -170,6 +170,13 @@ def test_a_pack_that_renames_no_import_licenses_nothing() -> None:
     assert "modules a proposal may import: (none)" in adapter.question(_consultation(to_modules=()))
 
 
+def test_a_pack_whose_new_side_is_the_python_names_no_package_to_import_from() -> None:
+    message = adapter.question(_consultation(to_package=None, to_modules=()))
+    assert "target package: (none: the Python itself)" in message
+    assert "None" not in message
+    assert "target package: new-package" in adapter.question(_consultation())
+
+
 def test_a_finding_with_no_symbol_says_so() -> None:
     assert "symbol at that line: (not recorded)" in adapter.question(_consultation(symbol=None))
 

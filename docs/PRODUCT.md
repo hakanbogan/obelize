@@ -6,9 +6,10 @@ Where this page and the code disagree, the code and [CLI.md](CLI.md) win.
 
 A local-first command-line tool for verified dependency upgrades. When a Python library makes a
 breaking change, obelize rewrites the code it can prove safe to change, refuses the rest with a
-reason, and checks the result against your own tests. Today it ships three migrations, from
-`google-generativeai` to `google-genai`, from `openai` 0.x to 1.x and from `PyPDF2` to `pypdf`, and
-it makes a pack for another library from two of its releases; they are examples of the method, and
+reason, and checks the result against your own tests. Today it ships three migrations of libraries, from
+`google-generativeai` to `google-genai`, from `openai` 0.x to 1.x and from `PyPDF2` to `pypdf`, three
+for the Python itself (`datetime.utcnow()`, `pkg_resources` and the modules Python 3.12 and 3.13
+removed), and it makes a pack for another library from two of its releases; they are examples of the method, and
 the [roadmap](ROADMAP.md) says where it goes next. The chain:
 
 ```
@@ -48,9 +49,10 @@ has made a breaking release.
 ## What ships today
 
 - The commands in [CLI.md](CLI.md#surface); `fix` is dry-run unless given `--apply`.
-- Three bundled packs, `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and
-  `py-pdf/pypdf2-to-pypdf`, and packs of your own from directories your config lists, several to a
-  run.
+- Six bundled packs, `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and
+  `py-pdf/pypdf2-to-pypdf` for libraries, `python/datetime-utcnow`,
+  `setuptools/pkg-resources-to-importlib` and `python/removed-stdlib-modules` for the Python
+  itself, and packs of your own from directories your config lists, several to a run.
 - Finding a library's breaking changes without a bundled pack: `scan --library` lists the places a
   library with no pack touches, and `pack synth` makes a pack from two releases of it.
 - `outdated` and `upgrade`, which try a move in a copy of the repository with two environments and

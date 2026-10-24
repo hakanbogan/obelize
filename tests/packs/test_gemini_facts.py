@@ -16,7 +16,6 @@ from typing import cast
 
 import pytest
 from google.genai import Client, chats, files, models, types
-from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from pydantic import ValidationError
 
@@ -46,8 +45,8 @@ def test_the_pack_is_the_migration_adr_001_chose() -> None:
 
 def test_the_installed_sdk_is_inside_the_range_the_pack_migrates_to() -> None:
     """The weekly job runs this file on the floor and on the newest release as well."""
-    assert version("google-genai") in SpecifierSet(PACK.to.version)
-    assert bounds(SpecifierSet(PACK.to.version))[0] == Version("1.55")
+    assert version("google-genai") in PACK.to.versions()
+    assert bounds(PACK.to.versions())[0] == Version("1.55")
 
 
 def test_the_safety_tables_are_asserted_against_members_and_not_construction() -> None:

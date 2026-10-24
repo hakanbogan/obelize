@@ -489,6 +489,35 @@ taking an unversioned `PyPDF2` as 3.0.1. Releases 1.x and 2.x are not migrated: 
 signature of `merge*Page`, and the pack's
 [SOURCES.md](../src/obelize/packs/py-pdf/pypdf2-to-pypdf/SOURCES.md) has the measurements.
 
+## The packs for the Python itself
+
+`python/datetime-utcnow`, `setuptools/pkg-resources-to-importlib` and
+`python/removed-stdlib-modules` have not been run over public repositories, so how often they
+write, and how often they leave a file whole for one line, is not known.
+
+- A scan of every pack parses each file that holds a pack's prefilter token, once per pack.
+  `datetime` is in a large share of a repository's files, so a default scan, which runs every known
+  pack, parses those files for `python/datetime-utcnow` as well. Pass `--pack` to name the packs a
+  run needs.
+- `python/datetime-utcnow` rewrites calls and nothing else. `field(default_factory=datetime.utcnow)`
+  and a SQLAlchemy `default=datetime.utcnow` are references, reported as unmapped, and one of them
+  keeps its whole file as it was. A test that replaces `datetime` in a module of its own with a mock
+  is not seen, and fails after the rewrite because the mock answers `now`, not `utcnow`.
+- Its new import is one line, `from datetime import timezone`, below the last top-level import above
+  the first call, and is not merged into a `from datetime import ...` line that is there. A file
+  that imports only inside functions, or that binds `timezone` to something else anywhere, is left
+  as it was with `local_import` or `alias_collision`.
+- `setuptools/pkg-resources-to-importlib` writes nothing and is gated at Python 3.10, so a library
+  that supports 3.9 gets `runtime_unsupported` on every row and not the replacement it would have
+  named. The backport `importlib_metadata` is not suggested.
+- `python/removed-stdlib-modules` leaves out `imp`, `uu`, `nis`, `crypt` and `chunk`. A scan finds
+  a file by a token inside the module's name, and those names sit inside `import`, `uuid`,
+  `finish`, `encrypt` and `chunk`: a pack that matched them would parse most of a repository on
+  every scan. A repository that still imports `imp` has to be migrated by hand.
+- `obelize outdated` lists `setuptools` with the pack for `pkg_resources` whenever it is declared
+  below 82 or without a release, which includes a build requirement that never imports
+  `pkg_resources`.
+
 ## What actually gets migrated
 
 Measured against a real sample of repositories, only a small fraction of eligible call sites

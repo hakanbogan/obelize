@@ -506,9 +506,29 @@
           "title": "Newest"
         },
         "package": {
-          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
-          "title": "Package",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Package"
+        },
+        "python": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python"
         },
         "since": {
           "default": [],
@@ -520,14 +540,18 @@
           "type": "array"
         },
         "version": {
-          "title": "Version",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
         }
       },
-      "required": [
-        "package",
-        "version"
-      ],
       "title": "Legacy",
       "type": "object"
     },
@@ -1551,7 +1575,7 @@
     },
     "RewritePatternParams": {
       "additionalProperties": false,
-      "description": "A call of a name, written as the new release spells it, found by a pattern of its shape.\n\n`before` is a call, `after` the expression that replaces it, and `$name` stands for any\nexpression `before` has in that place. The call is of a qualified name written out\n(`pydantic.parse_obj_as($type, $value)`) or of a member of a class (`$m.dict(exclude=$e)`, with\n`where` naming the class `$m` is an instance of).",
+      "description": "A call of a name, written as the new release spells it, found by a pattern of its shape.\n\n`before` is a call, `after` the expression that replaces it, and `$name` stands for any\nexpression `before` has in that place. The call is of a qualified name written out\n(`pydantic.parse_obj_as($type, $value)`) or of a member of a class (`$m.dict(exclude=$e)`, with\n`where` naming the class `$m` is an instance of). `after` may also spell names through the\nmodules `imports` lists, imported if the file has no name for them (ADR-071 D4).",
       "properties": {
         "after": {
           "maxLength": 2000,
@@ -1564,6 +1588,15 @@
           "minLength": 1,
           "title": "Before",
           "type": "string"
+        },
+        "imports": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Imports",
+          "type": "array"
         },
         "where": {
           "additionalProperties": false,
@@ -1698,7 +1731,7 @@
     },
     "Target": {
       "additionalProperties": false,
-      "description": "The new side, which also says which Pythons it installs on.\n\n`introduces` names what no release of `from.version` defines, where one module holds both\nsides: code that uses one cannot run on a pin that admits only the old releases.",
+      "description": "The new side, which also says which Pythons it installs on.\n\nA distribution says it as `requires_python`; a side that is the Pythons themselves says it as\n`python`. Either way it is the set a repository's declared Python must stay inside (ADR-050 D4).\n`introduces` names what no release of `from.version` defines, where one module holds both\nsides: code that uses one cannot run on a pin that admits only the old releases.",
       "properties": {
         "introduces": {
           "default": [],
@@ -1710,24 +1743,55 @@
           "type": "array"
         },
         "package": {
-          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
-          "title": "Package",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Package"
+        },
+        "python": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python"
         },
         "requires_python": {
-          "title": "Requires Python",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requires Python"
         },
         "version": {
-          "title": "Version",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
         }
       },
-      "required": [
-        "package",
-        "version",
-        "requires_python"
-      ],
       "title": "Target",
       "type": "object"
     },

@@ -28,6 +28,15 @@ because `openai` 0.x and 1.x are one distribution. What stays out: a client obje
 a result with a default, and a Gate 1 measurement, which neither of the two newer packs has. Another
 library that keeps its import name needs the same measurement before it gets a pack.
 
+Three packs are for the Python itself, where no distribution is on one side
+([why](adr/ADR-071-runtime-packs.md)). `python/datetime-utcnow` rewrites `utcnow()` and
+`utcfromtimestamp(x)` to the spelling that keeps the value naive, importing `timezone` where the
+file has no name for it. `setuptools/pkg-resources-to-importlib` reports every use of
+`pkg_resources` with its replacement and writes nothing, since none is the same call under another
+name, and `python/removed-stdlib-modules` renames `pipes.quote` and reports the rest of what Python
+3.12 and 3.13 removed. A repository that declares a Python they do not run on is left alone. Like
+the openai and PyPDF2 packs they have no Gate 1 measurement yet.
+
 One optional model adapter can answer a call the pack cannot resolve on its own. It stays off
 unless you configure an endpoint yourself. A guard checks each proposal before anything is
 written: it must stay inside the lines it was shown and the file it was asked about, parse, and
@@ -77,11 +86,10 @@ release, and an option I add defaults to today's behaviour.
 
 1. Guides and more places. Read a migration guide and draft a rule from it, rewrite a dependency
    line that carries extras, use an agent program other than `claude`, let the GitHub Action open
-   the pull request of an upgrade, and let the kinds the three bundled packs use cover more shapes.
+   the pull request of an upgrade, and let the kinds the bundled packs use cover more shapes.
    The command itself never pushes.
 2. Ecosystem. A registry of packs, existing fixers such as ruff behind the same evidence, writing
-   notebooks, packs for the Python runtime itself (`pkg_resources`, the modules PEP 594 removed,
-   `datetime.utcnow`) and hand-checked packs for the libraries people ask about most.
+   notebooks, and hand-checked packs for the libraries people ask about most.
 3. 1.0. Stable formats, with only additions after it, and a published benchmark of the pack-free
    mode.
 

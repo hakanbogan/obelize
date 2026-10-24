@@ -315,7 +315,9 @@ jobs:
         run: |
           set -euo pipefail
           obelize="$RUNNER_TEMP/smoke/bin/obelize"
-          for pack_id in gemini/google-generativeai-to-google-genai openai/openai-0-to-1 py-pdf/pypdf2-to-pypdf; do
+          for pack_id in gemini/google-generativeai-to-google-genai openai/openai-0-to-1 \
+            py-pdf/pypdf2-to-pypdf python/datetime-utcnow python/removed-stdlib-modules \
+            setuptools/pkg-resources-to-importlib; do
             "$obelize" pack validate "$pack_id"
           done
 

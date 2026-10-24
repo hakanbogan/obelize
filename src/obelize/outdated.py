@@ -168,8 +168,11 @@ def _bundled(name: str, now: Version | None, packs: Sequence[LoadedPack]) -> str
     """The id of a known pack that migrates `name` from the release in use."""
     for loaded in packs:
         side = loaded.pack.from_
-        if canonicalize_name(side.package) == name and (
-            now is None or now in SpecifierSet(side.version)
+        if (
+            side.package
+            and side.version
+            and canonicalize_name(side.package) == name
+            and (now is None or now in SpecifierSet(side.version))
         ):
             return loaded.pack.id
     return None

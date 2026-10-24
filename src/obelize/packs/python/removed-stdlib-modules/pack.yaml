@@ -1,0 +1,228 @@
+# Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
+# Measured on CPython 3.9 to 3.12, which still ship pipes (SOURCES.md).
+id: python/removed-stdlib-modules
+pack_version: 0.1.0
+provider: python
+language: python
+
+source:
+  type: official_guide
+  url: https://peps.python.org/pep-0594/
+  retrieved_at: 2026-10-24
+  sha256: "50e541d9d19dd1ed46531e9596174efe9030cb66cf8ac186f13cce50b7eb394d"
+
+# Python 3.12 removed asynchat, asyncore, distutils and smtpd, and 3.13 the rest of PEP 594. The
+# one rename is the standard library's own: `shlex.quote` exists from 3.3.
+from:
+  python: ">=3.12"
+to:
+  python: ">=3.3"
+
+match:
+  # Each name is also its own prefilter token. `imp`, `uu`, `nis`, `crypt` and `chunk` are left
+  # out: a name inside `import`, `uuid`, `finish`, `encrypt` and `chunk` would parse most files.
+  imports:
+    - aifc
+    - asynchat
+    - asyncore
+    - audioop
+    - cgi
+    - cgitb
+    - distutils
+    - imghdr
+    - lib2to3
+    - mailcap
+    - msilib
+    - nntplib
+    - ossaudiodev
+    - pipes
+    - smtpd
+    - sndhdr
+    - spwd
+    - sunau
+    - telnetlib
+    - xdrlib
+  prefilter_tokens:
+    - aifc
+    - asynchat
+    - asyncore
+    - audioop
+    - cgi
+    - distutils
+    - imghdr
+    - lib2to3
+    - mailcap
+    - msilib
+    - nntplib
+    - ossaudiodev
+    - pipes
+    - smtpd
+    - sndhdr
+    - spwd
+    - sunau
+    - telnetlib
+    - xdrlib
+
+changes:
+  - id: rename-pipes
+    kind: rename_import
+    citation: "Python documentation, shlex.quote(); PEP 594, pipes"
+    params:
+      from_module: pipes
+      to_module: shlex
+      default_alias: shlex
+      # pipes.py of 3.9 to 3.12 imports `quote` from shlex "for backward compat", so the two are
+      # one function (`pipes.quote is shlex.quote`); Template and the rest of pipes are not mapped.
+      symbol_map:
+        quote: quote
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/from_import.before.py
+      - fixtures/positive/import_module.before.py
+
+  - id: flag-event-loops
+    kind: flag_only
+    citation: "What's New In Python 3.12, 'asynchat and asyncore'; PEP 594, asyncore"
+    params:
+      symbols:
+        - asynchat
+        - asyncore
+      message: >-
+        Python 3.12 removed asyncore and asynchat, which have been deprecated since 3.6: importing
+        either raises ModuleNotFoundError. A subclass of asyncore.dispatcher or asynchat.async_chat
+        is an event loop of its own, and nothing renames it.
+      suggestion: >-
+        Use asyncio instead (the removal notice says so): asyncio.start_server or
+        loop.create_connection with a Protocol take the place of a dispatcher.
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/event_loops.before.py
+
+  - id: flag-smtpd
+    kind: flag_only
+    citation: "What's New In Python 3.12, 'smtpd'; PEP 594, smtpd"
+    params:
+      symbols:
+        - smtpd
+      message: >-
+        Python 3.12 removed smtpd, which was deprecated in 3.4.7 and 3.5.4: importing it raises
+        ModuleNotFoundError.
+      suggestion: >-
+        Use the aiosmtpd PyPI module or any other asyncio-based server, as the removal notice says;
+        a subclass of smtpd.SMTPServer becomes a handler class of aiosmtpd.
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/smtpd.before.py
+
+  - id: flag-distutils
+    kind: flag_only
+    citation: "PEP 632, 'Migration Advice'; What's New In Python 3.12"
+    params:
+      symbols:
+        - distutils
+      message: >-
+        Python 3.12 removed distutils. setuptools ships a copy that is found as distutils only
+        while setuptools is installed, and a venv no longer installs it, so an import that worked
+        by accident now fails.
+      suggestion: >-
+        distutils.version: packaging.version. spawn.find_executable: shutil.which. spawn.spawn:
+        subprocess.run. sysconfig: sysconfig. util.get_platform: platform. fancy_getopt: argparse.
+        core, cmd and command: setuptools. strtobool and dir_util.create_tree: write them out.
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/distutils.before.py
+
+  - id: flag-cgi
+    kind: flag_only
+    citation: "What's New In Python 3.13, 'PEP 594'; PEP 594, cgi"
+    params:
+      symbols:
+        - cgi
+        - cgitb
+      message: >-
+        Python 3.13 removed cgi and cgitb. PEP 594 gives a replacement for the parts that are no
+        CGI script: none of them is a rename, and FieldStorage has no direct one.
+      suggestion: >-
+        cgi.parse: urllib.parse.parse_qs. parse_header and parse_multipart:
+        email.message.Message. FieldStorage: the multipart package for a POST or PUT,
+        urllib.parse.parse_qsl for a GET or HEAD. cgitb has no replacement.
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/cgi.before.py
+
+  - id: flag-replaced-elsewhere
+    kind: flag_only
+    citation: "PEP 594, 'Deprecated modules': the Replacement column"
+    params:
+      symbols:
+        - imghdr
+        - pipes.Template
+        - sndhdr
+        - spwd
+        - telnetlib
+      message: >-
+        Python 3.13 removed these. PEP 594 names where each went, and none is a rename: the
+        replacement is another library or another API, not the same call under a new name.
+      suggestion: >-
+        imghdr and sndhdr: filetype, puremagic or python-magic. pipes.Template: subprocess.
+        spwd: python-pam. telnetlib: telnetlib3 or Exscript.
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/replaced_elsewhere.before.py
+
+  - id: flag-without-replacement
+    kind: flag_only
+    citation: "What's New In Python 3.13, 'PEP 594' and the removal of lib2to3; PEP 594, 'Deprecated modules'"
+    params:
+      symbols:
+        - aifc
+        - audioop
+        - lib2to3
+        - mailcap
+        - msilib
+        - nntplib
+        - ossaudiodev
+        - sunau
+        - xdrlib
+      message: >-
+        Python 3.13 removed these, and PEP 594 names no replacement for any of them: the module
+        went with its documentation, so the code has to carry the functionality, depend on a
+        library of its own, or stop using it.
+      suggestion: >-
+        Decide per use. For lib2to3 the removal notice names none either; audioop is used by
+        aifc, sunau and wave, which still ship, so check what the repository reads.
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/without_replacement.before.py
+
+  - id: flag-indirect-use
+    kind: flag_only
+    citation: "PEP 594, 'Rationale'"
+    params:
+      # Shape ids, never regexes: a pack carries nothing that drives behaviour.
+      patterns:
+        - dynamic_access
+        - mock_patch_target
+        - sys_modules_stub
+      message: >-
+        A removed module is reached here as a string or through a dynamic import rather than by an
+        import statement, so the pack cannot follow it. A patch target that names one fails when
+        the test runs on a Python that no longer has it.
+      suggestion: >-
+        Update it by hand once the code it patches has moved off the removed module.
+    fixtures:
+      - fixtures/negative/already_shlex.py
+      - fixtures/positive/indirect.before.py
+
+verification:
+  suggestions:
+    - "<project python> -m pytest -q"
+
+limitations:
+  - "Only pipes.quote is renamed, to shlex.quote, which is the same function. Every other use of a removed module is reported with where PEP 594, PEP 632 or the release notes say it went, and none is rewritten, since none is the same call under a new name."
+  - "imp, uu, nis, crypt and chunk are not matched: each name sits inside a common word (import, uuid, finish, encrypt, chunk), and a prefilter that parsed every file holding it would parse most of a repository. A person migrates those by hand."
+  - "A file that uses pipes.quote beside any other name of a removed module, or pipes.Template, is left whole for that name."
+  - "Only an import of the module names is matched. A module reached through importlib or __import__ is reported by its shape and never rewritten."
+  - "setuptools ships a copy of distutils that import distutils finds while setuptools is installed. The pack does not tell a repository that relies on it from one that does not."
+  - "A repository that declares a Python below 3.3, Python 2 included, is blocked, since shlex.quote does not exist there."
+  - "No Gate 1 measurement exists: how many repositories import these modules, and for how many the pack writes every use, has not been counted."

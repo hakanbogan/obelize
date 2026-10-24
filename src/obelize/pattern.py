@@ -79,6 +79,10 @@ PURE: Final = frozenset(
 )
 
 
+# The names Python reserves for its three constants, which are no module to import.
+CONSTANTS: Final = frozenset({"None", "True", "False"})
+
+
 class TemplateError(ValueError):
     """A template that cannot be read, in words for a pack's author."""
 
@@ -238,7 +242,8 @@ def anchor(before: Template, where: Mapping[str, str]) -> Anchor:
 
 def new_names(template: Template) -> set[str]:
     """The names a template spells out, as dotted chains (`pydantic.TypeAdapter`): the roots that
-    are neither a metavariable nor a pure builtin, which need no import; the rest would."""
+    are neither a metavariable, a pure builtin nor `None`, `True` or `False`, which need no import;
+    the rest would."""
     return set(template.spelled)
 
 
@@ -246,7 +251,7 @@ def _spelled(node: cst.BaseExpression, found: set[str]) -> None:
     name = dotted(node)
     if name:
         root = name.partition(".")[0]
-        if _meta(cst.Name(root)) is None and root not in PURE:
+        if _meta(cst.Name(root)) is None and root not in PURE | CONSTANTS:
             found.add(name)
     elif isinstance(node, cst.Attribute):
         _spelled(node.value, found)
@@ -498,6 +503,7 @@ def place(node: cst.BaseExpression, parent: cst.CSTNode) -> cst.BaseExpression:
 
 
 __all__ = [
+    "CONSTANTS",
     "LIMIT",
     "PURE",
     "Anchor",

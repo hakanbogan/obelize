@@ -152,7 +152,9 @@ def test_a_repository_no_pack_applies_to_says_so_and_exits_zero(tmp_path: Path) 
     tree = committed(tmp_path / "repo", {"plain.py": "print('hello')\n"})
     result = run(tree, "scan")
     assert result.exit_code == 0, result.output
-    assert f"No pack applies. Checked: {GEMINI}, {OPENAI}, {PYPDF}." in result.output
+    checked = ", ".join(loader.bundled_ids())
+    assert f"No pack applies. Checked: {checked}." in result.output
+    assert checked.startswith(f"{GEMINI}, {OPENAI}, {PYPDF}, ")
     assert document(tree, "findings.json")["packs"] == []
     assert document(tree, "run.json")["packs"] == []
     fixed = run(tree, "fix")

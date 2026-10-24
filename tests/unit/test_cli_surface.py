@@ -67,11 +67,22 @@ def test_no_arguments_shows_help_and_usage_exit_code() -> None:
     assert result.exit_code == 2
 
 
+# A pack whose new side is the Python has no pair of names to print, so the help says it in words.
+IN_THE_PYTHON = {
+    "python/datetime-utcnow": "datetime.utcnow()",
+    "python/removed-stdlib-modules": "modules Python 3.12 and 3.13 removed",
+    "setuptools/pkg-resources-to-importlib": "pkg_resources",
+}
+
+
 def test_help_names_each_migration_a_bundled_pack_makes() -> None:
-    shown = runner.invoke(app, ["--help"]).stdout
+    shown = " ".join(runner.invoke(app, ["--help"]).stdout.split())
     for pack_id in loader.bundled_ids():
         pack = loader.load(pack_id).pack
         old, new = pack.from_.package, pack.to.package
+        if new is None:
+            assert IN_THE_PYTHON[pack_id] in shown, pack_id
+            continue
         # One library on both sides reads "openai 0.x to 1.x", so only its name is held.
         assert (f"{old} to {new}" if old != new else f"{old} ") in shown, pack_id
 

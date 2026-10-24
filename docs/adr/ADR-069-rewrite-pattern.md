@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by [ADR-071](ADR-071-runtime-packs.md) (D3).
 
 ## Decision
 
@@ -46,8 +46,8 @@ parse_obj_as`) has none to spell it by, and is `from_import_unmigrated_symbol`, 
 rooted on a module is. Metavariables and a short list of builtins that only build a value from
 their arguments (`int`, `str`, `list`, `len`, ...) may be written without a root; `open`, `eval`,
 `exec`, `getattr` and every dunder name may not, since a pack is data and writes no code that
-reaches out of the program. A pattern that needs an import the file does not have is not
-expressible, and that stays a flag until a kind can carry an import. The schema refuses a name
+reaches out of the program. A pattern that needs a module the file may not import lists it in
+`imports`, and may spell names through it ([ADR-071](ADR-071-runtime-packs.md) D4). The schema refuses a name
 beyond these, one `match.symbols` lists as legacy, `after` calling the name `before` is found by
 (or reading the member a member pattern is found by, or another member of its class that
 `match.symbols` lists), so the result is no new finding.

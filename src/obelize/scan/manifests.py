@@ -279,7 +279,9 @@ def declarations(
 
 def coupled(spec: ScanSpec) -> bool:
     """Whether the new SDK is the legacy distribution itself, one pin for both APIs."""
-    return canonicalize_name(spec.legacy_distribution) == canonicalize_name(spec.new_distribution)
+    return bool(spec.legacy_distribution) and canonicalize_name(
+        spec.legacy_distribution
+    ) == canonicalize_name(spec.new_distribution)
 
 
 def survey(
@@ -398,7 +400,7 @@ def uses_new_names(data: bytes, spec: ScanSpec) -> bool:
 def declares(found: Iterable[Declaration], spec: ScanSpec) -> bool:
     """Whether a manifest declares the pack's legacy distribution."""
     legacy = canonicalize_name(spec.legacy_distribution)
-    return any(declaration.name == legacy for declaration in found)
+    return bool(legacy) and any(declaration.name == legacy for declaration in found)
 
 
 def prefiltered(
@@ -437,8 +439,11 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
 
     A file imports a module only the legacy distribution installed with a declaration of its
     distribution in the manifests of its own app: its directory, or one above it, up to the root. A
-    constraints file does not declare: it bounds a version and installs nothing.
+    constraints file does not declare: it bounds a version and installs nothing. A pack whose new
+    side is a Python edits no pin, so its declarations are context, as an inventory's are.
     """
+    if not spec.new_distribution:
+        return context(found, spec)
     legacy = canonicalize_name(spec.legacy_distribution)
     new = canonicalize_name(spec.new_distribution)
     declares: dict[str, set[str]] = {}
@@ -477,7 +482,7 @@ def plan(found: Sequence[Declaration], migration: Migration, spec: ScanSpec) -> 
 
 def context(found: Sequence[Declaration], spec: ScanSpec) -> ManifestPlan:
     """The declarations of the library an inventory lists, as context: nothing migrates, so no pin
-    moves and no declaration is graded."""
+    moves and no declaration is graded. Nor does a pack whose new side is a Python."""
     name = canonicalize_name(spec.legacy_distribution)
     rows = [
         _row(declaration, spec.legacy_distribution, None, absent=True)

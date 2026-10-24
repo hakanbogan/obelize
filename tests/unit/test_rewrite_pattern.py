@@ -271,3 +271,112 @@ def test_a_call_inside_an_f_string_is_left_where_the_new_text_writes_a_string() 
     code, edits = tidy(text, only("acme.shapes.Square(side=$n)"))
     assert code == HEAD + 'x = f"{acme.shapes.Square(side=a)}"\n'
     assert [row.status for row in edits] == ["auto"]
+
+
+def through(after: str, *imports: str) -> RewritePatternChange:
+    return pattern_change(
+        before="acme.shapes.make_square($n)", after=after, imports=sorted(imports)
+    )
+
+
+UNITS = through("acme.shapes.Square(side=kit.units.cm($n))", "kit.units")
+LADDER = through("acme.shapes.Square(side=kit.units.cm($n))", "kit", "kit.units")
+BASE = "import acme.shapes\n"
+
+
+@pytest.mark.parametrize(
+    ("head", "written"),
+    [
+        ("import kit.units\n", "kit.units.cm(2)"),
+        ("import kit.units as u\n", "u.cm(2)"),
+        ("from kit import units\n", "units.cm(2)"),
+        ("from kit import units as u\n", "u.cm(2)"),
+    ],
+)
+def test_a_name_is_spelled_through_the_import_the_file_has_of_the_path(
+    head: str, written: str
+) -> None:
+    code, edits = tidy(f"{BASE}{head}\nx = acme.shapes.make_square(2)\n", UNITS)
+    assert code == f"{BASE}{head}\nx = acme.shapes.Square(side={written})\n"
+    assert [row.status for row in edits] == ["auto"]
+
+
+def test_a_path_the_file_does_not_import_is_imported_below_the_last_import_above_the_call() -> None:
+    code, edits = tidy(f"{BASE}import os\n\nx = acme.shapes.make_square(2)\n", UNITS)
+    assert code == (
+        f"{BASE}import os\nfrom kit import units\n\nx = acme.shapes.Square(side=units.cm(2))\n"
+    )
+    assert [row.status for row in edits] == ["auto"]
+
+
+def test_every_call_of_a_file_shares_the_one_import_it_needs() -> None:
+    source = f"{BASE}\nx = acme.shapes.make_square(2)\ny = acme.shapes.make_square(3)\n"
+    code, edits = tidy(source, UNITS)
+    assert code.count("from kit import units") == 1
+    assert code.endswith("Square(side=units.cm(2))\ny = acme.shapes.Square(side=units.cm(3))\n")
+    assert [row.status for row in edits] == ["auto", "auto"]
+
+
+def test_a_name_that_needs_no_module_of_the_call_is_written_for_a_name_imported_bare() -> None:
+    """Nothing is spelled beside the called name, so a call written without its module is fine."""
+    change = through("kit.units.cm($n)", "kit.units")
+    code, edits = tidy("from acme.shapes import make_square\n\nx = make_square(2)\n", change)
+    assert code == (
+        "from acme.shapes import make_square\nfrom kit import units\n\nx = units.cm(2)\n"
+    )
+    assert [row.status for row in edits] == ["auto"]
+
+
+@pytest.mark.parametrize(
+    ("head", "added", "written"),
+    [
+        ("import kit\n", "", "kit.units.cm(2)"),
+        ("import kit as k\n", "", "k.units.cm(2)"),
+        ("from kit import units\n", "", "units.cm(2)"),
+        ("", "from kit import units\n", "units.cm(2)"),
+    ],
+)
+def test_the_first_listed_path_the_file_has_is_used_else_the_longest_is_imported(
+    head: str, added: str, written: str
+) -> None:
+    code, edits = tidy(f"{BASE}{head}\nx = acme.shapes.make_square(2)\n", LADDER)
+    assert code == f"{BASE}{head}{added}\nx = acme.shapes.Square(side={written})\n"
+    assert [row.status for row in edits] == ["auto"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        # A parameter hides the name the new import would take.
+        f"{BASE}\ndef f(units):\n    return acme.shapes.make_square(units)\n",
+        # A name the file binds to something else.
+        f"{BASE}units = 3\nx = acme.shapes.make_square(units)\n",
+        # The path is imported, and the name is bound again in a function.
+        f"{BASE}from kit import units\n\n\ndef f(units):\n    return acme.shapes.make_square(1)\n",
+    ],
+)
+def test_a_name_that_is_shadowed_leaves_the_call_for_a_person(source: str) -> None:
+    code, edits = tidy(source, UNITS)
+    assert code == source
+    assert [(row.status, row.reason) for row in edits] == [("needs_review", "alias_collision")]
+
+
+def test_a_file_that_imports_only_inside_functions_has_no_line_for_the_new_import() -> None:
+    source = "def f():\n    import acme.shapes\n    return acme.shapes.make_square(2)\n"
+    code, edits = tidy(source, UNITS)
+    assert code == source
+    assert [(row.status, row.reason) for row in edits] == [("needs_review", "local_import")]
+
+
+def test_an_import_that_follows_the_call_does_not_run_before_it() -> None:
+    source = "def f():\n    return acme.shapes.make_square(2)\n\n\nimport acme.shapes\n"
+    code, edits = tidy(source, UNITS)
+    assert code == source
+    assert [row.reason for row in edits] == ["local_import"]
+
+
+def test_a_path_imported_after_the_call_is_not_one_the_call_can_use() -> None:
+    source = f"{BASE}x = acme.shapes.make_square(2)\nfrom kit import units\n"
+    code, edits = tidy(source, UNITS)
+    assert [row.reason for row in edits] == ["alias_collision"]
+    assert code == source

@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted; amended by [ADR-053](ADR-053-shared-module-migrations.md) and
-[ADR-056](ADR-056-newest-legacy-release.md).
+Accepted; amended by [ADR-053](ADR-053-shared-module-migrations.md),
+[ADR-056](ADR-056-newest-legacy-release.md) and [ADR-071](ADR-071-runtime-packs.md).
 
 ## Decision
 

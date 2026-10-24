@@ -210,13 +210,15 @@ def fixed(
     guides: Sequence[Guide] = (),
     locks: Sequence[str] = (),
     unwritten: Sequence[tuple[str, tuple[int, ...]]] = (),
+    pins: bool = True,
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
     `repo` is `--repo` as typed and `packs` the `--pack` values, so the closing `Next:` command
     runs where the user is, on what the user chose. `held` is the pin check, which names the
     files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
-    or above it; `unwritten` are the files that use the legacy API and that no rule writes.
+    or above it; `unwritten` are the files that use the legacy API and that no rule writes; `pins`
+    is whether a pack of the run moves a dependency line, which the closing step says to install.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -254,7 +256,7 @@ def fixed(
             f"Next: regenerate each lock file with the tool that made it: {', '.join(locks)}. "
             f"obelize does not edit them, so they may still pin the old release."
         )
-    lines.extend(_next(record, plan, evidence, repo, packs))
+    lines.extend(_next(record, plan, evidence, repo, packs, pins))
     return lines
 
 
@@ -337,10 +339,15 @@ def _guidance(guides: Sequence[Guide]) -> list[str]:
 
 
 def _next(
-    record: RunRecord, plan: PlanDocument, evidence: str, repo: str, packs: Sequence[str]
+    record: RunRecord,
+    plan: PlanDocument,
+    evidence: str,
+    repo: str,
+    packs: Sequence[str],
+    pins: bool,
 ) -> list[str]:
     """The command after a run, by exit code; a dry run with nothing planned, `3` and `4` with
-    none left have none."""
+    none left have none. A run of packs that move no dependency line has nothing to install."""
     fix = flags(repo, packs)
     if record.mode != "apply":
         return [f"Next: obelize fix --apply{fix} writes it."] if plan.files else []
@@ -369,10 +376,12 @@ def _next(
             f"run obelize verify --run <new id>{flag} {_tests()}."
         )
     elif record.exit_code == 6:
-        step = (
-            f"install what this run wrote into the manifest in your project's environment, "
-            f"then obelize verify {run} {_tests()} checks the change with your tests."
+        install = (
+            "install what this run wrote into the manifest in your project's environment, then "
+            if pins
+            else ""
         )
+        step = f"{install}obelize verify {run} {_tests()} checks the change with your tests."
     else:
         return []
     return [f"Next: {step}"]
@@ -970,9 +979,13 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
     needed, package = code(blocked.needed), code(blocked.package)
     if blocked.reason == "runtime_unsupported":
         path = code(blocked.path)
+        # A migration whose new side is a Python has no distribution to name.
+        rejects = (
+            f"{package} does not install on" if blocked.package else "its new code does not run on"
+        )
         return (
             f"{path} declares Python {code(blocked.declared or '')}, which allows versions "
-            f"{package} does not install on, so this migration reports its findings and plans "
+            f"{rejects}, so this migration reports its findings and plans "
             f"no change. To migrate, raise the minimum in {path} to {needed} and run again."
         )
     if blocked.reason == "new_version_unsupported":

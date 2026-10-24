@@ -70,7 +70,8 @@ app = typer.Typer(
     name="obelize",
     help="Verified codemods for breaking Python dependency upgrades. "
     "Supported migrations: google-generativeai to google-genai, openai 0.x to 1.x, "
-    "PyPDF2 to pypdf.",
+    "PyPDF2 to pypdf, and in the Python itself datetime.utcnow(), pkg_resources and the "
+    "modules Python 3.12 and 3.13 removed.",
     no_args_is_help=True,
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -447,6 +448,7 @@ def fix(
             outcome.guides,
             outcome.locks,
             outcome.unwritten,
+            outcome.pins,
         ),
     )
     raise typer.Exit(outcome.exit_code)
@@ -883,10 +885,7 @@ def pack_validate(
     pack = loaded.pack
     typer.echo(f"{pack.id} {pack.pack_version} is a valid migration pack.")
     typer.echo(f"  sha256       {loaded.sha256}")
-    typer.echo(
-        f"  migrates     {pack.from_.package} {pack.from_.version} -> "
-        f"{pack.to.package} {pack.to.version}"
-    )
+    typer.echo(f"  migrates     {pack.from_.label()} -> {pack.to.label()}")
     typer.echo(f"  changes      {len(pack.changes)}")
     typer.echo(f"  limitations  {len(pack.limitations)}")
     if pack.requires_plugins:
@@ -1261,6 +1260,8 @@ def upgrade(
     or an --apply without --yes where no one can be asked, 3 for tests that broke, and 6
     for an index that could not be reached or a trial the tests could not judge.
     """
+    from packaging.utils import canonicalize_name
+
     from obelize import index, libdiff, net
     from obelize import outdated as survey
     from obelize import upgrade as upgrading
@@ -1282,6 +1283,13 @@ def upgrade(
         fetcher = _fetcher(offline)
         if distribution is None:
             distribution = _picked(fetcher, root, config)
+        elif (pack_id := upgrading.runtime_pack(_known_packs(), distribution)) and not any(
+            one.name == canonicalize_name(distribution) for one in _declared(root, config)
+        ):
+            raise libdiff.LibraryError(
+                f"{distribution} is no dependency {repo} declares: it is a module of the Python or "
+                f"of setuptools. The pack {pack_id} reports its uses: obelize fix --pack {pack_id}."
+            )
         project = index.project(fetcher, distribution)
         target = libdiff.version(new) if new else libdiff.newest(project)
         declared = next((one for one in _declared(root, config) if one.name == project.name), None)

@@ -386,3 +386,9 @@ def test_the_multi_line_new_expression_is_in_parentheses_even_where_one_line_wou
     parents = MetadataWrapper(module, unsafe_skip_copy=True).resolve(ParentNodeProvider)
     call = next(node for node in parents if isinstance(node, cst.Call))
     assert code(pattern.place(wide, parents[call])).startswith("(")
+
+
+@pytest.mark.parametrize("text", ["lib.f($a, None)", "lib.f(flag=True)", "lib.f((False, $a))"])
+def test_none_true_and_false_are_no_names_a_template_spells(text: str) -> None:
+    """They are names to the parser, but no module has them, so nothing imports them."""
+    assert pattern.new_names(pattern.parse(text)) == {"lib.f"}

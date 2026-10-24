@@ -39,7 +39,7 @@ def names_every_package(text: str, names: Iterable[str]) -> bool:
 
 def bundled_packages() -> set[str]:
     packs = (loader.load(reference).pack for reference in loader.bundled_ids())
-    return {name for pack in packs for name in (pack.from_.package, pack.to.package)}
+    return {name for pack in packs for name in (pack.from_.package, pack.to.package) if name}
 
 
 def test_the_first_ten_lines_name_every_package_a_bundled_pack_migrates() -> None:

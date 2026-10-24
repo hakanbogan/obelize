@@ -12,6 +12,61 @@ in the release that makes it.
 
 ## [Unreleased]
 
+A pack can now be about the Python itself. A side of a migration is a distribution or the Pythons
+it runs on, so `datetime.utcnow()`, `pkg_resources` and the modules Python 3.12 and 3.13 removed
+have packs, though no distribution is installed to move to. Everything new is reached by a pack that
+uses it, and what the three bundled packs for a library write is what it was.
+
+### Unsupported patterns
+
+[docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has a new section on the packs for the Python itself.
+What it names:
+
+- None of the three has been run over public repositories, so how often they write is not known.
+- `python/datetime-utcnow` rewrites calls only: `field(default_factory=datetime.utcnow)` and a
+  SQLAlchemy `default=datetime.utcnow` are reported and keep their file as it was. The value stays
+  naive, as `utcnow()` made it; a test that mocks `datetime` in a module of its own is not seen and
+  fails after the rewrite.
+- `setuptools/pkg-resources-to-importlib` writes nothing and is gated at Python 3.10.
+- `python/removed-stdlib-modules` renames `pipes.quote` and reports the rest. It leaves out `imp`,
+  `uu`, `nis`, `crypt` and `chunk`, whose names sit inside `import`, `uuid`, `finish`, `encrypt` and
+  `chunk`.
+- A default scan, which runs every known pack, now parses the files that hold `datetime`,
+  `pkg_resources` or the name of a removed module once more for each of these packs.
+
+The formats that changed are `pack.yaml` (`package` and `version` are optional on a side, which may
+instead say `python`; `to.requires_python` is required only with a distribution; a `rewrite_pattern`
+takes `imports`), the text of `runtime_unsupported` for a pack whose new side is the Python, and
+`pack.schema.json`, which describes them. The reasons `alias_collision` and `local_import` are also
+given for a `rewrite_pattern` that cannot name a module it imports.
+
+### Added
+
+- A side of a pack can be the Python: `from: {python: ">=3.12"}` and `to: {python: ">=3.2"}`, where
+  `to.python` is what `requires_python` is for a distribution. A repository that declares a Python
+  outside it is blocked (`runtime_unsupported`), and one that declares none is not. A pack whose
+  new side is the Python moves no dependency line, and its old distribution's lines in a manifest
+  are context. `obelize upgrade pkg_resources` says it is no dependency and names the pack to run.
+- A `rewrite_pattern` can spell names through the modules it lists under `imports`, such as
+  `datetime.timezone`. It names a module as the file already does (`import datetime as dt`, `from
+  datetime import timezone`) and otherwise adds one import line below the last import above the
+  first call; a name the file binds to something else, or a file that imports only inside functions,
+  leaves the call for you.
+- Three bundled packs for the Python itself. `python/datetime-utcnow` rewrites `datetime.utcnow()`
+  and `datetime.utcfromtimestamp(x)` to `now(timezone.utc)` and `fromtimestamp(x, timezone.utc)`
+  with `.replace(tzinfo=None)`, which keeps the value naive. `setuptools/pkg-resources-to-importlib`
+  reports every use of `pkg_resources` with the `importlib.metadata` or `importlib.resources`
+  replacement and writes nothing. `python/removed-stdlib-modules` renames `pipes.quote` to
+  `shlex.quote` and reports the other modules Python 3.12 and 3.13 removed, with where each went.
+
+### Changed
+
+- A template may contain `None`, `True` and `False`, which it could not before: they were read as
+  names to import.
+- `obelize pack validate` prints a side that is the Python as `Python >=3.12`.
+- The step `fix --apply` suggests after a run that nothing verified no longer says to install what
+  the run wrote into the manifest when every pack of the run is one that moves no dependency line.
+
 ## [0.8.0] - 2026-10-21
 
 A pack can say more than it could. It can rename a method of a library's class where your code

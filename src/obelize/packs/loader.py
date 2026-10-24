@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any, Final
 
 import yaml
-from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 from pydantic import ValidationError
 
@@ -261,23 +260,23 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
             for symbol in flagged | attributes
             if symbol.rpartition(".")[0] == owner
         )
-    floor = bounds(SpecifierSet(pack.from_.version))[0]
+    floor = bounds(pack.from_.versions())[0]
     return ScanSpec(
         pack_id=pack.id,
         pack_version=pack.pack_version,
         pack_sha256=loaded.sha256,
         legacy_modules=pack.match.imports,
-        legacy_distribution=pack.from_.package,
-        new_distribution=pack.to.package,
+        legacy_distribution=pack.from_.package or "",
+        new_distribution=pack.to.package or "",
         prefilter_tokens=pack.match.prefilter_tokens,
         symbols=pack.match.symbols,
         client_symbol=client_symbol,
         new_client_symbol=new_client_symbol,
-        requires_python=pack.to.requires_python,
+        requires_python=pack.to.pythons(),
         legacy_floor=None if floor is None else str(floor),
         legacy_newest=pack.from_.newest,
         legacy_lacks=pack.from_.lacks,
-        legacy_range=pack.from_.version,
+        legacy_range=pack.from_.version or "",
         legacy_since=pack.from_.since,
         new_version=pack.to.version,
         new_names=pack.to.introduces,
@@ -299,11 +298,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         flag_only_patterns=tuple(sorted(patterns)),
         flag_only_variables=tuple(sorted(variables)),
         shared=pack.match.shared,
-        new_range=(
-            pack.to.version
-            if canonicalize_name(pack.from_.package) == canonicalize_name(pack.to.package)
-            else None
-        ),
+        new_range=pack.to.version if pack.one_distribution() else None,
         transitive_modules=tuple(
             ProvidedModule(module=module, distribution=distribution)
             for module, distribution in sorted(pack.match.transitive.items())
@@ -328,7 +323,7 @@ def conflict(first: PackDocument, second: PackDocument) -> str | None:
 
     def distributions(pack: PackDocument) -> set[str]:
         names = {pack.from_.package, pack.to.package, *pack.match.transitive.values()}
-        return {canonicalize_name(name) for name in names}
+        return {canonicalize_name(name) for name in names if name is not None}
 
     shared = sorted(distributions(first) & distributions(second))
     return f"{first.id} and {second.id} both name the distribution {shared[0]}" if shared else None

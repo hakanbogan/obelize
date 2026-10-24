@@ -153,7 +153,7 @@ def question(consultation: base.Consultation) -> str:
     context = consultation.context
     lines = [
         f"pack: {consultation.pack_id}",
-        f"target package: {consultation.to_package}",
+        f"target package: {consultation.to_package or '(none: the Python itself)'}",
         f"modules a proposal may import: {', '.join(consultation.to_modules) or '(none)'}",
         f"file: {context.path}",
         f"lines sent: {context.start_line} to {context.end_line}",

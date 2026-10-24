@@ -7,11 +7,14 @@ submodule's names and any other ask by path, so the file gets one `from google.g
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import TYPE_CHECKING, cast
 
 import libcst as cst
-from libcst.metadata import MetadataWrapper, ParentNodeProvider, ScopeProvider
+from libcst.helpers import get_full_name_for_node
+from libcst.metadata import MetadataWrapper, ParentNodeProvider, PositionProvider, ScopeProvider
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -44,6 +47,7 @@ class ImportPlan:
     """The import changes one file's rules have asked for, not yet applied."""
 
     def __init__(self, wrapper: MetadataWrapper) -> None:
+        self._wrapper = wrapper
         self._bound = set(bound_names(wrapper))
         self._parents = wrapper.resolve(ParentNodeProvider)
         self._anchors: dict[int, _Anchor] = {}
@@ -74,6 +78,27 @@ class ImportPlan:
     def binding(self, module_path: str) -> str | None:
         """The name this plan has already bound `module_path` to, if any."""
         return self._bindings.get(module_path)
+
+    def anchor(self, line: int) -> bool:
+        """Whether fresh imports have a line to follow: the one a rule replaced, else the last
+        top-level import above `line`, kept as it is. It is above the first use, so the name it
+        binds is bound where the use runs; with none, a file imports only inside functions."""
+        if self._first is None and (lines := self._imports_above(line)):
+            self.replace(lines[-1], *lines[-1].body)
+        return self._first is not None
+
+    def found(self, module_path: str, line: int) -> str | None:
+        """The name a top-level import above `line` binds `module_path` to, as the file spells it.
+
+        Only a name the file binds once: another binding of it (a parameter, a local, a second
+        import) could stand in its place where `line` is.
+        """
+        for statement in self._imports_above(line):
+            for small in statement.body:
+                for path, spelled in _bindings(small):
+                    if path == module_path and self._counts[spelled.partition(".")[0]] == 1:
+                        return spelled
+        return None
 
     def offer(self, module_path: str, prefer: str, fallback: str | None = None) -> None:
         """Register the names `module_path` may take, whether or not it is ever emitted."""
@@ -147,6 +172,24 @@ class ImportPlan:
             for index, node in enumerate(anchor.nodes)
         ]
 
+    @cached_property
+    def _counts(self) -> Counter[str]:
+        """How many times each name is bound, in any scope."""
+        scopes = cast("Collection[Scope]", set(self._wrapper.resolve(ScopeProvider).values()))
+        return Counter(assignment.name for scope in scopes for assignment in scope.assignments)
+
+    def _imports_above(self, line: int) -> list[cst.SimpleStatementLine]:
+        """The module-level lines of one import that end before `line` starts, in order."""
+        where = self._wrapper.resolve(PositionProvider)
+        return [
+            statement
+            for statement in self._wrapper.module.body
+            if isinstance(statement, cst.SimpleStatementLine)
+            and len(statement.body) == 1
+            and isinstance(statement.body[0], cst.Import | cst.ImportFrom)
+            and where[statement].end.line <= line
+        ]
+
     def _runs(self, statement: cst.SimpleStatementLine) -> bool:
         """Whether `statement` is directly in the module's body, where it runs on import."""
         return isinstance(self._parents.get(statement), cst.Module)
@@ -162,6 +205,33 @@ class ImportPlan:
 
     def _anchor(self, statement: cst.SimpleStatementLine) -> _Anchor:
         return self._anchors.setdefault(id(statement), _Anchor(statement))
+
+
+def _bindings(small: cst.BaseSmallStatement) -> list[tuple[str, str]]:
+    """Each importable path a statement binds, with the name that reaches it: `import a.b` reaches
+    `a.b` as `a.b`, `import a as x` reaches `a` as `x`, `from a import b as y` reaches `a.b` as
+    `y`. A relative import and a star import reach no path."""
+    if isinstance(small, cst.Import):
+        return [
+            (path, _spelled(entry, path))
+            for entry in small.names
+            if (path := get_full_name_for_node(entry.name))
+        ]
+    if isinstance(small, cst.ImportFrom) and not small.relative:
+        # Absolute, so the module is named; a star import has no names.
+        module = get_full_name_for_node(cast("cst.Name | cst.Attribute", small.module))
+        entries = () if isinstance(small.names, cst.ImportStar) else small.names
+        return [
+            (f"{module}.{name}", _spelled(entry, name))
+            for entry in entries
+            if (name := get_full_name_for_node(entry.name))
+        ]
+    return []
+
+
+def _spelled(entry: cst.ImportAlias, default: str) -> str:
+    """The name an alias binds: the one after `as`, else the one it imports."""
+    return (get_full_name_for_node(entry.asname.name) if entry.asname else None) or default
 
 
 def statement_for(module_path: str, name: str) -> cst.BaseSmallStatement:

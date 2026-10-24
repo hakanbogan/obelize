@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
     from obelize import index
     from obelize.net import Fetcher
-    from obelize.packs.schema import PackDocument
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,13 +55,21 @@ def choose(
     much to flag name by name gets a pack for the names the code under `root` uses."""
     for loaded in known:
         pack = loaded.pack
+        old, new = pack.from_, pack.to
+        # A side that is the Python moves no dependency, so a pack of one is run by name.
         if (
-            canonicalize_name(pack.from_.package) == project.name
-            and now in SpecifierSet(pack.from_.version)
-            and (not targeted or target in SpecifierSet(pack.to.version))
+            old.package
+            and old.version
+            and new.package
+            and new.version
+            and canonicalize_name(old.package) == project.name
+            and now in SpecifierSet(old.version)
+            and (not targeted or target in SpecifierSet(new.version))
         ):
             return Chosen(
-                pack.id, f"Using the pack {pack.id}.", *_installs(pack, project, target, targeted)
+                pack.id,
+                f"Using the pack {pack.id}.",
+                *_installs(new.package, new.version, project, target, targeted),
             )
     folder = kept / synth.pack_id(project.name, now, target)
     if (folder / loader.PACK_FILENAME).is_file():
@@ -114,15 +121,28 @@ def choose(
     )
 
 
+def runtime_pack(known: Sequence[loader.LoadedPack], name: str) -> str | None:
+    """The id of a known pack that migrates the module `name` off the Python itself or setuptools,
+    for a name that is no dependency: the pack is run by its id."""
+    return next(
+        (
+            loaded.pack.id
+            for loaded in known
+            if loaded.pack.to.package is None and name in loaded.pack.match.imports
+        ),
+        None,
+    )
+
+
 def _installs(
-    pack: PackDocument, project: index.Project, target: Version, targeted: bool
+    package: str, version: str, project: index.Project, target: Version, targeted: bool
 ) -> tuple[str, str | None]:
     """What the environment of a known pack's target holds: the release named, or the pack's own
     range; and the distribution it replaces, if it is another."""
-    moved = canonicalize_name(pack.to.package) != project.name
+    moved = canonicalize_name(package) != project.name
     if targeted and not moved:
-        return f"{pack.to.package}=={target}", None
-    return f"{pack.to.package}{pack.to.version}", project.name if moved else None
+        return f"{package}=={target}", None
+    return f"{package}{version}", project.name if moved else None
 
 
-__all__ = ["Chosen", "choose"]
+__all__ = ["Chosen", "choose", "runtime_pack"]

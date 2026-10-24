@@ -1112,6 +1112,24 @@ def test_one_distribution_for_both_apis_is_not_a_pin_over_new_code() -> None:
     assert [(r.scan_status, r.bail) for r in found] == [("not_a_usage", None)]
 
 
+def test_a_pack_whose_new_side_is_a_python_moves_no_pin() -> None:
+    """The old distribution's declarations are context, as an inventory's are."""
+    mixed = SPEC.model_copy(update={"new_distribution": ""})
+    assert not manifests.coupled(mixed)
+    found = manifests.plan((pin(), pin(line=2, name=NEW)), PARTIAL, mixed)
+    assert [(r.line, r.symbol, r.scan_status, r.bail) for r in found.findings] == [
+        (1, LEGACY, "not_a_usage", None)
+    ]
+    assert (found.blocking, found.excluded, found.transitive) == ((), (), ())
+
+
+def test_a_pack_with_a_python_on_both_sides_has_no_declaration_to_read() -> None:
+    python = SPEC.model_copy(update={"legacy_distribution": "", "new_distribution": ""})
+    assert not manifests.coupled(python)
+    assert not manifests.declares((pin(name=""), pin(name=NEW)), python)
+    assert manifests.plan((pin(), pin(line=2, name=NEW)), PARTIAL, python).findings == ()
+
+
 def test_the_new_distribution_over_legacy_code_is_a_review_item() -> None:
     """The environment this manifest builds lacks the SDK the code still imports."""
     assert graded((pin(name=NEW),), STUCK) == [

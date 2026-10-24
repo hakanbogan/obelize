@@ -130,8 +130,8 @@ BAIL_ACTIONS: dict[BailCode, str] = {
     "internal_error": "Migrate the file by hand; obelize raised on it, so it was left alone.",
     "file_too_large": "Raise max_file_bytes in .obelize.yml, or migrate the file by hand.",
     "runtime_unsupported": (
-        "Raise the Python version the project declares to one the new distribution installs on, "
-        "then run again."
+        "Raise the Python version the project declares to one the new side of the migration runs "
+        "on, then run again."
     ),
     "legacy_version_unsupported": (
         "Declare the legacy distribution in a manifest obelize reads, pinned at or above the "

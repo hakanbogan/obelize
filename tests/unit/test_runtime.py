@@ -15,6 +15,7 @@ import acme
 import pytest
 
 from obelize.models import Config
+from obelize.packs import loader
 from obelize.scan import manifests, parse, runtime
 
 if TYPE_CHECKING:
@@ -178,6 +179,32 @@ def test_a_pipfile_below_the_floor_blocks_the_run(tmp_path: Path) -> None:
         needed=">=3.10",
     )
     assert floor.declared == runtime.Declared(path="Pipfile", declared="==3.7.*")
+
+
+def test_a_pack_whose_new_side_is_the_python_gates_on_the_pythons_it_runs_on(
+    tmp_path: Path,
+) -> None:
+    spec = loader.to_scan_spec(loader.load("python/datetime-utcnow"))
+    _write(tmp_path, "pyproject.toml", '[project]\nrequires-python = ">=2.7"\n')
+    floor = runtime.detect(("pyproject.toml",), parse.disk(tmp_path, _config()), spec)
+    assert floor.blocked == runtime.Blocked(
+        reason="runtime_unsupported",
+        package="",
+        path="pyproject.toml",
+        declared=">=2.7",
+        needed=">=3.2",
+    )
+    _write(tmp_path, "pyproject.toml", '[project]\nrequires-python = ">=3.8"\n')
+    assert (
+        runtime.detect(("pyproject.toml",), parse.disk(tmp_path, _config()), spec).blocked is None
+    )
+
+
+def test_a_pack_that_names_no_distribution_pins_nothing_a_repository_could_lack() -> None:
+    """No floor for the old side and no release for the new: nothing a declaration is below."""
+    for pack in ("python/datetime-utcnow", "setuptools/pkg-resources-to-importlib"):
+        spec = loader.to_scan_spec(loader.load(pack))
+        assert runtime.legacy([], spec, used=True) is None
 
 
 def test_a_pipfile_in_a_package_does_not_hide_the_root_pyproject(tmp_path: Path) -> None:

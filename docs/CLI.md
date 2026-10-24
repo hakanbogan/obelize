@@ -473,7 +473,10 @@ The pack is, in this order: a known one (a bundled pack, or one in a directory o
 migrates the dependency from that release and, if you named `--to`, to that one; else the pack
 made from the public API of the two releases, kept in the cache under the name of both, so the same
 move reads the index once. The first line says which, and the rest is what `fix` prints, with its
-run folder under `.obelize/`. Exit codes are `fix`'s, plus `2` for a dependency the manifests do not
+run folder under `.obelize/`. A pack whose new side is the Python moves no dependency, so it is
+never the pack chosen, and a module such a pack matches that the manifests do not declare
+(`pkg_resources`) is refused with exit `2` that names the pack to run with `fix --pack`. Exit codes
+are `fix`'s, plus `2` for a dependency the manifests do not
 name when `--from` is missing, a version or a library the index does not have, and nothing that
 changed between the releases, `6` for an index that could not be reached, and `1` for a pack
 obelize made that fails its own checks.
@@ -555,7 +558,7 @@ since a local pack need not ship fixtures (the last output line says so).
 
 | Argument | Description |
 |---|---|
-| `<id\|path>` | A bundled pack id (`gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1`, `py-pdf/pypdf2-to-pypdf`) or a pack file path (`./pack.yaml`). An id wins over a path spelled the same; anything not shaped like an id is a path. |
+| `<id\|path>` | A bundled pack id (`gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1`, `py-pdf/pypdf2-to-pypdf`, `python/datetime-utcnow`, `python/removed-stdlib-modules`, `setuptools/pkg-resources-to-importlib`) or a pack file path (`./pack.yaml`). An id wins over a path spelled the same; anything not shaped like an id is a path. |
 
 Exit codes: `0` valid; `7` invalid YAML or schema; `2` nothing to read there;
 `1` a **bundled** pack is invalid (an obelize defect; the message links the
@@ -564,7 +567,7 @@ issue tracker).
 ## `obelize pack test`
 
 Run a pack over its own fixtures and sources. `pack validate` reads the pack alone; this
-command checks it against the files beside it, with the checks the three bundled packs pass in
+command checks it against the files beside it, with the checks the bundled packs pass in
 the test suite:
 
 - every fixture the pack names is on disk, every file under `fixtures/` is named, and every

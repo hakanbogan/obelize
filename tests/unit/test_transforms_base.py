@@ -264,3 +264,79 @@ def test_lines_led_onto_a_statement_that_goes_with_no_successor_named_go_with_it
     built.rewrites.drop(gone.body[0])
     built.rewrites.lead(gone, (cst.EmptyLine(comment=cst.Comment("# lost")),))
     assert base.finish(built).code == "b = 2\n"
+
+
+def _plan(source: str) -> ImportPlan:
+    read = parse.gates("probe.py", source.encode("utf-8"))
+    assert read.module is not None
+    return ImportPlan(MetadataWrapper(read.module, unsafe_skip_copy=True))
+
+
+def test_a_top_level_import_names_a_path_the_way_the_file_spells_it() -> None:
+    plan = _plan(
+        "import acme.a\nimport acme.b as b\nimport plain\nfrom acme import c\n"
+        "from acme import d as e\n\nx = 1\n"
+    )
+    line = 8
+    assert plan.found("acme.a", line) == "acme.a"
+    assert plan.found("acme.b", line) == "b"
+    assert plan.found("plain", line) == "plain"
+    assert plan.found("acme.c", line) == "c"
+    assert plan.found("acme.d", line) == "e"
+    assert plan.found("acme.f", line) is None
+
+
+def test_a_relative_import_and_a_star_import_reach_no_path() -> None:
+    plan = _plan("from . import sibling\nfrom acme import *\nimport os; import sys\n\nx = 1\n")
+    assert [plan.found(path, 6) for path in ("sibling", "acme.sibling", "acme", "os", "sys")] == [
+        None
+    ] * 5
+
+
+def test_only_an_import_above_the_line_can_be_used_there() -> None:
+    plan = _plan("import first.a\nx = 1\nimport second.b\n")
+    assert plan.found("first.a", 2) == "first.a"
+    assert plan.found("second.b", 2) is None
+    assert plan.found("second.b", 4) == "second.b"
+
+
+def test_a_name_the_file_binds_twice_is_no_name_to_write_a_new_use_by() -> None:
+    """A parameter, a local or a second import could stand in its place where the line is."""
+    plan = _plan("from acme import c\nfrom other import c as d\n\n\ndef f(c):\n    return c\n")
+    assert plan.found("acme.c", 8) is None
+    assert plan.found("other.c", 8) == "d"
+    assert _plan("import acme.a\nimport acme.b\n").found("acme.a", 3) is None
+
+
+def test_fresh_imports_follow_the_last_top_level_import_above_the_first_use() -> None:
+    read = parse.gates("probe.py", b"import os\nimport sys\n\n\ndef f():\n    pass\n")
+    assert read.module is not None
+    plan = ImportPlan(MetadataWrapper(read.module, unsafe_skip_copy=True))
+    assert plan.anchor(5) is True
+    plan.offer("acme.units", "units")
+    assert plan.require("acme.units") == "units"
+    sys_line = read.module.body[1]
+    assert isinstance(sys_line, cst.SimpleStatementLine)
+    assert len(plan.lines_for(sys_line, sys_line) or []) == 2
+    first = read.module.body[0]
+    assert isinstance(first, cst.SimpleStatementLine)
+    assert plan.lines_for(first, first) is None
+    assert plan.anchor(5) is True
+
+
+def test_a_file_with_no_top_level_import_above_the_use_has_no_line_to_follow() -> None:
+    assert _plan("def f():\n    import os\n\nx = f()\n").anchor(4) is False
+    assert _plan("x = 1\nimport os\n").anchor(1) is False
+
+
+def test_a_line_a_rule_replaced_already_anchors_fresh_imports() -> None:
+    read = parse.gates("probe.py", b"import acme.sdk\nimport os\n\nx = 1\n")
+    assert read.module is not None
+    plan = ImportPlan(MetadataWrapper(read.module, unsafe_skip_copy=True))
+    first = read.module.body[0]
+    assert isinstance(first, cst.SimpleStatementLine)
+    plan.replace(first, statement_for("acme.client", "client"))
+    assert plan.anchor(4) is True
+    plan.offer("acme.units", "units")
+    assert plan.require("acme.units") == "units"
+    assert len(plan.lines_for(first, first) or []) == 2

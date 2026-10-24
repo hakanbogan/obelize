@@ -106,6 +106,8 @@ class Outcome:
     locks: tuple[str, ...] = ()
     # Files that use the legacy API and that no rule writes, and the cells of a notebook that do.
     unwritten: tuple[tuple[str, tuple[int, ...]], ...] = ()
+    # Whether a pack of the run moves a dependency line; one whose new side is the Python does not.
+    pins: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,6 +273,7 @@ def run(request: Request) -> Outcome:
         manifest_plan=driven.manifest_plan,
         locks=locks,
         unwritten=scan.unwritten,
+        pins=any(one.to.package for one in documents),
     )
 
 

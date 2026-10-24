@@ -2,7 +2,7 @@
 
 A [migration pack](GLOSSARY.md#migration-pack) is a data file that describes one migration: the
 symbols to find, the rule kind that rewrites each, and the official guide that backs it. obelize
-ships three, and runs every pack your repository uses, or the ones `--pack` names. Your own packs
+ships six, and runs every pack your repository uses, or the ones `--pack` names. Your own packs
 can sit in a directory your `~/.config/obelize/config.yml` lists as `pack_dirs`; a repository's
 `.obelize.yml` may not name one. [Pack format](PACK_SPEC.md) is the specification.
 
@@ -11,6 +11,9 @@ can sit in a directory your `~/.config/obelize/config.yml` lists as `pack_dirs`;
 | `gemini/google-generativeai-to-google-genai` | The import, `configure`, the model object and its generation, chat and streaming calls, safety settings, file uploads and the dependency line. | Every tool declaration, since automatic function calling is on by default in `google-genai`. |
 | `openai/openai-0-to-1` | `openai.ChatCompletion.create`, `Completion.create`, `Embedding.create`, `Image.create`, `Moderation.create`, `Audio.transcribe` and `Audio.translate`, to the same calls on the module client (`openai.chat.completions.create`), the reads of their results by string keys, the assignment of `openai.api_base` as `openai.base_url`, the exception classes `RateLimitError`, `PermissionError` and `Timeout` as `RateLimitError`, `PermissionDeniedError` and `APITimeoutError`, and the dependency line. | Async and streamed calls, Azure, the other resources, the other module settings, which the new releases ignore, the other exception classes, and any call whose arguments or reads of its result it has not checked. |
 | `py-pdf/pypdf2-to-pypdf` | The import, the names that exist unchanged on both sides, and the dependency line. | The camelCase classes PyPDF2 3.0.0 removed, the modules only PyPDF2 1 ships and the names pypdf dropped. |
+| `python/datetime-utcnow` | `datetime.utcnow()` as `datetime.now(timezone.utc).replace(tzinfo=None)` and `utcfromtimestamp(x)` as `fromtimestamp(x, timezone.utc).replace(tzinfo=None)`, with the import of `timezone` they need. | A reference that is not a call, such as `field(default_factory=datetime.utcnow)`, and the choice to move to aware datetimes. |
+| `setuptools/pkg-resources-to-importlib` | Nothing. | Every use of `pkg_resources`, with the replacement the documentation names. |
+| `python/removed-stdlib-modules` | `pipes.quote` as `shlex.quote`. | The other uses of 20 modules that Python 3.12 and 3.13 removed, with where each went. |
 
 ## Gemini
 
@@ -41,6 +44,36 @@ The `PyPDF2` pack moves the import and the names both libraries share, and the d
 `PyPDF2` itself warns that it "is deprecated. Please move to the `pypdf` library instead." What the
 pack cannot move, such as the camelCase classes that `PyPDF2` 3.0.0 removed, stays in the report
 ([KNOWN_ISSUES.md](KNOWN_ISSUES.md#the-pypdf2-pack) lists what it does not see).
+
+## The Python itself
+
+Three packs name no distribution on one side or on both: a change of the interpreter or its
+standard library is not a release of a library you install. They are written and tested like the
+others, and [why a side can be the Python](adr/ADR-071-runtime-packs.md) says what that changes.
+
+- A repository that declares a Python the new code does not run on is left alone, the way one that
+  declares a Python `google-genai` does not install on is. `python/datetime-utcnow` needs 3.2,
+  where `datetime.timezone` began, `setuptools/pkg-resources-to-importlib` needs 3.10, where
+  `importlib.metadata.entry_points(group=)` began, and `python/removed-stdlib-modules` needs 3.3,
+  where `shlex.quote` began. A repository that declares no Python is not blocked.
+- No dependency line moves, since none names a distribution to move to. `obelize outdated` lists
+  `setuptools` below 82 with the pack for `pkg_resources`, and `obelize upgrade pkg_resources` says
+  it is no dependency and names the pack to run.
+- `python/datetime-utcnow` keeps the value naive, as `utcnow()` made it. `now(timezone.utc)` alone
+  is aware, and an aware and a naive datetime cannot be compared, so moving to aware values is
+  yours to decide. It names `timezone` by whatever import of `datetime` the file has, and adds
+  `from datetime import timezone` below the last import above the first call when it has none.
+  A file that binds `timezone` to something else, or imports `datetime` only inside functions, is
+  left as it was with the reason.
+- `setuptools/pkg-resources-to-importlib` rewrites nothing. `setuptools` 82.0.0 removed
+  `pkg_resources`, and the replacements are other objects with other errors:
+  `importlib.metadata.version` takes a name and not a requirement, raises another class of error
+  for a distribution that is not installed, and an entry point has no `require()`.
+- `python/removed-stdlib-modules` leaves out `imp`, `uu`, `nis`, `crypt` and `chunk`, whose names
+  sit inside common words, so that no scan has to parse most of a repository to look for them.
+
+None of the three has been measured on public repositories, which a new pack for a library gets
+first. [KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists what they do not see.
 
 ## A library with no pack
 

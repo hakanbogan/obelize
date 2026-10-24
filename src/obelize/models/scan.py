@@ -386,6 +386,7 @@ class ScanSpec(_Frozen):
     pack_version: str
     pack_sha256: Sha256
     legacy_modules: tuple[str, ...]
+    # Empty for a side that is the Python itself (ADR-071): it has no pin to read or to edit.
     legacy_distribution: str
     new_distribution: str
     prefilter_tokens: tuple[PrefilterToken, ...]
@@ -421,10 +422,11 @@ class ScanSpec(_Frozen):
     # a pin that admits only the legacy range is a manifest row.
     new_names: tuple[str, ...] = ()
     # What the repository must declare for a run to propose anything: the PEP 440 set of Pythons
-    # the new distribution installs on, and the lowest legacy version the pack's rules were
-    # measured on. Neither changes a finding, so `spec_digest` leaves them out. Nor do the newest
-    # legacy release (what a declaration naming no version installs) and the names it lacks, or
-    # the legacy range and the names only it defines (what code that uses one is taken to prove).
+    # the new side runs on (the new distribution installs on, or `to.python`), and the lowest legacy
+    # version the pack's rules were measured on. Neither changes a finding, so `spec_digest` leaves
+    # them out. Nor do the newest legacy release (what a declaration naming no version installs)
+    # and the names it lacks, or the legacy range and the names only it defines (what code that
+    # uses one is taken to prove).
     requires_python: str
     legacy_floor: str | None = None
     legacy_newest: str | None = None
@@ -462,7 +464,7 @@ class ScanSpec(_Frozen):
             ("legacy_distribution", self.legacy_distribution),
             ("new_distribution", self.new_distribution),
         ):
-            if not _DISTRIBUTION_NAME.fullmatch(value):
+            if value and not _DISTRIBUTION_NAME.fullmatch(value):
                 raise ValueError(f"{field} takes a distribution name, got {value!r}")
         for field, symbol in (
             ("client_symbol", self.client_symbol),

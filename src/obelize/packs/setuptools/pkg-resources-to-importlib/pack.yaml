@@ -1,0 +1,218 @@
+# Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
+# Measured on CPython 3.10 to 3.15 and setuptools 81.0.0 and 82.0.0 (SOURCES.md).
+id: setuptools/pkg-resources-to-importlib
+pack_version: 0.1.0
+provider: setuptools
+language: python
+
+source:
+  type: official_guide
+  url: https://setuptools.pypa.io/en/latest/deprecated/pkg_resources.html
+  retrieved_at: 2026-10-24
+  sha256: "8493b6bc69cd788cea335876352e9641e302a1ab232634b4e60ad70aeef54522"
+
+# pkg_resources is a module of setuptools that 82.0.0 removed, so the old side is the releases
+# before it. The new side is the standard library, which no distribution holds: `entry_points`
+# takes `group=` from 3.10.
+from:
+  package: setuptools
+  version: "<82"
+to:
+  python: ">=3.10"
+
+match:
+  imports:
+    - pkg_resources
+  symbols:
+    - pkg_resources.ContextualVersionConflict
+    - pkg_resources.Distribution
+    - pkg_resources.DistributionNotFound
+    - pkg_resources.EntryPoint
+    - pkg_resources.Environment
+    - pkg_resources.Requirement
+    - pkg_resources.RequirementParseError
+    - pkg_resources.ResolutionError
+    - pkg_resources.ResourceManager
+    - pkg_resources.UnknownExtra
+    - pkg_resources.VersionConflict
+    - pkg_resources.WorkingSet
+    - pkg_resources.cleanup_resources
+    - pkg_resources.declare_namespace
+    - pkg_resources.evaluate_marker
+    - pkg_resources.find_distributions
+    - pkg_resources.fixup_namespace_packages
+    - pkg_resources.get_distribution
+    - pkg_resources.get_entry_info
+    - pkg_resources.get_entry_map
+    - pkg_resources.invalid_marker
+    - pkg_resources.iter_entry_points
+    - pkg_resources.load_entry_point
+    - pkg_resources.parse_requirements
+    - pkg_resources.parse_version
+    - pkg_resources.require
+    - pkg_resources.resource_exists
+    - pkg_resources.resource_filename
+    - pkg_resources.resource_isdir
+    - pkg_resources.resource_listdir
+    - pkg_resources.resource_stream
+    - pkg_resources.resource_string
+    - pkg_resources.safe_extra
+    - pkg_resources.safe_name
+    - pkg_resources.safe_version
+    - pkg_resources.to_filename
+    - pkg_resources.working_set
+  prefilter_tokens:
+    - pkg_resources
+
+changes:
+  - id: flag-distributions
+    kind: flag_only
+    citation: "importlib_metadata documentation, 'Migration guide': get_distribution(), require() and find_distributions()"
+    params:
+      symbols:
+        - pkg_resources.ContextualVersionConflict
+        - pkg_resources.Distribution
+        - pkg_resources.DistributionNotFound
+        - pkg_resources.Environment
+        - pkg_resources.ResolutionError
+        - pkg_resources.UnknownExtra
+        - pkg_resources.VersionConflict
+        - pkg_resources.WorkingSet
+        - pkg_resources.find_distributions
+        - pkg_resources.get_distribution
+        - pkg_resources.require
+        - pkg_resources.working_set
+      message: >-
+        pkg_resources finds a distribution from a requirement string and keeps a working set; the
+        standard library does neither. The names differ and so do the errors: a distribution that
+        is not installed raises PackageNotFoundError, not DistributionNotFound, and 'x>=1' is not
+        a name.
+      suggestion: >-
+        importlib.metadata.version('x') is the version string, distribution('x') the object
+        (version, metadata, requires, files) and distributions() lists them all. A version range
+        is checked with packaging.requirements.Requirement. require() has no counterpart.
+    fixtures:
+      - fixtures/negative/already_importlib.py
+      - fixtures/positive/distributions.before.py
+
+  - id: flag-entry-points
+    kind: flag_only
+    citation: "importlib_metadata documentation, 'Migration guide': iter_entry_points(); Python documentation, importlib.metadata"
+    params:
+      symbols:
+        - pkg_resources.EntryPoint
+        - pkg_resources.get_entry_info
+        - pkg_resources.get_entry_map
+        - pkg_resources.iter_entry_points
+        - pkg_resources.load_entry_point
+      message: >-
+        An entry point of importlib.metadata is another object: it is not validated when read, its
+        load() does not check that the extras it names are installed, and it has no require() or
+        resolve(). A loop over iter_entry_points is therefore not rewritten by name.
+      suggestion: >-
+        importlib.metadata.entry_points(group='g') (Python 3.10 and later) yields entry points with
+        name, value, group, dist and load(); add name='n' to pick one. Install the extras a plugin
+        needs yourself.
+    fixtures:
+      - fixtures/negative/already_importlib.py
+      - fixtures/positive/entry_points.before.py
+
+  - id: flag-resources
+    kind: flag_only
+    citation: "Python documentation, importlib.resources: files() and as_file()"
+    params:
+      symbols:
+        - pkg_resources.ResourceManager
+        - pkg_resources.cleanup_resources
+        - pkg_resources.resource_exists
+        - pkg_resources.resource_filename
+        - pkg_resources.resource_isdir
+        - pkg_resources.resource_listdir
+        - pkg_resources.resource_stream
+        - pkg_resources.resource_string
+      message: >-
+        resource_filename returns a path in the file system, extracting the file when the package
+        is zipped; importlib.resources.files returns a Traversable, which is not always a path.
+        resource_string returns bytes and resource_stream a binary file, where files() has methods.
+      suggestion: >-
+        files(package) / 'name' has read_bytes(), read_text(), open('rb'), is_file(), is_dir() and
+        iterdir(). Wrap it in importlib.resources.as_file() where a real path is needed (Python
+        3.9 and later).
+    fixtures:
+      - fixtures/negative/already_importlib.py
+      - fixtures/positive/resources.before.py
+
+  - id: flag-requirements
+    kind: flag_only
+    citation: "importlib_metadata documentation, 'Migration guide': other functionality is replaced by packaging"
+    params:
+      symbols:
+        - pkg_resources.Requirement
+        - pkg_resources.RequirementParseError
+        - pkg_resources.evaluate_marker
+        - pkg_resources.invalid_marker
+        - pkg_resources.parse_requirements
+        - pkg_resources.parse_version
+        - pkg_resources.safe_extra
+        - pkg_resources.safe_name
+        - pkg_resources.safe_version
+        - pkg_resources.to_filename
+      message: >-
+        Versions, requirements and names are parsed by the packaging project, which the standard
+        library does not include: the replacement is a dependency the repository must declare. A
+        version it cannot read raises InvalidVersion.
+      suggestion: >-
+        packaging.version.parse, packaging.requirements.Requirement, packaging.markers.Marker and
+        packaging.utils.canonicalize_name. Add packaging to the dependencies.
+    fixtures:
+      - fixtures/negative/already_importlib.py
+      - fixtures/positive/versions.before.py
+
+  - id: flag-namespaces
+    kind: flag_only
+    citation: "setuptools documentation, 'Package Discovery and Namespace Packages'; setuptools history, v82.0.0"
+    params:
+      symbols:
+        - pkg_resources.declare_namespace
+        - pkg_resources.fixup_namespace_packages
+      message: >-
+        A pkg_resources namespace package declares itself in its __init__.py. setuptools 82.0.0
+        removed pkg_resources and says that projects relying on it for namespace packages should
+        depend on older versions of setuptools.
+      suggestion: >-
+        Make it a native namespace package: delete the __init__.py of the namespace directory and
+        list the packages in the build configuration.
+    fixtures:
+      - fixtures/negative/already_importlib.py
+      - fixtures/positive/namespace.before.py
+
+  - id: flag-indirect-use
+    kind: flag_only
+    citation: "setuptools documentation, 'Package Discovery and Resource Access using pkg_resources'"
+    params:
+      # Shape ids, never regexes: a pack carries nothing that drives behaviour.
+      patterns:
+        - dynamic_access
+        - mock_patch_target
+        - sys_modules_stub
+      message: >-
+        pkg_resources is reached here as a string or through a dynamic import rather than by an
+        import statement, so the pack cannot follow it. A patch target that names it stops standing
+        in for the code once the code has moved.
+      suggestion: >-
+        Update it by hand once the code it patches reads importlib.metadata or importlib.resources.
+    fixtures:
+      - fixtures/negative/already_importlib.py
+      - fixtures/positive/indirect.before.py
+
+verification:
+  suggestions:
+    - "<project python> -W error -m pytest -q"
+
+limitations:
+  - "Nothing is rewritten. Every use of pkg_resources the pack lists is reported with the replacement the documentation names, because none is the same call under another name: the objects, the errors and the lookup rules differ."
+  - "A name the pack does not list (the rest of pkg_resources, and the import line of the module) is reported without a suggestion (usage_unmapped), and the file stays as it was."
+  - "importlib.metadata.version(x) raises PackageNotFoundError where get_distribution(x) raised DistributionNotFound, and takes a distribution name where get_distribution took a requirement string. The pack does not read which of the two the code passes or catches."
+  - "A repository that declares a Python below 3.10 is blocked: entry_points(group=) is from 3.10, and the backport importlib_metadata is a dependency this pack does not add. Neither does it add packaging, nor edit a build configuration for a namespace package."
+  - "setuptools 82.0.0 removed pkg_resources (2026-02-08), so code that imports it fails in an environment that installs setuptools unpinned. The pack sees the repository's manifests, not the setuptools an environment holds."
+  - "No Gate 1 measurement exists: how many repositories use pkg_resources, and how they use it, has not been counted."

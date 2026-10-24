@@ -4,7 +4,9 @@
 `user.dict(exclude=e)` becomes `user.model_dump(exclude=e)`, where the pack gives the two shapes
 as templates (`obelize.pattern`). The scan found the call by the name it is of; this rule reads
 whether its arguments have the shape `before` says and writes `after` over them. A call of another
-shape is left for a person, since a pattern that did not cover it is no claim about it.
+shape is left for a person, since a pattern that did not cover it is no claim about it. A name
+`after` spells through a module the pack lists in `imports` is written as the file reaches that
+module, and the module is imported when the file has no name for it.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import libcst as cst
 from obelize import pattern
 from obelize.models import BailCode, Edit
 from obelize.transforms.base import BailError
+from obelize.transforms.imports import dotted
 from obelize.transforms.tree import Tree
 
 if TYPE_CHECKING:
@@ -24,7 +27,9 @@ if TYPE_CHECKING:
     from obelize.transforms.base import RuleContext
 
 # Codes this rule raises itself.
-BAILS: frozenset[BailCode] = frozenset({"from_import_unmigrated_symbol", "pattern_unmatched"})
+BAILS: frozenset[BailCode] = frozenset(
+    {"alias_collision", "from_import_unmigrated_symbol", "local_import", "pattern_unmatched"}
+)
 
 
 class RewritePattern:
@@ -35,6 +40,9 @@ class RewritePattern:
         self._before = pattern.parse(change.params.before)
         self._after = pattern.parse(change.params.after)
         self._anchor = pattern.anchor(self._before, change.params.where)
+        self._imports = change.params.imports
+        self._beside = change.params.beside()
+        self._reached = change.params.reached()
 
     @property
     def consumes(self) -> frozenset[str]:
@@ -59,13 +67,17 @@ class RewritePattern:
         )
         if not eligible:
             return ()
+        for path in self._imports:
+            context.imports.offer(path, path.rpartition(".")[2])
         tree = Tree(context)
         return tuple(self._edit(context, tree, finding) for finding in eligible)
 
     def _edit(self, context: RuleContext, tree: Tree, finding: Finding) -> Edit:
         try:
             call = self._call(tree, (finding.line, finding.column))
-            replacement = pattern.place(self._rewrite(call, tree), tree.parent(call))
+            replacement = pattern.place(
+                self._rewrite(context, call, tree, finding.line), tree.parent(call)
+            )
         except BailError as bail:
             return Edit(
                 path=context.path,
@@ -88,7 +100,9 @@ class RewritePattern:
             raise BailError("pattern_unmatched")
         return cast("cst.Call", tree.parent(attribute))
 
-    def _rewrite(self, call: cst.Call, tree: Tree) -> cst.BaseExpression:
+    def _rewrite(
+        self, context: RuleContext, call: cst.Call, tree: Tree, line: int
+    ) -> cst.BaseExpression:
         member = self._anchor.receiver is not None
         bound = pattern.match(self._before, call, spelled=member)
         if bound is None:
@@ -102,12 +116,31 @@ class RewritePattern:
             # A quote the new text writes may be the one the f-string is written with.
             raise BailError("pattern_unmatched")
         spelled: dict[str, cst.BaseExpression] = {}
-        if pattern.new_names(self._after):
+        if self._beside:
             # The new name is written beside the old: with whatever the file spelled the old one by.
             if not isinstance(call.func, cst.Attribute):
                 raise BailError("from_import_unmigrated_symbol")
             spelled[self._anchor.symbol.rpartition(".")[0]] = call.func.value
+        for paths in self._reached.values():
+            path, reached = self._reach(context, paths, line)
+            spelled[path] = reached
         return pattern.build(self._after, bound, spelled)
+
+    def _reach(
+        self, context: RuleContext, paths: tuple[str, ...], line: int
+    ) -> tuple[str, cst.BaseExpression]:
+        """The path a name is spelled through, and how the file reaches it at `line`: by an import
+        of its own, else by one imported now, of the path that names most."""
+        imports = context.imports
+        for path in paths:
+            if (name := imports.found(path, line)) is not None:
+                return path, dotted(name)
+        path = paths[-1]
+        if not imports.anchor(line):
+            raise BailError("local_import")
+        if (name := imports.require(path)) is None:
+            raise BailError(imports.refusal(path))
+        return path, dotted(name)
 
 
 __all__ = ["BAILS", "RewritePattern"]

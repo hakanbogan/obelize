@@ -125,17 +125,17 @@ def test_the_pack_is_the_migration_the_guide_describes() -> None:
 
 
 def test_the_installed_release_is_one_the_pack_migrates_to() -> None:
-    assert version("openai") in SpecifierSet(PACK.to.version)
+    assert version("openai") in PACK.to.versions()
 
 
 def test_the_python_the_pack_requires_covers_what_the_installed_release_declares() -> None:
     """The floor release decides it: a later one may need more, and the pack must not need less."""
     requires = metadata("openai")["Requires-Python"]
     pythons = [Version(f"3.{minor}") for minor in range(30)]
-    needed = {python for python in pythons if python in SpecifierSet(PACK.to.requires_python)}
+    needed = {python for python in pythons if python in SpecifierSet(PACK.to.pythons())}
     declared = {python for python in pythons if python in SpecifierSet(requires)}
     assert declared <= needed
-    if Version(version("openai")) == bounds(SpecifierSet(PACK.to.version))[0]:
+    if Version(version("openai")) == bounds(PACK.to.versions())[0]:
         assert declared == needed
 
 

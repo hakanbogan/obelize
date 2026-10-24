@@ -90,8 +90,9 @@ class Consultation:
     # Sent as the code itself; there is no prose per bail (docs/SCAN_VOCABULARY.md defines each).
     bail: BailCode
     pack_id: str
-    # The pack's `to.package`: the only distribution a proposal may add an import from.
-    to_package: str
+    # The pack's `to.package`: the only distribution a proposal may add an import from. `None` where
+    # the new side is the Python itself.
+    to_package: str | None
     # Its import names (every `rename_import` `to_module`); the prompt and the guard both read it.
     to_modules: tuple[str, ...]
     limitations: tuple[str, ...]

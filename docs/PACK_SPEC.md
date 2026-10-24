@@ -44,8 +44,8 @@ Breaking one rejects the pack.
 | `provider` | string | yes | The vendor or maintaining project, e.g. `gemini` or `py-pdf`. |
 | `language` | string | yes | `python`. |
 | `source` | mapping | yes | See [Source provenance](#source-provenance). |
-| `from` | mapping | yes | `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, or `since`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. |
-| `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required): the PEP 440 set of Pythons the new distribution installs on, and optionally `introduces`, see [The newest legacy release](#the-newest-legacy-release). A repository declaring support for one outside it is blocked (`runtime_unsupported`). |
+| `from` | mapping | yes | A side is a distribution or the Python, see [A side that is the Python](#a-side-that-is-the-python). A distribution is `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, or `since`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. The Python is `python`, a PEP 440 set of Pythons. |
+| `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required with a distribution): the PEP 440 set of Pythons the new distribution installs on, and optionally `introduces`, see [The newest legacy release](#the-newest-legacy-release). A side that is the Python says it as `python` instead. A repository declaring support for a Python outside it is blocked (`runtime_unsupported`). |
 | `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest of its app declares its distribution, the legacy pin stays: a manifest in the file's directory or above it, and a `requirements/` directory counts for the one it is in; a constraints file declares nothing; a `manifest_dependency` with `declare_transitive` declares it instead), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
 | `changes` | list | yes | See [Change entries](#change-entries). |
 | `layout` | mapping | no | `line_length` (40-320, default `100`). See [Layout](#layout). |
@@ -96,6 +96,37 @@ argument is, or when the whole line (indent and trailing comment included)
 would exceed the width; then one argument per line, one indent unit (the
 file's own) past the line the call starts on, with a trailing comma. A comment written inside
 a replaced call stays beside its argument, or goes on a line above the statement.
+
+### A side that is the Python
+
+```yaml
+from:
+  python: ">=3.12"
+to:
+  python: ">=3.2"
+```
+
+A change of the interpreter or its standard library has no distribution to install: `datetime`'s
+`utcnow()` is deprecated from 3.12, and `asyncore` left the standard library in 3.12. A side is
+either a distribution (`package` and `version` together, and `requires_python` on `to`) or `python`,
+a PEP 440 set of Pythons; naming both, neither, or a `package` without a `version` is refused. The
+two sides are independent: `setuptools/pkg-resources-to-importlib` moves from `setuptools` below 82
+(the releases that ship `pkg_resources`) to `python: ">=3.10"`.
+
+- `to.python` is the gate. It is read as `to.requires_python` is: a repository whose declared Python
+  admits one outside it is blocked (`runtime_unsupported`), and one that declares none is not.
+  `from.python` says on which Pythons the old spelling is deprecated or gone; it blocks nothing,
+  since a repository on an older Python is not harmed by the rewrite. `pack validate` prints both.
+- A side that is the Python has no `newest`, `lacks`, `since`, `requires_python` or `introduces`, and
+  a pack with one has no `match.transitive`: each is about a distribution.
+- A `manifest_dependency` needs a distribution on both sides, since it moves a line from one to
+  another. A pack whose new side is the Python moves no pin; the old distribution's lines in a
+  manifest are listed as context.
+- The modules the scan looks for are `match.imports`, as for any pack. A prefilter token must sit
+  inside a module's name, so a module whose name is part of a common word (`imp` in `import`) is a
+  module the pack leaves out and says so in `limitations`.
+
+([why a side can be the Python](adr/ADR-071-runtime-packs.md))
 
 ### The newest legacy release
 
@@ -211,7 +242,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rename_setting` | `settings` (a legacy dotted attribute to the name it takes on the same module), `value_ends_with` (one character the new name needs its value to end with) |
 | `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `renamed` (a legacy dotted path to the name it takes in the same module), `calls` (`refused`, the default, or `allowed`), `now_caught_by` (what the new class derives from and the old one did not) |
 | `rename_member` | `members` (a legacy dotted path of a class and one of its members, to the name the member takes on that class), `takes` (for a member whose new spelling takes fewer keywords: the keywords it takes) |
-| `rewrite_pattern` | `before` and `after` (templates: Python expressions with `$name` for any expression), `where` (the class of the metavariable a member call is made on) |
+| `rewrite_pattern` | `before` and `after` (templates: Python expressions with `$name` for any expression), `where` (the class of the metavariable a member call is made on), `imports` (the importable paths `after` may spell names through) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
 
@@ -399,14 +430,24 @@ pydantic.BaseModel}` becomes `$m.model_dump(exclude=$e)`. A template holds names
 numbers, strings, tuples, lists, dictionaries, subscripts with one index and unary operators, and no
 `*` or `**` argument. The call is found by the name it is of and its arguments are compared with
 `before` by form: positional ones in order, keywords by name and not by order. A call of another
-shape is `pattern_unmatched` and left for a person. `after` may spell a name only beside the name
+shape is `pattern_unmatched` and left for a person. `after` may spell a name beside the name
 called (the same module), written as the file spelled that module; a call written without its module
-(`from pydantic import parse_obj_as`) is `from_import_unmigrated_symbol`. The schema checks that both
-templates read, that `before` is a call of a qualified name or of a member of the class `where` names
-(and `where` names nothing else), that `after` binds only metavariables `before` does, spells no
-name beyond the one called's module and not the name called, and no name `match.symbols` lists
-as legacy; that the called name is under `match.symbols`, and claimed by no other change
-([the pattern decision](adr/ADR-069-rewrite-pattern.md)).
+(`from pydantic import parse_obj_as`) is `from_import_unmigrated_symbol`. `None`, `True` and `False`
+are no names. `after` may also spell a name under a path `imports` lists, which is how it reaches a
+module the file may not import, as `datetime.datetime.utcnow()` becomes
+`datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)` with `imports: [datetime,
+datetime.timezone]`. The path is reached by the first listed one the file imports at its top level
+and binds nowhere else, written as the file spelled it (`import datetime as dt` gives `dt.timezone`,
+`from datetime import timezone` gives `timezone`), and else by an import of the last one added below
+the last top-level import above the first call (`from datetime import timezone`). A call whose name
+is bound to something else anywhere in the file is `alias_collision`, and a file with no top-level
+import above the call is `local_import`; the call is left for a person in both. The schema checks that
+both templates read, that `before` is a call of a qualified name or of a member of the class `where`
+names (and `where` names nothing else), that `after` binds only metavariables `before` does, spells
+no name beyond the one called's module and `imports`, and not the name called, and no name
+`match.symbols` lists as legacy; that `imports` is sorted, names no `builtins`, and is spelled
+under by `after`; that the called name is under `match.symbols`, and claimed by no other change
+([the pattern decision](adr/ADR-069-rewrite-pattern.md), [the import decision](adr/ADR-071-runtime-packs.md)).
 
 **`flag_only`** never edits code: it reports a finding with a message and a
 suggestion, for anything that is not 1:1. Its channels:
@@ -677,7 +718,7 @@ holds the bundled ones to them and to more, per bundled pack:
 Layout: `fixtures/positive/<name>.before.<ext>`, optional
 `<name>.after.<ext>`, and `fixtures/negative/<name>.<ext>`, beside `pack.yaml`
 and `SOURCES.md`; the extension is the fixture's own (`requirements.txt` for
-the manifest rule). Changes may share a fixture. The Gemini negatives cover
+the manifest rule, which a pack with a side that is the Python has none of). Changes may share a fixture. The Gemini negatives cover
 already-migrated code under the same `genai` alias, `GenerativeModel` from
 `vertexai.generative_models` and `vertexai.preview.generative_models`, and a
 local `genai` package.
@@ -693,6 +734,12 @@ constructs while `"HARM_CATEGORY_HATE" in types.HarmCategory.__members__` is
 `False`. The test runs that construction as a **control**. Hence
 **`google-genai` is a development dependency**; the wheel never imports it,
 and skipping the check without it would let a wrong name through CI.
+
+A pack whose sides are the Python has no release to install, so its facts are read from the
+interpreter that runs the tests: `tests/packs/test_runtime_facts.py` holds each claim of the three
+bundled ones against it, and CI runs it on every Python the suite supports. A claim
+about a distribution that cannot share the environment, such as `pkg_resources` in a setuptools
+below 82, is checked by a script run by hand, as the PyPDF2 pack's are.
 
 A **shared** pack (`match.shared`) cannot install both sides in one environment,
 so its two halves are held differently
@@ -745,6 +792,9 @@ Per field:
 - A `from`/`to` version, or a `to` with no `requires_python` or one that is not PEP 440, or
   ranges that overlap or contradict. Only ranges over one distribution are compared: a
   rename may keep the version.
+- A side that is neither a distribution nor the Python, or both; a `package` with no `version` or a
+  `version` with no `package`; a `to.python` beside a `requires_python` or an `introduces`; a
+  `newest`, `lacks` or `since` on a side that is the Python.
 - A `from.newest` that is not a final release in PEP 440's normal spelling, that `from.version` does
   not admit, or beside a `from.version` with no floor; a `from.lacks` with no `newest`, or one that
   is not sorted and de-duplicated; a `newest` or `lacks` on `to`; a `from.since` beside a `newest`,
@@ -787,7 +837,7 @@ Per field:
   beside `result_access_flags`.
 - A `layout.line_length` outside 40-320.
 
-Per document, eight incoherences that would otherwise scan as a clean repository:
+Per document, the incoherences that would otherwise scan as a clean repository:
 
 - A rule's legacy symbol under no module in `match.imports`, or, for a shared module, under no entry of `match.symbols` (bar a `generative_model_calls` safety enum class).
 - A module in `match.imports` containing no `prefilter_tokens`.
@@ -795,8 +845,11 @@ Per document, eight incoherences that would otherwise scan as a clean repository
   or none while a change rewrites calls onto the client
   (`generative_model_calls`, and `rewrite_call` unless its `root` is `module`).
 - A `rename_import` change in a shared pack.
+- A `rewrite_pattern` whose `imports` are not sorted and de-duplicated, name `builtins`, or list a
+  path that `after` spells no name under; a name under one that `match.symbols` lists as legacy.
 - A symbol both rewritten (or mapped by `symbol_map`) and refused.
-- A `manifest_dependency` naming a distribution the pack does not migrate.
+- A `manifest_dependency` naming a distribution the pack does not migrate, or in a pack with a
+  side that is the Python; a `match.transitive` in a pack whose old side is the Python.
 - A receiver in `methods` that is neither `ctor_symbol` nor a `method_returns`
   value.
 - A `from.lacks` name that no `flag_only` change lists in `symbols`, so the scan never reports it.

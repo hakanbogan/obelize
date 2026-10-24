@@ -1,0 +1,84 @@
+# Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
+# Measured on CPython 3.9 to 3.15 (SOURCES.md).
+id: python/datetime-utcnow
+pack_version: 0.1.0
+provider: python
+language: python
+
+source:
+  type: official_guide
+  url: https://docs.python.org/3/library/datetime.html
+  retrieved_at: 2026-10-24
+  sha256: "4fb1fd805b875839309d39382da562f179ae425ef66933a24fcf96731bc99fda"
+
+# No distribution on either side: both calls are the standard library's, deprecated in 3.12 and
+# still defined by every release measured. The new spelling needs `datetime.timezone`, which the
+# documentation dates to 3.2.
+from:
+  python: ">=3.12"
+to:
+  python: ">=3.2"
+
+match:
+  # The module keeps its name, so only the two deprecated constructors are legacy.
+  imports:
+    - datetime
+  shared: true
+  symbols:
+    - datetime.datetime.utcfromtimestamp
+    - datetime.datetime.utcnow
+  prefilter_tokens:
+    - datetime
+
+changes:
+  - id: utcnow
+    kind: rewrite_pattern
+    citation: "Python documentation, datetime: utcnow() ('Deprecated since version 3.12')"
+    params:
+      # Naive stays naive: `now(timezone.utc)` alone is aware, and comparing or subtracting it with
+      # a naive value raises, so dropping the zone is the only form that keeps what the call gave.
+      before: datetime.datetime.utcnow()
+      after: datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+      # `timezone` is reached by whatever import of `datetime` the file has, and else by
+      # `from datetime import timezone`, which a file that imports only the class can take.
+      imports:
+        - datetime
+        - datetime.timezone
+    fixtures:
+      - fixtures/negative/already_aware.py
+      - fixtures/negative/user_defined.py
+      - fixtures/positive/class_alias.before.py
+      - fixtures/positive/from_class.before.py
+      - fixtures/positive/import_alias.before.py
+      - fixtures/positive/import_module.before.py
+      - fixtures/positive/local_import.before.py
+      - fixtures/positive/not_a_call.before.py
+      - fixtures/positive/shadowed.before.py
+      - fixtures/positive/timezone_imported.before.py
+
+  - id: utcfromtimestamp
+    kind: rewrite_pattern
+    citation: "Python documentation, datetime: utcfromtimestamp() ('Deprecated since version 3.12')"
+    params:
+      before: datetime.datetime.utcfromtimestamp($timestamp)
+      after: datetime.datetime.fromtimestamp($timestamp, datetime.timezone.utc).replace(tzinfo=None)
+      imports:
+        - datetime
+        - datetime.timezone
+    fixtures:
+      - fixtures/negative/already_aware.py
+      - fixtures/positive/from_class.before.py
+      - fixtures/positive/import_alias.before.py
+
+verification:
+  suggestions:
+    - "<project python> -W error::DeprecationWarning -m pytest -q"
+
+limitations:
+  - "Only a call of datetime.datetime.utcnow() or utcfromtimestamp(x) is rewritten. A reference that is not a call (field(default_factory=datetime.utcnow), a SQLAlchemy default=datetime.utcnow) needs a lambda the pack cannot place, so it is reported and the file stays as it was."
+  - "The value stays naive, as it was: datetime.now(timezone.utc) alone is aware, and comparing or subtracting an aware and a naive datetime raises TypeError. Moving the code to aware datetimes is a choice for a person, made together with everything that reads the value."
+  - "A test that replaces datetime in a module of its own with a mock (mock.patch('app.clock.datetime') and utcnow.return_value) is not seen: the rewritten call reaches now, so the mock answers with a mock. The scan cannot tell a patch target in the repository from any other string."
+  - "A name the new spelling imports (timezone) that the file binds to something else, in any scope, leaves the call alone (alias_collision), and so does a file that imports datetime only inside functions (local_import): the new import goes below the last top-level import above the first call."
+  - "A repository that declares a Python below 3.2, Python 2 included, is blocked, since datetime.timezone does not exist there."
+  - "Measured on one platform (macOS): the two spellings gave the same value, class and error for the timestamps tried. The limits of the platform's gmtime (negative timestamps on Windows, years past 2038 with a 32-bit time_t) apply to both alike."
+  - "No Gate 1 measurement exists: how many repositories call these two methods, and for how many the pack writes every call, has not been counted."

@@ -348,6 +348,21 @@ def _pattern(
     return mutate
 
 
+def _pattern_through_a_legacy_module(document: Document) -> None:
+    """A second module the pack matches, which the new expression is spelled through."""
+    document["match"].update(
+        imports=["demo_legacy", "demo_other"],
+        prefilter_tokens=["demo_legacy", "demo_other"],
+        shared=True,
+        symbols=["demo_legacy.configure", "demo_legacy.old", "demo_other.helper.make"],
+    )
+    document["changes"][1]["params"] = {
+        **PATTERN_CHANGE["params"],
+        "after": "demo_other.helper.make($a)",
+        "imports": ["demo_other.helper"],
+    }
+
+
 def _pattern_of_a_refused_class(document: Document) -> None:
     """A module that moves, with a pattern for a member of a class another rule only reports."""
     document["changes"][1]["params"] = {
@@ -415,6 +430,12 @@ def _depth_is_also_a_config_field(document: Document) -> None:
     document["changes"][1]["params"].update(
         config_class="demo_modern.types.ProbeConfig", config_kwarg="config", config_kwargs=["depth"]
     )
+
+
+def _python_sides_with_a_transitive_module(document: Document) -> None:
+    """A pack of the Python itself that lists a module some distribution installed."""
+    document.update({"from": {"python": ">=3.12"}, "to": {"python": ">=3.2"}})
+    document["match"].update(transitive={"demo_wire": "demo-wire"})
 
 
 def _one_distribution_overlapping(document: Document) -> None:
@@ -518,10 +539,67 @@ CASES: tuple[Case, ...] = (
     ),
     Case(
         name="to_without_requires_python",
-        defect="a target that says nothing of the Pythons it installs on",
-        path="to.requires_python",
-        says="Field required",
+        defect="a target distribution that says nothing of the Pythons it installs on",
+        path="to",
+        says="requires_python is required",
         mutate=lambda d: d["to"].pop("requires_python"),
+    ),
+    Case(
+        name="a_distribution_without_a_version",
+        defect="a side that names a distribution and no range of it",
+        path="from",
+        says="package and version name a distribution together",
+        mutate=lambda d: d["from"].pop("version"),
+    ),
+    Case(
+        name="a_version_without_a_distribution",
+        defect="a side that names a range and no distribution it is of",
+        path="from",
+        says="package and version name a distribution together",
+        mutate=lambda d: d["from"].pop("package"),
+    ),
+    Case(
+        name="a_side_that_is_neither_a_distribution_nor_a_python",
+        defect="a side with nothing on it, which no gate could read",
+        path="from",
+        says="a side is a distribution (package and version) or the Pythons it runs on",
+        mutate=lambda d: d["from"].clear(),
+    ),
+    Case(
+        name="a_side_that_is_both_a_distribution_and_a_python",
+        defect="a distribution and the Pythons it runs on, two gates for one side",
+        path="to",
+        says="a side is a distribution (package and version) or the Pythons it runs on",
+        mutate=lambda d: _with(d["to"], "python", ">=3.10"),
+    ),
+    Case(
+        name="a_python_target_with_requires_python",
+        defect="the Pythons a target runs on, said twice and as what only a distribution has",
+        path="to",
+        says="requires_python and introduces are about a distribution",
+        mutate=lambda d: d.update({"to": {"python": ">=3.2", "requires_python": ">=3.9"}}),
+    ),
+    Case(
+        name="a_python_side_with_a_newest_release",
+        defect="a release of a distribution on a side that is a Python",
+        path="from",
+        says="newest, lacks and since are about the releases of a distribution",
+        mutate=lambda d: d.update({"from": {"python": ">=3.12", "newest": "1.0.0"}}),
+    ),
+    Case(
+        name="a_dependency_line_for_a_python_side",
+        defect="a manifest rule on a pack that moves to the Python, which no manifest declares",
+        path="",
+        says="a side of this pack is a Python, which no manifest declares",
+        extra=MANIFEST_CHANGE,
+        mutate=lambda d: d.update({"to": {"python": ">=3.2"}}),
+    ),
+    Case(
+        name="a_transitive_module_for_a_python_side",
+        defect="a module that a distribution installed, on a pack that starts from the Python",
+        path="",
+        says="the old side of this pack is a Python",
+        mutate=_python_sides_with_a_transitive_module,
     ),
     Case(
         name="requires_python_not_a_specifier",
@@ -2068,6 +2146,38 @@ CASES: tuple[Case, ...] = (
         says="a name nothing imports",
         extra=PATTERN_CHANGE,
         mutate=_pattern(after="other_lib.new($a)"),
+    ),
+    Case(
+        name="a_pattern_import_that_after_never_spells",
+        defect="a path listed as importable that no name of the new expression is under",
+        path=f"{EXTRA}.params",
+        says="imports lists demo_other, which after spells no name under",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(imports=["demo_other"]),
+    ),
+    Case(
+        name="a_pattern_import_of_the_builtins",
+        defect="a module that is the names a template may not spell, reached by its path",
+        path=f"{EXTRA}.params",
+        says="imports lists builtins",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="builtins.eval($a)", imports=["builtins"]),
+    ),
+    Case(
+        name="a_pattern_import_list_that_is_not_sorted",
+        defect="a list of paths with two spellings of one set",
+        path=f"{EXTRA}.params",
+        says="imports must be sorted and de-duplicated",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="demo_b.new(demo_a.size($a))", imports=["demo_b", "demo_a"]),
+    ),
+    Case(
+        name="a_pattern_import_that_lands_on_a_legacy_name",
+        defect="a name under an importable path that `symbols` lists, so the result is found again",
+        path="",
+        says="which match.symbols lists as legacy",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern_through_a_legacy_module,
     ),
     Case(
         name="a_pattern_that_builds_with_the_name_it_is_found_by",

@@ -993,6 +993,8 @@ def test_only_the_pack_that_names_a_newest_release_takes_one() -> None:
     assert named == {
         "gemini/google-generativeai-to-google-genai": (None, ()),
         "openai/openai-0-to-1": (None, ()),
+        "python/datetime-utcnow": (None, ()),
+        "python/removed-stdlib-modules": (None, ()),
         "py-pdf/pypdf2-to-pypdf": (
             "3.0.1",
             (
@@ -1004,6 +1006,7 @@ def test_only_the_pack_that_names_a_newest_release_takes_one() -> None:
                 "PyPDF2.utils",
             ),
         ),
+        "setuptools/pkg-resources-to-importlib": (None, ()),
     }
 
 

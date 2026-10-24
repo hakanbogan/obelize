@@ -9,7 +9,14 @@ A data file that describes one migration between two versions of a library: whic
 which [rule kind](#rule-kind) handles each, and what backs it: the official guide for a bundled
 pack, the public API of the two releases for one that `pack synth` made. A pack holds no code.
 obelize parses it with a closed schema and never executes it. The format is in
-[Pack format](PACK_SPEC.md), and the three that ship are in [Packs](PACKS.md).
+[Pack format](PACK_SPEC.md), and the six that ship are in [Packs](PACKS.md).
+
+## Runtime pack
+
+A [migration pack](#migration-pack) with the Python itself on one side or both: a change of the
+interpreter or its standard library (`datetime.utcnow()`, a module Python 3.12 removed) or of a
+module setuptools dropped (`pkg_resources`). It names no distribution to install, so it moves no
+dependency line, and it is gated by the Python a repository declares ([why](adr/ADR-071-runtime-packs.md)).
 
 ## Rule kind
 

@@ -132,6 +132,8 @@ def served() -> Iterator[fakeindex.FakeIndex]:
         ]
         found.add("pypdf2", "3.0.1", SOURCE)
         found.add("pypdf", "6.19.0", SOURCE)
+        found.add("setuptools", "81.0.0", SOURCE)
+        found.add("setuptools", "82.0.0", SOURCE)
         yield found
 
 
@@ -190,6 +192,17 @@ def test_a_distribution_a_bundled_pack_migrates_says_which(served: fakeindex.Fak
     outside = judged(served, "pypdf2", "==2.0", packs=True)
     assert outside.knowledge == "synthesizable"
     assert judged(served, "pypdf2", packs=True).pack == "py-pdf/pypdf2-to-pypdf"
+
+
+def test_a_distribution_a_pack_moves_to_the_python_says_which_pack(
+    served: fakeindex.FakeIndex,
+) -> None:
+    """`pkg_resources` is a module of setuptools below 82, and its pack is run by its id."""
+    found = judged(served, "setuptools", "==81.0.0", packs=True)
+    assert (found.knowledge, found.pack) == ("bundled", "setuptools/pkg-resources-to-importlib")
+    assert outdated.next_step([found]) == "obelize fix --pack setuptools/pkg-resources-to-importlib"
+    beyond = judged(served, "setuptools", "==82.0.0", packs=True)
+    assert (beyond.knowledge, beyond.pack) == ("synthesizable", None)
 
 
 def test_a_distribution_the_index_does_not_have_is_a_row_with_the_reason(

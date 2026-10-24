@@ -188,6 +188,12 @@ PORT = (
             "minimum in pyproject.toml to >=3.10 and run again." + APPLY,
         ),
         (
+            runtime.Blocked("runtime_unsupported", "", "pyproject.toml", ">=2.7", ">=3.2"),
+            "pyproject.toml declares Python >=2.7, which allows versions its new code does not "
+            "run on, so this migration reports its findings and plans no change. To migrate, "
+            "raise the minimum in pyproject.toml to >=3.2 and run again." + APPLY,
+        ),
+        (
             runtime.Blocked(
                 "legacy_version_unsupported", "old-sdk", "requirements.txt", ">=1", ">=3"
             ),
@@ -265,6 +271,7 @@ PORT = (
     ],
     ids=[
         "python",
+        "python-itself",
         "pinned-below",
         "unpinned",
         "unreadable",

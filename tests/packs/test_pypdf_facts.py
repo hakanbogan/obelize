@@ -17,7 +17,6 @@ from importlib.metadata import metadata, version
 from typing import Any, cast
 
 import pytest
-from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 from obelize.models import bounds
@@ -83,10 +82,10 @@ def test_the_pack_is_the_migration_the_history_page_describes() -> None:
 
 
 def test_the_installed_projects_are_inside_the_ranges_the_pack_was_measured_on() -> None:
-    assert version("PyPDF2") in SpecifierSet(PACK.from_.version)
-    assert version("pypdf") in SpecifierSet(PACK.to.version)
+    assert version("PyPDF2") in PACK.from_.versions()
+    assert version("pypdf") in PACK.to.versions()
     assert version("PyPDF2") == "3.0.1"
-    assert bounds(SpecifierSet(PACK.to.version))[0] == Version("6.19")
+    assert bounds(PACK.to.versions())[0] == Version("6.19")
 
 
 def test_the_newest_release_named_is_the_one_installed_and_it_lacks_the_removed_names() -> None:

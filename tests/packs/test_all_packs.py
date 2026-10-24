@@ -36,6 +36,9 @@ BUILDER = NEGATIVE / "_build.py"
 GEMINI_ID = "gemini/google-generativeai-to-google-genai"
 OPENAI_ID = "openai/openai-0-to-1"
 PYPDF_ID = "py-pdf/pypdf2-to-pypdf"
+DATETIME_ID = "python/datetime-utcnow"
+REMOVED_ID = "python/removed-stdlib-modules"
+PKG_RESOURCES_ID = "setuptools/pkg-resources-to-importlib"
 BUNDLED_IDS = loader.bundled_ids()
 
 runner = CliRunner()
@@ -72,7 +75,14 @@ def pack_dir(bundled: loader.LoadedPack) -> Path:
 
 
 def test_the_bundled_packs_are_the_ones_this_release_ships() -> None:
-    assert BUNDLED_IDS == (GEMINI_ID, OPENAI_ID, PYPDF_ID)
+    assert BUNDLED_IDS == (
+        GEMINI_ID,
+        OPENAI_ID,
+        PYPDF_ID,
+        DATETIME_ID,
+        REMOVED_ID,
+        PKG_RESOURCES_ID,
+    )
 
 
 def test_a_bundled_pack_validates_under_its_own_id(bundled: loader.LoadedPack) -> None:
@@ -172,6 +182,8 @@ def test_every_answer_key_is_what_the_rules_write_into_its_fixture(
     bundled: loader.LoadedPack, migratable: dict[str, tuple[bool, bytes]]
 ) -> None:
     """PACK_SPEC's before->after contract over existing keys; the test above owns which exist."""
+    if {change.kind for change in bundled.pack.changes} == {"flag_only"}:
+        pytest.skip("this pack only reports, so no fixture is migrated whole and no key exists")
     keys = sorted((pack_dir(bundled) / "fixtures" / "positive").glob("*.after.py"))
     assert keys, "no answer key exists, so this assertion proves nothing"
     for key in keys:
@@ -183,6 +195,8 @@ def test_every_answer_key_is_what_the_rules_write_into_its_fixture(
 def test_the_manifest_answer_key_is_what_the_rule_writes(bundled: loader.LoadedPack) -> None:
     """A manifest's verdict is repo-wide, so ADR-010 F-2's clear case (something migrated, nothing
     blocks) is set up here, not surveyed from the Python fixtures."""
+    if not registry.manifest_rules(bundled.pack):
+        pytest.skip("this pack's sides are not distributions, so no manifest line moves")
     name = "fixtures/positive/requirements.before.txt"
     data = (pack_dir(bundled) / name).read_bytes()
     spec = loader.to_scan_spec(bundled)
@@ -299,6 +313,8 @@ def test_the_manifest_fixtures_declare_the_two_sides_of_the_migration(
 ) -> None:
     """Manifests are not `.py`, so the prefilter never sees them."""
     pack, fixtures = bundled.pack, pack_dir(bundled) / "fixtures"
+    if pack.from_.package is None or pack.to.package is None:
+        pytest.skip("a side of this pack is a Python, which no manifest declares")
     before = (fixtures / "positive" / "requirements.before.txt").read_text("utf-8")
     after = (fixtures / "negative" / "requirements_already_new.txt").read_text("utf-8")
     if canonicalize_name(pack.from_.package) == canonicalize_name(pack.to.package):
@@ -312,7 +328,7 @@ def test_the_manifest_fixtures_declare_the_two_sides_of_the_migration(
             assert declared.spec is not None, name
             floor = bounds(SpecifierSet(declared.spec))[0]
             assert floor is not None
-            assert floor in SpecifierSet(side.version), name
+            assert floor in side.versions(), name
         return
     assert pack.from_.package in before
     assert pack.to.package not in before
@@ -391,6 +407,14 @@ def test_pack_validate_accepts_a_bundled_pack_by_id_and_by_path(bundled: loader.
         assert result.exit_code == 0, result.output
         assert "is a valid migration pack." in result.output
         assert bundled.sha256 in result.output
+
+
+def test_pack_validate_names_the_two_sides_and_prints_no_none(bundled: loader.LoadedPack) -> None:
+    """A side is a distribution and its range, or the Python and the versions of it."""
+    result = runner.invoke(app, ["pack", "validate", bundled.pack.id])
+    pack = bundled.pack
+    assert f"  migrates     {pack.from_.label()} -> {pack.to.label()}\n" in result.output
+    assert "None" not in result.output
 
 
 @pytest.mark.parametrize("case", builder.CASES, ids=[case.name for case in builder.CASES])

@@ -295,10 +295,34 @@ class PackSource(_Closed):
 
 
 class VersionRange(_Closed):
-    """One side of the migration: a distribution and a PEP 440 range of it."""
+    """One side of the migration: a distribution and a PEP 440 range of it, or the Pythons it runs
+    on. A Python is a side when the change is one of the interpreter or its standard library, which
+    no distribution holds (`datetime.utcnow`, `pkg_resources`)."""
 
-    package: DistributionName
-    version: Pep440Specifier
+    package: DistributionName | None = None
+    version: Pep440Specifier | None = None
+    python: Pep440Specifier | None = None
+
+    @model_validator(mode="after")
+    def _check_side(self) -> VersionRange:
+        if (self.package is None) != (self.version is None):
+            raise ValueError(
+                "package and version name a distribution together: set both or neither"
+            )
+        if (self.package is None) == (self.python is None):
+            raise ValueError(
+                "a side is a distribution (package and version) or the Pythons it runs on "
+                "(python): set one of the two"
+            )
+        return self
+
+    def versions(self) -> SpecifierSet:
+        """The releases of the distribution this side admits; all of them where it names none."""
+        return SpecifierSet(self.version or "")
+
+    def label(self) -> str:
+        """The side as a person reads it: `pypdf >=6.19`, or `Python >=3.12`."""
+        return f"{self.package} {self.version}" if self.package else f"Python {self.python}"
 
 
 class Legacy(VersionRange):
@@ -319,18 +343,25 @@ class Legacy(VersionRange):
     def _check(self) -> Legacy:
         sorted_unique(self.lacks, "lacks")
         sorted_unique(self.since, "since")
+        if self.package is None:
+            if self.newest is not None or self.lacks or self.since:
+                raise ValueError(
+                    "newest, lacks and since are about the releases of a distribution, and this "
+                    "side names a Python"
+                )
+            return self
         if self.since and self.newest is not None:
             raise ValueError("since and newest each stand for an unversioned declaration: set one")
         if self.newest is None:
             if self.lacks:
                 raise ValueError("lacks is what the newest release does not define: set newest")
-            if self.since and bounds(SpecifierSet(self.version))[0] is None:
+            if self.since and bounds(self.versions())[0] is None:
                 raise ValueError(
                     f"since names what no release below the floor of from.version defines, so "
                     f"from.version {self.version!r} must have a floor"
                 )
             return self
-        admitted = SpecifierSet(self.version)
+        admitted = self.versions()
         if bounds(admitted)[0] is None:
             raise ValueError(
                 f"newest stands for a declaration that names no version, so from.version "
@@ -347,17 +378,33 @@ class Legacy(VersionRange):
 class Target(VersionRange):
     """The new side, which also says which Pythons it installs on.
 
+    A distribution says it as `requires_python`; a side that is the Pythons themselves says it as
+    `python`. Either way it is the set a repository's declared Python must stay inside (ADR-050 D4).
     `introduces` names what no release of `from.version` defines, where one module holds both
     sides: code that uses one cannot run on a pin that admits only the old releases.
     """
 
-    requires_python: Pep440Specifier
+    requires_python: Pep440Specifier | None = None
     introduces: tuple[QualifiedName, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> Target:
         sorted_unique(self.introduces, "introduces")
+        if self.package is None:
+            if self.requires_python is not None or self.introduces:
+                raise ValueError(
+                    "requires_python and introduces are about a distribution, and this side "
+                    "names a Python: python says which Pythons it runs on"
+                )
+        elif self.requires_python is None:
+            raise ValueError(
+                "requires_python is required: the Pythons the distribution installs on"
+            )
         return self
+
+    def pythons(self) -> str:
+        """The PEP 440 set of Pythons this side runs on, whichever way it says so."""
+        return self.requires_python or self.python or ""
 
 
 class Match(_Closed):
@@ -1182,24 +1229,38 @@ def _template(value: str, info: ValidationInfo) -> str:
 Template = Annotated[str, AfterValidator(_template), schema_hint(minLength=1, maxLength=2000)]
 
 
+def _beside(found: pattern.Anchor, name: str) -> bool:
+    """Whether a spelled name is in the module of the one called; a member call has no module."""
+    return found.receiver is None and name.startswith(f"{found.symbol.rpartition('.')[0]}.")
+
+
 class RewritePatternParams(_Closed):
     """A call of a name, written as the new release spells it, found by a pattern of its shape.
 
     `before` is a call, `after` the expression that replaces it, and `$name` stands for any
     expression `before` has in that place. The call is of a qualified name written out
     (`pydantic.parse_obj_as($type, $value)`) or of a member of a class (`$m.dict(exclude=$e)`, with
-    `where` naming the class `$m` is an instance of).
+    `where` naming the class `$m` is an instance of). `after` may also spell names through the
+    modules `imports` lists, imported if the file has no name for them (ADR-071 D4).
     """
 
     before: Template
     after: Template
     # The class of the metavariable a member call is made on.
     where: dict[PlainName, QualifiedName] = Field(default_factory=dict)
+    # The importable paths `after` may spell names through; the file's own import of one is used.
+    imports: tuple[QualifiedName, ...] = ()
 
     @model_validator(mode="after")
     def _check(self) -> RewritePatternParams:
         from obelize import pattern
 
+        sorted_unique(self.imports, "imports")
+        if "builtins" in {path.partition(".")[0] for path in self.imports}:
+            raise ValueError(
+                "imports lists builtins, whose names a template may spell only as the short list "
+                "of functions that build a value from their arguments"
+            )
         before, after = pattern.parse(self.before), pattern.parse(self.after)
         try:
             found = pattern.anchor(before, self.where)
@@ -1220,15 +1281,38 @@ class RewritePatternParams(_Closed):
                 f"so the rewritten call is found again"
             )
         parent = found.symbol.rpartition(".")[0]
-        for name in sorted(pattern.new_names(after)):
-            if found.receiver or not name.startswith(f"{parent}."):
+        spelled = sorted(pattern.new_names(after))
+        for name in spelled:
+            if not _beside(found, name) and not self.through(name):
                 raise ValueError(
                     f"after spells {name}, a name nothing imports; it may spell only names beside "
-                    f"the one called ({parent}), and none on a member call"
+                    f"the one called ({parent}), none on a member call, and names under imports"
                 )
             if name == found.symbol:
                 raise ValueError(f"after calls {name}, the name before is found by")
+        used = {path for name in spelled if not _beside(found, name) for path in self.through(name)}
+        if unused := [path for path in self.imports if path not in used]:
+            raise ValueError(f"imports lists {unused[0]}, which after spells no name under")
         return self
+
+    def through(self, name: str) -> tuple[str, ...]:
+        """The listed paths a spelled name is under, the shortest first."""
+        return tuple(path for path in self.imports if name.startswith(f"{path}."))
+
+    def beside(self) -> bool:
+        """Whether `after` spells a name beside the one called, as the file spelled its module."""
+        found = self.anchor()
+        return any(_beside(found, name) for name in self._names())
+
+    def reached(self) -> dict[str, tuple[str, ...]]:
+        """Each name `after` spells through an import, and the listed paths it is under."""
+        found = self.anchor()
+        return {name: self.through(name) for name in self._names() if not _beside(found, name)}
+
+    def _names(self) -> list[str]:
+        from obelize import pattern
+
+        return sorted(pattern.new_names(pattern.parse(self.after)))
 
     def anchor(self) -> pattern.Anchor:
         """The qualified name the call is of."""
@@ -1537,18 +1621,26 @@ class PackDocument(_Closed):
         self._check_what_the_newest_release_lacks_is_flagged()
         self._check_what_the_code_may_prove_is_looked_for()
         self._check_what_the_new_side_introduces_is_not_legacy()
+        self._check_a_transitive_module_has_a_distribution_that_installed_it()
         self._check_what_is_declared_for_a_transitive_module_is_listed()
         self._check_the_plugins_a_pack_names_are_the_ones_it_requires()
         return self
 
     def to_modules(self) -> tuple[str, ...]:
-        """Every module a `rename_import` writes; empty authorises no new import."""
+        """Every module a `rename_import` writes or a `rewrite_pattern` imports; empty authorises no
+        new import."""
         return tuple(
             sorted(
                 {
                     change.params.to_module
                     for change in self.changes
                     if change.kind == "rename_import"
+                }
+                | {
+                    path
+                    for change in self.changes
+                    if isinstance(change, RewritePatternChange)
+                    for path in change.params.imports
                 }
             )
         )
@@ -1816,6 +1908,11 @@ class PackDocument(_Closed):
         for change in self.changes:
             if not isinstance(change, ManifestDependencyChange):
                 continue
+            if self.from_.package is None or self.to.package is None:
+                raise ValueError(
+                    f"changes[{change.id!r}] moves a dependency line from one distribution to "
+                    f"another, and a side of this pack is a Python, which no manifest declares"
+                )
             for field, declared, expected in (
                 ("from_name", change.params.from_name, self.from_.package),
                 ("to_name", change.params.to_name, self.to.package),
@@ -1857,7 +1954,7 @@ class PackDocument(_Closed):
         """Names that tell the new API from the old one inside one module of one distribution."""
         if not self.to.introduces:
             return
-        if canonicalize_name(self.from_.package) != canonicalize_name(self.to.package):
+        if not self.one_distribution():
             raise ValueError(
                 "to.introduces tells the new API from the old one inside one distribution, and "
                 "this pack migrates between two"
@@ -1873,6 +1970,14 @@ class PackDocument(_Closed):
                     f"to.introduces names {name!r}, which is not under a module of match.imports "
                     f"{list(self.match.imports)} or is a legacy name in match.symbols"
                 )
+
+    def _check_a_transitive_module_has_a_distribution_that_installed_it(self) -> None:
+        """`match.transitive` is what the legacy distribution installed; a Python installed none."""
+        if self.match.transitive and self.from_.package is None:
+            raise ValueError(
+                "match.transitive lists the modules the legacy distribution installed, and the "
+                "old side of this pack is a Python"
+            )
 
     def _check_what_is_declared_for_a_transitive_module_is_listed(self) -> None:
         """A rule that declares what `match.transitive` lists has nothing to declare without it."""
@@ -1893,9 +1998,9 @@ class PackDocument(_Closed):
         Overlap is tested at the versions either side names, direction on the bounds: deliberately
         not a full specifier intersection, which `!=` and `~=` make costly.
         """
-        if canonicalize_name(self.from_.package) != canonicalize_name(self.to.package):
+        if not self.one_distribution():
             return
-        source, target = SpecifierSet(self.from_.version), SpecifierSet(self.to.version)
+        source, target = self.from_.versions(), self.to.versions()
         both = [
             str(version)
             for version in sorted(_named(source) | _named(target))
@@ -1915,6 +2020,15 @@ class PackDocument(_Closed):
                 f"above {floor} in from.version {self.from_.version!r}: the migration would move "
                 f"backwards"
             )
+
+    def one_distribution(self) -> bool:
+        """Whether both sides are the same distribution, as a rename of the pin keeps it."""
+        one, other = self.from_.package, self.to.package
+        return (
+            one is not None
+            and other is not None
+            and canonicalize_name(one) == canonicalize_name(other)
+        )
 
     def rewritten_symbols(self) -> frozenset[str]:
         """Every legacy symbol some rule proposes to change rather than refuse."""
