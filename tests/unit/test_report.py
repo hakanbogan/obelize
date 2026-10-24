@@ -357,6 +357,44 @@ def test_a_release_taken_for_a_version_nobody_wrote_down_is_said_once_for_each_p
     )
 
 
+GIVEN = (
+    "No manifest declares old-sdk, so this migration takes it as 3.0.1, the release --from "
+    "names. A repository that installs another needs that pinned in a manifest obelize reads."
+)
+
+
+def test_a_release_the_person_gave_is_said_once_for_each_package() -> None:
+    assert report._stated((("old-sdk", "3.0.1"),), report._bare) == [GIVEN, ""]
+    assert report._stated((), report._bare) == []
+    assert report._stated((("old-sdk", "3.0.1"),), report._code)[0].startswith(
+        "No manifest declares `old-sdk`, so this migration takes it as `3.0.1`, the release "
+        "`--from` names."
+    )
+
+
+def test_the_report_says_the_release_that_was_given(quiet: Path) -> None:
+    scan = replace(_scan(quiet), stated=(("old-sdk", "3.0.1"),))
+    document = report.document(_record(quiet, scan), scan)
+    assert "## Assumed\n\nNo manifest declares `old-sdk`, so this migration takes it" in document
+    assert "## Assumed" not in report.document(_record(quiet, _scan(quiet)), _scan(quiet))
+
+
+def test_a_block_says_what_the_release_that_was_given_came_to() -> None:
+    declared = runtime.Blocked(
+        "legacy_version_unsupported", "old-sdk", "requirements.txt", "<3", ">=3", stated="3.0.1"
+    )
+    shown = report._blocked(declared, report._bare)
+    assert "--from names 3.0.1, which counts only where no manifest declares old-sdk: " in shown
+    assert "requirements.txt does. A pin moves the release" in shown
+    undeclared = runtime.Blocked(
+        "legacy_version_unsupported", "old-sdk", "", None, ">=3", stated="2.1"
+    )
+    assert "--from names 2.1, which this migration does not cover. A pin" in report._blocked(
+        undeclared, report._bare
+    )
+    assert "--from" not in report._blocked(replace(declared, stated=""), report._bare)
+
+
 def test_the_summary_and_the_report_say_what_was_taken_before_the_rows(quiet: Path) -> None:
     scan = replace(_scan(quiet), assumed=(("old-sdk", "3.0.1"),))
     lines = report.terminal(scan, "p", None)

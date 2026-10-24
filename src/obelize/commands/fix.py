@@ -14,6 +14,8 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
+from packaging.utils import canonicalize_name
+
 from obelize import __version__, fsutil, gitutil
 from obelize.commands import CommandError, elapsed_ms, reports
 from obelize.config import with_fixture_dirs
@@ -79,6 +81,8 @@ class Request:
     model_flagged: bool = False
     # Files someone else has migrated already (a trial's model edits): the pins follow them.
     elsewhere: tuple[str, ...] = ()
+    # (distribution, release) the person gave with `upgrade --from`; never a repository's word.
+    stated: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +101,8 @@ class Outcome:
     blocked: tuple[Blocked, ...]
     # (distribution, release) taken where no declaration rules the pack's newest release out.
     assumed: tuple[tuple[str, str], ...] = ()
+    # (distribution, release) the person gave, taken for the release in use.
+    stated: tuple[tuple[str, str], ...] = ()
     # What the run did without being asked to say so, for a caller that prints it.
     notes: tuple[str, ...] = ()
     guides: tuple[flag_only.Guide, ...] = ()
@@ -134,7 +140,14 @@ def run(request: Request) -> Outcome:
     _startable(request)
     started = run_dir.now()
     began = time.monotonic()
-    chosen = select(request.root, request.config, request.packs, named=request.named, jobs=None)
+    chosen = select(
+        request.root,
+        request.config,
+        request.packs,
+        named=request.named,
+        jobs=None,
+        stated=request.stated,
+    )
     scan_ms = elapsed_ms(began)
 
     planning = time.monotonic()
@@ -268,6 +281,7 @@ def run(request: Request) -> Outcome:
         evidence=written.relative,
         blocked=scan.blocked,
         assumed=scan.assumed,
+        stated=scan.stated,
         notes=notes,
         guides=guides,
         manifest_plan=driven.manifest_plan,
@@ -319,6 +333,7 @@ def select(
     *,
     named: bool,
     jobs: int | None,
+    stated: tuple[str, str] | None = None,
 ) -> Chosen:
     """Read `root` once, scan with every pack, and keep the named ones or those with a row.
 
@@ -332,7 +347,10 @@ def select(
     )
     tree = scanner.read(root, config, specs)
     scans = [
-        Scanned(loaded, scanner.scan(root, config, spec, jobs=jobs, tree=tree))
+        Scanned(
+            loaded,
+            scanner.scan(root, config, spec, jobs=jobs, tree=tree, stated=_for(stated, spec)),
+        )
         for loaded, spec in zip(ordered, specs, strict=True)
     ]
     kept = tuple(one for one in scans if named or scanner.applies(one.scan))
@@ -342,6 +360,13 @@ def select(
             if reason is not None:
                 raise CommandError(f"{reason}; run them one at a time with --pack.", 2)
     return Chosen(tree, kept, tuple(one.loaded.pack.id for one in scans), config.fixture_dirs)
+
+
+def _for(stated: tuple[str, str] | None, spec: ScanSpec) -> str | None:
+    """The release the person gave for the legacy distribution of `spec`, if they gave one."""
+    return (
+        stated[1] if stated and stated[0] == canonicalize_name(spec.legacy_distribution) else None
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,7 +391,14 @@ def _fold(request: Request, chosen: Chosen) -> list[_Pass]:
         spec = loader.to_scan_spec(one.loaded)
         scan = one.scan
         if written & {row.path for row in scan.findings if row.scan_status != "not_a_usage"}:
-            scan = scanner.scan(request.root, request.config, spec, jobs=None, tree=current)
+            scan = scanner.scan(
+                request.root,
+                request.config,
+                spec,
+                jobs=None,
+                tree=current,
+                stated=_for(request.stated, spec),
+            )
         driven = _driven(current, scan, one.loaded, spec, request.elsewhere)
         if scan.blocked:
             driven = codemod.blocked(driven, scan.blocked[0].reason)

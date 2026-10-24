@@ -211,6 +211,7 @@ def fixed(
     locks: Sequence[str] = (),
     unwritten: Sequence[tuple[str, tuple[int, ...]]] = (),
     pins: bool = True,
+    stated: Sequence[tuple[str, str]] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
@@ -218,7 +219,8 @@ def fixed(
     runs where the user is, on what the user chose. `held` is the pin check, which names the
     files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
     or above it; `unwritten` are the files that use the legacy API and that no rule writes; `pins`
-    is whether a pack of the run moves a dependency line, which the closing step says to install.
+    is whether a pack of the run moves a dependency line, which the closing step says to install;
+    `stated` are the releases `--from` gave.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -227,6 +229,7 @@ def fixed(
     for stopped in blocked:
         lines.extend([_blocked(stopped, _bare), ""])
     lines.extend(_assumed(assumed, _bare))
+    lines.extend(_stated(stated, _bare))
     if not plan.files:
         lines.append("No change planned.")
     for row in plan.files:
@@ -620,8 +623,10 @@ def document(
         lines.extend(["## Blocked", ""])
         for blocked in scan.blocked:
             lines.extend([_blocked(blocked, _code), ""])
-    if scan.assumed:
-        lines.extend(["## Assumed", "", *_assumed(scan.assumed, _code)])
+    if scan.assumed or scan.stated:
+        lines.extend(
+            ["## Assumed", "", *_assumed(scan.assumed, _code), *_stated(scan.stated, _code)]
+        )
     if run is not None and plan is not None:
         lines.extend(_changes_section(record, plan))
         lines.extend(_edits_section(run))
@@ -969,10 +974,24 @@ def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
         else ""
     )
     return (
-        f"{_stop(blocked, code)}{ported} To apply it in a git repository, commit that change "
-        f"first: {code('fix --apply')} refuses uncommitted changes unless you pass "
-        f"{code('--allow-dirty')}."
+        f"{_stop(blocked, code)}{_from(blocked, code)}{ported} To apply it in a git repository, "
+        f"commit that change first: {code('fix --apply')} refuses uncommitted changes unless you "
+        f"pass {code('--allow-dirty')}."
     )
+
+
+def _from(blocked: Blocked, code: Callable[[str], str]) -> str:
+    """What `--from` came to in a block: nothing, where a declaration decides, or a release the
+    migration does not cover."""
+    if not blocked.stated:
+        return ""
+    named = f" {code('--from')} names {code(blocked.stated)}"
+    if blocked.path:
+        return (
+            f"{named}, which counts only where no manifest declares {code(blocked.package)}: "
+            f"{code(blocked.path)} does."
+        )
+    return f"{named}, which this migration does not cover."
 
 
 def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
@@ -1056,6 +1075,17 @@ def _assumed(assumed: Sequence[tuple[str, str]], code: Callable[[str], str]) -> 
             f"pinned in a manifest obelize reads."
         )
         for package, release in assumed
+    ]
+    return [*lines, ""] if lines else []
+
+
+def _stated(stated: Sequence[tuple[str, str]], code: Callable[[str], str]) -> list[str]:
+    """The release the person gave for a distribution no manifest declares, said with the plan."""
+    lines = [
+        f"No manifest declares {code(package)}, so this migration takes it as {code(release)}, "
+        f"the release {code('--from')} names. A repository that installs another needs that "
+        f"pinned in a manifest obelize reads."
+        for package, release in stated
     ]
     return [*lines, ""] if lines else []
 

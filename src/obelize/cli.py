@@ -376,6 +376,38 @@ def fix(
     write, the change is still written and neither the compile check nor the
     tests run again. Without a test command, only the write happens.
     """
+    _fix(
+        pack,
+        repo,
+        apply_changes,
+        allow_dirty,
+        verify_commands,
+        timeout,
+        non_interactive,
+        trust_repo_config,
+        provider,
+        accept_model,
+        show_context,
+        as_json,
+    )
+
+
+def _fix(
+    pack: list[str] | None,
+    repo: str,
+    apply_changes: bool,
+    allow_dirty: bool,
+    verify_commands: list[str] | None,
+    timeout: int | None,
+    non_interactive: bool,
+    trust_repo_config: bool,
+    provider: str | None,
+    accept_model: bool,
+    show_context: bool,
+    as_json: bool,
+    stated: tuple[str, str] | None = None,
+) -> None:
+    """`fix`, to which `upgrade` adds the release it was told the code is written for."""
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
     from obelize.config import ConfigError
@@ -408,6 +440,7 @@ def fix(
         say=_say,
         model=model,
         model_flagged=provider is not None or accept_model,
+        stated=stated,
     )
     if show_context:
         try:
@@ -449,6 +482,7 @@ def fix(
             outcome.locks,
             outcome.unwritten,
             outcome.pins,
+            stated=outcome.stated,
         ),
     )
     raise typer.Exit(outcome.exit_code)
@@ -1164,7 +1198,8 @@ def upgrade(
         None,
         "--from",
         metavar="<version>",
-        help="The release the code is written for. Default: the one the manifests name.",
+        help="The release the code is written for. Default: the one the manifests name. Where no "
+        "manifest declares the dependency, it is the release the run takes it to be.",
     ),
     new: str | None = typer.Option(
         None,
@@ -1317,6 +1352,7 @@ def upgrade(
         raise typer.Exit(2 if error.reason == "not_found" else 6) from error
     goal = chosen.install if chosen.remove else target
     typer.echo(f"Moving {project.name} {now} to {goal}. {chosen.note}", err=True)
+    stated = (project.name, str(now)) if old else None
     wants_branch = bool(branch or branch_name)
     if agent_name and not (apply_changes and wants_branch):
         typer.echo(
@@ -1341,11 +1377,12 @@ def upgrade(
             max_asks=max_asks,
             max_rounds=max_rounds,
             offline=_offline(offline),
+            stated=stated,
         )
         if wants_branch:
             raise typer.Exit(0)
     try:
-        fix(
+        _fix(
             pack=[chosen.reference],
             repo=repo,
             apply_changes=apply_changes,
@@ -1358,6 +1395,7 @@ def upgrade(
             accept_model=False,
             show_context=False,
             as_json=False,
+            stated=stated,
         )
     except typer.Exit as done:
         # An apply with no verification command of its own ends `6`; the trial was the verification.
@@ -1503,6 +1541,7 @@ def _trial(
     max_asks: int,
     max_rounds: int,
     offline: bool,
+    stated: tuple[str, str] | None,
 ) -> None:
     """Try the move in a copy; return if the tests agree to it, else exit with why. With a branch
     name the move is committed there, and the caller ends. Offline, uv installs from its cache."""
@@ -1560,6 +1599,7 @@ def _trial(
                 say=_say,
                 model=ModelConfig(),
                 elsewhere=tuple(sorted(elsewhere)),
+                stated=stated,
             )
         )
         stopped[:] = [report.why_blocked(one) for one in outcome.blocked]

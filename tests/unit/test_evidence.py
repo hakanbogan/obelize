@@ -236,6 +236,21 @@ def test_a_pack_is_used_with_the_block_and_the_release_its_own_scan_found(
     assert (stopped.blocked, stopped.assumed) == (stop, None)
 
 
+def test_a_pack_is_used_with_the_release_the_person_gave(scanned: runner.Scan) -> None:
+    given = run_dir.Used.of(LOADED, replace(scanned, blocked=(), stated=(("PyPDF2", "3.0.0"),)))
+    assert (given.assumed, given.stated) == (None, "3.0.0")
+    assert run_dir.Used.of(LOADED, replace(scanned, blocked=())).stated is None
+
+
+def test_a_run_records_the_release_the_person_gave_apart_from_the_one_a_pack_took(
+    scanned: runner.Scan, tree: Path
+) -> None:
+    assert [pack.stated for pack in _record(scanned, tree).packs] == [None]
+    given = _record(scanned, tree, packs=[run_dir.Used(LOADED, None, stated="1.10.26")])
+    assert [(pack.assumed, pack.stated) for pack in given.packs] == [(None, "1.10.26")]
+    assert json.loads(given.model_dump_json())["packs"][0]["stated"] == "1.10.26"
+
+
 def test_a_run_records_the_release_a_pack_took_and_null_when_it_took_none(
     scanned: runner.Scan, tree: Path
 ) -> None:

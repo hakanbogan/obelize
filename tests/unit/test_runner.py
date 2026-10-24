@@ -767,8 +767,10 @@ UNHONOURED: dict[str, tuple[dict[str, str | bytes], str, str | None]] = {
 }
 
 
-def gated(root: Path, spec: Any = PDF, config: Config | None = None) -> runner.Scan:
-    return runner.scan(root, config or Config(), spec, jobs=1)
+def gated(
+    root: Path, spec: Any = PDF, config: Config | None = None, stated: str | None = None
+) -> runner.Scan:
+    return runner.scan(root, config or Config(), spec, jobs=1, stated=stated)
 
 
 def repository(root: Path, files: Mapping[str, str | bytes], ignore: str = "") -> Path:
@@ -966,6 +968,50 @@ def test_a_library_declared_nowhere_is_still_blocked_with_nothing_assumed(tmp_pa
     scan = gated(repository(tmp_path, {}))
     assert [(row.path, row.declared, row.evidence) for row in scan.blocked] == [("", None, "")]
     assert scan.assumed == ()
+
+
+def test_a_release_the_person_gave_stands_for_a_library_no_manifest_declares(
+    tmp_path: Path,
+) -> None:
+    scan = gated(repository(tmp_path, {}), stated="3.0.0")
+    assert (scan.blocked, scan.assumed, scan.stated) == ((), (), (("PyPDF2", "3.0.0"),))
+    assert gated(repository(tmp_path / "again", {})).blocked[0].stated == ""
+
+
+def test_a_release_the_person_gave_does_not_overrule_a_declaration(tmp_path: Path) -> None:
+    """The declaration is the repository's word: below the floor it still blocks, and one that
+    names no version is taken for the pack's newest release, as it was."""
+    held = gated(
+        repository(tmp_path / "pinned", {"requirements.txt": "PyPDF2<3\n"}), stated="3.0.0"
+    )
+    assert [(row.path, row.stated) for row in held.blocked] == [("requirements.txt", "3.0.0")]
+    assert held.stated == ()
+    bare = gated(repository(tmp_path / "bare", {"requirements.txt": "PyPDF2\n"}), stated="3.0.0")
+    assert (bare.blocked, bare.assumed, bare.stated) == ((), NEWEST, ())
+
+
+@pytest.mark.parametrize("stated", ["2.9", "4.0", "3.0.0rc1"])
+def test_a_release_the_pack_does_not_cover_stands_for_nothing(tmp_path: Path, stated: str) -> None:
+    scan = gated(repository(tmp_path, {}), stated=stated)
+    assert [(row.path, row.stated) for row in scan.blocked] == [("", stated)]
+    assert scan.stated == ()
+
+
+def test_a_release_the_person_gave_is_said_only_where_it_decided_something(tmp_path: Path) -> None:
+    openai = loader.to_scan_spec(loader.load("openai/openai-0-to-1"))
+    unused = gated(repository(tmp_path / "unused", {}), openai, stated="0.28.1")
+    assert (unused.blocked, unused.stated) == ((), ())
+    python = {"pyproject.toml": '[project]\nname = "x"\nrequires-python = ">=3.7"\n'}
+    held = gated(repository(tmp_path / "python", python), stated="3.0.0")
+    assert ([row.reason for row in held.blocked], held.stated) == (["runtime_unsupported"], ())
+
+
+def test_scans_of_several_packs_keep_what_each_was_given(tmp_path: Path) -> None:
+    root = repository(tmp_path, {})
+    first, second = gated(root, stated="3.0.0"), gated(root, acme.OLD_SPEC, stated="2.1")
+    tree = runner.read(root, Config(), (PDF,))
+    assert runner.merged([first, second], tree).stated == (("PyPDF2", "3.0.0"),)
+    assert runner.merged([first, first], tree).stated == (("PyPDF2", "3.0.0"),)
 
 
 FLOORS: dict[str, dict[str, str | bytes]] = {

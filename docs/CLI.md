@@ -453,7 +453,7 @@ that suits the move.
 | Flag | Description |
 |---|---|
 | `<distribution>` | The dependency to move, as the manifests name it. Without one, the command lists the dependencies that [`outdated`](#obelize-outdated) shows (a flag, or a major release behind) and obelize can migrate, and where a person can be asked, asks which (a number or a name). Where no one can be asked it prints the list and exits `2`. |
-| `--from <version>` | The release the code is written for. Default: the one the manifests pin, else their lower bound; required when they name none. |
+| `--from <version>` | The release the code is written for. Default: the one the manifests pin, else their lower bound; required when they name none. Where no manifest declares the dependency, the plan takes it as this release and says so (`packs[].stated` in `run.json`); a manifest that declares it still decides. |
 | `--to <version>` | The release to move to. Default: the newest that is neither withdrawn nor a pre-release, or a pre-release if the library has no other. |
 | `--module <module>` | The module to compare, as for [`pack synth`](#obelize-pack-synth). |
 | `--repo <path>` | Repository root. Default: the current directory. |

@@ -786,19 +786,22 @@ def _platform() -> RunPlatform:
 
 @dataclass(frozen=True, slots=True)
 class Used:
-    """A pack a run used, the declaration that stopped it if the repository did, and the release
-    it took for a declaration that names none; or, with `listed`, the inventory of a library that
-    has no pack, which leaves no copy of one in the run folder."""
+    """A pack a run used, the declaration that stopped it if the repository did, the release it
+    took for a declaration that names none, and the one the person gave where none is declared;
+    or, with `listed`, the inventory of a library that has no pack, which leaves no copy of one in
+    the run folder."""
 
     loaded: LoadedPack | None
     blocked: Blocked | None = None
     assumed: str | None = None
     listed: ScanSpec | None = None
+    stated: str | None = None
 
     @classmethod
     def of(cls, loaded: LoadedPack, scan: Scan) -> Used:
         released = scan.assumed[0][1] if scan.assumed else None
-        return cls(loaded, scan.blocked[0] if scan.blocked else None, released)
+        given = scan.stated[0][1] if scan.stated else None
+        return cls(loaded, scan.blocked[0] if scan.blocked else None, released, stated=given)
 
     @classmethod
     def inventory(cls, spec: ScanSpec) -> Used:
@@ -821,6 +824,7 @@ class Used:
             source="bundled" if self.loaded.bundled else "file",
             blocked=None if self.blocked is None else self.blocked.reason,
             assumed=self.assumed,
+            stated=self.stated,
             plugins=tuple(
                 RunPlugin(
                     name=one.name,

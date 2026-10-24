@@ -170,6 +170,12 @@ fails before the move too and is not counted against it. A library that makes it
 imported (pydantic 2's top level, for one) cannot be judged by reading its source: the names are
 counted as ones obelize could not judge, and are neither migrated nor called removed.
 
+`--from` stands for the release in use only where no dependency file declares the library, and a dry
+run takes your word for it: only a trial installs that release and runs your tests on it. A lock
+file, an environment or another package outside the files obelize reads can hold another release.
+A dependency file that declares the library with a range reaching below the lowest release the pack
+covers (`pydantic>=1.8`) still stops the plan, though `--from` names a release inside that range.
+
 `--agent` is asked about the places a pack flags only when the first run of the rules wrote nothing,
 as it does for a library that keeps its import name. Where the rules did write some files, it sees
 only the places where tests then broke. A flagged place in a test file is asked about like any

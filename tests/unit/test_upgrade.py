@@ -87,6 +87,8 @@ def test_a_library_with_no_pack_is_planned_with_a_pack_made_from_its_two_release
     assert (home / "cache" / "obelize" / "packs").is_dir()
     assert "acme_kit.greet" in next(root.glob(".obelize/runs/*/patch.diff")).read_text()
     assert (root / "app.py").read_text() == APP
+    pack = json.loads(next(root.glob(".obelize/runs/*/run.json")).read_text())["packs"][0]
+    assert pack["stated"] is None
 
 
 def test_the_pack_made_is_kept_and_a_second_run_asks_the_index_for_no_release(
@@ -266,6 +268,37 @@ def test_a_dependency_the_manifests_do_not_name_needs_the_release_it_is_written_
     assert named.exit_code == 0, named.output
 
 
+def test_a_release_the_person_names_stands_for_a_dependency_no_manifest_declares(
+    home: Path,
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt="requests\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert "so the version in use is not known" not in result.output
+    assert "so this migration takes it as 1.0, the release --from names" in result.output
+    assert "acme_kit.greet" in next(root.glob(".obelize/runs/*/patch.diff")).read_text()
+    pack = json.loads(next(root.glob(".obelize/runs/*/run.json")).read_text())["packs"][0]
+    assert (pack["blocked"], pack["stated"], pack["assumed"]) == (None, "1.0", None)
+    said = "## Assumed\n\nNo manifest declares `acme-kit`, so this migration takes it as `1.0`"
+    assert said in next(root.glob(".obelize/runs/*/REPORT.md")).read_text()
+    assert (root / "app.py").read_text() == APP
+
+
+def test_a_manifest_that_declares_the_dependency_decides_whatever_release_the_person_names(
+    home: Path,
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt="acme-kit>=0.5\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert "requirements.txt declares acme-kit >=0.5" in result.output
+    assert (
+        "--from names 1.0, which counts only where no manifest declares acme-kit" in result.output
+    )
+    assert next(root.glob(".obelize/runs/*/patch.diff")).read_text() == ""
+    pack = json.loads(next(root.glob(".obelize/runs/*/run.json")).read_text())["packs"][0]
+    assert (pack["blocked"], pack["stated"]) == ("legacy_version_unsupported", None)
+
+
 @pytest.mark.parametrize(
     ("arguments", "code", "message"),
     [
@@ -338,6 +371,18 @@ def test_a_move_whose_tests_pass_is_tried_in_a_copy_and_then_written(trial: Path
     assert (root / "requirements.txt").read_text() != "acme-kit==1.0\n"
     folder = next((root / ".obelize" / "trials").iterdir())
     assert (folder / "trial.json").is_file()
+
+
+def test_a_release_the_person_names_is_tried_and_written_where_no_manifest_declares_the_dependency(
+    trial: Path,
+) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="pytest\n")
+    result = tried(root, "--yes", "--from", "1.0")
+    assert result.exit_code == 0, result.output
+    assert "Trial of acme-kit 1.0 to acme-kit==2.0: pass" in result.output
+    assert "acme_kit.greet(name)" in (root / "app.py").read_text()
+    pack = json.loads(next(root.glob(".obelize/runs/*/run.json")).read_text())["packs"][0]
+    assert (pack["blocked"], pack["stated"]) == (None, "1.0")
 
 
 def test_a_floor_without_a_pin_is_run_on_the_floor_before_the_move(trial: Path) -> None:
@@ -460,7 +505,7 @@ def test_a_write_that_ends_for_another_reason_keeps_its_exit_code(
     def review(**_found: object) -> None:
         raise typer.Exit(4)
 
-    monkeypatch.setattr(cli, "fix", review)
+    monkeypatch.setattr(cli, "_fix", review)
     root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
     assert tried(root, "--yes").exit_code == 4
 
@@ -858,5 +903,8 @@ def test_a_declaration_that_stops_the_rules_is_said_when_the_trial_cannot_judge(
     assert result.exit_code == 6, result.output
     assert "requirements.txt declares acme-kit <2" in result.output
     assert "allows versions this migration does not cover" in result.output
+    assert (
+        "--from names 1.0, which counts only where no manifest declares acme-kit" in result.output
+    )
     assert "test(s) passed before" not in result.output
     assert (root / "app.py").read_text() == HELLO

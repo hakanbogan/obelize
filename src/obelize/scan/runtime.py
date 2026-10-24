@@ -64,6 +64,9 @@ class Blocked:
     # The range of releases the code stands for, where `evidence` stops a declaration being taken
     # for it; the newest release is a pack's own claim and needs no saying.
     taken: str = ""
+    # The release the person gave (`upgrade --from`) where it decided nothing: a declaration
+    # overrules it, and a release the pack does not cover cannot stand for the one in use.
+    stated: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +123,7 @@ def legacy(
     used: bool,
     taken: str | None = None,
     contrary: str = "",
+    stated: str | None = None,
 ) -> Blocked | None:
     """The first legacy declaration that pins no version at or above the pack's floor, else the
     first of the new distribution that admits no release the pack writes.
@@ -127,15 +131,32 @@ def legacy(
     `used` is whether any source row is an edit candidate: a repository that never imports the
     legacy module is not blocked, by a pin below the floor or by one it does not declare. With
     `taken`, which `taken_for` chose, a declaration that stands for it passes too, unless `contrary`
-    names the path that says another release is in use, which is then the block's evidence.
+    names the path that says another release is in use, which is then the block's evidence. With
+    `stated`, the release the person gave, a distribution no manifest declares passes if the pack
+    covers that release; a declaration is judged as it is, and is not overruled by it.
     """
     if not used:
         return None
-    return _legacy(found, spec, taken, contrary) or _new(found, spec)
+    return _legacy(found, spec, taken, contrary, stated) or _new(found, spec)
+
+
+def stands(found: Sequence[Declaration], spec: ScanSpec, stated: str | None) -> bool:
+    """Whether `stated` is taken for the release in use: no manifest declares the legacy
+    distribution, and the pack, which has a floor, covers the release."""
+    return (
+        stated is not None
+        and spec.legacy_floor is not None
+        and not _declared(found, spec.legacy_distribution)
+        and SpecifierSet(spec.legacy_range).contains(stated, prereleases=True)
+    )
 
 
 def _legacy(
-    found: Sequence[Declaration], spec: ScanSpec, taken: str | None, contrary: str
+    found: Sequence[Declaration],
+    spec: ScanSpec,
+    taken: str | None,
+    contrary: str,
+    stated: str | None,
 ) -> Blocked | None:
     if spec.legacy_floor is None:
         return None
@@ -158,9 +179,17 @@ def _legacy(
                 and spec.legacy_newest is not None
                 and installs(row, spec.legacy_newest),
                 taken=spec.legacy_range if contrary and spec.legacy_newest is None else "",
+                stated=stated or "",
             )
-    if not rows:
-        return Blocked("legacy_version_unsupported", spec.legacy_distribution, "", None, needed)
+    if not rows and not stands(found, spec, stated):
+        return Blocked(
+            "legacy_version_unsupported",
+            spec.legacy_distribution,
+            "",
+            None,
+            needed,
+            stated=stated or "",
+        )
     return None
 
 
@@ -411,6 +440,7 @@ __all__ = [
     "inferred",
     "installs",
     "legacy",
+    "stands",
     "taken_for",
     "within",
 ]

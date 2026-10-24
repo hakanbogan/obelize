@@ -301,6 +301,49 @@ def test_a_model_only_the_users_file_configures_is_not_asked_when_several_packs_
     assert outcome.record.model is None
 
 
+def test_a_release_the_person_gave_reaches_only_the_pack_of_that_distribution(
+    tmp_path: Path,
+) -> None:
+    """The pack that runs second scans again after the first wrote, and is given it again."""
+    from obelize.config import load as load_config
+
+    root = committed(
+        tmp_path / "repo",
+        {"app.py": BOTH, "pdfs.py": PDFS, "requirements.txt": "google-generativeai==0.8.6\n"},
+    )
+
+    def outcome(stated: tuple[str, str] | None) -> fixer.Outcome:
+        return fixer.run(
+            fixer.Request(
+                root=root,
+                packs=tuple(loader.load(pack) for pack in (GEMINI, PYPDF)),
+                named=True,
+                config=Config(),
+                source=load_config(root).source,
+                cli_commands=(),
+                mode=Mode(),
+                config_dir=tmp_path / "config",
+                environ={},
+                argv=("fix",),
+                stated=stated,
+            )
+        )
+
+    plain = outcome(None)
+    assert [row.package for row in plain.blocked] == ["PyPDF2"]
+    assert plain.stated == ()
+    elsewhere = outcome(("gemini-thing", "3.0.0"))
+    assert [row.package for row in elsewhere.blocked] == ["PyPDF2"]
+    assert elsewhere.stated == ()
+    given = outcome(("pypdf2", "3.0.0"))
+    assert given.blocked == ()
+    assert given.stated == (("PyPDF2", "3.0.0"),)
+    assert [(pack.id, pack.stated) for pack in given.record.packs] == [
+        (GEMINI, None),
+        (PYPDF, "3.0.0"),
+    ]
+
+
 def test_a_pack_in_a_user_directory_is_chosen_like_a_bundled_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

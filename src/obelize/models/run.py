@@ -162,6 +162,9 @@ class RunPack(_Frozen):
     blocked: BlockedReason | None = None
     # The release taken where a declaration names none that rules the pack's newest one out.
     assumed: str | None = None
+    # The release `upgrade --from` gave, taken for the one in use where no manifest declares the
+    # distribution.
+    stated: str | None = None
     # The plugins the pack required, which were loaded in this process.
     plugins: tuple[RunPlugin, ...] = ()
 

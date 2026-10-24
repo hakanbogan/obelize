@@ -643,6 +643,31 @@ def test_names_moved_up_out_of_a_submodule_and_renamed_ones_are_made_into_a_pack
     }
 
 
+def test_names_moved_up_out_of_two_submodules_are_shown_by_the_fixture_of_one(
+    tmp_path: Path,
+) -> None:
+    # An import of each binds the package twice, and the rules leave the names of that file alone.
+    two = old_surface(
+        sub=Obj("", "module"),
+        sub__Thing=Obj("", "class", None, bases=("Exception",)),
+        other=Obj("", "module"),
+        other__Gadget=Obj("", "class", None, bases=("Exception",)),
+    )
+    made = synth.make(
+        tmp_path,
+        REQUEST,
+        two,
+        [
+            ApiChange("moved", "sub.Thing", "Thing", same_signature=True),
+            ApiChange("moved", "other.Gadget", "Gadget", same_signature=True),
+        ],
+    )
+    assert made.covered["move-up"] == 2
+    shown = (made.folder / "fixtures" / "positive" / "moved_up.before.py").read_text()
+    assert "import acme_kit.other\n" in shown
+    assert "Thing" not in shown
+
+
 def test_a_name_flagged_twice_for_one_reason_says_it_once() -> None:
     made = plan(
         ApiChange("param_removed", "kw", param="opt"), ApiChange("param_removed", "kw", param="opt")

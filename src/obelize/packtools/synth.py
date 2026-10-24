@@ -708,9 +708,14 @@ class _Plan:
             ("exports", self.exports),
         ):
             if table:
+                names = sorted(table)
+                if label == "exports":
+                    # An import of each of two submodules binds the package twice, and the rules
+                    # leave such a file alone: the fixture shows the names of one.
+                    names = [path for path in names if self._home(path) == self._home(names[0])]
                 uses = [
                     self._use(path, label != "references", n)
-                    for n, path in enumerate(sorted(table)[:FIXTURE_NAMES])
+                    for n, path in enumerate(names[:FIXTURE_NAMES])
                 ]
                 found[f"fixtures/positive/{_FIXTURES[label]}"] = _program(_DOCS[label], uses)
         if self.members:

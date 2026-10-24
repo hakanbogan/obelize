@@ -114,6 +114,9 @@ class Scan:
     # the pack's newest, for a declaration that names no version that rules it out, or, as the
     # range `from.version` states, where the code uses a name only those releases define.
     assumed: tuple[tuple[str, str], ...] = ()
+    # (distribution, release) the person gave (`upgrade --from`) where no manifest declares the
+    # distribution, taken as the release in use.
+    stated: tuple[tuple[str, str], ...] = ()
     # The manifests that only an `-r` or `-c` line names, and how: read, never written.
     followed: tuple[tuple[str, Followed], ...] = ()
 
@@ -177,6 +180,7 @@ def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
         modern=any(scan.modern for scan in scans),
         unwritten=tuple(sorted({row for scan in scans for row in scan.unwritten})),
         assumed=tuple(sorted({row for scan in scans for row in scan.assumed})),
+        stated=tuple(sorted({row for scan in scans for row in scan.stated})),
         followed=first.followed,
     )
 
@@ -353,12 +357,14 @@ def scan(
     spec: ScanSpec,
     jobs: int | None = None,
     tree: Tree | None = None,
+    stated: str | None = None,
 ) -> Scan:
     """Select, read, resolve, grade, then run the passes that need every file's plan.
 
     `jobs`: `1` is in-process, a typed number is taken as typed, and only the default (`None`)
     stays in-process below `POOL_THRESHOLD`. `tree` is a repository already read, so several packs
-    share one read.
+    share one read. `stated` is the release the person gave for the legacy distribution, which
+    stands for the one in use only where no manifest declares it.
     """
     tree = tree or read(root, config, (spec,))
     selection = tree.walk
@@ -450,7 +456,7 @@ def scan(
     taken = (
         runtime.taken_for(declared, findings, spec) if used and selection.source == "git" else None
     )
-    blocked = floor.blocked or runtime.legacy(declared, spec, used, taken)
+    blocked = floor.blocked or runtime.legacy(declared, spec, used, taken, stated=stated)
     assumed: tuple[tuple[str, str], ...] = ()
     if taken and blocked is None:
         because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
@@ -458,6 +464,11 @@ def scan(
         assumed = () if because else ((spec.legacy_distribution, taken),)
         if not because:
             limitations.extend(installed.unsearched(tree.root, selection, spec))
+    took = (
+        ((spec.legacy_distribution, stated),)
+        if stated and used and blocked is None and runtime.stands(declared, spec, stated)
+        else ()
+    )
     return Scan(
         source=selection.source,
         results=files,
@@ -474,6 +485,7 @@ def scan(
         modern=modern,
         unwritten=unwritten,
         assumed=assumed,
+        stated=took,
         followed=selection.followed,
     )
 

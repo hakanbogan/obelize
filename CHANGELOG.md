@@ -66,6 +66,19 @@ given for a `rewrite_pattern` that cannot name a module it imports.
 - `obelize pack validate` prints a side that is the Python as `Python >=3.12`.
 - The step `fix --apply` suggests after a run that nothing verified no longer says to install what
   the run wrote into the manifest when every pack of the run is one that moves no dependency line.
+- `obelize upgrade --from <release>` takes that release for the one in use where no manifest
+  declares the dependency, so a repository that never names the library is planned instead of
+  stopped with "No manifest declares". A declaration still decides: `pydantic>=1.8` stops the plan
+  as before, and the message says that `--from` was not used. The run says what it took in the
+  summary and in `REPORT.md`, and `run.json` gains `packs[].stated` (`run.schema.json` follows). A
+  `fix`, a `scan` and an `upgrade` without `--from` are stopped as they were.
+
+### Fixed
+
+- `obelize pack synth sqlalchemy --from 1.4.54 --to 2.0.55` made no pack and exited `1`. Two names
+  had moved up out of two submodules, and the fixture that shows the move imported both, which the
+  rules leave alone because the package is then bound twice. The fixture now shows the names of
+  one submodule, and SQLAlchemy 1.4 to 2.0 and to 2.1 make a pack that passes `pack test`.
 
 ## [0.8.0] - 2026-10-21
 

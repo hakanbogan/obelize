@@ -563,6 +563,37 @@ def test_a_legacy_distribution_declared_nowhere_blocks_only_where_the_code_uses_
     )
 
 
+def test_a_release_the_person_gave_stands_for_a_distribution_no_manifest_declares() -> None:
+    assert runtime.legacy([], OLD, used=True, stated="2.4.1") is None
+    assert runtime.stands([], OLD, "2.4.1") is True
+    other = [replace(row, name="acme-new") for row in _pins(("requirements.txt", None))]
+    assert runtime.stands(other, OLD, "2.0") is True
+
+
+@pytest.mark.parametrize("stated", [None, "1.9", "3.0", "2.0rc1"])
+def test_a_release_the_pack_does_not_cover_stands_for_nothing(stated: str | None) -> None:
+    assert runtime.stands([], OLD, stated) is False
+    assert runtime.legacy([], OLD, used=True, stated=stated) == runtime.Blocked(
+        "legacy_version_unsupported", "acme-old", "", None, ">=2", stated=stated or ""
+    )
+
+
+@pytest.mark.parametrize("pinned", ["", "<3", "==1.9", None])
+def test_a_declaration_is_judged_as_it_is_whatever_release_the_person_gave(
+    pinned: str | None,
+) -> None:
+    rows = _pins(("requirements.txt", pinned))
+    assert runtime.stands(rows, OLD, "2.4.1") is False
+    plain = runtime.legacy(rows, OLD, used=True)
+    assert plain is not None
+    assert runtime.legacy(rows, OLD, used=True, stated="2.4.1") == replace(plain, stated="2.4.1")
+
+
+def test_a_release_the_person_gave_is_nothing_to_a_pack_with_no_floor() -> None:
+    open_range = OLD.model_copy(update={"legacy_floor": None})
+    assert runtime.stands([], open_range, "2.4.1") is False
+
+
 def test_a_pack_with_an_open_range_has_no_floor_to_hold_a_pin_to() -> None:
     open_range = OLD.model_copy(update={"legacy_floor": None})
     assert runtime.legacy(_pins(("requirements.txt", None)), open_range, used=True) is None

@@ -30,6 +30,13 @@ line between them, at most six, since a library warns before it removes) and wri
 [`pack synth`](CLI.md#obelize-pack-synth) does. Then it plans the migration like `fix` and prints
 the diff. No file of your code is written; its run folder goes under `.obelize/`.
 
+`--from` names the release your code is written for. Where no dependency file declares the library,
+the plan takes it as that release, says so in its summary and in `REPORT.md`, and records it as
+`stated` in `run.json`. Where a dependency file does declare the library, the declaration decides, as
+it does for every migration: `pydantic>=1.8` stops the plan until it is pinned at or above the
+lowest release the pack covers, and the message says that `--from` was not used. A dry run takes
+your word for the release; `--apply` installs it in the trial, so your tests are what check it.
+
 What the made pack does is deliberately small:
 
 - A module-level name that the library's own deprecation message says to replace, with one name
