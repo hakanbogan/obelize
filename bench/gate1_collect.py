@@ -86,14 +86,14 @@ def _gh(*arguments: str) -> Any:
     return json.loads(completed.stdout)
 
 
-def _band_total(band: str, term: str) -> int:
+def band_total(band: str, term: str) -> int:
     payload = _gh(
         "-X", "GET", "search/code", "-f", f"q={term} language:python {band}", "-F", "per_page=1"
     )
     return int(payload["total_count"])
 
 
-def _band_hits(band: str, term: str) -> list[dict[str, Any]]:
+def band_hits(band: str, term: str) -> list[dict[str, Any]]:
     seen: dict[str, dict[str, Any]] = {}
     for page in range(1, PAGES + 1):
         payload = _gh(
@@ -124,7 +124,7 @@ def _band_hits(band: str, term: str) -> list[dict[str, Any]]:
     return list(seen.values())
 
 
-def _systematic(rows: list[dict[str, Any]], wanted: int) -> list[dict[str, Any]]:
+def systematic(rows: list[dict[str, Any]], wanted: int) -> list[dict[str, Any]]:
     """Every k-th row across the band's depth, not its relevance-biased top; no top-up if short."""
     if wanted <= 0 or not rows:
         return []
@@ -132,7 +132,7 @@ def _systematic(rows: list[dict[str, Any]], wanted: int) -> list[dict[str, Any]]
     return [rows[index] for index in range(0, len(rows), step)][:wanted]
 
 
-def _metadata(full_name: str) -> dict[str, Any]:
+def metadata(full_name: str) -> dict[str, Any]:
     repository = _gh(f"repos/{full_name}")
     licence = repository.get("license") or {}
     branch = repository["default_branch"]
@@ -163,7 +163,7 @@ def _frame(pack: str) -> Path:
 def sample(total: int, pack: str, term: str) -> None:
     totals = {}
     for band in BANDS:
-        totals[band] = _band_total(band, term)
+        totals[band] = band_total(band, term)
         time.sleep(SEARCH_DELAY_S)
     population = sum(totals.values())
     # The rounding remainder goes to the largest band so the allocation sums to `total`.
@@ -176,10 +176,10 @@ def sample(total: int, pack: str, term: str) -> None:
     rejected: list[dict[str, Any]] = []
     drawn: dict[str, int] = {}
     for band in BANDS:
-        hits = _band_hits(band, term)
+        hits = band_hits(band, term)
         drawn[band] = len(hits)
         kept = 0
-        for row in _systematic(hits, allocation[band] * 3):
+        for row in systematic(hits, allocation[band] * 3):
             if kept >= allocation[band]:
                 break
             reason = None
@@ -194,7 +194,7 @@ def sample(total: int, pack: str, term: str) -> None:
             if reason is not None:
                 rejected.append({"full_name": row["full_name"], "reason": reason})
                 continue
-            meta = _metadata(row["full_name"])
+            meta = metadata(row["full_name"])
             if meta["size_kb"] > SIZE_CAP_KB:
                 rejected.append(
                     {"full_name": row["full_name"], "reason": f"larger than {SIZE_CAP_KB} KB"}
@@ -333,15 +333,18 @@ RECORDED = (
 )
 
 
-def _each(
+def each(
     entries: list[dict[str, Any]],
     measure: Callable[[dict[str, Any], Path], None],
     describe: Callable[[dict[str, Any]], str],
+    work: Path = WORK,
 ) -> list[dict[str, Any]]:
-    """Fetch each repository at its pinned commit, `measure` it into its record, and delete it."""
+    """Fetch each repository at its pinned commit into `work`, `measure` it into its record, and
+    delete it.
+    """
     records = []
     for index, entry in enumerate(entries, start=1):
-        checkout = WORK / entry["full_name"].replace("/", "__")
+        checkout = work / entry["full_name"].replace("/", "__")
         shutil.rmtree(checkout, ignore_errors=True)
         record: dict[str, Any] = {
             "full_name": entry["full_name"],
@@ -381,7 +384,7 @@ def scan(only: str | None) -> None:
             for finding in findings["findings"]
         ]
 
-    records = _each(entries, measure, lambda record: f"{record['counts']['findings']} finding(s)")
+    records = each(entries, measure, lambda record: f"{record['counts']['findings']} finding(s)")
     out = RESULTS / "scan.json"
     out.write_text(
         json.dumps({**provenance(), "scanned": records}, indent=2, sort_keys=False) + "\n",
@@ -420,7 +423,7 @@ def dryrun(pack: str) -> None:
             for row in run["withheld"]
         ]
 
-    records = _each(
+    records = each(
         document["repositories"],
         measure,
         lambda record: f"{record['files']} file(s), {len(record['withheld'])} withheld",
