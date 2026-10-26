@@ -547,44 +547,59 @@ def calls_of(made: synth._Plan) -> dict[str, dict[str, object]]:
     }
 
 
+def change(kind: str, path: str, param: str | None = None, **fields: str) -> ApiChange:
+    return ApiChange(kind, path, param=param, **fields)  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize(
     ("changes", "shape"),
     [
-        ([("param_removed", "f", "b", "")], CallShape(keywords=("b",), positional_from=1)),
-        ([("param_removed", "f", "d", "")], CallShape(keywords=("d",))),
-        ([("param_removed", "g", "a", "")], CallShape(positional_from=0)),
-        ([("param_renamed", "f", "b", "")], CallShape(keywords=("b",))),
+        ([change("param_removed", "f", "b")], CallShape(keywords=("b",), positional_from=1)),
+        ([change("param_removed", "f", "d")], CallShape(keywords=("d",))),
+        ([change("param_removed", "g", "a")], CallShape(positional_from=0)),
+        ([change("param_renamed", "f", "b")], CallShape(keywords=("b",))),
         (
-            [("param_kind_changed", "f", "c", "positional or keyword -> keyword-only")],
+            [
+                change(
+                    "param_kind_changed", "f", "c", detail="positional or keyword -> keyword-only"
+                )
+            ],
             CallShape(positional_from=2),
         ),
         (
-            [("param_kind_changed", "f", "b", "positional or keyword -> positional-only")],
+            [change("param_kind_changed", "f", "b", detail="x -> positional-only")],
             CallShape(keywords=("b",)),
         ),
-        ([("default_changed", "f", "c", "1 -> 2")], CallShape(omits={"c": 2})),
-        ([("default_changed", "f", "e", "2 -> required")], CallShape(omits={"e": None})),
-        ([("param_required_added", "f", "z", "")], CallShape(omits={"z": None})),
-        ([("param_removed", "Box", "fill", "")], CallShape(keywords=("fill",), positional_from=1)),
+        ([change("default_changed", "f", "c", detail="1 -> 2")], CallShape(omits={"c": 2})),
+        (
+            [change("default_changed", "f", "e", detail="2 -> required")],
+            CallShape(omits={"e": None}),
+        ),
+        ([change("param_required_added", "f", "z")], CallShape(omits={"z": None})),
+        (
+            [change("param_removed", "Box", "fill")],
+            CallShape(keywords=("fill",), positional_from=1),
+        ),
         (
             [
-                ("default_changed", "f", "c", "1 -> 2"),
-                ("param_removed", "f", "b", ""),
-                ("param_removed", "f", "d", ""),
-                ("param_required_added", "f", "z", ""),
+                change("default_changed", "f", "c", detail="1 -> 2"),
+                change("param_removed", "f", "b"),
+                change("param_removed", "f", "d"),
+                change("param_required_added", "f", "z"),
             ],
             CallShape(keywords=("b", "d"), positional_from=1, omits={"c": 2, "z": None}),
         ),
+        ([change("bases_changed", "Box", detail="Base")], CallShape(bases=True)),
+        (
+            [change("param_removed", "Box", "fill"), change("bases_changed", "Box", detail="Base")],
+            CallShape(keywords=("fill",), positional_from=1, bases=True),
+        ),
     ],
 )
-def test_a_parameter_change_is_flagged_for_the_calls_it_can_break(
-    changes: list[tuple[str, str, str, str]], shape: CallShape
+def test_a_parameter_or_base_change_is_flagged_for_the_calls_and_the_code_it_can_break(
+    changes: list[ApiChange], shape: CallShape
 ) -> None:
-    made = plan(
-        *(ApiChange(kind, path, param=name, detail=detail) for kind, path, name, detail in changes),  # type: ignore[arg-type]
-        old=CALLS,
-    )
-    (flag,) = made.flags.values()
+    (flag,) = plan(*changes, old=CALLS).flags.values()
     assert flag.shape == shape
 
 
@@ -592,28 +607,24 @@ def test_a_parameter_change_is_flagged_for_the_calls_it_can_break(
     "changes",
     [
         [
-            ApiChange(
+            change(
                 "param_kind_changed",
                 "f",
-                param="b",
+                "b",
                 detail="positional or keyword -> variadic positional",
             )
         ],
+        [change("param_removed", "f", "b"), change("deprecated", "f", message="f is going")],
         [
-            ApiChange("param_removed", "f", param="b"),
-            ApiChange("deprecated", "f", message="f is going"),
+            change("bases_changed", "Box", detail="Base"),
+            change("kind_changed", "Box", detail="a -> b"),
         ],
-        [
-            ApiChange("param_removed", "Box", param="fill"),
-            ApiChange("bases_changed", "Box", detail="Base"),
-        ],
-        [
-            ApiChange("param_removed", "f", param="b"),
-            ApiChange("kind_changed", "f", detail="a -> b"),
-        ],
-        [ApiChange("param_removed", "Box.grow", param="by")],
-        [ApiChange("param_removed", "f", param="é")],
-        [ApiChange("param_removed", "unknown", param="b")],
+        [change("bases_changed", "Box", detail="Base"), change("removed", "Box")],
+        [change("param_removed", "f", "b"), change("kind_changed", "f", detail="a -> b")],
+        [change("param_removed", "Box.grow", "by")],
+        [change("bases_changed", "Box.grow", detail="Base")],
+        [change("param_removed", "f", "é")],
+        [change("param_removed", "unknown", "b")],
     ],
 )
 def test_a_name_with_a_change_no_call_shows_or_a_method_is_flagged_wherever_it_is_used(
@@ -622,6 +633,67 @@ def test_a_name_with_a_change_no_call_shows_or_a_method_is_flagged_wherever_it_i
     made = plan(*changes, old=CALLS)
     assert [one.shape for one in made.flags.values()] == [None]
     assert "calls" not in yaml.safe_load(made._pack())["changes"][0]["params"]
+
+
+def warned(message: str, *others: ApiChange, path: str = "f") -> synth._Flag:
+    (flag,) = plan(*others, change("deprecated", path, message=message), old=CALLS).flags.values()
+    return flag
+
+
+C = change("default_changed", "f", "c", detail="1 -> 2")
+E = change("default_changed", "f", "e", detail="2 -> 3")
+
+
+@pytest.mark.parametrize(
+    ("message", "others", "shape"),
+    [
+        (
+            "The default of c is deprecated",
+            [C],
+            CallShape(keywords=("c",), positional_from=2, omits={"c": 2}),
+        ),
+        ("e=2 is deprecated", [E], CallShape(keywords=("e",), omits={"e": None})),
+        (
+            "c and e are deprecated, as is e",
+            [C, E],
+            CallShape(keywords=("c", "e"), positional_from=2, omits={"c": 2, "e": None}),
+        ),
+        (
+            "The 'b' keyword is deprecated",
+            [change("param_removed", "f", "b")],
+            CallShape(keywords=("b",), positional_from=1),
+        ),
+    ],
+)
+def test_a_deprecation_that_names_a_changed_parameter_is_about_the_calls_that_pass_it(
+    message: str, others: list[ApiChange], shape: CallShape
+) -> None:
+    flag = warned(message, *others)
+    assert flag.shape == shape
+    assert f"Deprecated in acme-kit 2.0. The library said: {message}" in flag.message
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "f is deprecated",
+        "",
+        "The copying of the frame is deprecated",
+        "Passing bb is deprecated",
+        "The 'a' keyword is deprecated",
+    ],
+)
+def test_a_deprecation_that_names_no_changed_parameter_is_about_the_whole_name(
+    message: str,
+) -> None:
+    """A word inside another word, or a parameter the diff reports no change of, is not named."""
+    assert warned(message, change("param_removed", "f", "b")).shape is None
+    assert warned(message, change("param_removed", "f", "copy")).shape is None
+
+
+def test_a_deprecation_of_a_method_is_about_the_whole_name_whatever_it_names() -> None:
+    flag = warned("by is deprecated", change("param_removed", "Box.grow", "by"), path="Box.grow")
+    assert flag.shape is None
 
 
 def test_the_pack_carries_the_shape_of_each_name_flagged_for_some_calls() -> None:
@@ -671,6 +743,15 @@ def test_a_call_is_written_for_the_shape_of_a_flag_or_against_it() -> None:
         == "0, 0, d=0, c=0, e=0"
     )
     assert synth._args(f, CallShape(omits={"c": 2})) == "0, 0, d=0"
+
+
+def test_a_class_whose_bases_alone_changed_is_read_to_be_derived_and_called_unflagged() -> None:
+    made = plan(change("bases_changed", "Box", detail="Base"), old=CALLS)
+    assert calls_of(made) == {"acme_kit.Box": {"bases": True}}
+    fixtures = made.fixtures()
+    assert "handler_0 = acme_kit.Box" in fixtures["fixtures/positive/flagged.before.py"]
+    assert "acme_kit.Box(0)" in fixtures["fixtures/negative/already_new.py"]
+    assert synth._args(CALLS.relative()["Box"], CallShape(bases=True), matching=False) == "0"
 
 
 def test_a_fixture_calls_each_shaped_name_with_what_changed_and_without_it() -> None:

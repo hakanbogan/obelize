@@ -2,8 +2,13 @@
   "$defs": {
     "CallShape": {
       "additionalProperties": false,
-      "description": "The calls of a flagged symbol that the flag is about; any other call is the API as it was.\n\nA call is one if it passes a keyword of `keywords`, has more positional arguments than\n`positional_from`, leaves out a name of `omits` (given by keyword, or by position at its index;\nnull for a name only a keyword can give), or has a `*` or `**` argument, which can pass\nanything.",
+      "description": "The calls of a flagged symbol that the flag is about; any other call is the API as it was.\n\nA call is one if it passes a keyword of `keywords`, has more positional arguments than\n`positional_from`, leaves out a name of `omits` (given by keyword, or by position at its index;\nnull for a name only a keyword can give), or has a `*` or `**` argument, which can pass any of\nthem. `bases` says the class's bases changed, which no call passes: only code that derives from\nit, or uses it other than as a call, an import, an annotation or an argument, is affected.",
       "properties": {
+        "bases": {
+          "default": false,
+          "title": "Bases",
+          "type": "boolean"
+        },
         "keywords": {
           "default": [],
           "items": {

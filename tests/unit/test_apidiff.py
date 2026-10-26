@@ -539,6 +539,33 @@ def test_a_default_that_became_not_given_is_not_reported() -> None:
     assert changes({"f": old}, {"f": new}) == [("default_changed", "f", "d", "")]
 
 
+def test_the_names_pandas_gives_a_default_that_is_not_given_are_not_a_default_that_changed() -> (
+    None
+):
+    """pandas 2.3.3 to 3.1.0: `concat(..., sort=False, copy=None)` takes `lib.no_default` for both,
+    and `Index.take(indices, axis=0, allow_fill=True, fill_value=None)` takes `no_default` for the
+    last two. urllib3 1.26.20 to 2.8.0 made `Retry(allowed_methods=_Default)` a real list, which is
+    a change."""
+    keyword = "keyword-only"
+    old = {
+        "concat": fn(opt("sort", "False", keyword), opt("copy", "None", keyword)),
+        "Index.take": fn(opt("axis", "0"), opt("allow_fill", "True"), opt("fill_value", "None")),
+        "read": fn(opt("x", "None")),
+        "Retry": fn(opt("allowed_methods", "_Default")),
+    }
+    new = {
+        "concat": fn(
+            opt("sort", "lib.no_default", keyword), opt("copy", "lib.no_default", keyword)
+        ),
+        "Index.take": fn(
+            opt("axis", "0"), opt("allow_fill", "no_default"), opt("fill_value", "no_default")
+        ),
+        "read": fn(opt("x", "NoDefault.no_default")),
+        "Retry": fn(opt("allowed_methods", "DEFAULT_ALLOWED_METHODS")),
+    }
+    assert changes(old, new) == [("default_changed", "Retry", "allowed_methods", "")]
+
+
 def test_a_value_that_changed_is_not_an_api_change() -> None:
     assert (
         changes({"X": Obj("", "attribute", value="1")}, {"X": Obj("", "attribute", value="2")})

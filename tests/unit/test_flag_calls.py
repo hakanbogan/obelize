@@ -2,7 +2,8 @@
 
 The pack is `tests/packs/generic/acme/calls-1-to-2`. `connect` lost `timeout` (its third positional
 argument) and took `retries` and `secure` by keyword with new defaults, `Session` lost `verbose`,
-and `drop` is gone, which has no entry in `calls` and is flagged wherever it is used.
+`Handle` has other bases, and `drop` is gone, which has no entry in `calls` and is flagged wherever
+it is used.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ PACK = Path(__file__).resolve().parents[1] / "packs" / "generic" / "acme" / "cal
 LOADED = loader.load(str(PACK / "pack.yaml"))
 SPEC = loader.to_scan_spec(LOADED)
 OWN = SPEC.model_copy(update={"shared": False})
-HEAD = "import acme.calls\nfrom acme.calls import Session, connect, drop\n\n\n"
+HEAD = "import acme.calls\nfrom acme.calls import Handle, Session, connect, drop\n\n\n"
 Row = tuple[int, str, str, str | None, str | None]
 
 
@@ -35,8 +36,14 @@ def found(source: str, spec: ScanSpec = SPEC) -> list[Row]:
 
 
 def test_the_projection_keeps_every_flagged_symbol_and_the_shapes_of_some() -> None:
-    assert SPEC.flag_only_symbols == ("acme.calls.Session", "acme.calls.connect", "acme.calls.drop")
+    assert SPEC.flag_only_symbols == (
+        "acme.calls.Handle",
+        "acme.calls.Session",
+        "acme.calls.connect",
+        "acme.calls.drop",
+    )
     assert SPEC.flag_only_calls == {
+        "acme.calls.Handle": CallShape(bases=True),
         "acme.calls.Session": CallShape(keywords=("verbose",)),
         "acme.calls.connect": CallShape(
             keywords=("timeout",), positional_from=2, omits={"retries": 3, "secure": 4}
@@ -143,6 +150,29 @@ def test_a_name_only_a_keyword_can_give_is_left_out_by_any_number_of_positional_
         "def run(host):\n    connect(host, 1, 2, 3, 4)\n    connect(host, strict=1)\n", strict
     )
     assert [(row[0], row[4]) for row in rows] == [(2, "omitted strict")]
+
+
+@pytest.mark.parametrize(
+    "call", ["Handle()", "Handle(host, 1, key=2)", "Handle(*rest)", "acme.calls.Handle(**rest)"]
+)
+def test_a_class_whose_bases_changed_is_no_finding_at_any_call(call: str) -> None:
+    assert found(f"def run(host, rest):\n    return {call}\n") == []
+
+
+def test_it_is_a_finding_where_code_derives_from_it_and_where_it_is_read_any_other_way() -> None:
+    source = "class Lease(Handle):\n    pass\n\n\nkeep = acme.calls.Handle\nready = [Handle]\n"
+    rows = found(source)
+    assert [(row[0], row[2], row[3], row[4]) for row in rows] == [
+        (1, "acme.calls.Handle", "flag_only_surface", None),
+        (5, "acme.calls.Handle", "flag_only_surface", None),
+        (6, "acme.calls.Handle", "flag_only_surface", None),
+    ]
+
+
+def test_it_is_no_finding_imported_annotated_or_handed_and_graded_apart_when_not_shared() -> None:
+    assert found("def run(a: Handle, b):\n    return isinstance(b, Handle), map(Handle, b)\n") == []
+    own = acme.scan(HEAD + "def run(host):\n    return Handle(host)\n", OWN)
+    assert {row.scan_status for row in own.findings} == {"eligible"}
 
 
 def test_a_shape_does_not_hold_under_a_name_flagged_whole() -> None:

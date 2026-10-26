@@ -8,7 +8,7 @@ from typing import Annotated
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
-from pydantic import Field, StrictInt, field_validator, model_validator
+from pydantic import Field, StrictBool, StrictInt, field_validator, model_validator
 
 from obelize.models.fields import (
     _DISTRIBUTION_NAME,
@@ -396,18 +396,28 @@ class CallShape(_Frozen):
 
     A call is one if it passes a keyword of `keywords`, has more positional arguments than
     `positional_from`, leaves out a name of `omits` (given by keyword, or by position at its index;
-    null for a name only a keyword can give), or has a `*` or `**` argument, which can pass
-    anything.
+    null for a name only a keyword can give), or has a `*` or `**` argument, which can pass any of
+    them. `bases` says the class's bases changed, which no call passes: only code that derives from
+    it, or uses it other than as a call, an import, an annotation or an argument, is affected.
     """
 
     keywords: tuple[PlainName, ...] = ()
     positional_from: StrictInt | None = Field(default=None, ge=0)
     omits: dict[PlainName, Annotated[StrictInt, Field(ge=0)] | None] = Field(default_factory=dict)
+    bases: StrictBool = False
+
+    @property
+    def about_calls(self) -> bool:
+        """Whether some call can be one the shape is about."""
+        return bool(self.keywords or self.omits or self.positional_from is not None)
 
     @model_validator(mode="after")
     def _check(self) -> CallShape:
-        if not (self.keywords or self.omits or self.positional_from is not None):
-            raise ValueError("a call shape names a keyword, a position or a name a call must pass")
+        if not (self.about_calls or self.bases):
+            raise ValueError(
+                "a call shape names a keyword, a position, a name a call must pass or the bases "
+                "of a class"
+            )
         sorted_unique(self.keywords, "keywords")
         sorted_unique(tuple(self.omits), "omits")
         return self

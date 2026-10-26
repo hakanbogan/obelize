@@ -36,9 +36,11 @@ ChangeType = Literal[
 
 _VARIADIC: Final = ("variadic positional", "variadic keyword")
 _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-# A name that stands for "not given": private, or one that says so (`_Unset`, `PydanticUndefined`).
+# A name that stands for "not given": private, or one that says so (`_Unset`, `PydanticUndefined`,
+# `lib.no_default`).
 _SENTINEL: Final = re.compile(
-    r"(?:\w+\.)*(?:_\w+|\w*(?:undefined|unset|missing|sentinel|notset|notgiven)\w*)", re.I
+    r"(?:\w+\.)*(?:_\w+|\w*(?:undefined|unset|missing|sentinel|notset|notgiven|no_?default)\w*)",
+    re.I,
 )
 # A message that tells the reader what replaces a name, as opposed to one that only warns.
 _REPLACEMENT: Final = re.compile(r"\b(use|replaced|renamed|instead|favou?r|supersed\w*)\b", re.I)

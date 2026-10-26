@@ -751,7 +751,9 @@ def test_the_scan_spec_refuses_a_shape_for_a_symbol_it_does_not_flag_or_out_of_o
 @pytest.mark.parametrize(
     ("shape", "message"),
     [
-        ({}, "names a keyword, a position or a name"),
+        ({}, "names a keyword, a position, a name a call must pass or the bases"),
+        ({"bases": False}, "names a keyword, a position, a name a call must pass or the bases"),
+        ({"bases": "yes"}, "valid boolean"),
         ({"keywords": ("b", "a")}, "sorted and de-duplicated"),
         ({"keywords": ("a", "a")}, "sorted and de-duplicated"),
         ({"keywords": ("not a name",)}, "single Python identifier"),
@@ -770,6 +772,19 @@ def test_a_call_shape_is_a_closed_sorted_record_that_names_something(
 ) -> None:
     with pytest.raises(ValidationError, match=message):
         CallShape(**shape)
+
+
+def test_a_call_shape_of_the_bases_alone_is_about_no_call() -> None:
+    alone = CallShape(bases=True)
+    assert (alone.about_calls, alone.keywords, alone.positional_from, alone.omits) == (
+        False,
+        (),
+        None,
+        {},
+    )
+    assert CallShape(bases=True, keywords=("old",)).about_calls
+    assert CallShape(positional_from=0).about_calls
+    assert CallShape(omits={"x": None}).about_calls
 
 
 def test_two_entries_for_one_receiver_is_a_projection_bug() -> None:

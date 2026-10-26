@@ -1259,6 +1259,8 @@ def _root(module: cst.Module, node: cst.CSTNode) -> str:
 
 def _passes(shape: CallShape, call: cst.Call) -> str | None:
     """What in a call the shape is about (`CallMatch`), or `None` where it is the API as it was."""
+    if not shape.about_calls:
+        return None
     if any(argument.star for argument in call.args):
         return "spread"
     named = {argument.keyword.value for argument in call.args if argument.keyword is not None}

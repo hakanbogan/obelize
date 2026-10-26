@@ -18,10 +18,11 @@ affected. A pack can now say which calls a flag is about, and the synthesis says
 ### D1. A shape per symbol, in `flag_only.params.calls`
 
 `calls` maps a symbol of `symbols` to a shape: `keywords` (a call that passes one as a keyword),
-`positional_from` (a call with more positional arguments than the index), and `omits` (names a call
+`positional_from` (a call with more positional arguments than the index), `omits` (names a call
 must give, each by keyword or by the position its index says, `null` for a name only a keyword can
-give). A call with a `*` or `**` argument matches any shape, since it can pass anything. A shape
-names at least one of the three, sorted. It is data and closed: no pattern, no expression. A new kind
+give) and `bases` (the class's bases changed, which no call passes). A call with a `*` or `**`
+argument matches any shape that names a keyword, a position or a name, since it can pass any of them.
+A shape names at least one of the four, sorted. It is data and closed: no pattern, no expression. A new kind
 of change would have put one surface in two changes, which a pack may not do, and a field of
 `ScanSpec` alone would have had no pack to write it.
 
@@ -47,6 +48,11 @@ The shape decides for the symbol it is written for, when the pack flags no name 
   `super()`), a name assigned to another, a decorator, a default value, a name in a list, a name
   inside the symbol (`Column.something`), an import inside a function, a `mock.patch` target. When in
   doubt the use stays flagged.
+- A class whose bases changed is no finding at any call, a `*` or `**` one included: construction is
+  what it was, and a use by name cannot see what the class derives from. What a changed base breaks
+  is code that derives from the class (`class X(Column)`, which reaches the class through
+  `super()`), so that stays a finding, with every other use this list keeps. A class with a shape of
+  parameters as well is judged at its calls by the shape.
 - A method read off a receiver the scan types (`rename_member`'s reading) is flagged as before.
   Its call would have to be handed to the rule, and the synthesis writes no shape for a method (D3).
 
@@ -63,19 +69,37 @@ where the old release has the parameter, and the parts of a path are joined:
 | kind changed to positional-only | its keyword |
 | default changed, or became required | `omits`: its name, by its index if a call can give it by position |
 | required parameter added | `omits`: its name, by keyword only |
+| bases changed | `bases` |
+| deprecated, its message naming a parameter of the path that changed | the part of removing that parameter, so a call that passes it is one |
 
 A required parameter that is new is `omits` by keyword only: one inserted before others moves what a
 positional argument means, and a call that gives it by position cannot be told from a call that
-shifted. A path that has any other change (removed, moved, deprecated, bases, kind), a kind change
-the calls do not show, or a name that is not ASCII stays flagged wherever it is used, as before. So
-does a member of a class: a call can pass its object by hand (`Class.method(obj, ...)`, which moves
-every index by one), and the scan types a receiver only for the classes a pack renames members of.
+shifted.
+
+A deprecation is read as being about a parameter when its message holds, as a whole word, the name
+of a parameter that the diff of this path reports changed (removed, renamed, kind, default or
+required): `The 'fastpath' keyword in pd.Series is deprecated`, `The default of observed=False is
+deprecated`. Its words stay in the flag's message as they were, and the calls it is about are the
+ones that pass the parameter, whether the diff reports the parameter as removed or only as a default
+that changed. A word inside another word (`copy` in `copying`), a parameter that did not change and a
+message that names none leave the deprecation about the whole name, which it may be. A parameter
+that is named and also left out makes every call a finding (`pandas.core.groupby.GroupBy` with
+`observed`), and the negative fixture shows none of them.
+
+A path that has any other change (removed, moved, kind), a kind change the calls do not show, or a
+name that is not ASCII stays flagged wherever it is used, as before. So does a member of a class: a
+call can pass its object by hand (`Class.method(obj, ...)`, which moves every index by one), and the
+scan types a receiver only for the classes a pack renames members of.
+
+The comparison reads `no_default`, `lib.no_default` and `NoDefault.no_default` as "not given", as it
+does `_Unset`: a default that became one is no default change. pandas 3 gives 2,872 of its 4,284
+default changes that name.
 
 Messages are unchanged: a path's own words, grouped by identical words, folded past 60 groups. A
 folded group no longer hides the parameter, since each call says it in `evidence`. The pack's
-fixtures show both sides: the positive one calls each shaped name with what changed, and the negative
-one calls it with none of it, which `pack test` scans and must find nothing in. `limitations` says
-what D2 leaves out.
+fixtures show both sides: the positive one calls each shaped name with what changed, and a class that
+only its bases changed of is read to be derived from, and the negative one calls it with none of it,
+which `pack test` scans and must find nothing in. `limitations` says what D2 leaves out.
 
 ### D4. `Finding.evidence` is a closed word and what it takes
 
@@ -87,17 +111,24 @@ the code that withheld the row.
 
 ## Consequences
 
-- A repository is told of fewer places where a library's changes are to parameters, and each says
-  why. Where they are not, nothing changes: a class whose bases changed (`sqlalchemy.Column`,
-  `Integer`, `String`), a function that changed kind (`relationship`, `select`) and a path that is
-  also deprecated (`pandas.read_csv`, `pandas.Series`, whose library warns of one parameter in the
-  body) stay whole, as does every method. A default that changed to a name that means "not given"
-  (`lib.no_default`) is a default that changed, since `_SENTINEL` does not know it. A name used any way
-  D2 does not clear is a finding.
+- On eight repositories of each frame, the places flagged went from 4, 163, 293 and 236 to 2, 122,
+  27 and 41 (urllib3, pydantic, SQLAlchemy, pandas). The shape alone, before the bases, the
+  deprecations and the sentinel were read, took them to 2, 122, 271 and 202: the names that dominate
+  SQLAlchemy and pandas had also changed their bases or carried a deprecation.
+- What is left is the work. In pydantic 105 of 122 are calls that leave out a parameter whose default
+  changed (`validator` without `check_fields`, `dataclass` without `frozen`); such a call relies on
+  the old default, which is the claim. In SQLAlchemy all 27 are functions that changed kind
+  (`relationship`, `select`, `text`), which the comparison reads from an attribute that became a
+  function and cannot tell from a change of meaning. In pandas 26 are calls that pass a removed or
+  renamed keyword and 15 are deprecations whose message names no changed parameter
+  (`is_bool_dtype`, `StringDtype`), and every method stays flagged wherever it is used. A name used
+  any way D2 does not clear is a finding.
 - A message may name more parameters than the call passes: a path's changes are one message, and the
   call's own `evidence` names the one that matched.
-- A shape finds a call by what it passes, so a change the signatures do not show is still not seen
-  (a parameter reordered, a different default behind the same name). The limitation of ADR-063 D4
+- A message that names a changed parameter by word is a reading of English. A deprecation of the
+  whole name that happens to use the word of a changed parameter is read as being about it, and a
+  call that passes none of what changed is then let by. A parameter reordered, or a default that
+  changed behind the same name, is not seen by the comparison at all. The limitation of ADR-063 D4
   stands.
 - `pack.schema.json` gains `calls`, the findings schemas gain nothing (the field is a string), and
   `ScanSpec.flag_only_calls` is not published. The formats stay unstable through 0.x

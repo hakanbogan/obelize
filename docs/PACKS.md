@@ -87,9 +87,9 @@ run), reads each one's public API statically, and compares them. What it can sho
 - A name that left a submodule for its package is moved up, if it kept its name and signature.
 - Every other change is flagged, never rewritten, with the library's words where it gave any: a name
   that was removed, moved elsewhere or deprecated, a parameter that was renamed, removed, made
-  required or given another default, a class whose bases changed. A function or a class whose only
+  required or given another default, a class whose bases changed. A function or a class whose
   changes are to its parameters is flagged at the calls those changes can break, and each such place
-  says what in the call matched.
+  says what in the call matched; a class whose bases changed, where code derives from it.
 - The dependency line moves to the newer release and its major version.
 
 For a name the newer release removed, the command also writes `hints.json` beside the pack: the

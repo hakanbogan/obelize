@@ -13,7 +13,7 @@ An invented library, for the test suite. One section per `changes[].id`.
 ## flag-signatures
 
 acme-calls 2 took `timeout` out of `connect`, made its `retries` and `secure` keyword-only with new
-defaults, and took the `verbose` keyword out of `Session`.
+defaults, took the `verbose` keyword out of `Session`, and gave `Handle` other bases.
 
 ## flag-drop
 

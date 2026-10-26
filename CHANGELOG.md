@@ -46,8 +46,9 @@ What it names:
 - A comment inside a rewritten call moves above the statement that holds it.
 - A name that a pack flags only at some calls is not listed where it is handed to another call
   (`map(pd.to_datetime, rows)`, a callback, `functools.partial`), whatever the code that receives it
-  passes. A name that also left, moved or is deprecated, and every method, is still listed wherever
-  it is used (the section on upgrading a dependency in KNOWN_ISSUES.md).
+  passes, and a deprecation of the whole name that happens to use the word of a changed parameter
+  lets a call by. A name that also left or moved, a function that changed kind and every method are
+  still listed wherever they are used (the section on upgrading a dependency in KNOWN_ISSUES.md).
 
 The formats that changed are `pack.yaml` (`package` and `version` are optional on a side, which may
 instead say `python`; `to.requires_python` is required only with a distribution; a `rewrite_pattern`
@@ -67,11 +68,17 @@ of [SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md) section 14 (`findings.json` fol
   named as a base, a name assigned to another and a decorator are listed as before. Each call
   listed says what matched in its `evidence` (`keyword timeout`, `omitted retries`, `position 2`,
   `spread`), in the terminal table and in `REPORT.md`. A symbol with no entry is flagged wherever it
-  is used, so the three bundled packs and every pack written before read as they did.
-  `pack synth` writes the shape for a function or a class whose only changes are to its parameters,
-  so `obelize upgrade` lists fewer places for a library whose changes are mostly to parameters. A
-  name that also left, moved or is deprecated, a class whose bases changed, and every method, is
-  flagged wherever it is used.
+  is used, so the three bundled packs and every pack written before read as they did. A shape can
+  say `bases` for a class whose bases changed: no call is one, and code that derives from it is.
+  `pack synth` writes the shapes: from a function's or a class's parameter changes, from a class
+  whose bases changed, and from a deprecation whose message names a parameter of the same name that
+  changed (it is about the calls that pass it). Over eight repositories of each of four migrations
+  the places listed went from four, 163, 293 and 236 to two, 122, 27 and 41 (urllib3, pydantic,
+  SQLAlchemy, pandas). A name that also left or moved, a deprecation that names no changed parameter, a function
+  that changed kind, and every method, is flagged wherever it is used.
+- The comparison reads `lib.no_default`, `no_default` and `NoDefault.no_default` as "not given", as
+  it does `_Unset`, so a default that became one is no change. pandas 3 had 2,872 of those, and a
+  pack made for it is 680 KB where it was 793 KB.
 
 - A side of a pack can be the Python: `from: {python: ">=3.12"}` and `to: {python: ">=3.2"}`, where
   `to.python` is what `requires_python` is for a distribution. A repository that declares a Python

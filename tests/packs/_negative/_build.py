@@ -1120,11 +1120,19 @@ CASES: tuple[Case, ...] = (
     ),
     Case(
         name="a_call_shape_that_names_nothing",
-        defect="a shape with no keyword, no position and no name, which flags only a splat",
+        defect="a shape that names no keyword, no position, no name and no bases, so no use is one",
         path=f"{EXTRA}.params.calls.demo_legacy.protos",
-        says="names a keyword, a position or a name",
+        says="names a keyword, a position, a name a call must pass or the bases",
         extra=FLAG_CHANGE,
         mutate=_calls({}),
+    ),
+    Case(
+        name="a_call_shape_whose_bases_is_not_a_boolean",
+        defect="bases written as a word, which a reader could take either way",
+        path=f"{EXTRA}.params.calls.demo_legacy.protos.bases",
+        says="valid boolean",
+        extra=FLAG_CHANGE,
+        mutate=_calls({"bases": "yes"}),
     ),
     Case(
         name="a_call_shape_with_keywords_out_of_order",

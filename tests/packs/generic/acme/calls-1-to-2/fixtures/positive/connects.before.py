@@ -2,10 +2,14 @@
 it out or hides it, and a name that is not called is read for a call to come."""
 
 import acme.calls
-from acme.calls import Session
+from acme.calls import Handle, Session
 
 
 class Pool(Session):
+    pass
+
+
+class Lease(Handle):
     pass
 
 

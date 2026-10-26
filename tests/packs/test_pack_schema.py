@@ -18,7 +18,7 @@ import pytest
 from pydantic import ValidationError
 
 from obelize import _yaml
-from obelize.models import ScanSpec
+from obelize.models import CallShape, ScanSpec
 from obelize.packs import loader, schema
 from obelize.transforms.kinds import flag_only
 
@@ -1289,6 +1289,12 @@ def test_a_flagged_symbol_may_be_flagged_only_for_the_calls_a_shape_names() -> N
     assert spec.flag_only_calls == {"demo_legacy.protos": calls[1]}
     plain = loader.to_scan_spec(_loaded(build(with_change(builder.FLAG_CHANGE))))
     assert plain.flag_only_calls == {}
+
+
+def test_a_class_whose_bases_changed_is_a_shape_of_its_own() -> None:
+    built = build(with_change(builder.FLAG_CHANGE, calls={"demo_legacy.protos": {"bases": True}}))
+    spec = loader.to_scan_spec(_loaded(built))
+    assert spec.flag_only_calls == {"demo_legacy.protos": CallShape(bases=True)}
 
 
 def test_a_shape_moves_the_digest_of_what_the_scan_reads() -> None:

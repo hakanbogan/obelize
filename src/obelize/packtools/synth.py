@@ -25,7 +25,7 @@ import yaml
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
-from obelize.apidiff.diff import Successors, names_only
+from obelize.apidiff.diff import ApiChange, Successors, names_only
 from obelize.models import CallShape
 from obelize.models.fields import DISPLAY_TEXT_LIMIT, printable
 from obelize.packs import loader
@@ -33,12 +33,11 @@ from obelize.packs.schema import under_any
 from obelize.packtools import check
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Collection, Mapping, Sequence
 
     from packaging.version import Version
 
     from obelize import libdiff
-    from obelize.apidiff.diff import ApiChange
     from obelize.apidiff.surface import Obj, Surface
 
 # More groups of one kind than this are folded into one that says less.
@@ -79,7 +78,7 @@ _CALL_NOTE: Final = (
     "A name flagged for its signature is reported at a call that passes what changed, leaves out "
     "what it now needs or has a * or ** argument, and at a use that is no call unless the name is "
     "imported, annotated or handed to a call; what receives a handed name may call it with "
-    "anything."
+    "anything. A class whose bases changed is reported where code derives from it, not at a call."
 )
 _CLASS_NOTE: Final = (
     "A name under a class whose parameters changed is reported as that class, and a class flagged "
@@ -428,6 +427,7 @@ def _union(shapes: Sequence[CallShape]) -> CallShape:
         keywords=tuple(sorted({name for one in shapes for name in one.keywords})),
         positional_from=min(firsts, default=None),
         omits=dict(sorted(omits.items())),
+        bases=any(one.bases for one in shapes),
     )
 
 
@@ -443,6 +443,8 @@ def _piece(change: ApiChange, olds: Mapping[str, Obj]) -> CallShape | None:
     )
     placed = at if kind in _PLACED else None
     match change.type:
+        case "bases_changed":
+            return CallShape(bases=True)
         case "param_removed":
             return CallShape(
                 keywords=() if kind == "positional-only" else (name,), positional_from=placed
@@ -458,6 +460,25 @@ def _piece(change: ApiChange, olds: Mapping[str, Obj]) -> CallShape | None:
         case "param_required_added":
             return CallShape(omits={name: None})
     return None
+
+
+def _warned(
+    change: ApiChange, parameters: Collection[str], olds: Mapping[str, Obj]
+) -> CallShape | None:
+    """The calls a deprecation is about, where its message names, as a word, a parameter of the same
+    name that the diff reports changed: those that pass it. A message that names none may be about
+    the whole name."""
+    named = [
+        name
+        for name in sorted(parameters)
+        if re.search(rf"\b{re.escape(name)}\b", change.message or "")
+    ]
+    pieces = [_piece(ApiChange("param_removed", change.path, param=name), olds) for name in named]
+    return (
+        _union([one for one in pieces if one is not None])
+        if pieces and None not in pieces
+        else None
+    )
 
 
 def _outermost(flags: Mapping[str, _Flag]) -> tuple[dict[str, _Flag], tuple[str, ...]]:
@@ -561,6 +582,13 @@ class _Plan:
             for change in changes
             if _member_move(change) and _of_class(change.path, olds)
         }
+        # The parameters each name's diff reports as changed.
+        parameters: dict[str, set[str]] = {}
+        for change in changes:
+            if change.param and (
+                change.type.startswith("param_") or change.type == "default_changed"
+            ):
+                parameters.setdefault(change.path, set()).add(change.param)
         for change in changes:
             path, target = change.path, change.new_path
             if change.type == "unseen" or not _in_scope(path, request.scope):
@@ -581,11 +609,13 @@ class _Plan:
                 flag(path, "removed", *_removed(label, change))
             elif change.type == "deprecated":
                 said = f" The library said: {_quote(change.message)}" if change.message else ""
-                flag(path, "deprecated", f"Deprecated in {label}.{said}", _SUGGESTED["deprecated"])
+                shape = _warned(change, parameters.get(path, ()), olds)
+                text = f"Deprecated in {label}.{said}"
+                flag(path, "deprecated", text, _SUGGESTED["deprecated"], shape=shape)
             else:
                 changed = change.type.startswith("param_") or change.type == "default_changed"
                 text = _signature_text(label, change)
-                shape = _piece(change, olds) if changed else None
+                shape = _piece(change, olds)
                 flag(path, "signature", text, _SUGGESTED["signature"], params=changed, shape=shape)
         flags = {path: _merge(entries) for path, entries in parts.items()}
         # A new name must not be one the pack looks for, or the rewritten file is a finding again.
@@ -796,7 +826,12 @@ class _Plan:
             names = sorted(self.flags)[:FIXTURE_NAMES]
             uses = [self._use(path, True, n) for n, path in enumerate(names)]
             found["fixtures/positive/flagged.before.py"] = _program(_DOCS["flagged"], uses)
-        shaped = [path for path in sorted(self.flags) if self.flags[path].shape][:FIXTURE_NAMES]
+        # A name both passed and left out is flagged at every call, so none is shown to be let by.
+        shaped = [
+            path
+            for path in sorted(self.flags)
+            if (shape := self.flags[path].shape) and not set(shape.keywords) & set(shape.omits)
+        ][:FIXTURE_NAMES]
         landed = sorted(
             {*self.with_calls.values(), *self.references.values(), *self.exports.values()}
         )[:FIXTURE_NAMES]
@@ -846,8 +881,10 @@ class _Plan:
         """A line that uses a name of the old release, and the module it needs imported. A name
         flagged for some calls is called as one of them, or, if not `matching`, as none of them."""
         obj, dotted = self.olds[path], f"{self.request.module}.{path}"
-        if call and obj.kind in ("function", "class"):
-            shape = self.flags[path].shape if path in self.flags else None
+        shape = self.flags[path].shape if path in self.flags else None
+        # A class that only its bases changed is read, to be derived from: no call is about it.
+        called = not matching or shape is None or shape.about_calls
+        if call and called and obj.kind in ("function", "class"):
             return self._home(path), f"{dotted}({_args(obj, shape, matching=matching)})"
         return self._home(path), f"handler_{number} = {dotted}"
 

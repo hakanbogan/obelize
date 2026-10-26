@@ -164,18 +164,22 @@ default that changed, in a sentence built from the two signatures. It does not r
 extras (`mcp[cli]>=1.28.1`) is not rewritten either: the dependency line is left, and the summary and
 the commit message name it.
 
-A function or a class whose only changes are to its parameters is listed at the calls those changes
-can break, and not at the others. The scan cannot follow a name once it is handed on, so
+A function or a class whose changes are to its parameters is listed at the calls those changes can
+break, and not at the others. The scan cannot follow a name once it is handed on, so
 `map(pd.to_datetime, rows)`, a callback and `functools.partial(connect, retries=2)` are not listed,
-whatever the code that receives them passes; a class named as a base, a name assigned to another and
-a decorator are listed. A parameter that moved to another place, and a default that changed behind
-the same name, are not seen by the comparison, so they are listed nowhere. A name that also left,
-moved or is deprecated, a class whose bases changed, and every method, is listed wherever it is used.
-That is most of what remains: a class that no longer derives from a base (`sqlalchemy.Column`,
-`Integer`, `String`), and a name whose library warns of one of its parameters in its body
-(`pandas.read_csv`, `pandas.Series`), which the comparison cannot tell from a warning about the
-name. A default that changed to a name that means "not given" (`lib.no_default`) is listed as a
-default that changed.
+whatever the code that receives them passes; a name assigned to another and a decorator are listed.
+A class whose bases changed is listed where your code derives from it, and a call of it is not,
+though an object it builds no longer passes an `isinstance` check against a base it lost. A
+deprecation is read by its words: a message that holds the name of a changed parameter is taken to be
+about the calls that pass it, so a message about the whole name that happens to use that word lets a
+call by. A parameter that moved to another place, and a default that changed behind the same name,
+are not seen by the comparison, so they are listed nowhere.
+
+What is listed after that is a call that leaves out a parameter whose default changed (it relies on
+the old default, and is most of what `obelize upgrade pydantic` lists), a function that changed
+kind (`sqlalchemy.orm.relationship`, which the comparison reads from an attribute that became a
+function), a deprecation whose message names no changed parameter, a name that also left or moved,
+and every method, wherever it is used.
 
 The environment for the release you use is made today, from the pins your files hold, so an
 unpinned dependency resolves to its newest release there. A test that fails in it for that reason

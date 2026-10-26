@@ -249,7 +249,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `renamed` (a legacy dotted path to the name it takes in the same module), `calls` (`refused`, the default, or `allowed`), `now_caught_by` (what the new class derives from and the old one did not) |
 | `rename_member` | `members` (a legacy dotted path of a class and one of its members, to the name the member takes on that class), `takes` (for a member whose new spelling takes fewer keywords: the keywords it takes) |
 | `rewrite_pattern` | `before` and `after` (templates: Python expressions with `$name` for any expression), `where` (the class of the metavariable a member call is made on), `imports` (the importable paths `after` may spell names through) |
-| `flag_only` | `symbols` / `patterns` / `attributes`, `calls` (for a symbol: the calls it is flagged for), `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
+| `flag_only` | `symbols` / `patterns` / `attributes`, `calls` (for a symbol: the calls it is flagged for, or that only its bases changed), `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
 
 **`legacy_error_modules`**: a rewritten call in a `try` whose handler names an
@@ -512,12 +512,15 @@ symbol of `symbols` to a shape:
 
 ```yaml
 symbols:
+  - acme.calls.Handle
   - acme.calls.connect
 calls:
   acme.calls.connect:
     keywords: [timeout]
     positional_from: 2
     omits: {retries: 3, secure: null}
+  acme.calls.Handle:
+    bases: true
 ```
 
 | Key | Flags a call that |
@@ -525,9 +528,11 @@ calls:
 | `keywords` | Passes one of these as a keyword. |
 | `positional_from` | Has more positional arguments than this index. |
 | `omits` | Leaves out one of these names. A call gives a name by keyword or by the position its index says; `null` is a name only a keyword can give. |
+| `bases` | Is none: it says the class's bases changed, which nothing a call passes can meet. The class is flagged where code derives from it, and where it is used any other way that is not a call, an import, an annotation or an argument. |
 
-A call with a `*` or `**` argument is flagged whatever the shape, since it can pass any of them. A
-shape names at least one of the three, with its keywords and names sorted. Every other call of the
+A call with a `*` or `**` argument is flagged whatever the shape, since it can pass any of the
+keywords, positions and names, unless the shape names only `bases`. A shape names at least one of
+the four, with its keywords and names sorted. Every other call of the
 symbol is the API as it was: no finding in a shared module, and in one that is not shared the call is
 graded as if the symbol were not flagged. A finding for a call says what matched in its `evidence`
 ([SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §14).
@@ -916,8 +921,9 @@ Per document, the incoherences that would otherwise scan as a clean repository:
 - A `from.lacks` name that no `flag_only` change lists in `symbols`, so the scan never reports it.
 - A `flag_only` `calls` entry for a symbol that `symbols` does not list, or for one that `from.lacks`
   or `from.since` lists or sits under, which the scan reads off its findings, or a shape that names
-  no keyword, no position and no name, or whose keywords or names are not sorted and de-duplicated
-  or are not identifiers, or whose index is negative.
+  no keyword, no position, no name and no bases, or whose keywords or names are not sorted and
+  de-duplicated or are not identifiers, or whose index is negative, or whose `bases` is not a
+  boolean.
 
 And prose: `message`, `suggestion`, `citation` and `limitations` may not
 contain Unicode categories `Cc`, `Cf` or `Cs`, which can rewrite the display

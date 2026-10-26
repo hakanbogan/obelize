@@ -23,6 +23,7 @@ match:
     - acme.calls
   shared: true
   symbols:
+    - acme.calls.Handle
     - acme.calls.Session
     - acme.calls.connect
     - acme.calls.drop
@@ -35,9 +36,12 @@ changes:
     citation: "Acme Calls 2 notes, 'Signatures'"
     params:
       symbols:
+        - acme.calls.Handle
         - acme.calls.Session
         - acme.calls.connect
       calls:
+        acme.calls.Handle:
+          bases: true
         acme.calls.Session:
           keywords:
             - verbose
@@ -50,7 +54,7 @@ changes:
             secure: 4
       message: >-
         acme-calls 2 took timeout out of connect and verbose out of Session, made retries and
-        secure of connect keyword-only, and changed their defaults.
+        secure of connect keyword-only, changed their defaults, and gave Handle other bases.
       suggestion: Read the signatures in the release notes.
     fixtures:
       - fixtures/negative/already_new.py
@@ -80,4 +84,4 @@ changes:
       - fixtures/positive/requirements.before.txt
 
 limitations:
-  - "A name flagged for its signature is reported at a call that passes what changed, and at a use that is no call unless the name is imported, annotated or handed to a call."
+  - "A name flagged for its signature is reported at a call that passes what changed, and at a use that is no call unless the name is imported, annotated or handed to a call; a class whose bases changed is reported where code derives from it, not at a call."
