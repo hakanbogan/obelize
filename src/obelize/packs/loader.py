@@ -21,6 +21,7 @@ from pydantic import ValidationError
 
 from obelize import _yaml
 from obelize.models import (
+    CallShape,
     FlagOnlyPattern,
     MemberClass,
     MethodReturn,
@@ -228,6 +229,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     members: dict[str, set[str]] = {}
     attributes: set[str] = set()
     flagged: set[str] = set()
+    shapes: dict[str, CallShape] = {}
     patterns: set[FlagOnlyPattern] = set()
     variables: set[str] = set()
     client_symbol = new_client_symbol = None
@@ -249,6 +251,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         elif isinstance(change, FlagOnlyChange):
             attributes.update(change.params.attributes)
             flagged.update(change.params.symbols)
+            shapes.update(change.params.calls)
             patterns.update(change.params.patterns)
             variables.update(change.params.variables)
         elif isinstance(change, ManifestDependencyChange):
@@ -295,6 +298,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         ),
         removed_attributes=tuple(sorted(attributes)),
         flag_only_symbols=tuple(sorted(flagged)),
+        flag_only_calls=dict(sorted(shapes.items())),
         flag_only_patterns=tuple(sorted(patterns)),
         flag_only_variables=tuple(sorted(variables)),
         shared=pack.match.shared,
@@ -354,6 +358,7 @@ _WHEN_SET: Final[frozenset[str]] = frozenset(
         "new_names",
         "declare_transitive",
         "flag_only_variables",
+        "flag_only_calls",
         "inventory",
         "member_classes",
     }

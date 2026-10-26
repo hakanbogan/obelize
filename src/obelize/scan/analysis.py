@@ -34,6 +34,7 @@ from libcst.metadata import (
 from obelize.models import (
     BailCode,
     BindingKind,
+    CallShape,
     ConfidenceReason,
     Finding,
     FindingKind,
@@ -293,6 +294,13 @@ class _Pass:
         self._modules = frozenset(spec.legacy_modules)
         self._symbols = frozenset(spec.symbols)
         self._flagged = frozenset(spec.flag_only_symbols)
+        # A shape holds only where no name above the symbol is flagged whole.
+        whole = self._flagged - spec.flag_only_calls.keys()
+        self._shapes = {
+            symbol: shape
+            for symbol, shape in spec.flag_only_calls.items()
+            if not self._under(symbol.rpartition(".")[0], whole)
+        }
 
     def run(self) -> Analysis:
         self._imports()
@@ -377,7 +385,14 @@ class _Pass:
         bail: BailCode | None = None,
     ) -> None:
         at_line, at_column = self._line(node)
-        status, graded = self._grade(kind, symbol)
+        evidence = None
+        if bail is None and symbol in self._shapes:
+            flagged, evidence = self._shaped(node, kind, symbol)
+            if not flagged and self._spec.shared:
+                return
+            status, graded = ("needs_review", _FLAGGED) if flagged else ("eligible", None)
+        else:
+            status, graded = self._grade(kind, symbol)
         if bail is not None and graded is None:
             # Rung 1 outranks a shape or placement code.
             status, graded = "needs_review", bail
@@ -389,11 +404,21 @@ class _Pass:
                 kind=kind,
                 confidence_reason=reason,
                 symbol=symbol,
-                evidence=None,
+                evidence=evidence,
                 scan_status=status,
                 bail=graded,
             )
         )
+
+    def _shaped(self, node: cst.CSTNode, kind: FindingKind, symbol: str) -> tuple[bool, str | None]:
+        """Whether a use of a symbol the pack flags only for some calls is one, and what in the call
+        says so. A name that is imported, annotated or handed to a call is not called here."""
+        if isinstance(node, cst.Call):
+            evidence = _passes(self._shapes[symbol], node)
+            return evidence is not None, evidence
+        argument = self._parent(node)
+        handed = isinstance(argument, cst.Arg) and isinstance(self._parent(argument), cst.Call)
+        return not (kind == "import" or handed or self._annotated(node)), None
 
     def _grade(self, kind: FindingKind, symbol: str) -> tuple[ScanStatus, BailCode | None]:
         """Rung 1: a surface the pack refuses outright, or any place of a library with no pack."""
@@ -1230,6 +1255,27 @@ def _root(module: cst.Module, node: cst.CSTNode) -> str:
     else:
         text = module.code_for_node(node)
     return text.partition(".")[0].strip()
+
+
+def _passes(shape: CallShape, call: cst.Call) -> str | None:
+    """What in a call the shape is about (`CallMatch`), or `None` where it is the API as it was."""
+    if any(argument.star for argument in call.args):
+        return "spread"
+    named = {argument.keyword.value for argument in call.args if argument.keyword is not None}
+    given = sum(1 for argument in call.args if argument.keyword is None)
+    if keyword := next((name for name in shape.keywords if name in named), None):
+        return f"keyword {keyword}"
+    if shape.positional_from is not None and given > shape.positional_from:
+        return f"position {shape.positional_from}"
+    left = next(
+        (
+            name
+            for name, at in shape.omits.items()
+            if name not in named and (at is None or given <= at)
+        ),
+        None,
+    )
+    return None if left is None else f"omitted {left}"
 
 
 def _stored(parent: cst.CSTNode | None, node: cst.CSTNode) -> bool:

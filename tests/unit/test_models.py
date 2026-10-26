@@ -18,6 +18,7 @@ from obelize.models import (
     BAIL_ACTIONS,
     BAIL_CODES,
     BINDING_KINDS,
+    CALL_MATCHES,
     CONFIDENCE_REASONS,
     CONFIG_ORIGINS,
     DISPLAY_TEXT_LIMIT,
@@ -40,6 +41,7 @@ from obelize.models import (
     WARNING_MEANINGS,
     WITHHELD,
     Binding,
+    CallShape,
     CommandRecord,
     CommandResult,
     ConsultationSkip,
@@ -125,6 +127,7 @@ DECLARED_IN_CODE: dict[str, frozenset[str]] = {
     "11": SKIP_REASONS,
     "12": WRITE_REFUSALS,
     "13": REFUSAL_CODES,
+    "14": CALL_MATCHES,
 }
 
 # Hoisted and annotated: inside `parametrize` mypy infers `object` for `sorted`'s key.
@@ -148,9 +151,9 @@ def test_every_bail_code_has_the_one_sentence_the_document_gives_beside_it() -> 
         assert ". " not in action, f"{code} is more than one sentence"
 
 
-def test_the_document_parses_into_the_thirteen_sections_it_claims() -> None:
+def test_the_document_parses_into_the_fourteen_sections_it_claims() -> None:
     """Guards the parser: an empty parse would pass every other test vacuously."""
-    assert [str(n) for n in range(1, 14)] == ALL_SECTIONS, ALL_SECTIONS
+    assert [str(n) for n in range(1, 15)] == ALL_SECTIONS, ALL_SECTIONS
     assert set(DECLARED_IN_CODE) | {"7"} == set(SECTIONS)
     for number, (_, values) in SECTIONS.items():
         assert values, f"section {number} parsed as empty"
@@ -363,7 +366,7 @@ def finding(**overrides: Any) -> Finding:
 
 
 def test_a_finding_records_where_and_what_it_found() -> None:
-    found = finding(evidence="genai.configure(api_key=key)")
+    found = finding(evidence="keyword api_key")
     assert found.sort_key == ("app.py", 7, 0, "call", "google.generativeai.configure")
     assert found.bail is None
     assert found.caused_by is None
@@ -374,6 +377,32 @@ def test_a_finding_records_where_and_what_it_found() -> None:
 def test_a_parse_error_sorts_without_a_symbol() -> None:
     broken = finding(kind="parse_error", confidence_reason="parse_error", symbol=None)
     assert broken.sort_key == ("app.py", 7, 0, "parse_error", "")
+
+
+@pytest.mark.parametrize(
+    "evidence", ["keyword timeout", "omitted retries", "position 2", "position 10", "spread"]
+)
+def test_a_call_a_pack_flags_says_for_what_in_the_words_of_the_vocabulary(evidence: str) -> None:
+    assert finding(evidence=evidence).evidence == evidence
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        "genai.configure(api_key=key)",
+        "keyword",
+        "keyword 3",
+        "keyword two words",
+        "position x",
+        "position",
+        "spread now",
+        "dropped timeout",
+        "",
+    ],
+)
+def test_evidence_is_never_a_source_excerpt(evidence: str) -> None:
+    with pytest.raises(ValidationError, match="never a source excerpt"):
+        finding(evidence=evidence)
 
 
 @pytest.mark.parametrize(
@@ -690,6 +719,57 @@ def test_the_scan_spec_carries_the_newest_legacy_release_and_what_it_lacks_or_ne
     assert (plain.legacy_range, plain.legacy_since) == ("", ())
     ranged = spec(legacy_range=">=0.9,<1", legacy_since=("a.Old", "b.Old"))
     assert (ranged.legacy_range, ranged.legacy_since) == (">=0.9,<1", ("a.Old", "b.Old"))
+
+
+def test_the_scan_spec_holds_the_calls_some_flagged_symbols_are_flagged_for() -> None:
+    plain = spec(flag_only_symbols=("a.b",))
+    assert plain.flag_only_calls == {}
+    shape = CallShape(keywords=("old",))
+    assert spec(flag_only_symbols=("a.b",), flag_only_calls={"a.b": shape}).flag_only_calls == {
+        "a.b": shape
+    }
+
+
+@pytest.mark.parametrize(
+    ("symbols", "calls", "message"),
+    [
+        (("a.b",), {"a.c": CallShape(keywords=("old",))}, "flag_only_symbols does not"),
+        (
+            ("a.b", "a.c"),
+            {"a.c": CallShape(keywords=("x",)), "a.b": CallShape(keywords=("x",))},
+            "flag_only_calls must be sorted",
+        ),
+    ],
+)
+def test_the_scan_spec_refuses_a_shape_for_a_symbol_it_does_not_flag_or_out_of_order(
+    symbols: tuple[str, ...], calls: dict[str, CallShape], message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        spec(flag_only_symbols=symbols, flag_only_calls=calls)
+
+
+@pytest.mark.parametrize(
+    ("shape", "message"),
+    [
+        ({}, "names a keyword, a position or a name"),
+        ({"keywords": ("b", "a")}, "sorted and de-duplicated"),
+        ({"keywords": ("a", "a")}, "sorted and de-duplicated"),
+        ({"keywords": ("not a name",)}, "single Python identifier"),
+        ({"keywords": ("from",)}, "single Python identifier"),
+        ({"positional_from": -1}, "greater than or equal to 0"),
+        ({"positional_from": True}, "valid integer"),
+        ({"positional_from": "2"}, "valid integer"),
+        ({"omits": {"b": None, "a": 1}}, "sorted and de-duplicated"),
+        ({"omits": {"a": -1}}, "greater than or equal to 0"),
+        ({"omits": {"not a name": None}}, "single Python identifier"),
+        ({"keywords": ("a",), "unknown": 1}, "Extra inputs"),
+    ],
+)
+def test_a_call_shape_is_a_closed_sorted_record_that_names_something(
+    shape: dict[str, Any], message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        CallShape(**shape)
 
 
 def test_two_entries_for_one_receiver_is_a_projection_bug() -> None:

@@ -823,8 +823,8 @@ def _findings_section(findings: tuple[Finding, ...]) -> list[str]:
         )
         for finding in grouped:
             lines.append(
-                f"| {finding.line} | {finding.kind} | {_symbol(finding)} | "
-                f"{finding.scan_status} | {finding.bail or finding.confidence_reason} |"
+                f"| {finding.line} | {finding.kind} | {_symbol(finding)} | {finding.scan_status} | "
+                f"{finding.bail or finding.confidence_reason}{_evidence(finding)} |"
             )
         lines.append("")
     return lines
@@ -1152,11 +1152,17 @@ def _rows(findings: list[Finding]) -> list[str]:
         reason = finding.bail or (
             "" if finding.scan_status == "eligible" else finding.confidence_reason
         )
+        says = f"{reason}{_evidence(finding)}"
         rows.append(
             f"    {finding.line:>{width}}  {finding.kind:<{kind}}  "
-            f"{_symbol(finding):<{symbol}}  {finding.scan_status:<12}  {reason}".rstrip()
+            f"{_symbol(finding):<{symbol}}  {finding.scan_status:<12}  {says}".rstrip()
         )
     return rows
+
+
+def _evidence(finding: Finding) -> str:
+    """What in a call a pack flags it for, where it says."""
+    return f" ({finding.evidence})" if finding.evidence else ""
 
 
 def _symbol(finding: Finding) -> str:

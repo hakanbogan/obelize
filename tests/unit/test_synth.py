@@ -17,6 +17,7 @@ from obelize import index, libdiff
 from obelize.apidiff.diff import ApiChange
 from obelize.apidiff.surface import Obj, Param, Surface
 from obelize.cli import app
+from obelize.models import CallShape
 from obelize.net import Fetcher
 from obelize.packs import loader
 from obelize.packtools import check, synth
@@ -67,6 +68,7 @@ APP = (
     "    except KitError:\n        return acme_kit.changed(1, b=2)\n"
 )
 OTHER = "import acme_kit\n\n\ndef hello(name):\n    return acme_kit.old_greet(name)\n"
+NEW_CALL = "import acme_kit\n\n\ndef run():\n    return acme_kit.changed(1, c=2)\n"
 
 
 @pytest.fixture(scope="module")
@@ -107,18 +109,27 @@ def test_a_pack_made_from_two_releases_passes_pack_test_and_migrates_a_repositor
     tested = runner.invoke(app, ["pack", "test", str(folder)])
     assert tested.exit_code == 0, tested.output
     repo = committed(
-        home / "repo", {"app.py": APP, "other.py": OTHER, "requirements.txt": "acme-kit==1.0\n"}
+        home / "repo",
+        {
+            "app.py": APP,
+            "other.py": OTHER,
+            "new.py": NEW_CALL,
+            "requirements.txt": "acme-kit==1.0\n",
+        },
     )
     scanned = runner.invoke(
         app, ["scan", "--repo", str(repo), "--pack", str(folder / "pack.yaml"), "--json"]
     )
-    rows = {
-        (row["path"], row["symbol"]): row["scan_status"]
-        for row in json.loads(scanned.stdout)["findings"]
-    }
+    found = json.loads(scanned.stdout)["findings"]
+    rows = {(row["path"], row["symbol"]): row["scan_status"] for row in found}
     assert rows[("other.py", "acme_kit.old_greet")] == "eligible"
     assert rows[("app.py", "acme_kit.removed_fn")] == "needs_review"
     assert rows[("app.py", "acme_kit.changed")] == "needs_review"
+    # Only the call that passes the keyword the release renamed is about the change.
+    assert [row["evidence"] for row in found if row["symbol"] == "acme_kit.changed"] == [
+        "keyword b"
+    ]
+    assert not any(row["path"] == "new.py" for row in found)
 
 
 def test_the_release_between_the_two_is_read_for_what_the_library_warned(
@@ -507,6 +518,189 @@ def test_a_call_is_written_with_a_zero_for_each_parameter_it_must_take() -> None
     assert synth._args(cls) == "0, b=0"
     assert synth._args(WORLD.relative()["kw"]) == "opt=0"
     assert synth._args(Obj("", "class", None)) == ""
+
+
+# Which calls a flag is about.
+
+CALLS = old_surface(
+    f=fn(
+        req("a"),
+        req("b"),
+        Param("c", "positional or keyword", "1", False),
+        Param("d", "keyword-only", None, True),
+        Param("e", "keyword-only", "2", False),
+    ),
+    g=fn(req("a", "positional-only"), Param("b", "positional or keyword", "1", False)),
+    Box=Obj("", "class", (req("size"), Param("fill", "positional or keyword", "0", False))),
+    Box__grow=fn(req("by")),
+)
+
+
+def calls_of(made: synth._Plan) -> dict[str, dict[str, object]]:
+    """The shapes of every `flag_only` change of the pack, by symbol."""
+    document = yaml.safe_load(made._pack())
+    return {
+        symbol: shape
+        for one in document["changes"]
+        if one["kind"] == "flag_only"
+        for symbol, shape in one["params"].get("calls", {}).items()
+    }
+
+
+@pytest.mark.parametrize(
+    ("changes", "shape"),
+    [
+        ([("param_removed", "f", "b", "")], CallShape(keywords=("b",), positional_from=1)),
+        ([("param_removed", "f", "d", "")], CallShape(keywords=("d",))),
+        ([("param_removed", "g", "a", "")], CallShape(positional_from=0)),
+        ([("param_renamed", "f", "b", "")], CallShape(keywords=("b",))),
+        (
+            [("param_kind_changed", "f", "c", "positional or keyword -> keyword-only")],
+            CallShape(positional_from=2),
+        ),
+        (
+            [("param_kind_changed", "f", "b", "positional or keyword -> positional-only")],
+            CallShape(keywords=("b",)),
+        ),
+        ([("default_changed", "f", "c", "1 -> 2")], CallShape(omits={"c": 2})),
+        ([("default_changed", "f", "e", "2 -> required")], CallShape(omits={"e": None})),
+        ([("param_required_added", "f", "z", "")], CallShape(omits={"z": None})),
+        ([("param_removed", "Box", "fill", "")], CallShape(keywords=("fill",), positional_from=1)),
+        (
+            [
+                ("default_changed", "f", "c", "1 -> 2"),
+                ("param_removed", "f", "b", ""),
+                ("param_removed", "f", "d", ""),
+                ("param_required_added", "f", "z", ""),
+            ],
+            CallShape(keywords=("b", "d"), positional_from=1, omits={"c": 2, "z": None}),
+        ),
+    ],
+)
+def test_a_parameter_change_is_flagged_for_the_calls_it_can_break(
+    changes: list[tuple[str, str, str, str]], shape: CallShape
+) -> None:
+    made = plan(
+        *(ApiChange(kind, path, param=name, detail=detail) for kind, path, name, detail in changes),  # type: ignore[arg-type]
+        old=CALLS,
+    )
+    (flag,) = made.flags.values()
+    assert flag.shape == shape
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        [
+            ApiChange(
+                "param_kind_changed",
+                "f",
+                param="b",
+                detail="positional or keyword -> variadic positional",
+            )
+        ],
+        [
+            ApiChange("param_removed", "f", param="b"),
+            ApiChange("deprecated", "f", message="f is going"),
+        ],
+        [
+            ApiChange("param_removed", "Box", param="fill"),
+            ApiChange("bases_changed", "Box", detail="Base"),
+        ],
+        [
+            ApiChange("param_removed", "f", param="b"),
+            ApiChange("kind_changed", "f", detail="a -> b"),
+        ],
+        [ApiChange("param_removed", "Box.grow", param="by")],
+        [ApiChange("param_removed", "f", param="é")],
+        [ApiChange("param_removed", "unknown", param="b")],
+    ],
+)
+def test_a_name_with_a_change_no_call_shows_or_a_method_is_flagged_wherever_it_is_used(
+    changes: list[ApiChange],
+) -> None:
+    made = plan(*changes, old=CALLS)
+    assert [one.shape for one in made.flags.values()] == [None]
+    assert "calls" not in yaml.safe_load(made._pack())["changes"][0]["params"]
+
+
+def test_the_pack_carries_the_shape_of_each_name_flagged_for_some_calls() -> None:
+    made = plan(
+        ApiChange("param_removed", "f", param="b"),
+        ApiChange("param_renamed", "g", param="b", new_param="c"),
+        ApiChange("removed", "Box.grow"),
+        old=CALLS,
+    )
+    assert calls_of(made) == {
+        "acme_kit.f": {"keywords": ["b"], "positional_from": 1},
+        "acme_kit.g": {"keywords": ["b"]},
+    }
+    limitations = yaml.safe_load(made._pack())["limitations"]
+    assert synth._CALL_NOTE in limitations
+    whole = plan(ApiChange("removed", "g"), old=CALLS)
+    assert synth._CALL_NOTE not in yaml.safe_load(whole._pack())["limitations"]
+
+
+def test_a_folded_group_keeps_the_shape_of_each_name_it_holds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(synth, "MAX_GROUPS", 1)
+    made = plan(
+        ApiChange("param_removed", "f", param="b"),
+        ApiChange("param_removed", "g", param="a"),
+        old=CALLS,
+    )
+    (group,) = (
+        one["params"]
+        for one in yaml.safe_load(made._pack())["changes"]
+        if one["kind"] == "flag_only"
+    )
+    assert group["message"] == "Its signature changed in acme-kit 2.0."
+    assert sorted(group["calls"]) == ["acme_kit.f", "acme_kit.g"]
+
+
+def test_a_call_is_written_for_the_shape_of_a_flag_or_against_it() -> None:
+    f = CALLS.relative()["f"]
+    removed = CallShape(keywords=("b",), positional_from=1)
+    assert synth._args(f) == "0, 0, d=0"
+    assert synth._args(f, removed) == "0, 0, d=0, b=0"
+    assert synth._args(f, removed, matching=False) == "0, d=0"
+    assert synth._args(f, CallShape(positional_from=3)) == "0, 0, 0, 0, d=0"
+    assert (
+        synth._args(f, CallShape(omits={"c": 2, "e": None}), matching=False)
+        == "0, 0, d=0, c=0, e=0"
+    )
+    assert synth._args(f, CallShape(omits={"c": 2})) == "0, 0, d=0"
+
+
+def test_a_fixture_calls_each_shaped_name_with_what_changed_and_without_it() -> None:
+    made = plan(
+        ApiChange("param_removed", "f", param="b"),
+        ApiChange("default_changed", "g", param="b", detail="1 -> 2"),
+        ApiChange("removed", "Box.grow"),
+        old=CALLS,
+    )
+    positive = made.fixtures()["fixtures/positive/flagged.before.py"]
+    negative = made.fixtures()["fixtures/negative/already_new.py"]
+    assert "acme_kit.f(0, 0, d=0, b=0)" in positive
+    assert "acme_kit.g(0)" in positive
+    assert "acme_kit.Box.grow(0)" in positive
+    assert "acme_kit.f(0, d=0)" in negative
+    assert "acme_kit.g(0, b=0)" in negative
+    assert "Box" not in negative
+
+
+def test_a_pack_with_shapes_passes_its_own_checks_and_loads_them_into_the_scan(
+    tmp_path: Path,
+) -> None:
+    changes = [
+        ApiChange("param_removed", "f", param="b"),
+        ApiChange("param_renamed", "g", param="b", new_param="c"),
+    ]
+    made = synth.make(tmp_path, REQUEST, CALLS, changes)
+    spec = loader.to_scan_spec(loader.load(str(made.folder / "pack.yaml")))
+    assert spec.flag_only_calls.keys() == {"acme_kit.f", "acme_kit.g"}
+    assert spec.flag_only_calls["acme_kit.f"] == CallShape(keywords=("b",), positional_from=1)
 
 
 def test_the_request_cites_the_file_when_it_is_https_and_the_project_page_when_it_is_not() -> None:

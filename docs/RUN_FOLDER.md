@@ -314,7 +314,7 @@ id, timings or absolute path), so two scans of one input are identical.
 | `kind` | string | [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §1. |
 | `confidence_reason` | string | §2. |
 | `symbol` | string or null | The resolved legacy qualified name; the distribution on a `manifest` finding; `null` on a `parse_error`. A `mock.patch` target is recorded unquoted. |
-| `evidence` | string or null | Always `null`: source excerpts are kept out of evidence. |
+| `evidence` | string or null | `null`, except on a call that a pack flags for what it passes: a word of §14 and what it takes (`keyword infer_datetime_format`). Source excerpts are kept out of evidence. |
 | `scan_status` | string | §10. |
 | `bail` | string or null | §4. Set exactly when `scan_status` is `needs_review` or `unsupported`. |
 | `caused_by` | array of strings or null | §6. Set exactly when `bail` is `file_not_fully_migrated`; sorted, de-duplicated. |

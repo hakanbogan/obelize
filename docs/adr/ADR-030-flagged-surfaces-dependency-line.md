@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-053 and ADR-054.
+Accepted; amended by ADR-053, ADR-054 and ADR-073.
 
 ## Decision
 
@@ -17,7 +17,9 @@ whenever a sentence was reworded.
 ### D2. Three channels, and the finding's own `kind` decides which one is asking
 
 - `symbols` matches the resolved qualified name by prefix at a dot, as `analysis._grade` does:
-  `google.generativeai.protos` claims `google.generativeai.protos.Schema`.
+  `google.generativeai.protos` claims `google.generativeai.protos.Schema`. A symbol with an entry in
+  `calls` is reported only for the calls and uses ADR-073 D2 describes; the rule claims what the
+  scan reported.
 - `attributes` matches whole.
 - `patterns` matches the confidence reason, and only on a `dynamic` or `text_mention` finding.
 

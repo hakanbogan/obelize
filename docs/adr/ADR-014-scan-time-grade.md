@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-050.
+Accepted; amended by ADR-050 and ADR-073.
 
 ## Decision
 
@@ -31,7 +31,9 @@ value with a finding vocabulary, and a test says so.
 
 A `manifest` finding's `symbol` is a PEP 503 distribution name, any other a qualified name,
 and a `parse_error` has none, because it resolved nothing and ADR-008 bars source excerpts
-from evidence. The model enforces both, so no harness normalises them.
+from evidence. The model enforces both, so no harness normalises them. `evidence` is `null`, or the
+word of a call a pack flags for what it passes and the name or index it takes (ADR-073 D4); the model
+refuses any other text.
 
 ### D5. The models refuse; they do not repair
 

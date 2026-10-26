@@ -249,7 +249,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `renamed` (a legacy dotted path to the name it takes in the same module), `calls` (`refused`, the default, or `allowed`), `now_caught_by` (what the new class derives from and the old one did not) |
 | `rename_member` | `members` (a legacy dotted path of a class and one of its members, to the name the member takes on that class), `takes` (for a member whose new spelling takes fewer keywords: the keywords it takes) |
 | `rewrite_pattern` | `before` and `after` (templates: Python expressions with `$name` for any expression), `where` (the class of the metavariable a member call is made on), `imports` (the importable paths `after` may spell names through) |
-| `flag_only` | `symbols` / `patterns` / `attributes`, `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
+| `flag_only` | `symbols` / `patterns` / `attributes`, `calls` (for a symbol: the calls it is flagged for), `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
 
 **`legacy_error_modules`**: a rewritten call in a `try` whose handler names an
@@ -503,6 +503,42 @@ literal handed to `sys.modules`, which get reason `dynamic_access`, while `getat
 goes through a resolvable name, so it is `module_alias_rebound` and marks the
 whole file rebound, graded by
 `tests/fixtures/scan/escapes/dynamic.py`.
+
+### The calls a flag is about
+
+A symbol of `symbols` is flagged wherever it is used. When a release changed what a function or a
+class takes, only a call that passes what changed is affected, and `calls` says which. It maps a
+symbol of `symbols` to a shape:
+
+```yaml
+symbols:
+  - acme.calls.connect
+calls:
+  acme.calls.connect:
+    keywords: [timeout]
+    positional_from: 2
+    omits: {retries: 3, secure: null}
+```
+
+| Key | Flags a call that |
+|---|---|
+| `keywords` | Passes one of these as a keyword. |
+| `positional_from` | Has more positional arguments than this index. |
+| `omits` | Leaves out one of these names. A call gives a name by keyword or by the position its index says; `null` is a name only a keyword can give. |
+
+A call with a `*` or `**` argument is flagged whatever the shape, since it can pass any of them. A
+shape names at least one of the three, with its keywords and names sorted. Every other call of the
+symbol is the API as it was: no finding in a shared module, and in one that is not shared the call is
+graded as if the symbol were not flagged. A finding for a call says what matched in its `evidence`
+([SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §14).
+
+A use that is not a call is a finding unless the name is imported, annotated or handed to a call as
+an argument (`Column(Integer)`, `map(pd.to_datetime, rows)`, `isinstance(x, Series)`). A class named
+as a base, a name assigned to another, a decorator, a default value, a name inside a list and a name
+below the flagged one are findings as before: code that receives them may call them with anything.
+A method called on a receiver the scan types is flagged as before, whatever its entry. A symbol with
+no entry is flagged wherever it is used, so a pack without `calls` reads as it always did ([the
+flagged-call decision](adr/ADR-073-flags-on-the-call.md)).
 
 The scanner reads the union of all `flag_only` channels, so each refused row
 gets an edit whose `rule_id` names the refusing change: the link from a report
@@ -878,6 +914,10 @@ Per document, the incoherences that would otherwise scan as a clean repository:
 - A receiver in `methods` that is neither `ctor_symbol` nor a `method_returns`
   value.
 - A `from.lacks` name that no `flag_only` change lists in `symbols`, so the scan never reports it.
+- A `flag_only` `calls` entry for a symbol that `symbols` does not list, or for one that `from.lacks`
+  or `from.since` lists or sits under, which the scan reads off its findings, or a shape that names
+  no keyword, no position and no name, or whose keywords or names are not sorted and de-duplicated
+  or are not identifiers, or whose index is negative.
 
 And prose: `message`, `suggestion`, `citation` and `limitations` may not
 contain Unicode categories `Cc`, `Cf` or `Cs`, which can rewrite the display

@@ -44,15 +44,34 @@ What it names:
   `utcfromtimestamp` for the datetime pack. Over a synthetic repository of 4,000 files a default
   scan took 2.3 s, against 2.5 s before the packs.
 - A comment inside a rewritten call moves above the statement that holds it.
+- A name that a pack flags only at some calls is not listed where it is handed to another call
+  (`map(pd.to_datetime, rows)`, a callback, `functools.partial`), whatever the code that receives it
+  passes. A name that also left, moved or is deprecated, and every method, is still listed wherever
+  it is used (the section on upgrading a dependency in KNOWN_ISSUES.md).
 
 The formats that changed are `pack.yaml` (`package` and `version` are optional on a side, which may
 instead say `python`; `to.requires_python` is required only with a distribution; a `rewrite_pattern`
 takes `imports`, each of a closed list of modules), the text of `runtime_unsupported` for a pack whose
 new side is the Python, which names the pack, the prefilter rule (below) and `pack.schema.json`,
 which describes them, a side as exactly one of a distribution or `python`. The reasons `alias_collision` and `local_import` are also
-given for a `rewrite_pattern` that cannot name a module it imports.
+given for a `rewrite_pattern` that cannot name a module it imports. `pack.yaml` also takes
+`flag_only.calls` (below), and a finding's `evidence`, which was always `null`, may carry the words
+of [SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md) section 14 (`findings.json` follows).
 
 ### Added
+
+- A `flag_only` change can say which calls it flags a symbol for. `calls` maps a symbol to a shape
+  of `keywords`, `positional_from` and `omits`, and a call with a `*` or `**` argument is always
+  one. In a pack that shares its module, a call that matches none is not listed, and neither is a
+  name that is imported, annotated or handed to a call (`Column(Integer)`, `map(f, rows)`); a class
+  named as a base, a name assigned to another and a decorator are listed as before. Each call
+  listed says what matched in its `evidence` (`keyword timeout`, `omitted retries`, `position 2`,
+  `spread`), in the terminal table and in `REPORT.md`. A symbol with no entry is flagged wherever it
+  is used, so the three bundled packs and every pack written before read as they did.
+  `pack synth` writes the shape for a function or a class whose only changes are to its parameters,
+  so `obelize upgrade` lists fewer places for a library whose changes are mostly to parameters. A
+  name that also left, moved or is deprecated, a class whose bases changed, and every method, is
+  flagged wherever it is used.
 
 - A side of a pack can be the Python: `from: {python: ">=3.12"}` and `to: {python: ">=3.2"}`, where
   `to.python` is what `requires_python` is for a distribution. A repository that declares a Python

@@ -4,14 +4,16 @@ the findings document."""
 from __future__ import annotations
 
 import re
+from typing import Annotated
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StrictInt, field_validator, model_validator
 
 from obelize.models.fields import (
     _DISTRIBUTION_NAME,
     QUALIFIED_NAME,
+    PlainName,
     PrefilterToken,
     RelativePath,
     Sha256,
@@ -21,6 +23,7 @@ from obelize.models.fields import (
 )
 from obelize.models.vocabulary import (
     ATOMICITY_BAIL,
+    CALL_MATCHES,
     IMPORT_BAILS,
     IMPORT_KINDS,
     REPO_ATOMICITY_BAIL,
@@ -70,6 +73,7 @@ class Finding(_Frozen):
     kind: FindingKind
     confidence_reason: ConfidenceReason
     symbol: str | None = None
+    # What a pack flags a call for (`CallMatch`), else null: source excerpts are kept out of it.
     evidence: str | None = None
     # Scan-time only, no verdict or warning yet: `eligible` is necessary for `auto`, not enough.
     scan_status: ScanStatus
@@ -110,8 +114,20 @@ class Finding(_Frozen):
                 f"`not_a_usage` is for something that is not an edit (a prose mention, or a "
                 f"manifest line that disagrees with the code), not for kind {self.kind!r}"
             )
+        self._check_evidence()
         self._check_symbol()
         return self
+
+    def _check_evidence(self) -> None:
+        if self.evidence is None:
+            return
+        word, _, detail = self.evidence.partition(" ")
+        fits = {"spread": detail == "", "position": detail.isdecimal()}
+        if word not in CALL_MATCHES or not fits.get(word, detail.isidentifier()):
+            raise ValueError(
+                f"evidence is one of {sorted(CALL_MATCHES)} and the name or index it takes, "
+                f"never a source excerpt; got {self.evidence!r}"
+            )
 
     def _check_symbol(self) -> None:
         if self.kind == "parse_error":
@@ -375,6 +391,28 @@ def bounds(specifiers: SpecifierSet) -> tuple[Version | None, Version | None]:
     return (max(lowers) if lowers else None, min(uppers) if uppers else None)
 
 
+class CallShape(_Frozen):
+    """The calls of a flagged symbol that the flag is about; any other call is the API as it was.
+
+    A call is one if it passes a keyword of `keywords`, has more positional arguments than
+    `positional_from`, leaves out a name of `omits` (given by keyword, or by position at its index;
+    null for a name only a keyword can give), or has a `*` or `**` argument, which can pass
+    anything.
+    """
+
+    keywords: tuple[PlainName, ...] = ()
+    positional_from: StrictInt | None = Field(default=None, ge=0)
+    omits: dict[PlainName, Annotated[StrictInt, Field(ge=0)] | None] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check(self) -> CallShape:
+        if not (self.keywords or self.omits or self.positional_from is not None):
+            raise ValueError("a call shape names a keyword, a position or a name a call must pass")
+        sorted_unique(self.keywords, "keywords")
+        sorted_unique(tuple(self.omits), "omits")
+        return self
+
+
 class ScanSpec(_Frozen):
     """Everything the scanner needs from a pack, and nothing it must not have.
 
@@ -403,6 +441,8 @@ class ScanSpec(_Frozen):
     member_classes: tuple[MemberClass, ...] = ()
     removed_attributes: tuple[str, ...] = ()
     flag_only_symbols: tuple[str, ...] = ()
+    # Of those, the symbols flagged only for the calls that match: any other call is no row.
+    flag_only_calls: dict[str, CallShape] = Field(default_factory=dict)
     flag_only_patterns: tuple[FlagOnlyPattern, ...] = ()
     # The variables `environment_write` reports a write of: the new releases read other names.
     flag_only_variables: tuple[str, ...] = ()
@@ -460,6 +500,9 @@ class ScanSpec(_Frozen):
                 raise ValueError(f"{field} takes qualified names, got {bad}")
         sorted_unique(self.prefilter_tokens, "prefilter_tokens")
         sorted_unique(self.flag_only_patterns, "flag_only_patterns")
+        sorted_unique(tuple(self.flag_only_calls), "flag_only_calls")
+        if not set(self.flag_only_calls) <= set(self.flag_only_symbols):
+            raise ValueError("flag_only_calls names a symbol that flag_only_symbols does not")
         for field, value in (
             ("legacy_distribution", self.legacy_distribution),
             ("new_distribution", self.new_distribution),
@@ -684,6 +727,7 @@ class FindingsDocument(_Frozen):
 
 __all__ = [
     "Binding",
+    "CallShape",
     "Edit",
     "EditProposal",
     "Finding",

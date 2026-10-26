@@ -1,5 +1,53 @@
 {
   "$defs": {
+    "CallShape": {
+      "additionalProperties": false,
+      "description": "The calls of a flagged symbol that the flag is about; any other call is the API as it was.\n\nA call is one if it passes a keyword of `keywords`, has more positional arguments than\n`positional_from`, leaves out a name of `omits` (given by keyword, or by position at its index;\nnull for a name only a keyword can give), or has a `*` or `**` argument, which can pass\nanything.",
+      "properties": {
+        "keywords": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
+        "omits": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*$": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "title": "Omits",
+          "type": "object"
+        },
+        "positional_from": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Positional From"
+        }
+      },
+      "title": "CallShape",
+      "type": "object"
+    },
     "ChatHistory": {
       "additionalProperties": false,
       "description": "A chat history, whose bare-string parts are wrapped under `text_key` for the new SDK.",
@@ -187,6 +235,16 @@
           },
           "title": "Attributes",
           "type": "array"
+        },
+        "calls": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$": {
+              "$ref": "#/$defs/CallShape"
+            }
+          },
+          "title": "Calls",
+          "type": "object"
         },
         "message": {
           "maxLength": 500,

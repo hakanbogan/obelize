@@ -26,6 +26,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
 from obelize.apidiff.diff import Successors, names_only
+from obelize.models import CallShape
 from obelize.models.fields import DISPLAY_TEXT_LIMIT, printable
 from obelize.packs import loader
 from obelize.packs.schema import under_any
@@ -51,6 +52,8 @@ FIXTURE_NAMES: Final = 60
 # The most a pack file may be, with room under the loader's limit for the answer keys.
 PACK_BYTES: Final = 900_000
 _QUOTE_CHARS: Final = 240
+# The kinds of parameter a call may give by position.
+_PLACED: Final = ("positional-only", "positional or keyword")
 _LISTED: Final = 20
 _GENERIC: Final = {
     "removed": "Removed in {label}.",
@@ -71,6 +74,12 @@ _LIMITATIONS: Final = (
     "are not seen, so they are neither renamed nor flagged.",
     "A method called on an object whose class obelize cannot tell is not found; names reached "
     "through the module are.",
+)
+_CALL_NOTE: Final = (
+    "A name flagged for its signature is reported at a call that passes what changed, leaves out "
+    "what it now needs or has a * or ** argument, and at a use that is no call unless the name is "
+    "imported, annotated or handed to a call; what receives a handed name may call it with "
+    "anything."
 )
 _CLASS_NOTE: Final = (
     "A name under a class whose parameters changed is reported as that class, and a class flagged "
@@ -148,6 +157,8 @@ class _Flag:
     suggestion: str
     # Whether a parameter of it changed, which no message about its members says.
     params: bool = False
+    # The calls its parameter changes are about; `None` where it is flagged wherever it is used.
+    shape: CallShape | None = None
 
 
 def pack_id(
@@ -396,15 +407,57 @@ def _signature_text(label: str, change: ApiChange) -> str:
             return f"It changed from {change.detail} in {label}."
 
 
-def _merge(entries: Sequence[tuple[str, str, str, bool]]) -> _Flag:
-    """One name's reasons as one flag: the first's category and advice, every message in order."""
-    category, _, suggestion, _ = entries[0]
+def _merge(entries: Sequence[tuple[str, str, str, bool, CallShape | None]]) -> _Flag:
+    """One name's reasons as one flag: the first's category and advice, every message in order, and
+    the calls that all of them are about, if each is about some."""
+    category, _, suggestion, _, _ = entries[0]
     seen: list[str] = []
-    for _, message, _, _ in entries:
+    for _, message, _, _, _ in entries:
         if message not in seen:
             seen.append(message)
-    params = any(params for *_, params in entries)
-    return _Flag(category, _text(" ".join(seen)), suggestion, params)
+    params = any(entry[3] for entry in entries)
+    shapes = [entry[4] for entry in entries]
+    shape = None if None in shapes else _union([one for one in shapes if one is not None])
+    return _Flag(category, _text(" ".join(seen)), suggestion, params, shape)
+
+
+def _union(shapes: Sequence[CallShape]) -> CallShape:
+    firsts = [one.positional_from for one in shapes if one.positional_from is not None]
+    omits = {name: at for one in shapes for name, at in one.omits.items()}
+    return CallShape(
+        keywords=tuple(sorted({name for one in shapes for name in one.keywords})),
+        positional_from=min(firsts, default=None),
+        omits=dict(sorted(omits.items())),
+    )
+
+
+def _piece(change: ApiChange, olds: Mapping[str, Obj]) -> CallShape | None:
+    """The calls one parameter change is about, from where the old release has the parameter, or
+    `None` where they cannot be told: a method, which a call may pass its object to, and a change
+    that the arguments of the calls it breaks do not show."""
+    old, name = olds.get(change.path), change.param or ""
+    if old is None or _of_class(change.path, olds) or not name.isascii():
+        return None
+    at, kind = next(
+        ((at, one.kind) for at, one in enumerate(old.params or ()) if one.name == name), (0, "")
+    )
+    placed = at if kind in _PLACED else None
+    match change.type:
+        case "param_removed":
+            return CallShape(
+                keywords=() if kind == "positional-only" else (name,), positional_from=placed
+            )
+        case "param_renamed":
+            return CallShape(keywords=(name,))
+        case "param_kind_changed" if change.detail.endswith("-> keyword-only"):
+            return CallShape(positional_from=at)
+        case "param_kind_changed" if change.detail.endswith("-> positional-only"):
+            return CallShape(keywords=(name,))
+        case "default_changed":
+            return CallShape(omits={name: placed})
+        case "param_required_added":
+            return CallShape(omits={name: None})
+    return None
 
 
 def _outermost(flags: Mapping[str, _Flag]) -> tuple[dict[str, _Flag], tuple[str, ...]]:
@@ -440,15 +493,21 @@ def _prefixes(path: str) -> list[str]:
     return out
 
 
-def _args(obj: Obj) -> str:
-    """Arguments a call may be written with: a zero for each parameter that is required."""
-    given = []
-    for param in obj.params or ():
-        if param.required and param.kind == "keyword-only":
-            given.append(f"{param.name}=0")
-        elif param.required and param.kind != "variadic keyword":
-            given.append("0")
-    return ", ".join(given)
+def _args(obj: Obj, shape: CallShape | None = None, *, matching: bool = True) -> str:
+    """Arguments a call may be written with: a zero for each parameter that is required. With the
+    shape of a flag, a call it is about, or if not `matching`, one it is not."""
+    params = [one for one in obj.params or () if one.required and one.kind != "variadic keyword"]
+    positional = ["0" for one in params if one.kind != "keyword-only"]
+    named = [one.name for one in params if one.kind == "keyword-only"]
+    if shape is not None and matching:
+        if shape.keywords:
+            named.append(shape.keywords[0])
+        elif shape.positional_from is not None:
+            positional += ["0"] * (shape.positional_from + 1 - len(positional))
+    elif shape is not None:
+        positional = positional[: shape.positional_from]
+        named = [name for name in named if name not in shape.keywords] + list(shape.omits)
+    return ", ".join([*positional, *(f"{name}=0" for name in named)])
 
 
 @dataclass(frozen=True, slots=True)
@@ -484,12 +543,18 @@ class _Plan:
         references: dict[str, str] = {}
         exports: dict[str, str] = {}
         members: dict[str, _Member] = {}
-        parts: dict[str, list[tuple[str, str, str, bool]]] = {}
+        parts: dict[str, list[tuple[str, str, str, bool, CallShape | None]]] = {}
 
         def flag(
-            path: str, category: str, message: str, suggestion: str, *, params: bool = False
+            path: str,
+            category: str,
+            message: str,
+            suggestion: str,
+            *,
+            params: bool = False,
+            shape: CallShape | None = None,
         ) -> None:
-            parts.setdefault(path, []).append((category, message, suggestion, params))
+            parts.setdefault(path, []).append((category, message, suggestion, params, shape))
 
         moved = {
             change.path
@@ -520,7 +585,8 @@ class _Plan:
             else:
                 changed = change.type.startswith("param_") or change.type == "default_changed"
                 text = _signature_text(label, change)
-                flag(path, "signature", text, _SUGGESTED["signature"], params=changed)
+                shape = _piece(change, olds) if changed else None
+                flag(path, "signature", text, _SUGGESTED["signature"], params=changed, shape=shape)
         flags = {path: _merge(entries) for path, entries in parts.items()}
         # A new name must not be one the pack looks for, or the rewritten file is a finding again.
         flagged = tuple(f"{request.module}.{path}" for path in flags)
@@ -656,6 +722,11 @@ class _Plan:
         for category in _GENERIC:
             groups = _fold(request, category, grouped.get(category, {}))
             for number, ((message, suggestion), paths) in enumerate(groups, 1):
+                shapes = {
+                    f"{request.module}.{path}": shape.model_dump(mode="json", exclude_defaults=True)
+                    for path in sorted(paths)
+                    if (shape := self.flags[path].shape) is not None
+                }
                 out.append(
                     {
                         "id": f"{category}-{number}",
@@ -667,6 +738,7 @@ class _Plan:
                             "message": message,
                             "suggestion": suggestion,
                             "symbols": sorted(f"{request.module}.{path}" for path in paths),
+                            **({"calls": shapes} if shapes else {}),
                         },
                         "fixtures": [
                             "fixtures/negative/already_new.py",
@@ -724,6 +796,7 @@ class _Plan:
             names = sorted(self.flags)[:FIXTURE_NAMES]
             uses = [self._use(path, True, n) for n, path in enumerate(names)]
             found["fixtures/positive/flagged.before.py"] = _program(_DOCS["flagged"], uses)
+        shaped = [path for path in sorted(self.flags) if self.flags[path].shape][:FIXTURE_NAMES]
         landed = sorted(
             {*self.with_calls.values(), *self.references.values(), *self.exports.values()}
         )[:FIXTURE_NAMES]
@@ -732,6 +805,8 @@ class _Plan:
             self._read(f"{_parent(path)}.{one.new}")
             for path, one in sorted(self.members.items())[:FIXTURE_NAMES]
         ]
+        # Through the package, since a submodule's import may be one the pack moves.
+        kept += [(request.module, self._use(path, True, 0, matching=False)[1]) for path in shaped]
         found["fixtures/negative/already_new.py"] = _program(_DOCS["new"], kept)
         found["fixtures/positive/requirements.before.txt"] = _requirements(
             f"{request.distribution}=={request.old}", _NOTE
@@ -767,11 +842,13 @@ class _Plan:
             parent = _parent(parent)
         return f"{self.request.module}.{parent}" if parent else self.request.module
 
-    def _use(self, path: str, call: bool, number: int) -> tuple[str, str]:
-        """A line that uses a name of the old release, and the module it needs imported."""
+    def _use(self, path: str, call: bool, number: int, *, matching: bool = True) -> tuple[str, str]:
+        """A line that uses a name of the old release, and the module it needs imported. A name
+        flagged for some calls is called as one of them, or, if not `matching`, as none of them."""
         obj, dotted = self.olds[path], f"{self.request.module}.{path}"
         if call and obj.kind in ("function", "class"):
-            return self._home(path), f"{dotted}({_args(obj)})"
+            shape = self.flags[path].shape if path in self.flags else None
+            return self._home(path), f"{dotted}({_args(obj, shape, matching=matching)})"
         return self._home(path), f"handler_{number} = {dotted}"
 
     def _read(self, path: str) -> tuple[str, str]:
@@ -806,7 +883,11 @@ class _Plan:
                 "prefilter_tokens": [request.module],
             },
             "changes": self.changes(),
-            "limitations": [*_LIMITATIONS, *([_CLASS_NOTE] if self.dropped else [])],
+            "limitations": [
+                *_LIMITATIONS,
+                *([_CALL_NOTE] if any(one.shape for one in self.flags.values()) else []),
+                *([_CLASS_NOTE] if self.dropped else []),
+            ],
         }
         body = yaml.safe_dump(doc, sort_keys=False, default_flow_style=False, width=100)
         header = _HEADER.format(name=request.distribution, old=request.old, new=request.new)

@@ -51,6 +51,14 @@ What the made pack does is deliberately small:
   it gave one: what was
   removed or moved, a parameter that was renamed, removed or made required, a default that changed,
   a class whose bases changed, a name that is deprecated.
+- A function or a class whose only changes are to its parameters is flagged at the calls those
+  changes can break, and says which: a call that passes a keyword that went, has an argument at a
+  position that went, leaves out a parameter that is now required or has a new default, or passes
+  `*` or `**`. A call that does none of these is not listed, and neither is the name where it is
+  imported, annotated or handed to another call (`Column(Integer)`, `map(pd.to_datetime, rows)`).
+  Each place says what in the call matched, such as `keyword infer_datetime_format`, so a call that
+  passes none of what changed is not one more place to read. A name that also left, moved or is
+  deprecated, a class whose bases changed, and every method, is still flagged wherever it is used.
 - The dependency line moves to the new release.
 
 A pack made this way says in its limitations that a change in what a function does is not in it.

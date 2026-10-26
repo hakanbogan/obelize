@@ -1175,6 +1175,7 @@ PROJECTED = {
     "member_classes",
     "removed_attributes",
     "flag_only_symbols",
+    "flag_only_calls",
     "flag_only_patterns",
     "flag_only_variables",
     "requires_python",
@@ -1271,6 +1272,34 @@ def test_a_newest_release_must_be_a_final_one_in_the_range_spelled_as_pep_440_do
 def test_a_newest_release_needs_a_range_with_a_floor() -> None:
     with pytest.raises(ValidationError, match="must have a floor"):
         build(newest(version="<4"))
+
+
+def test_a_flagged_symbol_may_be_flagged_only_for_the_calls_a_shape_names() -> None:
+    shape = {"keywords": ["old"], "positional_from": 2, "omits": {"gone": 1, "kw": None}}
+    built = build(with_change(builder.FLAG_CHANGE, calls={"demo_legacy.protos": shape}))
+    (calls,) = flag_params(built, 1).calls.items()
+    assert calls[0] == "demo_legacy.protos"
+    assert (calls[1].keywords, calls[1].positional_from, calls[1].omits) == (
+        ("old",),
+        2,
+        {"gone": 1, "kw": None},
+    )
+    spec = loader.to_scan_spec(_loaded(built))
+    assert spec.flag_only_symbols == ("demo_legacy.protos",)
+    assert spec.flag_only_calls == {"demo_legacy.protos": calls[1]}
+    plain = loader.to_scan_spec(_loaded(build(with_change(builder.FLAG_CHANGE))))
+    assert plain.flag_only_calls == {}
+
+
+def test_a_shape_moves_the_digest_of_what_the_scan_reads() -> None:
+    def digest(**params: Any) -> str:
+        return loader.spec_digest(
+            loader.to_scan_spec(_loaded(build(with_change(builder.FLAG_CHANGE, **params))))
+        )
+
+    first = {"demo_legacy.protos": {"keywords": ["a"]}}
+    other = {"demo_legacy.protos": {"keywords": ["b"]}}
+    assert len({digest(), digest(calls=first), digest(calls=other)}) == 3
 
 
 def test_what_the_newest_release_lacks_needs_it_and_is_sorted_and_flagged() -> None:
@@ -1419,7 +1448,8 @@ def test_the_projection_digest_ignores_the_pack_identity_and_the_gates_and_nothi
             value = getattr(spec, field)
             if field in identity or field in gates or not value:
                 continue
-            emptied = False if isinstance(value, bool) else () if isinstance(value, tuple) else ""
+            empties = {bool: False, tuple: (), dict: {}}
+            emptied = empties.get(type(value), "")
             assert loader.spec_digest(spec.model_copy(update={field: emptied})) != baseline, field
             exercised.add(field)
     assert exercised == PROJECTED - identity.keys() - gates.keys()

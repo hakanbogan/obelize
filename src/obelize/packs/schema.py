@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from obelize.models import (
     QUALIFIED_NAME,
+    CallShape,
     ConfidenceReason,
     DisplayText,
     DistributionName,
@@ -1445,6 +1446,9 @@ class FlagOnlyParams(_Closed):
     message: DisplayText
     suggestion: DisplayText
     symbols: tuple[QualifiedName, ...] = ()
+    # For a symbol that is called: the calls the message is about. A symbol with no entry here is
+    # flagged wherever it is used.
+    calls: dict[QualifiedName, CallShape] = Field(default_factory=dict)
     patterns: tuple[FlagOnlyPattern, ...] = ()
     attributes: tuple[QualifiedName, ...] = ()
     # The environment variables `environment_write` reports a write of, and only it reads them.
@@ -1455,6 +1459,9 @@ class FlagOnlyParams(_Closed):
         if not (self.symbols or self.patterns or self.attributes):
             raise ValueError("a flag_only rule must name a symbol, a pattern or an attribute")
         sorted_unique(self.symbols, "symbols")
+        sorted_unique(tuple(self.calls), "calls")
+        if not set(self.calls) <= set(self.symbols):
+            raise ValueError("calls names a symbol that symbols does not, so no call is checked")
         sorted_unique(self.patterns, "patterns")
         sorted_unique(self.attributes, "attributes")
         sorted_unique(self.variables, "variables")
@@ -1666,6 +1673,7 @@ class PackDocument(_Closed):
         self._check_version_ranges()
         self._check_what_the_newest_release_lacks_is_flagged()
         self._check_what_the_code_may_prove_is_looked_for()
+        self._check_what_proves_a_release_is_flagged_whole()
         self._check_what_the_new_side_introduces_is_not_legacy()
         self._check_a_transitive_module_has_a_distribution_that_installed_it()
         self._check_what_is_declared_for_a_transitive_module_is_listed()
@@ -2015,6 +2023,21 @@ class PackDocument(_Closed):
                     f"from.since names {name!r}, which is under nothing in {field} "
                     f"{list(looked)}, so the scan never reports a use of it"
                 )
+
+    def _check_what_proves_a_release_is_flagged_whole(self) -> None:
+        """The check reads `lacks` and `since` off the scan's findings, and a call a shape passes
+        over is none."""
+        named = (*self.from_.lacks, *self.from_.since)
+        for change in self.changes:
+            if not isinstance(change, FlagOnlyChange):
+                continue
+            for symbol in change.params.calls:
+                if under_any(symbol, named):
+                    raise ValueError(
+                        f"changes[{change.id!r}].params.calls names {symbol!r}, which from.lacks "
+                        f"or from.since lists or sits under, and the scan reads those off its "
+                        f"findings, which a call the shape passes over would not be"
+                    )
 
     def _check_what_the_new_side_introduces_is_not_legacy(self) -> None:
         """Names that tell the new API from the old one inside one module of one distribution."""

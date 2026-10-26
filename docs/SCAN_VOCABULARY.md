@@ -147,7 +147,7 @@ summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACT
 | `response_shape_changed` | The pack says the new call returns a different shape. `result_access_flags`: the legacy result was a mapping; raised on a call whose result is used, or a stream read other than as a `for` iterable. `dispatch_prefixes`: the argument is not a literal under a prefix the new call reproduces (`get_model("tunedModels/…")` would silently return the wrong class). `literal_prefixes`: the argument is a string literal without a listed prefix (`Image.create(model="gpt-image-1")` returns no `url`). `result_paths`: a read of the result that is not along a listed path, written as attributes or as string keys (a key off the path, a `.get` with a default or a key that is not a string literal, a loop over the whole result, a part that stops short of a leaf and is not carried on into a name or a loop over its items, a key read of a name that may hold something else, in a closure or a generator expression, a result or a part bound to a name another selected module imports or reads off the module, or in a `try` whose handler may catch a `KeyError`, the result or a part passed on or returned). Whatever the pack states, a call in an f-string field written with `=`, which prints the source text the rewrite changes. | Migrate by hand the code that reads the result; the new call returns a different shape. |
 | `count_tokens_config_carries_semantics` | `count_tokens` on a constructor with `system_instruction=` or `tools=`, which change the count. | Migrate the count_tokens call by hand; system_instruction and tools change the count. |
 | `attribute_removed` | An attribute only the legacy object has (`supported_generation_methods`) or that became a method (`chat.history` -> `chat.get_history()`); at fix time, a call result read for a field listed in `result_attribute_flags`, a use other than a plain assignment of a setting a `rename_setting` change renames, or an `except` clause that reads an attribute of the error a `rename_symbol` change renamed. | Migrate by hand the code that uses this attribute; the new object has none, or a method in its place. |
-| `flag_only_surface` | The pack's `flag_only` rule matched: a `mock.patch` target, a dynamic import, a `sys.modules` stub, `protos`/`caching`, the PaLM-era surface. Reported with a suggestion, never rewritten. | Read the pack's suggestion and change the flagged code by hand; obelize never rewrites it. |
+| `flag_only_surface` | The pack's `flag_only` rule matched: a `mock.patch` target, a dynamic import, a `sys.modules` stub, `protos`/`caching`, the PaLM-era surface. For a symbol the rule flags only for some calls (`calls`), a call that passes what changed (§14), or a use that is not a call and is not imported, annotated or handed to a call. Reported with a suggestion, never rewritten. | Read the pack's suggestion and change the flagged code by hand; obelize never rewrites it. |
 | `error_class_changed` | A rewritten call is in a `try` whose handler, in the same function, names an exception from the change's `legacy_error_modules` (`google.api_core.exceptions`). The new SDK raises `google.genai.errors`, so the handler would never run; for `rename_symbol`, a class that is called, raised or derived from, or a renamed class whose handler follows one in the same `try` that may now catch it (a class the change's `now_caught_by` lists, or one the rule cannot tell). | Catch the exception class the new SDK raises in that handler, then run again. |
 | `types_import_typing_only` | The rewrite needs a submodule (Gemini's `types`) at run time and the file imports it only under `if TYPE_CHECKING:`, with no replaced statement that runs to anchor a fresh import. | Import the module at run time, outside TYPE_CHECKING, or migrate the file by hand. |
 
@@ -390,3 +390,20 @@ as that union, since `obelize.fsutil` imports `models`;
 
 Only `tree_dirty` and `tree_unknown` have no path. `tree_dirty`'s `detail` counts
 the outstanding paths and never names them: they are the user's own work.
+
+## 14. `Finding.evidence`: what a pack flags a call for (4 values)
+
+A call of a symbol that a `flag_only` change flags only for some calls (`calls`,
+[PACK_SPEC.md](PACK_SPEC.md#the-calls-a-flag-is-about)) carries one of these words, then what it
+takes, as `evidence`. A finding of any other kind carries `null`, and a source excerpt is never kept
+there.
+
+| Value | Takes | The call |
+|---|---|---|
+| `keyword` | The name of the keyword. | Passes a keyword that the shape's `keywords` lists. |
+| `position` | The index of the argument. | Has more positional arguments than the shape's `positional_from`. |
+| `omitted` | The name of the parameter. | Leaves out a name that the shape's `omits` lists, by keyword and by the position it maps to. |
+| `spread` | Nothing. | Has a `*` or `**` argument, which can pass any of them. |
+
+A symbol that is flagged for some calls and is imported, annotated or handed to a call as an argument
+is no finding in a shared module, and a use of it that is none of those is a finding with no evidence.

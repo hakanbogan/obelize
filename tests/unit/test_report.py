@@ -709,6 +709,30 @@ def test_an_eligible_row_gives_no_confidence_code_and_a_withheld_one_its_reason(
     assert any(line.endswith("model_object_escapes") for line in withheld)
 
 
+def test_a_call_flagged_for_what_it_passes_says_so_beside_the_code_that_withheld_it() -> None:
+    call = Finding(
+        path="app.py",
+        line=3,
+        column=0,
+        kind="call",
+        confidence_reason="direct_import_resolved",
+        symbol="acme.calls.connect",
+        evidence="keyword timeout",
+        scan_status="needs_review",
+        bail="flag_only_surface",
+    )
+    plain = call.model_copy(update={"line": 4, "evidence": None})
+    first, second = report._rows([call, plain])
+    assert first.endswith("flag_only_surface (keyword timeout)")
+    assert second.endswith("flag_only_surface")
+    table = report._findings_section((call, plain))
+    assert (
+        "| 3 | call | acme.calls.connect | needs_review | flag_only_surface (keyword timeout) |"
+        in table
+    )
+    assert "| 4 | call | acme.calls.connect | needs_review | flag_only_surface |" in table
+
+
 @posix_only("Windows cannot create a name with a pipe or a backtick")
 def test_a_name_that_would_break_the_report_is_skipped_and_cannot_end_a_cell(
     tmp_path: Path,

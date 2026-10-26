@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-073.
 
 ## Decision
 
@@ -30,7 +30,9 @@ gone or no other name can be it. `calls: allowed` is written only for a name tha
 which is the claim the field makes. Every other change is a `flag_only` change in one of four
 groups, removed, moved elsewhere, a changed signature and deprecated, whose message is the
 library's own where it gave one and a plain statement where it did not. A pack never rewrites a
-call it cannot show takes the arguments it took. The dependency line moves from the old release to
+call it cannot show takes the arguments it took. A changed signature of a function or a class is
+flagged only for the calls it can break, with a shape written from its parameter changes (ADR-073
+D3); a name with any other change, and a method, is flagged wherever it is used. The dependency line moves from the old release to
 `>=<to>,<next major>` with `manifest_dependency`. The pack is `shared`, since it is one distribution.
 
 A name under a flagged class is reported as the class, because two changes may not flag one

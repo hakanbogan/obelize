@@ -630,7 +630,10 @@ it is contacted.
 The pack renames a name the library's own deprecation message says to use another for (`old_greet
 is deprecated, use greet instead`), moves up a name that left a submodule for its package, flags the
 rest for a person (removed, moved elsewhere, a signature that changed, deprecated) with the
-library's words where it gave any, and moves the dependency line. Its fixtures are written from the
+library's words where it gave any, and moves the dependency line. A function or class whose only
+changes are to its parameters is flagged at the calls that pass what changed, leave out what it now
+needs or pass `*` or `**`, and at the uses that are no call and are not imported, annotated or handed
+to a call; any other name is flagged wherever it is used. Its fixtures are written from the
 comparison and its `.after` files from the rules, as `pack new` does, and the pack is held to
 `pack test` before it is kept. A change the rules cannot make as the comparison says is not made.
 

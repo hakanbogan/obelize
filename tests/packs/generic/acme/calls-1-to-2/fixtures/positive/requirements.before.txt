@@ -1,0 +1,3 @@
+# The dependency declaration the migration has to move with the code.
+acme-calls==1.4.2
+requests>=2.31

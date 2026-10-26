@@ -1,0 +1,83 @@
+# A pack for the test suite, over an invented library: acme-calls 2 keeps the module's name and
+# changes what two of its names take. It flags a call only when the call is affected.
+id: acme/calls-1-to-2
+pack_version: 0.1.0
+provider: acme
+language: python
+
+source:
+  type: official_guide
+  url: https://example.invalid/acme-calls/migrating
+  retrieved_at: 2026-10-27
+
+from:
+  package: acme-calls
+  version: ">=1,<2"
+to:
+  package: acme-calls
+  version: ">=2,<3"
+  requires_python: ">=3.9"
+
+match:
+  imports:
+    - acme.calls
+  shared: true
+  symbols:
+    - acme.calls.Session
+    - acme.calls.connect
+    - acme.calls.drop
+  prefilter_tokens:
+    - acme
+
+changes:
+  - id: flag-signatures
+    kind: flag_only
+    citation: "Acme Calls 2 notes, 'Signatures'"
+    params:
+      symbols:
+        - acme.calls.Session
+        - acme.calls.connect
+      calls:
+        acme.calls.Session:
+          keywords:
+            - verbose
+        acme.calls.connect:
+          keywords:
+            - timeout
+          positional_from: 2
+          omits:
+            retries: 3
+            secure: 4
+      message: >-
+        acme-calls 2 took timeout out of connect and verbose out of Session, made retries and
+        secure of connect keyword-only, and changed their defaults.
+      suggestion: Read the signatures in the release notes.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/connects.before.py
+
+  - id: flag-drop
+    kind: flag_only
+    citation: "Acme Calls 2 notes, 'Dropped'"
+    params:
+      symbols:
+        - acme.calls.drop
+      message: drop is gone in acme-calls 2.
+      suggestion: Call close instead.
+    fixtures:
+      - fixtures/negative/already_new.py
+      - fixtures/positive/dropped.before.py
+
+  - id: dependency-line
+    kind: manifest_dependency
+    citation: "Acme Calls 2 notes, 'Installing'"
+    params:
+      from_name: acme-calls
+      to_name: acme-calls
+      to_spec: ">=2,<3"
+    fixtures:
+      - fixtures/negative/requirements_already_new.txt
+      - fixtures/positive/requirements.before.txt
+
+limitations:
+  - "A name flagged for its signature is reported at a call that passes what changed, and at a use that is no call unless the name is imported, annotated or handed to a call."

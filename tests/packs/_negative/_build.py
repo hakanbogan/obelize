@@ -273,6 +273,19 @@ def _since(**fields: Any) -> Callable[[Document], None]:
     return mutate
 
 
+def _calls(
+    shape: Document, symbol: str = "demo_legacy.protos", *then: Callable[[Document], None]
+) -> Callable[[Document], None]:
+    """A shape for a symbol of the flag rule (`FLAG_CHANGE`), and then what `then` does."""
+
+    def mutate(document: Document) -> None:
+        document["changes"][1]["params"]["calls"] = {symbol: shape}
+        for step in then:
+            step(document)
+
+    return mutate
+
+
 def _introduces(*names: str, one: bool = True, shared: bool = True) -> Callable[[Document], None]:
     """A target that names what only it defines; by default over the one shared module of one
     distribution, where that is possible."""
@@ -1096,6 +1109,64 @@ CASES: tuple[Case, ...] = (
         says="both flag ['dynamic_access']",
         extra=FLAG_CHANGE,
         mutate=flagged_twice({"patterns": ["dynamic_access"]}, {"patterns": ["sys_modules_stub"]}),
+    ),
+    Case(
+        name="a_call_shape_for_a_symbol_the_rule_does_not_flag",
+        defect="a shape for a name the rule's symbols lack, so no call is checked against it",
+        path=f"{EXTRA}.params",
+        says="calls names a symbol that symbols does not",
+        extra=FLAG_CHANGE,
+        mutate=_calls({"keywords": ["old"]}, "demo_legacy.elsewhere"),
+    ),
+    Case(
+        name="a_call_shape_that_names_nothing",
+        defect="a shape with no keyword, no position and no name, which flags only a splat",
+        path=f"{EXTRA}.params.calls.demo_legacy.protos",
+        says="names a keyword, a position or a name",
+        extra=FLAG_CHANGE,
+        mutate=_calls({}),
+    ),
+    Case(
+        name="a_call_shape_with_keywords_out_of_order",
+        defect="a list of keywords that is not sorted, so one set has two spellings",
+        path=f"{EXTRA}.params.calls.demo_legacy.protos",
+        says="keywords must be sorted and de-duplicated",
+        extra=FLAG_CHANGE,
+        mutate=_calls({"keywords": ["old", "added"]}),
+    ),
+    Case(
+        name="a_call_shape_with_names_out_of_order",
+        defect="names a call must give that are not sorted, so one set has two spellings",
+        path=f"{EXTRA}.params.calls.demo_legacy.protos",
+        says="omits must be sorted and de-duplicated",
+        extra=FLAG_CHANGE,
+        mutate=_calls({"omits": {"old": None, "added": 1}}),
+    ),
+    Case(
+        name="a_call_shape_with_a_position_below_the_first",
+        defect="a position that no argument has",
+        path=f"{EXTRA}.params.calls.demo_legacy.protos.positional_from",
+        says="greater than or equal to 0",
+        extra=FLAG_CHANGE,
+        mutate=_calls({"positional_from": -1}),
+    ),
+    Case(
+        name="a_call_shape_for_a_name_the_newest_release_lacks",
+        defect="a shape for a name the newest release lacks, which the scan must report whole",
+        path="",
+        says="which from.lacks or from.since lists or sits under",
+        extra=FLAG_CHANGE,
+        mutate=_calls(
+            {"keywords": ["old"]}, "demo_legacy.protos", _newest(lacks=["demo_legacy.protos"])
+        ),
+    ),
+    Case(
+        name="a_call_shape_for_a_name_only_the_range_defines",
+        defect="a shape for a name that proves the release, read off the scan's findings",
+        path="",
+        says="which from.lacks or from.since lists or sits under",
+        extra=FLAG_CHANGE,
+        mutate=_calls({"keywords": ["old"]}, "demo_legacy.protos", _since(since=["demo_legacy"])),
     ),
     Case(
         name="a_variable_named_where_no_shape_reports_a_write",

@@ -406,6 +406,11 @@ FlagOnlyPattern = Literal[
 ]
 FLAG_ONLY_PATTERNS: frozenset[FlagOnlyPattern] = frozenset(get_args(FlagOnlyPattern))
 
+# What a call is flagged for (`Finding.evidence`): the word, then the parameter's name (`keyword`,
+# `omitted`) or the argument's index (`position`); `spread` takes none.
+CallMatch = Literal["keyword", "position", "omitted", "spread"]
+CALL_MATCHES: frozenset[CallMatch] = frozenset(get_args(CallMatch))
+
 # `model.provider`; the default `none` is a promise that no endpoint is contacted. Not the adapter
 # protocol, which is `obelize.providers.base.ModelProvider`.
 ProviderName = Literal["none", "openai_compat"]
@@ -619,6 +624,7 @@ __all__ = [
     "BAIL_ACTIONS",
     "BAIL_CODES",
     "BINDING_KINDS",
+    "CALL_MATCHES",
     "COMMAND_REASONS",
     "COMMAND_SOURCES",
     "CONFIDENCE_REASONS",
@@ -657,6 +663,7 @@ __all__ = [
     "BailCode",
     "BindingKind",
     "BlockedReason",
+    "CallMatch",
     "CommandSource",
     "ConfidenceReason",
     "ConfigOrigin",

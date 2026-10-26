@@ -1,0 +1,3 @@
+# Already migrated, and the rule adds no pin.
+acme-calls>=2,<3
+requests>=2.31
