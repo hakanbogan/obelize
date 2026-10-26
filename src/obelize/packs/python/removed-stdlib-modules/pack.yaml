@@ -92,8 +92,7 @@ changes:
         either raises ModuleNotFoundError. A subclass of asyncore.dispatcher or asynchat.async_chat
         is an event loop of its own, and nothing renames it.
       suggestion: >-
-        Use asyncio instead (the removal notice says so): asyncio.start_server or
-        loop.create_connection with a Protocol take the place of a dispatcher.
+        Use asyncio instead, as the removal notice says.
     fixtures:
       - fixtures/negative/already_shlex.py
       - fixtures/positive/event_loops.before.py
@@ -108,8 +107,7 @@ changes:
         Python 3.12 removed smtpd, which was deprecated in 3.4.7 and 3.5.4: importing it raises
         ModuleNotFoundError.
       suggestion: >-
-        Use the aiosmtpd PyPI module or any other asyncio-based server, as the removal notice says;
-        a subclass of smtpd.SMTPServer becomes a handler class of aiosmtpd.
+        Use the aiosmtpd PyPI module or any other asyncio-based server, as the removal notice says.
     fixtures:
       - fixtures/negative/already_shlex.py
       - fixtures/positive/smtpd.before.py
@@ -126,8 +124,9 @@ changes:
         by accident now fails.
       suggestion: >-
         distutils.version: packaging.version. spawn.find_executable: shutil.which. spawn.spawn:
-        subprocess.run. sysconfig: sysconfig. util.get_platform: platform. fancy_getopt: argparse.
-        core, cmd and command: setuptools. strtobool and dir_util.create_tree: write them out.
+        subprocess.run. sysconfig: sysconfig. util.get_platform: sysconfig.get_platform, not the
+        platform module PEP 632 names. fancy_getopt: argparse. core, cmd and command: setuptools.
+        strtobool and dir_util.create_tree: write them out.
     fixtures:
       - fixtures/negative/already_shlex.py
       - fixtures/positive/distutils.before.py
@@ -185,12 +184,12 @@ changes:
         - sunau
         - xdrlib
       message: >-
-        Python 3.13 removed these, and PEP 594 names no replacement for any of them: the module
-        went with its documentation, so the code has to carry the functionality, depend on a
-        library of its own, or stop using it.
+        Python 3.13 removed these. PEP 594 names no replacement for aifc, audioop, mailcap,
+        msilib, nntplib, ossaudiodev, sunau or xdrlib, and the removal notice names none for
+        lib2to3: the code has to carry the functionality, depend on a library of its own, or stop
+        using it.
       suggestion: >-
-        Decide per use. For lib2to3 the removal notice names none either; audioop is used by
-        aifc, sunau and wave, which still ship, so check what the repository reads.
+        Decide per use, by what the repository reads from the module.
     fixtures:
       - fixtures/negative/already_shlex.py
       - fixtures/positive/without_replacement.before.py

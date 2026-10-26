@@ -14,7 +14,8 @@ provenance*).
 | What's New In Python 3.13 | <https://docs.python.org/3/whatsnew/3.13.html> | 2026-10-24 | `30d3d3d419b3e527dc6dee993f4fd046a77013c7537145fa7a81f81e49dbba22` |
 | Python documentation, shlex | <https://docs.python.org/3/library/shlex.html> | 2026-10-24 | `6552ab8040383c9aa41e5ad1d3c928517068cb104d58f4582d44193e1e085abe` |
 
-The hash is of the page body as served. obelize never requests the URL.
+The hash is of the page body as served. obelize never requests the URL. Where a sentence of a flag
+text is not in a page above, the section for that flag says it is mine.
 
 ## The measurement, and why it outranks the page
 
@@ -66,7 +67,10 @@ was `PyPDF2` none in 0.1.
 - PEP 632, Migration Advice: "`distutils.version` — use the `packaging` package. `distutils.fancy_getopt`
   — use the `argparse` module. `distutils.spawn.find_executable` — use the `shutil.which` function.
   `distutils.spawn.spawn` — use the `subprocess.run` function. `distutils.sysconfig` — use the
-  `sysconfig` module. `distutils.util.get_platform` — use the `platform` module." And: setuptools
+  `sysconfig` module. `distutils.util.get_platform` — use the `platform` module." (The pack does not
+  repeat the last: measured on 3.12 with `setuptools` 81.0.0 alone, `distutils.util.get_platform()`
+  and `sysconfig.get_platform()` both return `macosx-15.0-arm64`, and the `platform` module has no
+  `get_platform`. `sysconfig.get_platform` is my correction of the PEP.) And: setuptools
   is "the best substitute" for `ccompiler`, `cmd.Command`, `command`, `config`, `core.Distribution`
   and `errors`; for `dir_util.create_tree`, `util.change_root` and `util.strtobool` "you will need to
   reimplement the functionality yourself."
@@ -96,8 +100,11 @@ was `PyPDF2` none in 0.1.
 - PEP 594, Table 1: `aifc`, `audioop`, `mailcap`, `msilib`, `nntplib`, `ossaudiodev`, `sunau` and
   `xdrlib` have `-` in the Replacement column. What's New In Python 3.13 removed all of them, and
   "the 2to3 tool and lib2to3 module".
-- PEP 594, audioop: "The `aifc`, `sunau`, and `wave` modules depend on `audioop` for some
-  operations." `wave` is one of the modules PEP 594 keeps.
+- PEP 594 says of `audioop` that `aifc`, `sunau` and `wave` depend on it for some operations. That
+  is the PEP's account of the standard library as it was in 2022; measured, `import wave` does not
+  load `audioop` on 3.12 or 3.13, and the pack does not repeat the sentence.
+- The text of this flag is mine where it names the modules without a replacement; the PEP's table
+  has `-` for each, and `lib2to3` is not in the PEP but in the 3.13 notes.
 
 ## flag-indirect-use
 

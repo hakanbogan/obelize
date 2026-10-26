@@ -67,6 +67,8 @@ class Blocked:
     # The release the person gave (`upgrade --from`) where it decided nothing: a declaration
     # overrules it, and a release the pack does not cover cannot stand for the one in use.
     stated: str = ""
+    # The pack, where the block has no distribution to say whose it is (the new side is the Python).
+    pack: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +114,7 @@ def detect(paths: tuple[str, ...], contents: parse.Contents, spec: ScanSpec) -> 
             path=blocking.path,
             declared=blocking.declared,
             needed=spec.requires_python,
+            pack="" if spec.new_distribution else spec.pack_id,
         )
     settled = blocking or (found[0] if found else None)
     return Floor(declared=settled, blocked=blocked, limitations=tuple(unparsed))

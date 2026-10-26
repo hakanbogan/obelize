@@ -34,6 +34,38 @@ def bound_names(wrapper: MetadataWrapper) -> frozenset[str]:
     return frozenset(assignment.name for scope in scopes for assignment in scope.assignments)
 
 
+class _Rebound(cst.CSTVisitor):
+    """What `ScopeProvider` leaves out: the names a `case` captures and a `del` unbinds, and whether
+    a star import may bind any name at all."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.names: list[str] = []
+        self.star = False
+
+    def on_visit(self, node: cst.CSTNode) -> bool:
+        if isinstance(node, cst.MatchAs | cst.MatchStar):
+            self._bind(node.name)
+        elif isinstance(node, cst.MatchMapping):
+            self._bind(node.rest)
+        elif isinstance(node, cst.Del):
+            self._unbind(node.target)
+        elif isinstance(node, cst.ImportFrom):
+            self.star = self.star or isinstance(node.names, cst.ImportStar)
+        return True
+
+    def _bind(self, name: cst.Name | None) -> None:
+        if name is not None:
+            self.names.append(name.value)
+
+    def _unbind(self, target: cst.BaseExpression) -> None:
+        if isinstance(target, cst.Name):
+            self.names.append(target.value)
+        elif isinstance(target, cst.Tuple | cst.List):
+            for element in target.elements:
+                self._unbind(element.value)
+
+
 @dataclass(slots=True)
 class _Anchor:
     """One legacy statement, and the statements that take its place."""
@@ -48,7 +80,9 @@ class ImportPlan:
 
     def __init__(self, wrapper: MetadataWrapper) -> None:
         self._wrapper = wrapper
-        self._bound = set(bound_names(wrapper))
+        self._rebound = _Rebound()
+        wrapper.module.visit(self._rebound)
+        self._bound = {*bound_names(wrapper), *self._rebound.names}
         self._parents = wrapper.resolve(ParentNodeProvider)
         self._anchors: dict[int, _Anchor] = {}
         self._bindings: dict[str, str] = {}
@@ -78,6 +112,15 @@ class ImportPlan:
     def binding(self, module_path: str) -> str | None:
         """The name this plan has already bound `module_path` to, if any."""
         return self._bindings.get(module_path)
+
+    def rebound(self, name: str) -> bool:
+        """Whether a `case` capture or a `del` binds `name` somewhere in the file."""
+        return name in self._rebound.names
+
+    @property
+    def starred(self) -> bool:
+        """Whether the file has a star import, which may bind any name where it stands."""
+        return self._rebound.star
 
     def anchor(self, line: int) -> bool:
         """Whether fresh imports have a line to follow: the one a rule replaced, else the last
@@ -176,7 +219,12 @@ class ImportPlan:
     def _counts(self) -> Counter[str]:
         """How many times each name is bound, in any scope."""
         scopes = cast("Collection[Scope]", set(self._wrapper.resolve(ScopeProvider).values()))
-        return Counter(assignment.name for scope in scopes for assignment in scope.assignments)
+        return Counter(
+            [
+                *(assignment.name for scope in scopes for assignment in scope.assignments),
+                *self._rebound.names,
+            ]
+        )
 
     def _imports_above(self, line: int) -> list[cst.SimpleStatementLine]:
         """The module-level lines of one import that end before `line` starts, in order."""

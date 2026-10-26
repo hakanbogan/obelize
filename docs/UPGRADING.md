@@ -104,6 +104,11 @@ workflow do it.
 - It cannot see a name a library builds when it is imported. If a module makes names on demand, the
   command counts the names it could not judge instead of calling them removed.
 - It installs only from the index uv is configured for, and only in a trial.
+- It does not run a pack for the Python itself. `obelize upgrade setuptools` from a release below 82
+  says that the pack for `pkg_resources` moves what that release holds onto the Python, which is no
+  release to try, and that `obelize fix --pack setuptools/pkg-resources-to-importlib` runs it. A
+  module of the Python or of setuptools that no manifest declares (`obelize upgrade pkg_resources`)
+  is stopped with exit `2` and the same command.
 
 A library can change more names than a pack file can hold. Then `upgrade` makes the pack for the
 names your code reaches through its imports and says so (`... changed <n> names, more than a pack

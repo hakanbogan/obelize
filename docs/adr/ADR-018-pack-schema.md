@@ -39,7 +39,7 @@ nothing and reads like a clean repository:
 | Rule | The defect it turns into a field error |
 |---|---|
 | Every legacy symbol a rule names is under some `match.imports` module, or under a `match.symbols` entry when `match.shared` says the module is the new SDK's too | A typo makes the rule unreachable |
-| Every `match.imports` module contains some `prefilter_token` | A prefilter that drops every file the pack is about |
+| Every `match.imports` module contains some `prefilter_token`; a shared pack without `flag_only` patterns may instead end every symbol under the module with one (ADR-071 D6) | A prefilter that drops every file the pack is about |
 | At most one `configure_to_client` change, and one when a change rewrites calls onto the client | `ScanSpec.client_symbol` is one module-wide answer, absent for a library with no client |
 | A symbol is rewritten or refused, never both | List order, which no reader sees, would decide |
 | A `manifest_dependency` rule names the two distributions the pack migrates, so a side that is the Python has none (ADR-071) | A third distribution is not this migration |

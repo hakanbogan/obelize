@@ -227,7 +227,9 @@ def scan(
         used = [run_dir.Used.inventory(spec)]
         refs = (PackRef(id=spec.pack_id, version=spec.pack_version, sha256=spec.pack_sha256),)
     else:
-        result = runner.merged([one.scan for one in chosen.packs], chosen.tree)
+        result = runner.counted(
+            runner.merged([one.scan for one in chosen.packs], chosen.tree), chosen.parsed
+        )
         loaded = [one.loaded for one in chosen.packs]
         documents = [one.pack for one in loaded]
         guides = tuple(
@@ -483,6 +485,7 @@ def _fix(
             outcome.unwritten,
             outcome.pins,
             stated=outcome.stated,
+            imports=outcome.imports,
         ),
     )
     raise typer.Exit(outcome.exit_code)
@@ -920,6 +923,8 @@ def pack_validate(
     typer.echo(f"{pack.id} {pack.pack_version} is a valid migration pack.")
     typer.echo(f"  sha256       {loaded.sha256}")
     typer.echo(f"  migrates     {pack.from_.label()} -> {pack.to.label()}")
+    if pack.pattern_imports():
+        typer.echo(f"  imports      {', '.join(pack.to_modules())}")
     typer.echo(f"  changes      {len(pack.changes)}")
     typer.echo(f"  limitations  {len(pack.limitations)}")
     if pack.requires_plugins:
@@ -1316,14 +1321,16 @@ def upgrade(
             agent_name = None
         config, _ = _settings(root, _overrides(None, None, False))
         fetcher = _fetcher(offline)
+        known = _known_packs()
         if distribution is None:
             distribution = _picked(fetcher, root, config)
-        elif (pack_id := upgrading.runtime_pack(_known_packs(), distribution)) and not any(
+        elif (pack_id := upgrading.runtime_pack(known, distribution)) and not any(
             one.name == canonicalize_name(distribution) for one in _declared(root, config)
         ):
             raise libdiff.LibraryError(
-                f"{distribution} is no dependency {repo} declares: it is a module of the Python or "
-                f"of setuptools. The pack {pack_id} reports its uses: obelize fix --pack {pack_id}."
+                f"{distribution} is not a dependency the manifests in {root.resolve()} declare: it "
+                f"is a module of the Python or of setuptools. The pack {pack_id} reports its uses: "
+                f"obelize fix --pack {pack_id}."
             )
         project = index.project(fetcher, distribution)
         target = libdiff.version(new) if new else libdiff.newest(project)
@@ -1340,7 +1347,7 @@ def upgrade(
             target,
             targeted=new is not None,
             module=module,
-            known=_known_packs(),
+            known=known,
             kept=net.Cache.home(os.environ).directory / "packs" / __version__,
             root=root,
         )
@@ -1352,6 +1359,12 @@ def upgrade(
         raise typer.Exit(2 if error.reason == "not_found" else 6) from error
     goal = chosen.install if chosen.remove else target
     typer.echo(f"Moving {project.name} {now} to {goal}. {chosen.note}", err=True)
+    if (moves := upgrading.moves_off(known, project.name, now)) is not None:
+        typer.echo(
+            f"The pack {moves} moves what {project.name} {now} holds onto the Python itself, which "
+            f"is no release to move to, and this move does not run it: obelize fix --pack {moves}.",
+            err=True,
+        )
     stated = (project.name, str(now)) if old else None
     wants_branch = bool(branch or branch_name)
     if agent_name and not (apply_changes and wants_branch):

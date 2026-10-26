@@ -57,6 +57,8 @@ def served() -> Iterator[fakeindex.FakeIndex]:
             found.add("shout-kit", version, {"__init__.py": source}, module="shout_kit")
         found.add("pypdf2", "3.0.1", {"__init__.py": "x = 1\n"}, module="PyPDF2")
         found.add("pypdf", "6.19.0", {"__init__.py": "x = 1\n"})
+        found.add("setuptools", "81.0.0", {"__init__.py": V1}, module="setuptools")
+        found.add("setuptools", "82.0.0", {"__init__.py": V2})
         yield found
 
 
@@ -206,8 +208,28 @@ def test_a_module_the_python_or_setuptools_holds_is_no_dependency_to_upgrade(hom
     root = repo(home, app__py="import pkg_resources\n", requirements__txt="requests\n")
     result = runner.invoke(app, ["upgrade", "pkg_resources", "--repo", str(root)])
     assert result.exit_code == 2
+    assert "is not a dependency the manifests in " in result.output
     assert "is a module of the Python or of setuptools" in result.output
     assert "obelize fix --pack setuptools/pkg-resources-to-importlib" in result.output
+
+
+def test_a_release_a_pack_of_the_python_moves_off_is_told_to_run_that_pack(home: Path) -> None:
+    root = repo(home, app__py="import setuptools\n", requirements__txt="setuptools==81.0.0\n")
+    result = runner.invoke(app, ["upgrade", "setuptools", "--repo", str(root)])
+    assert "Moving setuptools 81.0.0 to 82.0.0" in result.output
+    assert "The pack setuptools/pkg-resources-to-importlib moves what setuptools 81.0.0 holds" in (
+        result.output
+    )
+    assert "obelize fix --pack setuptools/pkg-resources-to-importlib" in result.output
+
+
+def test_a_release_a_pack_of_the_python_does_not_move_off_is_told_nothing(home: Path) -> None:
+    known = [loader.load(reference) for reference in loader.known()]
+    for name, release in (("setuptools", "82.0.0"), ("pypdf2", "3.0.1"), ("six", "1.0")):
+        assert upgrading.moves_off(known, name, Version(release)) is None
+    assert upgrading.moves_off(known, "setuptools", Version("81.0.0")) == (
+        "setuptools/pkg-resources-to-importlib"
+    )
 
 
 def test_a_distribution_of_that_name_the_manifests_declare_is_upgraded_as_any_other(

@@ -79,6 +79,41 @@ PURE: Final = frozenset(
 )
 
 
+# The modules a template may spell names through when a pack lists them under `imports`: those
+# that only build or read a value. A closed list, as PURE is: a module that runs a program, loads
+# code, reads the process or the network, or evaluates a string is not here, nor is one nobody has
+# looked at. A path under one of these counts (`datetime.timezone`).
+IMPORTABLE: Final = frozenset(
+    {
+        "base64",
+        "binascii",
+        "calendar",
+        "cmath",
+        "datetime",
+        "decimal",
+        "fractions",
+        "functools",
+        "importlib.metadata",
+        "importlib.resources",
+        "itertools",
+        "json",
+        "math",
+        "numbers",
+        "packaging.markers",
+        "packaging.requirements",
+        "packaging.specifiers",
+        "packaging.utils",
+        "packaging.version",
+        "re",
+        "shlex",
+        "statistics",
+        "string",
+        "textwrap",
+        "urllib.parse",
+        "zoneinfo",
+    }
+)
+
 # The names Python reserves for its three constants, which are no module to import.
 CONSTANTS: Final = frozenset({"None", "True", "False"})
 
@@ -238,6 +273,12 @@ def anchor(before: Template, where: Mapping[str, str]) -> Anchor:
     if name.count(".") < 1 or any(part.startswith(_PREFIX) for part in name.split(".")):
         raise TemplateError("calls something that is not a qualified name such as `lib.name`")
     return Anchor(name, None)
+
+
+def importable(path: str) -> bool:
+    """Whether a template may spell names through `path`: it is a module of `IMPORTABLE`, or a
+    name inside one."""
+    return any(path == module or path.startswith(f"{module}.") for module in IMPORTABLE)
 
 
 def new_names(template: Template) -> set[str]:
@@ -504,6 +545,7 @@ def place(node: cst.BaseExpression, parent: cst.CSTNode) -> cst.BaseExpression:
 
 __all__ = [
     "CONSTANTS",
+    "IMPORTABLE",
     "LIMIT",
     "PURE",
     "Anchor",
@@ -512,6 +554,7 @@ __all__ = [
     "anchor",
     "build",
     "dotted",
+    "importable",
     "match",
     "new_names",
     "parse",

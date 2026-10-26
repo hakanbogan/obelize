@@ -188,10 +188,18 @@ PORT = (
             "minimum in pyproject.toml to >=3.10 and run again." + APPLY,
         ),
         (
-            runtime.Blocked("runtime_unsupported", "", "pyproject.toml", ">=2.7", ">=3.2"),
-            "pyproject.toml declares Python >=2.7, which allows versions its new code does not "
-            "run on, so this migration reports its findings and plans no change. To migrate, "
-            "raise the minimum in pyproject.toml to >=3.2 and run again." + APPLY,
+            runtime.Blocked(
+                "runtime_unsupported",
+                "",
+                "pyproject.toml",
+                ">=2.7",
+                ">=3.2",
+                pack="python/datetime-utcnow",
+            ),
+            "pyproject.toml declares Python >=2.7, which allows versions the new code of "
+            "python/datetime-utcnow does not run on, so it reports its findings and plans no "
+            "change. To migrate, raise the minimum in pyproject.toml to >=3.2 and run again."
+            + APPLY,
         ),
         (
             runtime.Blocked(

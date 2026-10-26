@@ -28,7 +28,13 @@ if TYPE_CHECKING:
 
 # Codes this rule raises itself.
 BAILS: frozenset[BailCode] = frozenset(
-    {"alias_collision", "from_import_unmigrated_symbol", "local_import", "pattern_unmatched"}
+    {
+        "alias_collision",
+        "from_import_unmigrated_symbol",
+        "local_import",
+        "module_alias_rebound",
+        "pattern_unmatched",
+    }
 )
 
 
@@ -70,13 +76,19 @@ class RewritePattern:
         for path in self._imports:
             context.imports.offer(path, path.rpartition(".")[2])
         tree = Tree(context)
-        return tuple(self._edit(context, tree, finding) for finding in eligible)
+        # A new import must come before every call of the file, whichever rule rewrites it.
+        first = min(
+            finding.line
+            for finding in context.plan.findings
+            if finding.scan_status == "eligible" and finding.kind in {"call", "method_call"}
+        )
+        return tuple(self._edit(context, tree, finding, first) for finding in eligible)
 
-    def _edit(self, context: RuleContext, tree: Tree, finding: Finding) -> Edit:
+    def _edit(self, context: RuleContext, tree: Tree, finding: Finding, first: int) -> Edit:
         try:
             call = self._call(tree, (finding.line, finding.column))
             replacement = pattern.place(
-                self._rewrite(context, call, tree, finding.line), tree.parent(call)
+                self._rewrite(context, call, tree, finding.line, first), tree.parent(call)
             )
         except BailError as bail:
             return Edit(
@@ -101,9 +113,15 @@ class RewritePattern:
         return cast("cst.Call", tree.parent(attribute))
 
     def _rewrite(
-        self, context: RuleContext, call: cst.Call, tree: Tree, line: int
+        self, context: RuleContext, call: cst.Call, tree: Tree, line: int, first: int
     ) -> cst.BaseExpression:
         member = self._anchor.receiver is not None
+        root = call.func
+        while isinstance(root, cst.Attribute):
+            root = root.value
+        if not member and isinstance(root, cst.Name) and context.imports.rebound(root.value):
+            # A `case` capture or a `del` may make the name something else where the call is.
+            raise BailError("module_alias_rebound")
         bound = pattern.match(self._before, call, spelled=member)
         if bound is None:
             raise BailError("pattern_unmatched")
@@ -122,21 +140,24 @@ class RewritePattern:
                 raise BailError("from_import_unmigrated_symbol")
             spelled[self._anchor.symbol.rpartition(".")[0]] = call.func.value
         for paths in self._reached.values():
-            path, reached = self._reach(context, paths, line)
+            path, reached = self._reach(context, paths, line, first)
             spelled[path] = reached
         return pattern.build(self._after, bound, spelled)
 
     def _reach(
-        self, context: RuleContext, paths: tuple[str, ...], line: int
+        self, context: RuleContext, paths: tuple[str, ...], line: int, first: int
     ) -> tuple[str, cst.BaseExpression]:
         """The path a name is spelled through, and how the file reaches it at `line`: by an import
-        of its own, else by one imported now, of the path that names most."""
+        of its own, else by one imported now above `first`, of the path that names most. A star
+        import may bind the name wherever it stands."""
         imports = context.imports
+        if imports.starred:
+            raise BailError("alias_collision")
         for path in paths:
             if (name := imports.found(path, line)) is not None:
                 return path, dotted(name)
         path = paths[-1]
-        if not imports.anchor(line):
+        if not imports.anchor(first):
             raise BailError("local_import")
         if (name := imports.require(path)) is None:
             raise BailError(imports.refusal(path))

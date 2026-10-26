@@ -134,6 +134,11 @@ def applies(scan: Scan) -> bool:
     return bool(scan.unwritten) or any(row.scan_status != "not_a_usage" for row in scan.findings)
 
 
+def counted(scan: Scan, parsed: int) -> Scan:
+    """`scan` with `parsed` files parsed: every pack tried parsed some, not only the ones kept."""
+    return replace(scan, counts=scan.counts.model_copy(update={"files_parsed": parsed}))
+
+
 def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
     """The scans several packs made of one tree, as one: each row and limitation once."""
     if len(scans) == 1:
@@ -672,6 +677,7 @@ __all__ = [
     "Scan",
     "Tree",
     "applies",
+    "counted",
     "examine",
     "merged",
     "ordered",

@@ -294,10 +294,24 @@ class PackSource(_Closed):
     sha256: Sha256 | None = None
 
 
+def _one_of(distribution: list[str], python_only: list[str]) -> dict[str, Any]:
+    """The JSON Schema of a side: the keys of a distribution, or `python` and none of them."""
+    return {
+        "oneOf": [
+            {"required": distribution, "not": {"required": ["python"]}},
+            {"required": ["python"], "not": {"anyOf": [{"required": [k]} for k in python_only]}},
+        ]
+    }
+
+
 class VersionRange(_Closed):
     """One side of the migration: a distribution and a PEP 440 range of it, or the Pythons it runs
     on. A Python is a side when the change is one of the interpreter or its standard library, which
     no distribution holds (`datetime.utcnow`, `pkg_resources`)."""
+
+    model_config = ConfigDict(
+        json_schema_extra=_one_of(["package", "version"], ["package", "version"])
+    )
 
     package: DistributionName | None = None
     version: Pep440Specifier | None = None
@@ -334,6 +348,12 @@ class Legacy(VersionRange):
     for a distribution whose newest release is on the new side: the names no release below the
     floor of `version` defines, so code that uses one was written for a release `version` admits.
     """
+
+    model_config = ConfigDict(
+        json_schema_extra=_one_of(
+            ["package", "version"], ["package", "version", "newest", "lacks", "since"]
+        )
+    )
 
     newest: Release | None = None
     lacks: tuple[QualifiedName, ...] = ()
@@ -383,6 +403,13 @@ class Target(VersionRange):
     `introduces` names what no release of `from.version` defines, where one module holds both
     sides: code that uses one cannot run on a pin that admits only the old releases.
     """
+
+    model_config = ConfigDict(
+        json_schema_extra=_one_of(
+            ["package", "version", "requires_python"],
+            ["package", "version", "requires_python", "introduces"],
+        )
+    )
 
     requires_python: Pep440Specifier | None = None
     introduces: tuple[QualifiedName, ...] = ()
@@ -437,12 +464,29 @@ class Match(_Closed):
                     f"resolution can ever produce it"
                 )
         for module in self.imports:
-            if not any(token in module for token in self.prefilter_tokens):
+            if not self.named(module) and not self.leafed(module):
                 raise ValueError(
                     f"no prefilter token occurs in {module!r}, so every file that imports it is "
-                    f"eliminated before it is parsed"
+                    f"eliminated before it is parsed, and a shared module may instead have every "
+                    f"symbol under it end in a token"
                 )
         return self
+
+    def named(self, module: str) -> bool:
+        """Whether a prefilter token sits in the module's name, so no file that imports it is
+        skipped."""
+        return any(token in module for token in self.prefilter_tokens)
+
+    def leafed(self, module: str) -> bool:
+        """Whether every legacy symbol of a shared module ends in a token. A file that spells one
+        holds that last segment, however the module came into it: an attribute read, an imported
+        name, a string given to `getattr`, or a name a star import brought in."""
+        under = [symbol for symbol in self.symbols if under_any(symbol, (module,))]
+        return (
+            self.shared
+            and bool(under)
+            and all(one.rpartition(".")[2] in self.prefilter_tokens for one in under)
+        )
 
 
 def under_any(symbol: str, modules: tuple[str, ...]) -> bool:
@@ -1256,10 +1300,10 @@ class RewritePatternParams(_Closed):
         from obelize import pattern
 
         sorted_unique(self.imports, "imports")
-        if "builtins" in {path.partition(".")[0] for path in self.imports}:
+        if refused := [path for path in self.imports if not pattern.importable(path)]:
             raise ValueError(
-                "imports lists builtins, whose names a template may spell only as the short list "
-                "of functions that build a value from their arguments"
+                f"imports lists {refused[0]}, which no template may spell names through: only the "
+                f"{len(pattern.IMPORTABLE)} modules PACK_SPEC lists, which build or read a value"
             )
         before, after = pattern.parse(self.before), pattern.parse(self.after)
         try:
@@ -1283,10 +1327,11 @@ class RewritePatternParams(_Closed):
         parent = found.symbol.rpartition(".")[0]
         spelled = sorted(pattern.new_names(after))
         for name in spelled:
-            if not _beside(found, name) and not self.through(name):
+            if not _beside(found, name) and name.rpartition(".")[0] not in self.imports:
                 raise ValueError(
                     f"after spells {name}, a name nothing imports; it may spell only names beside "
-                    f"the one called ({parent}), none on a member call, and names under imports"
+                    f"the one called ({parent}), none on a member call, and a name one below a "
+                    f"path in imports"
                 )
             if name == found.symbol:
                 raise ValueError(f"after calls {name}, the name before is found by")
@@ -1612,6 +1657,7 @@ class PackDocument(_Closed):
         self._check_receivers_and_symbols_are_claimed_once()
         self._check_a_surface_is_flagged_once()
         self._check_every_legacy_symbol_is_looked_for()
+        self._check_a_token_that_is_not_in_a_module_name_hides_no_shape()
         self._check_a_variable_is_looked_for()
         self._check_mapped_symbols_are_not_also_refused()
         self._check_a_name_is_not_renamed_onto_a_legacy_one()
@@ -1636,7 +1682,16 @@ class PackDocument(_Closed):
                     for change in self.changes
                     if change.kind == "rename_import"
                 }
-                | {
+                | set(self.pattern_imports())
+            )
+        )
+
+    def pattern_imports(self) -> tuple[str, ...]:
+        """Every path a `rewrite_pattern` of the pack may spell names through, which a person reads
+        before running it."""
+        return tuple(
+            sorted(
+                {
                     path
                     for change in self.changes
                     if isinstance(change, RewritePatternChange)
@@ -1890,6 +1945,17 @@ class PackDocument(_Closed):
                         f"nothing in {field} {list(looked)}. Resolution can never produce it, so "
                         f"the rule can never fire"
                     )
+
+    def _check_a_token_that_is_not_in_a_module_name_hides_no_shape(self) -> None:
+        """A shape finds the module by its name in a string or a call, which a file without the name
+        would not hold."""
+        if any(not self.match.named(module) for module in self.match.imports) and any(
+            isinstance(change, FlagOnlyChange) and change.params.patterns for change in self.changes
+        ):
+            raise ValueError(
+                "a flag_only pattern finds the module by its name, and a prefilter token that is "
+                "the last segment of its symbols would skip a file that holds only the name"
+            )
 
     def _check_a_variable_is_looked_for(self) -> None:
         """A file that sets the variable and never names the module is parsed only for a token."""

@@ -26,6 +26,10 @@ A pack states only what a rule reads, so each of these goes:
 - The codes `file_object_fields_not_verified`, `tests_touched_by_migration` and
   `stale_mock_target`, which no rule raised.
 
+[ADR-071](ADR-071-runtime-packs.md) D2 amends this for one field: `from.python` of a pack whose old
+side is the Python is read only by `pack validate` and a test of the packs, which hold it against
+the interpreter, and no rule or scan reads it.
+
 ### D2. A client is optional
 
 A pack declares at most one `configure_to_client`, and one when a change rewrites calls onto the

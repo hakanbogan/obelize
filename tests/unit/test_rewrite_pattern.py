@@ -279,18 +279,20 @@ def through(after: str, *imports: str) -> RewritePatternChange:
     )
 
 
-UNITS = through("acme.shapes.Square(side=kit.units.cm($n))", "kit.units")
-LADDER = through("acme.shapes.Square(side=kit.units.cm($n))", "kit", "kit.units")
+UNITS = through("acme.shapes.Square(side=urllib.parse.quote($n))", "urllib.parse")
+LADDER = through(
+    "acme.shapes.Square(side=datetime.timezone.utc, n=$n)", "datetime", "datetime.timezone"
+)
 BASE = "import acme.shapes\n"
 
 
 @pytest.mark.parametrize(
     ("head", "written"),
     [
-        ("import kit.units\n", "kit.units.cm(2)"),
-        ("import kit.units as u\n", "u.cm(2)"),
-        ("from kit import units\n", "units.cm(2)"),
-        ("from kit import units as u\n", "u.cm(2)"),
+        ("import urllib.parse\n", "urllib.parse.quote(2)"),
+        ("import urllib.parse as u\n", "u.quote(2)"),
+        ("from urllib import parse\n", "parse.quote(2)"),
+        ("from urllib import parse as u\n", "u.quote(2)"),
     ],
 )
 def test_a_name_is_spelled_through_the_import_the_file_has_of_the_path(
@@ -304,7 +306,8 @@ def test_a_name_is_spelled_through_the_import_the_file_has_of_the_path(
 def test_a_path_the_file_does_not_import_is_imported_below_the_last_import_above_the_call() -> None:
     code, edits = tidy(f"{BASE}import os\n\nx = acme.shapes.make_square(2)\n", UNITS)
     assert code == (
-        f"{BASE}import os\nfrom kit import units\n\nx = acme.shapes.Square(side=units.cm(2))\n"
+        f"{BASE}import os\nfrom urllib import parse\n\n"
+        "x = acme.shapes.Square(side=parse.quote(2))\n"
     )
     assert [row.status for row in edits] == ["auto"]
 
@@ -312,17 +315,19 @@ def test_a_path_the_file_does_not_import_is_imported_below_the_last_import_above
 def test_every_call_of_a_file_shares_the_one_import_it_needs() -> None:
     source = f"{BASE}\nx = acme.shapes.make_square(2)\ny = acme.shapes.make_square(3)\n"
     code, edits = tidy(source, UNITS)
-    assert code.count("from kit import units") == 1
-    assert code.endswith("Square(side=units.cm(2))\ny = acme.shapes.Square(side=units.cm(3))\n")
+    assert code.count("from urllib import parse") == 1
+    assert code.endswith(
+        "Square(side=parse.quote(2))\ny = acme.shapes.Square(side=parse.quote(3))\n"
+    )
     assert [row.status for row in edits] == ["auto", "auto"]
 
 
 def test_a_name_that_needs_no_module_of_the_call_is_written_for_a_name_imported_bare() -> None:
     """Nothing is spelled beside the called name, so a call written without its module is fine."""
-    change = through("kit.units.cm($n)", "kit.units")
+    change = through("urllib.parse.quote($n)", "urllib.parse")
     code, edits = tidy("from acme.shapes import make_square\n\nx = make_square(2)\n", change)
     assert code == (
-        "from acme.shapes import make_square\nfrom kit import units\n\nx = units.cm(2)\n"
+        "from acme.shapes import make_square\nfrom urllib import parse\n\nx = parse.quote(2)\n"
     )
     assert [row.status for row in edits] == ["auto"]
 
@@ -330,17 +335,17 @@ def test_a_name_that_needs_no_module_of_the_call_is_written_for_a_name_imported_
 @pytest.mark.parametrize(
     ("head", "added", "written"),
     [
-        ("import kit\n", "", "kit.units.cm(2)"),
-        ("import kit as k\n", "", "k.units.cm(2)"),
-        ("from kit import units\n", "", "units.cm(2)"),
-        ("", "from kit import units\n", "units.cm(2)"),
+        ("import datetime\n", "", "datetime.timezone.utc"),
+        ("import datetime as dt\n", "", "dt.timezone.utc"),
+        ("from datetime import timezone\n", "", "timezone.utc"),
+        ("", "from datetime import timezone\n", "timezone.utc"),
     ],
 )
 def test_the_first_listed_path_the_file_has_is_used_else_the_longest_is_imported(
     head: str, added: str, written: str
 ) -> None:
     code, edits = tidy(f"{BASE}{head}\nx = acme.shapes.make_square(2)\n", LADDER)
-    assert code == f"{BASE}{head}{added}\nx = acme.shapes.Square(side={written})\n"
+    assert code == f"{BASE}{head}{added}\nx = acme.shapes.Square(side={written}, n=2)\n"
     assert [row.status for row in edits] == ["auto"]
 
 
@@ -348,17 +353,65 @@ def test_the_first_listed_path_the_file_has_is_used_else_the_longest_is_imported
     "source",
     [
         # A parameter hides the name the new import would take.
-        f"{BASE}\ndef f(units):\n    return acme.shapes.make_square(units)\n",
+        f"{BASE}\ndef f(parse):\n    return acme.shapes.make_square(parse)\n",
         # A name the file binds to something else.
-        f"{BASE}units = 3\nx = acme.shapes.make_square(units)\n",
+        f"{BASE}parse = 3\nx = acme.shapes.make_square(parse)\n",
         # The path is imported, and the name is bound again in a function.
-        f"{BASE}from kit import units\n\n\ndef f(units):\n    return acme.shapes.make_square(1)\n",
+        f"{BASE}from urllib import parse\n\n\ndef f(parse):\n"
+        "    return acme.shapes.make_square(1)\n",
     ],
 )
 def test_a_name_that_is_shadowed_leaves_the_call_for_a_person(source: str) -> None:
     code, edits = tidy(source, UNITS)
     assert code == source
     assert [(row.status, row.reason) for row in edits] == [("needs_review", "alias_collision")]
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        'case {"zone": parse}:',
+        "case [first, *parse]:",
+        "case {**parse}:",
+        "case int() as parse:",
+        "case parse:",
+    ],
+)
+def test_a_name_a_case_pattern_captures_is_bound_though_no_assignment_says_so(pattern: str) -> None:
+    source = f"{BASE}\n\ndef f(event):\n    match event:\n        {pattern}\n            pass\n"
+    source += "    return acme.shapes.make_square(2)\n"
+    code, edits = tidy(source, UNITS)
+    assert code == source
+    assert [(row.status, row.reason) for row in edits] == [("needs_review", "alias_collision")]
+
+
+def test_a_name_a_del_unbinds_is_bound_too() -> None:
+    source = f"{BASE}from urllib import parse\n\nuse = parse\ndel parse\n"
+    source += "x = acme.shapes.make_square(2)\n"
+    code, edits = tidy(source, UNITS)
+    assert code == source
+    assert [(row.status, row.reason) for row in edits] == [("needs_review", "alias_collision")]
+    source = f"{BASE}from urllib import parse\nimport os\n\ndel os, (parse, [os])\n"
+    source += "x = acme.shapes.make_square(2)\n"
+    assert tidy(source, UNITS)[0] == source
+
+
+def test_a_star_import_anywhere_may_bind_the_name_the_new_import_would_take() -> None:
+    source = f"{BASE}\nx = acme.shapes.make_square(2)\n\nfrom tzdata import *\n"
+    code, edits = tidy(source, UNITS)
+    assert code == source
+    assert [(row.status, row.reason) for row in edits] == [("needs_review", "alias_collision")]
+
+
+def test_a_call_made_on_a_module_name_a_case_or_a_del_rebinds_is_left_alone() -> None:
+    for line in ('case {"clock": acme}:', "case [*acme]:"):
+        source = f"{BASE}\n\ndef f(event):\n    match event:\n        {line}\n"
+        source += "            return acme.shapes.make_square(2)\n"
+        code, edits = tidy(source, UNITS)
+        assert code == source
+        assert [(row.status, row.reason) for row in edits] == [
+            ("needs_review", "module_alias_rebound")
+        ]
 
 
 def test_a_file_that_imports_only_inside_functions_has_no_line_for_the_new_import() -> None:
@@ -376,7 +429,7 @@ def test_an_import_that_follows_the_call_does_not_run_before_it() -> None:
 
 
 def test_a_path_imported_after_the_call_is_not_one_the_call_can_use() -> None:
-    source = f"{BASE}x = acme.shapes.make_square(2)\nfrom kit import units\n"
+    source = f"{BASE}x = acme.shapes.make_square(2)\nfrom urllib import parse\n"
     code, edits = tidy(source, UNITS)
     assert [row.reason for row in edits] == ["alias_collision"]
     assert code == source

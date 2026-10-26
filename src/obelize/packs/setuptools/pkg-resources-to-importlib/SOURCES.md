@@ -14,8 +14,13 @@ provenance*).
 | Python documentation, importlib.metadata | <https://docs.python.org/3/library/importlib.metadata.html> | 2026-10-24 | `33dad4f1c230d55f8f737cea54ba11c4cfa1a59f21dae7052894dbe55b19e61a` |
 | Python documentation, importlib.resources | <https://docs.python.org/3/library/importlib.resources.html> | 2026-10-24 | `5f6c19b3f1d9baf7f37b5f3bd2c927dc7062ec936e47d429f1d65eba56fd3c3c` |
 | What's New In Python 3.12 | <https://docs.python.org/3/whatsnew/3.12.html> | 2026-10-24 | `bc1ab5402bf32240db0da103113feced72ab8e1dbd94bf368d161c1eb0874abc` |
+| packaging, Version Handling | <https://packaging.pypa.io/en/stable/version.html> | 2026-10-27 | `b92f7402af83212958243262adfaecec6eda031c8eb493d70eea01c165931bcc` |
+| packaging, Requirements | <https://packaging.pypa.io/en/stable/requirements.html> | 2026-10-27 | `b40760bb039301352554d2e631f95aefadc4434864801650aa4bf600fcdb45e3` |
+| packaging, Markers | <https://packaging.pypa.io/en/stable/markers.html> | 2026-10-27 | `04963f74cc8e3dd26049733810c1698cd6c52ab5f8725197f099f022d46ef850` |
+| PEP 420, Implicit Namespace Packages | <https://peps.python.org/pep-0420/> | 2026-10-27 | `f7ab12b76762116d49ef9c8fc0e99c6430953512afaf19186556d480b57d12ef` |
 
-The hash is of the page body as served. obelize never requests the URL.
+The hash is of the page body as served. obelize never requests the URL. Where a sentence of a flag
+text is not in a page above, the section for that flag says it is mine.
 
 ## The measurement, and why it outranks the page
 
@@ -88,9 +93,19 @@ point has `require`, `resolve` and `dist`; an `importlib.metadata` one has `dist
 ## flag-requirements
 
 - importlib_metadata, Migration guide: "Other functionality from pkg_resources is replaced by other
-  packages such as importlib_resources and packaging."
-- Measured: `pkg_resources.parse_version('1.0')` is a `packaging.version.Version`; `packaging` is not
-  in the standard library.
+  packages such as importlib_resources and packaging." The guide names the project, not the
+  functions: that `parse_version` is `packaging.version.parse`, `Requirement` is
+  `packaging.requirements.Requirement` and `evaluate_marker` is `packaging.markers.Marker(...).evaluate()`
+  is my reading of the three packaging pages above, whose usage sections show `parse`, `Requirement(...)`
+  and `Marker(...).evaluate()`.
+- Measured on setuptools 81.0.0: `pkg_resources.parse_version('1.0')` is a `packaging.version.Version`;
+  `pkg_resources.Requirement` has `key`, `project_name`, `specs`, `specifier` and `name`, and
+  `packaging.requirements.Requirement` only the last two; `invalid_marker("python_version >")`
+  returns the error text where `Marker("python_version >")` raises. `safe_name('My_Pkg.X')` is
+  `My-Pkg.X`, `to_filename('my-pkg')` is `my_pkg`, `safe_version('1.0-x y')` is `1.0-x.y` and
+  `safe_extra('Foo Bar')` is `foo_bar`, while `packaging.utils.canonicalize_name('My_Pkg.X')` is
+  `my-pkg-x`: none of the four has a counterpart, which the suggestion says. `packaging` is not in the
+  standard library.
 
 ## flag-namespaces
 
@@ -98,6 +113,9 @@ point has `require`, `resolve` and `dist`; an `importlib.metadata` one has `dist
   common uses of `pkg_resources` have been superseded by the `importlib.resources` and
   `importlib.metadata` projects. Projects and environments relying on `pkg_resources` for namespace
   packages or other behavior should depend on older versions of setuptools."
+- PEP 420: "Namespace packages have no `__init__.py` module." That the answer to a `declare_namespace`
+  is a package without one is my reading of it; the setuptools page on namespace packages was not
+  retrieved.
 
 ## flag-indirect-use
 

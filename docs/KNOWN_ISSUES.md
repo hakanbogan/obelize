@@ -502,17 +502,28 @@ signature of `merge*Page`, and the pack's
 write, and how often they leave a file whole for one line, is not known.
 
 - A scan of every pack parses each file that holds a pack's prefilter token, once per pack.
-  `datetime` is in a large share of a repository's files, so a default scan, which runs every known
-  pack, parses those files for `python/datetime-utcnow` as well. Pass `--pack` to name the packs a
-  run needs.
+  `python/datetime-utcnow` looks for `utcnow` and `utcfromtimestamp`, which is the last part of each
+  symbol it matches, and not for `datetime`, which a third of a repository's files may name: over a
+  synthetic repository of 4,000 files a default scan took 2.3 s, where `datetime` as the token took
+  47 s. A file that names the module and spells neither is not parsed, which is also why a name
+  assembled at run time (`getattr(datetime.datetime, "utc" + "now")`) is not seen. The two removed
+  modules and `pkg_resources` packs still parse every file that holds their name.
+- A run over a repository where no pack applies reports the files that were parsed, as it does for
+  any other: it counted none before, because only the packs a run kept were counted.
 - `python/datetime-utcnow` rewrites calls and nothing else. `field(default_factory=datetime.utcnow)`
   and a SQLAlchemy `default=datetime.utcnow` are references, reported as unmapped, and one of them
   keeps its whole file as it was. A test that replaces `datetime` in a module of its own with a mock
   is not seen, and fails after the rewrite because the mock answers `now`, not `utcnow`.
 - Its new import is one line, `from datetime import timezone`, below the last top-level import above
-  the first call, and is not merged into a `from datetime import ...` line that is there. A file
-  that imports only inside functions, or that binds `timezone` to something else anywhere, is left
-  as it was with `local_import` or `alias_collision`.
+  the earliest call of the file, and is not merged into a `from datetime import ...` line that is
+  there. A file that imports only inside functions, that binds `timezone` to something else anywhere
+  (an assignment, a parameter, a `case` capture, a `del`), or that has a star import anywhere, is
+  left as it was with `local_import` or `alias_collision`. A comment inside a rewritten call moves
+  above the statement that holds it: the layout changes, the code does not.
+- A pattern's `imports` are checked against a closed list of modules that build or read a value,
+  and a name one segment below a listed path. That keeps a pack from calling `os.system`, and is no
+  sandbox: a function of a listed module runs in the repository, and the list is read by a person
+  (`pack validate` and the header of `fix` print the paths).
 - `setuptools/pkg-resources-to-importlib` writes nothing and is gated at Python 3.10, so a library
   that supports 3.9 gets `runtime_unsupported` on every row and not the replacement it would have
   named. The backport `importlib_metadata` is not suggested.
@@ -523,6 +534,13 @@ write, and how often they leave a file whole for one line, is not known.
 - `obelize outdated` lists `setuptools` with the pack for `pkg_resources` whenever it is declared
   below 82 or without a release, which includes a build requirement that never imports
   `pkg_resources`.
+- `obelize upgrade setuptools` does not run the pack for `pkg_resources`: a trial installs the
+  release moved to, and a move onto the Python names none. It says on stderr to run
+  `obelize fix --pack setuptools/pkg-resources-to-importlib`, which is the way.
+- The three packs report what they find, so a repository that uses `distutils`, `pkg_resources`,
+  `cgi`, `telnetlib`, `utcnow()` or another flagged surface now exits `4` where `scan --fail-on`
+  names a status, and a `fix --apply` over one exits `4`: the default of the GitHub Action fails on
+  them. Name the pack you want with `--pack`, or `fail-on` the statuses you accept.
 
 ## What actually gets migrated
 

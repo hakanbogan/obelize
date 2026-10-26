@@ -47,8 +47,10 @@ rooted on a module is. Metavariables and a short list of builtins that only buil
 their arguments (`int`, `str`, `list`, `len`, ...) may be written without a root; `open`, `eval`,
 `exec`, `getattr` and every dunder name may not, since a pack is data and writes no code that
 reaches out of the program. A pattern that needs a module the file may not import lists it in
-`imports`, and may spell names through it ([ADR-071](ADR-071-runtime-packs.md) D4). The schema refuses a name
-beyond these, one `match.symbols` lists as legacy, `after` calling the name `before` is found by
+`imports`, and may spell names one segment below it, but only for a module of a closed list of those
+that build or read a value and reach nothing else ([ADR-071](ADR-071-runtime-packs.md) D4). This
+rule held while a pack could name no module, so ADR-071 keeps it by listing the modules instead of
+dropping it. The schema refuses a name beyond these, one `match.symbols` lists as legacy, `after` calling the name `before` is found by
 (or reading the member a member pattern is found by, or another member of its class that
 `match.symbols` lists), so the result is no new finding.
 

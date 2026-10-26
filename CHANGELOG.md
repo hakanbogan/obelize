@@ -17,6 +17,14 @@ it runs on, so `datetime.utcnow()`, `pkg_resources` and the modules Python 3.12 
 have packs, though no distribution is installed to move to. Everything new is reached by a pack that
 uses it, and what the three bundled packs for a library write is what it was.
 
+What does change for every repository is what a default run finds. The three packs report what they
+cannot rewrite, so a repository that only has `from distutils.core import setup` in its `setup.py`
+exits `0` from `scan --fail-on eligible --fail-on needs_review --fail-on unsupported` in 0.8.0 and
+`4` now, `fix --apply` exits `4` where it said "No pack applies", and the GitHub Action, whose
+default `fail-on` is those three statuses, fails the job. The same holds for `pkg_resources`, `cgi`,
+`telnetlib`, `utcnow()` and the other surfaces the packs name. Pass `--pack` to run the packs you
+mean, or `fail-on` to the statuses you accept ([docs/CLI.md](docs/CLI.md), [UPGRADING](docs/UPGRADING.md)).
+
 ### Unsupported patterns
 
 [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has a new section on the packs for the Python itself.
@@ -31,13 +39,17 @@ What it names:
 - `python/removed-stdlib-modules` renames `pipes.quote` and reports the rest. It leaves out `imp`,
   `uu`, `nis`, `crypt` and `chunk`, whose names sit inside `import`, `uuid`, `finish`, `encrypt` and
   `chunk`.
-- A default scan, which runs every known pack, now parses the files that hold `datetime`,
-  `pkg_resources` or the name of a removed module once more for each of these packs.
+- A default scan, which runs every known pack, now parses the files that hold `pkg_resources` or
+  the name of a removed module once more for each of these packs, and those that spell `utcnow` or
+  `utcfromtimestamp` for the datetime pack. Over a synthetic repository of 4,000 files a default
+  scan took 2.3 s, against 2.5 s before the packs.
+- A comment inside a rewritten call moves above the statement that holds it.
 
 The formats that changed are `pack.yaml` (`package` and `version` are optional on a side, which may
 instead say `python`; `to.requires_python` is required only with a distribution; a `rewrite_pattern`
-takes `imports`), the text of `runtime_unsupported` for a pack whose new side is the Python, and
-`pack.schema.json`, which describes them. The reasons `alias_collision` and `local_import` are also
+takes `imports`, each of a closed list of modules), the text of `runtime_unsupported` for a pack whose
+new side is the Python, which names the pack, the prefilter rule (below) and `pack.schema.json`,
+which describes them, a side as exactly one of a distribution or `python`. The reasons `alias_collision` and `local_import` are also
 given for a `rewrite_pattern` that cannot name a module it imports.
 
 ### Added
@@ -48,10 +60,17 @@ given for a `rewrite_pattern` that cannot name a module it imports.
   new side is the Python moves no dependency line, and its old distribution's lines in a manifest
   are context. `obelize upgrade pkg_resources` says it is no dependency and names the pack to run.
 - A `rewrite_pattern` can spell names through the modules it lists under `imports`, such as
-  `datetime.timezone`. It names a module as the file already does (`import datetime as dt`, `from
-  datetime import timezone`) and otherwise adds one import line below the last import above the
-  first call; a name the file binds to something else, or a file that imports only inside functions,
-  leaves the call for you.
+  `datetime.timezone`, but only modules of a closed list of those that build or read a value
+  (`datetime`, `json`, `re`, `importlib.metadata` and 22 others, in
+  [docs/PACK_SPEC.md](docs/PACK_SPEC.md)), and a name one segment below one. A pack that lists `os`,
+  `importlib`, `socket` or a module nobody has looked at is refused when it loads. `obelize pack
+  validate` prints the paths a pack may import, and so does the header of `fix`. The rule names a
+  module as the file already does (`import datetime as dt`, `from datetime import timezone`) and
+  otherwise adds one import line below the last import above the earliest call; a name the file
+  binds to something else (including by a `case` capture or a `del`), a file with a star import, or
+  a file that imports only inside functions, leaves the call for you.
+- A module of a shared pack may have no prefilter token in its name when each symbol under it ends
+  in one: `python/datetime-utcnow` looks for `utcnow` and `utcfromtimestamp`.
 - Three bundled packs for the Python itself. `python/datetime-utcnow` rewrites `datetime.utcnow()`
   and `datetime.utcfromtimestamp(x)` to `now(timezone.utc)` and `fromtimestamp(x, timezone.utc)`
   with `.replace(tzinfo=None)`, which keeps the value naive. `setuptools/pkg-resources-to-importlib`
@@ -64,6 +83,13 @@ given for a `rewrite_pattern` that cannot name a module it imports.
 - A template may contain `None`, `True` and `False`, which it could not before: they were read as
   names to import.
 - `obelize pack validate` prints a side that is the Python as `Python >=3.12`.
+- A run in which no pack applies counts the files the packs it tried parsed: `files_parsed` was `0`
+  there, because only the packs a run kept were counted.
+- `obelize upgrade <module>` for a module of the Python or of setuptools names the manifests it
+  looked at, and `obelize upgrade setuptools` says on stderr that the pack for `pkg_resources` is
+  run by `obelize fix --pack`, which `upgrade` does not do.
+- The paragraph on a repository whose declared Python a pack's new code does not run on names the
+  pack when the new side is the Python, so several packs in one run can be told apart.
 - The step `fix --apply` suggests after a run that nothing verified no longer says to install what
   the run wrote into the manifest when every pack of the run is one that moves no dependency line.
 - `obelize upgrade --from <release>` takes that release for the one in use where no manifest

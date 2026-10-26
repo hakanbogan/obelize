@@ -114,6 +114,8 @@ class Outcome:
     unwritten: tuple[tuple[str, tuple[int, ...]], ...] = ()
     # Whether a pack of the run moves a dependency line; one whose new side is the Python does not.
     pins: bool = True
+    # The paths a pack's patterns may import, by pack id, which a person reads before applying.
+    imports: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +155,7 @@ def run(request: Request) -> Outcome:
     planning = time.monotonic()
     passes = _fold(request, chosen)
     driven = codemod.chained([(one.loaded.pack.id, one.run) for one in passes])
-    scan = scanner.merged([one.scan for one in passes], chosen.tree)
+    scan = scanner.counted(scanner.merged([one.scan for one in passes], chosen.tree), chosen.parsed)
     plan_ms = elapsed_ms(planning)
 
     gating = time.monotonic()
@@ -288,6 +290,7 @@ def run(request: Request) -> Outcome:
         locks=locks,
         unwritten=scan.unwritten,
         pins=any(one.to.package for one in documents),
+        imports=tuple((one.id, one.to_modules()) for one in documents if one.pattern_imports()),
     )
 
 
@@ -324,6 +327,8 @@ class Chosen:
     tried: tuple[str, ...]
     # The fixture directories of those packs inside the repository, which the scan did not enter.
     fixture_dirs: tuple[str, ...]
+    # The files any pack tried parsed, which a run that keeps one pack or none still did.
+    parsed: int = 0
 
 
 def select(
@@ -359,7 +364,9 @@ def select(
             reason = loader.conflict(first.loaded.pack, second.loaded.pack)
             if reason is not None:
                 raise CommandError(f"{reason}; run them one at a time with --pack.", 2)
-    return Chosen(tree, kept, tuple(one.loaded.pack.id for one in scans), config.fixture_dirs)
+    parsed = {row.path for one in scans for row in one.scan.results if row.parsed}
+    tried = tuple(one.loaded.pack.id for one in scans)
+    return Chosen(tree, kept, tried, config.fixture_dirs, len(parsed))
 
 
 def _for(stated: tuple[str, str] | None, spec: ScanSpec) -> str | None:

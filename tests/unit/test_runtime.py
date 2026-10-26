@@ -193,6 +193,7 @@ def test_a_pack_whose_new_side_is_the_python_gates_on_the_pythons_it_runs_on(
         path="pyproject.toml",
         declared=">=2.7",
         needed=">=3.2",
+        pack="python/datetime-utcnow",
     )
     _write(tmp_path, "pyproject.toml", '[project]\nrequires-python = ">=3.8"\n')
     assert (

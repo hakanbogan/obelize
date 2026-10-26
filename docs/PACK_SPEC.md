@@ -46,7 +46,7 @@ Breaking one rejects the pack.
 | `source` | mapping | yes | See [Source provenance](#source-provenance). |
 | `from` | mapping | yes | A side is a distribution or the Python, see [A side that is the Python](#a-side-that-is-the-python). A distribution is `package` (distribution name) and `version` (PEP 440 specifier, e.g. `"<1"`); optionally `newest` and `lacks`, or `since`, see [The newest legacy release](#the-newest-legacy-release). `from.package` and `to.package` may be one distribution, as in `openai/openai-0-to-1`; their versions then tell the two sides apart and may not overlap. The Python is `python`, a PEP 440 set of Pythons. |
 | `to` | mapping | yes | Same shape, e.g. `">=1"`, plus `requires_python` (required with a distribution): the PEP 440 set of Pythons the new distribution installs on, and optionally `introduces`, see [The newest legacy release](#the-newest-legacy-release). A side that is the Python says it as `python` instead. A repository declaring support for a Python outside it is blocked (`runtime_unsupported`). |
-| `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest of its app declares its distribution, the legacy pin stays: a manifest in the file's directory or above it, and a `requirements/` directory counts for the one it is in; a constraints file declares nothing; a `manifest_dependency` with `declare_transitive` declares it instead), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
+| `match` | mapping | yes | `imports` (module paths, non-empty), `symbols` (qualified names), `prefilter_tokens` (a file with none is skipped unparsed; a token sits in a module's name, or, for a shared module, ends each symbol under it), `transitive` (module to distribution, for modules only the legacy distribution installed: while a file imports one and no manifest of its app declares its distribution, the legacy pin stays: a manifest in the file's directory or above it, and a `requirements/` directory counts for the one it is in; a constraints file declares nothing; a `manifest_dependency` with `declare_transitive` declares it instead), `shared` (default `false`; the module is the new SDK's too, see [Shared modules](#shared-modules)). |
 | `changes` | list | yes | See [Change entries](#change-entries). |
 | `layout` | mapping | no | `line_length` (40-320, default `100`). See [Layout](#layout). |
 | `verification` | mapping | no | `suggestions`: displayed, never run. |
@@ -124,7 +124,13 @@ two sides are independent: `setuptools/pkg-resources-to-importlib` moves from `s
   manifest are listed as context.
 - The modules the scan looks for are `match.imports`, as for any pack. A prefilter token must sit
   inside a module's name, so a module whose name is part of a common word (`imp` in `import`) is a
-  module the pack leaves out and says so in `limitations`.
+  module the pack leaves out and says so in `limitations`. A shared module is the exception: if every
+  `match.symbols` entry under it ends in a token and no `flag_only` change has `patterns`, the tokens
+  are the last segments (`utcnow`, `utcfromtimestamp`). A file that spells such a symbol holds its last
+  segment however it reached the module: an attribute read, an imported name with or without `as`, a
+  string given to `getattr`, or a star import's use. A file that only names the module is not parsed.
+  The datetime pack takes 2.3 s over a repository of 4,000 files where `datetime` as the token took 47 s.
+- A side is `package` and `version` or `python`: the JSON Schema says exactly one (`oneOf`).
 
 ([why a side can be the Python](adr/ADR-071-runtime-packs.md))
 
@@ -436,16 +442,33 @@ called (the same module), written as the file spelled that module; a call writte
 are no names. `after` may also spell a name under a path `imports` lists, which is how it reaches a
 module the file may not import, as `datetime.datetime.utcnow()` becomes
 `datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)` with `imports: [datetime,
-datetime.timezone]`. The path is reached by the first listed one the file imports at its top level
+datetime.timezone]`. A path in `imports` is a module of a closed list, or a name inside one, and
+`after` may spell a name one segment below it (`datetime.timezone.utc` below `datetime.timezone`).
+The list is the modules that build or read a value and reach nothing else: `base64`, `binascii`,
+`calendar`, `cmath`, `datetime`, `decimal`, `fractions`, `functools`, `importlib.metadata`,
+`importlib.resources`, `itertools`, `json`, `math`, `numbers`, `packaging.markers`,
+`packaging.requirements`, `packaging.specifiers`, `packaging.utils`, `packaging.version`, `re`,
+`shlex`, `statistics`, `string`, `textwrap`, `urllib.parse` and `zoneinfo`. `os`, `sys`,
+`subprocess`, `importlib` itself, `pickle`, `socket`, `builtins` and a module not listed are
+refused when the pack loads, since a pack is data and writes no code that reaches out of the
+program. The list is a guard and no sandbox: a listed module's functions run in the repository. A
+module is added by changing the list, with an [ADR](adr/ADR-071-runtime-packs.md). `pack validate`
+and the header of `fix` print the paths a pack may import, so a pack written by someone else is
+read before it is run.
+The path is reached by the first listed one the file imports at its top level
 and binds nowhere else, written as the file spelled it (`import datetime as dt` gives `dt.timezone`,
 `from datetime import timezone` gives `timezone`), and else by an import of the last one added below
-the last top-level import above the first call (`from datetime import timezone`). A call whose name
-is bound to something else anywhere in the file is `alias_collision`, and a file with no top-level
-import above the call is `local_import`; the call is left for a person in both. The schema checks that
+the last top-level import above the earliest call of the file that a rule rewrites
+(`from datetime import timezone`). A call whose name is bound to something else anywhere in the
+file, by an assignment, a parameter, a `case` capture, a `del` or an import, is `alias_collision`,
+and so is any call in a file with a star import, which may bind it where it stands; a call made on
+a module name that a `case` capture or a `del` binds is `module_alias_rebound`; a file with no
+top-level import above the call is `local_import`; the call is left for a person in all of them.
+The schema checks that
 both templates read, that `before` is a call of a qualified name or of a member of the class `where`
 names (and `where` names nothing else), that `after` binds only metavariables `before` does, spells
 no name beyond the one called's module and `imports`, and not the name called, and no name
-`match.symbols` lists as legacy; that `imports` is sorted, names no `builtins`, and is spelled
+`match.symbols` lists as legacy; that `imports` is sorted, names only the listed modules (or a name inside one), and is spelled
 under by `after`; that the called name is under `match.symbols`, and claimed by no other change
 ([the pattern decision](adr/ADR-069-rewrite-pattern.md), [the import decision](adr/ADR-071-runtime-packs.md)).
 
@@ -840,13 +863,15 @@ Per field:
 Per document, the incoherences that would otherwise scan as a clean repository:
 
 - A rule's legacy symbol under no module in `match.imports`, or, for a shared module, under no entry of `match.symbols` (bar a `generative_model_calls` safety enum class).
-- A module in `match.imports` containing no `prefilter_tokens`.
+- A module in `match.imports` containing no `prefilter_tokens`, unless the pack is `shared`, has no
+  `flag_only` pattern, and every `match.symbols` entry under the module ends in a token.
 - More than one `configure_to_client` change (a module has one client source),
   or none while a change rewrites calls onto the client
   (`generative_model_calls`, and `rewrite_call` unless its `root` is `module`).
 - A `rename_import` change in a shared pack.
-- A `rewrite_pattern` whose `imports` are not sorted and de-duplicated, name `builtins`, or list a
-  path that `after` spells no name under; a name under one that `match.symbols` lists as legacy.
+- A `rewrite_pattern` whose `imports` are not sorted and de-duplicated, name a module outside the
+  closed list (`builtins`, `os`, `importlib`), or list a path that `after` spells no name under; a
+  name under one that `match.symbols` lists as legacy, or two segments below one.
 - A symbol both rewritten (or mapped by `symbol_map`) and refused.
 - A `manifest_dependency` naming a distribution the pack does not migrate, or in a pack with a
   side that is the Python; a `match.transitive` in a pack whose old side is the Python.

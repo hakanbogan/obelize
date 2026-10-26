@@ -22,15 +22,15 @@ to:
 match:
   imports:
   - demo_legacy
-  - demo_other
+  - json
   prefilter_tokens:
   - demo_legacy
-  - demo_other
+  - json
   shared: true
   symbols:
   - demo_legacy.configure
   - demo_legacy.old
-  - demo_other.helper.make
+  - json.loads
 changes:
 - id: configure-to-client
   kind: configure_to_client
@@ -56,8 +56,8 @@ changes:
   - fixtures/positive/one.before.py
   params:
     before: demo_legacy.old($a)
-    after: demo_other.helper.make($a)
+    after: json.loads($a)
     imports:
-    - demo_other.helper
+    - json
 limitations:
 - Everything this pack does not list.

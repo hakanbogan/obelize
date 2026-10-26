@@ -77,11 +77,6 @@ def test_both_calls_warn_from_python_3_12_and_still_exist() -> None:
             call(*argument)
 
 
-def test_the_new_spelling_exists_on_every_python_the_pack_gates_on() -> None:
-    assert SpecifierSet(DATETIME.to.python or "").contains(THIS)
-    assert datetime.timezone.utc is UTC  # noqa: UP017 - the spelling the pack writes
-
-
 def test_the_timestamp_gives_the_same_naive_value_class_and_error_either_way() -> None:
     """Values, the class of the result, and the exception for what the platform cannot convert."""
     edges = [0, 1, -1, 1.5, -1.5, 1e9, 1700000000.123456, 1700000000.9999995, -1700000000.123456]

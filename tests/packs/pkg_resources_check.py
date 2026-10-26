@@ -102,6 +102,14 @@ claim(
     "resource_string is read_bytes",
 )
 
+# What the suggestion of flag-requirements says has no counterpart.
+claim(pkg_resources.safe_name("My_Pkg.X") == "My-Pkg.X", "safe_name keeps the case and the dot")
+claim(pkg_resources.to_filename("my-pkg") == "my_pkg", "to_filename swaps the hyphen")
+requirement = pkg_resources.Requirement.parse("Foo_Bar>=1")
+for member in ("key", "project_name", "specs"):
+    claim(hasattr(requirement, member), f"a pkg_resources Requirement has {member}")
+claim(bool(pkg_resources.invalid_marker("python_version >")), "invalid_marker returns the error")
+
 for failure in failures:
     print(failure)
 sys.exit(1 if failures else 0)

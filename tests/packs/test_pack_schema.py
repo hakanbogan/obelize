@@ -122,6 +122,16 @@ def test_every_refusal_the_schema_hard_codes_is_named_in_pack_spec(
         assert needle in haystack, f"{value} drives a refusal and PACK_SPEC.md does not name it"
 
 
+def test_pack_spec_lists_the_modules_a_pattern_may_import_and_no_other() -> None:
+    """The list lives in code, so PACK_SPEC must name exactly it: one more would be a promise."""
+    from obelize import pattern
+
+    text = " ".join(PACK_SPEC.read_text(encoding="utf-8").split())
+    start = text.index("The list is the modules that build or read a value and reach nothing else:")
+    listed = text[start : text.index(". `os`,", start)]
+    assert set(re.findall(r"`([a-z0-9_.]+)`", listed)) == set(pattern.IMPORTABLE)
+
+
 def test_a_pack_that_names_a_schema_version_is_refused_as_an_unknown_key() -> None:
     """The format is unstable through 0.x, so a version field meets the unknown-key rule."""
     with pytest.raises(ValidationError, match="schema_version\n  Extra inputs are not permitted"):
@@ -1582,11 +1592,12 @@ def test_a_pack_may_start_from_a_distribution_and_end_on_the_python() -> None:
 
 
 def test_the_modules_a_pattern_imports_are_modules_the_pack_writes() -> None:
-    document = with_change(
-        builder.PATTERN_CHANGE, after="demo_other.helper.go($a)", imports=["demo_other.helper"]
-    )
+    document = with_change(builder.PATTERN_CHANGE, after="json.dumps($a)", imports=["json"])
     document["match"].update(shared=True, symbols=["demo_legacy.configure", "demo_legacy.old"])
-    assert build(document).to_modules() == ("demo_other.helper",)
+    pack = build(document)
+    assert pack.to_modules() == ("json",)
+    assert pack.pattern_imports() == ("json",)
+    assert build(minimal()).pattern_imports() == ()
 
 
 def test_a_pattern_reaches_its_names_through_the_imports_it_lists() -> None:
@@ -1594,8 +1605,8 @@ def test_a_pattern_reaches_its_names_through_the_imports_it_lists() -> None:
         **builder.PATTERN_CHANGE,
         "params": {
             "before": "demo_legacy.old($a)",
-            "after": "demo_legacy.new(demo_other.helper.make(demo_other.size($a)))",
-            "imports": ["demo_other", "demo_other.helper"],
+            "after": "demo_legacy.new(datetime.timezone.utc, datetime.date($a))",
+            "imports": ["datetime", "datetime.timezone"],
         },
     }
     document = minimal()
@@ -1605,10 +1616,10 @@ def test_a_pattern_reaches_its_names_through_the_imports_it_lists() -> None:
     assert isinstance(params, schema.RewritePatternParams)
     assert params.beside() is True
     assert params.reached() == {
-        "demo_other.helper.make": ("demo_other", "demo_other.helper"),
-        "demo_other.size": ("demo_other",),
+        "datetime.timezone.utc": ("datetime", "datetime.timezone"),
+        "datetime.date": ("datetime",),
     }
-    assert params.through("demo_other.helper.make") == ("demo_other", "demo_other.helper")
+    assert params.through("datetime.timezone.utc") == ("datetime", "datetime.timezone")
 
 
 def test_a_name_beside_the_one_called_is_spelled_as_the_file_spelled_it_whatever_is_listed() -> (

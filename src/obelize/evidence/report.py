@@ -212,6 +212,7 @@ def fixed(
     unwritten: Sequence[tuple[str, tuple[int, ...]]] = (),
     pins: bool = True,
     stated: Sequence[tuple[str, str]] = (),
+    imports: Sequence[tuple[str, Sequence[str]]] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
@@ -220,12 +221,14 @@ def fixed(
     files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
     or above it; `unwritten` are the files that use the legacy API and that no rule writes; `pins`
     is whether a pack of the run moves a dependency line, which the closing step says to install;
-    `stated` are the releases `--from` gave.
+    `stated` are the releases `--from` gave; `imports` are the modules a pack's patterns may import.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
     mode = _mode(record, _bare, planned=bool(plan.files))
     lines = [f"obelize fix  {pack}", "", f"Mode {mode}", ""]
+    lines.extend(f"{one} may import {', '.join(modules)}." for one, modules in imports)
+    lines.extend([""] if imports else [])
     for stopped in blocked:
         lines.extend([_blocked(stopped, _bare), ""])
     lines.extend(_assumed(assumed, _bare))
@@ -998,14 +1001,18 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
     needed, package = code(blocked.needed), code(blocked.package)
     if blocked.reason == "runtime_unsupported":
         path = code(blocked.path)
-        # A migration whose new side is a Python has no distribution to name.
+        # A migration whose new side is a Python has no distribution to name, so it names the pack.
+        pack = code(blocked.pack)
         rejects = (
-            f"{package} does not install on" if blocked.package else "its new code does not run on"
+            f"{package} does not install on"
+            if blocked.package
+            else f"the new code of {pack} does not run on"
         )
+        who = "this migration" if blocked.package else "it"
         return (
             f"{path} declares Python {code(blocked.declared or '')}, which allows versions "
-            f"{rejects}, so this migration reports its findings and plans "
-            f"no change. To migrate, raise the minimum in {path} to {needed} and run again."
+            f"{rejects}, so {who} reports its findings and plans no change. To migrate, raise "
+            f"the minimum in {path} to {needed} and run again."
         )
     if blocked.reason == "new_version_unsupported":
         path = code(blocked.path)

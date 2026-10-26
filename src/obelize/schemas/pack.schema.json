@@ -483,6 +483,53 @@
     "Legacy": {
       "additionalProperties": false,
       "description": "The old side, which may also say which release an unversioned declaration stands for.\n\n`newest` is what an unversioned declaration installs, so it stands for a version nothing in the\nrepository wrote down. It is the pack's claim, checked weekly against the index. `lacks` names\nwhat that release no longer defines, which the code may still use. `since` is the other way,\nfor a distribution whose newest release is on the new side: the names no release below the\nfloor of `version` defines, so code that uses one was written for a release `version` admits.",
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "python"
+            ]
+          },
+          "required": [
+            "package",
+            "version"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "package"
+                ]
+              },
+              {
+                "required": [
+                  "version"
+                ]
+              },
+              {
+                "required": [
+                  "newest"
+                ]
+              },
+              {
+                "required": [
+                  "lacks"
+                ]
+              },
+              {
+                "required": [
+                  "since"
+                ]
+              }
+            ]
+          },
+          "required": [
+            "python"
+          ]
+        }
+      ],
       "properties": {
         "lacks": {
           "default": [],
@@ -1732,6 +1779,49 @@
     "Target": {
       "additionalProperties": false,
       "description": "The new side, which also says which Pythons it installs on.\n\nA distribution says it as `requires_python`; a side that is the Pythons themselves says it as\n`python`. Either way it is the set a repository's declared Python must stay inside (ADR-050 D4).\n`introduces` names what no release of `from.version` defines, where one module holds both\nsides: code that uses one cannot run on a pin that admits only the old releases.",
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "python"
+            ]
+          },
+          "required": [
+            "package",
+            "version",
+            "requires_python"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "package"
+                ]
+              },
+              {
+                "required": [
+                  "version"
+                ]
+              },
+              {
+                "required": [
+                  "requires_python"
+                ]
+              },
+              {
+                "required": [
+                  "introduces"
+                ]
+              }
+            ]
+          },
+          "required": [
+            "python"
+          ]
+        }
+      ],
       "properties": {
         "introduces": {
           "default": [],

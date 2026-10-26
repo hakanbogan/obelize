@@ -144,7 +144,7 @@ changes:
 
   - id: flag-requirements
     kind: flag_only
-    citation: "importlib_metadata documentation, 'Migration guide': other functionality is replaced by packaging"
+    citation: "importlib_metadata documentation, 'Migration guide': other functionality is replaced by packaging; packaging documentation, version, requirements and markers"
     params:
       symbols:
         - pkg_resources.Requirement
@@ -158,19 +158,23 @@ changes:
         - pkg_resources.safe_version
         - pkg_resources.to_filename
       message: >-
-        Versions, requirements and names are parsed by the packaging project, which the standard
-        library does not include: the replacement is a dependency the repository must declare. A
-        version it cannot read raises InvalidVersion.
+        Versions, requirements and markers are parsed by the packaging project, which the standard
+        library does not include: the replacement is a dependency the repository must declare. Its
+        Requirement lacks key, project_name and specs, and a version it cannot read raises
+        InvalidVersion.
       suggestion: >-
-        packaging.version.parse, packaging.requirements.Requirement, packaging.markers.Marker and
-        packaging.utils.canonicalize_name. Add packaging to the dependencies.
+        parse_version: packaging.version.parse. parse_requirements and Requirement:
+        packaging.requirements.Requirement. evaluate_marker: packaging.markers.Marker(text).evaluate();
+        invalid_marker returned the error text and Marker raises. safe_name, safe_version, safe_extra
+        and to_filename have no counterpart: safe_name('My_Pkg.X') is 'My-Pkg.X', not what
+        canonicalize_name gives.
     fixtures:
       - fixtures/negative/already_importlib.py
       - fixtures/positive/versions.before.py
 
   - id: flag-namespaces
     kind: flag_only
-    citation: "setuptools documentation, 'Package Discovery and Namespace Packages'; setuptools history, v82.0.0"
+    citation: "setuptools history, v82.0.0; PEP 420"
     params:
       symbols:
         - pkg_resources.declare_namespace
@@ -180,8 +184,8 @@ changes:
         removed pkg_resources and says that projects relying on it for namespace packages should
         depend on older versions of setuptools.
       suggestion: >-
-        Make it a native namespace package: delete the __init__.py of the namespace directory and
-        list the packages in the build configuration.
+        Make it a native namespace package: PEP 420 says it has no __init__.py, so delete that of
+        the namespace directory.
     fixtures:
       - fixtures/negative/already_importlib.py
       - fixtures/positive/namespace.before.py

@@ -27,8 +27,11 @@ match:
   symbols:
     - datetime.datetime.utcfromtimestamp
     - datetime.datetime.utcnow
+  # Not `datetime`, which a third of a repository's files may name: a file that spells either
+  # call holds the last segment of its symbol, however it came to the module.
   prefilter_tokens:
-    - datetime
+    - utcfromtimestamp
+    - utcnow
 
 changes:
   - id: utcnow
@@ -47,13 +50,18 @@ changes:
     fixtures:
       - fixtures/negative/already_aware.py
       - fixtures/negative/user_defined.py
+      - fixtures/positive/anchor_order.before.py
+      - fixtures/positive/case_capture.before.py
+      - fixtures/positive/case_receiver.before.py
       - fixtures/positive/class_alias.before.py
+      - fixtures/positive/deleted.before.py
       - fixtures/positive/from_class.before.py
       - fixtures/positive/import_alias.before.py
       - fixtures/positive/import_module.before.py
       - fixtures/positive/local_import.before.py
       - fixtures/positive/not_a_call.before.py
       - fixtures/positive/shadowed.before.py
+      - fixtures/positive/star_import.before.py
       - fixtures/positive/timezone_imported.before.py
 
   - id: utcfromtimestamp
@@ -67,6 +75,7 @@ changes:
         - datetime.timezone
     fixtures:
       - fixtures/negative/already_aware.py
+      - fixtures/positive/anchor_order.before.py
       - fixtures/positive/from_class.before.py
       - fixtures/positive/import_alias.before.py
 
@@ -78,7 +87,7 @@ limitations:
   - "Only a call of datetime.datetime.utcnow() or utcfromtimestamp(x) is rewritten. A reference that is not a call (field(default_factory=datetime.utcnow), a SQLAlchemy default=datetime.utcnow) needs a lambda the pack cannot place, so it is reported and the file stays as it was."
   - "The value stays naive, as it was: datetime.now(timezone.utc) alone is aware, and comparing or subtracting an aware and a naive datetime raises TypeError. Moving the code to aware datetimes is a choice for a person, made together with everything that reads the value."
   - "A test that replaces datetime in a module of its own with a mock (mock.patch('app.clock.datetime') and utcnow.return_value) is not seen: the rewritten call reaches now, so the mock answers with a mock. The scan cannot tell a patch target in the repository from any other string."
-  - "A name the new spelling imports (timezone) that the file binds to something else, in any scope, leaves the call alone (alias_collision), and so does a file that imports datetime only inside functions (local_import): the new import goes below the last top-level import above the first call."
+  - "A name the new spelling imports (timezone) that the file binds to something else leaves the call alone (alias_collision): in any scope, by a case pattern, by a del, or by a star import anywhere in the file. A datetime that a case pattern or a del binds is module_alias_rebound, and a file that imports datetime only inside functions is local_import."
   - "A repository that declares a Python below 3.2, Python 2 included, is blocked, since datetime.timezone does not exist there."
   - "Measured on one platform (macOS): the two spellings gave the same value, class and error for the timestamps tried. The limits of the platform's gmtime (negative timestamps on Windows, years past 2038 with a 32-bit time_t) apply to both alike."
   - "No Gate 1 measurement exists: how many repositories call these two methods, and for how many the pack writes every call, has not been counted."

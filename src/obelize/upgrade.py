@@ -134,6 +134,22 @@ def runtime_pack(known: Sequence[loader.LoadedPack], name: str) -> str | None:
     )
 
 
+def moves_off(known: Sequence[loader.LoadedPack], name: str, now: Version) -> str | None:
+    """The id of a known pack that moves the code of release `now` of `name` onto the Python
+    itself: there is no release to move to, so `upgrade` says to run the pack and does not."""
+    return next(
+        (
+            loaded.pack.id
+            for loaded in known
+            if loaded.pack.to.package is None
+            and loaded.pack.from_.package
+            and canonicalize_name(loaded.pack.from_.package) == name
+            and now in loaded.pack.from_.versions()
+        ),
+        None,
+    )
+
+
 def _installs(
     package: str, version: str, project: index.Project, target: Version, targeted: bool
 ) -> tuple[str, str | None]:
@@ -145,4 +161,4 @@ def _installs(
     return f"{package}{version}", project.name if moved else None
 
 
-__all__ = ["Chosen", "choose", "runtime_pack"]
+__all__ = ["Chosen", "choose", "moves_off", "runtime_pack"]

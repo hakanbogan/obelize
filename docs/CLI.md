@@ -97,7 +97,12 @@ count:
 uvx obelize@X.Y.Z scan --fail-on eligible --fail-on needs_review --fail-on unsupported
 ```
 
-It exits `4` if any finding has one of those statuses and `0` otherwise. `not_a_usage` is context
+It exits `4` if any finding has one of those statuses and `0` otherwise. A repository that uses
+what the bundled packs for the Python itself report (`distutils`, `pkg_resources`, `cgi`, `telnetlib`,
+`datetime.utcnow()` and the other surfaces in [PACKS.md](PACKS.md)) has findings from them: a
+`setup.py` with only `from distutils.core import setup` exited `0` before these packs and exits `4`
+now, and `fix --apply` exits `4` where it said "No pack applies". Name the packs a job needs with
+`--pack`, or leave a status out of `--fail-on`. `not_a_usage` is context
 only (a mention in a comment or string, or a legacy pin something else may still need), so no
 status you can name matches it. A legacy pin that nothing imports is a finding,
 `manifest_code_mismatch`: remove it. The scan still writes its run folder under `.obelize/` in the
@@ -129,7 +134,7 @@ steps:
 | `version` | Required. The obelize release to run. Pin it: any 0.x release can change what a scan reports. |
 | `packs` | Pack ids, separated by spaces. Default: every pack the repository uses. |
 | `library`, `modules` | A distribution that has no pack and the modules it is imported as: [an inventory](#listing-a-library-with-no-pack). Not with `packs`. |
-| `fail-on` | The statuses that fail the job, separated by spaces. Default `eligible needs_review unsupported`; empty fails on none. |
+| `fail-on` | The statuses that fail the job, separated by spaces. Default `eligible needs_review unsupported`; empty fails on none. The packs for the Python itself report `distutils`, `pkg_resources`, `utcnow()` and the like, so with the default a job over a repository that uses them fails: name `packs` to run only the ones you mean. |
 | `sarif` | `true` uploads the findings to code scanning. Default `false`. |
 | `working-directory` | The repository root to scan. Default `.`. |
 

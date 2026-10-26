@@ -351,16 +351,26 @@ def _pattern(
 def _pattern_through_a_legacy_module(document: Document) -> None:
     """A second module the pack matches, which the new expression is spelled through."""
     document["match"].update(
-        imports=["demo_legacy", "demo_other"],
-        prefilter_tokens=["demo_legacy", "demo_other"],
+        imports=["demo_legacy", "json"],
+        prefilter_tokens=["demo_legacy", "json"],
         shared=True,
-        symbols=["demo_legacy.configure", "demo_legacy.old", "demo_other.helper.make"],
+        symbols=["demo_legacy.configure", "demo_legacy.old", "json.loads"],
     )
     document["changes"][1]["params"] = {
         **PATTERN_CHANGE["params"],
-        "after": "demo_other.helper.make($a)",
-        "imports": ["demo_other.helper"],
+        "after": "json.loads($a)",
+        "imports": ["json"],
     }
+
+
+def _leaf_tokens_beside_a_shape(document: Document) -> None:
+    """A shared module whose tokens end its symbols, and a shape found by the module's name."""
+    document["match"].update(
+        shared=True,
+        symbols=["demo_legacy.configure", "demo_legacy.protos"],
+        prefilter_tokens=["configure", "protos"],
+    )
+    document["changes"][1]["params"].update(patterns=["dynamic_access"])
 
 
 def _pattern_of_a_refused_class(document: Document) -> None:
@@ -779,6 +789,32 @@ CASES: tuple[Case, ...] = (
         path="match",
         says="eliminated before it is parsed",
         mutate=lambda d: _with(d["match"], "prefilter_tokens", ["nothing"]),
+    ),
+    Case(
+        name="prefilter_tokens_that_end_only_some_symbols_of_a_shared_module",
+        defect="a shared module with no token in its name, and a symbol no token ends",
+        path="match",
+        says="no prefilter token occurs in",
+        mutate=lambda d: d["match"].update(
+            shared=True,
+            symbols=["demo_legacy.configure", "demo_legacy.old"],
+            prefilter_tokens=["old"],
+        ),
+    ),
+    Case(
+        name="prefilter_token_that_ends_a_symbol_in_a_pack_that_is_not_shared",
+        defect="a module found only by a symbol's last part, in a pack that is not shared",
+        path="match",
+        says="no prefilter token occurs in",
+        mutate=lambda d: _with(d["match"], "prefilter_tokens", ["configure"]),
+    ),
+    Case(
+        name="prefilter_tokens_that_end_symbols_beside_a_shape_found_by_the_module_name",
+        defect="a shared module found by a shape in a string, which a file with its name holds",
+        path="",
+        says="a flag_only pattern finds the module by its name",
+        extra=FLAG_CHANGE,
+        mutate=_leaf_tokens_beside_a_shape,
     ),
     Case(
         name="symbol_outside_the_matched_imports",
@@ -2151,9 +2187,9 @@ CASES: tuple[Case, ...] = (
         name="a_pattern_import_that_after_never_spells",
         defect="a path listed as importable that no name of the new expression is under",
         path=f"{EXTRA}.params",
-        says="imports lists demo_other, which after spells no name under",
+        says="imports lists datetime, which after spells no name under",
         extra=PATTERN_CHANGE,
-        mutate=_pattern(imports=["demo_other"]),
+        mutate=_pattern(imports=["datetime"]),
     ),
     Case(
         name="a_pattern_import_of_the_builtins",
@@ -2162,6 +2198,78 @@ CASES: tuple[Case, ...] = (
         says="imports lists builtins",
         extra=PATTERN_CHANGE,
         mutate=_pattern(after="builtins.eval($a)", imports=["builtins"]),
+    ),
+    Case(
+        name="a_pattern_import_of_a_process_module",
+        defect="a module that starts a program or reads the environment",
+        path=f"{EXTRA}.params",
+        says="imports lists os, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="os.system($a)", imports=["os"]),
+    ),
+    Case(
+        name="a_pattern_import_of_the_import_machinery",
+        defect="the module that imports another by a string, reached by a name under it",
+        path=f"{EXTRA}.params",
+        says="imports lists importlib, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="importlib.import_module($a)", imports=["importlib"]),
+    ),
+    Case(
+        name="a_pattern_import_of_a_module_of_the_import_machinery",
+        defect="a submodule of importlib, of which only metadata and resources are listed",
+        path=f"{EXTRA}.params",
+        says="imports lists importlib.util, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="importlib.util.find_spec($a)", imports=["importlib.util"]),
+    ),
+    Case(
+        name="a_pattern_import_of_a_module_that_runs_a_file",
+        defect="a module that runs a file as a program, reached by a name under it",
+        path=f"{EXTRA}.params",
+        says="imports lists runpy, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="runpy.run_path($a)", imports=["runpy"]),
+    ),
+    Case(
+        name="a_pattern_import_of_a_deserializer",
+        defect="a module that builds objects from bytes, which runs code",
+        path=f"{EXTRA}.params",
+        says="imports lists pickle, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="pickle.loads($a)", imports=["pickle"]),
+    ),
+    Case(
+        name="a_pattern_import_of_the_network",
+        defect="a module that opens a connection, reached by a name under it",
+        path=f"{EXTRA}.params",
+        says="imports lists socket, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="socket.create_connection($a)", imports=["socket"]),
+    ),
+    Case(
+        name="a_pattern_import_of_the_file_system",
+        defect="a module that deletes and copies trees, reached by a name under it",
+        path=f"{EXTRA}.params",
+        says="imports lists shutil, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="shutil.rmtree($a)", imports=["shutil"]),
+    ),
+    Case(
+        name="a_pattern_import_of_a_third_party_module",
+        defect="a module nobody has looked at, which the repository may not install",
+        path=f"{EXTRA}.params",
+        says="imports lists requests, which no template may spell names through",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="requests.get($a)", imports=["requests"]),
+    ),
+    Case(
+        name="a_pattern_name_two_segments_below_an_import",
+        defect="a name through a module a listed module itself imports, which is not listed",
+        path=f"{EXTRA}.params",
+        says="a name nothing imports",
+        extra=PATTERN_CHANGE,
+        mutate=_pattern(after="importlib.metadata.os.system($a)", imports=["importlib.metadata"]),
     ),
     Case(
         name="a_pattern_import_list_that_is_not_sorted",
