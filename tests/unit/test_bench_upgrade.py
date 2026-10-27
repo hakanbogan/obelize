@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from bench import upgrade_score
+from bench import dryrun_score, upgrade_score
 from platforms import BENCH
 
 pytestmark = BENCH
@@ -180,3 +181,133 @@ def test_a_stale_document_fails_the_check(
 def test_a_document_with_no_markers_is_an_error() -> None:
     with pytest.raises(SystemExit, match="no upgrade block"):
         upgrade_score.block("# Benchmark results\n")
+
+
+def test_every_committed_record_names_the_frame_it_was_drawn_from() -> None:
+    records = sorted(upgrade_score.RECORDS.glob("*.json"))
+    assert records
+    for path in records:
+        frame = upgrade_score.ROOT / json.loads(path.read_text(encoding="utf-8"))["frame"]
+        assert frame.is_file(), path.name
+        assert frame.parent.name == path.stem
+
+
+def test_every_frame_has_a_record() -> None:
+    frames = {
+        path.parent.name for path in (upgrade_score.ROOT / "bench" / "upgrade").glob("*/*.yaml")
+    }
+    assert frames == {path.stem for path in upgrade_score.RECORDS.glob("*.json")}
+
+
+def test_the_published_block_is_what_the_scorer_renders_today() -> None:
+    published = upgrade_score.block(upgrade_score.DOCUMENT.read_text(encoding="utf-8"))
+    assert published == upgrade_score.render(upgrade_score.load())
+
+
+# The bail of a place the pack only flags, as `bench/upgrade_collect.py` counts it.
+FLAGGED = "flag_only_surface"
+
+
+def measured() -> dict[str, Any]:
+    """The sums the pages quote, taken from the records."""
+    loaded = upgrade_score.load()
+    rows = [row for record, _ in loaded for row in record["upgrade"] if "error" not in row]
+    tiers = Counter(dryrun_score.tier(row) for row in rows)
+    held = [row for row in rows if dryrun_score.tier(row) == "held"]
+    kinds = {kind for row in rows for kind in row["rules"]}
+    seconds = [record["synth_seconds"] for record, _ in loaded]
+    return {
+        "planned": len(rows),
+        "errored": sum(len(record["upgrade"]) for record, _ in loaded) - len(rows),
+        "files": sum(row["files"] for row in rows),
+        "tiers": tiers,
+        "used": sum(row["used"] for row in rows),
+        "rules": sum(sum(row["rules"].values()) for row in rows),
+        "kinds": kinds,
+        "flagged": sum(row["flagged"] for row in rows),
+        "legacy": sum(row["blocked"] == "legacy_version_unsupported" for row in rows),
+        "runtime": sum(row["blocked"] == "runtime_unsupported" for row in rows),
+        "held_flagged": sum(
+            any(held_row["bail"] == FLAGGED for held_row in row["withheld"]) for row in held
+        ),
+        "seconds": f"{round(min(seconds))} to {round(max(seconds))} s",
+    }
+
+
+def says(page: str, sentence: str) -> bool:
+    """Whether the page prints `sentence`, wherever its lines wrap."""
+    text = (upgrade_score.ROOT / page).read_text(encoding="utf-8")
+    return " ".join(sentence.split()) in " ".join(text.split())
+
+
+def test_the_measurement_wrote_no_file_and_planned_the_eighty_repositories() -> None:
+    sums = measured()
+    assert (sums["planned"], sums["errored"], sums["files"]) == (80, 0, 0)
+    assert sums["tiers"]["partial"] == sums["tiers"]["complete"] == 0
+    assert sums["kinds"] == {"rename_member"}
+
+
+def test_the_pages_state_the_totals_of_the_records() -> None:
+    sums = measured()
+    tiers = sums["tiers"]
+    outcome = (
+        f"writes no file: {tiers['blocked']} stop before planning, {tiers['held']} are held and "
+        f"{tiers['none']} have no usage of a name the pack lists"
+    )
+    usages = (
+        f"{sums['used']} usages: {sums['rules']} are places a rule would rewrite if nothing else "
+        "were left in the repository (all in pydantic, `rename_member`), the pack only flags "
+        f"{sums['flagged']} and {sums['used'] - sums['rules'] - sums['flagged']} are held for a "
+        "cause of its own, and none is in a file the dry run would write"
+    )
+    for page in (
+        "README.md",
+        "CHANGELOG.md",
+        "docs/BENCHMARK_RESULTS.md",
+        "docs/KNOWN_ISSUES.md",
+        "docs/PRODUCT.md",
+        "docs/ROADMAP.md",
+        "docs/UPGRADING.md",
+    ):
+        assert says(page, outcome), page
+    for page in (
+        "README.md",
+        "CHANGELOG.md",
+        "docs/BENCHMARK_RESULTS.md",
+        "docs/KNOWN_ISSUES.md",
+        "docs/ROADMAP.md",
+        "docs/UPGRADING.md",
+    ):
+        assert says(page, usages), page
+
+
+def test_the_pages_state_why_the_repositories_stopped_and_were_held() -> None:
+    sums = measured()
+    stopped = sums["tiers"]["blocked"]
+    held = sums["tiers"]["held"]
+    for page in ("docs/BENCHMARK_RESULTS.md", "docs/UPGRADING.md"):
+        assert says(
+            page,
+            f"Of the {stopped} that stop, {sums['legacy']} stop on a manifest that declares the "
+            f"library in a way the pack does not take (`legacy_version_unsupported`",
+        ), page
+        assert says(page, f"{sums['runtime']} on a declared Python that the new release does"), page
+    assert held - sums["held_flagged"] == 1
+    assert says(
+        "docs/UPGRADING.md",
+        f"Each of the {held} that are held has a place the pack cannot write: "
+        f"{sums['held_flagged']} have one it only flags, and one has a file the scan cannot parse",
+    )
+    assert says(
+        "docs/KNOWN_ISSUES.md",
+        f"{sums['legacy']} of the {sums['planned']} stopped on this",
+    )
+    assert says(
+        "docs/KNOWN_ISSUES.md",
+        f"{sums['held_flagged']} of the {held} held repositories had such a place",
+    )
+    assert says("CHANGELOG.md", f"{sums['held_flagged']} of the {held} held")
+    assert says("docs/UPGRADING.md", f"a pack from two releases in {sums['seconds']} for four")
+    assert says(
+        "docs/BENCHMARK_RESULTS.md", f"A pack from two releases was made in {sums['seconds']} for"
+    )

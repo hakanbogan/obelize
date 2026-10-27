@@ -1,10 +1,12 @@
 # Upgrading a dependency
 
-obelize can move a dependency to a newer release when no one has written a pack for it. It reads
-two releases of the library, writes a pack from what changed, plans the move, tries it with your own
-tests and, if they agree, keeps it. This page is the whole path. A command that reads the package
-index says which host it will contact first, and none of them needs an account; `--agent` uses the
-login of your own `claude`.
+obelize can plan the move of a dependency to a newer release when no one has written a pack for it,
+and try it with your own tests. It reads two releases of the library, writes a pack from what
+changed, plans the move, tries it with your own tests and, if they agree, keeps it. This page is the
+whole path, and [how far it gets](#how-far-it-gets-without-a-pack) on public repositories is measured
+only as far as the plan: over 80 of them it wrote no file. A command that reads the package index
+says which host it will contact first, and none of them needs an account; `--agent` uses the login
+of your own `claude`.
 
 ## 1. See what is behind
 
@@ -259,4 +261,29 @@ check for `None` that a version 2 validator needs, which is why the commit messa
 edited.
 
 What they show is that the steps join up, in four runs on three repositories. They do not show how often a move
-passes: for that, the benchmark is the evidence.
+passes, and the dry run below is the only measure of how far it gets so far.
+
+## How far it gets without a pack
+
+The four runs above were on three repositories. The dry run of `upgrade`, which writes, installs and
+tries nothing, is also measured over four frames of twenty public repositories each that
+still use the old API of pydantic 1.10.26, SQLAlchemy 1.4.54, urllib3 1.26.20 and pandas 2.3.3, each
+planned with a pack made from the two releases ([the numbers](BENCHMARK_RESULTS.md#upgrade-dry-run),
+[the method](BENCHMARK.md#upgrade-dry-run)). Over those 80 repositories the dry run of `upgrade` with
+no pack writes no file: 36 stop before planning, 33 are held and 11 have no usage of a name the pack
+lists. It finds 944 usages: 78 are places a rule would rewrite if nothing else were left in the
+repository (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held for a cause of
+its own, and none is in a file the dry run would write.
+
+Of the 36 that stop, 18 stop on a manifest that declares the library in a way the pack does not take
+(`legacy_version_unsupported`: no version, a range that reaches below the release the pack was made
+from, or a pin under it) and 18 on a declared Python that the new release does not run on
+(`runtime_unsupported`). Each of the 33 that are held has a place the pack cannot write: 32 have one it
+only flags, and one has a file the scan cannot parse. A repository's plan is written only when nothing
+in it is left, so one such place holds the rest of that repository.
+
+What did work is the pack and the report: a pack from two releases in 8 to 79 s for four large
+libraries, and every place found is reported with its reason. No `--apply` was run on these
+repositories, so nothing was written wrongly, and none of this says whether a trial would pass their
+tests. [Known issues](KNOWN_ISSUES.md#upgrading-a-dependency) names the two things that stand between
+a pack made from two releases and a written move, and neither is decided.

@@ -10,7 +10,8 @@ uvx obelize fix
 
 `scan` lists every place in your repository that a migration touches and edits nothing. `fix` prints
 the plan and the diff, and writes only with `--apply`. It ships migrations from `google-generativeai`
-to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`.
+to `google-genai`, `numpy` 1.x to 2.x, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`, and three for the
+Python itself.
 
 ## Start here
 
@@ -18,7 +19,9 @@ to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`.
   a verified change.
 - [After a run](AFTER_A_RUN.md) explains the exit codes and what to do with the places it left.
 - [Upgrading a dependency](UPGRADING.md) finds what is behind, makes a pack for a library that has
-  none, tries the move with your tests in a copy and keeps it, on a branch if you ask.
+  none, tries the move with your tests in a copy and keeps it if they agree, on a branch if you ask.
+  [How far it gets](UPGRADING.md#how-far-it-gets-without-a-pack) without a pack is measured only as
+  far as the plan, which wrote no file for any of 80 public repositories.
 - [With a coding agent](WITH_A_CODING_AGENT.md) hands those places to an agent and keeps the check.
 
 ## How it earns trust

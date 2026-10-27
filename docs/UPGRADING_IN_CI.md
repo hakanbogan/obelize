@@ -4,15 +4,19 @@
 before and after, and commits the move to a new branch only if no test that passed now fails
 ([Upgrading a dependency](UPGRADING.md)). The GitHub Action does that in a job with `mode: upgrade`,
 and leaves the branch as a git bundle, a patch and a report in an artifact. A second job, which may
-write to the repository, checks the bundle and opens the pull request. The two are separate because
-the first runs your tests, and a job that runs your tests must not hold a credential that writes.
+write to the repository, checks the bundle and opens the pull request. A job that passes may have
+made no branch, since a move that was not proven leaves the job green unless `fail-on-unproven` is
+set, so read `changed` and `exit-code`. How often a trial proves a move is not measured: only the
+dry run is, and over 80 public repositories it wrote no file for a library with no pack ([how far it
+gets](UPGRADING.md#how-far-it-gets-without-a-pack)). The two jobs are separate because the first
+runs your tests, and a job that runs your tests must not hold a credential that writes.
 
 ## The workflow
 
 ```yaml
-# Upgrade a dependency every week and open a pull request for it, in two jobs. The first runs your
-# tests and can only read; the second holds a token that writes and runs none of your code
-# (docs/UPGRADING_IN_CI.md).
+# Try to upgrade a dependency every week, and open a pull request for a move your tests allowed, in
+# two jobs. The first runs your tests and can only read; the second holds a token that writes and
+# runs none of your code (docs/UPGRADING_IN_CI.md).
 # Replace <commit> with the commit of the obelize release you pin, in both places that name it, and
 # X.Y.Z with that release.
 name: upgrade

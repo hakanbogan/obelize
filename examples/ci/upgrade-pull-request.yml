@@ -1,6 +1,6 @@
-# Upgrade a dependency every week and open a pull request for it, in two jobs. The first runs your
-# tests and can only read; the second holds a token that writes and runs none of your code
-# (docs/UPGRADING_IN_CI.md).
+# Try to upgrade a dependency every week, and open a pull request for a move your tests allowed, in
+# two jobs. The first runs your tests and can only read; the second holds a token that writes and
+# runs none of your code (docs/UPGRADING_IN_CI.md).
 # Replace <commit> with the commit of the obelize release you pin, in both places that name it, and
 # X.Y.Z with that release.
 name: upgrade

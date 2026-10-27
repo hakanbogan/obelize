@@ -200,6 +200,27 @@ repository often has a place that a pack made from two releases can only flag, s
 `6` until a person or `--agent` has moved it. Writing the places that are safe to write while the rest
 wait would leave a repository half migrated, which neither release installs.
 
+Over the 80 public repositories of [the dry run](BENCHMARK_RESULTS.md#upgrade-dry-run), a pack made
+from two releases writes no file: 36 stop before planning, 33 are held and 11 have no usage of a
+name the pack lists. It finds 944 usages: 78 are places a rule would rewrite if nothing else were
+left in the repository (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held
+for a cause of its own, and none is in a file the dry run would write. No `--apply` was run on them,
+so what a trial would do is not measured. Two things stand between a pack made from two releases and
+a written move, and I have decided neither:
+
+- A manifest that declares the library loosely (`pydantic`, `pydantic<2`, `pydantic = "^1.9.1"`)
+  stops the run with `legacy_version_unsupported` even when the `--from` you pass lies in the pack's
+  range, since a declaration decides and `--from` counts only where none exists. 18 of the 80
+  stopped on this, every one with a manifest that declares the library, and some pin a release below
+  the one the pack was made from (`SQLAlchemy==0.8.0`). [ADR-072](adr/ADR-072-a-stated-release.md)
+  lists letting the statement overrule a declaration that admits it as the alternative: it would
+  plan a repository whose manifest installs a newer release today as the one you named.
+- The pack writes a repository only when nothing in it is left, since the old and the new API are
+  one distribution when the library keeps its import name, and all four libraries of the frames do.
+  One place it can only flag holds every other place of that repository, as the paragraph above
+  says: 32 of the 33 held repositories had such a place, and the 78 places a rule would rewrite were
+  in repositories where nothing was written.
+
 A trial installs packages and runs their build scripts, and your tests, as you, on your machine,
 with your network and your files in reach. The question it asks first is the only gate: nothing
 sandboxes the installs or the tests, so run it only on a repository whose dependencies and tests

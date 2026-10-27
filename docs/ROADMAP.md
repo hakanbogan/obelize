@@ -48,7 +48,7 @@ written: it must stay inside the lines it was shown and the file it was asked ab
 add no import or name outside the question. That proves a proposal safe to write, not correct, so
 an accepted one is still a line to review.
 
-A library with no pack can be upgraded too. `obelize outdated` lists the dependencies a repository
+A library with no pack can be planned for too. `obelize outdated` lists the dependencies a repository
 declares that the package index says have moved on. `obelize upgrade <distribution>` plans the move
 with the pack that ships for it or, if there is none, with one it makes from two releases of the
 library, which it reads without importing or building anything: a module-level name that the
@@ -64,7 +64,13 @@ answers, and with `--offline` reads only the cache and keeps the trial's install
 
 Four runs on three public repositories passed their own tests before and after the move
 ([the runs](UPGRADING.md#runs-on-real-repositories)). That shows the steps join up, not how often a
-move passes; the benchmark of this mode is still to come.
+move passes. The dry run without a pack is measured over 80 public repositories that use the old API
+of pydantic 1, SQLAlchemy 1.4, urllib3 1 and pandas 2, and it writes no file: 36 stop before planning,
+33 are held and 11 have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule
+would rewrite if nothing else were left in the repository (all in pydantic, `rename_member`), the pack
+only flags 810 and 56 are held for a cause of its own, and none is in a file the dry run would write
+([the numbers](BENCHMARK_RESULTS.md#upgrade-dry-run)). The benchmark of the trial itself, which
+installs packages and runs the tests, is still to come.
 
 A pack can say more than it could. `rename_member` renames a method or attribute of a library
 class wherever the file shows what a receiver is, in a class of yours or in another file of the
@@ -93,20 +99,21 @@ pipeline. The action also upgrades a dependency (`mode: upgrade`).
 
 obelize is meant to upgrade a dependency without a pack someone wrote for it, and to check the
 result with your tests in one command ([the decision](adr/ADR-059-verified-dependency-upgrades.md)).
-The commands above do that for a library whose changes two releases show. This is the order I
+The commands above are that path for a library whose changes two releases show, and on the 80
+repositories measured so far it does not reach a written move: what stops it, and the two choices I
+have not made, are in [the known issues](KNOWN_ISSUES.md#upgrading-a-dependency). This is the order I
 intend to build the rest in. Nothing below ships until the changelog says so, each step is its own
 release, and an option I add defaults to today's behaviour.
 
-1. More places. Rewrite a dependency line that carries extras, use an agent program other than
-   `claude` once one documents how to leave it no tool (`codex` does not yet:
-   [why](adr/ADR-076-no-backend-for-codex-yet.md)), and let the kinds the bundled packs use cover
-   more shapes. The command itself never pushes; the GitHub Action runs the trial in one job and a
-   second job opens the pull request ([Upgrading in CI](UPGRADING_IN_CI.md)).
+1. More places. Use an agent program other than `claude` once one documents how to leave it no tool
+   (`codex` does not yet: [why](adr/ADR-076-no-backend-for-codex-yet.md)), and let the kinds the
+   bundled packs use cover more shapes. The command itself never pushes; the GitHub Action runs the
+   trial in one job and a second job opens the pull request ([Upgrading in CI](UPGRADING_IN_CI.md)).
 2. Ecosystem. A registry of packs, more existing fixers behind the same evidence (ruff's `NPY201`
    ships in `numpy/numpy-1-to-2`; the others need a target release a pack can state, [why](adr/ADR-074-external-fixer.md)), writing
    notebooks, and hand-checked packs for the libraries people ask about most.
 3. 1.0. Stable formats, with only additions after it, and a published benchmark of the pack-free
-   mode.
+   mode that includes the trial, which only its dry run has so far.
 
 TypeScript is a separate plan.
 

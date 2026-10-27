@@ -1,7 +1,7 @@
 # Safety
 
-`scan`, and `fix` without `--apply`, change none of your files. obelize never pushes or merges, and
-makes a branch and a commit only when you ask (`upgrade --apply --branch`), built from git's own
+`scan`, and `fix` without `--apply`, change none of your files. The commands never push or merge, and
+`upgrade --apply --branch` makes a branch and a commit only when you ask, built from git's own
 plumbing so that your working tree, your index and your hooks are not touched. It refuses to apply
 over uncommitted changes unless you pass
 `--allow-dirty`, so `git diff` shows the migration alone. In the repository it writes only its own

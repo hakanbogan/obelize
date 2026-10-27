@@ -14,12 +14,13 @@ inputs:
   mode:
     description: >-
       scan (the default) finds what a migration leaves in the code, annotates it and fails the job.
-      upgrade moves each dependency in distributions to its newest release in a copy of the
-      repository, runs the repository's own tests before and after, and uploads the branch it made
-      as a git bundle with a patch and a report. That runs the repository's code, so the job must
-      have no credential that writes (check out with persist-credentials: false) and never run on
-      pull_request_target, workflow_run or issue_comment; the action stops if it does. A second job
-      opens the pull request (docs/UPGRADING_IN_CI.md). The inputs of the other mode are ignored.
+      upgrade tries to move each dependency in distributions to its newest release in a copy of the
+      repository, runs the repository's own tests before and after, and uploads the branch it made,
+      if the tests allowed the move, as a git bundle with a patch and a report. That runs the
+      repository's code, so the job must have no credential that writes (check out with
+      persist-credentials: false) and never run on pull_request_target, workflow_run or
+      issue_comment; the action stops if it does. A second job opens the pull request
+      (docs/UPGRADING_IN_CI.md). The inputs of the other mode are ignored.
     default: scan
   packs:
     description: >-

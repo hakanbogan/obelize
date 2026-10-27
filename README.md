@@ -23,7 +23,8 @@ proof. obelize sits between them:
 - It runs your tests before the change and after it. A run is verified when they passed before and
   still pass after, and `upgrade` compares them test by test.
 - It runs on your machine, with no account and no telemetry, and makes no network call unless you
-  configure a model yourself or ask it to read a library's releases from the package index.
+  configure a model yourself or ask it to read a library's releases from the package index or a
+  migration guide you name.
 
 ## Example
 
@@ -149,6 +150,15 @@ tests are the check: a weak suite proves little. [Upgrading a dependency](docs/U
 steps and the four runs on three public repositories, and [Upgrading in CI](docs/UPGRADING_IN_CI.md)
 runs it as a GitHub Action in one job and opens the pull request in another.
 
+How far a pack made from two releases gets on real repositories is measured for the dry run only.
+Over 80 public repositories that use the old API of pydantic 1, SQLAlchemy 1.4, urllib3 1 and pandas
+2, the dry run of `upgrade` with no pack writes no file: 36 stop before planning, 33 are held and 11
+have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule would rewrite if
+nothing else were left in the repository (all in pydantic, `rename_member`), the pack only flags 810
+and 56 are held for a cause of its own, and none is in a file the dry run would write. No `--apply`
+was run on these repositories, so nothing here says how often a move passes their tests ([the
+numbers](docs/BENCHMARK_RESULTS.md#upgrade-dry-run)).
+
 ## With a coding agent
 
 An agent migrates more than obelize does, and obelize gives the migration a check. A study of 321
@@ -217,13 +227,15 @@ file stays as it was.
 
 ## Safety
 
-`scan`, and `fix` without `--apply`, change none of your files. obelize never pushes or merges, and
-makes a branch and a commit only when you ask (`upgrade --apply --branch`), without touching your
-working tree. In your repository it writes only its own `.obelize/` folder and the files on its
-plan, each through a temporary file and a rename, and it keeps what it reads from the package index
-in your cache folder. `upgrade --apply` is the one command that installs packages: it asks
-first and does it in a copy of the repository, with environments outside it. A verification command
-runs only from your own configuration or a flag, or after you approve it at a prompt. [Safety](docs/SAFETY.md) lists what
+`scan`, and `fix` without `--apply`, change none of your files. The commands never push or merge,
+and `upgrade --apply --branch` makes a branch and a commit only when you ask, without touching your
+working tree; only the second job of the [workflow in CI](docs/UPGRADING_IN_CI.md), which you add to
+your repository, pushes a branch and opens a pull request. In your repository obelize writes only
+its own `.obelize/` folder and the files on its plan, each through a temporary file and a rename,
+and it keeps what it reads from the package index in your cache folder. `upgrade --apply` is the one
+command that installs packages: it asks first and does it in a copy of the repository, with
+environments outside it. A verification command runs only from your own configuration or a flag, or
+after you approve it at a prompt. [Safety](docs/SAFETY.md) lists what
 is mitigated and what is not, and [the threat model](docs/THREAT_MODEL.md) and
 [privacy notes](docs/PRIVACY.md) have the detail.
 
@@ -232,9 +244,11 @@ is mitigated and what is not, and [the threat model](docs/THREAT_MODEL.md) and
 Every number comes from [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), which lists the cases
 behind it, and the method is in [docs/BENCHMARK.md](docs/BENCHMARK.md). All of them are for the
 Gemini pack: I measured the migration with obelize 0.1.0 and the scan again on a later scanner, with
-the same result. The other two packs have no accuracy figure; a
+the same result. The `openai` and `PyPDF2` packs have no accuracy figure; a
 [dry run](docs/BENCHMARK_RESULTS.md#fix-dry-run) over 80 repositories each shows how many get a
-written plan.
+written plan. The `numpy` pack and the three for the Python have no benchmark, and the dry run of
+`upgrade` with no pack, over 80 repositories, is [described above](#upgrading-a-dependency) and
+[published](docs/BENCHMARK_RESULTS.md#upgrade-dry-run).
 
 | Measure | obelize | n |
 |---|---|---|

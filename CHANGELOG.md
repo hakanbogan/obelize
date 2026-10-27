@@ -12,98 +12,65 @@ in the release that makes it.
 
 ## [Unreleased]
 
-A pack can now be about the Python itself. A side of a migration is a distribution or the Pythons
-it runs on, so `datetime.utcnow()`, `pkg_resources` and the modules Python 3.12 and 3.13 removed
-have packs, though no distribution is installed to move to. Everything new is reached by a pack that
-uses it. What the three bundled packs for a library write is what it was: an explicit `--pack` run
-gives the same bytes and their pack hashes are unchanged. What a default scan parses is not
-quite: `numpy/numpy-1-to-2` joins the union with the one token `numpy`, so a file that spells the
-word is parsed once more, and no other.
+## [0.9.0] - 2026-10-27
 
-What does change for every repository is what a default run finds. The three packs report what they
-cannot rewrite, so a repository that only has `from distutils.core import setup` in its `setup.py`
-exits `0` from `scan --fail-on eligible --fail-on needs_review --fail-on unsupported` in 0.8.0 and
-`4` now, `fix --apply` exits `4` where it said "No pack applies", and the GitHub Action, whose
-default `fail-on` is those three statuses, fails the job. The same holds for `pkg_resources`, `cgi`,
+obelize can do more for a library it has no pack for, and ships more packs. A pack can be about the
+Python itself (`datetime.utcnow()`, `pkg_resources`, the modules Python 3.12 and 3.13 removed), hand
+its files to a maintained tool (`numpy/numpy-1-to-2` runs your own ruff), and flag a changed
+signature only at the calls it can break. `pack synth` and `upgrade` use the last, and can take
+claims from a migration guide that a model you set up has read and code has checked. A requirement
+that names extras keeps them when its pin moves, and the GitHub Action can upgrade a dependency in
+one job and open the pull request from another. Everything new is reached by a pack or a flag that
+uses it: an explicit `--pack` run of the three bundled packs of 0.8.0 writes what it wrote (their
+fixtures are unchanged and pass, the benchmark records below agree) and their pack hashes are
+unchanged.
+
+What does change for every repository is what a default run finds, since a default run uses every
+pack and there are now seven. The three packs for the Python report what they cannot rewrite, so a
+repository that only has `from distutils.core import setup` in its `setup.py` exits `0` from
+`scan --fail-on eligible --fail-on needs_review --fail-on unsupported` in 0.8.0 and `4` now,
+`fix --apply` exits `4` where it said "No pack applies", and the GitHub Action, whose default
+`fail-on` is those three statuses, fails the job. The same holds for `pkg_resources`, `cgi`,
 `telnetlib`, `utcnow()` and the other surfaces the packs name, and for `np.float_`, `np.NaN` and the
 other names `numpy/numpy-1-to-2` names. Pass `--pack` to run the packs you mean, or `fail-on` to the
-statuses you accept ([docs/CLI.md](docs/CLI.md), [UPGRADING](docs/UPGRADING.md)).
+statuses you accept ([docs/CLI.md](docs/CLI.md), [UPGRADING](docs/UPGRADING.md)). A default scan
+also parses a file that holds a token of one more pack, once for each pack that names it: `numpy`,
+`pkg_resources`, `utcnow`, `utcfromtimestamp` or the name of a module Python removed.
 
-A pack can also hand its files to a maintained tool. `numpy/numpy-1-to-2` runs your own ruff
-(`NPY201`) over the files that use a name NumPy 2 removed, and keeps what it prints only when the
-tool changed nothing the scan did not report, changes nothing when run on its own output, and
-leaves none of the names. Without a ruff of a release obelize has measured, or with another, every
-place stays as it was and the rows say which; obelize installs nothing ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
+What is deliberately not done: obelize installs no tool (the ruff that `numpy/numpy-1-to-2` runs is
+yours, on your `PATH`), and ruff is the one fixer in the registry. `--agent` takes `claude_code`
+only: a backend for `codex exec` was checked against its documentation on 2026-10-27 (CLI 0.164.0)
+and not built, since it documents `features.shell_tool` and permission profiles but no setting that
+leaves a model without tools, so a text-only run cannot be guaranteed
+([ADR-076](docs/adr/ADR-076-no-backend-for-codex-yet.md), which says what would change that).
+`upgrade --from` still takes a release as the one in use only where no manifest declares the library.
 
-A pack made from two releases can now take what the library's authors say in prose. `pack synth` and
-`upgrade` take `--guide <url|file>` (up to three), and a model you set up in your own configuration (the
-endpoint in `model`, else the agent in `agent`) reads the guide and drafts claims: a name renamed, a
-method renamed, a call written another way, a name that needs a person. Code keeps a claim only if
-its quote is in the guide, its names are in both releases, its pattern is one a pack may hold and the
-API diff does not contradict it. A kept claim is a report that quotes the guide, and a rewrite only
-where the quote says in a known shape that the new name takes the place of the old one (a line of a
-table, an arrow, "`old` is now `new`", "use `new` instead of `old`"), no word in its sentence limits
-or takes that back ("not", "but", "only"), and the diff shows the old name removed or deprecated and
-the new one there, written the same way (not a coroutine where the old was none); for a pattern,
-every call it writes must resolve in the new release. Only the text of the guide goes to the model,
-in parts, with the names of the library and its releases; nothing of your code does, the host or
-program is printed first, and with no model set up, or under `--offline`, the option is skipped with
-one line and the guide is not read. `upgrade` reads the guide only when no pack is known. After two
-parts one after another that fail, or 30 minutes, the model is not asked for the rest. The pack's folder gets
-a `guide.json` with the day the guide was read, the model's answers, the counts and what became of
-each claim, and `pack synth --guide-replay` makes the same pack again from it with no model, on any
-day. A file must be a regular file with a text or HTML suffix, and a page is HTML by the type it is
-served with. On pydantic 1.10.26 to 2.12.5 and its migration guide the model drafted 47 claims, 31
-were kept and one of them, `BaseModel.copy` to `model_copy`, is a rewrite, and the answers fed back
-through the checks as they are now give the same result ([the run](docs/UPGRADING.md#what-a-guide-adds),
-[why](docs/adr/ADR-075-claims-from-a-guide.md)). A guide is fetched as the index is, so a page that
-moved to another host is refused and the message names the host.
+### Benchmark
 
-A requirement that names extras (`mcp[cli]>=1.28.1`) is no longer always left as it was. A pack
-made by `pack synth` lists the extras the newer release's wheel gives as `Provides-Extra`
-(`manifest_dependency.provides_extras`), and a requirement of that one distribution whose extras are
-all listed has only the version after them replaced (`mcp[cli]>=2.12.5,<3`). An extra the release
-does not list, a release with no wheel, a renamed distribution (`PyPDF2[crypto]`), a constraints
-file, a hash, a continued line and the other forms where the edit would be more than the version
-leave the line as it was, named in the summary as before ([the forms](docs/adr/ADR-077-extras-on-a-pin.md)).
-The bundled packs list none, so what they write is what it was.
+I took Gate 1's scan and the three fix dry runs again with this release, over the same 80
+repositories each at the same commits, so they read `obelize 0.9.0`. 317 of the 320 records are the
+ones 0.8.0 gave, finding for finding and withheld row for withheld row. `miguel-webplace/questiFy`
+of the Gemini frame is not served by GitHub now, so its record in the scan and in the dry run is an
+error and that frame's shares are over 79 repositories. `ZeroTang05/cyber-doctor` of the PyPDF2
+frame, an error in the 0.8.0 records, is served again and its record is the one 0.7.0 gave, so that
+frame's shares are over 80 repositories again.
 
-The GitHub Action can upgrade a dependency. `mode: upgrade` with `distributions: pydantic` runs
-`obelize upgrade --apply --yes --branch` for each dependency in the checkout, with no credential
-that writes, and uploads for each a git bundle of the branch it made, a patch, the trial's evidence
-and a report (`bundle-file`, `report-file`, `changed` and `exit-code` are its outputs, the last the
-code of the first dependency that failed outright, else of the first not proven; `fail-on-unproven`
-fails the job on exit `3` or `6`, and any other code always fails it). It stops if the event is
-`pull_request_target`, `workflow_run` or `issue_comment`, if `GH_TOKEN`, `GITHUB_TOKEN` or
-`ACTIONS_ID_TOKEN_REQUEST_TOKEN` is set, or if the checkout kept a credential. The pull request is
-opened by a second job that runs none of your code: `action/upgrade.py publish` takes only the
-dependencies the workflow lists, checks that the bundle is one commit on the commit the workflow
-ran on, editing only files the base has that are Python sources or manifests (no `.github`, link,
-executable, deletion or new file), and then pushes a commit it makes itself from that tree and
-opens the pull request. `mode: scan` is what it was ([Upgrading in CI](docs/UPGRADING_IN_CI.md),
-[why](docs/adr/ADR-078-the-upgrade-mode-of-the-action.md)).
-
-`obelize upgrade` for a dependency that is already on the newest release, with no `--to` and no pack
-that moves it to another distribution, now says so and exits `0` with nothing written, where it
-exited `2` ("nothing to synthesize").
-
-`--agent` still takes `claude_code` only. A backend for `codex exec` was checked against its
-documentation on 2026-10-27 (CLI 0.164.0) and not built: it documents `features.shell_tool` and
-permission profiles, but no setting that leaves a model without tools, so a text-only run cannot be
-guaranteed ([ADR-076](docs/adr/ADR-076-no-backend-for-codex-yet.md), which says what would change that).
-
-The formats that changed are `pack.yaml` (a change may carry a `source` of its own, whose type may be
-`guide`, which is never bundled, and `manifest_dependency` may carry `provides_extras`),
-`pack.schema.json` which describes them, the id of a pack made with
-a guide (it ends with `-with-` and a digest of the guide's text) and `guide.json`, the new record
-beside such a pack.
+The dry run of `obelize upgrade` with no pack is new: four frames of twenty public repositories that
+still use the old API of pydantic 1, SQLAlchemy 1.4, urllib3 1 and pandas 2, each planned with a pack
+made from the two releases. Over those 80 repositories it writes no file: 36 stop before planning,
+33 are held and 11 have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule
+would rewrite if nothing else were left in the repository (all in pydantic, `rename_member`), the
+pack only flags 810 and 56 are held for a cause of its own, and none is in a file the dry run would
+write. That is what a plan holds: no `--apply` was run on these repositories, so how often a move
+passes their tests is not measured ([the results](docs/BENCHMARK_RESULTS.md#upgrade-dry-run)).
 
 ### Unsupported patterns
 
 [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has a new section on the packs for the Python itself
 and one on the tools a pack can run. What it names:
 
-- None of the three has been run over public repositories, so how often they write is not known.
+- None of the three packs for the Python has been run over public repositories, so how often they
+  write is not known.
 - `python/datetime-utcnow` rewrites calls only: `field(default_factory=datetime.utcnow)` and a
   SQLAlchemy `default=datetime.utcnow` are reported and keep their file as it was. The value stays
   naive, as `utcnow()` made it; a test that mocks `datetime` in a module of its own is not seen and
@@ -112,8 +79,8 @@ and one on the tools a pack can run. What it names:
 - `python/removed-stdlib-modules` renames `pipes.quote` and reports the rest. It leaves out `imp`,
   `uu`, `nis`, `crypt` and `chunk`, whose names sit inside `import`, `uuid`, `finish`, `encrypt` and
   `chunk`.
-- A default scan, which runs every known pack, now parses the files that hold `pkg_resources` or
-  the name of a removed module once more for each of these packs, and those that spell `utcnow` or
+- A default scan, which runs every known pack, parses the files that hold `pkg_resources` or the
+  name of a removed module once more for each of these packs, and those that spell `utcnow` or
   `utcfromtimestamp` for the datetime pack. Over a synthetic repository of 4,000 files a default
   scan took 2.3 s, against 2.5 s before the packs.
 - A comment inside a rewritten call moves above the statement that holds it.
@@ -123,39 +90,101 @@ and one on the tools a pack can run. What it names:
   a requirement that excludes NumPy 2 (`numpy==1.26.4`, `numpy<2`) to `numpy>=2` and leaves one that
   admits it (`numpy>=1.22`) as written, but it does not judge the other pins beside it (a
   `pandas==1.5.3`), so install the result. It was run over five public repositories and has no
-  Gate 1 measurement. A fixer that moves an import, renames a
-  keyword or needs the target release a repository states (`ruff`'s `UP035` and `AIR301`,
-  `django-upgrade`, `pyupgrade`) is not registered ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
+  Gate 1 measurement. A fixer that moves an import, renames a keyword or needs the target release a
+  repository states (`ruff`'s `UP035` and `AIR301`, `django-upgrade`, `pyupgrade`) is not registered
+  ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
 - `--guide` has been run once on a public guide (pydantic 1 to 2) and measured nowhere else. What the
   model drafts is its recall, not obelize's: a first prompt gave 13 claims from the guide and the
-  second 41 and 47 in two runs. A change in another distribution, a class body (`class Config`) and what a function
-  does have no name to hold a claim to, a table or a page built in the browser may not be read, and
-  a rewrite rests on the API diff and not on the guide, so your tests decide whether it means what
-  the old call did (the section on migration guides in KNOWN_ISSUES.md).
+  second 41 and 47 in two runs. A change in another distribution, a class body (`class Config`) and
+  what a function does have no name to hold a claim to, a table or a page built in the browser may
+  not be read, and a rewrite rests on the API diff and not on the guide, so your tests decide whether
+  it means what the old call did (the section on migration guides in KNOWN_ISSUES.md).
 - A name that a pack flags only at some calls is not listed where it is handed to another call
   (`map(pd.to_datetime, rows)`, a callback), whatever positional arguments the code that receives it
   passes, and a deprecation of the whole name that happens to use the word of a changed parameter
   lets a call by. A name that also left or moved, a function that changed kind and every method are
   still listed wherever they are used (the section on upgrading a dependency in KNOWN_ISSUES.md).
+- `upgrade` with no pack stopped 18 of those 80 repositories on a manifest that declares the library
+  loosely (`pydantic`, `pydantic<2`, `^1.9.1`) or below the release the pack was made from, with
+  `legacy_version_unsupported`, though `--from` names a release inside the pack's range: a declaration
+  decides, and `--from` counts only where none exists. Whether it should overrule a loose one is not
+  decided ([ADR-072](docs/adr/ADR-072-a-stated-release.md)).
+- A repository's plan is written only when nothing in it is left, for a library that keeps its import
+  name, so one place the pack can only flag holds the rest of the repository: 32 of the 33 held
+  repositories had such a place. The section on upgrading a dependency in KNOWN_ISSUES.md has both.
 
-The formats that changed are `pack.yaml` (`package` and `version` are optional on a side, which may
-instead say `python`; `to.requires_python` is required only with a distribution; a `rewrite_pattern`
-takes `imports`, each of a closed list of modules), the text of `runtime_unsupported` for a pack whose
-new side is the Python, which names the pack, the prefilter rule (below) and `pack.schema.json`,
-which describes them, a side as exactly one of a distribution or `python`. The reasons `alias_collision` and `local_import` are also
-given for a `rewrite_pattern` that cannot name a module it imports. `pack.yaml` also takes
-`flag_only.calls` (below), and a finding's `evidence`, which was always `null`, may carry the words
-of [SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md) section 14 (`findings.json` follows). `pack.yaml`
-takes `external_fixer` (`fixer`, `symbols`), `run.json` gains `packs[].fixers`, and eight codes
-join the bail vocabulary and the bails an import row may carry, which `findings.json`, `plan.json`,
+The formats that changed are `pack.yaml` and `pack.schema.json`, which describes it: a side of a
+migration is a distribution (`package` and `version`) or the Python (`python`), and not both, and
+`to.requires_python` is required only with a distribution, a `rewrite_pattern` takes `imports`,
+each of a closed list of modules, `flag_only` takes `calls`, `external_fixer` is a new kind (`fixer`,
+`symbols`), `manifest_dependency` takes `provides_extras`, a change may carry a `source` of its own
+whose type may be `guide`, which is never bundled, and a module of a shared pack may have no
+prefilter token in its name when each symbol under it ends in one. The id of a pack made with a
+guide ends with `-with-` and a digest of the guide's text, and `guide.json` is the new record beside
+such a pack. `run.json` gains `packs[].fixers` and `packs[].stated`, and eight codes join the bail
+vocabulary and the bails an import row may carry, which `findings.json`, `plan.json`,
 `proposal.json` and `run.json` list (`external_tool_missing`, `external_tool_version_unsupported`,
 `external_tool_failed`, `external_tool_timeout`, `external_tool_size_limit`,
-`external_fix_out_of_scope`, `external_fix_incomplete`, `external_fix_not_idempotent`).
+`external_fix_out_of_scope`, `external_fix_incomplete`, `external_fix_not_idempotent`). The reasons
+`alias_collision` and `local_import` are also given for a `rewrite_pattern` that cannot name a module
+it imports, the text of `runtime_unsupported` for a pack whose new side is the Python names the pack,
+and a finding's `evidence`, which was always `null`, may carry the words of
+[SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md) section 14 (`findings.json` follows).
 
 ### Added
 
-- A change of kind `external_fixer` runs a maintained tool over the files that use the names it
-  lists, named by an id obelize holds (`ruff:NPY201`) and never by a command, flag, path or release.
+- A pack made from two releases can take what the library's authors say in prose. `pack synth` and
+  `upgrade` take `--guide <url|file>` (up to three), and a model you set up in your own
+  configuration (the endpoint in `model`, else the agent in `agent`) reads the guide and drafts
+  claims: a name renamed, a method renamed, a call written another way, a name that needs a person.
+  Code keeps a claim only if its quote is in the guide, its names are in both releases, its pattern
+  is one a pack may hold and the API diff does not contradict it. A kept claim is a report that
+  quotes the guide, and a rewrite only where the quote says in a known shape that the new name takes
+  the place of the old one (a line of a table, an arrow, "`old` is now `new`", "use `new` instead of
+  `old`"), no word in its sentence limits or takes that back ("not", "but", "only"), and the diff
+  shows the old name removed or deprecated and the new one there, written the same way (not a
+  coroutine where the old was none); for a pattern, every call it writes must resolve in the new
+  release. Only the text of the guide goes to the model, in parts, with the names of the library and
+  its releases; nothing of your code does, the host or program is printed first, and with no model
+  set up, or under `--offline`, the option is skipped with one line and the guide is not read.
+  `upgrade` reads the guide only when no pack is known. After two parts one after another that fail,
+  or 30 minutes, the model is not asked for the rest. The pack's folder gets a `guide.json` with the
+  day the guide was read, the model's answers, the counts and what became of each claim, and
+  `pack synth --guide-replay` makes the same pack again from it with no model, on any day. A file
+  must be a regular file with a text or HTML suffix, and a page is HTML by the type it is served
+  with. A guide is fetched as the index is, so a page that moved to another host is refused and the
+  message names the host. On pydantic 1.10.26 to 2.12.5 and its migration guide the model drafted 47
+  claims, 31 were kept and one of them, `BaseModel.copy` to `model_copy`, is a rewrite, and the
+  answers fed back through the checks as they are now give the same result
+  ([the run](docs/UPGRADING.md#what-a-guide-adds),
+  [why](docs/adr/ADR-075-claims-from-a-guide.md)).
+- A requirement that names extras (`mcp[cli]>=1.28.1`) is no longer always left as it was. A pack
+  made by `pack synth` lists the extras the newer release's wheel gives as `Provides-Extra`
+  (`manifest_dependency.provides_extras`), and a requirement of that one distribution whose extras
+  are all listed has only the version after them replaced (`mcp[cli]>=2.12.5,<3`). An extra the
+  release does not list, a release with no wheel, a renamed distribution (`PyPDF2[crypto]`), a
+  constraints file, a hash, a continued line and the other forms where the edit would be more than
+  the version leave the line as it was, named in the summary as before
+  ([the forms](docs/adr/ADR-077-extras-on-a-pin.md)). The bundled packs list none, so what they
+  write is what it was.
+- The GitHub Action can upgrade a dependency. `mode: upgrade` with `distributions: pydantic` runs
+  `obelize upgrade --apply --yes --branch` for each dependency in the checkout, with no credential
+  that writes, and uploads for each a git bundle of the branch it made, a patch, the trial's
+  evidence and a report (`bundle-file`, `report-file`, `changed` and `exit-code` are its outputs, the
+  last the code of the first dependency that failed outright, else of the first not proven;
+  `fail-on-unproven` fails the job on exit `3` or `6`, and any other code always fails it). It stops
+  if the event is `pull_request_target`, `workflow_run` or `issue_comment`, if `GH_TOKEN`,
+  `GITHUB_TOKEN` or `ACTIONS_ID_TOKEN_REQUEST_TOKEN` is set, or if the checkout kept a credential.
+  The pull request is opened by a second job that runs none of your code: `action/upgrade.py
+  publish` takes only the dependencies the workflow lists, checks that the bundle is one commit on
+  the commit the workflow ran on, editing only files the base has that are Python sources or
+  manifests (no `.github`, link, executable, deletion or new file), and then pushes a commit it makes
+  itself from that tree and opens the pull request. `mode: scan` is what it was
+  ([Upgrading in CI](docs/UPGRADING_IN_CI.md),
+  [why](docs/adr/ADR-078-the-upgrade-mode-of-the-action.md)).
+- A change of kind `external_fixer` runs a maintained tool over a file whose every place the scan
+  found is one of the names it lists, named by an id obelize holds (`ruff:NPY201`) and never by a
+  command, flag, path or release.
   The tool is found among the absolute entries of your `PATH` and started with an argv list, a few
   environment variables and an empty directory, under a 60-second deadline and 4 MiB each way, and
   only in a release the registry lists (ruff 0.6.2 to 0.17.3, each run over the fixtures; its
@@ -172,7 +201,8 @@ join the bail vocabulary and the bails an import row may carry, which `findings.
   (NPY201) on 3 files.` ahead of the diff; `pack validate` prints what a fixer runs and the command
   that installs it; `scan` says on stderr when what it found cannot be written for want of the tool;
   `pack test` has a check for the tool, and the checks that need it do not run, so a bundled pack
-  that fails only those exits `7` and is not reported as a defect of obelize.
+  that fails only those exits `7` and is not reported as a defect of obelize
+  ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
 - A bundled pack, `numpy/numpy-1-to-2`: 23 names NumPy 2 removed, written by ruff as the name that
   also exists on NumPy 1 (`np.float_` as `np.float64`, `np.NaN` as `np.nan`, `np.cumproduct` as
   `np.cumprod`), 75 more reported (every name of the main namespace that NumPy 1.26.4 has and 2.0.2
@@ -201,11 +231,10 @@ join the bail vocabulary and the bails an import row may carry, which `findings.
   pydantic, SQLAlchemy, pandas).
 - The comparison reads `lib.no_default`, `no_default` and `NoDefault.no_default` as "not given", as
   it does `_Unset`, so a default that became one is no change; a private name that does not say it
-  is one (`_DEFAULT_TIMEOUT`) is read as a value. pandas 3 had 2,872 of those, and a pack made for it
-  is 665 KB where it was 793 KB. A parameter that a new `**kwargs` takes is a removal all the same
+  is one (`_DEFAULT_TIMEOUT`) is read as a value. pandas 3.1 had 2,872 of its 4,284 default changes
+  that name. A parameter that a new `**kwargs` takes is a removal all the same
   (`sessionmaker(autocommit=True)` raises in SQLAlchemy 2.0), and the first parameter of a method is
   its receiver whatever it is called, so `__pydantic_self__` is no parameter.
-
 - A side of a pack can be the Python: `from: {python: ">=3.12"}` and `to: {python: ">=3.2"}`, where
   `to.python` is what `requires_python` is for a distribution. A repository that declares a Python
   outside it is blocked (`runtime_unsupported`), and one that declares none is not. A pack whose
@@ -232,6 +261,9 @@ join the bail vocabulary and the bails an import row may carry, which `findings.
 
 ### Changed
 
+- `obelize upgrade` for a dependency that is already on the newest release, with no `--to` and no
+  pack that moves it to another distribution, says so and exits `0` with nothing written, where it
+  exited `2` ("nothing to synthesize"). A pack that moves it to another distribution still runs.
 - `obelize --help` names NumPy 1.x to 2.x among the supported migrations.
 - A template may contain `None`, `True` and `False`, which it could not before: they were read as
   names to import.

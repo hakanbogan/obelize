@@ -139,3 +139,7 @@ tests of your repository are what show whether a migration holds. A library that
 when it is imported (a module `__getattr__`, or `from other_package import *`) hides names, and the
 command counts them instead of calling them removed. `pack synth` prints every host before it reaches it, and `--offline` uses only
 what an earlier run kept.
+
+What such a pack writes for a repository is measured for four migrations: over 80 public
+repositories that use the old API, the dry run of `upgrade` wrote no file
+([how far it gets](UPGRADING.md#how-far-it-gets-without-a-pack)).
