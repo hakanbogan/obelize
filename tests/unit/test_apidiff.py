@@ -1055,3 +1055,30 @@ def test_a_message_names_only_when_it_says_no_more_than_which_name_to_use(
     message: str | None, names: bool
 ) -> None:
     assert api.names_only(message) is names
+
+
+def test_how_the_source_marks_a_function_is_read(tmp_path: Path) -> None:
+    root = lib(
+        tmp_path,
+        {
+            "__init__.py": (
+                "async def a(x): ...\n\ndef b(x): ...\n\n"
+                "class C:\n    async def m(self, x): ...\n\n    def n(self, x): ...\n\n"
+                "    @staticmethod\n    def s(x): ...\n\n"
+                "    @classmethod\n    def k(cls, x): ...\n\n"
+                "    @property\n    def p(self): ...\n\n    q = 1\n"
+            )
+        },
+        "marked",
+    )
+    found = surface.read(root, "marked").objects
+    assert {path: found[f"marked.{path}"].labels for path in ("a", "b", "C.m", "C.n")} == {
+        "a": ("async",),
+        "b": (),
+        "C.m": ("async",),
+        "C.n": (),
+    }
+    assert found["marked.C.s"].labels == ("staticmethod",)
+    assert found["marked.C.k"].labels == ("classmethod",)
+    assert found["marked.C.p"].value == "property"
+    assert found["marked.C.q"].labels == ()

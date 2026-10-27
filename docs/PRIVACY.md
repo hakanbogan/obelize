@@ -98,22 +98,28 @@ your manifests declare, so they ask a package index:
 you name, and ask a model to draft claims from its text:
 
 - The page is fetched as the index is (above): one host, printed first, your proxy honoured, a
-  redirect to another host refused, a size and a time limit, kept in the cache for an hour and read
-  from it under `--offline`. Its query and fragment, which can carry a token, are not kept anywhere.
-  A file is read where it is; only its name is ever recorded, never its path.
+  redirect to another scheme, host or port refused, a size and a time limit, and kept in the cache
+  for an hour. Its query and fragment, which can carry a token, are not kept anywhere, and an error
+  does not print them. A file is read where it is, if it is a regular file with a suffix of text
+  or HTML (`.md`, `.markdown`, `.txt`, `.rst`, `.html`, `.htm`); only its name is ever recorded,
+  never its path.
 - The model is the one in your own configuration: the endpoint in `model` (the rules of
   [the model adapter](#what-changes-with-the-model-adapter) hold), else the coding agent in `agent`,
   started as for `--agent` ([what that sends](#what-an-agent-run-sends)). A repository's
-  `.obelize.yml` can set neither. With neither set up, `--guide` says so, reads the guide and sends
-  nothing.
+  `.obelize.yml` can set neither. With neither set up, `--guide` says so, reads nothing and sends
+  nothing. Under `--offline` it does the same, with the line "offline: the guide was not read or
+  sent", since asking a model is reaching a host; only `--guide-replay` goes on offline.
 - What goes to it is a fixed system prompt, the names of the library, its two releases and the
   module compared, the address of the guide (or the name of the file), and the text of the guide in
-  parts of about 5,000 tokens, one request each. Nothing of your repository, your manifests or your
-  machine goes with it. The text is not redacted, since it is not yours: if you name a guide that is
-  private, its text goes to your model.
-- `guide.json`, beside the pack that `pack synth` makes (in the cache for `upgrade`), keeps the
-  address or file name, the hash of the text, the model's answers as it gave them, the counts, the
-  tokens and what became of each claim. It holds nothing from your repository.
+  parts of about 5,000 tokens, one request each. Nothing of the code of your repository, and
+  nothing of your machine, goes with it. For `upgrade`, which reads your manifests to know which
+  dependency moves and from which release, the request holds the name of that dependency and the
+  release it is pinned to, and nothing else from them. The text is not redacted, since it is not
+  yours: if you name a guide that is private, its text goes to your model.
+- `guide.json`, beside the pack that `pack synth` makes (in the cache for `upgrade`), keeps the day
+  the guide was read, the address or file name, the hash of the text, the model's answers as it
+  gave them, the counts, the tokens and what became of each claim. It holds nothing from your
+  repository.
 - `--guide-replay` takes the answers from that file and sends nothing.
 
 ## What `obelize upgrade --apply` installs

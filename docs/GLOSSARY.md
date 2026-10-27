@@ -44,7 +44,8 @@ A statement drafted by a model from a migration guide: a name that was renamed, 
 renamed, a call that is written another way, or a name that needs a person, with the passage of the
 guide it rests on. A claim is kept only after code finds the passage in the guide and the names in
 both releases and sees that the API diff does not contradict it, and it becomes a report unless the
-diff itself supports a rewrite ([why](adr/ADR-075-claims-from-a-guide.md)).
+passage says in a known shape that the new name replaces the old one and the diff itself supports a
+rewrite ([why](adr/ADR-075-claims-from-a-guide.md)).
 
 ## Pattern
 

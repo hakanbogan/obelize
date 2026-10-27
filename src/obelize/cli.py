@@ -1387,7 +1387,7 @@ def upgrade(
             known=known,
             kept=net.Cache.home(os.environ).directory / "packs" / __version__,
             root=root,
-            guides=_guides(guide or [], None, fetcher, project.name, target),
+            guides=(lambda: _guides(guide, None, fetcher, project.name, target)) if guide else None,
             say=_say,
         )
     except (ConfigError, libdiff.LibraryError, synth.SynthError, page.GuideError) as error:
@@ -1814,8 +1814,15 @@ def pack_synth(
             )
             raise typer.Exit(2)
         asked = synth.request(
-            project.name, before, after, compared, scope, guides.digest if guides else None
+            project.name,
+            before,
+            after,
+            compared,
+            scope,
+            guides.digest if guides else None,
+            guides.retrieved if guides else None,
         )
+        synth.free(Path(directory), asked)
         told = guided.Names(project.name, str(before), str(after), compared.module)
         made = synth.make(
             Path(directory),
@@ -1836,7 +1843,10 @@ def pack_synth(
     for change, count in made.covered.items():
         typer.echo(f"  {change}: {count} name(s)")
     if made.guided is not None:
-        typer.echo(_told(made.guided) + f" Record: {shown / guided.RECORD}")
+        # A pack an earlier run left is not written into, so it has no record of this run.
+        typer.echo(
+            _told(made.guided) + ("" if made.reused else f" Record: {shown / guided.RECORD}")
+        )
     if made.unseen:
         typer.echo(
             f"{made.unseen} name(s) could not be judged: the newer release makes its exports "
@@ -1861,6 +1871,13 @@ def _guides(
     if len(refs) > page.MAX_GUIDES:
         typer.echo(f"--guide is given at most {page.MAX_GUIDES} times.", err=True)
         raise typer.Exit(2)
+    if replay is None and fetcher.offline:
+        typer.echo(
+            "offline: the guide was not read or sent, and the pack is made from the two releases "
+            "alone.",
+            err=True,
+        )
+        return None
     drafter = None if replay is not None else _drafter()
     if replay is None and drafter is None:
         typer.echo(
@@ -1870,7 +1887,7 @@ def _guides(
             err=True,
         )
         return None
-    kept = guided.replies_kept(Path(replay)) if replay is not None else {}
+    kept = guided.replies_kept(Path(replay)) if replay is not None else None
     texts = tuple(page.read(ref, fetcher) for ref in refs)
     for text in texts:
         said = (

@@ -51,13 +51,14 @@ def choose(
     known: Sequence[loader.LoadedPack],
     kept: Path,
     root: Path | None = None,
-    guides: guided.Source | None = None,
+    guides: Callable[[], guided.Source | None] | None = None,
     say: Callable[[str], None] = lambda _line: None,
 ) -> Chosen:
     """A known pack that migrates `project` from `now` (and to `target`, if the person named one),
     else the pack made from the two releases, which is kept in `kept`. A library that changed too
     much to flag name by name gets a pack for the names the code under `root` uses. A pack made
-    here takes the claims a model drafts from `guides`, which are asked for once and only then."""
+    here takes the claims a model drafts from the guides `guides` reads, which are read, and asked
+    about, once and only when no pack is known."""
     for loaded in known:
         pack = loaded.pack
         old, new = pack.from_, pack.to
@@ -73,16 +74,18 @@ def choose(
         ):
             return Chosen(
                 pack.id,
-                f"Using the pack {pack.id}." + (" --guide adds nothing to it." if guides else ""),
+                f"Using the pack {pack.id}."
+                + (" The pack is already known; --guide is not used." if guides else ""),
                 *_installs(new.package, new.version, project, target, targeted),
             )
-    digest = guides.digest if guides is not None else None
+    source = guides() if guides is not None else None
+    digest = source.digest if source is not None else None
     folder = kept / synth.pack_id(project.name, now, target, guide=digest)
     if (folder / loader.PACK_FILENAME).is_file():
         return Chosen(
             str(folder / loader.PACK_FILENAME),
             "Using the pack made from these two releases"
-            f"{' and the guide' if guides else ''} before.",
+            f"{' and the guide' if source else ''} before.",
             f"{project.name}=={target}",
         )
     big = folder.with_name(f"{folder.name}.too-large")
@@ -104,9 +107,10 @@ def choose(
     drafted: guided.Drafted | None = None
     while True:
         wanted = synth.request(project.name, now, target, compared, scope, digest)
-        if guides is not None and drafted is None:
+        if source is not None and drafted is None:
+            synth.free(kept, wanted)
             told = guided.Names(project.name, str(now), str(target), compared.module)
-            drafted = guides.draft(told, say)
+            drafted = source.draft(told, say)
         try:
             made = synth.make(
                 kept,

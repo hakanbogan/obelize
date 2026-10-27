@@ -40,14 +40,22 @@ A pack made from two releases can now take what the library's authors say in pro
 endpoint in `model`, else the agent in `agent`) reads the guide and drafts claims: a name renamed, a
 method renamed, a call written another way, a name that needs a person. Code keeps a claim only if
 its quote is in the guide, its names are in both releases, its pattern is one a pack may hold and the
-API diff does not contradict it, and it becomes a report that quotes the guide unless the diff itself
-shows the old name removed or deprecated and the new one able to take its place. Only the text of the
-guide goes to the model, in parts, with the names of the library and its releases; nothing of your
-code does, the host or program is printed first, and with no model set up the option is skipped with
-one line. The pack's folder gets a `guide.json` with the model's answers, the counts and what became
-of each claim, and `pack synth --guide-replay` makes the same pack again from it with no model. On
-pydantic 1.10.26 to 2.12.5 and its migration guide the model drafted 47 claims, 31 were kept and one
-of them, `BaseModel.copy` to `model_copy`, is a rewrite ([the run](docs/UPGRADING.md#what-a-guide-adds),
+API diff does not contradict it. A kept claim is a report that quotes the guide, and a rewrite only
+where the quote says in a known shape that the new name takes the place of the old one (a line of a
+table, an arrow, "`old` is now `new`", "use `new` instead of `old`"), no word in its sentence limits
+or takes that back ("not", "but", "only"), and the diff shows the old name removed or deprecated and
+the new one there, written the same way (not a coroutine where the old was none); for a pattern,
+every call it writes must resolve in the new release. Only the text of the guide goes to the model,
+in parts, with the names of the library and its releases; nothing of your code does, the host or
+program is printed first, and with no model set up, or under `--offline`, the option is skipped with
+one line and the guide is not read. `upgrade` reads the guide only when no pack is known. After two
+parts one after another that fail, or 30 minutes, the model is not asked for the rest. The pack's folder gets
+a `guide.json` with the day the guide was read, the model's answers, the counts and what became of
+each claim, and `pack synth --guide-replay` makes the same pack again from it with no model, on any
+day. A file must be a regular file with a text or HTML suffix, and a page is HTML by the type it is
+served with. On pydantic 1.10.26 to 2.12.5 and its migration guide the model drafted 47 claims, 31
+were kept and one of them, `BaseModel.copy` to `model_copy`, is a rewrite, and the answers fed back
+through the checks as they are now give the same result ([the run](docs/UPGRADING.md#what-a-guide-adds),
 [why](docs/adr/ADR-075-claims-from-a-guide.md)). A guide is fetched as the index is, so a page that
 moved to another host is refused and the message names the host.
 

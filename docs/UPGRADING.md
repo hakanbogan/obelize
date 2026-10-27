@@ -148,16 +148,23 @@ the guide, among them `pydantic.validate_arguments` (renamed to
 many of them when they are imported. One is a rewrite: the diff shows `BaseModel.copy` deprecated and
 `model_copy` there to take its place, so `user.copy(update=...)` is rewritten where the file shows
 what `user` is, and a call that passes `include` or `exclude`, which `model_copy` lacks, is left for
-you. A claim becomes a rewrite only on that evidence; the others stay reports that say "The migration
-guide says: ..." with the passage, however sure the model was.
+you. A claim becomes a rewrite only on two pieces of evidence together: the guide's passage says in
+a known shape that the new name takes the place of the old (here the line of a table,
+`copy() | model_copy()`) with no word in its sentence that limits it or takes it back, such as
+"not", "but" or "only", and the diff shows the old name going and the new one there, written the
+same way (not a coroutine where the old was not). The others stay reports that say "The migration
+guide says: ..." with the passage, however sure the model was. Fed back through these checks, the
+answers of that run gave the same result, 47 drafted, 31 kept, one of them a rewrite, and no kept
+claim lost its place.
 
 `guide.json` beside the pack keeps the answers and what became of each claim, and `--guide-replay`
-makes the same pack again from it without asking a model. `upgrade --guide` does the same inside a
-move, once, and only when obelize makes the pack: a pack that ships is used as it is, and one made
-before from the same guide is used again. The guide is fetched like the index is, so a page that
-moved to another host is refused and the message names the host: `docs.pydantic.dev/latest/migration/`
-is now at `pydantic.dev`, and the address above is where it went. If no model is set up, `--guide`
-says so in one line, reads and sends nothing, and the pack is made from the two releases alone.
+makes the same pack again from it without asking a model, with the day the guide was read.
+`upgrade --guide` does the same inside a move, once, and only when obelize makes the pack: a pack
+that ships is used as it is, without the guide being read, and one made before from the same guide is
+used again. The guide is fetched like the index is, so a page that moved to another host is refused
+and the message names the host: `docs.pydantic.dev/latest/migration/` is now at `pydantic.dev`, and
+the address above is where it went. If no model is set up, or under `--offline`, `--guide` says so in
+one line, reads and sends nothing, and the pack is made from the two releases alone.
 [What is sent](PRIVACY.md#what-a-guide-sends), [the checks](PACK_SPEC.md#changes-taken-from-a-guide) and
 [what a guide cannot give](KNOWN_ISSUES.md#migration-guides) are on their own pages.
 

@@ -3,6 +3,7 @@ that two releases cannot show, and only what code could check."""
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import sys
 import textwrap
@@ -63,7 +64,7 @@ V2 = {
     )
 }
 SAID = (
-    "The function old_total is gone, and total_of takes its place with the same arguments.",
+    "The function old_total is now total_of, taking the same arguments.",
     "Use TypeAdapter instead of parse_obj_as: parse_obj_as(T, v) is now "
     "TypeAdapter(T).validate_python(v) everywhere.",
     "The helper removed_thing is gone and nothing replaces it, so write the code yourself.",
@@ -346,6 +347,77 @@ def test_a_page_that_gives_orders_gets_a_report_of_a_name_and_no_rewrite(
     )
 
 
+RICH_OLD = {
+    "__init__.py": (
+        "__all__ = ['a_old', 'b_old', 'c_old', 'Model']\n\n"
+        "def a_old(x):\n    return x\n\n"
+        "def b_old(x):\n    return x\n\n"
+        "def c_old(x):\n    return x\n\n"
+        "class Model:\n"
+        "    def m_old(self, x):\n        return x\n\n"
+        "    def s_old(self, x):\n        return x\n"
+    )
+}
+RICH_NEW = {
+    "__init__.py": (
+        "__all__ = ['a_new', 'b_new', 'c_new', 'Model']\n\n"
+        "async def a_new(x):\n    return x\n\n"
+        "def b_new(x):\n    return x * 1000\n\n"
+        "def c_new(x):\n    return x\n\n"
+        "class Model:\n"
+        "    async def m_new(self, x):\n        return x\n\n"
+        "    @staticmethod\n    def s_new(self, x):\n        return x\n"
+    )
+}
+RICH_SAID = (
+    "a_old is now a_new in rich-kit 2, which is a coroutine function: await it.",
+    "b_old is now b_new in rich-kit 2, but b_new scales its argument and is not a replacement.",
+    "Model.m_old is now Model.m_new in rich-kit 2, which returns a coroutine.",
+    "Model.s_old is now Model.s_new in rich-kit 2, and is called on the class.",
+    "c_old is now c_new in rich-kit 2, with the same arguments.",
+    "Do not use c_new in place of b_old: the two differ in what they return.",
+)
+
+
+def test_a_page_that_says_a_name_is_async_or_no_replacement_makes_no_rewrite_of_it(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    claims = [
+        {"kind": "rename_symbol", "legacy": f"rich_kit.{old}", "new": f"rich_kit.{new}", "quote": q}
+        for old, new, q in (
+            ("a_old", "a_new", RICH_SAID[0]),
+            ("b_old", "b_new", RICH_SAID[1]),
+            ("c_old", "c_new", RICH_SAID[4]),
+        )
+    ] + [
+        {"kind": "rename_member", "legacy": f"rich_kit.Model.{old}", "new": f"rich_kit.Model.{new}",
+         "quote": q}
+        for old, new, q in (("m_old", "m_new", RICH_SAID[2]), ("s_old", "s_new", RICH_SAID[3]))
+    ]  # fmt: skip
+    drafter = guided.Drafter(Said(claims), "fake", "m", "a fake")
+    monkeypatch.setattr(cli, "_drafter", lambda: drafter)
+    for found in fakeindex.FakeIndex().serve():
+        found.add("rich-kit", "1.0", RICH_OLD, module="rich_kit")
+        found.add("rich-kit", "2.0", RICH_NEW, module="rich_kit")
+        monkeypatch.setenv("OBELIZE_INDEX_URL", found.url)
+        (home / "G.md").write_text("# Notes\n\n" + "\n\n".join(RICH_SAID) + "\n", encoding="utf-8")
+        made = runner.invoke(
+            app,
+            ["pack", "synth", "rich-kit", "--from", "1.0", "--to", "2.0",
+             "--dir", str(home / "packs"), "--guide", str(home / "G.md")],
+        )  # fmt: skip
+    assert made.exit_code == 0, made.output
+    (folder,) = (home / "packs" / "rich-kit").iterdir()
+    rewritten = {
+        symbol
+        for change in changes_of(folder).values()
+        if change["kind"] in ("rename_symbol", "rename_member")
+        for symbol in {**change["params"].get("renamed", {}), **change["params"].get("members", {})}
+    }
+    # Only the name the page says is replaced, with nothing said against it, in the same marks.
+    assert rewritten == {"rich_kit.c_old"}
+
+
 def test_a_pack_made_with_a_guide_has_another_id_than_one_made_without(
     home: Path, model: Said
 ) -> None:
@@ -385,12 +457,37 @@ def test_the_answers_kept_by_a_run_make_the_same_pack_without_a_model(
     assert "its answers are the ones kept in guide.json; no model is asked" in again.output
     assert "Tokens" not in again.output
     second = home / "again" / "guide-kit" / first.name
-    assert (second / "pack.yaml").read_bytes().replace(b"retrieved_at", b"") == (
-        first / "pack.yaml"
-    ).read_bytes().replace(b"retrieved_at", b"")
+    assert (second / "pack.yaml").read_bytes() == (first / "pack.yaml").read_bytes()
+    assert (second / "SOURCES.md").read_bytes() == (first / "SOURCES.md").read_bytes()
     replayed = json.loads((second / "guide.json").read_text(encoding="utf-8"))
     assert (replayed["provider"], replayed["tokens_in"], replayed["accepted"]) == ("replay", 0, 6)
     assert len(model.asked) == 1
+
+
+def test_answers_kept_a_day_ago_make_the_pack_of_that_day_and_not_the_day_they_are_fed_back(
+    home: Path, model: Said, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(synth, "today", lambda: dt.date(2026, 10, 1))
+    synthesize(home)
+    first = folder_of(home)
+    assert "retrieved_at: 2026-10-01" in (first / "pack.yaml").read_text(encoding="utf-8")
+    record = json.loads((first / "guide.json").read_text(encoding="utf-8"))
+    assert record["retrieved_at"] == "2026-10-01"
+    monkeypatch.setattr(synth, "today", lambda: dt.date(2026, 10, 2))
+    again = synthesize(
+        home, "--dir", str(home / "again"), "--guide-replay", str(first / "guide.json")
+    )
+    assert again.exit_code == 0, again.output
+    second = home / "again" / "guide-kit" / first.name
+    for name in ("pack.yaml", "SOURCES.md"):
+        assert (second / name).read_bytes() == (first / name).read_bytes()
+    assert json.loads((second / "guide.json").read_text(encoding="utf-8"))["retrieved_at"] == (
+        "2026-10-01"
+    )
+    fresh = synthesize(home, "--dir", str(home / "fresh"))
+    assert fresh.exit_code == 0, fresh.output
+    (new,) = (home / "fresh" / "guide-kit").iterdir()
+    assert "retrieved_at: 2026-10-02" in (new / "pack.yaml").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize(
@@ -475,18 +572,48 @@ def test_a_guide_that_cannot_be_read_ends_the_command_with_the_reason(
     assert not (home / "x").exists()
 
 
-def test_offline_a_guide_is_read_from_the_cache_or_the_command_stops(
+def test_offline_a_guide_is_neither_read_nor_sent_and_the_pack_is_made_from_the_releases(
     home: Path, served: fakeindex.FakeIndex, model: Said
 ) -> None:
     page = f"{served.origin}/migrating.md"
     arguments = ["pack", "synth", "guide-kit", "--from", "1.0", "--to", "2.0", "--guide", page]
-    refused = runner.invoke(app, [*arguments, "--dir", str(home / "a"), "--offline"])
-    assert refused.exit_code == 6
-    assert "not in the cache" in refused.output
     warm = runner.invoke(app, [*arguments, "--dir", str(home / "b")])
     assert warm.exit_code == 0, warm.output
+    asked = len(model.asked)
+    served.asked.clear()
     cold = runner.invoke(app, [*arguments, "--dir", str(home / "c"), "--offline"])
     assert cold.exit_code == 0, cold.output
+    assert cold.output.count("offline: the guide was not read or sent") == 1
+    assert "Guide:" not in cold.output
+    assert len(model.asked) == asked
+    assert "/migrating.md" not in served.asked
+    assert [path.name for path in (home / "c" / "guide-kit").iterdir()] == ["1-0-to-2-0"]
+
+
+def test_offline_the_answers_kept_are_fed_back_with_the_guide_from_the_cache(
+    home: Path, served: fakeindex.FakeIndex, model: Said
+) -> None:
+    page = f"{served.origin}/migrating.md"
+    arguments = ["pack", "synth", "guide-kit", "--from", "1.0", "--to", "2.0", "--guide", page]
+    warm = runner.invoke(app, [*arguments, "--dir", str(home / "b")])
+    assert warm.exit_code == 0, warm.output
+    cold = runner.invoke(app, [*arguments, "--dir", str(home / "a"), "--offline"])
+    assert "offline: the guide was not read or sent" in cold.output
+    (kept,) = (home / "b" / "guide-kit").iterdir()
+    replay = ["--guide-replay", str(kept / "guide.json"), "--offline"]
+    again = runner.invoke(app, [*arguments, "--dir", str(home / "c"), *replay])
+    assert again.exit_code == 0, again.output
+    assert "offline: the guide" not in again.output
+    assert len(model.asked) == 1
+
+
+def test_the_pack_folder_is_checked_before_the_model_is_asked(home: Path, model: Said) -> None:
+    assert synthesize(home).exit_code == 0
+    assert len(model.asked) == 1
+    again = synthesize(home)
+    assert again.exit_code == 2
+    assert "exists already" in again.output
+    assert len(model.asked) == 1
 
 
 def test_a_guide_served_over_http_to_this_machine_is_cited_without_a_source(
@@ -650,11 +777,12 @@ def test_a_pack_that_does_not_cite_the_page_a_change_was_read_from_does_not_pass
     assert "does not name the page guide-rename-1 cites" in tested.output
 
 
-def test_claims_that_make_the_pack_fail_its_checks_are_left_out_and_counted_and_the_pack_is_made(
-    served: fakeindex.FakeIndex, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _project, found = compared(served)
-    asked = synth.request("guide-kit", Version("1.0"), Version("2.0"), found)
+def guided_request(found: libdiff.Comparison) -> synth.Request:
+    digest = guided.Source((https_guide(),), (False,)).digest
+    return synth.request("guide-kit", Version("1.0"), Version("2.0"), found, guide=digest)
+
+
+def plant_a_failure_with_claims(monkeypatch: pytest.MonkeyPatch) -> None:
     real = synth._keys
 
     def planted(loaded: loader.LoadedPack, folder: Path) -> dict[str, bytes]:
@@ -663,6 +791,14 @@ def test_claims_that_make_the_pack_fail_its_checks_are_left_out_and_counted_and_
         return real(loaded, folder)
 
     monkeypatch.setattr(synth, "_keys", planted)
+
+
+def test_claims_that_make_the_pack_fail_its_checks_are_left_out_and_counted_and_the_pack_is_made(
+    served: fakeindex.FakeIndex, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _project, found = compared(served)
+    asked = guided_request(found)
+    plant_a_failure_with_claims(monkeypatch)
     made = synth.make(
         tmp_path, asked, found.old_surface, found.changes, found.new_surface,
         drafted_from(https_guide()),
@@ -672,12 +808,61 @@ def test_claims_that_make_the_pack_fail_its_checks_are_left_out_and_counted_and_
     assert made.guided.rejected == {"in_the_diff": 1, "quote_missing": 1, "pack_failed": 6}
     assert not any(name.startswith("guide-") for name in changes_of(made.folder))
     record = json.loads((made.folder / "guide.json").read_text(encoding="utf-8"))
-    assert record["claims"][-1] == {
-        "legacy": "",
-        "outcome": "pack_failed",
-        "detail": "planted: the pack with claims is no good",
-    }
-    assert record["accepted"] == 0
+    failed = [row for row in record["claims"] if row["outcome"] == "pack_failed"]
+    assert len(failed) == 6
+    assert {row["detail"] for row in failed} == {"planted: the pack with claims is no good"}
+    assert [row["outcome"] for row in record["claims"]].count("rewrite") == 0
+    assert [row["outcome"] for row in record["claims"]].count("report") == 0
+    assert (record["accepted"], record["pack"]) == (0, made.pack_id)
+
+
+def test_a_pack_made_without_the_claims_that_failed_has_the_id_of_a_pack_with_no_guide(
+    served: fakeindex.FakeIndex, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _project, found = compared(served)
+    asked = guided_request(found)
+    plant_a_failure_with_claims(monkeypatch)
+    made = synth.make(
+        tmp_path, asked, found.old_surface, found.changes, found.new_surface,
+        drafted_from(https_guide()),
+    )  # fmt: skip
+    plain = synth.request("guide-kit", Version("1.0"), Version("2.0"), found)
+    assert asked.pack_id != plain.pack_id == made.pack_id
+    assert made.folder == tmp_path / plain.pack_id
+    assert not (tmp_path / asked.pack_id).exists()
+    # The next run finds that pack where it is, and writes nothing into it.
+    again = synth.make(
+        tmp_path, asked, found.old_surface, found.changes, found.new_surface,
+        drafted_from(https_guide()),
+    )  # fmt: skip
+    assert again.folder == made.folder
+    assert again.guided is not None
+    assert again.guided.accepted == ()
+
+
+def test_a_pack_made_without_the_claims_that_failed_is_found_again_and_names_no_record(
+    home: Path, model: Said, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plant_a_failure_with_claims(monkeypatch)
+    first = synthesize(home)
+    assert first.exit_code == 0, first.output
+    assert "pack_failed 6" in first.output
+    assert "Record:" in first.output
+    assert "-with-" not in folder_of(home).name
+    again = synthesize(home)
+    assert again.exit_code == 0, again.output
+    assert "pack_failed 6" in again.output
+    assert "Record:" not in again.output
+
+
+def test_the_pack_dir_is_checked_before_a_model_is_asked(
+    served: fakeindex.FakeIndex, tmp_path: Path
+) -> None:
+    _project, found = compared(served)
+    asked = guided_request(found)
+    (tmp_path / asked.pack_id).mkdir(parents=True)
+    with pytest.raises(synth.SynthError, match="exists already"):
+        synth.free(tmp_path, asked)
 
 
 def test_a_pack_that_fails_without_any_claim_kept_fails_as_it_would_have(
@@ -740,16 +925,51 @@ def test_a_move_without_a_model_is_planned_without_the_guide(home: Path) -> None
     assert "Made a pack from the public API" in result.output
 
 
-def test_a_guide_adds_nothing_to_a_pack_that_exists(home: Path, model: Said) -> None:
+def test_a_guide_is_not_used_for_a_pack_that_is_known_and_is_not_even_read(
+    home: Path, model: Said
+) -> None:
     root = committed(
         home / "repo", {"app.py": "import PyPDF2\n", "requirements.txt": "PyPDF2==3.0.1\n"}
     )
-    (home / "MIGRATING.md").write_text(GUIDE, encoding="utf-8")
     result = runner.invoke(
-        app, ["upgrade", "PyPDF2", "--repo", str(root), "--guide", str(home / "MIGRATING.md")]
+        app, ["upgrade", "PyPDF2", "--repo", str(root), "--guide", str(home / "none.md")]
     )
-    assert "--guide adds nothing to it." in result.output
+    assert result.exit_code == 0, result.output
+    assert "The pack is already known; --guide is not used." in result.output
+    assert "none.md" not in result.output
     assert model.asked == []
+
+
+def test_offline_an_upgrade_does_not_read_or_send_the_guide(home: Path, model: Said) -> None:
+    root = committed(home / "repo", {"app.py": APP, "requirements.txt": "guide-kit==1.0\n"})
+    guide_file = home / "MIGRATING.md"
+    guide_file.write_text(GUIDE, encoding="utf-8")
+    assert runner.invoke(app, ["upgrade", "guide-kit", "--repo", str(root)]).exit_code == 0
+    arguments = ["upgrade", "guide-kit", "--repo", str(root), "--guide", str(guide_file)]
+    result = runner.invoke(app, [*arguments, "--offline"])
+    assert result.exit_code == 0, result.output
+    assert result.output.count("offline: the guide was not read or sent") == 1
+    assert model.asked == []
+
+
+def test_a_pack_that_failed_with_the_claims_is_not_presented_as_one_made_with_the_guide(
+    home: Path, model: Said, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = committed(home / "repo", {"app.py": APP, "requirements.txt": "guide-kit==1.0\n"})
+    guide_file = home / "MIGRATING.md"
+    guide_file.write_text(GUIDE, encoding="utf-8")
+    plant_a_failure_with_claims(monkeypatch)
+    arguments = ["upgrade", "guide-kit", "--repo", str(root), "--guide", str(guide_file)]
+    first = runner.invoke(app, arguments)
+    assert first.exit_code == 0, first.output
+    assert "0 kept (0 as a rewrite, 0 to report)" in first.output
+    assert "pack_failed 6" in first.output
+    assert "and the guide" not in first.output
+    plain = runner.invoke(app, ["upgrade", "guide-kit", "--repo", str(root)])
+    assert "Using the pack made from these two releases before." in plain.output
+    assert "and the guide" not in plain.output
+    again = runner.invoke(app, arguments)
+    assert "and the guide before" not in again.output
 
 
 def test_a_guide_that_cannot_be_read_ends_an_upgrade_with_the_reason(

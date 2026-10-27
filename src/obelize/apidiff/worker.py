@@ -183,6 +183,7 @@ class _Walker:
             "returns": _text(member.returns),
             "trivial": self._trivial(member),
             "deprecated": decorated if decorated is not None else self._notice(member),
+            "labels": sorted(member.labels),
         }
 
     def _attribute(self, member: Any) -> dict[str, Any]:

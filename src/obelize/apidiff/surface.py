@@ -59,6 +59,8 @@ class Obj:
     lazy: bool = False
     # What a class gets from its bases, which a member that moved up to one is still among.
     inherited: tuple[str, ...] = ()
+    # How the source marks a function: `async`, `staticmethod`, `classmethod`, `property`, ...
+    labels: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +130,7 @@ def _objects(raw: dict[str, dict[str, Any]]) -> dict[str, Obj]:
             trivial=bool(entry.get("trivial")),
             lazy=bool(entry.get("lazy")),
             inherited=tuple(entry.get("inherited") or ()),
+            labels=tuple(entry.get("labels") or ()),
         )
     return found
 

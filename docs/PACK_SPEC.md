@@ -250,16 +250,18 @@ and the two releases, and a kept claim is an ordinary change of a pack of the ty
 `pack test` and every later step are the same. Its `citation` is the address of the guide and the
 words quoted, and its `source` is the guide when the guide has an address a pack may hold (https):
 
-- `official_guide` when the guide is the vendor's own: its address is on the host of one of the
-  addresses the distribution lists for itself on the index (`Homepage`, `Documentation` and the
-  like), and below that address's path. A guide on `github.com` is the vendor's only below the
+- `official_guide` when the guide is the vendor's own: its address is on the host and the port of
+  one of the addresses the distribution lists for itself on the index (`Homepage`, `Documentation`
+  and the like), and below that address's path, which has no `.` or `..` part, backslash or percent
+  escape that could lead out of it. A guide on `github.com` is the vendor's only below the
   repository the project lists. A file has no address and is never the vendor's.
 - `guide` when it is not, or it cannot be shown to be. A pack with a change of this type is never
   bundled; a change of either type is checked by `tests/packs/test_all_packs.py` to be absent from
   every bundled pack.
 
-`retrieved_at` is the day of the run and `sha256` is the hash of the text the model was given,
-which `SOURCES.md` records beside the address. A change from a guide is named `guide-...` and has a
+`retrieved_at` is the day of the run, or, where the answers an earlier run kept are fed back, the
+day that run read the guide, so the same pack comes out on any day. `sha256` is the hash of the
+text the model was given, which `SOURCES.md` records beside the address. A change from a guide is named `guide-...` and has a
 section like any other.
 
 The model's claims have one of four kinds, and are in this closed shape: `kind`, `legacy` (the dotted
@@ -270,14 +272,30 @@ module now spelled another way, in the same place), a `rename_member` (a method 
 another way on the same class), a `rewrite_pattern` or a `flag`. What becomes of it:
 
 - Every kept claim is at least a `flag_only` change that reports the name with the guide's words.
-- It is a rewrite instead only where the API diff shows the old name removed or deprecated, says no
-  more about it than that, and the new name is there to take its place: for a rename, in the same
-  place with the same kind and not itself deprecated (a function whose signature takes every call
-  of the old one has its calls rewritten too, any other only its references); for a member, the same
-  on the same class, with the keywords the new method takes where it takes fewer; for a pattern, the
-  call each template makes is one the new release takes, and the templates are what a
-  [`rewrite_pattern`](#rule-kind-registry) may hold. A claim's own example matching its own pattern
-  is no evidence.
+- It is a rewrite instead only where the quote and the API diff both say so. The quote has to say,
+  in one of a few shapes the code holds, that the new name takes the place of the old one: the old
+  name, then `|` and the new name in a line of a table; the old name, then an arrow (`->`, `=>` or
+  an arrow sign) and the new one; the old name, then `is now`, `is renamed to`, `is replaced by`,
+  `becomes` or a form of those, and the new one; or `use` the new name `instead of` or `in place
+  of` the old one. Quote marks, backticks, brackets and the brackets of a call may stand beside a
+  name, and nothing else stands between a name and the words. The lines of the guide the quote
+  touches (a paragraph is one line of the text the model is given, and so is a line of a table) must
+  hold none of `not`, `no`, `never`,
+  `without`, `different`, `differs`, `differently`, `unlike`, `but`, `however`, `rather`, `except`,
+  `unless`, `only`, `although`, `though`, `whereas`, `nor`, `neither`, `cannot` or a word ending in
+  `n't`, which limit a replacement or take it back. The diff has to show the old name removed or
+  deprecated and say no more about it than that, and the new name to be there to take its place: for
+  a rename, in the same place with the same kind and the same marks (`async`, `staticmethod`,
+  `classmethod`, `property` or `cached`), and not itself deprecated (a function whose signature
+  takes every call of the old one has its calls rewritten too, any other only its references); for
+  a member, the same on the same class, with the keywords the new method takes where it takes
+  fewer; for a pattern, `after` spells the new name, every call it makes resolves to a name or
+  method of the new release that has the old one's marks and takes the call as written (a call
+  that cannot be resolved, as one on a value the pattern does not name, or on a method the class
+  only inherits, is a refusal and not a pass), a name with two underscores at both ends is never
+  written, and the templates are what a [`rewrite_pattern`](#rule-kind-registry) may hold. A
+  claim's own example matching its own pattern is no evidence. A claim that does not reach this
+  leaves the report the diff already makes, and is counted as `in_the_diff`.
 - A claim about a name the diff already renames, moves or reports is dropped, and one that pairs it
   with another name than the diff does is rejected.
 
@@ -289,7 +307,7 @@ the answers, the counts and what became of each claim:
 | `malformed` | its fields do not fit its kind, or are not the closed shape |
 | `quote_missing` | its quote is not in the guide, whitespace aside |
 | `quote_weak` | its quote is under 30 characters, or does not name both names |
-| `quote_reused` | more than three claims rest on its quote |
+| `quote_reused` | more than three claims rest on one passage of the guide, however each quote is cut |
 | `legacy_unknown` | `legacy` is not in the old release, or not below the module compared |
 | `new_unknown` | `new`, or a name `after` spells or calls, is not in the new release |
 | `keyword_unknown` | a keyword is not a parameter of the old name |
@@ -297,13 +315,25 @@ the answers, the counts and what became of each claim:
 | `pattern_refused` | a template is one a pack would refuse, is not a call of `legacy`, or writes a name the pack looks for |
 | `params_refused` | the change it would become fails the pack's schema |
 | `contradicts_diff` | the diff pairs the name with another |
-| `in_the_diff` | the diff already makes, reports or contains this change |
+| `in_the_diff` | the diff already makes, reports or contains this change, or the quote and the diff do not together make it a rewrite |
 | `repeated` | an earlier claim is about the name or one around it |
 | `too_many` | the pack already keeps 60 claims |
-| `pack_failed` | the pack made with the claims failed its own checks, so none is kept |
+| `pack_failed` | the pack made with the claims failed its own checks, so none is kept; the pack is then made without them, under the id of a pack made with no guide, and the record says so |
 
-An answer that is not one JSON object with a `claims` list is refused whole and counted apart, as is a
-part the model did not answer.
+An answer that is not one JSON object with a `claims` list is refused whole and counted apart. The
+reply is read as one JSON object with no key twice, with white space around it or in one code fence
+that is the whole reply; words around it, a byte order mark or a key written twice refuse it. A part
+the model did not answer is counted apart too. After two parts one after another that the model did not answer,
+or once the guide has taken 30 minutes, the model is not asked for the rest, and the parts left are
+counted in `guide.json` under one of these words:
+
+| Stopped | The rest of the parts were not asked because |
+|---|---|
+| `failures` | two parts one after another were not answered |
+| `deadline` | the guide had taken 30 minutes |
+
+The pack is made from the claims drafted until then, and `guide.json` keeps the word and the number of
+parts left.
 
 ## Rule kind registry
 

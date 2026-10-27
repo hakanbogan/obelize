@@ -707,16 +707,24 @@ What two releases cannot show, a library's authors may say in prose: `parse_obj_
 `TypeAdapter(T).validate_python(v)`. With `--guide`, a model you have set up reads the guide and
 drafts claims, and code keeps only those it can check; the model decides nothing. The guide is
 fetched through the same rules as the index (https, or http to this machine; a redirect to another
-host is refused and names the host; your proxy; the host printed first; `--offline` reads only the
-cache), up to 4 MiB, and its query and fragment are not kept. A file is read as bytes. HTML is turned
-into lines (a script, a style and the navigation are left out; a code block is kept with its line
-breaks); Markdown and plain text are taken as they are; any other type is refused. A guide of
-more than 400,000 characters is refused and not cut.
+scheme, host or port is refused and names the host; your proxy; the host printed first), up to
+4 MiB, and its query and fragment are not kept. A file is read as bytes, if it is a regular file
+with the suffix `.md`, `.markdown`, `.txt`, `.rst`, `.html` or `.htm`. A page is HTML by the type it
+is served with, and a file by its suffix. HTML is turned into lines (a script, a style and the
+navigation are left out; a code block is kept with its line breaks); Markdown and plain text are
+taken as they are. A guide is refused, with the word that says why, as `unsupported_type` (another
+type or suffix), `not_text` (not UTF-8 text), `too_large` (over 4 MiB), `too_long` (over 400,000
+characters of text), `unparsable` (HTML that takes too long to read or never closes what it
+opens), `empty` or `unreadable` (it cannot be opened, is not a regular file, or the answer ended
+before its length). A refused guide is never cut.
 
 The model is the one in your own configuration: the endpoint in `model` (`provider: openai_compat`)
 if you set one up, else the coding agent in `agent` (`backend: claude_code`); with neither, `--guide`
 says so in one line, reads and sends nothing, and the pack is made from the two releases alone.
-Only the text of the guide goes to it, in parts of about 5,000 tokens, with the names of the
+`--offline` does the same with the line "offline: the guide was not read or sent", since asking a
+model reaches a host; `--guide-replay` is the one that goes on offline. `upgrade` looks for a known
+pack first and says "The pack is already known; --guide is not used" without reading the guide.
+The folder the pack goes in is checked before a model is asked. Only the text of the guide goes to it, in parts of about 5,000 tokens, with the names of the
 library and its releases: nothing of your code or your repository. The host or program it goes to is
 printed first ([what is sent](PRIVACY.md#what-a-guide-sends)). The reply must be one JSON object
 of claims; each claim is held to the checks of [the pack format](PACK_SPEC.md#changes-taken-from-a-guide),
@@ -725,10 +733,14 @@ and the command prints how many were drafted, kept and rejected, and why.
 The pack gains the kept claims as changes named `guide-...`, each citing the guide and the words
 quoted, and `guide.json` beside it holds the answers, the counts, the tokens and what became of every
 claim. The pack's id ends with a digest of the guides' text, so the same releases with another guide
-are another pack. `--guide-replay` makes the same pack again from those answers, with no model.
+are another pack. `--guide-replay` makes the same pack again from those answers, with no model and
+with the day the guide was read, which `guide.json` keeps.
 
 It never writes into a folder that exists, and removes the one it made if the pack fails its own
-checks (one that fails only with the claims in it is made without them, and says so). Which index it
+checks (one that fails only with the claims in it is made without them, under the id of a pack made
+with no guide, and says so). The model is not asked for the rest of a guide after two parts, one after the other,
+that fail, nor once the guide has taken 30 minutes; the pack is made from the claims drafted until
+then and the count of the parts left is printed. Which index it
 asks, and whether it may ask at all, are in
 [your own configuration file](#the-user-files-configobelize), never in a repository's. Exit codes:
 `0` made; `2` the request is wrong (a version or a library the index does not have, a module to

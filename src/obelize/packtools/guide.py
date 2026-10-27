@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+import stat
+import time
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -18,7 +20,7 @@ from typing import TYPE_CHECKING, Final, Literal
 from urllib.parse import urlsplit, urlunsplit
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from obelize.net import Fetcher
 
@@ -36,9 +38,14 @@ TYPES: Final = (
     "text/x-markdown",
 )
 _ACCEPT: Final = "text/html, text/markdown, text/plain;q=0.9"
-_HTML_FILES: Final = (".html", ".htm", ".xhtml")
-_TEXT_FILES: Final = (".md", ".markdown", ".txt", ".rst", "")
-_HTML: Final = re.compile(r"<(?:!doctype\s+html|html[\s>])", re.IGNORECASE)
+_HTML_TYPES: Final = ("text/html", "application/xhtml+xml")
+_HTML_FILES: Final = (".html", ".htm")
+_TEXT_FILES: Final = (".md", ".markdown", ".txt", ".rst")
+# A page is turned into text in a few seconds a megabyte and no more than this, and ends in no
+# more than this of a tag or a comment that never closes: the parser is quadratic on those.
+PARSE_SECONDS: Final = 20.0
+_SLICE: Final = 16 << 10
+_PENDING: Final = 16 << 10
 _FENCE: Final = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 # Their contents are not the guide: code that runs, styles, the page around the text.
 _HIDDEN: Final = frozenset(
@@ -52,7 +59,9 @@ _BLOCKS: Final = frozenset(
     | {"thead", "tbody", *_HEADINGS}
 )
 
-Reason = Literal["unsupported_type", "not_text", "too_large", "too_long", "empty", "unreadable"]
+Reason = Literal[
+    "unsupported_type", "not_text", "too_large", "too_long", "empty", "unreadable", "unparsable"
+]
 
 
 class GuideError(ValueError):
@@ -82,31 +91,43 @@ def read(ref: str, fetcher: Fetcher) -> Guide:
     """The guide at an https address (through the fetcher's rules), else in a file. Raises
     `GuideError`, or `NetworkError` from the fetcher."""
     if ref.startswith(("https://", "http://")):
-        body = fetcher.get(ref, accept=_ACCEPT, max_bytes=FETCH_BYTES, types=TYPES)
+        kind, body = fetcher.page(ref, accept=_ACCEPT, max_bytes=FETCH_BYTES, types=TYPES)
         # Recorded and sent without a query or fragment, which can carry a token.
         shown = urlunsplit(urlsplit(ref)._replace(query="", fragment=""))
-        return _guide(shown, shown, body, html=None)
+        return _guide(shown, shown, body, html=kind in _HTML_TYPES)
     path = Path(ref)
-    if path.suffix.lower() not in (*_HTML_FILES, *_TEXT_FILES):
+    suffix = path.suffix.lower()
+    if suffix not in (*_HTML_FILES, *_TEXT_FILES):
         raise GuideError("unsupported_type", f"{path.name} is not a page of text or HTML")
+    return _guide(path.name, None, file_bytes(path, FETCH_BYTES), html=suffix in _HTML_FILES)
+
+
+def file_bytes(path: Path, limit: int) -> bytes:
+    """A regular file of at most `limit` bytes, read whole: a pipe or a device would wait for
+    ever, and a file that grows is read no further than the limit."""
     try:
+        status = path.stat()
+        if not stat.S_ISREG(status.st_mode):
+            raise GuideError("unreadable", f"{path.name} is not a regular file")
+        if status.st_size > limit:
+            raise GuideError("too_large", f"{path.name} is over {limit} bytes")
         with path.open("rb") as handle:
-            body = handle.read(FETCH_BYTES + 1)
+            body = handle.read(limit + 1)
     except OSError as error:
         raise GuideError("unreadable", f"{path.name}: {error.strerror or error}") from error
-    if len(body) > FETCH_BYTES:
-        raise GuideError("too_large", f"{path.name} is over {FETCH_BYTES} bytes")
-    return _guide(path.name, None, body, html=path.suffix.lower() in _HTML_FILES or None)
+    if len(body) > limit:
+        raise GuideError("too_large", f"{path.name} is over {limit} bytes")
+    return body
 
 
-def _guide(ref: str, url: str | None, body: bytes, *, html: bool | None) -> Guide:
+def _guide(ref: str, url: str | None, body: bytes, *, html: bool) -> Guide:
     try:
         raw = body.decode("utf-8-sig")
     except UnicodeDecodeError as error:
         raise GuideError("not_text", f"{ref} is not UTF-8 text") from error
     if "\0" in raw:
         raise GuideError("not_text", f"{ref} holds a NUL character")
-    text = to_text(raw, html=bool(_HTML.search(raw[:2000])) if html is None else html)
+    text = to_text(raw, html=html)
     if not text.strip():
         raise GuideError("empty", f"{ref} holds no text")
     if len(text) > TEXT_CHARS:
@@ -125,18 +146,81 @@ def flat(text: str) -> str:
     return " ".join(text.split())
 
 
-def to_text(raw: str, *, html: bool) -> str:
-    """The lines of a page, or of a Markdown or plain file with its line ends made `\\n` and any
-    other control character dropped."""
+def lines_around(guide: Guide, quote: str) -> str:
+    """The lines of the guide that a flattened quote touches, each flattened, and the lines beside
+    them that run into the same sentence (a paragraph wrapped over lines); a line of a table, a
+    heading or an item stands alone. Where the quote is in the guide twice, the lines of both."""
+    spans, at = [], 0
+    for number, line in enumerate(guide.text.split("\n")):
+        if words := flat(line):
+            spans.append((at, at + len(words), words, number))
+            at += len(words) + 1
+    around: set[int] = set()
+    start = guide.flat.find(quote)
+    while start != -1:
+        for n, (a, b, _, _) in enumerate(spans):
+            if a < start + len(quote) and start < b:
+                around |= _sentence(spans, n)
+        start = guide.flat.find(quote, start + 1)
+    return " ".join(spans[n][2] for n in sorted(around))
+
+
+def _sentence(spans: list[tuple[int, int, str, int]], n: int) -> set[int]:
+    """The lines from `n` that run on into one another: the line before ends with no full stop and
+    no blank line is between them."""
+    found = {n}
+    for step in (-1, 1):
+        here = n
+        while 0 <= (there := here + step) < len(spans) and spans[there][3] == spans[here][3] + step:
+            ends = spans[min(here, there)][2].rstrip("\"'\u2019\u201d)]`")
+            if not (_prose(spans[here][2]) and _prose(spans[there][2])) or ends.endswith(_ENDS):
+                break
+            here = there
+            found.add(here)
+    return found
+
+
+_ENDS: Final = (".", "!", "?", ":", ";")
+
+
+def _prose(words: str) -> bool:
+    return not (words.startswith(("#", "|", "- ", "* ", "> ", "```")) or " | " in words)
+
+
+def to_text(raw: str, *, html: bool, clock: Callable[[], float] = time.monotonic) -> str:
+    """The lines of a page, or of a Markdown or plain file with its line ends made `\\n` and each
+    run of other control and space characters one space. A page that takes longer than
+    `PARSE_SECONDS` (by `clock`) to read, or ends in a tag that never closes, is `unparsable`."""
     if html:
-        page = _Page()
-        page.feed(raw)
-        page.close()
-        raw = page.text()
-    kept = (
-        c for c in raw.replace("\r\n", "\n").replace("\r", "\n") if c in "\n\t" or c.isprintable()
-    )
-    return "".join(kept).strip("\n")
+        raw = _page(raw, clock)
+    text, odd = [], False
+    for c in raw.replace("\r\n", "\n").replace("\r", "\n"):
+        if c in "\n\t" or c.isprintable():
+            text.append(c)
+            odd = False
+        elif not odd:
+            text.append(" ")
+            odd = True
+    return "".join(text).strip("\n")
+
+
+def parse_seconds(size: int) -> float:
+    """What a page of `size` characters may take to read: a couple of seconds and a few more for
+    each megabyte, to `PARSE_SECONDS`."""
+    return min(PARSE_SECONDS, 2.0 + 4.0 * size / (1 << 20))
+
+
+def _page(raw: str, clock: Callable[[], float]) -> str:
+    page = _Page()
+    deadline = clock() + parse_seconds(len(raw))
+    for start in range(0, len(raw), _SLICE):
+        if clock() > deadline:
+            raise GuideError("unparsable", "the page takes too long to read")
+        page.feed(raw[start : start + _SLICE])
+    if len(page.rawdata) > _PENDING:
+        raise GuideError("unparsable", "the page ends in a tag or a comment that never closes")
+    page.close()
+    return page.text()
 
 
 class _Page(HTMLParser):
@@ -208,12 +292,13 @@ class _Page(HTMLParser):
 
 
 def chunks(text: str, limit: int) -> tuple[str, ...]:
-    """The text in pieces of at most `limit` characters, each ending at the end of a line and never
-    inside a fenced code block, which is one piece alone if it is over the limit."""
+    """The text in pieces of at most `limit` characters, each ending at the end of a line (a longer
+    line is cut at a space) and not inside a fenced code block that fits a piece; one that does
+    not, closed or not, is cut at line ends like any other text."""
     pieces: list[str] = []
     held: list[str] = []
     size = 0
-    for unit in _units(text):
+    for unit in _units(text, limit):
         if held and size + len(unit) + 1 > limit:
             pieces.append("\n".join(held))
             held, size = [], 0
@@ -222,41 +307,63 @@ def chunks(text: str, limit: int) -> tuple[str, ...]:
     return (*pieces, "\n".join(held)) if held else tuple(pieces)
 
 
-def _units(text: str) -> Iterator[str]:
-    """Each line, and each fenced block as one."""
-    block: list[str] = []
-    opening = ""
+def _units(text: str, limit: int) -> Iterator[str]:
+    """Each line, and each fenced block that fits `limit` as one."""
+    opening, block, size, spilling = "", [], 0, False
     for line in text.split("\n"):
         mark = _FENCE.match(line)
-        if not block:
+        if not opening:
             if mark:
-                block, opening = [line], mark[1]
+                opening, block, size = mark[1], [line], len(line) + 1
             else:
-                yield line
+                yield from _wrap(line, limit)
             continue
-        block.append(line)
-        if (
-            mark
+        closes = (
+            mark is not None
             and mark[1][0] == opening[0]
             and len(mark[1]) >= len(opening)
-            and not (line.strip().strip(opening[0]))
-        ):
-            yield "\n".join(block)
-            block = []
-    if block:
+            and not line.strip().strip(opening[0])
+        )
+        if spilling:
+            yield from _wrap(line, limit)
+        else:
+            block.append(line)
+            size += len(line) + 1
+            if size > limit:
+                yield from (cut for one in block for cut in _wrap(one, limit))
+                spilling = True
+            elif closes:
+                yield "\n".join(block)
+        if closes:
+            opening, spilling = "", False
+    if opening and not spilling:
         yield "\n".join(block)
+
+
+def _wrap(line: str, limit: int) -> Iterator[str]:
+    """A line, cut at a space into pieces of at most `limit` characters if it is longer."""
+    while len(line) > limit:
+        at = line.rfind(" ", 0, limit)
+        at = at if at > 0 else limit
+        yield line[:at]
+        line = line[at:].lstrip(" ")
+    yield line
 
 
 __all__ = [
     "CHUNK_CHARS",
     "FETCH_BYTES",
     "MAX_GUIDES",
+    "PARSE_SECONDS",
     "TEXT_CHARS",
     "TYPES",
     "Guide",
     "GuideError",
     "chunks",
+    "file_bytes",
     "flat",
+    "lines_around",
+    "parse_seconds",
     "read",
     "to_text",
 ]

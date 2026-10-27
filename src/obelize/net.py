@@ -26,7 +26,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Final, Literal
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from obelize import __version__
 
@@ -144,8 +144,14 @@ class Cache:
         return self.directory / key[:2] / key
 
 
+def _origin(url: str) -> tuple[str, str | None, int | None]:
+    """The scheme, host and port a url names, the default port of the scheme where it names none."""
+    parts = urlsplit(url)
+    return parts.scheme, parts.hostname, parts.port or {"https": 443, "http": 80}.get(parts.scheme)
+
+
 class _SameHost(urllib.request.HTTPRedirectHandler):
-    """A redirect is followed only to the same host and the same scheme, up to `REDIRECTS` times:
+    """A redirect is followed only to the same host, port and scheme, up to `REDIRECTS` times:
     where a request goes next is the server's choice, and only the first host is the person's."""
 
     max_redirections = REDIRECTS
@@ -159,8 +165,10 @@ class _SameHost(urllib.request.HTTPRedirectHandler):
         headers: http.client.HTTPMessage,
         newurl: str,
     ) -> urllib.request.Request | None:
-        here, there = urlsplit(req.full_url), urlsplit(newurl)
-        if (there.scheme, there.hostname) != (here.scheme, here.hostname):
+        try:
+            if _origin(req.full_url) != _origin(newurl):
+                return None
+        except ValueError:
             return None
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
@@ -202,13 +210,33 @@ class Fetcher:
         if cache is not None and (kept := cache.get(named, ttl_s=None if self.offline else ttl_s)):
             return kept
         if self.offline:
-            raise NetworkError("offline", f"{urlsplit(url).hostname}: {url} is not in the cache")
-        body = self._fetch(url, accept, max_bytes, types)
+            raise _not_kept(url)
+        body, _ = self._fetch(url, accept, max_bytes, types)
         if cache is not None:
             cache.put(named, body)
         return body
 
-    def _fetch(self, url: str, accept: str, max_bytes: int, types: tuple[str, ...] | None) -> bytes:
+    def page(
+        self, url: str, *, accept: str, max_bytes: int, types: tuple[str, ...]
+    ) -> tuple[str, bytes]:
+        """The media type and the body of a page of one of `types`, kept together, so that what
+        `--offline` reads from the cache is known by its type as what was fetched was."""
+        named = Cache.key("page", url, accept)
+        cache = self.cache if self.cache is not None and self.cache.usable() else None
+        ttl_s = None if self.offline else INDEX_TTL_S
+        if cache is not None and (kept := cache.get(named, ttl_s=ttl_s)):
+            head, _, text = kept.partition(b"\n")
+            return head.decode("ascii"), text
+        if self.offline:
+            raise _not_kept(url)
+        body, kind = self._fetch(url, accept, max_bytes, types)
+        if cache is not None:
+            cache.put(named, kind.encode("ascii") + b"\n" + body)
+        return kind, body
+
+    def _fetch(
+        self, url: str, accept: str, max_bytes: int, types: tuple[str, ...] | None
+    ) -> tuple[bytes, str]:
         parts = urlsplit(url)
         host = parts.hostname or ""
         if parts.scheme != "https" and not (parts.scheme == "http" and loopback(host)):
@@ -233,7 +261,7 @@ class Fetcher:
                 kind = response.headers.get_content_type()
                 if types is not None and kind not in types:
                     raise NetworkError("refused", f"{host}: {kind} is not a type of page asked for")
-                return _read(response, max_bytes, deadline, host)
+                return _read(response, max_bytes, deadline, host), kind
         except urllib.error.HTTPError as error:
             moved = 300 <= error.code < 400
             there = f", to {_where(error)}" if moved else ""
@@ -253,6 +281,14 @@ class Fetcher:
             self.hosts.append(host)
             if self.say is not None:
                 self.say(f"obelize contacts {host}")
+
+
+def _not_kept(url: str) -> NetworkError:
+    """The refusal of `--offline` for a url the cache lacks, as it is named: without a query or a
+    fragment, which can carry a token."""
+    parts = urlsplit(url)
+    shown = urlunsplit(parts._replace(query="", fragment=""))
+    return NetworkError("offline", f"{parts.hostname}: {shown} is not in the cache")
 
 
 def _where(error: urllib.error.HTTPError) -> str:
@@ -276,6 +312,16 @@ def _read(
             raise NetworkError("too_large", f"{host}: the answer passed {limit} bytes")
         if time.monotonic() > deadline:
             raise TimeoutError
+    # `read1` ends quietly when a connection closes early, so a length that was declared is checked.
+    declared = response.headers.get("Content-Length", "")
+    if (
+        declared.isdigit()
+        and len(body) < int(declared)
+        and "Transfer-Encoding" not in response.headers
+    ):
+        raise NetworkError(
+            "unreachable", f"{host}: the answer ended after {len(body)} of {declared} bytes"
+        )
     return bytes(body)
 
 

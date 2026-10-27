@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import http.server
 import os
+import socketserver
 import threading
 import time
 from dataclasses import dataclass, field
+from email.message import Message
 from typing import TYPE_CHECKING, Any
+from urllib.request import Request
 
 import pytest
 
 from obelize import __version__
-from obelize.net import USER_AGENT, Cache, Fetcher, NetworkError, index_url, loopback
+from obelize.net import USER_AGENT, Cache, Fetcher, NetworkError, _SameHost, index_url, loopback
 from platforms import posix_only
 
 if TYPE_CHECKING:
@@ -40,6 +43,16 @@ class Site:
 
 @pytest.fixture
 def site() -> Iterator[Site]:
+    yield from _serving()
+
+
+@pytest.fixture
+def elsewhere() -> Iterator[Site]:
+    """A second server, on another port of this machine."""
+    yield from _serving()
+
+
+def _serving() -> Iterator[Site]:
     state = Site(origin="")
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -74,6 +87,37 @@ def site() -> Iterator[Site]:
 
 def _fetcher(site: Site, **kwargs: Any) -> Fetcher:
     return Fetcher(index=site.origin, **kwargs)
+
+
+@pytest.fixture
+def raw() -> Iterator[dict[str, bytes]]:
+    """A server that sends the bytes a test gives it for a path, exactly, and closes."""
+    replies: dict[str, bytes] = {}
+
+    class Handler(socketserver.StreamRequestHandler):
+        def handle(self) -> None:
+            path = self.rfile.readline().split()[1].decode()
+            while self.rfile.readline().strip():
+                pass
+            self.wfile.write(replies[path])
+
+    server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Handler)
+    replies[""] = f"http://127.0.0.1:{server.server_address[1]}".encode()
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield replies
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _ask(replies: dict[str, bytes], path: str, answer: bytes) -> bytes:
+    replies[path] = answer
+    origin = replies[""].decode()
+    return Fetcher(index=origin).get(f"{origin}{path}")
+
+
+HEAD = b"HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n"
 
 
 # What a request is.
@@ -216,6 +260,98 @@ def test_a_redirect_refused_says_the_host_it_was_for_where_a_terminal_may_show_i
     with pytest.raises(NetworkError) as raised:
         _fetcher(site).get(url)
     assert raised.value.detail.endswith(said)
+
+
+def test_an_answer_that_ends_before_the_length_it_declared_is_not_the_whole_of_it(
+    raw: dict[str, bytes],
+) -> None:
+    with pytest.raises(NetworkError, match="ended after 55 of 100 bytes") as raised:
+        _ask(raw, "/short", HEAD + b"Content-Length: 100\r\n\r\n" + b"x" * 55)
+    assert raised.value.reason == "unreachable"
+
+
+def test_an_answer_is_read_as_far_as_its_length_says_and_no_further(raw: dict[str, bytes]) -> None:
+    assert _ask(raw, "/long", HEAD + b"Content-Length: 5\r\n\r\n" + b"x" * 10) == b"xxxxx"
+
+
+def test_an_answer_with_no_length_is_read_to_its_end(raw: dict[str, bytes]) -> None:
+    assert _ask(raw, "/open", HEAD + b"\r\nhello") == b"hello"
+
+
+def test_a_chunked_answer_is_read_whole_and_one_cut_short_is_not(raw: dict[str, bytes]) -> None:
+    chunked = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 100\r\n\r\n"
+    assert _ask(raw, "/chunked", chunked + b"5\r\nhello\r\n0\r\n\r\n") == b"hello"
+    with pytest.raises(NetworkError) as raised:
+        _ask(raw, "/cut", chunked + b"5\r\nhel")
+    assert raised.value.reason == "unreachable"
+
+
+def test_a_redirect_to_another_port_of_the_same_host_is_not_followed(
+    site: Site, elsewhere: Site
+) -> None:
+    elsewhere.serve("/new", b"arrived")
+    url = site.serve("/old", status=302, Location=f"{elsewhere.origin}/new")
+    with pytest.raises(NetworkError) as raised:
+        _fetcher(site).get(url)
+    assert raised.value.reason == "redirected"
+    assert elsewhere.asked == []
+
+
+@pytest.mark.parametrize(
+    ("there", "followed"),
+    [
+        ("http://127.0.0.1:8080/y", True),
+        ("http://127.0.0.1/y", False),
+        ("http://127.0.0.1:8081/y", False),
+        ("http://127.0.0.1:99999/y", False),
+        ("https://127.0.0.1:8080/y", False),
+        ("http://localhost:8080/y", False),
+    ],
+)
+def test_a_redirect_keeps_the_scheme_the_host_and_the_port(there: str, followed: bool) -> None:
+    asked = Request("http://127.0.0.1:8080/x")
+    sent = _SameHost().redirect_request(asked, None, 302, "Found", Message(), there)  # type: ignore[arg-type]
+    assert (sent is not None) is followed
+
+
+def test_a_default_port_is_the_same_port_written_or_not() -> None:
+    asked = Request("https://example.org/x")
+    handler = _SameHost()
+    for there in ("https://example.org:443/y", "https://example.org/y"):
+        assert handler.redirect_request(asked, None, 302, "Found", Message(), there) is not None  # type: ignore[arg-type]
+
+
+def test_a_page_is_kept_with_its_type_and_offline_knows_it_too(site: Site, tmp_path: Path) -> None:
+    url = site.serve("/p", b"# words", Content_Type="text/Markdown; charset=utf-8")
+    kept = Cache(tmp_path / "cache")
+    online = _fetcher(site, cache=kept)
+    assert online.page(url, accept="*/*", max_bytes=100, types=("text/markdown",)) == (
+        "text/markdown",
+        b"# words",
+    )
+    site.routes.clear()
+    offline = _fetcher(site, cache=kept, offline=True)
+    assert offline.page(url, accept="*/*", max_bytes=100, types=("text/markdown",)) == (
+        "text/markdown",
+        b"# words",
+    )
+    with pytest.raises(NetworkError, match="not in the cache"):
+        offline.page(url + "x", accept="*/*", max_bytes=100, types=("text/markdown",))
+
+
+def test_a_page_of_a_type_not_asked_for_is_refused_and_not_kept(site: Site, tmp_path: Path) -> None:
+    url = site.serve("/p", b"%PDF", Content_Type="application/pdf")
+    kept = Cache(tmp_path / "cache")
+    with pytest.raises(NetworkError, match="application/pdf"):
+        _fetcher(site, cache=kept).page(url, accept="*/*", max_bytes=100, types=("text/html",))
+    assert not any(path.is_file() for path in (tmp_path / "cache").rglob("*"))
+
+
+def test_offline_says_which_page_the_cache_lacks_without_its_query(site: Site) -> None:
+    with pytest.raises(NetworkError) as raised:
+        _fetcher(site, offline=True).get(f"{site.origin}/p?token=secret#part")
+    assert raised.value.detail.endswith(f"{site.origin}/p is not in the cache")
+    assert "secret" not in raised.value.detail
 
 
 def test_an_answer_over_the_limit_is_refused(site: Site) -> None:

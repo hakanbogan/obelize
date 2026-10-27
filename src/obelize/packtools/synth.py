@@ -161,6 +161,8 @@ class Made:
     covered: Mapping[str, int]
     unseen: int
     guided: guided.Outcome | None = None
+    # A pack that an earlier run left, which this one wrote nothing into.
+    reused: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +204,21 @@ def pack_id(
     return f"{canonicalize_name(distribution)}/{slug}"
 
 
+def today() -> dt.date:
+    return dt.datetime.now(dt.UTC).date()
+
+
+def free(directory: Path, request: Request) -> Path:
+    """The folder a pack made from `request` goes in. One that exists is never written into, so it
+    is refused before anything is asked of a model."""
+    folder = directory / request.pack_id
+    if folder.exists():
+        raise SynthError(
+            f"{folder} exists already; pack synth makes a folder and never writes into one."
+        )
+    return folder
+
+
 def make(
     directory: Path,
     request: Request,
@@ -215,16 +232,13 @@ def make(
     names a removed one may have become are written beside the pack (`HINTS`). With what a model
     drafted from a guide, the claims that pass `guided.accept` are in the pack, and what became of
     each is written beside it (`guided.RECORD`); if the pack with them fails its own checks, it is
-    made without them."""
-    folder = directory / request.pack_id
-    if folder.exists():
-        raise SynthError(
-            f"{folder} exists already; pack synth makes a folder and never writes into one."
-        )
+    made without them, under the id of a pack made without a guide, and so is not taken for one."""
+    folder = free(directory, request)
     plan = _Plan.build(request, old, changes, new)
     if drafted is None or new is None:
         return _write(folder, request, plan, old, new)
     outcome = guided.accept(drafted, plan.view(new, changes))
+    written = True
     try:
         made = _write(
             folder, request, _Plan.build(request, old, changes, new, outcome.accepted), old, new
@@ -233,10 +247,19 @@ def make(
         if not outcome.accepted:
             raise
         outcome = guided.reject_all(outcome, str(error).splitlines()[0])
-        made = _write(folder, request, plan, old, new)
-    (folder / guided.RECORD).write_text(
-        json.dumps(outcome.document(), indent=2) + "\n", encoding="utf-8"
-    )
+        request = replace(request, guide=None)
+        plan = _Plan.build(request, old, changes, new)
+        folder = directory / request.pack_id
+        # An earlier pack from these two releases is this one, which the claims would not change.
+        written = not folder.exists()
+        made = (
+            _write(folder, request, plan, old, new)
+            if written
+            else Made(folder, request.pack_id, plan.covered(), plan.unseen, reused=True)
+        )
+    if written:
+        record = {**outcome.document(request.retrieved), "pack": request.pack_id}
+        (folder / guided.RECORD).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     return replace(made, guided=outcome)
 
 
@@ -325,8 +348,10 @@ def request(
     compared: libdiff.Comparison,
     scope: frozenset[str] | None = None,
     guide: str | None = None,
+    retrieved: dt.date | None = None,
 ) -> Request:
-    """The request for two releases that were compared: the newer file is what the pack cites."""
+    """The request for two releases that were compared: the newer file is what the pack cites, on
+    the day it is read, or the day a record of an earlier run says."""
     file = compared.new
     try:
         SpecifierSet(file.requires_python or "")
@@ -342,7 +367,7 @@ def request(
         requires_python=python,
         url=file.url if file.url.startswith("https://") else page,
         sha256=file.sha256,
-        retrieved=dt.datetime.now(dt.UTC).date(),
+        retrieved=retrieved or today(),
         scope=scope,
         guide=guide,
         extras=compared.extras,

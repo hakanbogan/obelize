@@ -14,6 +14,7 @@ import datetime as dt
 import hashlib
 import json
 import re
+import time
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final, Literal, cast, get_args
@@ -54,6 +55,13 @@ MAX_PER_QUOTE: Final = 3
 MAX_KEPT: Final = 60
 RECORD: Final = "guide.json"
 RECORD_BYTES: Final = 8 << 20
+# The model is not asked for the rest of the parts after this many failures one after another, or
+# once the guide has taken this long; the claims drafted so far are still held to the checks.
+MAX_FAILURES: Final = 2
+DEADLINE_S: Final = 1800.0
+Stopped = Literal["failures", "deadline"]
+STOPS: Final = get_args(Stopped)
+_AFTER: Final = {"failures": f"{MAX_FAILURES} failures one after another", "deadline": "too long"}
 _PLACED: Final = ("positional-only", "positional or keyword")
 _KEYED: Final = ("positional or keyword", "keyword-only")
 
@@ -129,6 +137,9 @@ class Drafted:
     model: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
+    # Why the model was not asked for the rest, and how many parts that left unasked.
+    stopped: Stopped | None = None
+    unasked: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,17 +202,25 @@ class Outcome:
             parts.append("rejected: " + ", ".join(f"{k} {v}" for k, v in self.rejected.items()))
         if self.refused or self.failed:
             parts.append(f"{self.refused} answer(s) refused, {self.failed} not given")
+        if self.drafted.stopped:
+            parts.append(
+                f"stopped after {_AFTER[self.drafted.stopped]}, "
+                f"{self.drafted.unasked} part(s) not asked"
+            )
         return "; ".join(parts) + "."
 
-    def document(self) -> dict[str, Any]:
+    def document(self, retrieved: dt.date) -> dict[str, Any]:
         """The record kept beside the pack, from which the answers can be fed back."""
         drafted = self.drafted
         return {
             "version": 1,
+            "retrieved_at": retrieved.isoformat(),
             "provider": drafted.provider,
             "model": drafted.model,
             "tokens_in": drafted.tokens_in,
             "tokens_out": drafted.tokens_out,
+            "stopped": drafted.stopped,
+            "parts_not_asked": drafted.unasked,
             "drafted": self.claims,
             "accepted": len(self.accepted),
             "rejected": dict(self.rejected),
@@ -252,75 +271,116 @@ class Drafter:
 
 
 @dataclass(frozen=True, slots=True)
+class Record:
+    """What an earlier run kept: the answers by the hash of the text each was given, the day it
+    ran, and where it stopped asking."""
+
+    replies: Mapping[str, tuple[str | None, ...]]
+    retrieved: dt.date
+    stopped: Stopped | None = None
+    unasked: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class Source:
-    """Guides read, and how they are put to a model: by asking one, or from answers kept."""
+    """Guides read, and how they are put to a model: by asking one, or from a record."""
 
     texts: tuple[guides.Guide, ...]
     official: tuple[bool, ...]
     drafter: Drafter | None = None
-    replies: Mapping[str, tuple[str | None, ...]] = field(default_factory=dict)
+    kept: Record | None = None
+
+    @property
+    def retrieved(self) -> dt.date | None:
+        """The day a record says the guides were read, which a pack made from it is dated."""
+        return self.kept.retrieved if self.kept else None
 
     @property
     def digest(self) -> str:
         """A short name for these texts, which the id of the pack made from them ends with."""
-        return hashlib.sha256("\n".join(one.sha256 for one in self.texts).encode()).hexdigest()[:8]
+        return hashlib.sha256("\n".join(one.sha256 for one in self.texts).encode()).hexdigest()[:12]
 
-    def draft(self, names: Names, say: Callable[[str], None]) -> Drafted:
-        """Put every chunk of every guide to the model, in order, or take the answers kept."""
+    def draft(
+        self, names: Names, say: Callable[[str], None], clock: Callable[[], float] = time.monotonic
+    ) -> Drafted:
+        """Put every part of every guide to the model, in order, or take the answers kept. After
+        `MAX_FAILURES` one after another, or `DEADLINE_S` by `clock`, the rest are not asked."""
         pieces: list[Piece] = []
-        spent = [0, 0]
+        record = self.kept or Record({}, dt.date.min)
+        tokens, failures, unasked, started = [0, 0], 0, 0, clock()
+        stopped: Stopped | None = None
         for one, official in zip(self.texts, self.official, strict=True):
-            if self.drafter is None:
-                kept = self.replies.get(one.sha256, ())
-                if len(kept) != len(one.chunks):
+            if (drafter := self.drafter) is None:
+                replies = record.replies.get(one.sha256, ())
+                if len(replies) != len(one.chunks):
                     raise guides.GuideError("unreadable", f"no answers were kept for {one.ref}")
-                pieces.append(Piece(one, official, kept))
-            else:
-                asked = self._ask(self.drafter.model, one, names, say, spent)
-                pieces.append(Piece(one, official, asked))
-        drafter = self.drafter
-        if drafter is None:
-            return Drafted(tuple(pieces), "replay", None, *spent)
-        return Drafted(tuple(pieces), drafter.provider, drafter.name, *spent)
+                pieces.append(Piece(one, official, replies))
+                continue
+            asked: list[str | None] = []
+            for number, chunk in enumerate(one.chunks, 1):
+                if stopped is None:
+                    stopped = (
+                        "failures"
+                        if failures >= MAX_FAILURES
+                        else "deadline"
+                        if clock() - started > DEADLINE_S
+                        else None
+                    )
+                    if stopped is not None:
+                        say(
+                            f"{one.ref}: the rest is not put to the model, after {_AFTER[stopped]}."
+                        )
+                if stopped is not None:
+                    unasked += 1
+                    asked.append(None)
+                    continue
+                question = drafting.question(
+                    distribution=names.distribution, old=names.old, new=names.new,
+                    module=names.module, ref=one.ref, text=chunk,
+                )  # fmt: skip
+                try:
+                    done = drafter.model.complete(drafting.SYSTEM_PROMPT, question)
+                except base.ProviderError as error:
+                    say(f"{one.ref}, part {number} of {len(one.chunks)}: {error.failure}")
+                    failures += 1
+                    asked.append(None)
+                else:
+                    failures = 0
+                    asked.append(done.text)
+                    tokens[0] += done.tokens_in
+                    tokens[1] += done.tokens_out
+            pieces.append(Piece(one, official, tuple(asked)))
+        if self.drafter is None:
+            return Drafted(
+                tuple(pieces), "replay", None, stopped=record.stopped, unasked=record.unasked
+            )
+        return Drafted(
+            tuple(pieces), self.drafter.provider, self.drafter.name, tokens[0], tokens[1],
+            stopped=stopped, unasked=unasked,
+        )  # fmt: skip
 
-    @staticmethod
-    def _ask(
-        model: base.TextModel,
-        one: guides.Guide,
-        names: Names,
-        say: Callable[[str], None],
-        spent: list[int],
-    ) -> tuple[str | None, ...]:
-        replies: list[str | None] = []
-        for number, chunk in enumerate(one.chunks, 1):
-            asked = drafting.question(
-                distribution=names.distribution, old=names.old, new=names.new,
-                module=names.module, ref=one.ref, text=chunk,
-            )  # fmt: skip
-            try:
-                done = model.complete(drafting.SYSTEM_PROMPT, asked)
-            except base.ProviderError as error:
-                say(f"{one.ref}, part {number} of {len(one.chunks)}: {error.failure}")
-                replies.append(None)
-            else:
-                replies.append(done.text)
-                spent[0] += done.tokens_in
-                spent[1] += done.tokens_out
-        return tuple(replies)
 
-
-def replies_kept(path: Path) -> dict[str, tuple[str | None, ...]]:
-    """The answers a record keeps, by the hash of the guide each was given."""
+def replies_kept(path: Path) -> Record:
+    """The record an earlier run left beside its pack, or a `GuideError`: a record is JSON of a
+    known shape and a size, read from a regular file, and nothing else is taken for one."""
     problem = guides.GuideError("unreadable", f"{path.name} is not a record of answers")
+    raw = guides.file_bytes(path, RECORD_BYTES)
     try:
-        with path.open("rb") as handle:
-            document = json.loads(handle.read(RECORD_BYTES))
-        found = {one["sha256"]: tuple(one["replies"]) for one in document["guides"]}
-    except (OSError, ValueError, KeyError, TypeError) as error:
+        document = json.loads(raw)
+        found = {}
+        for one in document["guides"]:
+            replies = one["replies"]
+            if not isinstance(one["sha256"], str) or not isinstance(replies, list):
+                raise problem
+            if not all(isinstance(r, str) or r is None for r in replies):
+                raise problem
+            found[one["sha256"]] = tuple(replies)
+        stopped, unasked = document["stopped"], document["parts_not_asked"]
+        if stopped not in (None, "failures", "deadline") or not isinstance(unasked, int):
+            raise problem
+        return Record(found, dt.date.fromisoformat(document["retrieved_at"]), stopped, unasked)
+    except (ValueError, KeyError, TypeError, RecursionError) as error:
         raise problem from error
-    if not all(isinstance(r, str) or r is None for replies in found.values() for r in replies):
-        raise problem
-    return found
 
 
 def links(fetcher: Fetcher, distribution: str, version: str) -> Mapping[str, str]:
@@ -333,21 +393,31 @@ def links(fetcher: Fetcher, distribution: str, version: str) -> Mapping[str, str
 
 
 def official(url: str | None, project: Mapping[str, str]) -> bool:
-    """Whether a guide is the vendor's own: its address is on the host of one the project lists for
-    itself, below that address's path. A file has no address."""
-    if url is None:
+    """Whether a guide is the vendor's own: its address is on the host and port of one the project
+    lists for itself, below that address's path, written with no `..`, `.`, backslash or percent
+    escape that could lead out of it. A file has no address."""
+    here = None if url is None else _address(url)
+    if here is None or here[0] != "https" or "%" in here[3] or "\\" in here[3]:
         return False
-    here = urlsplit(url)
+    if {".", ".."} & set(here[3].split("/")):
+        return False
     for link in project.values():
-        there = urlsplit(link)
-        top = there.path.rstrip("/")
-        if (
-            there.scheme == here.scheme == "https"
-            and there.hostname == here.hostname
-            and (here.path == top or here.path.startswith(top + "/"))
-        ):
-            return True
+        there = _address(link)
+        if there is not None and here[:3] == there[:3]:
+            top = there[3].rstrip("/")
+            if here[3] == top or here[3].startswith(top + "/"):
+                return True
     return False
+
+
+def _address(url: str) -> tuple[str, str | None, int, str] | None:
+    """The scheme, host, port and path of an address; `None` where the port is no port."""
+    parts = urlsplit(url)
+    try:
+        port = parts.port
+    except ValueError:
+        return None
+    return parts.scheme, parts.hostname, port or 443, parts.path
 
 
 def accept(drafted: Drafted, view: View) -> Outcome:
@@ -356,7 +426,7 @@ def accept(drafted: Drafted, view: View) -> Outcome:
     rejected: Counter[str] = Counter()
     rows: list[tuple[str, str, str]] = []
     refused = failed = 0
-    used: Counter[str] = Counter()
+    used: dict[str, list[tuple[int, int]]] = {}
     for piece in drafted.pieces:
         for reply in piece.replies:
             if reply is None:
@@ -383,12 +453,19 @@ def accept(drafted: Drafted, view: View) -> Outcome:
 def reject_all(outcome: Outcome, why: str) -> Outcome:
     """The same claims, none kept: the pack made with them failed its own checks."""
     counts = {**outcome.rejected, "pack_failed": len(outcome.accepted)}
-    rows = (*outcome.rows, ("", "pack_failed", why))
+    rows = tuple(
+        (legacy, "pack_failed", why) if kind in ("rewrite", "report") else (legacy, kind, detail)
+        for legacy, kind, detail in outcome.rows
+    )
     return Outcome(outcome.drafted, (), counts, outcome.refused, outcome.failed, rows)
 
 
 def _vet(
-    claim: drafting.Claim, piece: Piece, view: View, kept: Sequence[Accepted], used: Counter[str]
+    claim: drafting.Claim,
+    piece: Piece,
+    view: View,
+    kept: Sequence[Accepted],
+    used: dict[str, list[tuple[int, int]]],
 ) -> Accepted | Refused:
     quote = guides.flat(claim.quote)
     if quote not in piece.guide.flat:
@@ -407,9 +484,12 @@ def _vet(
         return "new_unknown", f"{claim.new} is not in the new release"
     if len(quote) < MIN_QUOTE or not _names(quote, legacy) or (new and not _names(quote, new)):
         return "quote_weak", "the quote is short, or does not name both names"
-    used[quote] += 1
-    if used[quote] > MAX_PER_QUOTE:
+    # Quotes that overlap in the guide are one quote, however each is cut.
+    at = piece.guide.flat.find(quote)
+    span, others = (at, at + len(quote)), used.setdefault(piece.guide.sha256, [])
+    if sum(a < span[1] and span[0] < b for a, b in others) >= MAX_PER_QUOTE:
         return "quote_reused", f"the quote carries more than {MAX_PER_QUOTE} claims"
+    others.append(span)
     keywords = tuple(sorted(set(claim.keywords)))
     params = view.olds[legacy].params
     if keywords and (params is None or not _keywords_ok(keywords, params)):
@@ -428,7 +508,8 @@ def _vet(
     if (clash := _clash(legacy, new, view, kept)) is not None:
         return clash
     if legacy in view.plain:
-        got = _promote(claim, cite, legacy, new, view, found)
+        around = guides.lines_around(guide, quote)
+        got = _promote(claim, cite, legacy, new, view, found, (quote, around))
         if got is None:
             return "in_the_diff", "the diff reports it already, and the claim supports no rewrite"
     elif any(_overlap(legacy, other) for other in view.held):
@@ -559,17 +640,18 @@ def _pattern(
         return "pattern_refused", "after spells a name the pack looks for"
     absent = [name for name in sorted(beside) if _below(view.module, name) not in view.news]
     calls = cast("list[cst.Call]", m.findall(after.tree, m.Call()))
-    seen = [_fit(call, where, view) for call in calls]
+    seen = [_fit(call, where, view, view.olds[legacy].labels) for call in calls]
     if absent or "missing" in seen:
         return (
             "new_unknown",
             f"{absent[0] if absent else 'a member in after'} is not in the new release",
         )
-    return _Pattern(where, imports, "misfits" not in seen and "fits" in seen)
+    return _Pattern(where, imports, bool(seen) and all(one == "fits" for one in seen))
 
 
-def _fit(call: cst.Call, where: Mapping[str, str], view: View) -> Fit:
-    """Whether the new release takes this call as written: what it names, and its arguments."""
+def _fit(call: cst.Call, where: Mapping[str, str], view: View, labels: tuple[str, ...]) -> Fit:
+    """Whether the new release takes this call as written: what it names, with the marks the old
+    name had (`async` and the like), and its arguments."""
     path = _callee(call.func, where, view.module)
     if path is None:
         return "unknown"
@@ -579,7 +661,8 @@ def _fit(call: cst.Call, where: Mapping[str, str], view: View) -> Fit:
         return "unknown" if owner is not None and _leaf(path) in owner.inherited else "missing"
     if found.params is None:
         return "unknown"
-    return "fits" if _fits(call, found.params) else "misfits"
+    marked = found.kind != "function" or found.labels == labels
+    return "fits" if marked and _fits(call, found.params) else "misfits"
 
 
 def _callee(func: cst.BaseExpression, where: Mapping[str, str], module: str) -> str | None:
@@ -617,6 +700,55 @@ def _fits(call: cst.Call, params: tuple[Param, ...]) -> bool:
     )
 
 
+# How a quote may say that one name is replaced by another, from <a> to <b>: in a table row, with an
+# arrow, with a verb, or as "use <b> instead of <a>". A name is written as `_spelled` allows, with
+# only quotes, ticks, an @ and call brackets beside it.
+_VERBS: Final = (
+    r"(?i:(?:(?:is|was|has been|are|were|have been)\s+)?(?:now\s+)?renamed\s+(?:to|as)"
+    r"|(?:is|are)\s+now(?:\s+(?:called|named|spelled|written\s+as))?"
+    r"|(?:is|was|has been|are|were|have been)\s+(?:now\s+)?(?:replaced|superseded)\s+(?:by|with)"
+    r"|becomes|has\s+become|have\s+become)"
+)
+_SAYS: Final = (
+    r"<a>\s*\|\s*<b>",
+    r"<a>\s*(?:->|-->|=>|\u2192|\u21d2)\s*<b>",
+    r"<a>\s+" + _VERBS + r"\s+<b>",
+    r"(?i:use)\s+<b>\s+(?i:instead\s+of|in\s+place\s+of)\s+<a>",
+)
+# What takes a replacement back or limits it, in the lines of the guide the quote touches.
+_DENIAL: Final = re.compile(
+    r"\b(?:not|no|never|without|different|differs?|differently|unlike|but|however|rather|except"
+    r"|unless|only|although|though|whereas|nor|neither|cannot)\b|n['\u2019]t\b",
+    re.IGNORECASE,
+)
+
+
+_MARKS: Final = "`'\"\u2018\u2019\u201c\u201d"
+
+
+def _spelled(path: str, module: str) -> str:
+    """A pattern for a name as a quote may write it: whole, from the module, from the class or by
+    its last word, not as the end of a longer name, with the brackets of a call."""
+    parts = f"{module}.{path}".split(".")
+    names = "|".join(re.escape(".".join(parts[at:])) for at in range(len(parts)))
+    return (
+        rf"(?<![\w.])[{_MARKS}@]*(?:{names})(?!\w)(?:\([^()]*\))?[{_MARKS}]*"
+        r"(?:\s+(?:function|class|method|decorator|attribute|helper))?"
+    )
+
+
+def _replaced(module: str, legacy: str, new: str, quote: str, around: str) -> bool:
+    """Whether the quote says `new` replaces `legacy`, and its lines do not take it back."""
+    old, now = _spelled(legacy, module), _spelled(new, module)
+    says = (shape.replace("<a>", old).replace("<b>", now) for shape in _SAYS)
+    return any(re.search(shape, quote) for shape in says) and not _DENIAL.search(around)
+
+
+def _writes(claim: drafting.Claim, new: str) -> bool:
+    """Whether `after` spells the new name the claim names."""
+    return re.search(rf"(?<!\w){re.escape(_leaf(new))}(?!\w)", claim.after or "") is not None
+
+
 def _promote(
     claim: drafting.Claim,
     cite: Cite,
@@ -624,15 +756,21 @@ def _promote(
     new: str | None,
     view: View,
     found: _Pattern | None,
+    said: tuple[str, str],
 ) -> Accepted | None:
-    """The rewrite a claim asks for, if the diff supports it: the old name is going, the new one
-    is there, not itself deprecated, and takes its place. `None` where it can only report."""
+    """The rewrite a claim asks for, if the quote, the diff and the two releases agree: the quote
+    says in one connector that `legacy` is replaced by `new` and nothing in its lines takes that
+    back (`said` is the quote and the lines of the guide it touches), the old name is going, and
+    the new one is there, not itself deprecated, written as the old one was and able to take its
+    place. `None` where it can only report."""
     old, target = view.olds[legacy], view.news.get(new or "")
     if new is None or target is None or target.deprecated is not None:
         return None
+    if not _replaced(view.module, legacy, new, *said):
+        return None
     place = _above(legacy, view.olds)
     renamed = _parent(new) == _parent(legacy) and _leaf(new) != _leaf(legacy)
-    alike = old.kind == target.kind and renamed
+    alike = old.kind == target.kind and old.labels == target.labels and renamed
     if claim.kind == "rename_symbol" and place == "module" and alike and old.kind in _RENAMED:
         calls = old.kind == "function" and accepts(old, target)
         return Accepted(claim, cite, "rename", legacy, new, calls=calls)
@@ -641,7 +779,7 @@ def _promote(
         keywords = None if fitted else takes(old, target)
         if fitted or keywords is not None:
             return Accepted(claim, cite, "member", legacy, new, takes=keywords)
-    if claim.kind == "rewrite_pattern" and found is not None and found.fits:
+    if claim.kind == "rewrite_pattern" and found is not None and found.fits and _writes(claim, new):
         return Accepted(
             claim, cite, "pattern", legacy, new, where=found.where, imports=found.imports
         )
@@ -654,6 +792,7 @@ __all__ = [
     "MIN_QUOTE",
     "REASONS",
     "RECORD",
+    "STOPS",
     "Accepted",
     "Cite",
     "Drafted",

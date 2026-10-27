@@ -78,8 +78,10 @@ replaces: pydantic 1 to 2 gives `parse_obj`, `construct`, `schema`, `dict`, `jso
 What the authors of a library say only in prose can come in through `--guide`: a model you have set
 up reads a migration guide and drafts claims, and a claim becomes part of the pack made from two
 releases only if code finds its quote in the guide, its names in both releases and nothing in the API
-diff against it. It becomes a report that quotes the guide, and a rewrite only where the diff shows
-the old name going and the new one able to take its place ([why](adr/ADR-075-claims-from-a-guide.md)).
+diff against it. It becomes a report that quotes the guide, and a rewrite only where the quote says in
+a known shape that the new name takes the place of the old one with nothing that limits it, and the
+diff shows the old name going and the new one able to take its place
+([why](adr/ADR-075-claims-from-a-guide.md)).
 
 Around the commands are the pieces a pipeline and a coding agent use. `scan --library` lists every
 use of a library that has no pack, `pack new` and `pack test` help write one, `scan --sarif` and

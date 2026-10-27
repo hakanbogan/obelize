@@ -283,9 +283,10 @@ it with an executable script and run on Linux and macOS only.
 ## Migration guides
 
 `pack synth --guide` and `upgrade --guide` ([why](adr/ADR-075-claims-from-a-guide.md)) are new, and
-have been run once on a public guide, pydantic 1 to 2: 47 claims, 31 kept. How often the claims of
-other guides, or of another model, pass the checks is not known, and nothing measures it over
-public repositories. What is open:
+have been run once on a public guide, pydantic 1 to 2: 47 claims, 31 kept, and the answers of that
+run fed back through the checks as they are now gave the same 31. How often the claims of other
+guides, or of another model, pass the checks is not known, and nothing measures it over public
+repositories. What is open:
 
 - Recall is the model's. The first prompt returned 13 claims from the same guide, and the second 41 and 47 in two runs,
   so what a guide says and no claim carries is not in the pack, and a better model or a longer prompt
@@ -299,6 +300,10 @@ public repositories. What is open:
   between two parts loses its header. A code block is kept with its line breaks. Images, diagrams, text in an image
   and a page that a script builds in the browser are not read: a guide that is built that way is
   refused as empty. A PDF is refused, and so is text that is not UTF-8.
+- A `<nav>`, `<footer>` or another tag that is dropped with what it holds, if it is never closed,
+  hides the rest of the page, as a browser would; the guide then holds less than the page does and
+  no claim rests on the part that went. A page is HTML by the type it is served with, and a file by
+  its suffix, so a page served as `text/plain` is read as text, tags and all.
 - The text is judged as fetched. A guide at `latest` changes under the same address; the hash of the
   text the model saw is recorded, and a pack made from it is not made again unless the text, and so
   its digest, differs.
@@ -307,21 +312,41 @@ public repositories. What is open:
   `pydantic.dev`) or is on another host is `guide`, and a file never is: those changes are never
   bundled. An address with a query or a character a pack cannot cite, or `http` to this machine, is
   cited by the quote and its host and has no `source` of its own.
-- A rewrite rests on the diff, not on the guide: the old name is removed or deprecated, the new
-  one is there and not itself deprecated, and every call the pattern writes fits the new signature.
-  That shows a call is valid, not that it means what the old one did. Your tests decide that, as for
-  every pack made from two releases, and a pack that passes `pack test` is not thereby right.
+- A rewrite rests on the quote and on the diff together. The quote has to say in one of a few
+  English shapes that the new name takes the place of the old one ("is now", a line of a table, an
+  arrow, "use ... instead of ...") with none of a list of English words that limit it in its
+  sentence ("not", "but", "only"); a guide in another language, or a sentence that says it another
+  way, gives a report and no rewrite, and a limiting word that is not on the list is not seen. The
+  diff has to show the old name removed or deprecated, the new one there and not itself deprecated,
+  written the same way (the marks `async`, `staticmethod`, `classmethod`, `property`, `cached`), and
+  every call the pattern writes resolved and fitting the new signature. That shows a call is valid,
+  not that it means what the old one did. Your tests decide that, as for every pack made from two
+  releases, and a pack that passes `pack test` is not thereby right.
+- The pairs the API diff makes for itself, a name moved, renamed or deprecated for another, are not
+  held to those marks. On pydantic 1.10.26 to 2.12.5, SQLAlchemy 1.4.54 to 2.0.55, urllib3 1.26.20
+  to 2.8.0 and pandas 2.3.3 to 3.1.0 none of the 247 pairs joins names with different marks, so
+  this has cost nothing yet; a library that made a function a coroutine as it renamed it would be
+  paired as before.
 - A claim about a name the diff already reports is dropped, even where the guide's words would have
   said more than the library's, so the report keeps the library's.
 - A page can make a model say something that is true to the page and misleads (a quote that is
   in the guide, about names that exist, with advice that is wrong for you). The check is that the
-  words are the guide's: a report starts "The migration guide says". It cannot make a rewrite the
-  diff does not support.
+  words are the guide's: a report starts "The migration guide says". It cannot make a rewrite of a
+  name the diff does not show going, or one the sentence limits. It can make one with a sentence in
+  a known shape that says a name that exists takes the place of one that is going, whether or not
+  that is so: such a page is as trusted as the claim it makes, and the diff and your tests are
+  what show it wrong.
+- `pack test` checks that `SOURCES.md` holds the address and hash of the page a change cites as
+  text, and no more: a change's `source` (or the pack's) can name a page that the pack never read,
+  and nothing at `fix` time shows a change's `source`. Read `SOURCES.md` and the citation of a
+  `guide-...` change before you trust one.
 - The answers kept in `guide.json` are for the text and the parts they were given: a release that
   cuts the text another way finds no answers for it and says so.
 - At most three guides of at most 400,000 characters each, in parts of about 20,000 characters, one
   request a part, and at most 60 claims kept in a pack. A long guide costs requests; the first run
-  above was three requests, about 21,000 tokens in and 7,000 out.
+  above was three requests, 21,171 tokens in and 7,980 out. After two parts one after another that fail, or
+  30 minutes, the rest of a guide is not asked and the pack is made from what was drafted, with the
+  parts left counted in `guide.json`.
 
 ## Data files and formats
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -18,15 +19,17 @@ from obelize.net import Fetcher, NetworkError
 from obelize.packtools import guide, guided
 from obelize.providers import base
 from obelize.providers.claims import SYSTEM_PROMPT
+from platforms import posix_only
 
 ROOT = Path(__file__).resolve().parents[2]
+DAY = dt.date(2026, 10, 27)
 
 SENTENCES = (
-    "The function old_total is gone, and total_of takes its place with the same arguments.",
+    "The function old_total is now total_of, taking the same arguments.",
     "Use TypeAdapter in place of parse_obj_as: TypeAdapter(T).validate_python(v) is what "
     "parse_obj_as(T, v) was.",
     "The helper gone is removed with no replacement, so write it yourself.",
-    "The method Model.parse_raw is deprecated, and Model.model_validate_json(data) replaces it.",
+    "Model.parse_raw(data) is now Model.model_validate_json(data) in acme 2.",
     "The class Old is now New and takes the same arguments as before.",
     "Argument b of legacy_fn is now called c, so every call that passes b must change.",
     "The attribute field of Model has been dropped, and Model.model_dump() reads a model.",
@@ -125,7 +128,7 @@ MEMBER = claim(
     "rewrite_pattern",
     "acme.Model.parse_raw",
     "acme.Model.model_validate_json",
-    sentence("The method Model.parse_raw"),
+    sentence("Model.parse_raw(data)"),
     before="$m.parse_raw($d)",
     after="$m.model_validate_json($d)",
 )
@@ -209,7 +212,7 @@ def test_a_member_rename_is_a_rewrite_with_the_keywords_the_new_one_takes() -> N
         "rename_member",
         "acme.Model.parse_raw",
         "acme.Model.model_validate_json",
-        sentence("The method Model.parse_raw"),
+        sentence("Model.parse_raw(data)"),
     )
     (one,) = run(member, view=view).accepted
     assert (one.route, one.takes) == ("member", ("b", "c"))
@@ -247,7 +250,7 @@ def test_a_flag_names_the_calls_it_is_about_by_the_keywords_the_guide_says_chang
 
 
 def test_a_pattern_that_is_not_supported_reports_what_to_write_instead() -> None:
-    quote = make_guide("keep is written as TypeAdapter(T).validate_python(v) now, in acme 2.")
+    quote = make_guide("keep is now TypeAdapter(T).validate_python(v), in acme 2.")
     unsupported = claim(
         "rewrite_pattern",
         "acme.keep",
@@ -291,18 +294,22 @@ SHAPES = {
         ("len($x)", False),
         ("[$x]", False),
         ("$x.something($x)", False),
-        ("$x(acme.TypeAdapter($x).validate_python($x))", True),
+        ("$x(acme.TypeAdapter($x).validate_python($x))", False),
+        ("acme.TypeAdapter($x).validate_python(len($x))", False),
+        ("acme.TypeAdapter($x).validate_python($x).strip()", False),
     ],
 )
 def test_a_pattern_is_a_rewrite_only_where_every_call_it_writes_fits_what_the_release_takes(
     after: str, takes: bool
 ) -> None:
-    quote = make_guide("keep is written as TypeAdapter(x).validate_python(x) now, in acme 2.")
+    shapes = ("variadic", "keyed", "positional", "Bare")
+    new = next((one for one in shapes if one in after), "TypeAdapter")
+    quote = make_guide(f"In acme 2, keep is now {new}(x) and does the same job.")
     view = replace(VIEW, news={**NEWS, **SHAPES}, plain=PLAIN | {"keep"}, held=HELD | {"keep"})
     pattern = claim(
         "rewrite_pattern",
         "acme.keep",
-        "acme.TypeAdapter",
+        f"acme.{new}",
         quote.text,
         before="acme.keep($x)",
         after=after,
@@ -317,6 +324,184 @@ def test_a_call_on_a_name_the_class_only_inherits_is_one_nothing_is_known_of() -
     assert run(inherited, view=OPEN).accepted[0].route == "flag"
 
 
+# What the quote must say for a rewrite.
+
+
+def route(text: str, quote: str | None = None, *, view: guided.View = VIEW) -> str:
+    """What becomes of a claim that `old_total` is `total_of` on a guide of this text: `rewrite`
+    where it is made a rewrite, else the reason it is not."""
+    page = make_guide(text)
+    done = run({**RENAME, "quote": quote or page.text}, view=view, text=page)
+    return done.rows[0][1]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The function old_total is now total_of, taking the same arguments.",
+        "`old_total` is renamed to `total_of` in acme 2, taking the same arguments.",
+        "old_total() has been replaced by total_of() in acme 2, with the same arguments.",
+        "| acme.old_total | acme.total_of | the same arguments in acme 2 |",
+        "old_total -> total_of in acme 2, with the same arguments",
+        "old_total \u2192 total_of in acme 2, with the same arguments",
+        "In acme 2 use total_of instead of old_total, with the same arguments.",
+        "In acme 2 use `total_of` in place of `old_total`.",
+        "acme.old_total becomes acme.total_of in acme 2, with the same arguments.",
+        "\u201cold_total\u201d is now \u201ctotal_of\u201d in acme 2, with the same arguments.",
+    ],
+)
+def test_a_quote_that_says_in_a_known_shape_that_the_new_name_replaces_the_old_is_a_rewrite(
+    text: str,
+) -> None:
+    assert route(text) == "rewrite"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The function old_total and the function total_of are both described below in acme 2.",
+        "The function total_of is now old_total in acme 2, taking the same arguments.",
+        "The function old_total is now the helper that builds total_of in acme 2.",
+        "old_total is gone in acme 2; total_of is a new function that someone may like.",
+        "The function old_total is now total_of in acme 2, but takes other arguments.",
+        "The function old_total is now total_of in acme 2, however only for lists.",
+        "Do not use total_of instead of old_total in acme 2: they are different.",
+        "Unlike before, old_total is now total_of when called with a list.",
+        "The function old_total is no longer total_of in acme 2, it is now total_of_two.",
+        "old_total is now total_of unless the list is empty, which acme 2 refuses.",
+        "The function old_total is now total_of in acme 2, but it doesn\u2019t take tax.",
+        "The function old_total is now total_of in acme 2, it doesn't take tax any more.",
+    ],
+)
+def test_a_quote_with_no_such_shape_or_a_word_that_takes_it_back_is_no_rewrite(text: str) -> None:
+    assert route(text) == "in_the_diff"
+
+
+def test_the_words_around_the_quote_in_its_own_sentence_or_row_count_but_other_lines_do_not() -> (
+    None
+):
+    first = "The function old_total is now total_of in acme 2."
+    assert route(f"{first} It is not a drop-in replacement.", first) == "in_the_diff"
+    assert route(f"{first}\nIt is not a drop-in replacement.", first) == "rewrite"
+    row = "| old_total | total_of | the same arguments |"
+    assert route(f"{row}\n| other | one | it is not the same |", row) == "rewrite"
+    assert route(f"{row} but with a list only", row) == "in_the_diff"
+
+
+@pytest.mark.parametrize(
+    ("text", "quote", "becomes"),
+    [
+        # A sentence wrapped over lines is one sentence, whichever line the quote is on.
+        (
+            "The function old_total is now total_of\nin acme 2, but not for lists.",
+            "The function old_total is now total_of",
+            "in_the_diff",
+        ),
+        (
+            "It is not clear that\nold_total is now total_of in acme 2.",
+            "old_total is now total_of in acme 2.",
+            "in_the_diff",
+        ),
+        (
+            "Do not rely on it, and\nthe function old_total is now total_of\nin acme 2, with it.",
+            "the function old_total is now total_of",
+            "in_the_diff",
+        ),
+        # A full stop, a blank line, a heading, an item or a table ends it.
+        (
+            "old_total is now total_of in acme 2.\nIt is not a drop-in one.",
+            "old_total is now total_of in acme 2.",
+            "rewrite",
+        ),
+        (
+            "old_total is now total_of in acme 2\n\nIt is not a drop-in one.",
+            "old_total is now total_of in acme 2",
+            "rewrite",
+        ),
+        (
+            "It is not the same\n\nold_total is now total_of in acme 2",
+            "old_total is now total_of in acme 2",
+            "rewrite",
+        ),
+        (
+            "Not so\n- old_total is now total_of in acme 2\n- not that either",
+            "old_total is now total_of in acme 2",
+            "rewrite",
+        ),
+        (
+            "Not so\n# old_total is now total_of in acme 2\nnot that either",
+            "old_total is now total_of in acme 2",
+            "rewrite",
+        ),
+        (
+            "old_total | total_of | the same\nnot a | row of it | at all",
+            "old_total | total_of | the same",
+            "rewrite",
+        ),
+    ],
+)
+def test_the_sentence_a_quote_is_in_is_all_the_lines_it_runs_over_and_no_more(
+    text: str, quote: str, becomes: str
+) -> None:
+    assert route(text, quote) == becomes
+
+
+def test_a_rewrite_needs_the_same_marks_on_the_old_name_and_the_new() -> None:
+    """A function that is `async` in one release and not in the other has other callers; a
+    `staticmethod` or `classmethod` is called in another way."""
+    said = sentence("The function old")
+    plain = function(param("items"), param("tax", "0"))
+    marked = replace(plain, labels=("async",))
+    olds, news = {**OLDS, "old_total": marked}, {**NEWS, "total_of": marked}
+    assert route(said, view=replace(VIEW, olds=olds)) == "in_the_diff"
+    assert route(said, view=replace(VIEW, news=news)) == "in_the_diff"
+    assert route(said, view=replace(VIEW, olds=olds, news=news)) == "rewrite"
+    static = replace(plain, labels=("staticmethod",))
+    both = replace(VIEW, olds={**OLDS, "old_total": static}, news={**NEWS, "total_of": marked})
+    assert route(said, view=both) == "in_the_diff"
+
+
+def test_a_member_rename_needs_the_same_marks_too() -> None:
+    member = claim(
+        "rename_member",
+        "acme.Model.parse_raw",
+        "acme.Model.model_validate_json",
+        sentence("Model.parse_raw(data)"),
+    )
+    news = {
+        **NEWS,
+        "Model.model_validate_json": function(param("b"), param("content_type", "None")),
+    }
+    view = replace(VIEW, news=news)
+    assert run(member, view=view).accepted[0].route == "member"
+    classy = replace(news["Model.model_validate_json"], labels=("classmethod",))
+    moved = replace(view, news={**news, "Model.model_validate_json": classy})
+    refused("in_the_diff", member, view=moved)
+
+
+def test_a_pattern_is_a_rewrite_only_if_every_function_it_calls_is_marked_as_the_old_one_was() -> (
+    None
+):
+    marked = replace(function(param("obj")), labels=("async",))
+    news = {**NEWS, "TypeAdapter.validate_python": marked}
+    assert [one.route for one in run(PATTERN).accepted] == ["pattern"]
+    refused("in_the_diff", PATTERN, view=replace(VIEW, news=news))
+    olds = {**OLDS, "parse_obj_as": replace(OLDS["parse_obj_as"], labels=("async",))}
+    assert [
+        one.route for one in run(PATTERN, view=replace(VIEW, olds=olds, news=news)).accepted
+    ] == ["pattern"]
+
+
+def test_a_pattern_whose_after_does_not_spell_the_name_the_claim_gives_is_no_rewrite() -> None:
+    view = replace(VIEW, news={**NEWS, **SHAPES})
+    other = {**PATTERN, "after": "acme.keyed($t, k=$v)"}
+    refused("in_the_diff", other, view=view)
+
+
+def test_a_dunder_name_in_after_is_refused_before_the_release_is_asked() -> None:
+    refused("pattern_refused", {**MEMBER, "after": "$m.__class__($d)"})
+
+
 # The quote.
 
 
@@ -325,9 +510,7 @@ def test_a_quote_the_guide_does_not_hold_keeps_the_claim_out() -> None:
 
 
 def test_a_quote_is_found_whatever_its_whitespace_and_never_whatever_its_case() -> None:
-    spaced = (
-        "  The function   old_total is gone,\n and total_of takes its place with the same arguments"
-    )
+    spaced = "  " + sentence("The function old").replace("is now", "is\n  now").replace(" ", "   ")
     assert run({**RENAME, "quote": spaced}).accepted
     refused("quote_missing", {**RENAME, "quote": spaced.lower()})
 
@@ -354,6 +537,18 @@ def test_a_quote_carries_a_few_claims_and_no_more() -> None:
     )
     names = ("keep", "legacy_fn", "Model", "Old")
     many = [claim("flag", f"acme.{name}", None, shared.text) for name in names]
+    done = run(*many, view=OPEN, text=shared)
+    assert [one.path for one in done.accepted] == list(names[: guided.MAX_PER_QUOTE])
+    assert done.rejected == {"quote_reused": 1}
+
+
+def test_quotes_that_overlap_in_the_guide_are_one_quote_however_each_is_cut() -> None:
+    shared = make_guide(
+        "Every one of keep, legacy_fn, Model and Old changed in this release of acme."
+    )
+    cuts = (shared.text, shared.text[:60], shared.text[10:], shared.text[5:70])
+    names = ("keep", "legacy_fn", "Model", "Old")
+    many = [claim("flag", f"acme.{name}", None, cut) for name, cut in zip(names, cuts, strict=True)]
     done = run(*many, view=OPEN, text=shared)
     assert [one.path for one in done.accepted] == list(names[: guided.MAX_PER_QUOTE])
     assert done.rejected == {"quote_reused": 1}
@@ -561,7 +756,12 @@ def test_the_line_says_what_was_kept_and_why_the_rest_was_not() -> None:
 
 def test_the_record_keeps_the_answers_the_counts_and_what_became_of_each_claim() -> None:
     done = guided.accept(drafted([RENAME, FLAG], None, official=True), VIEW)
-    record = done.document()
+    record = done.document(DAY)
+    assert (record["retrieved_at"], record["stopped"], record["parts_not_asked"]) == (
+        "2026-10-27",
+        None,
+        0,
+    )
     assert record["rejected"] == {"in_the_diff": 1}
     assert (record["drafted"], record["accepted"], record["answers_failed"]) == (2, 1, 1)
     assert (record["provider"], record["model"], record["tokens_in"]) == ("fake", "m-1", 7)
@@ -575,7 +775,8 @@ def test_the_record_keeps_the_answers_the_counts_and_what_became_of_each_claim()
 def test_a_pack_that_failed_its_checks_with_the_claims_counts_them_as_so() -> None:
     done = guided.reject_all(guided.accept(drafted([RENAME, FLAG]), VIEW), "a check failed")
     assert (done.accepted, done.rejected) == ((), {"in_the_diff": 1, "pack_failed": 1})
-    assert done.rows[-1] == ("", "pack_failed", "a check failed")
+    assert [row[1] for row in done.rows] == ["pack_failed", "in_the_diff"]
+    assert done.rows[0] == ("acme.old_total", "pack_failed", "a check failed")
     assert set(done.rejected) <= set(guided.REASONS)
 
 
@@ -639,6 +840,10 @@ def source(
     return guided.Source(texts, (False,) * len(texts), drafter, **more)
 
 
+def kept(replies: dict[str, tuple[str | None, ...]], **more: Any) -> guided.Record:
+    return guided.Record(replies, DAY, **more)
+
+
 def test_every_part_of_every_guide_is_put_to_the_model_in_order_and_its_cost_is_added() -> None:
     first = replace(THE_GUIDE, chunks=("one", "two"))
     second = replace(THE_GUIDE, ref="h.md", sha256="b" * 64, chunks=("three",))
@@ -662,8 +867,60 @@ def test_a_part_the_model_fails_is_said_and_left_empty_and_the_rest_go_on() -> N
     assert (done.tokens_in, done.tokens_out) == (10, 5)
 
 
+BROKEN = base.ProviderError("endpoint_unreachable", "no route")
+
+
+def test_after_two_failures_in_a_row_the_rest_are_not_asked_and_are_counted() -> None:
+    told: list[str] = []
+    many = replace(THE_GUIDE, chunks=tuple("abcde"))
+    model = Model("1", BROKEN, BROKEN, "never")
+    done = source(model, (many,)).draft(NAMES, told.append)
+    assert done.pieces[0].replies == ("1", None, None, None, None)
+    assert (done.stopped, done.unasked, len(model.asked)) == ("failures", 2, 3)
+    assert told[-1] == "g.md: the rest is not put to the model, after 2 failures one after another."
+    assert [line for line in told if "not put" in line] == told[-1:]
+    outcome = guided.accept(done, VIEW)
+    assert outcome.line().endswith(
+        "stopped after 2 failures one after another, 2 part(s) not asked."
+    )
+    assert outcome.document(DAY)["stopped"] == "failures"
+    assert outcome.document(DAY)["parts_not_asked"] == 2
+
+
+def test_a_part_that_is_answered_between_failures_starts_the_count_again() -> None:
+    many = replace(THE_GUIDE, chunks=tuple("abcde"))
+    model = Model(BROKEN, "1", BROKEN, "2", BROKEN)
+    done = source(model, (many,)).draft(NAMES, lambda _line: None)
+    assert (done.stopped, done.unasked, len(model.asked)) == (None, 0, 5)
+
+
+def test_the_count_and_the_stop_go_on_into_the_next_guide() -> None:
+    first = replace(THE_GUIDE, chunks=("a", "b"))
+    second = replace(THE_GUIDE, ref="h.md", sha256="b" * 64, chunks=("c", "d"))
+    model = Model(BROKEN, BROKEN)
+    done = source(model, (first, second)).draft(NAMES, lambda _line: None)
+    assert [piece.replies for piece in done.pieces] == [(None, None), (None, None)]
+    assert (done.stopped, done.unasked, len(model.asked)) == ("failures", 2, 2)
+
+
+def test_a_guide_that_takes_longer_than_the_deadline_is_not_asked_for_the_rest() -> None:
+    many = replace(THE_GUIDE, chunks=("a", "b", "c"))
+    model = Model("1", "never")
+    ticks = iter([0.0, 10.0, guided.DEADLINE_S + 1])
+    done = source(model, (many,)).draft(NAMES, lambda _line: None, clock=lambda: next(ticks))
+    assert done.pieces[0].replies == ("1", None, None)
+    assert (done.stopped, done.unasked, len(model.asked)) == ("deadline", 2, 1)
+    assert guided.accept(done, VIEW).line().endswith("stopped after too long, 2 part(s) not asked.")
+
+
+def test_every_word_a_stop_has_is_in_the_format_page() -> None:
+    page = (ROOT / "docs" / "PACK_SPEC.md").read_text(encoding="utf-8")
+    for word in guided.STOPS:
+        assert f"`{word}`" in page, word
+
+
 def test_with_answers_kept_no_model_is_asked_and_the_provider_is_replay() -> None:
-    done = source(None, replies={"a" * 64: ("kept",)}).draft(NAMES, lambda _line: None)
+    done = source(None, kept=kept({"a" * 64: ("kept",)})).draft(NAMES, lambda _line: None)
     assert (done.pieces[0].replies, done.provider, done.model, done.tokens_in) == (
         ("kept",),
         "replay",
@@ -673,9 +930,14 @@ def test_with_answers_kept_no_model_is_asked_and_the_provider_is_replay() -> Non
 
 
 def test_answers_kept_for_other_text_or_in_other_numbers_are_not_used() -> None:
-    for kept in ({}, {"b" * 64: ("x",)}, {"a" * 64: ("x", "y")}):
+    other: list[dict[str, tuple[str | None, ...]]] = [
+        {},
+        {"b" * 64: ("x",)},
+        {"a" * 64: ("x", "y")},
+    ]
+    for replies in other:
         with pytest.raises(guide.GuideError) as raised:
-            source(None, replies=kept).draft(NAMES, lambda _line: None)
+            source(None, kept=kept(replies)).draft(NAMES, lambda _line: None)
         assert raised.value.reason == "unreadable"
         assert "g.md" in str(raised.value)
 
@@ -685,14 +947,34 @@ def test_the_digest_follows_the_text_and_not_the_name() -> None:
     assert source(None, (THE_GUIDE,)).digest == source(None, (other,)).digest
     changed = replace(THE_GUIDE, sha256="c" * 64)
     assert source(None, (THE_GUIDE,)).digest != source(None, (changed,)).digest
-    assert len(source(None).digest) == 8
+    assert len(source(None).digest) == 12
 
 
 def test_the_answers_a_record_keeps_are_read_back_by_the_hash_of_the_guide(tmp_path: Path) -> None:
     done = guided.accept(drafted([RENAME], None), VIEW)
     path = tmp_path / guided.RECORD
-    path.write_text(json.dumps(done.document()), encoding="utf-8")
-    assert guided.replies_kept(path) == {"a" * 64: (json.dumps({"claims": [RENAME]}), None)}
+    path.write_text(json.dumps(done.document(DAY)), encoding="utf-8")
+    assert guided.replies_kept(path) == kept({"a" * 64: (json.dumps({"claims": [RENAME]}), None)})
+
+
+def test_a_record_that_stopped_asking_says_so_when_its_answers_are_fed_back(tmp_path: Path) -> None:
+    done = guided.accept(drafted([RENAME]), VIEW)
+    stopped = replace(done, drafted=replace(done.drafted, stopped="failures", unasked=3))
+    (tmp_path / "r.json").write_text(json.dumps(stopped.document(DAY)), encoding="utf-8")
+    again = source(None, kept=guided.replies_kept(tmp_path / "r.json")).draft(NAMES, print)
+    assert (again.stopped, again.unasked) == ("failures", 3)
+
+
+def good(**more: object) -> str:
+    return json.dumps(
+        {
+            "guides": [{"sha256": "a", "replies": ["x", None]}],
+            "retrieved_at": "2026-10-27",
+            "stopped": None,
+            "parts_not_asked": 0,
+            **more,
+        }
+    )
 
 
 @pytest.mark.parametrize(
@@ -705,7 +987,18 @@ def test_the_answers_a_record_keeps_are_read_back_by_the_hash_of_the_guide(tmp_p
         '{"guides": 3}',
         '{"guides": [{"sha256": "a", "replies": [1]}]}',
         '{"guides": [{"sha256": [], "replies": []}]}',
+        '{"guides": [{"sha256": "a", "replies": "xy"}]}',
+        '{"guides": [{"sha256": "a", "replies": {"0": "x"}}]}',
+        '{"guides": [3]}',
+        good(retrieved_at=None),
+        good(retrieved_at="yesterday"),
+        good(retrieved_at=20261027),
+        good(stopped="never"),
+        good(parts_not_asked="3"),
+        "[" * 200_000,
+        '{"guides": [{"sha256": "a", "replies": [' + "[" * 200_000,
     ],
+    ids=[*"abcdefghijklmno", "deep", "deeper"],
 )
 def test_a_file_that_is_no_record_of_answers_is_refused(tmp_path: Path, body: str) -> None:
     (tmp_path / "r.json").write_text(body, encoding="utf-8")
@@ -715,6 +1008,26 @@ def test_a_file_that_is_no_record_of_answers_is_refused(tmp_path: Path, body: st
     assert str(tmp_path) not in str(raised.value)
     with pytest.raises(guide.GuideError):
         guided.replies_kept(tmp_path / "missing.json")
+
+
+def test_a_record_that_is_not_a_small_regular_file_is_refused_before_it_is_read(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "big.json").write_text(good() + " " * guided.RECORD_BYTES, encoding="utf-8")
+    with pytest.raises(guide.GuideError) as big:
+        guided.replies_kept(tmp_path / "big.json")
+    assert big.value.reason == "too_large"
+    with pytest.raises(guide.GuideError) as folder:
+        guided.replies_kept(tmp_path)
+    assert folder.value.reason == "unreadable"
+
+
+@posix_only("a named pipe")
+def test_a_named_pipe_is_no_record_and_is_not_waited_for(tmp_path: Path) -> None:
+    subprocess.run(["mkfifo", str(tmp_path / "pipe.json")], check=True)
+    with pytest.raises(guide.GuideError) as raised:
+        guided.replies_kept(tmp_path / "pipe.json")
+    assert raised.value.reason == "unreadable"
 
 
 # Whose guide it is.
@@ -739,6 +1052,21 @@ LINKS = {
         ("https://acme.example/other", False),
         ("https://evil.docs.acme.example/migrate", False),
         ("http://docs.acme.example/migrate", False),
+        ("https://docs.acme.example:443/migrate", True),
+        ("https://docs.acme.example:8443/migrate", False),
+        ("https://docs.acme.example:99999/migrate", False),
+        ("https://github.com/acme/kit/../../evil/kit/blob/main/MIGRATING.md", False),
+        ("https://github.com/acme/kit/./blob/main/MIGRATING.md", False),
+        ("https://github.com/acme/kit/%2e%2e/%2e%2e/evil/kit", False),
+        ("https://github.com/acme/kit/a%2fb", False),
+        ("https://github.com/acme/kit/a%5Cb", False),
+        ("https://github.com/acme/kit/a\\b", False),
+        ("https://github.com/acme/kit-evil/blob/main/MIGRATING.md", False),
+        ("https://docs.acme.example.evil.example/migrate", False),
+        ("https://evil.example@docs.acme.example/migrate", True),
+        ("https://docs.acme.example@evil.example/migrate", False),
+        ("https://docs.acme.example./migrate", False),
+        ("https://docs.\u0430cme.example/migrate", False),
         (None, False),
     ],
 )

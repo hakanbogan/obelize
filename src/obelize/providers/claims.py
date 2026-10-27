@@ -2,18 +2,19 @@
 
 A claim is a statement that code then checks against the guide and the two releases
 (`packtools/guided.py`). The model is given the guide's text and the names of the library and its
-releases, nothing of any repository, and has no tool. An answer that is not exactly a JSON object
-with a list of claims is refused whole, and a claim that does not fit the closed shape is counted as
-malformed; nothing is repaired.
+releases, and has no tool. An answer that is not exactly one JSON object with a list of claims is
+refused whole, and a claim that does not fit the closed shape is counted as malformed. Nothing is
+repaired: the one thing tolerated is white space around the object, or a single code fence that is
+the whole answer. Prose around the object, a byte order mark and a key written twice are refused.
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Final, Literal
+import json
+import re
+from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
-
-from obelize.providers import openai_compat as adapter
 
 KINDS: Final = ("rename_symbol", "rename_member", "rewrite_pattern", "flag")
 # The most claims one answer may hold: a piece of a guide states far fewer.
@@ -90,7 +91,10 @@ class ReplyRefusedError(ValueError):
 
 def question(*, distribution: str, old: str, new: str, module: str, ref: str, text: str) -> str:
     """The user message: five facts and the text between markers, which the text cannot contain."""
-    shown = text.replace(BEGIN, "").replace(END, "")
+    shown = text
+    # Taking one out can join the pieces of another, so this goes on until neither is there.
+    while BEGIN in shown or END in shown:
+        shown = shown.replace(BEGIN, "").replace(END, "")
     head = [
         f"library: {distribution}",
         f"old release: {old}",
@@ -106,7 +110,7 @@ def question(*, distribution: str, old: str, new: str, module: str, ref: str, te
 def read(reply: str) -> tuple[list[Claim], int]:
     """The claims in an answer, and how many of its claims were not the shape asked for. Raises
     `ReplyRefusedError` for an answer that is not `{"claims": [...]}` and nothing else."""
-    answer = adapter._object(reply)
+    answer = _object(reply)
     if answer is None or set(answer) != {"claims"}:
         raise ReplyRefusedError('the answer is not one JSON object with only a "claims" key')
     listed = answer["claims"]
@@ -114,6 +118,28 @@ def read(reply: str) -> tuple[list[Claim], int]:
         raise ReplyRefusedError(f"claims is not a list of at most {MAX_CLAIMS}")
     found = [claim for item in listed if (claim := _claim(item)) is not None]
     return found, len(listed) - len(found)
+
+
+_FENCED: Final = re.compile(r"\A```[A-Za-z]*\n(.*)\n```\Z", re.DOTALL)
+
+
+def _object(reply: str) -> dict[str, Any] | None:
+    """The one JSON object an answer is, with no key twice, or `None`."""
+    text = reply.strip()
+    if fenced := _FENCED.match(text):
+        text = fenced[1]
+    try:
+        value = json.loads(text, object_pairs_hook=_once)
+    except (ValueError, RecursionError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _once(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    found = dict(pairs)
+    if len(found) != len(pairs):
+        raise ValueError("a key is written twice")
+    return found
 
 
 def _claim(item: object) -> Claim | None:
