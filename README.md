@@ -7,7 +7,6 @@ migrations from `google-generativeai` to `google-genai`, `numpy` 1.x to 2.x, `op
 `setuptools`, and the modules Python 3.12 and 3.13 removed), and for another library it makes one
 from two of its releases.
 
-[![PyPI](https://img.shields.io/pypi/v/obelize)](https://pypi.org/project/obelize/)
 [![Python](https://img.shields.io/pypi/pyversions/obelize)](https://pypi.org/project/obelize/)
 [![Licence](https://img.shields.io/pypi/l/obelize)](https://github.com/hakanbogan/obelize/blob/main/LICENSE)
 [![CI](https://github.com/hakanbogan/obelize/actions/workflows/ci.yml/badge.svg)](https://github.com/hakanbogan/obelize/actions/workflows/ci.yml)
