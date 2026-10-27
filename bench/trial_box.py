@@ -667,7 +667,7 @@ def scrub(text: str, work: str) -> str:
 
 
 def tail(output: str, work: str) -> str:
-    """The end of the output, for a run that did not reach a verdict."""
+    """The end of the output, for a run that reached no verdict or none that compares."""
     return scrub("\n".join(output.splitlines()[-TAIL_LINES:])[-TAIL_CHARS:], work)
 
 
@@ -706,7 +706,9 @@ def repository_record(
         "exit_code": outcome.exit_code,
         "oom": outcome.oom,
         "seconds": round(seconds, 1),
-        "tail": tail(outcome.output, work) if status in ("error", "timeout") else None,
+        "tail": tail(outcome.output, work)
+        if status in ("error", "timeout", "inconclusive")
+        else None,
     }
 
 

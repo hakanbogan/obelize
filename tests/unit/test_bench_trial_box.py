@@ -1014,6 +1014,18 @@ def test_a_run_with_no_verdict_keeps_the_end_of_its_output_with_no_path_of_this_
     assert len(make(outcome("x" * 9000, 6))["tail"]) == box.TAIL_CHARS
 
 
+def test_an_inconclusive_trial_keeps_the_end_of_its_output_to_say_why() -> None:
+    record = make(
+        outcome(
+            f"no tests ran in /work/repo\n{INCONCLUSIVE_LINE}",
+            6,
+            trial_json(status="inconclusive", reason="no_junit"),
+        )
+    )
+    assert record["status"] == "inconclusive"
+    assert "no tests ran in <repo>" in record["tail"]
+
+
 def test_a_timeout_records_what_the_trial_line_said_before_it() -> None:
     record = make(outcome(f"{OK_LINE[:30]}", None, timed_out=True, oom=True))
     assert (record["status"], record["reason"], record["exit_code"], record["oom"]) == (
