@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
     from packaging.version import Version
 
-    from obelize.commands.fix import Scanned
+    from obelize.commands.fix import Outcome, Scanned
     from obelize.config import LoadedConfig, Overrides
     from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig, ScanSpec
     from obelize.net import Fetcher
@@ -57,13 +57,54 @@ _UNJUDGED = {
     "no_junit": "The tests produced no result obelize can read, so nothing was compared.",
     "timeout": "The tests did not finish in time, so nothing was compared. Raise --timeout, or "
     "name the part that runs on its own with --test-command.",
-    "nothing_to_compare": "No test passed before the migration, or it changed no file (it writes "
-    "none while every file that uses the library holds a place left for you), so nothing was "
-    "compared.",
+    "nothing_to_compare": "No test passed before the migration, so nothing was compared.",
     "unresolved": "Places the pack flags are left, and the library has one release for both "
     "APIs, so the rules write nothing until each has moved. See the trial's evidence.",
     "tests_broke": "",
 }
+
+
+def _writes_none(outcome: Outcome, by_file: bool) -> str:
+    """What held a repository the last run of the rules wrote no file for, from its own rows."""
+    from obelize.models import ATOMICITY_BAIL, REPO_ATOMICITY_BAIL
+
+    def few(names: Sequence[str]) -> str:
+        return ", ".join(names[:3]) + (", ..." if len(names) > 3 else "")
+
+    atomic = {ATOMICITY_BAIL, REPO_ATOMICITY_BAIL}
+    pins = outcome.manifest_plan
+    lines = sorted(
+        (str(row.path), row.line)
+        for row in pins.findings
+        if row.scan_status == "needs_review" and row.bail not in atomic
+    )
+    roots = [row for row in outcome.record.withheld if row.bail not in atomic]
+    named = {row.path for row in roots}
+    places = sorted({row.path for row in roots if (row.path, row.line) not in lines})
+    # A file that holds the pin without a place of its own; where no line is declared none waits.
+    unread = [path for path in pins.blocking if path not in named] if pins.findings else []
+    said = []
+    if lines:
+        said.append(
+            f"The dependency line at {few([f'{p}:{n}' for p, n in lines])} cannot be written."
+        )
+    if unread:
+        said.append(
+            f"{few(unread)} may call the library and obelize cannot move it, so the dependency "
+            f"line waits for it."
+        )
+    if places:
+        said.append(
+            f"A place in {few(places)} is left for you"
+            + (
+                "."
+                if by_file
+                else ", and with an agent set up a repository moves whole or not at all."
+            )
+        )
+    return " ".join(said) or "No file uses the library in a way a rule writes."
+
+
 _BUNDLED_DEFECT = (
     "This pack ships with obelize, so this is a bug in obelize. "
     "Please report it at https://github.com/hakanbogan/obelize/issues."
@@ -415,13 +456,15 @@ def _fix(
     as_json: bool,
     stated: tuple[str, str] | None = None,
     by_file: bool = False,
+    agent: bool = False,
     again: str = "",
     trialed: bool = False,
 ) -> None:
     """`fix`, to which `upgrade` adds the release it was told the code is written for, the rule
     that a file is written without waiting for the others, which only a trial after it can judge,
-    `again`, its own command that writes a plan `fix` would not, and `trialed`: the write follows
-    a trial, which stands in for the verification command it has none of."""
+    `agent`, whether one is set up, which keeps a repository whole and which a dry run says,
+    `again`, its own command that writes a plan `fix` would not, and `trialed`: the write follows a
+    trial, which stands in for the verification command it has none of."""
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
     from obelize.config import ConfigError
@@ -456,6 +499,7 @@ def _fix(
         model_flagged=provider is not None or accept_model,
         stated=stated,
         by_file=by_file,
+        agent=agent,
     )
     if show_context:
         try:
@@ -1373,6 +1417,11 @@ def upgrade(
         raise typer.Exit(2)
     try:
         agent_name, agent_model = _agent(agent)
+        # A file at a time, but not beside an agent: it is asked about the places a pack flags only
+        # when the first run of the rules writes nothing, which a library that keeps its name does
+        # until each has moved. Where one is set up, the dry run, the trial and the write all
+        # use that rule, so the dry run shows the plan the apply starts from.
+        by_file = agent_name is None
         if agent is None and not (apply_changes and (branch or branch_name)):
             agent_name = None
         config, _ = _settings(root, _overrides(None, None, False))
@@ -1437,10 +1486,6 @@ def upgrade(
         )
     stated = (project.name, str(now)) if old else None
     wants_branch = bool(branch or branch_name)
-    # A file at a time, but not beside the agent: it is asked about the places a pack flags only
-    # when the first run of the rules writes nothing, which a library that keeps its name does
-    # until each has moved.
-    by_file = agent_name is None
     if agent_name and not (apply_changes and wants_branch):
         typer.echo(
             "--agent puts code to a model, and what a model helped write is lines to review: "
@@ -1493,6 +1538,7 @@ def upgrade(
         as_json=False,
         stated=stated,
         by_file=by_file,
+        agent=not by_file,
         again=again,
         trialed=apply_changes,
     )
@@ -1691,6 +1737,8 @@ def _trial(
     stopped: list[str] = []
     # The files the last run of the rules left as they were for a place of their own.
     apart: list[str] = []
+    # What held the repository where the last run wrote no file, none if a declaration stopped it.
+    unwritten: list[str] = []
 
     def migrate(tree: Path, elsewhere: Collection[str]) -> list[str]:
         config, source = _settings(tree, _overrides(None, None, True))
@@ -1721,6 +1769,7 @@ def _trial(
             if row.scan_status == "needs_review"
         ]
         apart[:] = outcome.apart
+        unwritten[:] = [] if stopped else [_writes_none(outcome, by_file)]
         return [row.path for row in outcome.record.file_edits]
 
     try:
@@ -1773,7 +1822,10 @@ def _trial(
     if verdict.status == "fail":
         raise typer.Exit(3)
     if verdict.status != "pass":
-        typer.echo(_UNJUDGED[verdict.reason or "no_junit"], err=True)
+        said = _UNJUDGED[verdict.reason or "no_junit"]
+        if verdict.reason == "nothing_to_compare" and not done.changes:
+            said = " ".join(("The migration changed no file.", *unwritten, "Nothing was compared."))
+        typer.echo(said, err=True)
         for text in stopped:
             typer.echo(text, err=True)
         raise typer.Exit(6)

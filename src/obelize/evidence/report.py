@@ -247,7 +247,11 @@ def fixed(
     for row in plan.files:
         mark = "" if not applying else ("  written" if row.path in written else "  not written")
         lines.append(f"  {row.path}  ({row.hunks} hunk(s)){mark}")
-    lines.extend(_partial(len(written) if applying else len(plan.files), apart, applying))
+    lines.extend(
+        _partial(
+            len(written) if applying else len(plan.files), apart, applying, bool(held.findings)
+        )
+    )
     if not applying and patch:
         lines.extend(["", *diff(patch, evidence, environ)])
     lines.extend(_check(plan, written if applying else {row.path for row in plan.files}, applying))
@@ -731,19 +735,31 @@ def _mode(record: RunRecord, code: Callable[[str], str], *, planned: bool) -> st
     return f"{code('apply')}: {len(record.file_edits)} file(s) written."
 
 
-def _partial(done: int, apart: Sequence[str], applying: bool) -> list[str]:
+def _follow(verb: str, pinned: bool) -> str:
+    """What becomes of the dependency line while files are left, said only where one moves."""
+    if pinned:
+        return (
+            f"The dependency line follows the files {verb}, so the files left meet the new "
+            f"release until those places are moved."
+        )
+    return (
+        "No dependency line moves with them, so the files left meet the new release wherever it "
+        "is installed until those places are moved."
+    )
+
+
+def _partial(done: int, apart: Sequence[str], applying: bool, pinned: bool) -> list[str]:
     """The line that keeps a move of some files from reading as the whole of it."""
     if not apart:
         return []
     named = ", ".join(apart[:ROOT_ROWS]) + (
         f" and {len(apart) - ROOT_ROWS} more" if len(apart) > ROOT_ROWS else ""
     )
+    verb = "written" if applying else "planned"
     return [
         "",
-        f"Part of the move: {done} file(s) {'written' if applying else 'planned'}, "
-        f"{len(apart)} left as they were because a place in each is left for you ({named}). The "
-        f"dependency line follows the files {'written' if applying else 'planned'}, so the files "
-        f"left meet the new release until those places are moved.",
+        f"Part of the move: {done} file(s) {verb}, {len(apart)} left as they were because a "
+        f"place in each is left for you ({named}). {_follow(verb, pinned)}",
     ]
 
 
@@ -766,10 +782,9 @@ def _held_section(
         "## Held back",
         "",
         f"This run moves part of the migration: {done} file(s) {verb} and {len(apart)} left as "
-        f"they were, because a place in each is left for you. The dependency line follows the "
-        f"files {verb}, so the files left meet the new release until those places are moved. "
-        f"Tests that passed before passing again show that those tests still pass, not that the "
-        f"rest has moved.",
+        f"they were, because a place in each is left for you. "
+        f"{_follow(verb, bool(run.manifest_plan.findings))} Tests that passed before passing "
+        f"again show that those tests still pass, not that the rest has moved.",
         "",
         "| File | Places left | Reasons |",
         "|---|---:|---|",

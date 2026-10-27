@@ -978,16 +978,22 @@ def test_a_release_the_person_gave_stands_for_a_library_no_manifest_declares(
     assert gated(repository(tmp_path / "again", {})).blocked[0].stated == ""
 
 
-def test_a_release_the_person_gave_does_not_overrule_a_declaration(tmp_path: Path) -> None:
-    """The declaration is the repository's word: below the floor it still blocks, and one that
-    names no version is taken for the pack's newest release, as it was."""
+def test_a_release_the_person_gave_does_not_overrule_a_declaration_but_replaces_what_is_taken(
+    tmp_path: Path,
+) -> None:
+    """The declaration is the repository's word: one that rules the release out still blocks. One
+    that names no version is taken for the pack's newest release, and where the person's release
+    stands it is the release instead."""
     held = gated(
         repository(tmp_path / "pinned", {"requirements.txt": "PyPDF2<3\n"}), stated="3.0.0"
     )
     assert [(row.path, row.stated) for row in held.blocked] == [("requirements.txt", "3.0.0")]
     assert held.stated == ()
-    bare = gated(repository(tmp_path / "bare", {"requirements.txt": "PyPDF2\n"}), stated="3.0.0")
-    assert (bare.blocked, bare.assumed, bare.stated) == ((), NEWEST, ())
+    bare = repository(tmp_path / "bare", {"requirements.txt": "PyPDF2\n"})
+    plain = gated(bare)
+    assert (plain.blocked, plain.assumed, plain.stated) == ((), NEWEST, ())
+    given = gated(bare, stated="3.0.0")
+    assert (given.blocked, given.assumed, given.stated) == ((), (), (("PyPDF2", "3.0.0"),))
 
 
 @pytest.mark.parametrize("stated", ["2.9", "4.0", "3.0.0rc1"])

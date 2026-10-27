@@ -34,10 +34,16 @@ admits it:
   stop with the release said beside it.
 - An environment marker or extras change nothing: the version set is what is asked.
 
-The pack's own inference (`from.newest`, `from.since`, ADR-056) still comes first where it lets a
-declaration pass, and is what the run says it took. The person's word is taken where the declarations
-would otherwise stop the run: when something in the repository contradicts that inference (a lock, a
-constraints file, a resolver setting), a release the declarations admit stands instead.
+Where it stands, the person's word is the release the run goes by, in the record and in the text,
+and it wins over the pack's own inference (`from.newest`, `from.since`, ADR-056): `pydantic>=1.8`
+with `--from 1.10.26` is taken as 1.10.26 and not as the pack's newest release, so `Scan.stated` is
+set and `Scan.assumed` is empty, whether or not something in the repository contradicts the
+inference. Where it does not stand (the pack does not cover it, or a declaration rules it out)
+nothing changes: the run says what the pack took, or it is blocked. A release the declarations pass
+on their own with no inference at all (a bare `acme-kit>=1.2` and a pack with no `from.newest`) is
+not the person's to claim: nothing is assumed and nothing is stated. No rule reads either field,
+and none of a pack's changes depends on the release, so the plan is the same whichever is said; the
+trial installs the stated release in its first environment, whatever the pack would have taken.
 
 ### D2. What stops
 
@@ -53,8 +59,9 @@ code joins the closed vocabulary.
 ### D3. The run says so
 
 `Scan.stated` and `packs[].stated` stay set only where the statement decided something: the
-declarations would have stopped the run, or there were none, and the release let it pass. A
-declaration that passes the floor on its own and admits the release leaves them empty. Where a
+declarations would have stopped the run, or there were none, or the pack would have taken a release
+of its own for them, and the release replaced that. A declaration that passes the floor on its own
+and admits the release leaves them empty. Where a
 manifest declares the library the summary and `REPORT.md` say "is declared with a range that admits
 (release) and other releases, so this migration takes it as (release), the release `--from` names";
 where none does, ADR-072's words. A block carries `covered`, which says that the pack covers the

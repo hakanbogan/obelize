@@ -1115,14 +1115,24 @@ def test_a_warning_is_printed_for_an_edit_that_is_written_and_not_for_one_that_i
 
 def test_a_move_of_some_files_names_the_files_left_up_to_five_and_counts_the_rest() -> None:
     """The line that keeps a part of a move from reading as the whole of it."""
-    assert report._partial(2, (), True) == []
-    few = report._partial(2, ("a.py", "b.py"), True)
+    assert report._partial(2, (), True, True) == []
+    few = report._partial(2, ("a.py", "b.py"), True, True)
     assert few[1] == (
         "Part of the move: 2 file(s) written, 2 left as they were because a place in each is left "
         "for you (a.py, b.py). The dependency line follows the files written, so the files left "
         "meet the new release until those places are moved."
     )
-    many = report._partial(3, tuple(f"f{index}.py" for index in range(7)), False)
+    many = report._partial(3, tuple(f"f{index}.py" for index in range(7)), False, True)
     assert "3 file(s) planned, 7 left as they were" in many[1]
     assert "(f0.py, f1.py, f2.py, f3.py, f4.py and 2 more)" in many[1]
     assert "follows the files planned" in many[1]
+
+
+def test_a_dependency_line_is_said_to_follow_the_files_only_where_one_moves() -> None:
+    bare = report._partial(2, ("a.py",), False, False)
+    assert bare[1].endswith(
+        "No dependency line moves with them, so the files left meet the new release wherever it "
+        "is installed until those places are moved."
+    )
+    assert "follows" not in bare[1]
+    assert "follows the files written" in report._follow("written", True)

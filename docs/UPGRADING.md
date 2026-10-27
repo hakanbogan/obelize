@@ -38,12 +38,13 @@ distribution) has nothing to move: `upgrade` says so and exits `0`.
 or every declaration admits that release (`pydantic`, `pydantic<2`, `pydantic>=1.8` and
 `pydantic = "^1.9.1"` all admit `--from 1.10.26`), the plan takes it as that release, says so in its
 summary and in `REPORT.md`, and records it as `stated` in `run.json`. A declaration that admits the
-release and others is taken against your word: the plan goes with yours. One that rules it out
-(`pydantic==2.5.0`, `pydantic>=2`, `pydantic<1.5`), or that obelize cannot read, stops the plan and
-says so, and so does a release the pack does not cover. Every declaration counts, in every file
-obelize reads, a requirements file that is a lock too; a lock file of another kind (`uv.lock`,
-`poetry.lock`) is not read. A dry run takes your word for the release; `--apply` installs it in the
-trial, so your tests are what check it.
+release and others is taken against your word: the plan goes with yours, also where the pack would
+take a release of its own for that declaration (its newest, for a requirement with no ceiling). One
+that rules it out (`pydantic==2.5.0`, `pydantic>=2`, `pydantic<1.5`), or that obelize cannot read,
+stops the plan and says so, and so does a release the pack does not cover. Every declaration counts,
+in every file obelize reads, a requirements file that is a lock too; a lock file of another kind
+(`uv.lock`, `poetry.lock`) is not read. A dry run takes your word for the release; `--apply`
+installs it in the trial, so your tests are what check it.
 
 What the made pack does is deliberately small:
 
@@ -120,9 +121,13 @@ before still pass, not that the rest has moved: the files left run on the new re
 the places in them. Without `--branch` the command ends `4` for such a move, as `fix --apply` does
 where places are left for you, and `0` where nothing is left, whether or not you set a verification
 command of your own. A repository where no file can be written, or where the dependency line itself
-cannot be written (a requirement with extras the new release does not list, a notebook that calls
-the old API), is still left whole, and its trial is `inconclusive`. `fix` keeps the whole-repository
-rule, and so does `upgrade --agent`, which asks the agent about the places first. Without tests,
+cannot be written (a requirement with extras the new release does not list), is still left whole,
+and so is one where a manifest declares the library and a notebook, a stub, a `.pyw` script or a
+file obelize could not open may call it, since none of those can be moved. A `.py` file that does
+not parse is an ordinary file left, and where no manifest declares the library nothing holds the
+repository back. The trial of such a repository is `inconclusive`, and says which of these it was.
+`fix` keeps the whole-repository rule, and so does `upgrade` where an agent is set up (`--agent`, or
+`agent.backend`), in its dry run too, which asks the agent about the places first. Without tests,
 write the migration with `obelize fix --apply` and check it another way.
 
 ## 4. Keep it on a branch

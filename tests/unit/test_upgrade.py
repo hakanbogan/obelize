@@ -370,6 +370,41 @@ def test_a_declaration_that_admits_the_release_the_person_names_lets_it_stand(
     assert (root / "requirements.txt").read_text() == f"{declared}\n"
 
 
+def test_the_release_the_person_names_is_the_one_the_run_says_where_the_pack_takes_its_newest(
+    home: Path,
+) -> None:
+    """`PyPDF2>=1.0` installs the pack's newest, 3.0.1, which the run takes for it without a
+    statement. With `--from 3.0.0` the person's word is the release, and the rules are the same."""
+    root = repo(home, pdf__py=PDF, requirements__txt="PyPDF2>=1.0\n")
+    result = runner.invoke(app, ["upgrade", "PyPDF2", "--repo", str(root), "--from", "3.0.0"])
+    assert result.exit_code == 0, result.output
+    assert "PyPDF2 is declared with a range that admits 3.0.0 and other releases" in result.output
+    assert "takes it as 3.0.0, the release --from names." in result.output
+    assert "its newest release" not in result.output
+    pack = _pack_record(root)
+    assert (pack["blocked"], pack["stated"], pack["assumed"]) == (None, "3.0.0", None)
+    report = next(root.glob(".obelize/runs/*/REPORT.md")).read_text()
+    assert "## Assumed\n\n`PyPDF2` is declared with a range that admits `3.0.0`" in report
+    assert "its newest release" not in report
+    patch = next(root.glob(".obelize/runs/*/patch.diff")).read_bytes()
+    plain = fixer.run(
+        fixer.Request(
+            root=root,
+            packs=(loader.load("py-pdf/pypdf2-to-pypdf"),),
+            named=True,
+            config=Config(),
+            source=load_config(root).source,
+            cli_commands=(),
+            mode=Mode(),
+            config_dir=home / "config",
+            environ={},
+            argv=("fix",),
+        )
+    )
+    assert (plain.assumed, plain.stated) == ((("PyPDF2", "3.0.1"),), ())
+    assert plain.patch == patch
+
+
 def test_a_range_in_pyproject_that_admits_the_release_the_person_names_lets_it_stand(
     home: Path,
 ) -> None:
@@ -1251,6 +1286,45 @@ def test_a_dry_run_plans_the_clean_files_and_the_pin_and_says_a_file_is_left(hom
     assert (root / "gone.py").read_text() == GONE
 
 
+def test_a_dry_run_that_plans_part_of_a_repository_does_not_say_the_whole_of_it_moves(
+    home: Path,
+) -> None:
+    """A model set up in the user's own file is not asked about a pack of one distribution, and the
+    line that says so must agree with the plan beneath it."""
+    (home / "config" / "obelize").mkdir(parents=True)
+    (home / "config" / "obelize" / "config.yml").write_bytes(
+        b"model:\n  provider: openai_compat\n  base_url: https://example.invalid/v1\n  model: m\n"
+    )
+    root = partial(home)
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert result.exit_code == 0, result.output
+    assert "Part of the move: 2 file(s) planned, 1 left as they were" in result.output
+    assert "The configured model was not asked: " in result.output
+    assert (
+        " is for a library that keeps its import name, so each place it flags is left in its "
+        "file for you." in result.output
+    )
+    assert "moves a whole repository" not in result.output
+
+
+def test_a_partial_plan_with_no_manifest_declaring_the_library_follows_no_dependency_line(
+    home: Path,
+) -> None:
+    root = repo(home, app__py=HELLO, gone__py=GONE, requirements__txt="pytest\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert (
+        "Part of the move: 1 file(s) planned, 1 left as they were because a place in each is "
+        "left for you (gone.py). No dependency line moves with them, so the files left meet the "
+        "new release wherever it is installed until those places are moved." in result.output
+    )
+    assert "The dependency line follows" not in result.output
+    _record, plan, report = run_documents(root)
+    assert [row["path"] for row in plan["files"]] == ["app.py"]
+    assert "No dependency line moves with them" in report
+    assert "The dependency line follows" not in report
+
+
 def test_a_move_that_passes_is_written_a_file_at_a_time_and_says_so_everywhere(
     trial: Path,
 ) -> None:
@@ -1324,13 +1398,160 @@ def test_a_partial_move_that_breaks_a_test_is_not_written(trial: Path) -> None:
     assert (root / "requirements.txt").read_text() == "acme-kit==1.0\n"
 
 
+NOTEBOOK = json.dumps(
+    {
+        "cells": [
+            {
+                "cell_type": "code",
+                "metadata": {},
+                "outputs": [],
+                "execution_count": None,
+                "source": ["import acme_kit\n", "acme_kit.old_greet('x')\n"],
+            }
+        ],
+        "metadata": {},
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+)
+UNUSED = "def hello(name):\n    return name\n"
+HELD = {
+    "every-file-a-place": (
+        {"gone__py": GONE, "test_gone__py": TESTS_GONE, "requirements__txt": "acme-kit==1.0\n"},
+        "A place in gone.py is left for you.",
+    ),
+    "more-files-than-are-named": (
+        {
+            "gone__py": GONE,
+            "gone2__py": GONE,
+            "gone3__py": GONE,
+            "gone4__py": GONE,
+            "test_gone__py": TESTS_GONE,
+            "requirements__txt": "acme-kit==1.0\n",
+        },
+        "A place in gone.py, gone2.py, gone3.py, ... is left for you.",
+    ),
+    "a-line-that-cannot-be-written": (
+        {"app__py": HELLO, "test_app__py": TESTS, "requirements__txt": "acme-kit[x]==1.0\n"},
+        "The dependency line at requirements.txt:1 cannot be written.",
+    ),
+    "a-notebook": (
+        {
+            "app__py": HELLO,
+            "test_app__py": TESTS,
+            "nb__ipynb": NOTEBOOK,
+            "requirements__txt": "acme-kit==1.0\n",
+        },
+        "nb.ipynb may call the library and obelize cannot move it, so the dependency line waits "
+        "for it.",
+    ),
+    "a-stub": (
+        {
+            "app__py": HELLO,
+            "test_app__py": TESTS,
+            "stubs__pyi": "import acme_kit\n",
+            "requirements__txt": "acme-kit==1.0\n",
+        },
+        "stubs.pyi may call the library and obelize cannot move it, so the dependency line "
+        "waits for it.",
+    ),
+    "no-file-uses-it": (
+        {"app__py": UNUSED, "test_app__py": TESTS, "requirements__txt": "acme-kit==1.0\n"},
+        "No file uses the library in a way a rule writes.",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", HELD)
+def test_a_repository_that_no_file_is_written_for_is_said_to_be_held_by_what_held_it(
+    trial: Path, name: str
+) -> None:
+    files, says = HELD[name]
+    root = repo(trial, **files)
+    result = tried(root, "--yes")
+    assert result.exit_code == 6, result.output
+    assert f"The migration changed no file. {says} Nothing was compared." in result.output
+    assert "No test passed before" not in result.output
+    assert "every file that uses the library" not in result.output
+    assert git(root, "status", "--porcelain").stdout.decode().strip() == ""
+
+
 def test_a_repository_where_every_file_holds_a_place_is_still_not_written(trial: Path) -> None:
     root = repo(trial, gone__py=GONE, test_gone__py=TESTS_GONE, requirements__txt="acme-kit==1.0\n")
     result = tried(root, "--yes")
     assert result.exit_code == 6, result.output
-    assert "it changed no file" in result.output
     assert (root / "gone.py").read_text() == GONE
     assert (root / "requirements.txt").read_text() == "acme-kit==1.0\n"
+
+
+def test_a_move_whose_tests_all_failed_before_says_so_and_not_that_it_changed_no_file(
+    trial: Path,
+) -> None:
+    failing = "import app\n\n\ndef test_hello():\n    assert app.hello('x') == 'wrong'\n"
+    root = repo(trial, app__py=HELLO, test_app__py=failing, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes")
+    assert result.exit_code == 6, result.output
+    assert "No test passed before the migration, so nothing was compared." in result.output
+    assert "changed no file" not in result.output
+    assert (root / "app.py").read_text() == HELLO
+
+
+def test_a_declaration_that_stopped_the_rules_is_not_blamed_on_a_place_or_a_line(
+    trial: Path,
+) -> None:
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit>=1.5\n")
+    result = tried(root, "--yes", "--from", "1.0")
+    assert result.exit_code == 6, result.output
+    assert "The migration changed no file. Nothing was compared." in result.output
+    assert "requirements.txt declares acme-kit >=1.5, which rules out 1.0" in result.output
+
+
+def agent_configured(trial: Path) -> None:
+    (trial / "config" / "obelize").mkdir(parents=True)
+    (trial / "config" / "obelize" / "config.yml").write_text("agent:\n  backend: claude_code\n")
+
+
+def test_a_dry_run_with_an_agent_set_up_plans_the_repository_whole_as_the_apply_does(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With `agent.backend` set the move that goes to the agent is whole or nothing, so the dry run
+    is too, and says why; a file at a time would show a plan the apply does not start from."""
+    agent_configured(trial)
+    model = Agent("    return x")
+    root = agent_world(trial, monkeypatch, model)
+    dry = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert dry.exit_code == 0, dry.output
+    assert "Part of the move" not in dry.output
+    assert (
+        "agent.backend is set, so this plan moves the whole repository or none of it, the way the "
+        "run with --apply --branch does when it asks the agent about the places a pack flags."
+    ) in dry.output
+    _record, plan, _report = run_documents(root)
+    assert plan["files"] == []
+    # The write with no branch cannot ask the agent, and is the same rule: nothing is written.
+    unbranched = tried(root, "--yes")
+    assert unbranched.exit_code == 6, unbranched.output
+    assert (
+        "A place in other.py is left for you, and with an agent set up a repository moves whole "
+        "or not at all." in unbranched.output
+    )
+    assert model.asked == []
+    written = tried(root, "--yes", "--branch")
+    assert written.exit_code == 0, written.output
+    assert len(model.asked) == 1
+    assert (root / "app.py").read_text() == HELLO
+
+
+def test_a_dry_run_says_nothing_of_an_agent_where_it_held_no_file_back(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    agent_configured(trial)
+    monkeypatch.setattr(agent_cli, "build", lambda *_args, **_kwargs: Agent(None))
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    dry = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert dry.exit_code == 0, dry.output
+    assert "agent.backend" not in dry.output
+    assert "acme_kit.greet(name)" in dry.output
 
 
 def test_a_pack_named_with_pack_still_writes_a_repository_whole_or_not_at_all(home: Path) -> None:

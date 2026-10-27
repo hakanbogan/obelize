@@ -21,16 +21,22 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from obelize.models import ScanSpec
+
 SPEC = acme_kept.SPEC
 CODE = "import acme.kit\n\nGREETER = acme.kit.Greeter()\n"
 STATED = "1.5"
 
 
 def scanned(
-    root: Path, files: Mapping[str, str], stated: str | None = STATED, code: str = CODE
+    root: Path,
+    files: Mapping[str, str],
+    stated: str | None = STATED,
+    code: str = CODE,
+    spec: ScanSpec = SPEC,
 ) -> runner.Scan:
     git_repo(root, {"main.py": code, **files})
-    return runner.scan(root, Config(), SPEC, jobs=1, stated=stated)
+    return runner.scan(root, Config(), spec, jobs=1, stated=stated)
 
 
 # (files, blocked without the statement, what the statement does with it)
@@ -239,3 +245,76 @@ def test_the_statements_of_several_packs_keep_what_each_declaration_said(tmp_pat
     bare = runner.scan(root, Config(), SPEC, jobs=1)
     assert runner.merged([first, bare], tree).narrowed == ("acme-kit",)
     assert runner.merged([bare, bare], tree).narrowed == ()
+
+
+# A pack that names its newest release takes a declaration with no ceiling for it (`>=1.0` is below
+# the floor and installs 1.9), and one that names `from.since` takes a range where the code uses
+# such a name. Where `--from` stands, the person's word is the release instead.
+NEWEST = SPEC.model_copy(update={"legacy_newest": "1.9"})
+SINCE = SPEC.model_copy(update={"legacy_since": ("acme.kit.Greeter",)})
+TAKEN = {"newest": (NEWEST, "1.9"), "since": (SINCE, ">=1.2,<2")}
+
+
+@pytest.mark.parametrize("declared", ["acme-kit>=1.0", "acme-kit>=1.0,<2", "acme-kit<2"])
+@pytest.mark.parametrize("taken", TAKEN)
+def test_the_release_the_person_names_is_the_one_a_run_takes_where_the_pack_would_take_its_own(
+    tmp_path: Path, taken: str, declared: str
+) -> None:
+    spec, inferred = TAKEN[taken]
+    files = {"requirements.txt": f"{declared}\n"}
+    plain = scanned(tmp_path / "plain", files, None, spec=spec)
+    assert (plain.blocked, plain.assumed, plain.stated) == ((), (("acme-kit", inferred),), ())
+    given = scanned(tmp_path / "given", files, spec=spec)
+    assert given.blocked == ()
+    assert (given.assumed, given.stated, given.narrowed) == (
+        (),
+        (("acme-kit", STATED),),
+        ("acme-kit",),
+    )
+
+
+@pytest.mark.parametrize(
+    ("declared", "without"),
+    [("acme-kit>=1.0,!=1.5", (("acme-kit", "1.9"),)), ("acme-kit>=1.0,<1.4", ())],
+    ids=["would-install-the-newest", "installs-no-newest"],
+)
+def test_a_declaration_that_rules_the_release_out_still_stops_it_beside_the_packs_own(
+    tmp_path: Path, declared: str, without: tuple[tuple[str, str], ...]
+) -> None:
+    files = {"requirements.txt": f"{declared}\n"}
+    assert scanned(tmp_path / "plain", files, None, spec=NEWEST).assumed == without
+    given = scanned(tmp_path / "given", files, spec=NEWEST)
+    [blocked] = given.blocked
+    assert (blocked.reason, blocked.path, blocked.stated, blocked.covered) == (
+        "legacy_version_unsupported",
+        "requirements.txt",
+        STATED,
+        True,
+    )
+    assert (given.assumed, given.stated, given.narrowed) == ((), (), ())
+
+
+@pytest.mark.parametrize("stated", ["1.1", "2.0"], ids=["below-the-pack", "above-the-pack"])
+def test_a_release_the_pack_does_not_cover_leaves_what_the_pack_takes_as_it_was(
+    tmp_path: Path, stated: str
+) -> None:
+    files = {"requirements.txt": "acme-kit>=1.0\n"}
+    plain = scanned(tmp_path / "plain", files, None, spec=NEWEST)
+    given = scanned(tmp_path / "given", files, stated, spec=NEWEST)
+    assert (plain.assumed, plain.blocked) == ((("acme-kit", "1.9"),), ())
+    assert (given.assumed, given.stated, given.narrowed, given.blocked) == (
+        plain.assumed,
+        (),
+        (),
+        (),
+    )
+
+
+@pytest.mark.parametrize("pin", ["acme-kit==1.5", "acme-kit~=1.3", "acme-kit>=1.2,<2"])
+@pytest.mark.parametrize("taken", ["none", *TAKEN])
+def test_a_release_the_declarations_pass_on_their_own_is_not_the_persons_to_claim(
+    tmp_path: Path, taken: str, pin: str
+) -> None:
+    spec = {"none": SPEC, "newest": NEWEST, "since": SINCE}[taken]
+    scan = scanned(tmp_path, {"requirements.txt": f"{pin}\n"}, spec=spec)
+    assert (scan.blocked, scan.assumed, scan.stated, scan.narrowed) == ((), (), (), ())

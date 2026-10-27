@@ -114,6 +114,12 @@ of the artifact is taken to be forged.
   or a short name such as `GITHUB~1`. At most 2,000 files, none over 8 MiB.
 - The trial must name each path. That is a consistency check between two things the same job wrote,
   not a control: `trial.json` is as forged as the bundle.
+- The files the trial lists as left as they were (`held`) are named in the text of the commit and the
+  pull request and written nowhere, so they are judged as text and not as paths: UTF-8 of at most
+  512 characters, with no backslash, no backtick (which would end the code span they are shown in)
+  and no character of the categories Cc, Cf, Zl or Zp. A name the path rule above refuses (a colon,
+  a short name, a name NFKC changes, a `..`, a file of no kind obelize writes) does not stop the pull
+  request, since nothing is written to it.
 
 The second job makes the commit it pushes: `git commit-tree` of the bundle's tree on the base
 commit, by the action's identity, with a message made from the checked values. The forged commit's

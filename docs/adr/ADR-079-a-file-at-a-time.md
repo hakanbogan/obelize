@@ -29,10 +29,16 @@ through `upgrade`, the two bundled ones (`openai/openai-0-to-1`, `numpy/numpy-1-
 `upgrade numpy` writes the files with no place left, where 0.9.0 wrote none while one was left.
 Through `fix --pack` they are as they were, and so are the three bundled packs' fixtures and hashes.
 
-With `--agent` the rule is off. The agent is asked about the flagged places only when the first run
-of the rules writes nothing, which a pack of one distribution did until each place had moved; with a
-file written at a time the first run would write the clean files, the agent would not be asked, and a
-move of those would pass with the places it was set up for never put to it.
+Where an agent is set up, `--agent` or `agent.backend` in the person's own file, the rule is off
+in all three runs. The agent is asked about the flagged places only when the first run of the rules
+writes nothing, which a pack of one distribution did until each place had moved; with a file
+written at a time the first run would write the clean files, the agent would not be asked, and a
+move of those would pass with the places it was set up for never put to it. The rule is chosen once,
+from whether an agent is set up and not from whether this run may ask it, so the dry run plans the
+whole repository where `--apply --branch` will, and says that the agent is why. `--apply` without
+`--branch` cannot ask the agent and follows the same rule: where a place is left, nothing is written
+and the trial says so. Before this, a person with `agent.backend` set saw a dry run that planned a
+file at a time and an `--apply --branch` that did not.
 
 ### D2. A file is left as it was exactly when it holds a place of its own
 
@@ -50,8 +56,14 @@ in the cases where a pin cannot go with the files:
 - no file is written, so nothing moves and the rows read as they did;
 - a manifest row is itself withheld: a line the rule cannot write (extras the new release does not
   list, a URL, a hash, an editable requirement, a constraints file), a module only the legacy
-  distribution installed that no manifest declares, or a notebook or an unreadable file that may call
-  the old API (a pack the repository rules out writes nothing at all, by the gate before this rule);
+  distribution installed that no manifest declares, or a file the rules cannot move that may call
+  the old API: a notebook that does, a stub (`.pyi`) or a `.pyw` script that names it, a file that
+  could not be opened (no hash) and one over `max_file_bytes`. Each of those holds the repository
+  only where a manifest declares the library, since a row is what holds; with `--from` and no
+  declaration nothing is held by them. A `.py` file that does not parse (a syntax error, Python 2,
+  invalid UTF-8, a null byte, nesting too deep) is not one of these: it is read, holds a place of its
+  own and is left as it was like any other, and the pin moves with the files written (a pack the
+  repository rules out writes nothing at all, by the gate before this rule);
 - a pin line sits in a file that is left (`setup.py` with a place of its own).
 
 ### D4. What was checked to compose

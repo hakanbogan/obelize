@@ -21,7 +21,10 @@ in the release that makes it.
   not check it; `--apply` does, with your tests. A declaration that rules the release out
   (`pydantic==2.5.0`, `pydantic>=2`, `pydantic<1.5`), or that obelize cannot read, stops the plan and
   says so, including one that reached the pack's floor on its own, which `--from` was not asked
-  about before. `fix`, `scan`, `--pack` and an `upgrade` without `--from` are gated as they were
+  about before. Where the pack would take a release of its own for such a declaration (its newest,
+  for `pydantic>=1.8`), your `--from` is the release the plan takes and says, and `run.json`
+  records it as `stated` and not as `assumed`. `fix`, `scan`, `--pack` and an `upgrade` without
+  `--from` are gated as they were
   ([the decision](docs/adr/ADR-080-a-stated-release-a-declaration-admits.md)).
 - `obelize upgrade` writes a file at a time where the library keeps its import name (one
   distribution for both APIs: `pydantic`, `SQLAlchemy`, `openai`, `numpy`), in its dry run, in the
@@ -37,9 +40,27 @@ in the release that makes it.
   without one in 0.9.0 and ends `4` now). A dry run that plans part of a repository ends with the
   `upgrade` command that writes it, not `fix --apply`, which would write none of it. The whole
   repository is still held where no file can be written, where the dependency line cannot be
-  written, and for `fix`, `scan`, `--pack` and `upgrade --agent`. `upgrade numpy` and
+  written, and for `fix`, `scan`, `--pack` and an `upgrade` with an agent set up. `upgrade numpy` and
   `upgrade openai` write the files that hold no place where 0.9.0 wrote none
   ([the decision](docs/adr/ADR-079-a-file-at-a-time.md)).
+- With `agent.backend` set in your own file, `obelize upgrade` moves a library that keeps its import
+  name whole or not at all in its dry run too, as the trial and the write do, and its dry run says
+  that the agent is why. The dry run used to plan a file at a time while `--apply --branch`, which
+  asks the agent, did not, so it was not a preview of it. `--apply` without `--branch`, which cannot
+  ask the agent, follows the same rule and writes nothing where a place is left; it wrote a file at
+  a time before.
+
+### Fixed
+
+- The trial of `obelize upgrade` that wrote no file says what held the repository: a place left in
+  a file, a dependency line it cannot write, or a notebook, a stub or a file it could not open that
+  may call the library. It said, for every such move, that every file held a place left for you.
+- The dry run of `upgrade` with a model set up no longer says that the model was not asked because
+  the pack moves a whole repository above a plan that moves part of one, and where no manifest
+  declares the library it no longer says that the dependency line follows the files.
+- The upgrade mode of the action publishes a move whose files left as they were have names it would
+  not write (`tools/run:all.py`, a decomposed Unicode name): they are only named in the pull
+  request, so they are checked as text, and no longer refuse a branch that was written whole.
 
 ## [0.9.0] - 2026-10-27
 

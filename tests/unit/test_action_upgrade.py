@@ -17,6 +17,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -337,17 +338,90 @@ def test_more_files_left_than_the_listing_shows_are_counted(world: World) -> Non
     [
         ("a.py", "held is not a list of strings"),
         (["a.py", 3], "held is not a list of strings"),
-        (["x`y.py"], "not a path this action publishes"),
-        (["../a.py"], "not a path this action publishes"),
-        (["notes.md"], "obelize writes no file of this kind"),
+        (["x`y.py"], "not text this action prints"),
+        (["x\\y.py"], "not text this action prints"),
+        (["x\ny.py"], "not text this action prints"),
+        (["x\x85y.py"], "not text this action prints"),
+        (["x\u2028y.py"], "not text this action prints"),
+        (["x\u202ey.py"], "not text this action prints"),
+        (["\ud800.py"], "not text this action prints"),
+        ([""], "not text this action prints"),
+        (["a" * (upgrade.MAX_NAME + 1)], "not text this action prints"),
+    ],
+    ids=[
+        "string",
+        "number",
+        "backtick",
+        "backslash",
+        "newline",
+        "next-line",
+        "line-separator",
+        "bidi-override",
+        "lone-surrogate",
+        "empty",
+        "long",
     ],
 )
-def test_a_file_the_trial_says_was_left_is_a_path_the_script_would_publish(
+def test_a_file_the_trial_says_was_left_is_text_the_script_would_print(
     world: World, held: object, says: str
 ) -> None:
     world.made(document=trial(held=held))
     with pytest.raises(upgrade.RefusedError, match=says):
         world.check()
+
+
+# A name `place` would refuse is no reason to refuse a file that was not written: it is only text.
+LEFT = {
+    "colon": "tools/run:all.py",
+    "short-name": "pkg/x~1.py",
+    "precomposed": "caf\u00e9.py",
+    "decomposed": "cafe\u0301.py",
+    "fullwidth": "\uff54ools/a.py",
+    "parent": "../a.py",
+    "dot-github": ".github/x.py",
+    "markdown": "notes.md",
+    "space": "a b.py",
+    "longest": "a" * upgrade.MAX_NAME,
+}
+
+
+def test_place_refuses_the_names_a_written_file_may_not_have() -> None:
+    for name in (
+        "colon",
+        "short-name",
+        "decomposed",
+        "fullwidth",
+        "parent",
+        "dot-github",
+        "markdown",
+    ):
+        with pytest.raises(
+            upgrade.RefusedError, match=r"not a path this action publishes|obelize writes no file"
+        ):
+            upgrade.place(LEFT[name])
+
+
+@pytest.mark.parametrize("name", LEFT.values(), ids=LEFT)
+def test_a_file_left_as_it_was_is_named_whatever_place_would_make_of_the_name(
+    world: World, name: str
+) -> None:
+    world.made(document=trial(held=[name]))
+    result = world.check()
+    assert f"Left as they were, for you to change: `{name}`." in result.body
+    # git on macOS precomposes what it is handed, so the commit is compared as such.
+    said = unicodedata.normalize("NFC", f"`{name}`. A place in each")
+    assert said in unicodedata.normalize("NFC", pushed(world, result))
+
+
+@NEEDS_SH
+def test_a_name_that_place_refuses_does_not_stop_a_branch_that_was_written_whole_from_publishing(
+    remote: Remote, world: World
+) -> None:
+    world.made(document=trial(held=["tools/run:all.py", "pkg/x~1.py"]))
+    assert remote.publish("work") == 0
+    assert remote.branches() == ["obelize/upgrade-pydantic-2.12.5", "work"]
+    body = Path(f"{remote.record}.body").read_text()
+    assert "Left as they were, for you to change: `pkg/x~1.py`, `tools/run:all.py`." in body
 
 
 def test_an_executable_a_move_edits_keeps_the_mode_it_had(world: World) -> None:

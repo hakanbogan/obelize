@@ -200,7 +200,8 @@ flag is left as it was, the others are written, and the dependency line follows 
 That leaves a repository half migrated, which neither release installs whole, and what covers it is
 the trial: it runs your tests on the move as it would be written, and writes nothing if one that
 passed before fails. `fix` and a pack named with `--pack` still write such a repository whole or not
-at all, and so does `upgrade --agent`, which asks the agent about the places first.
+at all, and so does `upgrade` where an agent is set up (`--agent`, or `agent.backend`), in its dry
+run too, which asks the agent about the places first.
 
 Over the 80 public repositories of [the dry run](BENCHMARK_RESULTS.md#upgrade-dry-run), a pack made
 from two releases writes no file: 36 stop before planning, 33 are held and 11 have no usage of a
@@ -230,8 +231,11 @@ a written move, and I have decided both:
   that is is not known. What a person still has to do is move the places that are left: the files
   that hold them run on the new release until then, the summary, `REPORT.md`, the commit message and
   the pull request name them, and a passing trial does not say they are done. A pin the rule cannot
-  write (a requirement with extras the new release does not list, a notebook that calls the old API)
-  still holds the whole repository, and the trial is then `inconclusive`.
+  write (a requirement with extras the new release does not list) still holds the whole repository,
+  and so does a file the rules cannot move that may call the library where a manifest declares it
+  (a notebook, a stub, a `.pyw` script, a file obelize could not open or one over `max_file_bytes`);
+  the trial is then `inconclusive` and says which it was. A `.py` file that does not parse is an
+  ordinary file left, and where no manifest declares the library nothing holds the repository.
 
 A trial installs packages and runs their build scripts, and your tests, as you, on your machine,
 with your network and your files in reach. The question it asks first is the only gate: nothing
@@ -293,9 +297,9 @@ word can be against the manifest's. A lock file that is not a requirements file,
 another package outside the files obelize reads can hold another release too.
 
 `--agent` is asked about the places a pack flags only when the first run of the rules wrote nothing,
-as it does for a library that keeps its import name, which is why `upgrade --agent` keeps the
-whole-repository rule for it: the clean files would otherwise be written, and the agent would not be
-asked. Where the rules did write some files, it sees only the places where tests then broke. A flagged place in a test file is asked about like any
+as it does for a library that keeps its import name, which is why `upgrade` keeps the
+whole-repository rule for it where an agent is set up: the clean files would otherwise be written,
+and the agent would not be asked. Where the rules did write some files, it sees only the places where tests then broke. A flagged place in a test file is asked about like any
 other, so the commit message, which names every file the agent edited, is where to look first.
 
 `claude_code` is the one agent backend. `codex exec` documents `features.shell_tool` and permission

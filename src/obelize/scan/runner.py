@@ -112,10 +112,12 @@ class Scan:
     unwritten: tuple[tuple[str, tuple[int, ...]], ...] = ()
     # (distribution, release) taken where nothing in the repository says which release is in use:
     # the pack's newest, for a declaration that names no version that rules it out, or, as the
-    # range `from.version` states, where the code uses a name only those releases define.
+    # range `from.version` states, where the code uses a name only those releases define. Not
+    # where `stated` stands in its place.
     assumed: tuple[tuple[str, str], ...] = ()
     # (distribution, release) the person gave (`upgrade --from`), taken as the release in use where
-    # no manifest declares the distribution, or every declaration admits it and would block without.
+    # no manifest declares the distribution, or every declaration admits it and would block
+    # without it, or pass only on what the pack takes for them.
     stated: tuple[tuple[str, str], ...] = ()
     # Of `stated`, the distributions a manifest declares: the release narrows what it admits.
     narrowed: tuple[str, ...] = ()
@@ -465,22 +467,19 @@ def scan(
         runtime.taken_for(declared, findings, spec) if used and selection.source == "git" else None
     )
     blocked = floor.blocked or runtime.legacy(declared, spec, used, taken, stated=stated)
+    # The person's word where it stands, in place of the pack's own inference for the release.
+    took = (
+        ((spec.legacy_distribution, stated),)
+        if stated and blocked is None and runtime.decides(declared, spec, used, taken, stated)
+        else ()
+    )
     assumed: tuple[tuple[str, str], ...] = ()
-    because = ""
-    if taken and blocked is None:
+    if taken and blocked is None and not took:
         because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
         blocked = runtime.legacy(declared, spec, used, taken, because, stated) if because else None
         assumed = () if because else ((spec.legacy_distribution, taken),)
         if not because:
             limitations.extend(installed.unsearched(tree.root, selection, spec))
-    # Said only where the person's word is what let the declarations pass.
-    took = (
-        ((spec.legacy_distribution, stated),)
-        if stated
-        and blocked is None
-        and runtime.decides(declared, spec, used, taken, because, stated)
-        else ()
-    )
     return Scan(
         source=selection.source,
         results=files,

@@ -20,7 +20,14 @@ from obelize import __version__, fsutil, gitutil
 from obelize.commands import CommandError, elapsed_ms, reports
 from obelize.config import with_fixture_dirs
 from obelize.evidence import report, run_dir
-from obelize.models import FindingsDocument, ManifestPlan, ModelConfig, VerifyPhase, VerifyResult
+from obelize.models import (
+    REPO_ATOMICITY_BAIL,
+    FindingsDocument,
+    ManifestPlan,
+    ModelConfig,
+    VerifyPhase,
+    VerifyResult,
+)
 from obelize.native import processes
 from obelize.packs import loader
 from obelize.providers import base as providers
@@ -86,6 +93,9 @@ class Request:
     # `upgrade` writes a file at a time where one distribution holds both APIs: the trial that
     # follows judges what is written, and `fix` has none.
     by_file: bool = False
+    # `upgrade` has an agent set up, which is asked about the places a pack flags only after a
+    # trial: a repository then moves whole or not at all, and a dry run says that is why.
+    agent: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +207,23 @@ def run(request: Request) -> Outcome:
                     f"none of it, so --model and --accept-model do not apply to it.",
                     2,
                 )
-            notes = (f"The configured model was not asked: {whole[0]} moves a whole repository.",)
+            notes = (
+                f"The configured model was not asked: {whole[0]} is for a library that keeps its "
+                f"import name, so each place it flags is left in its file for you."
+                if request.by_file
+                else f"The configured model was not asked: {whole[0]} moves a whole repository.",
+            )
+        # Said only where the whole-repository rule held something back, for the agent's sake.
+        if (
+            request.agent
+            and not request.apply
+            and any(row.bail == REPO_ATOMICITY_BAIL for row in driven.findings)
+        ):
+            notes += (
+                "agent.backend is set, so this plan moves the whole repository or none of it, the "
+                "way the run with --apply --branch does when it asks the agent about the places "
+                "a pack flags.",
+            )
         model = _Model(driven)
     else:
         model = _consulted(request, passes, driven, stopped)

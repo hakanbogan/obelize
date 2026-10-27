@@ -577,9 +577,15 @@ where a whole move ends `0`, whether or not a verification command of yours also
 held, and the trial is `inconclusive` (`6`), where no file can be written, where the dependency line
 cannot be written (extras the new release does not list, a URL, a hash, an editable requirement, a
 constraints file, a module only the old distribution installed that no manifest declares) or sits in
-a file that is left, and where a notebook or a file obelize cannot read may call the old API. `fix`,
-`scan` and `fix --pack` keep writing such a repository whole or not at all, and so does
-`upgrade --agent`, which asks the agent about the places first.
+a file that is left, and where a manifest declares the library and a file the rules cannot move may
+call it: a notebook, a stub (`.pyi`), a `.pyw` script, a file obelize could not open, or one over
+`max_file_bytes`. A `.py` file that does not parse is an ordinary file left: the others are written
+and the dependency line moves. Where no manifest declares the library (`--from` names the release),
+there is no line to hold and none of these holds anything. When the trial writes no file, its line
+says which of these held the repository. `fix`, `scan` and `fix --pack` keep writing such a
+repository whole or not at all, and so does `upgrade` where an agent is set up (`--agent`, or
+`agent.backend` in your own file), in its dry run too, so that the plan it shows is the one
+`--apply --branch` starts from; the agent is asked about the places first.
 
 With `--branch`, a passed trial is committed instead of written: one commit on a new branch of the
 name you gave (or the default), on top of `HEAD`, holding the files the move wrote, with the trial's
@@ -1062,7 +1068,7 @@ The `agent` keys are acted on by `obelize upgrade --apply --branch`, and by `--g
 |---|---|---|---|
 | `network.index` | string | `https://pypi.org` | The package index `pack synth` asks, as a Simple API address (`/simple` is added if it is missing). `OBELIZE_INDEX_URL` replaces it for one run; `OBELIZE_INDEX_AUTHORIZATION` is the value of an `Authorization` header, sent to this host and to none other. |
 | `network.offline` | boolean | `false` | Read releases only from the cache and keep a trial's installs to uv's own cache, as `--offline` does; `OBELIZE_OFFLINE` set to anything does too. |
-| `agent.backend` | `none` \| `claude_code` | `none` | The coding agent `upgrade --apply --branch` puts flagged places to, as `--agent` does, and that `--guide` puts the text of a guide to when `model.provider` is `none`. `none` asks no one. |
+| `agent.backend` | `none` \| `claude_code` | `none` | The coding agent `upgrade --apply --branch` puts flagged places to, as `--agent` does, and that `--guide` puts the text of a guide to when `model.provider` is `none`. `none` asks no one. Where it is set, `upgrade` moves a library that keeps its import name whole or not at all in every run, its dry run included. |
 | `agent.model` | string | unset | Passed to the program as its own model name or alias. |
 
 An allowlist entry matches a command that splits into the same arguments. An

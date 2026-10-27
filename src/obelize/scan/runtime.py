@@ -162,15 +162,15 @@ def decides(
     spec: ScanSpec,
     used: bool,
     taken: str | None,
-    contrary: str,
     stated: str | None,
 ) -> bool:
-    """Whether `stated` is what lets the legacy declarations pass: it stands, and without it they
-    would block. A release the declarations pass on their own is not the person's to claim."""
+    """Whether `stated` is the release the run goes by: it stands, and the declarations would block
+    without it or pass only on what the pack takes for them (`taken`), which the person's word
+    replaces. A release the declarations pass on their own is not the person's to claim."""
     return (
         used
         and stands(found, spec, stated)
-        and _legacy(found, spec, taken, contrary, None) is not None
+        and (bool(taken) or _legacy(found, spec, None, "", None) is not None)
     )
 
 

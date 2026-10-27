@@ -58,7 +58,10 @@ UNPROVEN = frozenset({3, 6})
 TOKENS = ("GH_TOKEN", "GITHUB_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN")
 # Events that give a job that reads someone else's files a token, or run it on their account.
 EVENTS = ("pull_request_target", "workflow_run", "issue_comment")
+# What can end a line, hide a character or be hidden in a name: Unicode categories Cc, Cf, Zl, Zp.
+HIDDEN = frozenset({"Cc", "Cf", "Zl", "Zp"})
 MAX_DISTRIBUTIONS = 20
+MAX_NAME = 512
 MAX_FILES = 2000
 MAX_BLOB = 8 << 20
 MAX_BUNDLE = 256 << 20
@@ -358,10 +361,14 @@ def verified(folder: Path, repo: Path, base: str) -> Verified:
     if canonical(shown) != folder.name:
         raise RefusedError(f"the trial is about {shown}, not {folder.name}")
     written = set(_strings(document.get("written"), "written"))
-    # Files the rules left as they were for a place of their own; an older trial names none.
+    # Files the rules left as they were for a place of their own; an older trial names none. Only
+    # the text names them and nothing writes them, so they are judged as text and not as `place`.
     left = _strings(document.get("held", []), "held")
     for path in left:
-        place(path)
+        if not 0 < len(path) <= MAX_NAME or not plain(path):
+            raise RefusedError(
+                f"trial.json: held names {path!r}, which is not text this action prints"
+            )
     counts = (
         _count(document.get("compared"), "compared"),
         len(_strings(document.get("broken"), "broken")),
@@ -477,22 +484,28 @@ def rebuilt(repo: Path, base: str, edits: list[tuple[str, str, str]]) -> str:
         return git(repo, "write-tree", env=env).strip()
 
 
+def plain(text: str) -> bool:
+    """Whether `text` is UTF-8 with no backslash, no backtick, which would end the code span a name
+    is shown in, and no character that could end a line or hide another."""
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return not (
+        "\\" in text or "`" in text or any(unicodedata.category(one) in HIDDEN for one in text)
+    )
+
+
 def place(path: str) -> None:
     """A path obelize writes: a Python source or a manifest, in the repository and outside what git
     or GitHub reads as configuration (`.git*`, `.github`, in whatever case a file system folds
     them), that UTF-8 holds, with no character that could end a line, hide another or name a file
     some other way on a system that folds names (a control or format character, a separator, a
     colon, a name NFKC changes, a short name such as `GITHUB~1`)."""
-    try:
-        path.encode("utf-8")
-    except UnicodeEncodeError:
-        raise RefusedError(f"{path!r}: not a path this action publishes") from None
     parts = path.split("/")
     if (
-        "\\" in path
-        or "`" in path
+        not plain(path)
         or ":" in path
-        or any(unicodedata.category(one) in {"Cc", "Cf", "Zl", "Zp"} for one in path)
         or unicodedata.normalize("NFKC", path) != path
         or any(
             part in {"", ".", ".."}
