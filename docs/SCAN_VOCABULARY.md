@@ -433,10 +433,10 @@ there.
 
 | Value | Takes | The call |
 |---|---|---|
-| `keyword` | The name of the keyword. | Passes a keyword that the shape's `keywords` lists. |
+| `keyword` | The name of the keyword. | Passes a keyword that the shape's `keywords` lists, or hands the name to a call that does. |
 | `position` | The index of the argument. | Has more positional arguments than the shape's `positional_from`. |
 | `omitted` | The name of the parameter. | Leaves out a name that the shape's `omits` lists, by keyword and by the position it maps to. |
-| `spread` | Nothing. | Has a `*` or `**` argument, which can pass any of them. |
+| `spread` | Nothing. | Has a `*` argument and the shape lists a position, or a `**` argument and it lists a keyword or a name: each could give one. |
 
 A symbol that is flagged for some calls and is imported, annotated or handed to a call as an argument
 is no finding in a shared module, and a use of it that is none of those is a finding with no evidence.

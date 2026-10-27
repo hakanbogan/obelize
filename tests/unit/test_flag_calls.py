@@ -175,6 +175,90 @@ def test_it_is_no_finding_imported_annotated_or_handed_and_graded_apart_when_not
     assert {row.scan_status for row in own.findings} == {"eligible"}
 
 
+def alone(shape: CallShape) -> ScanSpec:
+    """The spec of the pack with `connect` flagged for the calls of `shape` and nothing else."""
+    return SPEC.model_copy(update={"flag_only_calls": {"acme.calls.connect": shape}})
+
+
+@pytest.mark.parametrize(
+    ("call", "evidence"),
+    [
+        ("Session(verbose=True)(host)", "keyword verbose"),
+        ("Session(verbose=True)", "keyword verbose"),
+        ("Session()(verbose=True)", None),
+        ("Session(host)(verbose=True)(1)", None),
+        ("connect(host, 1, retries=1, secure=True, timeout=3)(fn)", "keyword timeout"),
+        ("connect(host, 1, retries=1, secure=True)(fn, 1, 2, 3, timeout=4)", None),
+    ],
+)
+def test_a_call_of_a_call_is_judged_by_the_arguments_of_the_call_that_names_the_symbol(
+    call: str, evidence: str | None
+) -> None:
+    """`validator("x", pre=True)(fn)` passes `pre` to the factory, and `fn` to what it made."""
+    source = f"def run(host, fn):\n    return {call}\n"
+    assert [row[4] for row in found(source)] == ([evidence] if evidence else [])
+    own = [row.scan_status for row in acme.scan(HEAD + source, OWN).findings if row.line > 4]
+    assert own == (["needs_review"] if evidence else ["eligible"])
+
+
+@pytest.mark.parametrize(
+    ("use", "evidence"),
+    [
+        ("functools.partial(connect, timeout=1)", "keyword timeout"),
+        ("ex.submit(connect, host, 1, timeout=1)", "keyword timeout"),
+        ("df.pipe(connect, host, timeout=2)", "keyword timeout"),
+        ("df.pipe(host, func=connect, timeout=2)", "keyword timeout"),
+        ("functools.partial(connect, host, 1, 5)", None),
+        ("map(connect, hosts)", None),
+        ("reg(connect, retries=3)", None),
+    ],
+)
+def test_a_name_handed_to_a_call_that_passes_a_keyword_that_went_is_still_a_finding(
+    use: str, evidence: str | None
+) -> None:
+    rows = found(f"def run(host, hosts, ex, df, reg):\n    return {use}\n")
+    assert [row[4] for row in rows] == ([evidence] if evidence else [])
+
+
+def test_a_decorator_is_judged_by_what_it_names_and_a_bare_one_is_flagged_once() -> None:
+    source = (
+        "@connect(1, 2, retries=1, secure=False)\ndef a(): pass\n\n\n"
+        "@connect(1, timeout=3)\ndef b(): pass\n\n\n"
+        "@connect\ndef c(): pass\n"
+    )
+    assert [(row[0], row[4]) for row in found(source)] == [
+        (5, "keyword timeout"),
+        (9, None),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("shape", "star", "double"),
+    [
+        (CallShape(keywords=("old",)), None, "spread"),
+        (CallShape(positional_from=1), "spread", None),
+        (CallShape(omits={"x": 1}), "spread", "spread"),
+        (CallShape(omits={"x": None}), "omitted x", "spread"),
+        (CallShape(keywords=("old",), positional_from=1), "spread", "spread"),
+        (CallShape(bases=True), None, None),
+    ],
+)
+def test_a_star_argument_can_pass_positions_and_a_double_star_one_keywords(
+    shape: CallShape, star: str | None, double: str | None
+) -> None:
+    def judged(argument: str) -> str | None:
+        rows = found(f"def run(a, b):\n    return connect({argument})\n", alone(shape))
+        return rows[0][4] if rows else None
+
+    assert (judged("*a"), judged("**b")) == (star, double)
+
+
+def test_the_first_keyword_of_a_shape_that_a_call_passes_is_the_one_said() -> None:
+    shape = alone(CallShape(keywords=("a", "b", "c")))
+    assert [row[4] for row in found("def run():\n    connect(c=1, b=2)\n", shape)] == ["keyword b"]
+    assert shape.flag_only_calls["acme.calls.connect"].keyword_set == {"a", "b", "c"}
+
+
 def test_a_shape_does_not_hold_under_a_name_flagged_whole() -> None:
     pool = "acme.calls.pool"
     both = SPEC.model_copy(

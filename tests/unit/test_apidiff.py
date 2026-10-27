@@ -245,6 +245,26 @@ def test_a_message_about_one_parameter_is_not_the_functions_notice(tmp_path: Pat
     assert objects["params.g"]["deprecated"] == "g is deprecated, use `h` and not `min`"
 
 
+def test_the_receiver_is_not_a_parameter_whatever_it_is_called(tmp_path: Path) -> None:
+    source = (
+        "class Model:\n"
+        "    def __init__(__pydantic_self__, **data): ...\n"
+        "    def go(me, x): ...\n"
+        "    @staticmethod\n"
+        "    def make(__x, y): ...\n"
+    )
+    root = lib(tmp_path, {"__init__.py": source}, "recv")
+    objects = worker.surface(root, "recv")["objects"]
+    names = {
+        path: [one["name"] for one in objects[path]["params"] or []]
+        for path in objects
+        if "." in path.removeprefix("recv.") or path == "recv.Model"
+    }
+    assert names["recv.Model"] == ["data"]
+    assert names["recv.Model.go"] == ["me", "x"]
+    assert names["recv.Model.make"] == ["__x", "y"]
+
+
 def test_the_modules_that_only_test_a_library_are_not_its_surface(tmp_path: Path) -> None:
     root = lib(
         tmp_path,
@@ -498,12 +518,25 @@ def test_a_renamed_parameter_is_the_same_place_kind_and_default_under_a_new_name
     assert found == [("param_renamed", "f", "b", "c")]
 
 
-def test_a_parameter_that_left_is_removed_unless_the_new_signature_takes_any_keyword() -> None:
+def test_a_parameter_that_left_is_removed_and_a_new_kwargs_that_takes_it_is_said() -> None:
     assert changes({"f": fn(req("a"), req("b"))}, {"f": fn(req("a"))}) == [
         ("param_removed", "f", "b", "")
     ]
     open_ended = fn(req("a"), Param("kwargs", "variadic keyword", None, False))
-    assert changes({"f": fn(req("a"), req("b"))}, {"f": open_ended}) == []
+    found = api.diff(*surfaces({"f": fn(req("a"), req("b"))}, {"f": open_ended}))
+    assert [(one.type, one.param, one.detail) for one in found] == [
+        ("param_removed", "b", "the new signature takes any keyword")
+    ]
+
+
+def test_a_parameter_only_a_position_can_give_is_not_removed_or_changed_by_name() -> None:
+    """The old `__name` convention: `sessionmaker(__self, ...)` has no keyword to lose."""
+    old = fn(req("__a"), opt("__b"), req("c"))
+    assert changes({"f": old}, {"f": fn(req("c"))}) == []
+    assert (
+        changes({"f": old}, {"f": fn(Param("__b", "positional or keyword", "2", False), req("c"))})
+        == []
+    )
 
 
 def test_a_required_parameter_added_is_reported_and_an_optional_one_is_not() -> None:
@@ -564,6 +597,19 @@ def test_the_names_pandas_gives_a_default_that_is_not_given_are_not_a_default_th
         "Retry": fn(opt("allowed_methods", "DEFAULT_ALLOWED_METHODS")),
     }
     assert changes(old, new) == [("default_changed", "Retry", "allowed_methods", "")]
+
+
+def test_a_private_name_is_a_value_unless_it_says_it_is_not_given() -> None:
+    """urllib3 2 reads `Timeout(connect=_Default)` as `_DEFAULT_TIMEOUT`, a token its own code
+    compares by identity and a reader cannot tell from a number: that is a default that changed."""
+    old = fn(opt("a", "10"), opt("b", "_Default"), opt("c", "10"), opt("d", "None"))
+    new = fn(
+        opt("a", "_DEFAULT_TIMEOUT"),
+        opt("b", "_Default"),
+        opt("c", "_Missing"),
+        opt("d", "_NO_VALUE"),
+    )
+    assert changes({"f": old}, {"f": new}) == [("default_changed", "f", "a", "")]
 
 
 def test_a_value_that_changed_is_not_an_api_change() -> None:

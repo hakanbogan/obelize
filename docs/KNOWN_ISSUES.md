@@ -201,20 +201,29 @@ the commit message name it.
 
 A function or a class whose changes are to its parameters is listed at the calls those changes can
 break, and not at the others. The scan cannot follow a name once it is handed on, so
-`map(pd.to_datetime, rows)`, a callback and `functools.partial(connect, retries=2)` are not listed,
-whatever the code that receives them passes; a name assigned to another and a decorator are listed.
-A class whose bases changed is listed where your code derives from it, and a call of it is not,
-though an object it builds no longer passes an `isinstance` check against a base it lost. A
-deprecation is read by its words: a message that holds the name of a changed parameter is taken to be
-about the calls that pass it, so a message about the whole name that happens to use that word lets a
-call by. A parameter that moved to another place, and a default that changed behind the same name,
-are not seen by the comparison, so they are listed nowhere.
+`map(pd.to_datetime, rows)`, a callback and `functools.partial(connect, host, 1, 5)` are not listed,
+whatever the code that receives them passes; it is listed when the call it is handed to passes a
+keyword that went (`partial(connect, timeout=1)`), though that keyword may be the receiver's own. A
+name in a tuple or a list is listed, even in `isinstance(x, (pd.Series, pd.DataFrame))`; a name
+assigned to another and a bare decorator are listed too. A class whose bases changed is listed where
+your code derives from it, and a call of it is not when it is built with what it was, though an
+object it builds no longer passes an `isinstance` check against a base it lost. A class whose
+constructor comes from a base is listed wherever it is used when that base cannot be found by its
+name, or two classes go by it, or it changed. A deprecation is read by its words: a message that
+holds the name of a changed parameter is taken to be about the calls that pass it, so a message about
+the whole name that happens to use that word lets a call by. A parameter that moved to another
+place, an optional one inserted before others, and a default that changed behind the same name are
+not seen by the comparison, so they are listed nowhere. A private default that is a sentinel without
+saying so (`_DEFAULT_TIMEOUT`, urllib3's token) is read as a value, so a default that became one is
+listed as a default that changed.
 
-What is listed after that is a call that leaves out a parameter whose default changed (it relies on
-the old default, and is most of what `obelize upgrade pydantic` lists), a function that changed
-kind (`sqlalchemy.orm.relationship`, which the comparison reads from an attribute that became a
-function), a deprecation whose message names no changed parameter, a name that also left or moved,
-and every method, wherever it is used.
+What is listed after that, over the eight repositories drawn for each migration, is by what the
+place says. In pydantic, 44 of 98 are calls that leave out a parameter whose default changed (they
+rely on the old default), 18 pass a keyword that went, 6 have a `*` or `**` argument and 30 say
+nothing: bare `@dataclass` decorators, and the deprecated `Extra`. In SQLAlchemy 27 of 28 are
+functions that changed kind (`relationship`, which the comparison reads from an attribute that
+became a function), and in pandas 26 of 41 say nothing: uses of `Series` that are no call and
+deprecations whose message names no changed parameter. Every method is listed wherever it is used.
 
 The environment for the release you use is made today, from the pins your files hold, so an
 unpinned dependency resolves to its newest release there. A test that fails in it for that reason

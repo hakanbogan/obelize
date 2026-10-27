@@ -795,6 +795,17 @@ def test_a_call_shape_of_the_bases_alone_is_about_no_call() -> None:
     assert CallShape(omits={"x": None}).about_calls
 
 
+def test_the_keywords_of_a_shape_are_also_a_set_that_is_no_field_of_it() -> None:
+    import pickle
+
+    shape = CallShape(keywords=("a", "b"), omits={"c": None})
+    assert shape.keyword_set == {"a", "b"}
+    assert "keyword_set" not in shape.model_dump()
+    again = pickle.loads(pickle.dumps(shape))  # noqa: S301 - a model this test made
+    assert again == shape
+    assert again == CallShape(keywords=("a", "b"), omits={"c": None})
+
+
 def test_two_entries_for_one_receiver_is_a_projection_bug() -> None:
     duplicate = ReceiverMethods(receiver="google.generativeai.ChatSession", methods=("a",))
     with pytest.raises(ValidationError, match="sorted and de-duplicated"):

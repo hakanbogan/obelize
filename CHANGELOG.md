@@ -59,7 +59,7 @@ and one on the tools a pack can run. What it names:
   keyword or needs the target release a repository states (`ruff`'s `UP035` and `AIR301`,
   `django-upgrade`, `pyupgrade`) is not registered ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
 - A name that a pack flags only at some calls is not listed where it is handed to another call
-  (`map(pd.to_datetime, rows)`, a callback, `functools.partial`), whatever the code that receives it
+  (`map(pd.to_datetime, rows)`, a callback), whatever positional arguments the code that receives it
   passes, and a deprecation of the whole name that happens to use the word of a changed parameter
   lets a call by. A name that also left or moved, a function that changed kind and every method are
   still listed wherever they are used (the section on upgrading a dependency in KNOWN_ISSUES.md).
@@ -100,23 +100,30 @@ join the bail vocabulary and the bails an import row may carry, which `findings.
   1.26.4 and 2.x, and a name whose replacement ruff writes in a way that changes the value
   (`np.NINF ** 2`) is reported.
 - A `flag_only` change can say which calls it flags a symbol for. `calls` maps a symbol to a shape
-  of `keywords`, `positional_from` and `omits`, and a call with a `*` or `**` argument is always
-  one. In a pack that shares its module, a call that matches none is not listed, and neither is a
-  name that is imported, annotated or handed to a call (`Column(Integer)`, `map(f, rows)`); a class
-  named as a base, a name assigned to another and a decorator are listed as before. Each call
-  listed says what matched in its `evidence` (`keyword timeout`, `omitted retries`, `position 2`,
-  `spread`), in the terminal table and in `REPORT.md`. A symbol with no entry is flagged wherever it
-  is used, so the three bundled packs and every pack written before read as they did. A shape can
-  say `bases` for a class whose bases changed: no call is one, and code that derives from it is.
+  of `keywords`, `positional_from` and `omits`, and a call with a `*` argument that could pass a
+  position the shape lists, or a `**` argument that could pass a keyword or a name, is one. In a
+  pack that shares its module, a call that matches none is not listed, and neither is a name that
+  is imported, annotated or handed to a call (`Column(Integer)`, `map(f, rows)`) unless that call
+  passes a keyword the shape lists (`partial(f, removed=1)`); a class named as a base, a name
+  assigned to another and a bare decorator are listed as before. Each call listed says what matched
+  in its `evidence` (`keyword timeout`, `omitted retries`, `position 2`, `spread`), in the terminal
+  table and in `REPORT.md`. A symbol with no entry is flagged wherever it is used, so the bundled
+  packs and every pack written before read as they did. A shape can say `bases` for a class whose
+  bases changed: no call is one, and code that derives from it is.
   `pack synth` writes the shapes: from a function's or a class's parameter changes, from a class
-  whose bases changed, and from a deprecation whose message names a parameter of the same name that
-  changed (it is about the calls that pass it). Over eight repositories of each of four migrations
-  the places listed went from four, 163, 293 and 236 to two, 122, 27 and 41 (urllib3, pydantic,
-  SQLAlchemy, pandas). A name that also left or moved, a deprecation that names no changed parameter, a function
-  that changed kind, and every method, is flagged wherever it is used.
+  whose bases changed and that is built with what it was, and from a deprecation whose message
+  names a parameter of the same name that changed (it is about the calls that pass it). A class
+  whose constructor comes from a base that changed, a name that also left or moved, a deprecation
+  that names no changed parameter, a function that changed kind, and every method, is flagged
+  wherever it is used. Over eight repositories of each of four migrations the places listed went
+  from 4, 163, 293 and 220 (4, 120, 195 and 219 distinct places) to 2, 98, 28 and 41 (urllib3,
+  pydantic, SQLAlchemy, pandas).
 - The comparison reads `lib.no_default`, `no_default` and `NoDefault.no_default` as "not given", as
-  it does `_Unset`, so a default that became one is no change. pandas 3 had 2,872 of those, and a
-  pack made for it is 680 KB where it was 793 KB.
+  it does `_Unset`, so a default that became one is no change; a private name that does not say it
+  is one (`_DEFAULT_TIMEOUT`) is read as a value. pandas 3 had 2,872 of those, and a pack made for it
+  is 665 KB where it was 793 KB. A parameter that a new `**kwargs` takes is a removal all the same
+  (`sessionmaker(autocommit=True)` raises in SQLAlchemy 2.0), and the first parameter of a method is
+  its receiver whatever it is called, so `__pydantic_self__` is no parameter.
 
 - A side of a pack can be the Python: `from: {python: ">=3.12"}` and `to: {python: ">=3.2"}`, where
   `to.python` is what `requires_python` is for a distribution. A repository that declares a Python

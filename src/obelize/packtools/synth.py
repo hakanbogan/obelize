@@ -25,7 +25,8 @@ import yaml
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
-from obelize.apidiff.diff import ApiChange, Successors, names_only
+from obelize.apidiff.diff import ApiChange, Successors, accepts, names_only
+from obelize.apidiff.surface import Obj
 from obelize.models import CallShape
 from obelize.models.fields import DISPLAY_TEXT_LIMIT, printable
 from obelize.packs import loader
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
     from packaging.version import Version
 
     from obelize import libdiff
-    from obelize.apidiff.surface import Obj, Surface
+    from obelize.apidiff.surface import Param, Surface
 
 # More groups of one kind than this are folded into one that says less.
 MAX_GROUPS: Final = 60
@@ -186,7 +187,7 @@ def make(
         raise SynthError(
             f"{folder} exists already; pack synth makes a folder and never writes into one."
         )
-    plan = _Plan.build(request, old, changes)
+    plan = _Plan.build(request, old, changes, new)
     if not plan.symbols:
         hidden = (
             f" {plan.unseen} name(s) could not be judged, since the newer release makes its "
@@ -393,7 +394,8 @@ def _signature_text(label: str, change: ApiChange) -> str:
                 f"Parameter {param} was removed in {label}; `{change.new_param}` takes its place."
             )
         case "param_removed":
-            return f"Parameter {param} was removed in {label}."
+            swallowed = f", and {change.detail}, so a call that passes it may raise or do nothing"
+            return f"Parameter {param} was removed in {label}{swallowed if change.detail else ''}."
         case "param_required_added":
             return f"Parameter {param} is required in {label}."
         case "param_kind_changed":
@@ -431,7 +433,9 @@ def _union(shapes: Sequence[CallShape]) -> CallShape:
     )
 
 
-def _piece(change: ApiChange, olds: Mapping[str, Obj]) -> CallShape | None:
+def _piece(
+    change: ApiChange, olds: Mapping[str, Obj], built: tuple[_Built, _Built] | None = None
+) -> CallShape | None:
     """The calls one parameter change is about, from where the old release has the parameter, or
     `None` where they cannot be told: a method, which a call may pass its object to, and a change
     that the arguments of the calls it breaks do not show."""
@@ -444,7 +448,8 @@ def _piece(change: ApiChange, olds: Mapping[str, Obj]) -> CallShape | None:
     placed = at if kind in _PLACED else None
     match change.type:
         case "bases_changed":
-            return CallShape(bases=True)
+            # Only where the class is built with what it was: else a call of it may be affected.
+            return CallShape(bases=True) if built and _alike(change.path, *built) else None
         case "param_removed":
             return CallShape(
                 keywords=() if kind == "positional-only" else (name,), positional_from=placed
@@ -460,6 +465,49 @@ def _piece(change: ApiChange, olds: Mapping[str, Obj]) -> CallShape | None:
         case "param_required_added":
             return CallShape(omits={name: None})
     return None
+
+
+class _Built:
+    """What the classes of one release are built with, through the names their bases go by."""
+
+    def __init__(self, objects: Mapping[str, Obj]) -> None:
+        self.objects = objects
+        self._paths = {one.path: one for one in objects.values()}
+        self._named: dict[str, set[str]] = {}
+        for one in objects.values():
+            if one.kind == "class":
+                leaf = one.path.rpartition(".")[2]
+                self._named.setdefault(leaf, set()).add(one.target or one.path)
+
+    def of(self, one: Obj, seen: frozenset[str] = frozenset()) -> tuple[Param, ...] | None:
+        """The parameters of the class's own `__init__`, else of the first base's that has one, else
+        none; `None` where a base cannot be told from another class of its name."""
+        if one.params is not None:
+            return one.params
+        if "__init__" not in one.inherited:
+            return ()
+        for base in one.bases:
+            found = self._named.get(base.partition("[")[0].rpartition(".")[2], set())
+            parent = self._paths.get(next(iter(found))) if len(found) == 1 else None
+            if parent is None or parent.path in seen | {one.path}:
+                return None
+            if parent.params is not None or "__init__" in parent.inherited:
+                return self.of(parent, seen | {one.path})
+        return None
+
+
+def _alike(path: str, before: _Built, after: _Built) -> bool:
+    """Whether a class is built with what it was: both releases give it an `__init__` of its own,
+    which the diff compares, or what it gets from its bases takes what it took."""
+    old, new = before.objects[path], after.objects.get(path)
+    if new is None or (old.params is not None and new.params is not None):
+        return new is not None
+    was, now = before.of(old), after.of(new)
+    return (
+        was is not None
+        and now is not None
+        and accepts(Obj("", "function", was), Obj("", "function", now))
+    )
 
 
 def _warned(
@@ -557,8 +605,15 @@ class _Plan:
         return tuple(sorted(f"{self.request.module}.{name}" for name in names))
 
     @classmethod
-    def build(cls, request: Request, old: Surface, changes: Sequence[ApiChange]) -> _Plan:
+    def build(
+        cls,
+        request: Request,
+        old: Surface,
+        changes: Sequence[ApiChange],
+        new: Surface | None = None,
+    ) -> _Plan:
         olds = old.relative()
+        built = None if new is None else (_Built(olds), _Built(new.relative()))
         label = request.label
         with_calls: dict[str, str] = {}
         references: dict[str, str] = {}
@@ -615,7 +670,7 @@ class _Plan:
             else:
                 changed = change.type.startswith("param_") or change.type == "default_changed"
                 text = _signature_text(label, change)
-                shape = _piece(change, olds)
+                shape = _piece(change, olds, built)
                 flag(path, "signature", text, _SUGGESTED["signature"], params=changed, shape=shape)
         flags = {path: _merge(entries) for path, entries in parts.items()}
         # A new name must not be one the pack looks for, or the rewritten file is a finding again.

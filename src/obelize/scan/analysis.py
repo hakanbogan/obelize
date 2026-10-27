@@ -412,12 +412,26 @@ class _Pass:
 
     def _shaped(self, node: cst.CSTNode, kind: FindingKind, symbol: str) -> tuple[bool, str | None]:
         """Whether a use of a symbol the pack flags only for some calls is one, and what in the call
-        says so. A name that is imported, annotated or handed to a call is not called here."""
+        says so. A name that is imported, annotated or handed to a call is not called here, unless
+        the call it is handed to passes a keyword that went: `partial(f, removed=1)`."""
+        shape = self._shapes[symbol]
         if isinstance(node, cst.Call):
-            evidence = _passes(self._shapes[symbol], node)
+            # In `f(...)(...)` the arguments of the call that names `f` are the ones to judge.
+            while isinstance(node.func, cst.Call):
+                node = node.func
+            evidence = _passes(shape, node)
             return evidence is not None, evidence
+        if isinstance(node, cst.Decorator):
+            return False, None  # what it names is a use of its own
         argument = self._parent(node)
-        handed = isinstance(argument, cst.Arg) and isinstance(self._parent(argument), cst.Call)
+        handing = self._parent(argument) if isinstance(argument, cst.Arg) else None
+        if isinstance(handing, cst.Call):
+            named = {
+                one.keyword.value for one in handing.args if one is not argument and one.keyword
+            }
+            if (gone := min(named & shape.keyword_set, default=None)) is not None:
+                return True, f"keyword {gone}"
+        handed = isinstance(handing, cst.Call)
         return not (kind == "import" or handed or self._annotated(node)), None
 
     def _grade(self, kind: FindingKind, symbol: str) -> tuple[ScanStatus, BailCode | None]:
@@ -1261,11 +1275,16 @@ def _passes(shape: CallShape, call: cst.Call) -> str | None:
     """What in a call the shape is about (`CallMatch`), or `None` where it is the API as it was."""
     if not shape.about_calls:
         return None
-    if any(argument.star for argument in call.args):
+    stars = {argument.star for argument in call.args}
+    # A `*` argument can pass positions, a `**` argument keywords and names; in doubt, it matches.
+    positions = shape.positional_from is not None or any(
+        at is not None for at in shape.omits.values()
+    )
+    if ("*" in stars and positions) or ("**" in stars and (shape.keywords or shape.omits)):
         return "spread"
     named = {argument.keyword.value for argument in call.args if argument.keyword is not None}
-    given = sum(1 for argument in call.args if argument.keyword is None)
-    if keyword := next((name for name in shape.keywords if name in named), None):
+    given = sum(1 for argument in call.args if argument.keyword is None and not argument.star)
+    if keyword := min(named & shape.keyword_set, default=None):
         return f"keyword {keyword}"
     if shape.positional_from is not None and given > shape.positional_from:
         return f"position {shape.positional_from}"

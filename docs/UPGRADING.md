@@ -52,18 +52,22 @@ What the made pack does is deliberately small:
   removed or moved, a parameter that was renamed, removed or made required, a default that changed,
   a class whose bases changed, a name that is deprecated.
 - A function or a class whose changes are to its parameters is flagged at the calls those changes
-  can break, and says which: a call that passes a keyword that went, has an argument at a position
-  that went, leaves out a parameter that is now required or has a new default, or passes `*` or
-  `**`. A call that does none of these is not listed, and neither is the name where it is imported,
-  annotated or handed to another call (`Column(Integer)`, `map(pd.to_datetime, rows)`). Each place
+  can break, and says which: a call that passes a keyword that went (one that a new `**kwargs`
+  takes without a word too), has an argument at a position that went, leaves out a parameter that is
+  now required or has a new default, or passes a `*` or `**` argument that could give one of those.
+  A call that does none of these is not listed, and neither is the name where it is imported,
+  annotated or handed to another call (`Column(Integer)`, `map(pd.to_datetime, rows)`), unless that
+  call passes a keyword that went (`functools.partial(read_csv, delim_whitespace=True)`). Each place
   says what in the call matched, such as `keyword infer_datetime_format`, so a call that passes none
   of what changed is not one more place to read. A default that became a name that means "not
   given" (`lib.no_default`) is no change.
 - A class whose bases changed is flagged where your code derives from it, and not where it is
-  called: building one is what it was. A deprecation whose message names a parameter that changed
-  (`The 'fastpath' keyword in pd.Series is deprecated`) is about the calls that pass that parameter.
+  called, if it is built with what it was. A deprecation whose message names a parameter that
+  changed (`The 'fastpath' keyword in pd.Series is deprecated`) is about the calls that pass that
+  parameter.
 - A name that also left or moved, a deprecation that names no changed parameter, a function that
-  changed kind, and every method, is still flagged wherever it is used.
+  changed kind, a class whose constructor comes from a base that changed, and every method, is still
+  flagged wherever it is used.
 - The dependency line moves to the new release.
 
 A pack made this way says in its limitations that a change in what a function does is not in it.

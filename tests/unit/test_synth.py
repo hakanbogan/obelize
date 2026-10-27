@@ -363,9 +363,8 @@ def req(name: str, kind: str = "positional or keyword") -> Param:
 
 
 def old_surface(**objects: Obj) -> Surface:
-    return Surface(
-        MODULE, {f"{MODULE}.{path.replace('__', '.')}": one for path, one in objects.items()}
-    )
+    named = {f"{MODULE}.{path.replace('__', '.')}": one for path, one in objects.items()}
+    return Surface(MODULE, {path: replace(one, path=path) for path, one in named.items()})
 
 
 WORLD = old_surface(
@@ -385,9 +384,12 @@ WORLD = old_surface(
 
 
 def plan(
-    *changes: ApiChange, request: synth.Request = REQUEST, old: Surface = WORLD
+    *changes: ApiChange,
+    request: synth.Request = REQUEST,
+    old: Surface = WORLD,
+    new: Surface | None = None,
 ) -> synth._Plan:
-    return synth._Plan.build(request, old, changes)
+    return synth._Plan.build(request, old, changes, new)
 
 
 def test_every_kind_of_change_becomes_the_part_of_the_pack_that_says_it() -> None:
@@ -480,7 +482,13 @@ def test_a_flag_under_a_flagged_class_is_left_out_and_said_so() -> None:
     ("change", "text"),
     [
         (ApiChange("param_renamed", "f", param="a", new_param="b"), "`b` takes its place"),
-        (ApiChange("param_removed", "f", param="a"), "`a` was removed"),
+        (ApiChange("param_removed", "f", param="a"), "`a` was removed in acme-kit 2.0."),
+        (
+            ApiChange(
+                "param_removed", "f", param="a", detail="the new signature takes any keyword"
+            ),
+            "`a` was removed in acme-kit 2.0, and the new signature takes any keyword, so a call",
+        ),
         (ApiChange("param_required_added", "f", param="a"), "`a` is required"),
         (
             ApiChange("param_kind_changed", "f", param="a", detail="x -> y"),
@@ -599,7 +607,7 @@ def change(kind: str, path: str, param: str | None = None, **fields: str) -> Api
 def test_a_parameter_or_base_change_is_flagged_for_the_calls_and_the_code_it_can_break(
     changes: list[ApiChange], shape: CallShape
 ) -> None:
-    (flag,) = plan(*changes, old=CALLS).flags.values()
+    (flag,) = plan(*changes, old=CALLS, new=CALLS).flags.values()
     assert flag.shape == shape
 
 
@@ -630,7 +638,7 @@ def test_a_parameter_or_base_change_is_flagged_for_the_calls_and_the_code_it_can
 def test_a_name_with_a_change_no_call_shows_or_a_method_is_flagged_wherever_it_is_used(
     changes: list[ApiChange],
 ) -> None:
-    made = plan(*changes, old=CALLS)
+    made = plan(*changes, old=CALLS, new=CALLS)
     assert [one.shape for one in made.flags.values()] == [None]
     assert "calls" not in yaml.safe_load(made._pack())["changes"][0]["params"]
 
@@ -746,12 +754,78 @@ def test_a_call_is_written_for_the_shape_of_a_flag_or_against_it() -> None:
 
 
 def test_a_class_whose_bases_alone_changed_is_read_to_be_derived_and_called_unflagged() -> None:
-    made = plan(change("bases_changed", "Box", detail="Base"), old=CALLS)
+    made = plan(change("bases_changed", "Box", detail="Base"), old=CALLS, new=CALLS)
     assert calls_of(made) == {"acme_kit.Box": {"bases": True}}
     fixtures = made.fixtures()
     assert "handler_0 = acme_kit.Box" in fixtures["fixtures/positive/flagged.before.py"]
     assert "acme_kit.Box(0)" in fixtures["fixtures/negative/already_new.py"]
     assert synth._args(CALLS.relative()["Box"], CallShape(bases=True), matching=False) == "0"
+
+
+def cls(*params: Param, built: bool = True, **fields: object) -> Obj:
+    return Obj("", "class", params if built else None, **fields)  # type: ignore[arg-type]
+
+
+INIT = ("__init__",)
+BEFORE = old_surface(
+    Root=cls(req("a")),
+    Own=cls(req("x"), bases=("Root",)),
+    Plain=cls(built=False, bases=("Root",)),
+    Child=cls(built=False, bases=("Root",), inherited=INIT),
+    Alias=Obj("", "class", None, target=f"{MODULE}.Root"),
+    Via=cls(built=False, bases=("Alias[int]",), inherited=INIT),
+    Root2=cls(req("a")),
+    Moved=cls(built=False, bases=("Root2",), inherited=INIT),
+    Swap=cls(req("x"), bases=("Root",)),
+    Lost=cls(built=False, bases=("Missing",), inherited=INIT),
+    sub__Same=cls(req("a")),
+    other__Same=cls(req("a")),
+    Twin=cls(built=False, bases=("Same",), inherited=INIT),
+    One=cls(built=False, bases=("Two",), inherited=INIT),
+    Two=cls(built=False, bases=("One",), inherited=INIT),
+    Skip=cls(built=False, bases=("Plain", "Root"), inherited=INIT),
+    Dry=cls(built=False, bases=("Plain",), inherited=INIT),
+    Gone=cls(req("x"), bases=("Root",)),
+)
+AFTER = old_surface(
+    **{
+        **{
+            path.removeprefix(f"{MODULE}.").replace(".", "__"): one
+            for path, one in BEFORE.objects.items()
+        },
+        "Root2": cls(req("a"), req("b")),
+        "Swap": cls(built=False, bases=("Root",), inherited=INIT),
+    }
+)
+del AFTER.objects[f"{MODULE}.Gone"]
+CLASSES = (
+    "Own",
+    "Plain",
+    "Child",
+    "Via",
+    "Skip",
+    "Moved",
+    "Swap",
+    "Lost",
+    "Twin",
+    "One",
+    "Dry",
+    "Gone",
+)
+
+
+def test_a_class_whose_bases_changed_has_no_call_of_its_own_only_where_it_is_built_as_it_was() -> (
+    None
+):
+    changes = [change("bases_changed", path, detail="B") for path in CLASSES]
+    made = plan(*changes, old=BEFORE, new=AFTER)
+    kept = {path for path in CLASSES if made.flags[path].shape == CallShape(bases=True)}
+    # An `__init__` of its own in both, none anywhere, or one a base gives that did not change: yes.
+    # One that changed, an own one that became a base's, a class that left, a base nothing or two
+    # classes are named for, a base that gives none, a ring of bases: flagged wherever it is used.
+    assert kept == {"Own", "Plain", "Child", "Via", "Skip"}
+    assert [made.flags[path].shape for path in CLASSES if path not in kept] == [None] * 7
+    assert plan(change("bases_changed", "Own", detail="B"), old=BEFORE).flags["Own"].shape is None
 
 
 def test_a_fixture_calls_each_shaped_name_with_what_changed_and_without_it() -> None:

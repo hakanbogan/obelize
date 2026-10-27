@@ -256,7 +256,12 @@ def _text(expression: Any) -> str | None:
 def _params(member: Any, *, in_class: bool) -> list[dict[str, Any]]:
     rows = []
     for index, parameter in enumerate(member.parameters):
-        if in_class and index == 0 and parameter.name in ("self", "cls"):
+        # The receiver is the first parameter, whatever it is called (`__pydantic_self__`).
+        if (
+            in_class
+            and index == 0
+            and (parameter.name in ("self", "cls") or parameter.name.startswith("__"))
+        ):
             continue
         rows.append(
             {

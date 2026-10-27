@@ -564,17 +564,21 @@ calls:
 | `omits` | Leaves out one of these names. A call gives a name by keyword or by the position its index says; `null` is a name only a keyword can give. |
 | `bases` | Is none: it says the class's bases changed, which nothing a call passes can meet. The class is flagged where code derives from it, and where it is used any other way that is not a call, an import, an annotation or an argument. |
 
-A call with a `*` or `**` argument is flagged whatever the shape, since it can pass any of the
-keywords, positions and names, unless the shape names only `bases`. A shape names at least one of
-the four, with its keywords and names sorted. Every other call of the
+A call with a `*` argument is flagged when the shape has `positional_from` or a name with an index
+in `omits`, which a position can give, and one with a `**` argument when it has `keywords` or
+`omits`, which a keyword can give; a shape that names only `bases` flags neither. A shape names at
+least one of the four, with its keywords and names sorted. Every other call of the
 symbol is the API as it was: no finding in a shared module, and in one that is not shared the call is
 graded as if the symbol were not flagged. A finding for a call says what matched in its `evidence`
 ([SCAN_VOCABULARY.md](SCAN_VOCABULARY.md) §14).
 
 A use that is not a call is a finding unless the name is imported, annotated or handed to a call as
-an argument (`Column(Integer)`, `map(pd.to_datetime, rows)`, `isinstance(x, Series)`). A class named
-as a base, a name assigned to another, a decorator, a default value, a name inside a list and a name
-below the flagged one are findings as before: code that receives them may call them with anything.
+an argument (`Column(Integer)`, `map(pd.to_datetime, rows)`, `isinstance(x, Series)`), and the call
+it is handed to passes none of the shape's `keywords` (`partial(f, removed=1)` does). A call of a
+call, as in `validator("x", pre=True)(fn)`, is judged by the arguments of the call that names the
+symbol, and a decorator by what it names. A class named as a base, a name assigned to another, a
+bare decorator, a default value, a name inside a list and a name below the flagged one are findings
+as before: code that receives them may call them with anything.
 A method called on a receiver the scan types is flagged as before, whatever its entry. A symbol with
 no entry is flagged wherever it is used, so a pack without `calls` reads as it always did ([the
 flagged-call decision](adr/ADR-073-flags-on-the-call.md)).

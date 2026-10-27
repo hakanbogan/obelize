@@ -36,10 +36,11 @@ ChangeType = Literal[
 
 _VARIADIC: Final = ("variadic positional", "variadic keyword")
 _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-# A name that stands for "not given": private, or one that says so (`_Unset`, `PydanticUndefined`,
-# `lib.no_default`).
+# A name that stands for "not given": one that says so (`PydanticUndefined`, `lib.no_default`), or
+# `_Default` itself. A private name that does not (`_DEFAULT_TIMEOUT`) may be a value.
 _SENTINEL: Final = re.compile(
-    r"(?:\w+\.)*(?:_\w+|\w*(?:undefined|unset|missing|sentinel|notset|notgiven|no_?default)\w*)",
+    r"(?:\w+\.)*_?(?:default|\w*(?:undefined|unset|not_?set|missing|sentinel|not_?given|no_?value"
+    r"|no_?default)\w*)",
     re.I,
 )
 # A message that tells the reader what replaces a name, as opposed to one that only warns.
@@ -272,7 +273,7 @@ def _deprecation(
     if len(named) != 1 or named[0][1].kind != "function" or named[0][1].deprecated is not None:
         return plain
     target, new = named[0]
-    if _accepts(old, new):
+    if accepts(old, new):
         return ApiChange("deprecated", path, new_path=target, message=message, same_signature=True)
     return ApiChange("deprecated", path, new_path=target, message=message, takes=_takes(old, new))
 
@@ -283,7 +284,7 @@ def _positions(old: Obj, new: Obj) -> bool:
     return [one.name for one in new.params or () if one.kind in _POSITIONAL][: len(first)] == first
 
 
-def _accepts(old: Obj, new: Obj) -> bool:
+def accepts(old: Obj, new: Obj) -> bool:
     """Whether every call of `old` is one of `new`: each parameter is there as the same kind, at
     the same place, and nothing new is required."""
     if old.params is None or new.params is None or not _positions(old, new):
@@ -343,7 +344,7 @@ def _signature(path: str, old: tuple[Param, ...], new: tuple[Param, ...]) -> Ite
     open_ended = any(one.kind == "variadic keyword" for one in new)
     added = [one for one in new if one.name not in kept and one.kind not in _VARIADIC]
     for index, one in enumerate(old):
-        if one.kind in _VARIADIC:
+        if one.kind in _VARIADIC or _by_position(one.name):
             continue
         match = by_name.get(one.name)
         if match is None:
@@ -351,8 +352,10 @@ def _signature(path: str, old: tuple[Param, ...], new: tuple[Param, ...]) -> Ite
             if twin is not None:
                 added.remove(twin)
                 yield ApiChange("param_renamed", path, param=one.name, new_param=twin.name)
-            elif not open_ended:
-                yield ApiChange("param_removed", path, param=one.name)
+            else:
+                # A new `**kwargs` takes the keyword without a word, which may be ignored or raise.
+                swallowed = "the new signature takes any keyword" if open_ended else ""
+                yield ApiChange("param_removed", path, param=one.name, detail=swallowed)
             continue
         if match.kind != one.kind:
             detail = f"{one.kind} -> {match.kind}"
@@ -371,6 +374,12 @@ def _signature(path: str, old: tuple[Param, ...], new: tuple[Param, ...]) -> Ite
     for one in added:
         if one.required and not (spread and one.kind != "keyword-only"):
             yield ApiChange("param_required_added", path, param=one.name)
+
+
+def _by_position(name: str) -> bool:
+    """Whether a parameter is named by the old convention for one only a position can give
+    (`__pydantic_self__`), which a keyword does not reach."""
+    return name.startswith("__") and not name.endswith("__")
 
 
 def _renamed(old: Param, new: Param, index: int, params: tuple[Param, ...]) -> bool:
@@ -449,6 +458,7 @@ __all__ = [
     "ApiChange",
     "ChangeType",
     "Successors",
+    "accepts",
     "diff",
     "names_only",
     "successors",

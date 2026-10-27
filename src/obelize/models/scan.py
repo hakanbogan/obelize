@@ -4,6 +4,7 @@ the findings document."""
 from __future__ import annotations
 
 import re
+from functools import cached_property
 from typing import Annotated
 
 from packaging.specifiers import SpecifierSet
@@ -396,15 +397,21 @@ class CallShape(_Frozen):
 
     A call is one if it passes a keyword of `keywords`, has more positional arguments than
     `positional_from`, leaves out a name of `omits` (given by keyword, or by position at its index;
-    null for a name only a keyword can give), or has a `*` or `**` argument, which can pass any of
-    them. `bases` says the class's bases changed, which no call passes: only code that derives from
-    it, or uses it other than as a call, an import, an annotation or an argument, is affected.
+    null for a name only a keyword can give), or has a `*` argument, which can pass the positions,
+    or a `**` argument, which can pass the keywords and the names. `bases` says the class's bases
+    changed, which no call passes: only code that derives from it, or uses it other than as a call,
+    an import, an annotation or an argument, is affected.
     """
 
     keywords: tuple[PlainName, ...] = ()
     positional_from: StrictInt | None = Field(default=None, ge=0)
     omits: dict[PlainName, Annotated[StrictInt, Field(ge=0)] | None] = Field(default_factory=dict)
     bases: StrictBool = False
+
+    @cached_property
+    def keyword_set(self) -> frozenset[str]:
+        """`keywords` as a set, which a scan tests a call's keywords against once, not each."""
+        return frozenset(self.keywords)
 
     @property
     def about_calls(self) -> bool:
