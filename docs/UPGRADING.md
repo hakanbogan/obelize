@@ -198,7 +198,10 @@ pack's words about it (the library's own message where it gave one), the closest
 program turned off. The answer must pass the same guard as any model proposal. The accepted edits go into
 the copy, the rules then write the rest, and your tests judge the whole. Only a move the tests agree
 to is committed, and only to a branch; the commit message names the files the agent edited, which
-are the lines to read first. `--max-asks` limits how many places are asked about.
+are the lines to read first. `--max-asks` limits how many places are asked about. `claude_code` is
+the one backend: `codex exec` documents no setting that leaves a model without tools, so it is not
+offered ([why](adr/ADR-076-no-backend-for-codex-yet.md)); use Codex beside obelize, with obelize as
+the check ([With a coding agent](WITH_A_CODING_AGENT.md)).
 
 An answer may also list the imports it needs, which obelize adds at the top of the file, or say that
 a place needs no edit at all, such as a call that passes none of the arguments that changed. That

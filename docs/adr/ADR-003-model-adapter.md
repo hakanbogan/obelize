@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-067 and ADR-076.
 
 ## Decision
 
@@ -19,8 +19,8 @@ Configuration is the `model` key of the user's own
 and `allow_insecure_http` ([ADR-038](ADR-038-one-endpoint.md) D7); `--model`
 replaces `provider`. A `model:` block in a repository's `.obelize.yml` exits 2
 before any adapter is built, because where code and a credential are sent is
-the runner's choice. Claude Code headless and Codex CLI adapters are excluded
-until their licensing terms are verified in writing.
+the runner's choice. A coding agent is asked only as ADR-067 says (`claude_code`, a text-only
+model for `upgrade`); a Codex CLI one is not built ([ADR-076](ADR-076-no-backend-for-codex-yet.md)).
 
 The trust rules, because repository text is untrusted input to the model (threat
 model B2) and its output an untrusted proposal (B3):

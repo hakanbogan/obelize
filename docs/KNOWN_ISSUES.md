@@ -261,6 +261,12 @@ as it does for a library that keeps its import name. Where the rules did write s
 only the places where tests then broke. A flagged place in a test file is asked about like any
 other, so the commit message, which names every file the agent edited, is where to look first.
 
+`claude_code` is the one agent backend. `codex exec` documents `features.shell_tool` and permission
+profiles but no setting that leaves a model without tools (one command feature cannot be switched
+off by a person, file changes have no switch, and its read-only sandbox reads files and runs
+commands), so a text-only run cannot be guaranteed and `--agent codex` is refused. What would change
+that is in [ADR-076](adr/ADR-076-no-backend-for-codex-yet.md#d4-what-would-change-the-answer).
+
 A failing test whose error shows no line of your code, such as a wrong value with no traceback
 through a file the move wrote, cannot be placed, and the agent is not asked about it. A library that
 changed more names than a pack file holds gets a pack for the names your code reaches through its
@@ -268,8 +274,7 @@ imports, which is the smaller part of the library: a name reached any other way 
 star import of the library is refused.
 
 The pack made for a very large library (pandas) can repeat a name under each module that exports
-it, so the file is large. `claude` is the one agent program obelize can use, and only the trial can
-install anything, with uv. The agent is started the same way on Windows, but its tests stand in for
+it, so the file is large. Only the trial can install anything, with uv. The agent is started the same way on Windows, but its tests stand in for
 it with an executable script and run on Linux and macOS only.
 
 ## Migration guides

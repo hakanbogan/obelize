@@ -485,7 +485,7 @@ that suits the move.
 | `--timeout <seconds>` | How long the tests of the trial may run, each time. Default: `1800` (at least 1). Tests that do not finish are an `inconclusive` trial that says so. |
 | `--branch` | With `--apply`, commit the move to a new branch and leave the working tree as it is. Nothing is pushed. |
 | `--branch-name <name>` | The branch `--branch` makes. Default: `obelize/upgrade-<the release moved to>`, such as `obelize/upgrade-pydantic-2.5.0`. Giving a name implies `--branch`. |
-| `--agent <backend>` | With `--apply` and `--branch`, put the places the pack only flags to your own coding agent, in the trial's copy (`claude_code`). Overrides `agent.backend`. |
+| `--agent <backend>` | With `--apply` and `--branch`, put the places the pack only flags to your own coding agent, in the trial's copy (`claude_code`, the only backend; `codex` is not offered, [why](adr/ADR-076-no-backend-for-codex-yet.md)). Overrides `agent.backend`. |
 | `--max-asks <n>` | The most places `--agent` is asked about in one round (at least 1). Default `50`. |
 | `--max-rounds <n>` | The most rounds `--agent` is put the tests that broke after the move (at least 0). Default `3`; `0` asks none. |
 | `--guide <url\|file>` | A migration guide for the pack made from the two releases to take claims from, as for [`pack synth`](#obelize-pack-synth). Repeatable, at most three. Used only when obelize makes the pack; a pack that ships, or one made before from the same guide, is used as it is. |
@@ -550,7 +550,8 @@ place has moved: the agent is the
 `claude` program on your `PATH`, started in an empty directory with every tool off, no session, no
 MCP server, no skill and none of your settings (so no hook of yours runs), and with an allowlist of
 environment variables ([which](PRIVACY.md#what-an-agent-run-sends)); a program that does not offer
-those restrictions is not used. It is sent the pack's own words about the place, the closest new
+those restrictions is not used, which is why `claude_code` is the one backend and `codex` is not
+([why](adr/ADR-076-no-backend-for-codex-yet.md)). It is sent the pack's own words about the place, the closest new
 names `hints.json` offers if there are any, and the lines around it, redacted, as a text question, and asked
 for one edit of those lines or none. The guard that checks every model proposal checks it: it must
 stay inside what was sent, parse, and name or import nothing beyond the question. An accepted edit

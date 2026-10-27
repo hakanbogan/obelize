@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-076.
 
 ## Decision
 
@@ -23,7 +23,8 @@ network and its terminal, and none that carries a token for GitHub or an index. 
 Windows because its quoting cannot be trusted. Its answer is read as the HTTP adapter's is. Failures
 use the adapter's words (`endpoint_unreachable` for a program that did not start or answer in time,
 `endpoint_refused` for one that exited with an error). No other backend is offered: a program that
-cannot be held to a text answer would be a way for a repository's text to run a tool.
+cannot be held to a text answer would be a way for a repository's text to run a tool, and
+[ADR-076](ADR-076-no-backend-for-codex-yet.md) records why `codex` is not one.
 
 ### D2. A flagged place is a question with the pack's words
 

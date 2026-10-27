@@ -148,7 +148,9 @@ test's name and the last line of its error (redacted and cut to 300 characters) 
 pack's words, and a test that broke is never itself the place to edit. A place the pack flags in a
 test file is asked about like any other, and the commit message names every file the agent edited.
 `--agent` needs `--branch`, so nothing a model
-helped write reaches your working tree before you have read it on a branch.
+helped write reaches your working tree before you have read it on a branch. No other program is
+started this way: `codex exec` documents no setting that leaves a model without tools, so it is not
+offered ([ADR-076](adr/ADR-076-no-backend-for-codex-yet.md)).
 
 ## What changes with the model adapter
 

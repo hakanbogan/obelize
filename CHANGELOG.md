@@ -51,6 +51,11 @@ of them, `BaseModel.copy` to `model_copy`, is a rewrite ([the run](docs/UPGRADIN
 [why](docs/adr/ADR-075-claims-from-a-guide.md)). A guide is fetched as the index is, so a page that
 moved to another host is refused and the message names the host.
 
+`--agent` still takes `claude_code` only. A backend for `codex exec` was checked against its
+documentation on 2026-10-27 (CLI 0.164.0) and not built: it documents `features.shell_tool` and
+permission profiles, but no setting that leaves a model without tools, so a text-only run cannot be
+guaranteed ([ADR-076](docs/adr/ADR-076-no-backend-for-codex-yet.md), which says what would change that).
+
 The formats that changed are `pack.yaml` (a change may carry a `source` of its own, whose type may be
 `guide`, which is never bundled), `pack.schema.json` which describes them, the id of a pack made with
 a guide (it ends with `-with-` and a digest of the guide's text) and `guide.json`, the new record
