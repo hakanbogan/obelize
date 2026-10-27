@@ -546,14 +546,22 @@ def test_what_declares_the_new_sdk_is_read_off_the_scans() -> None:
     for name, record in CORPUS.records.items():
         own = {
             (found["path"], found["line"])
-            for found in record["findings"]
+            for found in record.get("findings", ())
             if found["kind"] == "manifest" and found["symbol"] == "google-genai"
         } - {
             (found["path"], found["line"])
-            for found in record["findings"]
+            for found in record.get("findings", ())
             if found["kind"] == "manifest" and found["symbol"] == "google-generativeai"
         }
         assert (name in declared) is bool(own)
+
+
+def test_a_repository_that_could_not_be_fetched_declares_nothing() -> None:
+    """GitHub stops serving a repository; its record is an error with no findings."""
+    one = corpus([row()], {"owner/repo": [finding(symbol="google-genai", kind="manifest")]})
+    one.records["gone/repo"] = {"full_name": "gone/repo", "error": "CalledProcessError: exit 128"}
+    assert candidates.declares_the_new_sdk(one) == ["owner/repo"]
+    assert candidates.proposes_the_new_sdk(one) == []
 
 
 def test_only_a_manifest_row_can_be_a_declaration() -> None:

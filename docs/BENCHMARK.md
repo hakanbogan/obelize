@@ -383,6 +383,44 @@ means the plan wrote something, not that what it wrote is right; the rounds meas
 The Gemini frame holds some of the round-1 cases its rules were written against, so its row is a
 comparator and not a holdout.
 
+## Upgrade dry run
+
+What `obelize upgrade <distribution> --from A --to B` would write for a library that has no pack,
+over four frames of twenty public repositories each that still use the old API of pydantic
+1.10.26, SQLAlchemy 1.4.54, urllib3 1.26.20 and pandas 2.3.3, moving to 2.12.5, 2.0.55, 2.8.0 and
+3.1.0. `python -m bench.upgrade_collect run` makes the pack once per migration from the two
+releases, as `pack synth` does, and plans every repository of the frame with it in a dry run: no
+`--apply`, so nothing is installed or tried, no model or agent is asked, no file of a clone is run
+and nothing is written. Each repository is fetched at its pinned commit, shallow, into a directory
+of its own. A record keeps what the scan read as a usage (a manifest row and a mention in a comment
+are none), how many of those a rule rewrites by kind and how many the pack only flags, the files
+the plan would write, and every withheld row with its symbol and bail. `bench/upgrade_score.py`
+tables the outcomes with the tiers of the [fix dry run](#fix-dry-run), plus what became of each
+usage. `python -m bench.upgrade_collect run -m SLUG --only OWNER/REPO --out DIR` checks part of a
+frame and needs `--out`, since a committed record of part of a frame would replace the whole.
+
+The frames are drawn like Gate 1's, in the same four size bands, with a term that only code written
+for the old release spells: `from pydantic import validator`, `from sqlalchemy.ext.declarative
+import declarative_base`, `method_whitelist "urllib3.util.retry import Retry"` and
+`infer_datetime_format`. Forks, a second repository of an owner, the owners the mode was developed
+on, a hit inside a vendored copy of the library and anything over 150 MB are dropped with a reason;
+`bench/upgrade/<slug>/sample.yaml` holds the drawn list, the releases, the band populations and
+every rejection. Its biases are the sample's ([above](#the-sample-and-what-is-wrong-with-it)), and
+more:
+
+- **The term picks repositories that import the old API.** A repository already on the new release,
+  or that uses the library only through another part of it, is not in a frame, so a frame says what
+  the pack does with code written for the old release and nothing about a typical user of the
+  library.
+- **Four libraries whose majors broke a lot.** What a pack made from two releases finds in a library
+  that broke little is not measured.
+- **The pack comes from the live index.** It is made from the two releases the frame names, read
+  from the package index on the day of the run, so a later run can make another pack (an index that
+  changed, a release withdrawn) and is not compared with this one except by a person.
+- **No answer key and no trial.** A `complete` repository would mean the plan wrote something, not
+  that it is right, and the tests of a repository are not run, so whether a move passes them is not
+  measured here.
+
 ## Error analysis
 
 After each round, every key row the round did not migrate is read and becomes a

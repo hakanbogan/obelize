@@ -1,0 +1,4311 @@
+{
+  "obelize_version": "0.9.0",
+  "distribution": "pandas",
+  "from": "2.3.3",
+  "to": "3.1.0",
+  "pack": "pandas/2-3-3-to-3-1-0",
+  "pack_sha256": "f10ac11c465661a9f5382d8f53df1e22db95823131f69c9c822ed89c515767a6",
+  "synth_seconds": 78.75,
+  "synth_note": "Moving pandas 2.3.3 to 3.1.0. Made a pack from the public API of pandas 2.3.3 and 3.1.0: 6114 name(s).",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "frame": "bench/upgrade/pandas-2-to-3/sample.yaml",
+  "upgrade": [
+    {
+      "full_name": "Cheva998/algorithms",
+      "sha": "dde89fde16de6dbb1a3569e82916631098fe06e7",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.23,
+      "seconds": 11.31
+    },
+    {
+      "full_name": "openoakland/lovely-rita",
+      "sha": "35ec5a5fc27fcf4ee27078e05fb38f15723ddf9a",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.81,
+      "seconds": 10.56
+    },
+    {
+      "full_name": "aspromatis/zipline_bundle",
+      "sha": "668523cab6d118e452d8b96e9f9d29cfe48f6f86",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "analysis.py",
+          "line": 19,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "csvdir.py",
+          "line": 190,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.55,
+      "seconds": 10.53
+    },
+    {
+      "full_name": "modin-project/modin",
+      "sha": "7ca200b08597ed6ecfd2db2d08bd322f83c2cec1",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 2,
+      "used": 439,
+      "rules": {},
+      "flagged": 405,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "asv_bench/benchmarks/utils/common.py",
+          "line": 36,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/binary.py",
+          "line": 23,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/binary.py",
+          "line": 265,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/binary.py",
+          "line": 434,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/default2pandas/default.py",
+          "line": 134,
+          "symbol": "pandas.Series.divmod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/default2pandas/default.py",
+          "line": 135,
+          "symbol": "pandas.Series.rdivmod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/default2pandas/default.py",
+          "line": 136,
+          "symbol": "pandas.Series.to_list",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/default2pandas/default.py",
+          "line": 137,
+          "symbol": "pandas.Series.corr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/default2pandas/default.py",
+          "line": 138,
+          "symbol": "pandas.Series.to_dict",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/default2pandas/groupby.py",
+          "line": 225,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/algebra/default2pandas/groupby.py",
+          "line": 650,
+          "symbol": "pandas.core.groupby.SeriesGroupBy.aggregate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/pandas/dataframe/dataframe.py",
+          "line": 3590,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/pandas/dataframe/dataframe.py",
+          "line": 4640,
+          "symbol": "pandas.core.indexes.api.Index.__new__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/pandas/dataframe/dataframe.py",
+          "line": 4641,
+          "symbol": "pandas.core.indexes.api.Index.__new__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/pandas/metadata/dtypes.py",
+          "line": 866,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/pandas/partitioning/partition.py",
+          "line": 196,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/dataframe/pandas/utils.py",
+          "line": 105,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/execution/ray/common/deferred_execution.py",
+          "line": 599,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 212,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 220,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 235,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 260,
+          "symbol": "pandas.read_gbq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 286,
+          "symbol": "pandas.read_gbq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 304,
+          "symbol": "pandas.read_html",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 331,
+          "symbol": "pandas.read_html",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 378,
+          "symbol": "pandas.read_excel",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 554,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 578,
+          "symbol": "pandas.read_fwf",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 761,
+          "symbol": "pandas.Series.to_json",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 775,
+          "symbol": "pandas.DataFrame.to_xml",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/io.py",
+          "line": 790,
+          "symbol": "pandas.DataFrame.to_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/io/text/excel_dispatcher.py",
+          "line": 201,
+          "symbol": "pandas.read_excel",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 682,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1036,
+          "symbol": "pandas.Series.to_list",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1058,
+          "symbol": "pandas.Series.to_dict",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1155,
+          "symbol": "pandas.Series.eq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1193,
+          "symbol": "pandas.Series.divmod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1207,
+          "symbol": "pandas.Series.ge",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1225,
+          "symbol": "pandas.Series.gt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1245,
+          "symbol": "pandas.Series.le",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1263,
+          "symbol": "pandas.Series.lt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1323,
+          "symbol": "pandas.Series.corr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1375,
+          "symbol": "pandas.Series.dot",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1390,
+          "symbol": "pandas.Series.ne",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1428,
+          "symbol": "pandas.Series.rdivmod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1550,
+          "symbol": "pandas.DataFrame.update",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1571,
+          "symbol": "pandas.Series.update",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 1970,
+          "symbol": "pandas.DataFrame.reset_index",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2014,
+          "symbol": "pandas.Series.is_monotonic_increasing",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2024,
+          "symbol": "pandas.Series.is_monotonic_decreasing",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2211,
+          "symbol": "pandas.Series.isin",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2333,
+          "symbol": "pandas.Series.argsort",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2363,
+          "symbol": "pandas.Series.view",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2456,
+          "symbol": "pandas.Series.searchsorted",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2475,
+          "symbol": "pandas.DataFrame.stack",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2671,
+          "symbol": "pandas.DataFrame.idxmax",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2692,
+          "symbol": "pandas.DataFrame.idxmin",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2828,
+          "symbol": "pandas.DataFrame.cumsum",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2832,
+          "symbol": "pandas.DataFrame.cummax",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2836,
+          "symbol": "pandas.DataFrame.cummin",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2840,
+          "symbol": "pandas.DataFrame.cumprod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2918,
+          "symbol": "pandas.Series.nlargest",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 2943,
+          "symbol": "pandas.Series.nsmallest",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 3430,
+          "symbol": "pandas.DataFrame.apply",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 3459,
+          "symbol": "pandas.Series.apply",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 3551,
+          "symbol": "pandas.core.groupby.DataFrameGroupBy.idxmin",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 3569,
+          "symbol": "pandas.core.groupby.DataFrameGroupBy.idxmax",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 3882,
+          "symbol": "pandas.core.groupby.DataFrameGroupBy.skew",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 4676,
+          "symbol": "pandas.DataFrame.pivot_table",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 4736,
+          "symbol": "pandas.Series.repeat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5350,
+          "symbol": "pandas.DataFrame.shift",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5444,
+          "symbol": "pandas.Series.dt.ceil",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5458,
+          "symbol": "pandas.Series.dt.components",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5464,
+          "symbol": "pandas.Series.dt.date",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5468,
+          "symbol": "pandas.Series.dt.day",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5474,
+          "symbol": "pandas.Series.dt.day_name",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5480,
+          "symbol": "pandas.Series.dt.dayofweek",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5484,
+          "symbol": "pandas.Series.dt.dayofyear",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5488,
+          "symbol": "pandas.Series.dt.days",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5496,
+          "symbol": "pandas.Series.dt.days_in_month",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5500,
+          "symbol": "pandas.Series.dt.daysinmonth",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5504,
+          "symbol": "pandas.Series.dt.end_time",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5508,
+          "symbol": "pandas.Series.dt.floor",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5523,
+          "symbol": "pandas.Series.dt.freq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5527,
+          "symbol": "pandas.Series.dt.unit",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5531,
+          "symbol": "pandas.Series.dt.as_unit",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5538,
+          "symbol": "pandas.Series.dt.isocalendar",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5542,
+          "symbol": "pandas.Series.dt.hour",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5549,
+          "symbol": "pandas.Series.dt.is_leap_year",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5556,
+          "symbol": "pandas.Series.dt.is_month_end",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5563,
+          "symbol": "pandas.Series.dt.is_month_start",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5570,
+          "symbol": "pandas.Series.dt.is_quarter_end",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5577,
+          "symbol": "pandas.Series.dt.is_quarter_start",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5584,
+          "symbol": "pandas.Series.dt.is_year_end",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5591,
+          "symbol": "pandas.Series.dt.is_year_start",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5595,
+          "symbol": "pandas.Series.dt.microsecond",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5599,
+          "symbol": "pandas.Series.dt.microseconds",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5603,
+          "symbol": "pandas.Series.dt.minute",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5607,
+          "symbol": "pandas.Series.dt.month",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5613,
+          "symbol": "pandas.Series.dt.month_name",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5617,
+          "symbol": "pandas.Series.dt.nanosecond",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5621,
+          "symbol": "pandas.Series.dt.nanoseconds",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5634,
+          "symbol": "pandas.Series.dt.normalize",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5638,
+          "symbol": "pandas.Series.dt.quarter",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5642,
+          "symbol": "pandas.Series.dt.qyear",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5646,
+          "symbol": "pandas.Series.dt.round",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5652,
+          "symbol": "pandas.Series.dt.second",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5656,
+          "symbol": "pandas.Series.dt.seconds",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5660,
+          "symbol": "pandas.Series.dt.start_time",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5676,
+          "symbol": "pandas.Series.dt.strftime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5680,
+          "symbol": "pandas.Series.dt.time",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5686,
+          "symbol": "pandas.Series.dt.timetz",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5710,
+          "symbol": "pandas.Series.dt.asfreq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5727,
+          "symbol": "pandas.Series.dt.to_period",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5740,
+          "symbol": "pandas.Series.dt.to_pydatetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5755,
+          "symbol": "pandas.Series.dt.to_pytimedelta",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5761,
+          "symbol": "pandas.Series.dt.to_timestamp",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5765,
+          "symbol": "pandas.Series.dt.total_seconds",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5778,
+          "symbol": "pandas.Series.dt.tz",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5795,
+          "symbol": "pandas.Series.dt.tz_convert",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5814,
+          "symbol": "pandas.Series.dt.tz_localize",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5820,
+          "symbol": "pandas.Series.dt.weekday",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5824,
+          "symbol": "pandas.Series.dt.year",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5880,
+          "symbol": "pandas.core.resample.Resampler.aggregate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5893,
+          "symbol": "pandas.core.resample.Resampler.aggregate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5904,
+          "symbol": "pandas.core.resample.Resampler.apply",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5917,
+          "symbol": "pandas.core.resample.Resampler.apply",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5938,
+          "symbol": "pandas.core.resample.Resampler.asfreq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5944,
+          "symbol": "pandas.core.resample.Resampler.bfill",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5952,
+          "symbol": "pandas.core.resample.Resampler.count",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5958,
+          "symbol": "pandas.core.resample.Resampler.ffill",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5968,
+          "symbol": "pandas.core.resample.Resampler.fillna",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 5974,
+          "symbol": "pandas.core.resample.Resampler.first",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6000,
+          "symbol": "pandas.core.resample.Resampler.get_group",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6032,
+          "symbol": "pandas.core.resample.Resampler.interpolate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6047,
+          "symbol": "pandas.core.resample.Resampler.last",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6053,
+          "symbol": "pandas.core.resample.Resampler.max",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6059,
+          "symbol": "pandas.core.resample.Resampler.mean",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6065,
+          "symbol": "pandas.core.resample.Resampler.median",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6071,
+          "symbol": "pandas.core.resample.Resampler.min",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6077,
+          "symbol": "pandas.core.resample.Resampler.nearest",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6083,
+          "symbol": "pandas.core.resample.Resampler.nunique",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6095,
+          "symbol": "pandas.core.resample.Resampler.ohlc",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6106,
+          "symbol": "pandas.core.resample.Resampler.ohlc",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6136,
+          "symbol": "pandas.core.resample.Resampler.pipe",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6146,
+          "symbol": "pandas.core.resample.Resampler.prod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6154,
+          "symbol": "pandas.core.resample.Resampler.quantile",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6163,
+          "symbol": "pandas.core.resample.Resampler.sem",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6171,
+          "symbol": "pandas.core.resample.Resampler.size",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6179,
+          "symbol": "pandas.core.resample.Resampler.std",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6189,
+          "symbol": "pandas.core.resample.Resampler.sum",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6217,
+          "symbol": "pandas.core.resample.Resampler.transform",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6225,
+          "symbol": "pandas.core.resample.Resampler.var",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6235,
+          "symbol": "pandas.Series.str.capitalize",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6244,
+          "symbol": "pandas.Series.str.center",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6256,
+          "symbol": "pandas.Series.str.contains",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6267,
+          "symbol": "pandas.Series.str.count",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6276,
+          "symbol": "pandas.Series.str.endswith",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6286,
+          "symbol": "pandas.Series.str.find",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6295,
+          "symbol": "pandas.Series.str.findall",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6306,
+          "symbol": "pandas.Series.str.fullmatch",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6312,
+          "symbol": "pandas.Series.str.get",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6316,
+          "symbol": "pandas.Series.str.get_dummies",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6326,
+          "symbol": "pandas.Series.str.index",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6330,
+          "symbol": "pandas.Series.str.isalnum",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6334,
+          "symbol": "pandas.Series.str.isalpha",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6338,
+          "symbol": "pandas.Series.str.isdecimal",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6342,
+          "symbol": "pandas.Series.str.isdigit",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6346,
+          "symbol": "pandas.Series.str.islower",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6350,
+          "symbol": "pandas.Series.str.isnumeric",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6354,
+          "symbol": "pandas.Series.str.isspace",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6358,
+          "symbol": "pandas.Series.str.istitle",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6362,
+          "symbol": "pandas.Series.str.isupper",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6366,
+          "symbol": "pandas.Series.str.join",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6370,
+          "symbol": "pandas.Series.str.len",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6379,
+          "symbol": "pandas.Series.str.ljust",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6383,
+          "symbol": "pandas.Series.str.lower",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6387,
+          "symbol": "pandas.Series.str.lstrip",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6398,
+          "symbol": "pandas.Series.str.match",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6408,
+          "symbol": "pandas.Series.str.extract",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6417,
+          "symbol": "pandas.Series.str.extractall",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6423,
+          "symbol": "pandas.Series.str.normalize",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6433,
+          "symbol": "pandas.Series.str.pad",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6442,
+          "symbol": "pandas.Series.str.partition",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6446,
+          "symbol": "pandas.Series.str.removeprefix",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6450,
+          "symbol": "pandas.Series.str.removesuffix",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6454,
+          "symbol": "pandas.Series.str.repeat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6467,
+          "symbol": "pandas.Series.str.replace",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6479,
+          "symbol": "pandas.Series.str.rfind",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6489,
+          "symbol": "pandas.Series.str.rindex",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6498,
+          "symbol": "pandas.Series.str.rjust",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6507,
+          "symbol": "pandas.Series.str.rpartition",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6517,
+          "symbol": "pandas.Series.str.rsplit",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6523,
+          "symbol": "pandas.Series.str.rstrip",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6533,
+          "symbol": "pandas.Series.str.slice",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6543,
+          "symbol": "pandas.Series.str.slice_replace",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6556,
+          "symbol": "pandas.Series.str.split",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6567,
+          "symbol": "pandas.Series.str.startswith",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6571,
+          "symbol": "pandas.Series.str.strip",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6575,
+          "symbol": "pandas.Series.str.swapcase",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6579,
+          "symbol": "pandas.Series.str.title",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6583,
+          "symbol": "pandas.Series.str.translate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6587,
+          "symbol": "pandas.Series.str.upper",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6596,
+          "symbol": "pandas.Series.str.wrap",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6600,
+          "symbol": "pandas.Series.str.zfill",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6604,
+          "symbol": "pandas.Series.str.__getitem__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6613,
+          "symbol": "pandas.Series.str.encode",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6623,
+          "symbol": "pandas.Series.str.decode",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6636,
+          "symbol": "pandas.Series.str.cat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6645,
+          "symbol": "pandas.Series.str.casefold",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6941,
+          "symbol": "pandas.core.window.expanding.Expanding.aggregate",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6954,
+          "symbol": "pandas.core.window.expanding.Expanding.sum",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6968,
+          "symbol": "pandas.core.window.expanding.Expanding.min",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6982,
+          "symbol": "pandas.core.window.expanding.Expanding.max",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 6996,
+          "symbol": "pandas.core.window.expanding.Expanding.mean",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7020,
+          "symbol": "pandas.core.window.expanding.Expanding.median",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7040,
+          "symbol": "pandas.core.window.expanding.Expanding.var",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7055,
+          "symbol": "pandas.core.window.expanding.Expanding.std",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7095,
+          "symbol": "pandas.core.window.expanding.Expanding.corr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7143,
+          "symbol": "pandas.core.window.expanding.Expanding.cov",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7166,
+          "symbol": "pandas.core.window.expanding.Expanding.count",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7184,
+          "symbol": "pandas.core.window.expanding.Expanding.quantile",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7201,
+          "symbol": "pandas.core.window.expanding.Expanding.sem",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7215,
+          "symbol": "pandas.core.window.expanding.Expanding.skew",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7229,
+          "symbol": "pandas.core.window.expanding.Expanding.kurt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7257,
+          "symbol": "pandas.core.window.expanding.Expanding.rank",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7346,
+          "symbol": "pandas.Series.cat.codes",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7362,
+          "symbol": "pandas.Series.list.flatten",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7374,
+          "symbol": "pandas.Series.list.len",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7386,
+          "symbol": "pandas.Series.list.__getitem__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7402,
+          "symbol": "pandas.Series.struct.dtypes",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7414,
+          "symbol": "pandas.Series.struct.field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7428,
+          "symbol": "pandas.Series.struct.explode",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/base/query_compiler.py",
+          "line": 7500,
+          "symbol": "pandas.Series.case_when",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/groupby.py",
+          "line": 347,
+          "symbol": "pandas.pivot_table",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/parsers.py",
+          "line": 386,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/parsers.py",
+          "line": 418,
+          "symbol": "pandas.read_fwf",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/parsers.py",
+          "line": 506,
+          "symbol": "pandas.read_excel",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/parsers.py",
+          "line": 801,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 37,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 153,
+          "symbol": "pandas.Series.str",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 219,
+          "symbol": "pandas.Series.dt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 573,
+          "symbol": "pandas.DataFrame.update",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 579,
+          "symbol": "pandas.Series.update",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 588,
+          "symbol": "pandas.Series.eq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 591,
+          "symbol": "pandas.Series.ge",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 594,
+          "symbol": "pandas.Series.gt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 597,
+          "symbol": "pandas.Series.le",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 600,
+          "symbol": "pandas.Series.lt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 603,
+          "symbol": "pandas.Series.ne",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 812,
+          "symbol": "pandas.DataFrame.reset_index",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 1086,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 1101,
+          "symbol": "pandas.DataFrame.idxmax",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 1102,
+          "symbol": "pandas.DataFrame.idxmin",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 1165,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 2429,
+          "symbol": "pandas.DataFrame.cummax",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 2430,
+          "symbol": "pandas.DataFrame.cummin",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 2431,
+          "symbol": "pandas.DataFrame.cumsum",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 2432,
+          "symbol": "pandas.DataFrame.cumprod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 2819,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 3077,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler.py",
+          "line": 3474,
+          "symbol": "pandas.core.apply.reconstruct_func",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler_caster.py",
+          "line": 455,
+          "symbol": "pandas.NamedAgg",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/core/storage_formats/pandas/query_compiler_caster.py",
+          "line": 458,
+          "symbol": "pandas.NamedAgg",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/experimental/core/io/text/csv_glob_dispatcher.py",
+          "line": 116,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/experimental/core/io/text/csv_glob_dispatcher.py",
+          "line": 132,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/experimental/core/io/text/csv_glob_dispatcher.py",
+          "line": 141,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/experimental/core/storage_formats/pandas/parsers.py",
+          "line": 51,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/experimental/core/storage_formats/pandas/parsers.py",
+          "line": 66,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/experimental/core/storage_formats/pandas/parsers.py",
+          "line": 69,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/experimental/core/storage_formats/pandas/parsers.py",
+          "line": 125,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/arr.py",
+          "line": 22,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/arr.py",
+          "line": 49,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/arr.py",
+          "line": 240,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/arr.py",
+          "line": 444,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/indexing.py",
+          "line": 37,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/indexing.py",
+          "line": 149,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/indexing.py",
+          "line": 150,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/indexing.py",
+          "line": 168,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/numpy/indexing.py",
+          "line": 208,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/__init__.py",
+          "line": 107,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/__init__.py",
+          "line": 331,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/accessor.py",
+          "line": 161,
+          "symbol": "pandas.Series.sparse",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/accessor.py",
+          "line": 165,
+          "symbol": "pandas.Series.sparse",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/accessor.py",
+          "line": 169,
+          "symbol": "pandas.Series.sparse",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/accessor.py",
+          "line": 173,
+          "symbol": "pandas.Series.sparse",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/accessor.py",
+          "line": 178,
+          "symbol": "pandas.Series.sparse.from_coo",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/accessor.py",
+          "line": 183,
+          "symbol": "pandas.Series.sparse.to_coo",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/accessor.py",
+          "line": 190,
+          "symbol": "pandas.Series.sparse.to_dense",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/base.py",
+          "line": 59,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/base.py",
+          "line": 1095,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/base.py",
+          "line": 2442,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/base.py",
+          "line": 3729,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/base.py",
+          "line": 4155,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/base.py",
+          "line": 4161,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 50,
+          "symbol": "pandas.core.dtypes.common.infer_dtype_from_object",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 231,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 278,
+          "symbol": "pandas.get_option",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 279,
+          "symbol": "pandas.get_option",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 299,
+          "symbol": "pandas.get_option",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 300,
+          "symbol": "pandas.get_option",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 441,
+          "symbol": "pandas.DataFrame.apply",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 526,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 535,
+          "symbol": "pandas.Grouper",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 999,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 1143,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 2026,
+          "symbol": "pandas.core.dtypes.common.infer_dtype_from_object",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 2145,
+          "symbol": "pandas.DataFrame.stack",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 2275,
+          "symbol": "pandas.DataFrame.to_gbq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 2331,
+          "symbol": "pandas.DataFrame.to_html",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/dataframe.py",
+          "line": 2863,
+          "symbol": "pandas.Categorical",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/general.py",
+          "line": 457,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/general.py",
+          "line": 479,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/general.py",
+          "line": 514,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/general.py",
+          "line": 608,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/groupby.py",
+          "line": 1112,
+          "symbol": "pandas.core.apply.reconstruct_func",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/indexing.py",
+          "line": 40,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/indexing.py",
+          "line": 146,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/indexing.py",
+          "line": 147,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/indexing.py",
+          "line": 149,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/indexing.py",
+          "line": 167,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/indexing.py",
+          "line": 233,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/io.py",
+          "line": 312,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/io.py",
+          "line": 381,
+          "symbol": "pandas.read_gbq",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/io.py",
+          "line": 407,
+          "symbol": "pandas.read_html",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/io.py",
+          "line": 601,
+          "symbol": "pandas.io.sas.sasreader.ReaderBase",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/resample.py",
+          "line": 123,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 85,
+          "symbol": "pandas.Series.__init__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 117,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 118,
+          "symbol": "pandas.Series.__array_priority__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 166,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 235,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 236,
+          "symbol": "pandas.Series.__and__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 242,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 243,
+          "symbol": "pandas.Series.__rand__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 248,
+          "symbol": "pandas.Series.__array__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 435,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 436,
+          "symbol": "pandas.Series.__or__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 442,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 443,
+          "symbol": "pandas.Series.__ror__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 449,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 450,
+          "symbol": "pandas.Series.__xor__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 456,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 457,
+          "symbol": "pandas.Series.__rxor__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 477,
+          "symbol": "pandas.get_option",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 478,
+          "symbol": "pandas.get_option",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 712,
+          "symbol": "pandas.Series.apply",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 885,
+          "symbol": "pandas.Series.between",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 1177,
+          "symbol": "pandas.Series.factorize",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 1329,
+          "symbol": "pandas.Series.hist",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 1647,
+          "symbol": "pandas.Series.unstack",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 1706,
+          "symbol": "pandas.Series.prod",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 1754,
+          "symbol": "pandas.Series.reindex",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 2033,
+          "symbol": "pandas.Series.searchsorted",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 2105,
+          "symbol": "pandas.Series._get_axis_number",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 2293,
+          "symbol": "pandas.Series.to_string",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 2373,
+          "symbol": "pandas.Series.value_counts",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 2415,
+          "symbol": "pandas.Series.where",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series.py",
+          "line": 2812,
+          "symbol": "pandas.Series.__getitem__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 140,
+          "symbol": "pandas.Series.cat.rename_categories",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 145,
+          "symbol": "pandas.Series.cat.reorder_categories",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 151,
+          "symbol": "pandas.Series.cat.add_categories",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 154,
+          "symbol": "pandas.Series.cat.remove_categories",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 157,
+          "symbol": "pandas.Series.cat.remove_unused_categories",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 161,
+          "symbol": "pandas.Series.cat.set_categories",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 168,
+          "symbol": "pandas.Series.cat.as_ordered",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/series_utils.py",
+          "line": 171,
+          "symbol": "pandas.Series.cat.as_unordered",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/utils.py",
+          "line": 329,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/pandas/window.py",
+          "line": 350,
+          "symbol": "pandas.core.window.expanding.Expanding.__init__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/config/test_envvars.py",
+          "line": 173,
+          "symbol": "pandas.Series.isnull.__doc__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/config/test_envvars.py",
+          "line": 174,
+          "symbol": "pandas.Series.apply.__doc__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/config/test_envvars.py",
+          "line": 178,
+          "symbol": "pandas.read_table.__doc__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/experimental/test_io_exp.py",
+          "line": 126,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/experimental/test_io_exp.py",
+          "line": 146,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/experimental/test_io_exp.py",
+          "line": 194,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/experimental/test_io_exp.py",
+          "line": 234,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/experimental/torch/test_dataloader.py",
+          "line": 43,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/experimental/torch/test_dataloader.py",
+          "line": 78,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/numpy/test_array.py",
+          "line": 111,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/dataframe/test_indexing.py",
+          "line": 1986,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/dataframe/test_indexing.py",
+          "line": 2645,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/dataframe/test_udf.py",
+          "line": 309,
+          "symbol": "pandas.Series.sum",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/dataframe/test_udf.py",
+          "line": 456,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/extensions/test_api_reexport.py",
+          "line": 33,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/extensions/test_pd_extensions.py",
+          "line": 115,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/native_df_interoperability/test_general.py",
+          "line": 43,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/native_df_interoperability/test_general.py",
+          "line": 60,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/native_df_interoperability/test_general.py",
+          "line": 83,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/native_df_interoperability/test_general.py",
+          "line": 101,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/native_df_interoperability/test_join_sort.py",
+          "line": 265,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/native_df_interoperability/test_join_sort.py",
+          "line": 274,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 40,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 92,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 132,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 187,
+          "symbol": "pandas.Series.str",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 197,
+          "symbol": "pandas.Series.str",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 202,
+          "symbol": "pandas.Series.dt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 215,
+          "symbol": "pandas.Series.dt",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 220,
+          "symbol": "pandas.Series.cat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 232,
+          "symbol": "pandas.core.arrays.Categorical",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 238,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_api.py",
+          "line": 292,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_concat.py",
+          "line": 202,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_concat.py",
+          "line": 387,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_general.py",
+          "line": 59,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_general.py",
+          "line": 64,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_general.py",
+          "line": 665,
+          "symbol": "pandas.value_counts",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_general.py",
+          "line": 674,
+          "symbol": "pandas.value_counts",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_general.py",
+          "line": 682,
+          "symbol": "pandas.value_counts",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_general.py",
+          "line": 980,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_general.py",
+          "line": 994,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_groupby.py",
+          "line": 797,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_groupby.py",
+          "line": 2126,
+          "symbol": "pandas.Series.nunique",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_groupby.py",
+          "line": 2133,
+          "symbol": "pandas.Series.nunique",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_groupby.py",
+          "line": 3193,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 155,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 233,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 234,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 364,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 448,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 650,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 1342,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 1371,
+          "symbol": "pandas.read_table",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 2073,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_io.py",
+          "line": 2976,
+          "symbol": "pandas.read_fwf",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_series.py",
+          "line": 1983,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/test_series.py",
+          "line": 2776,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 32,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 694,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 696,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 700,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 715,
+          "symbol": "pandas.core.dtypes.common.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 751,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 804,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 1150,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 1210,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 1213,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/pandas/utils.py",
+          "line": 1758,
+          "symbol": "pandas.get_option",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "modin/tests/test_partition_api.py",
+          "line": 88,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "requirements-dev.txt",
+          "line": 2,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 54,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 55.06,
+      "seconds": 77.52
+    },
+    {
+      "full_name": "MaartenGr/BERTopic",
+      "sha": "9036123c97aaa9a6cc4bec4a6db1a7caf9209df6",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "bertopic/_bertopic.py",
+          "line": 872,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 43,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 6.98,
+      "seconds": 17.4
+    },
+    {
+      "full_name": "datactive/bigbang",
+      "sha": "cdf9b06b9e0414b544eda62044cb69f59c1fd174",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 7,
+      "rules": {},
+      "flagged": 7,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "bigbang/analysis/attendance.py",
+          "line": 69,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bigbang/analysis/datatracker.py",
+          "line": 132,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bigbang/analysis/datatracker.py",
+          "line": 191,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bigbang/analysis/datatracker.py",
+          "line": 259,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bigbang/archive.py",
+          "line": 90,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bigbang/archive.py",
+          "line": 500,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 24,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tests/unit/test_archive.py",
+          "line": 64,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 9.83,
+      "seconds": 21.29
+    },
+    {
+      "full_name": "data-exchange/dxchange",
+      "sha": "93c0f11ce1f63cd4bbbca6275d0c3634a1cac5f4",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "dxchange/reader.py",
+          "line": 405,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "envs/requirements.txt",
+          "line": 9,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.26,
+      "seconds": 11.49
+    },
+    {
+      "full_name": "exasol/pyexasol",
+      "sha": "32a52d164568758d810f877110fa148b5d3fb2b6",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 2,
+      "used": 5,
+      "rules": {},
+      "flagged": 5,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pyexasol/callback.py",
+          "line": 54,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pyexasol/ext.py",
+          "line": 495,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 52,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 63,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "test/integration/import_and_export/pandas_test.py",
+          "line": 10,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "test/integration/import_and_export/pandas_test.py",
+          "line": 31,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "test/integration/import_and_export/pandas_test.py",
+          "line": 49,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 2.94,
+      "seconds": 12.98
+    },
+    {
+      "full_name": "dask/dask-expr",
+      "sha": "42e7a8958ba286a4c7b2f199d143a70b0b479489",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 1,
+      "used": 28,
+      "rules": {},
+      "flagged": 27,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "dask_expr/_backends.py",
+          "line": 43,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_collection.py",
+          "line": 69,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_collection.py",
+          "line": 745,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_collection.py",
+          "line": 2753,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_collection.py",
+          "line": 4086,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_collection.py",
+          "line": 4162,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_collection.py",
+          "line": 4563,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_collection.py",
+          "line": 6109,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_core.py",
+          "line": 76,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_dummies.py",
+          "line": 100,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_groupby.py",
+          "line": 1926,
+          "symbol": "pandas.core.apply.reconstruct_func",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_indexing.py",
+          "line": 18,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_indexing.py",
+          "line": 99,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_indexing.py",
+          "line": 110,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_indexing.py",
+          "line": 125,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_quantiles.py",
+          "line": 76,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_str_accessor.py",
+          "line": 113,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_util.py",
+          "line": 219,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/_util.py",
+          "line": 224,
+          "symbol": "pandas.api.types.is_bool_dtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/datasets.py",
+          "line": 129,
+          "symbol": "pandas.Categorical.from_codes",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/io/parquet.py",
+          "line": 104,
+          "symbol": "pandas.StringDtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/io/parquet.py",
+          "line": 674,
+          "symbol": "pandas.StringDtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/io/parquet.py",
+          "line": 684,
+          "symbol": "pandas.StringDtype",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/io/tests/test_parquet.py",
+          "line": 186,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/tests/test_collection.py",
+          "line": 1061,
+          "symbol": "pandas.testing.assert_index_equal",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/tests/test_collection.py",
+          "line": 1062,
+          "symbol": "pandas.testing.assert_index_equal",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/tests/test_collection.py",
+          "line": 1503,
+          "symbol": "pandas.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "dask_expr/tests/test_dummies.py",
+          "line": 28,
+          "symbol": "pandas.testing.assert_index_equal",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 31,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 13.88,
+      "seconds": 23.9
+    },
+    {
+      "full_name": "vuthede/zalo-hit-song-prediction",
+      "sha": "71c1f70fe8ed62e2bc6278edc32bb273bfcadecd",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "format_features.py",
+          "line": 144,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.45,
+      "seconds": 13.8
+    },
+    {
+      "full_name": "augerai/a2ml",
+      "sha": "7fcce9851fb69e0223d1c0538a22f066a8e13bbc",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 3,
+      "rules": {},
+      "flagged": 3,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "a2ml/api/utils/dataframe.py",
+          "line": 151,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "a2ml/api/utils/dataframe.py",
+          "line": 288,
+          "symbol": "pandas.DataFrame.from_records",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "a2ml/api/utils/fsclient.py",
+          "line": 475,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 32,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 6.18,
+      "seconds": 16.87
+    },
+    {
+      "full_name": "IAGA-DVI-DataStandards/mth5",
+      "sha": "6c62aeb91a25362803b4cf6b86e466a260c33023",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "mth5/clients/geomag.py",
+          "line": 598,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "mth5/clients/intermag.py",
+          "line": 607,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 6.04,
+      "seconds": 18.85
+    },
+    {
+      "full_name": "rustychris/stompy",
+      "sha": "324d0c3d504304310784d71646830192ffbe7585",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 3,
+      "used": 4,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pyproject.toml",
+          "line": 23,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements-rtd.txt",
+          "line": 7,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 6,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "stompy/model/fish_ptm/ptm_tools.py",
+          "line": 284,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "stompy/utils.py",
+          "line": 1359,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "stompy/utils.py",
+          "line": 1384,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        },
+        {
+          "path": "stompy/utils.py",
+          "line": 1396,
+          "symbol": "pandas",
+          "bail": "module_alias_rebound",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 13.29,
+      "seconds": 23.61
+    },
+    {
+      "full_name": "raulduk3/half-time-draw-predictor",
+      "sha": "f3aa38022229be2fbfc709914c0ed1bfc3915d71",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 25,
+      "rules": {},
+      "flagged": 25,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 27,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/audit_data.py",
+          "line": 34,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/build_american_data.py",
+          "line": 166,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/market_model.py",
+          "line": 321,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/predict.py",
+          "line": 83,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/predict_match.py",
+          "line": 72,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/predict_match_v3.py",
+          "line": 140,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/train.py",
+          "line": 59,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/train_mega.py",
+          "line": 76,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/train_v2.py",
+          "line": 65,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/train_v3.py",
+          "line": 88,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/archive/verify_results.py",
+          "line": 44,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/backtest_full.py",
+          "line": 42,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/daily_log.py",
+          "line": 117,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dixon_coles.py",
+          "line": 437,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/elo.py",
+          "line": 422,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/merge_understat_xg.py",
+          "line": 34,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/merge_xg.py",
+          "line": 394,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/picks.py",
+          "line": 203,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/picks.py",
+          "line": 308,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/predict_v4.py",
+          "line": 159,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/scan_v4.py",
+          "line": 109,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/train_v4.py",
+          "line": 115,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/update_data.py",
+          "line": 237,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/update_data.py",
+          "line": 297,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/update_data.py",
+          "line": 386,
+          "symbol": "pandas.read_parquet",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 10.56,
+      "seconds": 23.94
+    },
+    {
+      "full_name": "FoamoftheSea/mod5project",
+      "sha": "f796d84c12a1c986ffa17c3b5d8dfb47aba43c0f",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 7,
+      "rules": {},
+      "flagged": 7,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "bot_functions.py",
+          "line": 87,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bot_functions.py",
+          "line": 438,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bot_functions.py",
+          "line": 839,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "bot_functions.py",
+          "line": 1433,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "my_functions.py",
+          "line": 74,
+          "symbol": "pandas.Series.mode",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "my_functions.py",
+          "line": 490,
+          "symbol": "pandas.core.series.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "my_functions.py",
+          "line": 542,
+          "symbol": "pandas.core.series.Series",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 4.29,
+      "seconds": 18.06
+    },
+    {
+      "full_name": "SINTEF/scengen-data-select",
+      "sha": "3a507519f639bbc48cd4a78cce57dc51c6b249b8",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 4,
+      "rules": {},
+      "flagged": 4,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "examples/portf_opt_CVaR/process_scens.py",
+          "line": 96,
+          "symbol": "pandas.pivot_table",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "examples/portf_opt_CVaR/process_scens.py",
+          "line": 108,
+          "symbol": "pandas.pivot_table",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 4,
+          "symbol": "pandas",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "scengen_times.py",
+          "line": 92,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "scengen_times.py",
+          "line": 95,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 2.67,
+      "seconds": 12.27
+    },
+    {
+      "full_name": "TochusC/windpower-forecast-system",
+      "sha": "8bd965a4674abeaf8ce7ea78ad3d2b2395246670",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 4,
+      "rules": {},
+      "flagged": 3,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "WPF_Backend/WPF/views.py",
+          "line": 630,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "WPF_Backend/forecast/train/gcn_lstm.py",
+          "line": 465,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "WPF_Backend/forecast/train/gcn_lstm_mlp.py",
+          "line": 524,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "WPF_Backend/forecast/train/mlp.py",
+          "line": 441,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 3.25,
+      "seconds": 15.99
+    },
+    {
+      "full_name": "UVAdMIST/swmm_wq_rl",
+      "sha": "96a836bea3ccf74e5fdfecbf38d98400a44ad8b7",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 17,
+      "rules": {},
+      "flagged": 17,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "passive/hague_passive_gwl.py",
+          "line": 17,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "processing/plot_rl_wq_comparisons.py",
+          "line": 30,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "processing/plot_rl_wq_comparisons.py",
+          "line": 31,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "processing/plot_rl_wq_comparisons.py",
+          "line": 32,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "processing/plot_rl_wq_comparisons.py",
+          "line": 33,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "processing/plot_rl_wq_comparisons.py",
+          "line": 34,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rbc/run_hague_rbc_dtn.py",
+          "line": 30,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rbc/run_hague_rbc_dtn.py",
+          "line": 32,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rbc/run_hague_rbc_tss.py",
+          "line": 22,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model.py",
+          "line": 25,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model.py",
+          "line": 408,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model_gwl.py",
+          "line": 25,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model_gwl.py",
+          "line": 26,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model_gwl.py",
+          "line": 171,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model_gwl.py",
+          "line": 172,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model_tune.py",
+          "line": 23,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "rl_wq/hague_ddpg_Model_tune.py",
+          "line": 428,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 3.4,
+      "seconds": 16.33
+    },
+    {
+      "full_name": "Mazen72/Twitter_Sentiment_Analysis_Dashboard",
+      "sha": "b2f3e5ec39d3422de6e15ff9d076fc0d41695efb",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main.py",
+          "line": 151,
+          "symbol": "pandas.to_datetime",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.19,
+      "seconds": 11.31
+    },
+    {
+      "full_name": "elephaint/pedpf",
+      "sha": "38bb1b022c26c0b7ab10d7f2f355d687936da3ac",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "data/datasets.py",
+          "line": 76,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "data/datasets.py",
+          "line": 176,
+          "symbol": "pandas.read_csv",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 3.03,
+      "seconds": 13.48
+    }
+  ]
+}

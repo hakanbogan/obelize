@@ -1,0 +1,2582 @@
+{
+  "obelize_version": "0.9.0",
+  "distribution": "pydantic",
+  "from": "1.10.26",
+  "to": "2.12.5",
+  "pack": "pydantic/1-10-26-to-2-12-5",
+  "pack_sha256": "b5fe85ff824798a2b6dc98f099b53cb2efd2987b8076f0ba622e6c12e24db011",
+  "synth_seconds": 14.86,
+  "synth_note": "Moving pydantic 1.10.26 to 2.12.5. Made a pack from the public API of pydantic 1.10.26 and 2.12.5: 722 name(s).",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "frame": "bench/upgrade/pydantic-1-to-2/sample.yaml",
+  "upgrade": [
+    {
+      "full_name": "msancheznet/dtnsim",
+      "sha": "4357002eb529b188a0a8f447b1a4add518ff3cfd",
+      "band": "size:<1000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 34,
+      "rules": {},
+      "flagged": 34,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "simulator/parsers/DtnBasicDuctParser.py",
+          "line": 9,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnBasicRadioParser.py",
+          "line": 10,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnBasicRadioParser.py",
+          "line": 13,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnCodedRadioParser.py",
+          "line": 10,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnCodedRadioParser.py",
+          "line": 16,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnCodedRadioParser.py",
+          "line": 19,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnConstantBitRateGeneratorParser.py",
+          "line": 17,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnDistanceConnectionParser.py",
+          "line": 17,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnDistanceConnectionParser.py",
+          "line": 32,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnFileBroadcasterParser.py",
+          "line": 11,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnFileGeneratorParser.py",
+          "line": 14,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnGlobalsParser.py",
+          "line": 40,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnGlobalsParser.py",
+          "line": 51,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnLTPDuctParser.py",
+          "line": 21,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnMBLTPDuctParser.py",
+          "line": 22,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNetworkParser.py",
+          "line": 21,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNetworkParser.py",
+          "line": 48,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNetworkParser.py",
+          "line": 78,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNetworkParser.py",
+          "line": 131,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNetworkParser.py",
+          "line": 158,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNodeParser.py",
+          "line": 33,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNodeParser.py",
+          "line": 37,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNodeParser.py",
+          "line": 41,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNodeParser.py",
+          "line": 45,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNodeParser.py",
+          "line": 49,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnNodeParser.py",
+          "line": 53,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnParallelLTPDuctParser.py",
+          "line": 10,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnReportsParser.py",
+          "line": 9,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnScenarioParser.py",
+          "line": 17,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnScheduledConnectionParser.py",
+          "line": 13,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnScheduledConnectionParser.py",
+          "line": 28,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnStaticConnectionParser.py",
+          "line": 17,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnStaticConnectionParser.py",
+          "line": 31,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "simulator/parsers/DtnStaticMobilityModelParser.py",
+          "line": 7,
+          "symbol": "pydantic.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.29,
+      "seconds": 4.13
+    },
+    {
+      "full_name": "Eirsteir/kaffepause-api-v2",
+      "sha": "dfd2212bcaf6dacb659e0f6b3bb10bca408f2d80",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 5,
+      "rules": {},
+      "flagged": 5,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "kaffepause/core/settings/base.py",
+          "line": 17,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "kaffepause/core/settings/base.py",
+          "line": 35,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "kaffepause/core/settings/local.py",
+          "line": 11,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "kaffepause/core/settings/production.py",
+          "line": 15,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "kaffepause/core/settings/production.py",
+          "line": 21,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements/base.txt",
+          "line": 4,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.3,
+      "seconds": 2.42
+    },
+    {
+      "full_name": "cvlab-columbia/zero123",
+      "sha": "f426883b1a7353d91ddc34a551dd91b6223e4ce8",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 7,
+      "rules": {
+        "rename_member": 5
+      },
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "3drec/pose.py",
+          "line": 133,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "3drec/requirements.txt",
+          "line": 1,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "3drec/run_img_sampling.py",
+          "line": 24,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "3drec/run_nerf.py",
+          "line": 23,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "3drec/run_nerf.py",
+          "line": 32,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "3drec/run_nerf.py",
+          "line": 53,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "3drec/run_zero123.py",
+          "line": 105,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "3drec/run_zero123.py",
+          "line": 113,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        }
+      ],
+      "plan_seconds": 2.29,
+      "seconds": 7.77
+    },
+    {
+      "full_name": "ynput/ayon-substance-painter",
+      "sha": "0951380a9c3af7f22979bc2dc92b36ff533e54a1",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "server/settings/imageio.py",
+          "line": 20,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.2,
+      "seconds": 2.27
+    },
+    {
+      "full_name": "Kludex/fastapi-health",
+      "sha": "c81925385d3ffb42b1d81d0bbd5f2e72835249f7",
+      "band": "size:4000..16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "fastapi_health/endpoint.py",
+          "line": 56,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.5,
+      "seconds": 2.4
+    },
+    {
+      "full_name": "vlievin/medical-reasoning",
+      "sha": "bb0e7f6934c455797f46837395c25e6af2be3c0b",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 10,
+      "rules": {},
+      "flagged": 10,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 11,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 35,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 41,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 41,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 55,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 55,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 86,
+          "symbol": "pydantic.BaseModel.copy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 126,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/datastruct.py",
+          "line": 126,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "medical_reasoning/utils/preprocessing.py",
+          "line": 197,
+          "symbol": "pydantic.BaseModel.copy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 20,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.8,
+      "seconds": 5.06
+    },
+    {
+      "full_name": "alibaba/easydispatch",
+      "sha": "a3093e7de823f8b099a25f8271042d552945b256",
+      "band": "size:4000..16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 2,
+      "used": 54,
+      "rules": {
+        "rename_member": 36
+      },
+      "flagged": 18,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "database.py",
+          "line": 28,
+          "symbol": "pydantic.types.constr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements-base-py39.txt",
+          "line": 87,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements-base.txt",
+          "line": 87,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/auth/models.py",
+          "line": 141,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/auth/models.py",
+          "line": 151,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/auth/models.py",
+          "line": 177,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/auth/service.py",
+          "line": 61,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/auth/service.py",
+          "line": 96,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/auth/service.py",
+          "line": 176,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/auth/views.py",
+          "line": 173,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/auth/views.py",
+          "line": 273,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/database.py",
+          "line": 28,
+          "symbol": "pydantic.types.constr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/database_util/service.py",
+          "line": 46,
+          "symbol": "pydantic.types.constr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/depot/service.py",
+          "line": 81,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/depot/service.py",
+          "line": 95,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/event/service.py",
+          "line": 69,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/event/service.py",
+          "line": 80,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/group/service.py",
+          "line": 32,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/group/service.py",
+          "line": 41,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/item/service.py",
+          "line": 65,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/item/service.py",
+          "line": 78,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/item_inventory/service.py",
+          "line": 68,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/item_inventory/service.py",
+          "line": 82,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/item_inventory_event/service.py",
+          "line": 64,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/item_inventory_event/service.py",
+          "line": 75,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/job/service.py",
+          "line": 506,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/job/views.py",
+          "line": 130,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/location/service.py",
+          "line": 62,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/location/service.py",
+          "line": 82,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/logs/service.py",
+          "line": 9,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/org/service.py",
+          "line": 95,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/org/views.py",
+          "line": 105,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugin/service.py",
+          "line": 55,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/plugin/service.py",
+          "line": 64,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 94,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 168,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 236,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 241,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 294,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 314,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 322,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 332,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 407,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 419,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/plugins/kandbox_planner/env/env_models.py",
+          "line": 434,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/service/service.py",
+          "line": 34,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/service/service.py",
+          "line": 43,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/service_plugin/service.py",
+          "line": 111,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/service_plugin/service.py",
+          "line": 148,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/service_plugin/views.py",
+          "line": 107,
+          "symbol": "pydantic.BaseModel.from_orm",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/tag/service.py",
+          "line": 20,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "unsupported_kwarg"
+          ]
+        },
+        {
+          "path": "src/dispatch/tag/service.py",
+          "line": 41,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "unsupported_kwarg",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/team/service.py",
+          "line": 60,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/team/service.py",
+          "line": 87,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/worker/service.py",
+          "line": 121,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/dispatch/worker/service.py",
+          "line": 142,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 9.82,
+      "seconds": 12.63
+    },
+    {
+      "full_name": "apptension/onetimepass",
+      "sha": "541c827da5765efef43ad352aa277a0d79ecc949",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 21,
+      "rules": {
+        "rename_member": 2
+      },
+      "flagged": 19,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "onetimepass/base_model.py",
+          "line": 2,
+          "symbol": "pydantic.Extra",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/base_model.py",
+          "line": 5,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/db/json_encrypted.py",
+          "line": 41,
+          "symbol": "pydantic.BaseModel.json",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/db/models.py",
+          "line": 78,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/db/models.py",
+          "line": 86,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/db/models.py",
+          "line": 103,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 7,
+          "symbol": "pydantic.Extra",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 16,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 24,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 48,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 49,
+          "symbol": "pydantic.constr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 50,
+          "symbol": "pydantic.constr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 109,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 119,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 121,
+          "symbol": "pydantic.constr",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 125,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 131,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/schemas.py",
+          "line": 135,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/uri.py",
+          "line": 5,
+          "symbol": "pydantic.Extra",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/uri.py",
+          "line": 14,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "onetimepass/otpauth/uri.py",
+          "line": 42,
+          "symbol": "pydantic.BaseModel.parse_obj",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 10,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.89,
+      "seconds": 3.36
+    },
+    {
+      "full_name": "aiondemand/AIOD-rest-api",
+      "sha": "71604a64484ff19c1e8498fc3f9627cd66aa3145",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 33,
+      "rules": {
+        "rename_member": 1
+      },
+      "flagged": 32,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pyproject.toml",
+          "line": 26,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 15,
+          "symbol": "pydantic.Extra",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 19,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 20,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 21,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 30,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 35,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 42,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 49,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 56,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 62,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 66,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 71,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 81,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 93,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 134,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/dcat.py",
+          "line": 150,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/schema_dot_org.py",
+          "line": 12,
+          "symbol": "pydantic.Extra",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/schema_dot_org.py",
+          "line": 111,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/converters/schema/schema_dot_org.py",
+          "line": 201,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/agent/location.py",
+          "line": 116,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/ai_asset/distribution.py",
+          "line": 67,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/ai_asset/distribution.py",
+          "line": 86,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/ai_resource/note.py",
+          "line": 22,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/concept/concept.py",
+          "line": 54,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/concept/concept.py",
+          "line": 97,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/helper_functions.py",
+          "line": 33,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/models_and_experiments/runnable_distribution.py",
+          "line": 80,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/named_relation.py",
+          "line": 65,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/resource_read_and_create.py",
+          "line": 76,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/database/model/resource_read_and_create.py",
+          "line": 119,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/error_handling/error_handling.py",
+          "line": 54,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/routers/user_router.py",
+          "line": 36,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/versioning.py",
+          "line": 341,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 3.32,
+      "seconds": 6.33
+    },
+    {
+      "full_name": "zzyss-marker/newinno",
+      "sha": "eeef8eaeae533623e173172391f2b5ac12980f68",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 14,
+      "rules": {
+        "rename_member": 3
+      },
+      "flagged": 11,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app/routers/admin.py",
+          "line": 1350,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app/routers/admin.py",
+          "line": 1369,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app/routers/management.py",
+          "line": 30,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 43,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 50,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 94,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 100,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 106,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 121,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 186,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 195,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 238,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 275,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/schemas.py",
+          "line": 282,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 5.65,
+      "seconds": 7.99
+    },
+    {
+      "full_name": "jsstevenson/oxley",
+      "sha": "a2ccaa459cd9490a4923af2e26aec2e79f2cccc2",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 14,
+      "rules": {
+        "rename_member": 1
+      },
+      "flagged": 13,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "oxley/class_builder.py",
+          "line": 23,
+          "symbol": "pydantic.fields.Undefined",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 170,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 223,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 232,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 260,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 266,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 317,
+          "symbol": "pydantic.fields.Undefined",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 327,
+          "symbol": "pydantic.main.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 343,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 362,
+          "symbol": "pydantic.fields.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/class_builder.py",
+          "line": 407,
+          "symbol": "pydantic.create_model",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/types.py",
+          "line": 227,
+          "symbol": "pydantic.types.confloat",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/types.py",
+          "line": 229,
+          "symbol": "pydantic.types.conint",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "oxley/validators.py",
+          "line": 248,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.cfg",
+          "line": 31,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.3,
+      "seconds": 3.24
+    },
+    {
+      "full_name": "MadMehx/3DMLGPU",
+      "sha": "d0d9dccdeeb4bdbdaac576278cd442e577eb5b63",
+      "band": "size:4000..16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 16,
+      "rules": {
+        "rename_member": 12
+      },
+      "flagged": 4,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pose.py",
+          "line": 88,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run_img_sampling.py",
+          "line": 24,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run_img_sampling.py",
+          "line": 38,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run_img_sampling.py",
+          "line": 45,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run_img_sampling.py",
+          "line": 52,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run_img_sampling.py",
+          "line": 73,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run_img_sampling.py",
+          "line": 138,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "run_nerf.py",
+          "line": 23,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run_nerf.py",
+          "line": 32,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "run_nerf.py",
+          "line": 53,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "run_sjc.py",
+          "line": 66,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run_sjc.py",
+          "line": 74,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "run_sjc_nvtx.py",
+          "line": 67,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run_sjc_nvtx.py",
+          "line": 75,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "run_sjc_torch.py",
+          "line": 92,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "run_sjc_torch.py",
+          "line": 100,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        }
+      ],
+      "plan_seconds": 3.27,
+      "seconds": 5.62
+    },
+    {
+      "full_name": "LirSkara/Res",
+      "sha": "2a1da5a281b8a51294fd6b59c760735dd22ffcfb",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 2,
+      "used": 6,
+      "rules": {},
+      "flagged": 6,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "app/config.py",
+          "line": 33,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/config.py",
+          "line": 84,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/config.py",
+          "line": 108,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/config.py",
+          "line": 156,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/order.py",
+          "line": 23,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "app/schemas/order.py",
+          "line": 123,
+          "symbol": "pydantic.Field",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements-minimal.txt",
+          "line": 20,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 20,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 3.07,
+      "seconds": 5.17
+    },
+    {
+      "full_name": "tranvananhanhanh/Intelligent-Quantitative-Trading-System",
+      "sha": "dd2c79a8c3d667141fa32d9d8c2d217812e6a20b",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 34,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/config/settings.py",
+          "line": 174,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 5.43,
+      "seconds": 11.81
+    },
+    {
+      "full_name": "Jellyfrist/EasyEcon",
+      "sha": "14dc7f495bbebfab9deee4d32c00de95ae6749f2",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "fastapi/app/config.py",
+          "line": 58,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "fastapi/app/config.py",
+          "line": 101,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "fastapi/requirements.txt",
+          "line": 12,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 2.37,
+      "seconds": 5.96
+    },
+    {
+      "full_name": "Netflix/repokid",
+      "sha": "376aa82ed31fe66ac4b1aecc3c22b0fc4fcfc0ea",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 1,
+      "used": 18,
+      "rules": {
+        "rename_member": 13
+      },
+      "flagged": 5,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "repokid/cli/dispatcher_cli.py",
+          "line": 85,
+          "symbol": "pydantic.main.BaseModel.parse_obj",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "repokid/commands/repo.py",
+          "line": 128,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 37,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 134,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 134,
+          "symbol": "pydantic.root_validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 147,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 158,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 345,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 431,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 432,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 463,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 606,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "repokid/role.py",
+          "line": 682,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "requirements.txt",
+          "line": 80,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tests/test_commands.py",
+          "line": 363,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tests/test_commands.py",
+          "line": 441,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tests/test_commands.py",
+          "line": 450,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tests/test_dispatcher_cli.py",
+          "line": 45,
+          "symbol": "pydantic.main.BaseModel.parse_obj",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "tests/test_dispatcher_cli.py",
+          "line": 56,
+          "symbol": "pydantic.main.BaseModel.parse_obj",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 4.8,
+      "seconds": 7.2
+    },
+    {
+      "full_name": "ReaLLMASIC/gLayout",
+      "sha": "3e129ede58b4d21509dad682e56b9d573cefe8ab",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 3,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "src/glayout/pdk/mappedpdk.py",
+          "line": 297,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/glayout/pdk/mappedpdk.py",
+          "line": 304,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "tutorial/ihp130_FVF.py",
+          "line": 1,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 4.39,
+      "seconds": 7.43
+    },
+    {
+      "full_name": "LPSim/backend",
+      "sha": "0866b9b2a0a6a696eeb8291652df7fb36eeec3c9",
+      "band": "size:>16000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 32,
+      "rules": {
+        "rename_member": 2
+      },
+      "flagged": 24,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "pyproject.toml",
+          "line": 19,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/character/character_base.py",
+          "line": 625,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/character/character_base.py",
+          "line": 632,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/character/custom/mob_1_0.py",
+          "line": 48,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/character/custom/mob_mage_1_0.py",
+          "line": 41,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/deck.py",
+          "line": 21,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/deck.py",
+          "line": 25,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/match.py",
+          "line": 376,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/match.py",
+          "line": 384,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/match.py",
+          "line": 486,
+          "symbol": "pydantic.BaseModel.copy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/match.py",
+          "line": 1187,
+          "symbol": "pydantic.BaseModel.copy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/object_base.py",
+          "line": 239,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/player_table.py",
+          "line": 76,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/player_table.py",
+          "line": 80,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/player_table.py",
+          "line": 84,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/player_table.py",
+          "line": 88,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/player_table.py",
+          "line": 92,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/status/base.py",
+          "line": 27,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/server/summon/base.py",
+          "line": 56,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "src/lpsim/utils/__init__.py",
+          "line": 25,
+          "symbol": "pydantic.Extra.forbid",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "templates/character.py",
+          "line": 28,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "templates/test.py",
+          "line": 16,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 123,
+          "symbol": "pydantic.BaseModel.copy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 227,
+          "symbol": "pydantic.BaseModel.copy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 234,
+          "symbol": "pydantic.BaseModel.json",
+          "bail": "member_overridden",
+          "caused_by": null
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 238,
+          "symbol": "pydantic.BaseModel.json",
+          "bail": "member_overridden",
+          "caused_by": null
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 354,
+          "symbol": "pydantic.BaseModel.copy",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 358,
+          "symbol": "pydantic.BaseModel.json",
+          "bail": "member_overridden",
+          "caused_by": null
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 989,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface",
+            "member_overridden"
+          ]
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 993,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface",
+            "member_overridden"
+          ]
+        },
+        {
+          "path": "tests/server/test_pipeline.py",
+          "line": 1360,
+          "symbol": "pydantic.BaseModel.json",
+          "bail": "member_overridden",
+          "caused_by": null
+        },
+        {
+          "path": "tests/utils_for_test.py",
+          "line": 55,
+          "symbol": "pydantic.BaseModel.__fields__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "tests/utils_for_test.py",
+          "line": 68,
+          "symbol": "pydantic.BaseModel.__fields__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 16.55,
+      "seconds": 19.47
+    },
+    {
+      "full_name": "canonical/jenkins-k8s-operator",
+      "sha": "3874e639b701e2ce2c16d06b2868586b93c54db7",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 7,
+      "rules": {
+        "rename_member": 3
+      },
+      "flagged": 4,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "lib/charms/haproxy/v2/haproxy_route.py",
+          "line": 702,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "lib/charms/haproxy/v2/haproxy_route.py",
+          "line": 717,
+          "symbol": "pydantic.dataclasses.dataclass",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "lib/charms/traefik_k8s/v2/ingress.py",
+          "line": 122,
+          "symbol": "pydantic.BaseModel.parse_obj",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "lib/charms/traefik_k8s/v2/ingress.py",
+          "line": 129,
+          "symbol": "pydantic.BaseModel.__fields__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "lib/charms/traefik_k8s/v2/ingress.py",
+          "line": 137,
+          "symbol": "pydantic.BaseModel.parse_raw",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "lib/charms/traefik_k8s/v2/ingress.py",
+          "line": 156,
+          "symbol": "pydantic.BaseModel.json",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        },
+        {
+          "path": "lib/charms/traefik_k8s/v2/ingress.py",
+          "line": 159,
+          "symbol": "pydantic.BaseModel.dict",
+          "bail": "file_not_fully_migrated",
+          "caused_by": [
+            "flag_only_surface"
+          ]
+        }
+      ],
+      "plan_seconds": 9.37,
+      "seconds": 12.53
+    },
+    {
+      "full_name": "SeoChangHee/DeTAILS",
+      "sha": "a7a333c9f6a235ec265e63163df971c2eafd6127",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 12,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "backend/chroma/chromadb/config.py",
+          "line": 110,
+          "symbol": "pydantic.validator",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/chroma/chromadb/custom_types.py",
+          "line": 146,
+          "symbol": "pydantic.BaseModel.__fields__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/chroma/pyproject.toml",
+          "line": 19,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/chroma/requirements.txt",
+          "line": 20,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/chroma/requirements_exe.txt",
+          "line": 58,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/chroma/requirements_exe_windows.txt",
+          "line": 58,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/chroma/setup.py",
+          "line": 13,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/data_modeling_server/requirements-try.txt",
+          "line": 128,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/data_modeling_server/requirements.txt",
+          "line": 124,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/data_modeling_server/requirements_linux.txt",
+          "line": 154,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/data_modeling_server/requirements_mac.txt",
+          "line": 162,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/data_modeling_server/requirements_windows.txt",
+          "line": 149,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "backend/data_modeling_server/requirements_windows_no_bitermplus.txt",
+          "line": 148,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "logging/logging-server/requirements.txt",
+          "line": 8,
+          "symbol": "pydantic",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 6.22,
+      "seconds": 10.11
+    }
+  ]
+}

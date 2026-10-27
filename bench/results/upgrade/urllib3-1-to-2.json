@@ -1,0 +1,488 @@
+{
+  "obelize_version": "0.9.0",
+  "distribution": "urllib3",
+  "from": "1.26.20",
+  "to": "2.8.0",
+  "pack": "urllib3/1-26-20-to-2-8-0",
+  "pack_sha256": "fc650bdb0e0aeb2b10430a9f205deff171641b18d31585091d7a8a8f2f859ec7",
+  "synth_seconds": 8.36,
+  "synth_note": "Moving urllib3 1.26.20 to 2.8.0. Made a pack from the public API of urllib3 1.26.20 and 2.8.0: 293 name(s).",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "frame": "bench/upgrade/urllib3-1-to-2/sample.yaml",
+  "upgrade": [
+    {
+      "full_name": "Hari-Nagarajan/fairgame",
+      "sha": "cb79d40b5a91e969399a95048a700d57ec37071f",
+      "band": "size:1000..4000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.28,
+      "seconds": 2.55
+    },
+    {
+      "full_name": "eLifePathways/sciencebeam-pipelines",
+      "sha": "a486d65718b38411c0791867b6f165fc76b5f502",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "sciencebeam_pipelines/utils/requests.py",
+          "line": 13,
+          "symbol": "urllib3.util.retry.Retry.DEFAULT_METHOD_WHITELIST",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "sciencebeam_pipelines/utils/requests.py",
+          "line": 28,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.26,
+      "seconds": 2.28
+    },
+    {
+      "full_name": "nextcaller/amazon-connect-vericall",
+      "sha": "0b2d0267359fd3821d1ac610ccc68e1b3379aca6",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.16,
+      "seconds": 2.14
+    },
+    {
+      "full_name": "platformio/platformio-core",
+      "sha": "d8c21353ee2eccae6ecb5a3a95f8e75612e8887a",
+      "band": "size:4000..16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "platformio/http.py",
+          "line": 83,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.55,
+      "seconds": 2.96
+    },
+    {
+      "full_name": "Frameio/python-frameio-client",
+      "sha": "5255b3639c8fd32f5fb5c2d4eafee2b6001e9206",
+      "band": "size:4000..16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 2,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "frameioclient/lib/transport.py",
+          "line": 48,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "pyproject.toml",
+          "line": 31,
+          "symbol": "urllib3",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 33,
+          "symbol": "urllib3",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.56,
+      "seconds": 2.53
+    },
+    {
+      "full_name": "DataBiosphere/getm",
+      "sha": "2e1c3987f01f621fa4389863e8e642026a37b875",
+      "band": "size:4000..16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.36,
+      "seconds": 2.45
+    },
+    {
+      "full_name": "Azure-Terraform/terraform-azurerm-hashicorp-vault",
+      "sha": "56c4b2a0f4234c107cd020838596a5287d140fcd",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.2,
+      "seconds": 2.06
+    },
+    {
+      "full_name": "captainhammy/hython-docker-image-builder",
+      "sha": "77a986b626ff8f38e048516f0d4ac66adf0bef2a",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.26,
+      "seconds": 2.16
+    },
+    {
+      "full_name": "cloudbees-oss/smart-tests-nose-launchable",
+      "sha": "280ac547b7b2b2fcac8eda6b6ac7a3a1e0a0bdd8",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 2,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.34,
+      "seconds": 2.38
+    },
+    {
+      "full_name": "royopa/anbima_scraper",
+      "sha": "9ce961d10982c7a5ad1037db3a8d9dfee08977d3",
+      "band": "size:4000..16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 12,
+          "symbol": "urllib3",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "src/anbima_scraper/utils/http_client.py",
+          "line": 36,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.3,
+      "seconds": 2.37
+    },
+    {
+      "full_name": "andreas-grafberger/fedless",
+      "sha": "406a8b761aee02d8ee21292f098f7b7b81b65a23",
+      "band": "size:4000..16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.77,
+      "seconds": 3.11
+    },
+    {
+      "full_name": "CipherJon/PyScraper",
+      "sha": "cbe1f0efd8565e60d8713ab25e1ac9e6b9ca0286",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 5,
+          "symbol": "urllib3",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "scraper.py",
+          "line": 45,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.46,
+      "seconds": 2.24
+    },
+    {
+      "full_name": "heatmiser/rhel-soe-firstlight",
+      "sha": "c27ade5fb518bf708d7bd30948191668b8b81ffa",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.4,
+      "seconds": 7.24
+    },
+    {
+      "full_name": "subzeroid/instagrapi",
+      "sha": "75d4d609124a4354dde0539fa39b8d3e858b5910",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "instagrapi/transports.py",
+          "line": 134,
+          "symbol": "urllib3.response.HTTPResponse",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "instagrapi/utls.py",
+          "line": 240,
+          "symbol": "urllib3.response.HTTPResponse",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 2.25,
+      "seconds": 5.0
+    },
+    {
+      "full_name": "BenWirus/ZombieVoters",
+      "sha": "cdd902cdcfe3211541ab9622fcefea905e75ce3e",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.5,
+      "seconds": 2.47
+    },
+    {
+      "full_name": "liulei120/TVCrazy",
+      "sha": "93cd162999c5e199b2f4e75a562db106cd9b3684",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 3,
+      "rules": {},
+      "flagged": 3,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "makecsv.py",
+          "line": 144,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "makecsv.py",
+          "line": 149,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "makecsv.py",
+          "line": 155,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.26,
+      "seconds": 3.18
+    },
+    {
+      "full_name": "tehmufifnman/BattleMuffin-Python",
+      "sha": "f0bb5ee7024624191b33441aeecf3fb29570abe7",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "battlemuffin/clients/warcraft_client.py",
+          "line": 35,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.18,
+      "seconds": 3.53
+    },
+    {
+      "full_name": "nglahani/pro-forma-analytics-tool",
+      "sha": "5df48647ac32f211e2805e3143159d982a50131a",
+      "band": "size:>16000",
+      "blocked": "runtime_unsupported",
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "data/collectors/fred_enhanced_collector.py",
+          "line": 55,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "scripts/verify-production.py",
+          "line": 56,
+          "symbol": "urllib3.util.retry.Retry",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.97,
+      "seconds": 14.18
+    },
+    {
+      "full_name": "ShashwatK27/Ratefluencer",
+      "sha": "a08c5f8b006a2e51db9ae3a8ecc2a113ee46fb02",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 3,
+      "rules": {},
+      "flagged": 3,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "backend/trends_engine.py",
+          "line": 18,
+          "symbol": "urllib3.util.retry.Retry.__init__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/trends_engine.py",
+          "line": 19,
+          "symbol": "urllib3.util.retry.Retry.__init__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "backend/trends_engine.py",
+          "line": 25,
+          "symbol": "urllib3.util.retry.Retry.__init__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.64,
+      "seconds": 5.52
+    },
+    {
+      "full_name": "marvintien90-jpg/chewmeat-dashboard",
+      "sha": "a444421eb85140f837009d3e214ada3fd3f38c9e",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "utils/brand_scraper.py",
+          "line": 23,
+          "symbol": "urllib3.util.retry.Retry.__init__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "utils/brand_scraper.py",
+          "line": 28,
+          "symbol": "urllib3.util.retry.Retry.__init__",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 2.6,
+      "seconds": 5.11
+    }
+  ]
+}

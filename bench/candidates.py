@@ -276,9 +276,10 @@ def _evidence_table(corpus: Corpus) -> list[str]:
 
 
 def _pins(record: dict[str, Any], symbol: str) -> set[tuple[str, int]]:
+    """The manifest rows of `symbol`; a repository that could not be fetched has none."""
     return {
         (row["path"], row["line"])
-        for row in record["findings"]
+        for row in record.get("findings", ())
         if row["kind"] == "manifest" and row["symbol"] == symbol
     }
 

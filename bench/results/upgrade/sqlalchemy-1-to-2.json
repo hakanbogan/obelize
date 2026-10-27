@@ -1,0 +1,1033 @@
+{
+  "obelize_version": "0.9.0",
+  "distribution": "sqlalchemy",
+  "from": "1.4.54",
+  "to": "2.0.55",
+  "pack": "sqlalchemy/1-4-54-to-2-0-55",
+  "pack_sha256": "8f34a0ab5a91690ce92434a3116befea2f552830f70ac3ea71303a54736fe156",
+  "synth_seconds": 66.14,
+  "synth_note": "Moving sqlalchemy 1.4.54 to 2.0.55. Made a pack from the public API of sqlalchemy 1.4.54 and 2.0.55: 2862 name(s).",
+  "python": "3.12.9",
+  "machine": "arm64",
+  "os": "Darwin",
+  "frame": "bench/upgrade/sqlalchemy-1-to-2/sample.yaml",
+  "upgrade": [
+    {
+      "full_name": "mmautner/simple_api",
+      "sha": "17067fe3113a746e0a5044af88f5777d6e50c999",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "db.py",
+          "line": 7,
+          "symbol": "sqlalchemy.orm.sessionmaker",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 3,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.18,
+      "seconds": 3.57
+    },
+    {
+      "full_name": "veryacademy/YT_FastAPI_Beginner_Fast-Track",
+      "sha": "301ce81bdfacdd2fdd71093014739c0b0137b7c4",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "models.py",
+          "line": 3,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 18,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 26,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.28,
+      "seconds": 4.09
+    },
+    {
+      "full_name": "meet-projects/y2s18-d3-final",
+      "sha": "cab7b4cfca89db89a7766de2a5f22f45cfa8e707",
+      "band": "size:<1000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 3,
+      "rules": {},
+      "flagged": 3,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "model.py",
+          "line": 3,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "print_databases.py",
+          "line": 5,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "print_databases.py",
+          "line": 18,
+          "symbol": "sqlalchemy.MetaData",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.55,
+      "seconds": 4.34
+    },
+    {
+      "full_name": "MickaelBergem/unfollower",
+      "sha": "f2b8131d5df3e4f33b34579f301f06f100e43ab8",
+      "band": "size:<1000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 1,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "unfollower.py",
+          "line": 45,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.18,
+      "seconds": 5.51
+    },
+    {
+      "full_name": "Abdur-rahmaanJ/PyQt5_CRUD",
+      "sha": "81823f59757b6ac4a2d8d4be9c820fe1ff970ce5",
+      "band": "size:<1000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.17,
+      "seconds": 3.68
+    },
+    {
+      "full_name": "sergio12S/real-estate-ml",
+      "sha": "a23d64e58929a5bb6de9ea907676b194f0c9faee",
+      "band": "size:<1000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 0.16,
+      "seconds": 3.61
+    },
+    {
+      "full_name": "srujanaparupudi/BVRITH-WISE7-Team4",
+      "sha": "2bf4dbab79512de5bf6e4296d0cfe7ae92fb3850",
+      "band": "size:<1000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 2,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "page.py",
+          "line": 9,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "page.py",
+          "line": 20,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.2,
+      "seconds": 3.63
+    },
+    {
+      "full_name": "learn-co-students/sqlalchemy-intro-to-relationships-lab-nyc-career-ds-102218",
+      "sha": "70408c381454014bc882539fe9d24a02700170ae",
+      "band": "size:<1000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "models.py",
+          "line": 1,
+          "symbol": "sqlalchemy",
+          "bail": "star_import",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 3,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.23,
+      "seconds": 3.57
+    },
+    {
+      "full_name": "benchling/sqlalchemy_batch_inserts",
+      "sha": "38959338b062f1c67b0dbc44700940b283e5a981",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 4,
+      "rules": {},
+      "flagged": 4,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "demo.py",
+          "line": 9,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "demo.py",
+          "line": 31,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 2,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "sqlalchemy_batch_inserts/__init__.py",
+          "line": 70,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "sqlalchemy_batch_inserts/__init__.py",
+          "line": 71,
+          "symbol": "sqlalchemy.text",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.39,
+      "seconds": 3.83
+    },
+    {
+      "full_name": "huntreslogan/ThisWeekend",
+      "sha": "4aba5ce8c42f62be96002a6360f4bc568ce4a580",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 1,
+      "used": 4,
+      "rules": {},
+      "flagged": 3,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "model.py",
+          "line": 6,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "model.py",
+          "line": 10,
+          "symbol": "sqlalchemy.orm.sessionmaker",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "model.py",
+          "line": 28,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 8,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "server.py",
+          "line": 36,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.24,
+      "seconds": 4.73
+    },
+    {
+      "full_name": "j-nguyen/FractalBot",
+      "sha": "03e562cf1a697a4b3106f8565083b85c7c5ed76b",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 7,
+      "rules": {},
+      "flagged": 7,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "cogs/utils/models.py",
+          "line": 3,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "cogs/utils/models.py",
+          "line": 17,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "cogs/utils/models.py",
+          "line": 25,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "cogs/utils/models.py",
+          "line": 31,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "cogs/utils/models.py",
+          "line": 38,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "cogs/utils/models.py",
+          "line": 40,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "cogs/utils/models.py",
+          "line": 42,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.6,
+      "seconds": 4.05
+    },
+    {
+      "full_name": "int32bit/cinder-quota-sync",
+      "sha": "093e040ce3b266848885462e2d88f4cd3660dfa9",
+      "band": "size:1000..4000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 38,
+      "rules": {},
+      "flagged": 38,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "db.py",
+          "line": 5,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "db.py",
+          "line": 10,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "db.py",
+          "line": 30,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "db.py",
+          "line": 32,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "db.py",
+          "line": 48,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/backups.py",
+          "line": 1,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/backups.py",
+          "line": 3,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/backups.py",
+          "line": 10,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/backups.py",
+          "line": 16,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/backups.py",
+          "line": 20,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/backups.py",
+          "line": 26,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/quotas.py",
+          "line": 1,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/quotas.py",
+          "line": 2,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/quotas.py",
+          "line": 9,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/quotas.py",
+          "line": 14,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/quotas.py",
+          "line": 17,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 1,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 3,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 13,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 16,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 21,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 24,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 29,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 32,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 36,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/snapshots.py",
+          "line": 39,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volume_types.py",
+          "line": 1,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volume_types.py",
+          "line": 21,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 1,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 3,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 13,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 19,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 24,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 30,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 35,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 41,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 45,
+          "symbol": "sqlalchemy.select",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "resources/volumes.py",
+          "line": 51,
+          "symbol": "sqlalchemy.and_",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.56,
+      "seconds": 5.42
+    },
+    {
+      "full_name": "mapgears/scribeui",
+      "sha": "f7e917236c088cad265a94210a0031f7d7be4a71",
+      "band": "size:1000..4000",
+      "blocked": "legacy_version_unsupported",
+      "manifests": 2,
+      "used": 4,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 7,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "scribeui_pyramid/modules/maps/views.py",
+          "line": 601,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "scribeui_pyramid/modules/plugins/mapcache/processManager.py",
+          "line": 55,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "scribeui_pyramid/modules/plugins/mapcache/views/mapcache.py",
+          "line": 174,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "scribeui_pyramid/modules/plugins/mapcache/views/mapcacheViewer.py",
+          "line": 45,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 12,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.74,
+      "seconds": 5.51
+    },
+    {
+      "full_name": "KOSASIH/Pi-CryptoConnect",
+      "sha": "653061d02418828ccbf0f0d07f2c4d38af2cc0d7",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main.py",
+          "line": 104,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "src/api/api_endpoints.py",
+          "line": 27,
+          "symbol": "sqlalchemy.orm.sessionmaker",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.74,
+      "seconds": 6.28
+    },
+    {
+      "full_name": "Coding-Crashkurse/LangChain-in-Production-with-Langfuse",
+      "sha": "e8a97ad2f4f196189ae64cf9d1dc1a147975a957",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 1,
+      "rules": {},
+      "flagged": 1,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "main.py",
+          "line": 25,
+          "symbol": "sqlalchemy.orm.sessionmaker",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "requirements.txt",
+          "line": 55,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.33,
+      "seconds": 4.8
+    },
+    {
+      "full_name": "EremeykinS/StoreBot",
+      "sha": "9eeef4bd8fbf508333f50f0990b55c2d4165f056",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 3,
+      "rules": {},
+      "flagged": 3,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "models.py",
+          "line": 7,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 24,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 39,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 2.16,
+      "seconds": 6.0
+    },
+    {
+      "full_name": "korean-word-game/crawling",
+      "sha": "9c4a1b7b9fd1b2454d3810141a571e6860b5e34f",
+      "band": "size:4000..16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 11,
+      "rules": {},
+      "flagged": 11,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "models.py",
+          "line": 4,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 117,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 130,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 131,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 146,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 147,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 159,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 172,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 173,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 187,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "models.py",
+          "line": 188,
+          "symbol": "sqlalchemy.orm.relationship",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.71,
+      "seconds": 6.0
+    },
+    {
+      "full_name": "dropbox/sqlalchemy-stubs",
+      "sha": "ed9611114925f4b2aea42401217c0eacb1a564e1",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 0,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [],
+      "plan_seconds": 1.12,
+      "seconds": 6.16
+    },
+    {
+      "full_name": "old-bibigon/parse-cik",
+      "sha": "82ee23983b7cef7ef7c9c1c2403d0b6a39189370",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 0,
+      "used": 2,
+      "rules": {},
+      "flagged": 0,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "cik.py",
+          "line": 396,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        },
+        {
+          "path": "tests.py",
+          "line": 18,
+          "symbol": null,
+          "bail": "input_does_not_parse",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 0.27,
+      "seconds": 5.43
+    },
+    {
+      "full_name": "interactivetech/csm-streaming-tts",
+      "sha": "d6e86684533ba7b15fb6c77b0bb1749d966739d5",
+      "band": "size:>16000",
+      "blocked": null,
+      "manifests": 1,
+      "used": 4,
+      "rules": {},
+      "flagged": 4,
+      "written": 0,
+      "files": 0,
+      "withheld": [
+        {
+          "path": "requirements.txt",
+          "line": 22,
+          "symbol": "sqlalchemy",
+          "bail": "repo_not_fully_migrated",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 121,
+          "symbol": "sqlalchemy.Column",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 121,
+          "symbol": "sqlalchemy.Integer",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 121,
+          "symbol": "sqlalchemy.String",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        },
+        {
+          "path": "setup.py",
+          "line": 123,
+          "symbol": "sqlalchemy.orm.sessionmaker",
+          "bail": "flag_only_surface",
+          "caused_by": null
+        }
+      ],
+      "plan_seconds": 1.47,
+      "seconds": 6.28
+    }
+  ]
+}
