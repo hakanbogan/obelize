@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-080 (D1's last paragraph).
 
 ## Decision
 
@@ -28,7 +28,8 @@ A declaration that exists is judged as it is, and the release does not overrule 
 admits releases below the floor, so it blocks though `--from` names one above. The block says that
 `--from` names a release and counts only where no manifest declares the distribution
 (`Blocked.stated`). A release outside the pack's range blocks as an undeclared distribution does, and
-the message says that the migration does not cover it.
+the message says that the migration does not cover it. ADR-080 replaces this paragraph: a declaration
+that admits the release no longer blocks, and one that rules it out says so.
 
 ### D2. The value comes from the command line and nowhere else
 
@@ -55,6 +56,6 @@ declares the distribution and that the migration takes it as the release `--from
 - A declaration that is looser than the floor still stops the plan. The alternative, that a
   statement the declaration admits decides, would plan a repository whose manifest installs a newer
   release today as the one named, on the person's word against the manifest's; it is left out until
-  a measurement asks for it.
+  a measurement asks for it. The 0.9.0 measurement asked, and ADR-080 took it.
 - `run.json` gains `packs[].stated`; the formats stay unstable through 0.x
   ([ADR-048](ADR-048-accepted-gaps-in-0-1-0.md)).

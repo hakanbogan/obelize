@@ -380,27 +380,89 @@ def test_a_release_the_person_gave_is_said_once_for_each_package() -> None:
     )
 
 
+NARROWED = (
+    "old-sdk is declared with a range that admits 3.0.1 and other releases, so this migration "
+    "takes it as 3.0.1, the release --from names. A repository that installs another needs that "
+    "pinned in a manifest obelize reads."
+)
+
+
+def test_a_release_that_a_declaration_admits_beside_others_is_said_so() -> None:
+    stated = (("old-sdk", "3.0.1"), ("other", "1.2"))
+    lines = report._stated(stated, report._bare, ("old-sdk",))
+    assert lines == [NARROWED, GIVEN.replace("old-sdk", "other").replace("3.0.1", "1.2"), ""]
+    assert report._stated(stated[:1], report._bare, ("other",)) == [GIVEN, ""]
+    assert report._stated((), report._bare, ("old-sdk",)) == []
+    assert report._stated(stated[:1], report._code, ("old-sdk",))[0].startswith(
+        "`old-sdk` is declared with a range that admits `3.0.1` and other releases, so this "
+        "migration takes it as `3.0.1`, the release `--from` names."
+    )
+
+
 def test_the_report_says_the_release_that_was_given(quiet: Path) -> None:
     scan = replace(_scan(quiet), stated=(("old-sdk", "3.0.1"),))
     document = report.document(_record(quiet, scan), scan)
     assert "## Assumed\n\nNo manifest declares `old-sdk`, so this migration takes it" in document
     assert "## Assumed" not in report.document(_record(quiet, _scan(quiet)), _scan(quiet))
+    both = replace(scan, narrowed=("old-sdk",))
+    assert "## Assumed\n\n`old-sdk` is declared with a range that admits `3.0.1` and other" in (
+        report.document(_record(quiet, both), both)
+    )
 
 
 def test_a_block_says_what_the_release_that_was_given_came_to() -> None:
-    declared = runtime.Blocked(
-        "legacy_version_unsupported", "old-sdk", "requirements.txt", "<3", ">=3", stated="3.0.1"
+    uncovered = runtime.Blocked(
+        "legacy_version_unsupported", "old-sdk", "requirements.txt", "<3", ">=3", stated="2.1"
     )
-    shown = report._blocked(declared, report._bare)
-    assert "--from names 3.0.1, which counts only where no manifest declares old-sdk: " in shown
-    assert "requirements.txt does. A pin moves the release" in shown
+    shown = report._blocked(uncovered, report._bare)
+    assert "--from names 2.1, which this migration does not cover. A pin" in shown
+    assert "which counts only" not in shown
     undeclared = runtime.Blocked(
         "legacy_version_unsupported", "old-sdk", "", None, ">=3", stated="2.1"
     )
     assert "--from names 2.1, which this migration does not cover. A pin" in report._blocked(
         undeclared, report._bare
     )
-    assert "--from" not in report._blocked(replace(declared, stated=""), report._bare)
+    assert "--from" not in report._blocked(replace(uncovered, stated=""), report._bare)
+
+
+def test_a_block_by_a_declaration_that_rules_the_release_out_names_it_and_what_to_do() -> None:
+    ruled_out = runtime.Blocked(
+        "legacy_version_unsupported",
+        "old-sdk",
+        "requirements.txt",
+        "==3.0.0",
+        ">=3",
+        stated="3.0.1",
+        covered=True,
+    )
+    shown = report._blocked(ruled_out, report._bare)
+    assert shown.startswith(
+        "requirements.txt declares old-sdk ==3.0.0, which rules out 3.0.1, the release --from "
+        "names, so this migration reports its findings and plans no change. To migrate, change it "
+        "so that it admits 3.0.1, or name a release it admits with --from, and run again."
+    )
+    assert "which allows versions this migration does not cover" not in shown
+    assert "counts only" not in shown
+    assert "`--from`" in report._blocked(ruled_out, report._code)
+
+
+def test_a_block_by_a_declaration_nobody_can_read_says_that_the_release_needs_one_that_is() -> None:
+    unreadable = runtime.Blocked(
+        "legacy_version_unsupported",
+        "old-sdk",
+        "requirements.txt",
+        None,
+        ">=3",
+        stated="3.0.1",
+        covered=True,
+    )
+    shown = report._blocked(unreadable, report._bare)
+    assert "declares old-sdk in a form obelize cannot read" in shown
+    assert (
+        "--from names 3.0.1, which counts only where every declaration of old-sdk admits it: "
+        "requirements.txt cannot be read. A pin" in shown
+    )
 
 
 def test_the_summary_and_the_report_say_what_was_taken_before_the_rows(quiet: Path) -> None:

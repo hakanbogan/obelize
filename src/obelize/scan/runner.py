@@ -114,9 +114,11 @@ class Scan:
     # the pack's newest, for a declaration that names no version that rules it out, or, as the
     # range `from.version` states, where the code uses a name only those releases define.
     assumed: tuple[tuple[str, str], ...] = ()
-    # (distribution, release) the person gave (`upgrade --from`) where no manifest declares the
-    # distribution, taken as the release in use.
+    # (distribution, release) the person gave (`upgrade --from`), taken as the release in use where
+    # no manifest declares the distribution, or every declaration admits it and would block without.
     stated: tuple[tuple[str, str], ...] = ()
+    # Of `stated`, the distributions a manifest declares: the release narrows what it admits.
+    narrowed: tuple[str, ...] = ()
     # The manifests that only an `-r` or `-c` line names, and how: read, never written.
     followed: tuple[tuple[str, Followed], ...] = ()
 
@@ -186,6 +188,7 @@ def merged(scans: Sequence[Scan], tree: Tree) -> Scan:
         unwritten=tuple(sorted({row for scan in scans for row in scan.unwritten})),
         assumed=tuple(sorted({row for scan in scans for row in scan.assumed})),
         stated=tuple(sorted({row for scan in scans for row in scan.stated})),
+        narrowed=tuple(sorted({row for scan in scans for row in scan.narrowed})),
         followed=first.followed,
     )
 
@@ -369,7 +372,7 @@ def scan(
     `jobs`: `1` is in-process, a typed number is taken as typed, and only the default (`None`)
     stays in-process below `POOL_THRESHOLD`. `tree` is a repository already read, so several packs
     share one read. `stated` is the release the person gave for the legacy distribution, which
-    stands for the one in use only where no manifest declares it.
+    stands for the one in use where no manifest declares it, or every declaration admits it.
     """
     tree = tree or read(root, config, (spec,))
     selection = tree.walk
@@ -463,15 +466,19 @@ def scan(
     )
     blocked = floor.blocked or runtime.legacy(declared, spec, used, taken, stated=stated)
     assumed: tuple[tuple[str, str], ...] = ()
+    because = ""
     if taken and blocked is None:
         because = installed.contrary(tree.root, selection, tree.contents, declared, findings, spec)
-        blocked = runtime.legacy(declared, spec, used, taken, because) if because else None
+        blocked = runtime.legacy(declared, spec, used, taken, because, stated) if because else None
         assumed = () if because else ((spec.legacy_distribution, taken),)
         if not because:
             limitations.extend(installed.unsearched(tree.root, selection, spec))
+    # Said only where the person's word is what let the declarations pass.
     took = (
         ((spec.legacy_distribution, stated),)
-        if stated and used and blocked is None and runtime.stands(declared, spec, stated)
+        if stated
+        and blocked is None
+        and runtime.decides(declared, spec, used, taken, because, stated)
         else ()
     )
     return Scan(
@@ -491,6 +498,7 @@ def scan(
         unwritten=unwritten,
         assumed=assumed,
         stated=took,
+        narrowed=(spec.legacy_distribution,) if took and manifests.declares(declared, spec) else (),
         followed=selection.followed,
     )
 

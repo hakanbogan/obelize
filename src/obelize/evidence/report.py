@@ -214,6 +214,7 @@ def fixed(
     stated: Sequence[tuple[str, str]] = (),
     imports: Sequence[tuple[str, Sequence[str]]] = (),
     runs: Sequence[tuple[str, str, int]] = (),
+    narrowed: Sequence[str] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
@@ -222,8 +223,9 @@ def fixed(
     files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
     or above it; `unwritten` are the files that use the legacy API and that no rule writes; `pins`
     is whether a pack of the run moves a dependency line, which the closing step says to install;
-    `stated` are the releases `--from` gave; `imports` are the modules a pack's patterns may import;
-    `runs` are the tools a pack's fixers ran, each as a pack id, a fixer and a number of files.
+    `stated` are the releases `--from` gave, `narrowed` those of them a manifest declares;
+    `imports` are the modules a pack's patterns may import; `runs` are the tools a pack's fixers
+    ran, each as a pack id, a fixer and a number of files.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -235,7 +237,7 @@ def fixed(
     for stopped in blocked:
         lines.extend([_blocked(stopped, _bare), ""])
     lines.extend(_assumed(assumed, _bare))
-    lines.extend(_stated(stated, _bare))
+    lines.extend(_stated(stated, _bare, narrowed))
     if not plan.files:
         lines.append("No change planned.")
     for row in plan.files:
@@ -631,7 +633,12 @@ def document(
             lines.extend([_blocked(blocked, _code), ""])
     if scan.assumed or scan.stated:
         lines.extend(
-            ["## Assumed", "", *_assumed(scan.assumed, _code), *_stated(scan.stated, _code)]
+            [
+                "## Assumed",
+                "",
+                *_assumed(scan.assumed, _code),
+                *_stated(scan.stated, _code, scan.narrowed),
+            ]
         )
     if run is not None and plan is not None:
         lines.extend(_changes_section(record, plan))
@@ -987,17 +994,19 @@ def _blocked(blocked: Blocked, code: Callable[[str], str]) -> str:
 
 
 def _from(blocked: Blocked, code: Callable[[str], str]) -> str:
-    """What `--from` came to in a block: nothing, where a declaration decides, or a release the
-    migration does not cover."""
+    """What `--from` came to in a block: nothing, a release the migration does not cover, or one a
+    declaration nobody can read may not admit. A declaration that rules it out says so itself."""
     if not blocked.stated:
         return ""
     named = f" {code('--from')} names {code(blocked.stated)}"
-    if blocked.path:
+    if not blocked.covered:
+        return f"{named}, which this migration does not cover."
+    if blocked.declared is None:
         return (
-            f"{named}, which counts only where no manifest declares {code(blocked.package)}: "
-            f"{code(blocked.path)} does."
+            f"{named}, which counts only where every declaration of {code(blocked.package)} "
+            f"admits it: {code(blocked.path)} cannot be read."
         )
-    return f"{named}, which this migration does not cover."
+    return ""
 
 
 def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
@@ -1040,6 +1049,13 @@ def _stop(blocked: Blocked, code: Callable[[str], str]) -> str:
             f"run again."
         )
     declared = code(blocked.declared) if blocked.declared else "with no version"
+    if blocked.covered:
+        return (
+            f"{path} declares {package} {declared}, which rules out {code(blocked.stated)}, the "
+            f"release {code('--from')} names, so this migration reports its findings and plans no "
+            f"change. To migrate, change it so that it admits {code(blocked.stated)}, or name a "
+            f"release it admits with {code('--from')}, and run again."
+        )
     if blocked.evidence:
         took = (
             f"a release in {code(blocked.taken)}"
@@ -1098,12 +1114,21 @@ def _runs(runs: Sequence[tuple[str, str, int]]) -> list[str]:
     ]
 
 
-def _stated(stated: Sequence[tuple[str, str]], code: Callable[[str], str]) -> list[str]:
-    """The release the person gave for a distribution no manifest declares, said with the plan."""
+def _stated(
+    stated: Sequence[tuple[str, str]], code: Callable[[str], str], narrowed: Sequence[str] = ()
+) -> list[str]:
+    """The release the person gave for a distribution, said with the plan: where no manifest
+    declares it, and where a declaration admits it beside other releases."""
     lines = [
-        f"No manifest declares {code(package)}, so this migration takes it as {code(release)}, "
-        f"the release {code('--from')} names. A repository that installs another needs that "
-        f"pinned in a manifest obelize reads."
+        (
+            f"{code(package)} is declared with a range that admits {code(release)} and other "
+            f"releases, so this migration takes it as {code(release)}, the release "
+            f"{code('--from')} names."
+            if package in narrowed
+            else f"No manifest declares {code(package)}, so this migration takes it as "
+            f"{code(release)}, the release {code('--from')} names."
+        )
+        + " A repository that installs another needs that pinned in a manifest obelize reads."
         for package, release in stated
     ]
     return [*lines, ""] if lines else []

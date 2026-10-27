@@ -205,16 +205,19 @@ from two releases writes no file: 36 stop before planning, 33 are held and 11 ha
 name the pack lists. It finds 944 usages: 78 are places a rule would rewrite if nothing else were
 left in the repository (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held
 for a cause of its own, and none is in a file the dry run would write. No `--apply` was run on them,
-so what a trial would do is not measured. Two things stand between a pack made from two releases and
-a written move, and I have decided neither:
+so what a trial would do is not measured. Two things stood between a pack made from two releases and
+a written move, and I have decided the first:
 
 - A manifest that declares the library loosely (`pydantic`, `pydantic<2`, `pydantic = "^1.9.1"`)
-  stops the run with `legacy_version_unsupported` even when the `--from` you pass lies in the pack's
-  range, since a declaration decides and `--from` counts only where none exists. 18 of the 80
-  stopped on this, every one with a manifest that declares the library, and some pin a release below
-  the one the pack was made from (`SQLAlchemy==0.8.0`). [ADR-072](adr/ADR-072-a-stated-release.md)
-  lists letting the statement overrule a declaration that admits it as the alternative: it would
-  plan a repository whose manifest installs a newer release today as the one you named.
+  stopped the run with `legacy_version_unsupported` even when the `--from` you pass lies in the
+  pack's range, since a declaration decided and `--from` counted only where none existed. 18 of the
+  80 stopped on this, every one with a manifest that declares the library, and some pin a release
+  below the one the pack was made from (`SQLAlchemy==0.8.0`). Now `--from` counts where every
+  declaration admits it ([the decision](adr/ADR-080-a-stated-release-a-declaration-admits.md)): the
+  plan goes with your word against the manifest's, which a dry run does not check, and a declaration
+  that rules the release out or that cannot be read still stops the run and says so. I have not
+  measured it again, so how many of the 18 now pass is not known, and a plan that passes can still
+  be held by the next point.
 - The pack writes a repository only when nothing in it is left, since the old and the new API are
   one distribution when the library keeps its import name, and all four libraries of the frames do.
   One place it can only flag holds every other place of that repository, as the paragraph above
@@ -274,11 +277,11 @@ fails before the move too and is not counted against it. A library that makes it
 imported (pydantic 2's top level, for one) cannot be judged by reading its source: the names are
 counted as ones obelize could not judge, and are neither migrated nor called removed.
 
-`--from` stands for the release in use only where no dependency file declares the library, and a dry
-run takes your word for it: only a trial installs that release and runs your tests on it. A lock
-file, an environment or another package outside the files obelize reads can hold another release.
-A dependency file that declares the library with a range reaching below the lowest release the pack
-covers (`pydantic>=1.8`) still stops the plan, though `--from` names a release inside that range.
+`--from` stands for the release in use where no dependency file declares the library, or every
+declaration admits it, and a dry run takes your word for it: only a trial installs that release and
+runs your tests on it. A declaration such as `pydantic>=1.8` installs a newer release today, so the
+word can be against the manifest's. A lock file that is not a requirements file, an environment or
+another package outside the files obelize reads can hold another release too.
 
 `--agent` is asked about the places a pack flags only when the first run of the rules wrote nothing,
 as it does for a library that keeps its import name. Where the rules did write some files, it sees

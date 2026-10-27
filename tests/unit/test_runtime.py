@@ -579,15 +579,114 @@ def test_a_release_the_pack_does_not_cover_stands_for_nothing(stated: str | None
     )
 
 
-@pytest.mark.parametrize("pinned", ["", "<3", "==1.9", None])
-def test_a_declaration_is_judged_as_it_is_whatever_release_the_person_gave(
+@pytest.mark.parametrize("pinned", ["", "<3", ">=1", "!=2.0", "^1.0 || ^2.0", ">=1,<3"])
+def test_a_declaration_that_admits_the_release_the_person_gave_lets_it_stand(
+    pinned: str,
+) -> None:
+    """Each of these blocks on its own, for a floor it reaches below or an upper end it leaves
+    open, and the release is inside what it admits."""
+    rows = _pins(("requirements.txt", pinned))
+    assert runtime.legacy(rows, OLD, used=True) is not None
+    assert runtime.stands(rows, OLD, "2.4.1") is True
+    assert runtime.legacy(rows, OLD, used=True, stated="2.4.1") is None
+    assert runtime.decides(rows, OLD, True, None, "", "2.4.1") is True
+
+
+@pytest.mark.parametrize("pinned", ["==1.9", "<2", ">=3", "==2.4.1+corp", "==2.5.*", None])
+def test_a_declaration_that_rules_the_release_out_or_cannot_be_read_blocks_the_run(
     pinned: str | None,
 ) -> None:
     rows = _pins(("requirements.txt", pinned))
     assert runtime.stands(rows, OLD, "2.4.1") is False
-    plain = runtime.legacy(rows, OLD, used=True)
+    assert runtime.decides(rows, OLD, True, None, "", "2.4.1") is False
+    found = runtime.legacy(rows, OLD, used=True, stated="2.4.1")
+    assert found == runtime.Blocked(
+        "legacy_version_unsupported",
+        "acme-old",
+        "requirements.txt",
+        None if pinned is None else pinned,
+        ">=2",
+        stated="2.4.1",
+        covered=True,
+    )
+
+
+def test_a_declaration_the_floor_lets_pass_still_blocks_a_release_it_rules_out() -> None:
+    """`==2.5.0` and `>=3` need no statement to pass the floor; with one they are asked."""
+    for pinned in ("==2.5.0", ">=3", "~=2.5"):
+        rows = _pins(("requirements.txt", pinned))
+        assert runtime.legacy(rows, OLD, used=True) is None
+        blocked = runtime.legacy(rows, OLD, used=True, stated="2.4.1")
+        assert blocked is not None
+        assert (blocked.path, blocked.stated, blocked.covered) == (
+            "requirements.txt",
+            "2.4.1",
+            True,
+        )
+        assert runtime.decides(rows, OLD, True, None, "", "2.4.1") is False
+
+
+def test_a_release_the_floor_lets_pass_without_a_statement_is_not_the_persons_to_claim() -> None:
+    for pinned in (">=2", "==2.4.1", "~=2.1", "^2.0"):
+        rows = _pins(("requirements.txt", pinned))
+        assert runtime.stands(rows, OLD, "2.4.1") is True
+        assert runtime.legacy(rows, OLD, used=True, stated="2.4.1") is None
+        assert runtime.decides(rows, OLD, True, None, "", "2.4.1") is False
+
+
+def test_every_declaration_has_to_admit_the_release_and_the_first_that_does_not_is_named() -> None:
+    rows = _pins(("a.txt", ">=1"), ("pkg/requirements.txt", "<2.2"), ("z.txt", "!=2.4.1"))
+    assert runtime.stands(rows, OLD, "2.4.1") is False
+    found = runtime.legacy(rows, OLD, used=True, stated="2.4.1")
+    assert found is not None
+    assert (found.path, found.declared) == ("z.txt", "!=2.4.1")
+    assert runtime.stands(rows[:1], OLD, "2.4.1") is True
+
+
+def test_a_release_the_person_gave_is_asked_of_a_declaration_where_the_code_uses_the_library() -> (
+    None
+):
+    rows = _pins(("requirements.txt", "==1.9"))
+    assert runtime.legacy(rows, OLD, used=False, stated="2.4.1") is None
+    assert runtime.decides(rows, OLD, False, None, "", "2.4.1") is False
+
+
+@pytest.mark.parametrize("stated", ["1.9", "3.0", "2.0rc1"])
+def test_a_release_the_pack_does_not_cover_leaves_a_declaration_to_the_floor_as_it_was(
+    stated: str,
+) -> None:
+    """Outside `>=2,<3` the statement is nothing to a declaration: the floor decides, and the block
+    says the migration does not cover the release."""
+    loose = _pins(("requirements.txt", ">=1"))
+    plain = runtime.legacy(loose, OLD, used=True)
     assert plain is not None
-    assert runtime.legacy(rows, OLD, used=True, stated="2.4.1") == replace(plain, stated="2.4.1")
+    assert runtime.legacy(loose, OLD, used=True, stated=stated) == replace(plain, stated=stated)
+    assert runtime.stands(loose, OLD, stated) is False
+    tight = _pins(("requirements.txt", "==2.4.1"))
+    assert runtime.legacy(tight, OLD, used=True, stated=stated) is None
+
+
+@pytest.mark.parametrize(
+    ("pinned", "stated"),
+    [
+        (">=2.0rc1", "2.1rc1"),
+        ("<2.2", "2.1rc1"),
+        ("~=2.1", "2.4.1"),
+        ("^2.0", "2.9.9"),
+        ("==2.4.*", "2.4.1"),
+        ("===2.4.1", "2.4.1"),
+        (">=0!2", "2.4.1"),
+    ],
+)
+def test_a_pre_release_and_the_forms_of_a_pin_are_asked_the_way_they_are_defined(
+    pinned: str, stated: str
+) -> None:
+    assert runtime.stands(_pins(("requirements.txt", pinned)), OLD, stated) is True
+
+
+@pytest.mark.parametrize("pinned", [">=1!2", "==2.4.2", "~=2.5", "^3.0", "===2.4.1.0"])
+def test_a_pin_with_an_epoch_or_another_release_does_not_admit_it(pinned: str) -> None:
+    assert runtime.stands(_pins(("requirements.txt", pinned)), OLD, "2.4.1") is False
 
 
 def test_a_release_the_person_gave_is_nothing_to_a_pack_with_no_floor() -> None:

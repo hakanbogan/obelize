@@ -339,19 +339,154 @@ def test_a_release_the_person_names_stands_for_a_dependency_no_manifest_declares
     assert (root / "app.py").read_text() == APP
 
 
-def test_a_manifest_that_declares_the_dependency_decides_whatever_release_the_person_names(
-    home: Path,
+def _pack_record(root: Path) -> dict[str, object]:
+    last = max(root.glob(".obelize/runs/*/run.json"), key=lambda path: path.stat().st_mtime_ns)
+    return dict(json.loads(last.read_text())["packs"][0])
+
+
+@pytest.mark.parametrize(
+    "declared", ["acme-kit", "acme-kit<2", "acme-kit>=0.5", "acme-kit>=0.5,<2", "acme-kit[x]>=0.5"]
+)
+def test_a_declaration_that_admits_the_release_the_person_names_lets_it_stand(
+    home: Path, declared: str
 ) -> None:
-    root = repo(home, app__py=APP, requirements__txt="acme-kit>=0.5\n")
+    root = repo(home, app__py=APP, requirements__txt=f"{declared}\n")
     result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
     assert result.exit_code == 0, result.output
-    assert "requirements.txt declares acme-kit >=0.5" in result.output
     assert (
-        "--from names 1.0, which counts only where no manifest declares acme-kit" in result.output
+        "acme-kit is declared with a range that admits 1.0 and other releases, so this migration "
+        "takes it as 1.0, the release --from names." in result.output
     )
+    assert "No manifest declares" not in result.output
+    pack = _pack_record(root)
+    assert (pack["blocked"], pack["stated"], pack["assumed"]) == (None, "1.0", None)
+    said = "## Assumed\n\n`acme-kit` is declared with a range that admits `1.0` and other releases"
+    assert said in next(root.glob(".obelize/runs/*/REPORT.md")).read_text()
+    assert (root / "app.py").read_text() == APP
+    assert (root / "requirements.txt").read_text() == f"{declared}\n"
+
+
+def test_a_range_in_pyproject_that_admits_the_release_the_person_names_lets_it_stand(
+    home: Path,
+) -> None:
+    poetry = '[tool.poetry.dependencies]\npython = "^3.9"\nacme-kit = "^0.5 || ^1.0"\n'
+    root = repo(home, app__py=APP, pyproject__toml=poetry)
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert _pack_record(root)["stated"] == "1.0"
+    assert "acme_kit.greet" in next(root.glob(".obelize/runs/*/patch.diff")).read_text()
+
+
+@pytest.mark.parametrize(
+    "declared", ["acme-kit==1.0", "acme-kit>=1.0", "acme-kit~=1.0", "acme-kit>=1.0,<2"]
+)
+def test_a_declaration_the_floor_already_passes_leaves_the_statement_unsaid(
+    home: Path, declared: str
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt=f"{declared}\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert "the release --from names" not in result.output
+    assert (_pack_record(root)["blocked"], _pack_record(root)["stated"]) == (None, None)
+    assert "## Assumed" not in next(root.glob(".obelize/runs/*/REPORT.md")).read_text()
+
+
+@pytest.mark.parametrize(
+    ("declared", "words"),
+    [
+        (
+            "acme-kit<0.9",
+            "requirements.txt declares acme-kit <0.9, which rules out 1.0, the release",
+        ),
+        (
+            "acme-kit==1.5",
+            "requirements.txt declares acme-kit ==1.5, which rules out 1.0, the release",
+        ),
+        ("acme-kit>=2", "requirements.txt declares acme-kit >=2, which rules out 1.0, the release"),
+        (
+            "acme-kit!=1.0",
+            "requirements.txt declares acme-kit !=1.0, which rules out 1.0, the release",
+        ),
+    ],
+    ids=["below", "another-pin", "above", "excluded"],
+)
+def test_a_declaration_that_rules_out_the_release_the_person_names_decides(
+    home: Path, declared: str, words: str
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt=f"{declared}\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert words in result.output
+    assert "--from names" in result.output
+    assert "or name a release it admits with --from" in result.output
+    assert "so this migration takes it as" not in result.output
     assert next(root.glob(".obelize/runs/*/patch.diff")).read_text() == ""
-    pack = json.loads(next(root.glob(".obelize/runs/*/run.json")).read_text())["packs"][0]
+    pack = _pack_record(root)
     assert (pack["blocked"], pack["stated"]) == ("legacy_version_unsupported", None)
+
+
+def test_one_declaration_that_rules_the_release_out_stops_it_beside_one_that_admits_it(
+    home: Path,
+) -> None:
+    root = repo(
+        home,
+        app__py=APP,
+        requirements__txt="acme-kit>=0.5\n",
+        requirements_dev__txt="acme-kit<0.9\n",
+    )
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert "requirements_dev.txt declares acme-kit <0.9, which rules out 1.0" in result.output
+    assert _pack_record(root)["blocked"] == "legacy_version_unsupported"
+
+
+def test_a_lock_in_the_form_of_a_requirements_file_that_pins_the_new_release_stops_it(
+    home: Path,
+) -> None:
+    root = repo(
+        home,
+        app__py=APP,
+        requirements__txt="acme-kit>=0.5\n",
+        requirements_lock__txt="acme-kit==2.0 --hash=sha256:00\n",
+    )
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert "requirements_lock.txt declares acme-kit ==2.0, which rules out 1.0" in result.output
+
+
+def test_a_declaration_nobody_can_read_stops_the_release_the_person_names(home: Path) -> None:
+    root = repo(
+        home, app__py=APP, requirements__txt="acme-kit @ https://example.invalid/acme_kit.whl\n"
+    )
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert "requirements.txt declares acme-kit in a form obelize cannot read" in result.output
+    assert (
+        "--from names 1.0, which counts only where every declaration of acme-kit admits it: "
+        "requirements.txt cannot be read." in result.output
+    )
+    assert _pack_record(root)["stated"] is None
+
+
+def test_a_release_the_person_names_is_not_a_reason_to_plan_where_the_code_uses_nothing(
+    home: Path,
+) -> None:
+    root = repo(home, app__py="import os\n", requirements__txt="acme-kit>=0.5\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    assert (_pack_record(root)["blocked"], _pack_record(root)["stated"]) == (None, None)
+    assert "the release --from names" not in result.output
+
+
+def test_the_pin_of_a_declaration_that_admits_the_release_is_moved_as_any_pin_is(
+    home: Path,
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt="acme-kit>=0.5,<3\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert result.exit_code == 0, result.output
+    plan = next(root.glob(".obelize/runs/*/patch.diff")).read_text()
+    assert "-acme-kit>=0.5,<3\n+acme-kit>=2.0,<3\n" in plan
+    assert "acme_kit.greet" in plan
 
 
 @pytest.mark.parametrize(
@@ -953,16 +1088,28 @@ def test_a_dependency_line_with_extras_is_left_and_the_commit_says_so(trial: Pat
 def test_a_declaration_that_stops_the_rules_is_said_when_the_trial_cannot_judge(
     trial: Path,
 ) -> None:
-    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit<2\n")
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit>=1.5\n")
     result = tried(root, "--yes", "--from", "1.0")
     assert result.exit_code == 6, result.output
-    assert "requirements.txt declares acme-kit <2" in result.output
-    assert "allows versions this migration does not cover" in result.output
-    assert (
-        "--from names 1.0, which counts only where no manifest declares acme-kit" in result.output
-    )
+    assert "requirements.txt declares acme-kit >=1.5, which rules out 1.0" in result.output
     assert "test(s) passed before" not in result.output
     assert (root / "app.py").read_text() == HELLO
+
+
+def test_a_release_the_declaration_admits_is_tried_with_the_tests_and_written(trial: Path) -> None:
+    """`acme-kit<2` stopped the run before the statement counted; the trial installs `1.0` itself,
+    so the tests are what check the word."""
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit<2\n")
+    result = tried(root, "--yes", "--from", "1.0")
+    assert result.exit_code == 0, result.output
+    assert "Trial of acme-kit 1.0 to acme-kit==2.0: pass; 2 test(s) passed before" in result.output
+    assert "acme-kit is declared with a range that admits 1.0 and other releases" in result.output
+    assert "acme_kit.greet(name)" in (root / "app.py").read_text()
+    assert (root / "requirements.txt").read_text() == "acme-kit>=2.0,<3\n"
+    folder = next((root / ".obelize" / "trials").iterdir())
+    assert "acme-kit==1.0" in (folder / "old.txt").read_text()
+    pack = _pack_record(root)
+    assert (pack["blocked"], pack["stated"]) == (None, "1.0")
 
 
 # The action's upgrade mode over what a real trial makes.
@@ -1038,3 +1185,24 @@ def test_the_branch_a_real_trial_makes_is_what_the_action_checks_pushes_and_open
     asked = record.read_text(encoding="utf-8").splitlines()
     assert asked[:8] == ["pr", "create", "--head", name, "--base", "work", "--title", asked[7]]
     assert asked[7] == "Upgrade acme-kit 1.0 to acme-kit==2.0"
+
+
+@pytest.mark.parametrize("command", ["fix", "scan"])
+def test_a_pack_named_with_pack_is_gated_as_it_was_whatever_declaration_admits_a_release(
+    home: Path, command: str
+) -> None:
+    """Only `upgrade --from` takes a release for the one in use: `fix` and `scan` with the very pack
+    `upgrade` made still stop on a declaration that reaches below its floor."""
+    root = repo(home, app__py=APP, requirements__txt="acme-kit>=0.5\n")
+    made = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "1.0"])
+    assert made.exit_code == 0, made.output
+    assert _pack_record(root)["stated"] == "1.0"
+    pack = next((home / "cache" / "obelize" / "packs").rglob("pack.yaml"))
+    result = runner.invoke(app, [command, "--pack", str(pack), "--repo", str(root)])
+    assert "requirements.txt declares acme-kit >=0.5, which allows versions" in result.output
+    assert "this migration does not cover, so this migration reports its findings" in result.output
+    assert "--from" not in result.output
+    assert "the release --from names" not in result.output
+    if command == "fix":
+        assert _pack_record(root)["blocked"] == "legacy_version_unsupported"
+        assert _pack_record(root)["stated"] is None

@@ -64,9 +64,11 @@ class Blocked:
     # The range of releases the code stands for, where `evidence` stops a declaration being taken
     # for it; the newest release is a pack's own claim and needs no saying.
     taken: str = ""
-    # The release the person gave (`upgrade --from`) where it decided nothing: a declaration
-    # overrules it, and a release the pack does not cover cannot stand for the one in use.
+    # The release the person gave (`upgrade --from`) where it decided nothing: a release the pack
+    # does not cover cannot stand for the one in use, nor can one a declaration rules out.
     stated: str = ""
+    # The pack covers `stated`, so a declaration that rules it out, or cannot be read, is why not.
+    covered: bool = False
     # The pack, where the block has no distribution to say whose it is (the new side is the Python).
     pack: str = ""
 
@@ -135,8 +137,9 @@ def legacy(
     legacy module is not blocked, by a pin below the floor or by one it does not declare. With
     `taken`, which `taken_for` chose, a declaration that stands for it passes too, unless `contrary`
     names the path that says another release is in use, which is then the block's evidence. With
-    `stated`, the release the person gave, a distribution no manifest declares passes if the pack
-    covers that release; a declaration is judged as it is, and is not overruled by it.
+    `stated`, the release the person gave, the pack covers it, and it stands where every declaration
+    admits it (a distribution no manifest declares has none to refuse it): then no declaration
+    blocks for its floor. One that rules it out blocks, whatever its floor.
     """
     if not used:
         return None
@@ -144,14 +147,46 @@ def legacy(
 
 
 def stands(found: Sequence[Declaration], spec: ScanSpec, stated: str | None) -> bool:
-    """Whether `stated` is taken for the release in use: no manifest declares the legacy
-    distribution, and the pack, which has a floor, covers the release."""
+    """Whether `stated` is taken for the release in use: the pack, which has a floor, covers the
+    release, and every declaration of the legacy distribution admits it. One nobody can read does
+    not: it may name another release."""
+    return (
+        stated is not None
+        and _covers(spec, stated)
+        and all(_admits(row, stated) for row in _declared(found, spec.legacy_distribution))
+    )
+
+
+def decides(
+    found: Sequence[Declaration],
+    spec: ScanSpec,
+    used: bool,
+    taken: str | None,
+    contrary: str,
+    stated: str | None,
+) -> bool:
+    """Whether `stated` is what lets the legacy declarations pass: it stands, and without it they
+    would block. A release the declarations pass on their own is not the person's to claim."""
+    return (
+        used
+        and stands(found, spec, stated)
+        and _legacy(found, spec, taken, contrary, None) is not None
+    )
+
+
+def _covers(spec: ScanSpec, stated: str | None) -> bool:
     return (
         stated is not None
         and spec.legacy_floor is not None
-        and not _declared(found, spec.legacy_distribution)
         and SpecifierSet(spec.legacy_range).contains(stated, prereleases=True)
     )
+
+
+def _admits(row: Declaration, release: str) -> bool:
+    """Whether a declaration lets `release` be installed: some alternative of it contains the
+    release (a pre-release too), and a form nobody can read, or a URL, does not say."""
+    found = None if row.spec is None else alternatives(row.spec)
+    return found is not None and any(part.contains(release, prereleases=True) for part in found)
 
 
 def _legacy(
@@ -166,10 +201,25 @@ def _legacy(
     floor = Version(spec.legacy_floor)
     needed = f">={floor}"
     rows = _declared(found, spec.legacy_distribution)
+    # The person's word is taken against the manifests': one that cannot hold it stops the run.
+    release = stated if _covers(spec, stated) else None
+    clash = next((row for row in rows if release and not _admits(row, release)), None)
+    if clash is not None:
+        return Blocked(
+            "legacy_version_unsupported",
+            spec.legacy_distribution,
+            clash.path,
+            _shown(clash.spec),
+            needed,
+            stated=release or "",
+            covered=True,
+        )
     for row in rows:
         admitted = lowest(row.spec)
-        if (admitted is None or admitted < floor) and not (
-            taken and not contrary and _stands_for(row, spec)
+        if (
+            (admitted is None or admitted < floor)
+            and release is None
+            and not (taken and not contrary and _stands_for(row, spec))
         ):
             return Blocked(
                 "legacy_version_unsupported",
@@ -184,7 +234,7 @@ def _legacy(
                 taken=spec.legacy_range if contrary and spec.legacy_newest is None else "",
                 stated=stated or "",
             )
-    if not rows and not stands(found, spec, stated):
+    if not rows and release is None:
         return Blocked(
             "legacy_version_unsupported",
             spec.legacy_distribution,
@@ -438,6 +488,7 @@ __all__ = [
     "Declared",
     "Floor",
     "alternatives",
+    "decides",
     "declaration",
     "detect",
     "inferred",

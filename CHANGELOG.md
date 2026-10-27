@@ -12,6 +12,18 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Changed
+
+- `obelize upgrade --from <release>` takes that release for the one in use where every dependency
+  file that declares the library admits it, and not only where none declares it: `pydantic`,
+  `pydantic<2`, `pydantic>=1.8` and `pydantic = "^1.9.1"` all admit `--from 1.10.26`. The plan goes
+  with your word against the file's, says so in its summary and in `REPORT.md`, and a dry run does
+  not check it; `--apply` does, with your tests. A declaration that rules the release out
+  (`pydantic==2.5.0`, `pydantic>=2`, `pydantic<1.5`), or that obelize cannot read, stops the plan and
+  says so, including one that reached the pack's floor on its own, which `--from` was not asked
+  about before. `fix`, `scan`, `--pack` and an `upgrade` without `--from` are gated as they were
+  ([the decision](docs/adr/ADR-080-a-stated-release-a-declaration-admits.md)).
+
 ## [0.9.0] - 2026-10-27
 
 obelize can do more for a library it has no pack for, and ships more packs. A pack can be about the

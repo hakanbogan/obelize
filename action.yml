@@ -54,7 +54,8 @@ inputs:
   from:
     description: >-
       upgrade mode, with one distribution: the release the code is written for, such as 1.10.26,
-      where no manifest declares the dependency. Default: the one the manifests name.
+      where no manifest declares the dependency or every declaration admits it. Default: the one
+      the manifests name.
     default: ""
   fail-on-unproven:
     description: >-

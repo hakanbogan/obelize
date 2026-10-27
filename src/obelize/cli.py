@@ -490,6 +490,7 @@ def _fix(
             outcome.unwritten,
             outcome.pins,
             stated=outcome.stated,
+            narrowed=outcome.narrowed,
             imports=outcome.imports,
             runs=outcome.runs,
         ),

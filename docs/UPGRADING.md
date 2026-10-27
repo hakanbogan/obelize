@@ -35,11 +35,15 @@ already on the newest release (no `--to` names another, and no pack moves it to 
 distribution) has nothing to move: `upgrade` says so and exits `0`.
 
 `--from` names the release your code is written for. Where no dependency file declares the library,
-the plan takes it as that release, says so in its summary and in `REPORT.md`, and records it as
-`stated` in `run.json`. Where a dependency file does declare the library, the declaration decides, as
-it does for every migration: `pydantic>=1.8` stops the plan until it is pinned at or above the
-lowest release the pack covers, and the message says that `--from` was not used. A dry run takes
-your word for the release; `--apply` installs it in the trial, so your tests are what check it.
+or every declaration admits that release (`pydantic`, `pydantic<2`, `pydantic>=1.8` and
+`pydantic = "^1.9.1"` all admit `--from 1.10.26`), the plan takes it as that release, says so in its
+summary and in `REPORT.md`, and records it as `stated` in `run.json`. A declaration that admits the
+release and others is taken against your word: the plan goes with yours. One that rules it out
+(`pydantic==2.5.0`, `pydantic>=2`, `pydantic<1.5`), or that obelize cannot read, stops the plan and
+says so, and so does a release the pack does not cover. Every declaration counts, in every file
+obelize reads, a requirements file that is a lock too; a lock file of another kind (`uv.lock`,
+`poetry.lock`) is not read. A dry run takes your word for the release; `--apply` installs it in the
+trial, so your tests are what check it.
 
 What the made pack does is deliberately small:
 
@@ -278,12 +282,15 @@ its own, and none is in a file the dry run would write.
 Of the 36 that stop, 18 stop on a manifest that declares the library in a way the pack does not take
 (`legacy_version_unsupported`: no version, a range that reaches below the release the pack was made
 from, or a pin under it) and 18 on a declared Python that the new release does not run on
-(`runtime_unsupported`). Each of the 33 that are held has a place the pack cannot write: 32 have one it
-only flags, and one has a file the scan cannot parse. A repository's plan is written only when nothing
-in it is left, so one such place holds the rest of that repository.
+(`runtime_unsupported`). Since that measurement `--from` counts where a declaration admits it, as
+[described above](#2-plan-one-move), so not all of those 18 would stop now (a pin that rules the
+release out still does); I have not measured it again. Each of the 33 that are held has a place the
+pack cannot write: 32 have one it only flags, and one has a file the scan cannot parse. A
+repository's plan is written only when nothing in it is left, so one such place holds the rest of
+that repository.
 
 What did work is the pack and the report: a pack from two releases in 8 to 79 s for four large
 libraries, and every place found is reported with its reason. No `--apply` was run on these
 repositories, so nothing was written wrongly, and none of this says whether a trial would pass their
-tests. [Known issues](KNOWN_ISSUES.md#upgrading-a-dependency) names the two things that stand between
-a pack made from two releases and a written move, and neither is decided.
+tests. [Known issues](KNOWN_ISSUES.md#upgrading-a-dependency) names what still stands between a pack
+made from two releases and a written move, and I have not decided it.

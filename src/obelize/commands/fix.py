@@ -103,6 +103,8 @@ class Outcome:
     assumed: tuple[tuple[str, str], ...] = ()
     # (distribution, release) the person gave, taken for the release in use.
     stated: tuple[tuple[str, str], ...] = ()
+    # Of those, the distributions a manifest declares, a range the release narrows.
+    narrowed: tuple[str, ...] = ()
     # What the run did without being asked to say so, for a caller that prints it.
     notes: tuple[str, ...] = ()
     guides: tuple[flag_only.Guide, ...] = ()
@@ -286,6 +288,7 @@ def run(request: Request) -> Outcome:
         blocked=scan.blocked,
         assumed=scan.assumed,
         stated=scan.stated,
+        narrowed=scan.narrowed,
         notes=notes,
         guides=guides,
         manifest_plan=driven.manifest_plan,

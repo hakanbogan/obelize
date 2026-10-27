@@ -189,7 +189,7 @@ runs a hook.
 | `version` | Required. The obelize release to run. |
 | `mode` | `upgrade`. The default, `scan`, is [the check](CLI.md#in-github-actions). |
 | `distributions` | The dependencies to upgrade, separated by spaces. Each is upgraded on its own. |
-| `from` | With one dependency: the release the code is written for, where no manifest declares it. |
+| `from` | With one dependency: the release the code is written for, where no manifest declares it or every declaration admits it. |
 | `fail-on-unproven` | `true` fails the job when the tests did not prove the move. Default `false`. |
 | `artifact-name` | The artifact the folders go to. Default `obelize-upgrade`. |
 | `working-directory` | The repository root. Default `.`. |
