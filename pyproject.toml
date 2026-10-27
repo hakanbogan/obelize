@@ -82,10 +82,11 @@ dev = [
   # the enum accepts unknown names with only a warning; without the SDK that check would skip
   # (docs/PACK_SPEC.md, "Pack test requirements").
   "google-genai>=2",
-  # Test-only, pinned to the versions `py-pdf/pypdf2-to-pypdf` was measured on: its names, members
-  # and parameters are compared on both (tests/packs/test_pypdf_facts.py).
+  # Test-only: PyPDF2 as `py-pdf/pypdf2-to-pypdf` was measured on it, and pypdf the first release
+  # past the 6.19.0 it was measured on with no open advisory: its names, members and parameters are
+  # compared on both (tests/packs/test_pypdf_facts.py), and the weekly job runs 6.19.0 too.
   "PyPDF2==3.0.1",
-  "pypdf==6.19.0",
+  "pypdf==6.21.3",
   # Test-only: the names, parameters and result fields `openai/openai-0-to-1` rewrites onto are
   # read from the newest release (tests/packs/test_openai_facts.py); 0.28.1, the other side, cannot
   # share an environment and is checked by tests/packs/openai_legacy_check.py.

@@ -1,8 +1,9 @@
 """What the PyPDF2 pack claims about the two projects, checked against both installed.
 
-PyPDF2 3.0.1 and pypdf 6.19.0 are pinned in the dev group because these facts are about those
-releases; each is a name, a member or a parameter, read from the module and never from a PDF. The
-weekly job runs the file on the newest pypdf as well.
+PyPDF2 3.0.1 and pypdf 6.21.3 are pinned in the dev group because these facts are about those
+releases, the second being the first past the 6.19.0 the pack was measured on that has no open
+advisory; each is a name, a member or a parameter, read from the module and never from a PDF. The
+weekly job runs the file on 6.19.0 and on the newest pypdf as well.
 """
 
 from __future__ import annotations

@@ -416,7 +416,7 @@ schema drift job and its test, `pack validate` in the smoke job and in the pack 
 flow in the tests and again from a built wheel, `uv build` in four places. Dependabot ignores the
 libraries the packs are measured against (both Gemini SDKs, `PyPDF2`, `pypdf` and `openai`) on
 purpose, while the weekly end-to-end job installs the newest `google-genai`, `pypdf` and `openai`
-to check the packs' claims; the `>2.24.0` and `>6.19.0` in that job are copied by hand from the
+to check the packs' claims; the `>2.24.0` and `>=6.21.3` in that job are copied by hand from the
 lock file, and nothing checks them. The secret-scanning configuration only excludes
 `tests/fixtures/**`, so a new planted credential outside it has to be built by concatenation, as
 `tests/unit/test_verify_redact.py` does. The workflow audit (zizmor) lets a `docker://` step image

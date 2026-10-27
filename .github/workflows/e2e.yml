@@ -234,10 +234,17 @@ jobs:
           uv run --with "google-genai>2.24.0"
           pytest tests/packs/test_gemini_facts.py -q --no-cov -p no:cacheprovider
 
-      - name: The PyPDF2 pack's claims hold on the newest pypdf
-        # The dev group pins 6.19.0, the floor; the same file runs here on whatever is newer.
+      - name: The PyPDF2 pack's claims hold on 6.19.0, the release it was measured on
+        # The dev group pins 6.21.3, the first past it without an open advisory; `--with` puts the
+        # measured release ahead of it for this one file.
         run: >
-          uv run --with "pypdf>6.19.0"
+          uv run --with pypdf==6.19.0
+          pytest tests/packs/test_pypdf_facts.py -q --no-cov -p no:cacheprovider
+
+      - name: The PyPDF2 pack's claims hold on the newest pypdf
+        # The dev group pins 6.21.3; the same file runs here on whatever is newest, which may be it.
+        run: >
+          uv run --with "pypdf>=6.21.3"
           pytest tests/packs/test_pypdf_facts.py -q --no-cov -p no:cacheprovider
 
       - name: PyPI lists no PyPDF2 release newer than the one an unpinned requirement is taken as
