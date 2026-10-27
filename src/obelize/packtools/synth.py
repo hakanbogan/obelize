@@ -135,6 +135,8 @@ class Request:
     scope: frozenset[str] | None = None
     # A digest of the guides the pack takes claims from: another guide is another pack.
     guide: str | None = None
+    # The extras the newer release lists as `Provides-Extra`, which its dependency line may keep.
+    extras: tuple[str, ...] = ()
 
     @property
     def pack_id(self) -> str:
@@ -343,6 +345,7 @@ def request(
         retrieved=dt.datetime.now(dt.UTC).date(),
         scope=scope,
         guide=guide,
+        extras=compared.extras,
     )
 
 
@@ -968,11 +971,15 @@ class _Plan:
             {
                 "id": "dependency-line",
                 "kind": "manifest_dependency",
-                "citation": _text(f"{request.distribution} {request.new} on the index"),
+                "citation": _text(
+                    f"{request.distribution} {request.new} on the index"
+                    + (", and the Provides-Extra lines of its METADATA" if request.extras else "")
+                ),
                 "params": {
                     "from_name": request.distribution,
                     "to_name": request.distribution,
                     "to_spec": request.target,
+                    **({"provides_extras": list(request.extras)} if request.extras else {}),
                 },
                 "fixtures": [
                     "fixtures/negative/requirements_already_new.txt",
@@ -1052,9 +1059,10 @@ class _Plan:
         # Through the package, since a submodule's import may be one the pack moves.
         kept += [(request.module, self._use(path, True, 0, matching=False)[1]) for path in shaped]
         found["fixtures/negative/already_new.py"] = _program(_DOCS["new"], kept)
-        found["fixtures/positive/requirements.before.txt"] = _requirements(
-            f"{request.distribution}=={request.old}", _NOTE
-        )
+        old = f"{request.distribution}=={request.old}"
+        if request.extras:
+            old += f"\n{request.distribution}[{request.extras[0]}]=={request.old}"
+        found["fixtures/positive/requirements.before.txt"] = _requirements(old, _NOTE)
         found["fixtures/negative/requirements_already_new.txt"] = _requirements(
             f"{request.distribution}{request.target}", "Already migrated, and the rule adds no pin."
         )

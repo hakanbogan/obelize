@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-073 and ADR-075.
+Accepted; amended by ADR-073, ADR-075 and ADR-077.
 
 ## Decision
 
@@ -33,7 +33,8 @@ library's own where it gave one and a plain statement where it did not. A pack n
 call it cannot show takes the arguments it took. A changed signature of a function or a class is
 flagged only for the calls it can break, with a shape written from its parameter changes (ADR-073
 D3); a name with any other change, and a method, is flagged wherever it is used. The dependency line moves from the old release to
-`>=<to>,<next major>` with `manifest_dependency`. The pack is `shared`, since it is one distribution.
+`>=<to>,<next major>` with `manifest_dependency`, which keeps the extras of a requirement that the
+newer release's wheel lists as `Provides-Extra` (ADR-077). The pack is `shared`, since it is one distribution.
 With `--guide` it also holds the claims code kept from a migration guide, each a change of its own
 that reports unless the diff supports a rewrite (ADR-075).
 

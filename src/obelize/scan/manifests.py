@@ -41,7 +41,7 @@ from obelize.models import (
 from obelize.scan import parse
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping, Sequence
+    from collections.abc import Container, Iterable, Iterator, Mapping, Sequence
 
 
 # Every bail raised here, unranked: no two can fire on the same row.
@@ -149,13 +149,26 @@ _LEADING: Final = re.compile(
 
 
 @dataclass(frozen=True, slots=True)
+class Extras:
+    """The extras a requirement names, and where its version is after them (ADR-077).
+
+    Such a requirement has no `pin`: its extras may not exist in the release it moves to. Only a
+    pack that states which the new release provides lets the version be replaced (`editable_pin`).
+    """
+
+    names: tuple[str, ...]
+    pin: tuple[int, int]
+
+
+@dataclass(frozen=True, slots=True)
 class Declaration:
     """One declared dependency: canonical `name`; `raw` as written, from `column` to `end`.
 
     `pin` spans the version, or is `None` for extras, a URL, a hash, an editable requirement, a file
     no rule writes or a non-string value a rewrite cannot carry; the rule refuses such a row and the
     scan still reports it. `spec` is the version as declared (a PEP 508 set, or Poetry's or
-    Pipenv's string), `None` when it cannot be read.
+    Pipenv's string), `None` when it cannot be read. `extras` is set where extras are the only
+    reason there is no `pin`: a form that carries more than name, extras and version has none.
     """
 
     path: str
@@ -170,6 +183,7 @@ class Declaration:
     marked: bool = False
     # Read from a constraints file: it bounds a version and declares nothing.
     constraint: bool = False
+    extras: Extras | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -397,6 +411,18 @@ def uses_new_names(data: bytes, spec: ScanSpec) -> bool:
     return any(name == new or name.startswith(f"{new}.") for name in used for new in spec.new_names)
 
 
+def editable_pin(declaration: Declaration, provided: Container[str]) -> tuple[int, int] | None:
+    """The span an edit replaces with the new version, or `None` when the line is left alone.
+
+    The `pin`; or, for a requirement that names extras, the text after them, but only if every one
+    is among the extras the new release provides (`provided`, which holds none unless a pack says).
+    """
+    kept = declaration.extras
+    if declaration.pin is not None or kept is None:
+        return declaration.pin
+    return kept.pin if all(name in provided for name in kept.names) else None
+
+
 def declares(found: Iterable[Declaration], spec: ScanSpec) -> bool:
     """Whether a manifest declares the pack's legacy distribution."""
     legacy = canonicalize_name(spec.legacy_distribution)
@@ -555,7 +581,9 @@ def _legacy(
         )
         yield _row(declaration, spec.legacy_distribution, code, absent=code is None)
         return
-    if spec.new_range is not None and (declaration.pin is None or _unjudged(declaration, spec)):
+    if spec.new_range is not None and (
+        editable_pin(declaration, spec.new_extras) is None or _unjudged(declaration, spec)
+    ):
         yield _row(declaration, spec.legacy_distribution, SHAPE_BAIL)
         return
     if not migration.blocking and (not needed or placed is not None):
@@ -749,6 +777,15 @@ def _declare(path: str, line: int, column: int, text: str) -> Declaration | None
     marker = rest.find(";")
     version = (rest if marker < 0 else rest[:marker]).rstrip()
     plain = not parsed.extras and parsed.url is None
+    close = rest.find("]")
+    kept = (
+        Extras(
+            tuple(sorted({canonicalize_name(one) for one in parsed.extras})),
+            (end + close + 1, end + len(version)),
+        )
+        if parsed.extras and parsed.url is None and 0 <= close < len(version)
+        else None
+    )
     return Declaration(
         path=path,
         line=line,
@@ -759,6 +796,7 @@ def _declare(path: str, line: int, column: int, text: str) -> Declaration | None
         pin=(end, end + len(version)) if plain else None,
         spec=str(parsed.specifier) if parsed.url is None else None,
         marked=marker >= 0,
+        extras=kept,
     )
 
 
@@ -873,7 +911,7 @@ def _from_requirements(path: str, lines: list[str]) -> Iterator[Declaration]:
             continue
         if editable or joined or "--hash" in body[len(written) :]:
             declaration = replace(
-                declaration, pin=None, spec=None if editable else declaration.spec
+                declaration, pin=None, extras=None, spec=None if editable else declaration.spec
             )
         yield declaration
 
@@ -886,7 +924,7 @@ def _from_unwritten(path: str, lines: list[str]) -> Iterator[Declaration]:
     """
     for declaration in _from_requirements(path, lines):
         if declaration.spec != "":
-            yield replace(declaration, pin=None)
+            yield replace(declaration, pin=None, extras=None)
 
 
 def _table(text: str) -> tuple[str, ...]:
@@ -943,6 +981,38 @@ def _value_pin(body: str, after: int) -> tuple[int, int] | None:
 # Any other key beside the version (extras, a marker, a source) would be carried to a distribution
 # that may not have it, so such a table is no pin.
 _ONLY_VERSION: Final = re.compile(r"""\{\s*version\s*=\s*(["'])(?P<version>[^"']*)\1\s*,?\s*\}""")
+# A table of exactly a version and a list of extras, in either order; the extras have a say in
+# `editable_pin`, the version is the span an edit replaces.
+_VERSION_EXTRAS: Final = (
+    re.compile(
+        r"""\{\s*version\s*=\s*(["'])(?P<version>[^"']*)\1\s*,\s*"""
+        r"""extras\s*=\s*\[(?P<extras>[^\[\]{}]*)\]\s*,?\s*\}"""
+    ),
+    re.compile(
+        r"""\{\s*extras\s*=\s*\[(?P<extras>[^\[\]{}]*)\]\s*,\s*"""
+        r"""version\s*=\s*(["'])(?P<version>[^"']*)\2\s*,?\s*\}"""
+    ),
+)
+_EXTRA_LIST: Final = re.compile(r"""\s*(?:(["'])[A-Za-z0-9._-]+\1\s*(?:,\s*|$))+""")
+_EXTRA_NAME: Final = re.compile(r"""["']([A-Za-z0-9._-]+)["']""")
+
+
+def _value_extras(body: str, after: int) -> Extras | None:
+    """The `version` span and the extras of an inline table that holds those two keys and no other,
+    one line, every extra a quoted name; else `None`."""
+    rest = body[after:]
+    value = rest.strip()
+    start = after + len(rest) - len(rest.lstrip())
+    for form in _VERSION_EXTRAS:
+        found = form.fullmatch(value)
+        if found and _EXTRA_LIST.fullmatch(found["extras"]):
+            names = {canonicalize_name(name) for name in _EXTRA_NAME.findall(found["extras"])}
+            return Extras(
+                tuple(sorted(names)), (start + found.start("version"), start + found.end("version"))
+            )
+    return None
+
+
 _INLINE_VERSION: Final = re.compile(r"""^\{.*?\bversion\s*=\s*(["'])(.*?)\1""")
 
 
@@ -1019,6 +1089,7 @@ def _from_toml(path: str, lines: list[str]) -> Iterator[Declaration]:
                     declaration,
                     pin=pin,
                     spec=spec if pin is None else body[pin[0] : pin[1]],
+                    extras=None if pin else _value_extras(body, column + cut + 1),
                 )
         elif _is_dependency_array(table, key.strip("\"'")):
             start = column + cut + 1
@@ -1212,7 +1283,11 @@ def _from_setup_py(path: str, data: bytes) -> Iterator[Declaration]:
         line = "".join(lines[at.line - 1 : at.line])
         opening = node.prefix + node.quote + node.raw_value.split("\n")[0]
         faithful = node.raw_value == text and line.startswith(opening, at.column)
-        yield declaration if faithful and _whole(node, parents) else replace(declaration, pin=None)
+        yield (
+            declaration
+            if faithful and _whole(node, parents)
+            else replace(declaration, pin=None, extras=None)
+        )
 
 
 __all__ = [

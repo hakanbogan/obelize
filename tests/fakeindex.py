@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator, Mapping, Sequence
 
 
 WHEEL = "Wheel-Version: 1.0\nGenerator: tests\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
@@ -88,10 +88,12 @@ class FakeIndex:
         kind: str = "wheel",
         yanked: str | None = None,
         requires_python: str | None = None,
+        provides_extras: Sequence[str] = (),
         **info: Any,
     ) -> str:
         """Release `version` of `name` whose importable package `module` holds `source` (file name
-        in the package to text; `module=""` puts the paths at the top); returns the file name."""
+        in the package to text; `module=""` puts the paths at the top); returns the file name. A
+        wheel lists `provides_extras` in its METADATA, as written."""
         package = name.replace("-", "_") if module is None else module
         project = self.projects.setdefault(name, Project(name))
         body = {f"{package}/{path}" if package else path: text for path, text in source.items()}
@@ -103,6 +105,7 @@ class FakeIndex:
                     **body,
                     f"{slug}-{version}.dist-info/METADATA": (
                         f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+                        + "".join(f"Provides-Extra: {extra}\n" for extra in provides_extras)
                     ),
                     f"{slug}-{version}.dist-info/WHEEL": WHEEL,
                     f"{slug}-{version}.dist-info/RECORD": "",

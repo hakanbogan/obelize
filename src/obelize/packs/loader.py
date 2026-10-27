@@ -234,6 +234,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
     variables: set[str] = set()
     client_symbol = new_client_symbol = None
     declare_transitive = False
+    new_extras: tuple[str, ...] = ()
     for change in pack.changes:
         if isinstance(change, ConfigureToClientChange):
             client_symbol = change.params.legacy_symbol
@@ -256,6 +257,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
             variables.update(change.params.variables)
         elif isinstance(change, ManifestDependencyChange):
             declare_transitive = change.params.declare_transitive
+            new_extras = change.params.provides_extras
     # What a pack flags on a class it renames members of is read off a receiver the same way.
     for owner, listed in members.items():
         listed.update(
@@ -284,6 +286,7 @@ def to_scan_spec(loaded: LoadedPack) -> ScanSpec:
         new_version=pack.to.version,
         new_names=pack.to.introduces,
         declare_transitive=declare_transitive,
+        new_extras=new_extras,
         constructor_symbols=tuple(sorted(constructors)),
         supported_methods=tuple(
             ReceiverMethods(receiver=receiver, methods=methods[receiver])
@@ -357,6 +360,7 @@ _WHEN_SET: Final[frozenset[str]] = frozenset(
         "new_client_symbol",
         "new_names",
         "declare_transitive",
+        "new_extras",
         "flag_only_variables",
         "flag_only_calls",
         "inventory",

@@ -65,7 +65,8 @@ insertion. The insertion goes below, so the legacy pin keeps the line number eve
 
 `manifest_pin_shape_unsupported` (`needs_review`; fix time, and the scan for a pack whose one
 distribution holds both APIs, [ADR-053](ADR-053-shared-module-migrations.md) D12) covers a line that says more than
-this distribution at this version: extras, a direct URL, a hash, a requirement that goes over
+this distribution at this version: extras (unless the pack lists them as provided by the release it
+moves to, [ADR-077](ADR-077-extras-on-a-pin.md)), a direct URL, a hash, a requirement that goes over
 several lines, an editable requirement or a local archive, a table value that is not one version
 string; and, for an insertion only, a line that also carries the array's or field's key or a second
 declaration, which a copy would duplicate. One code, because the reader does the same thing in every

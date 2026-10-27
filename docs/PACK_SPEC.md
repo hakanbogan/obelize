@@ -326,7 +326,7 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rewrite_pattern` | `before` and `after` (templates: Python expressions with `$name` for any expression), `where` (the class of the metavariable a member call is made on), `imports` (the importable paths `after` may spell names through) |
 | `external_fixer` | `fixer` (an id from the registry below, such as `ruff:NPY201`), `symbols` (the legacy names the tool rewrites where they are used, which `match` also lists) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `calls` (for a symbol: the calls it is flagged for, or that only its bases changed), `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
-| `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
+| `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)), `provides_extras` (default none; sorted, de-duplicated extras in their normal form, as the new release lists them in `Provides-Extra`, and only where `from_name` and `to_name` are one distribution: a requirement that names extras then keeps them when its version moves, if every one is listed; [the extras decision](adr/ADR-077-extras-on-a-pin.md)) |
 
 **`external_fixer`** hands the files to a maintained tool and keeps what it prints only if it holds
 to the proof of a rule's own ([ADR-074](adr/ADR-074-external-fixer.md)). A pack names the tool by
@@ -679,6 +679,21 @@ several lines, an editable requirement, a local archive, a non-version table
 value, a duplicated key or declaration) is `manifest_pin_shape_unsupported` and left alone. For a coupled pack the scan raises it too, once
 anything migrated, for a declaration with no pin the rule can write (extras, a URL, a hash, an
 editable requirement, an archive, a non-version value), so the whole pack is withheld ([the shared-module decision](adr/ADR-053-shared-module-migrations.md)).
+
+**`manifest_dependency.provides_extras`** is the one exception for extras. A pack that lists the
+extras its new release provides lets a requirement of that one distribution keep its extras: only
+the version after them is replaced (`mcp[cli]>=1.28.1` becomes `mcp[cli]>=2.12.5,<3`), and only if
+every extra it names is in the list; one that is not leaves the line as it was, withheld as above.
+The names are compared in the form PEP 685 gives them (`Dev_Tools`, `dev.tools` and `dev-tools` are
+one). `pack synth` writes the list from the `Provides-Extra` lines of the newer release's wheel,
+and a bundled pack states it by hand with a citation to the release metadata. A pack that lists
+none behaves as it did, and a pack that renames the distribution may not list any, since the old
+distribution's extras are not known to exist in the new one. Where the edit is not a replacement of
+the version alone it stays withheld: a requirement in a constraints file or a pip-tools input, one
+with a hash or a continuation, a direct URL, `-e`, a `setup.cfg` line with a
+trailing comment, a `setup.py` requirement built from other code, and a Poetry or Pipfile table of
+its own (`[tool.poetry.dependencies.mcp]`), or an inline table with a key beside `version` and
+`extras`.
 
 ### Parameter constraints fixed by the Phase 0 spikes
 
@@ -1037,6 +1052,8 @@ Per document, the incoherences that would otherwise scan as a clean repository:
 - A symbol both rewritten (or mapped by `symbol_map`) and refused.
 - A `manifest_dependency` naming a distribution the pack does not migrate, or in a pack with a
   side that is the Python; a `match.transitive` in a pack whose old side is the Python.
+- A `manifest_dependency` that lists `provides_extras` while its two names are not one
+  distribution, or lists them out of order, twice, or in a form PEP 685 does not give.
 - A receiver in `methods` that is neither `ctor_symbol` nor a `method_returns`
   value.
 - A `from.lacks` name that no `flag_only` change lists in `symbols`, so the scan never reports it.

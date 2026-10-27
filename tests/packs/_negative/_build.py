@@ -486,6 +486,20 @@ def _one_distribution_overlapping(document: Document) -> None:
     document["from"]["version"] = "<2"
 
 
+def _extras_stated(extras: list[str], *, renamed: bool = False) -> Callable[[Document], None]:
+    """The pin rule stating the extras the new release provides: on one distribution, unless
+    `renamed`."""
+
+    def mutate(document: Document) -> None:
+        params = document["changes"][1]["params"]
+        if not renamed:
+            document["to"]["package"] = "demo-legacy"
+            params["to_name"] = "demo-legacy"
+        params["provides_extras"] = extras
+
+    return mutate
+
+
 def _one_distribution_backwards(document: Document) -> None:
     """A target that reaches no higher than the source's floor."""
     document["to"]["package"] = "demo-legacy"
@@ -1236,6 +1250,30 @@ CASES: tuple[Case, ...] = (
         says="is not this migration",
         extra=MANIFEST_CHANGE,
         mutate=lambda d: _with(d["changes"][1]["params"], "to_name", "something-else"),
+    ),
+    Case(
+        name="extras_stated_for_a_renamed_distribution",
+        defect="extras the new release provides, for a pin rule that renames the distribution",
+        path=f"{EXTRA}.params",
+        says="provides_extras needs from_name and to_name to be one distribution",
+        extra=MANIFEST_CHANGE,
+        mutate=_extras_stated(["cli"], renamed=True),
+    ),
+    Case(
+        name="extras_stated_out_of_order",
+        defect="extras the new release provides that are not sorted",
+        path=f"{EXTRA}.params",
+        says="provides_extras must be sorted and de-duplicated",
+        extra=MANIFEST_CHANGE,
+        mutate=_extras_stated(["grpc", "cli"]),
+    ),
+    Case(
+        name="extras_stated_in_a_form_pep_685_folds",
+        defect="an extra written in a capital, which the normal form does not have",
+        path=f"{EXTRA}.params.provides_extras[0]",
+        says="expected a lower-case, hyphen-separated name",
+        extra=MANIFEST_CHANGE,
+        mutate=_extras_stated(["Cli"]),
     ),
     Case(
         name="declare_transitive_with_no_module_listed",

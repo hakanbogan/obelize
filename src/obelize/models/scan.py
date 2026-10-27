@@ -475,6 +475,9 @@ class ScanSpec(_Frozen):
     # Whether the pin moves by declaring those modules' distributions in a requirements file,
     # where `transitive_dependency_in_use` would keep it.
     declare_transitive: bool = False
+    # The extras the new release provides, as a pack states them: a requirement that names only
+    # these keeps them when its pin moves. None are assumed, so a requirement with extras waits.
+    new_extras: tuple[str, ...] = ()
     # Names only the new API defines, where one distribution holds both: code that uses one beside
     # a pin that admits only the legacy range is a manifest row.
     new_names: tuple[str, ...] = ()
@@ -515,6 +518,7 @@ class ScanSpec(_Frozen):
             bad = [value for value in values if not QUALIFIED_NAME.fullmatch(value)]
             if bad:
                 raise ValueError(f"{field} takes qualified names, got {bad}")
+        sorted_unique(self.new_extras, "new_extras")
         sorted_unique(self.prefilter_tokens, "prefilter_tokens")
         sorted_unique(self.flag_only_patterns, "flag_only_patterns")
         sorted_unique(tuple(self.flag_only_calls), "flag_only_calls")

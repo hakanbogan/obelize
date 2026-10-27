@@ -1500,12 +1500,26 @@ class ManifestDependencyParams(_Closed):
     `declare_transitive` lets the pin move while a file imports a module only the legacy
     distribution installed (`match.transitive`) and no manifest of its app declares it: each such
     distribution is declared, unpinned, on a line below the legacy requirement.
+
+    `provides_extras` are the extras the new release lists as `Provides-Extra` (ADR-077): a
+    requirement that names extras keeps them, with only its version replaced, when every one is
+    listed. Only one distribution may state them: a renamed one is not known to have the old one's.
     """
 
     from_name: DistributionName
     to_name: DistributionName
     to_spec: Pep440Specifier
     declare_transitive: StrictBool = False
+    provides_extras: tuple[Slug, ...] = ()
+
+    @model_validator(mode="after")
+    def _check(self) -> ManifestDependencyParams:
+        sorted_unique(self.provides_extras, "provides_extras")
+        if self.provides_extras and canonicalize_name(self.from_name) != canonicalize_name(
+            self.to_name
+        ):
+            raise ValueError("provides_extras needs from_name and to_name to be one distribution")
+        return self
 
 
 class ExternalFixerParams(_Closed):

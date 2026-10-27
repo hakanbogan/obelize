@@ -184,6 +184,17 @@ def test_a_requirement_that_cannot_be_copied_is_no_place_to_declare_below() -> N
     ]
 
 
+def test_a_requirement_with_extras_the_release_provides_is_no_place_to_declare_below_either() -> (
+    None
+):
+    spec = OPENAI.model_copy(update={"new_extras": ("datalib",)})
+    files = {"requirements.txt": "openai[datalib]==0.28.1\n"}
+    assert rows(planned(files, spec=spec)) == [("requirements.txt", 1, "openai", "eligible", None)]
+    assert rows(planned(files, needs=NEEDS, spec=spec)) == [
+        ("requirements.txt", 1, "openai", "needs_review", "transitive_dependency_in_use")
+    ]
+
+
 def test_a_requirement_that_has_arrived_is_no_place_either() -> None:
     files = {"requirements.txt": "openai>=1.109.1\n", "constraints.txt": "openai==0.28.1\n"}
     plan = planned(files, needs=NEEDS)

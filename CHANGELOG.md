@@ -51,13 +51,23 @@ of them, `BaseModel.copy` to `model_copy`, is a rewrite ([the run](docs/UPGRADIN
 [why](docs/adr/ADR-075-claims-from-a-guide.md)). A guide is fetched as the index is, so a page that
 moved to another host is refused and the message names the host.
 
+A requirement that names extras (`mcp[cli]>=1.28.1`) is no longer always left as it was. A pack
+made by `pack synth` lists the extras the newer release's wheel gives as `Provides-Extra`
+(`manifest_dependency.provides_extras`), and a requirement of that one distribution whose extras are
+all listed has only the version after them replaced (`mcp[cli]>=2.12.5,<3`). An extra the release
+does not list, a release with no wheel, a renamed distribution (`PyPDF2[crypto]`), a constraints
+file, a hash, a continued line and the other forms where the edit would be more than the version
+leave the line as it was, named in the summary as before ([the forms](docs/adr/ADR-077-extras-on-a-pin.md)).
+The bundled packs list none, so what they write is what it was.
+
 `--agent` still takes `claude_code` only. A backend for `codex exec` was checked against its
 documentation on 2026-10-27 (CLI 0.164.0) and not built: it documents `features.shell_tool` and
 permission profiles, but no setting that leaves a model without tools, so a text-only run cannot be
 guaranteed ([ADR-076](docs/adr/ADR-076-no-backend-for-codex-yet.md), which says what would change that).
 
 The formats that changed are `pack.yaml` (a change may carry a `source` of its own, whose type may be
-`guide`, which is never bundled), `pack.schema.json` which describes them, the id of a pack made with
+`guide`, which is never bundled, and `manifest_dependency` may carry `provides_extras`),
+`pack.schema.json` which describes them, the id of a pack made with
 a guide (it ends with `-with-` and a digest of the guide's text) and `guide.json`, the new record
 beside such a pack.
 

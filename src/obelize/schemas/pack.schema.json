@@ -831,7 +831,7 @@
     },
     "ManifestDependencyParams": {
       "additionalProperties": false,
-      "description": "The pin edit; both names may be one distribution, whose major version is the migration.\n\n`declare_transitive` lets the pin move while a file imports a module only the legacy\ndistribution installed (`match.transitive`) and no manifest of its app declares it: each such\ndistribution is declared, unpinned, on a line below the legacy requirement.",
+      "description": "The pin edit; both names may be one distribution, whose major version is the migration.\n\n`declare_transitive` lets the pin move while a file imports a module only the legacy\ndistribution installed (`match.transitive`) and no manifest of its app declares it: each such\ndistribution is declared, unpinned, on a line below the legacy requirement.\n\n`provides_extras` are the extras the new release lists as `Provides-Extra` (ADR-077): a\nrequirement that names extras keeps them, with only its version replaced, when every one is\nlisted. Only one distribution may state them: a renamed one is not known to have the old one's.",
       "properties": {
         "declare_transitive": {
           "default": false,
@@ -842,6 +842,15 @@
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
           "title": "From Name",
           "type": "string"
+        },
+        "provides_extras": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Provides Extras",
+          "type": "array"
         },
         "to_name": {
           "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",

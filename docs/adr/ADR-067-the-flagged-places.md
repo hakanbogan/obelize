@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-076.
+Accepted; amended by ADR-076 and ADR-077.
 
 ## Decision
 
@@ -73,7 +73,8 @@ pack of a library that renamed little) migrates none, so files the agent edited 
 for the pin (`fix` takes them as files migrated elsewhere), and a trial whose every flagged place is
 moved runs its tests even when the rules wrote nothing. A place left unresolved ends the trial with
 the reason `unresolved`, since the repository would be half moved. A dependency line the rules cannot
-write (a requirement with extras, which the new release may not have) is named, as `path:line`, in
+write (a requirement with extras that the pack does not list as provided by the new release,
+ADR-077) is named, as `path:line`, in
 the summary and in the commit message, for the person to change by hand.
 
 ### D7. The agent is told the names the new release added

@@ -215,8 +215,11 @@ rounds can put it to the agent only then.
 
 A pack made from two releases flags a parameter that was renamed, removed or made required, and a
 default that changed, in a sentence built from the two signatures. It does not rewrite the call. A requirement with
-extras (`mcp[cli]>=1.28.1`) is not rewritten either: the dependency line is left, and the summary and
-the commit message name it.
+extras (`mcp[cli]>=1.28.1`) is rewritten only if the newer release lists every one of them as
+`Provides-Extra` in its wheel, which `pack synth` reads and writes into the pack; the version after
+the extras is then all that changes. Otherwise the dependency line is left, and the summary and the
+commit message name it. A release with no wheel, or whose wheel lists none, gives a pack that keeps
+no extras.
 
 A function or a class whose changes are to its parameters is listed at the calls those changes can
 break, and not at the others. The scan cannot follow a name once it is handed on, so
@@ -480,7 +483,8 @@ on the new release writes `except openai.APIError`. A read of `http_status`, `js
 run.
 
 A requirement that names extras or a URL, such as `openai[datalib]==0.28.1`, or is hash-pinned,
-continued over lines, editable or a local wheel, cannot be rewritten in place. The scan marks the
+continued over lines, editable or a local wheel, cannot be rewritten in place (the pack lists no
+extras that 1.109.1 provides, which a pack may do: [ADR-077](adr/ADR-077-extras-on-a-pin.md)). The scan marks the
 line `manifest_pin_shape_unsupported`, and `fix` leaves every file as it was, each row
 `repo_not_fully_migrated`, and exits `4`. The report names the line. Write the new pin into it by
 hand (`openai[datalib]>=1.109.1`) and run again: a declaration whose lowest admitted version is

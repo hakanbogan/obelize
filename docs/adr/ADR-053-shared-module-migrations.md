@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted; amended by [ADR-055](ADR-055-rename-setting.md) and [ADR-057](ADR-057-rename-symbol.md).
+Accepted; amended by [ADR-055](ADR-055-rename-setting.md), [ADR-057](ADR-057-rename-symbol.md) and
+[ADR-077](ADR-077-extras-on-a-pin.md).
 
 ## Decision
 
@@ -258,7 +259,8 @@ which the legacy-floor check now shares.
 
 ### D12. A pin the rule cannot write holds the repository when the scan plans it
 
-`manifest_dependency` refuses a declaration that names extras, a URL, a hash, an editable
+`manifest_dependency` refuses a declaration that names extras (unless the pack lists them as
+provided by the new release, [ADR-077](ADR-077-extras-on-a-pin.md)), a URL, a hash, an editable
 requirement or a non-version value (`manifest_pin_shape_unsupported`, ADR-030 D7) when it writes. With two distributions that leaves one
 pin and the rest migrates. With one it left 1.x code beside a 0.28.1 pin, the half D6 exists to
 prevent. So `manifests.plan` raises `SHAPE_BAIL` itself for a legacy declaration with no pin span,

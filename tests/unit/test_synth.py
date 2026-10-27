@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -1358,3 +1359,107 @@ def test_a_renamed_method_whose_message_says_more_than_which_to_use_is_flagged()
     assert made.members == {}
     assert made.flags["Client.send"].category == "moved"
     assert "acme_kit.Client.post" in made.flags["Client.send"].message
+
+
+# The extras the newer release provides (ADR-077).
+
+
+def test_a_request_takes_the_extras_the_comparison_read_from_the_newer_release() -> None:
+    file = index.File("a.whl", "https://files.example/a.whl", "a" * 64, Version("2.0"), "wheel")
+    compared = libdiff.Comparison(
+        file, file, "acme_kit", Surface("m"), Surface("m"), (), ("cli", "grpc")
+    )
+    assert synth.request("acme-kit", Version("1.0"), Version("2.0"), compared).extras == (
+        "cli",
+        "grpc",
+    )
+    bare = libdiff.Comparison(file, file, "acme_kit", Surface("m"), Surface("m"), ())
+    assert synth.request("acme-kit", Version("1.0"), Version("2.0"), bare).extras == ()
+
+
+def test_the_dependency_line_states_the_extras_and_the_fixture_shows_one_kept() -> None:
+    changes = (ApiChange("removed", "gone", message="gone is deprecated, use stale"),)
+    stating = plan(*changes, request=replace(REQUEST, extras=("cli", "grpc")))
+    line = stating.changes()[-1]
+    assert line["id"] == "dependency-line"
+    assert line["params"]["provides_extras"] == ["cli", "grpc"]
+    assert "Provides-Extra" in line["citation"]
+    requirements = stating.fixtures()["fixtures/positive/requirements.before.txt"]
+    assert "acme-kit==1.0\nacme-kit[cli]==1.0\n" in requirements
+    bare = plan(*changes)
+    assert "provides_extras" not in bare.changes()[-1]["params"]
+    assert "Provides-Extra" not in bare.changes()[-1]["citation"]
+    assert "[" not in bare.fixtures()["fixtures/positive/requirements.before.txt"]
+
+
+@pytest.fixture
+def extras_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    """An index whose 2.0 lists `cli` and `Dev_Tools`, and whose 1.0 and 1.5 list nothing."""
+    for found in fakeindex.FakeIndex().serve():
+        for version, source in (("1.0", V1), ("1.5", V15)):
+            found.add("acme-kit", version, source, module="acme_kit")
+        found.add("acme-kit", "2.0", V2, module="acme_kit", provides_extras=("cli", "Dev_Tools"))
+        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+        monkeypatch.setenv("OBELIZE_INDEX_URL", found.url)
+        monkeypatch.delenv("OBELIZE_OFFLINE", raising=False)
+        yield tmp_path
+
+
+def test_a_release_that_lists_extras_makes_a_pack_that_keeps_them_in_a_requirement(
+    extras_home: Path,
+) -> None:
+    made = _synth(extras_home, "--to", "2.0")
+    assert made.exit_code == 0, made.output  # type: ignore[attr-defined]
+    folder = extras_home / "packs" / "acme-kit" / "1-0-to-2-0"
+    pack = yaml.safe_load((folder / "pack.yaml").read_text())
+    line = next(one for one in pack["changes"] if one["id"] == "dependency-line")
+    assert line["params"]["provides_extras"] == ["cli", "dev-tools"]
+    kept = (folder / "fixtures" / "positive" / "requirements.after.txt").read_text()
+    assert kept.splitlines()[1:3] == ["acme-kit>=2.0,<3", "acme-kit[cli]>=2.0,<3"]
+    assert runner.invoke(app, ["pack", "test", str(folder)]).exit_code == 0
+    files = {"other.py": OTHER, "requirements.txt": "acme-kit[cli]==1.0\nacme-kit[Dev-Tools]>=1\n"}
+    repo = committed(extras_home / "repo", files)
+    fixed = runner.invoke(
+        app, ["fix", "--repo", str(repo), "--pack", str(folder / "pack.yaml"), "--apply"]
+    )
+    assert fixed.exit_code in (0, 6), fixed.output
+    assert (repo / "requirements.txt").read_text() == (
+        "acme-kit[cli]>=2.0,<3\nacme-kit[Dev-Tools]>=2.0,<3\n"
+    )
+    assert "greet" in (repo / "other.py").read_text()
+
+
+def test_a_requirement_with_an_extra_the_release_does_not_list_holds_the_repository(
+    extras_home: Path,
+) -> None:
+    made = _synth(extras_home, "--to", "2.0")
+    assert made.exit_code == 0, made.output  # type: ignore[attr-defined]
+    folder = extras_home / "packs" / "acme-kit" / "1-0-to-2-0"
+    files = {"other.py": OTHER, "requirements.txt": "acme-kit[cli,docs]==1.0\n"}
+    repo = committed(extras_home / "repo", files)
+    fixed = runner.invoke(
+        app, ["fix", "--repo", str(repo), "--pack", str(folder / "pack.yaml"), "--apply"]
+    )
+    assert fixed.exit_code == 4, fixed.output
+    assert (repo / "requirements.txt").read_text() == files["requirements.txt"]
+    assert (repo / "other.py").read_text() == OTHER
+
+
+def test_a_release_that_lists_no_extras_makes_the_pack_it_always_did(home: Path) -> None:
+    made = _synth(home, "--to", "2.0")
+    assert made.exit_code == 0, made.output  # type: ignore[attr-defined]
+    folder = home / "packs" / "acme-kit" / "1-0-to-2-0"
+    assert "provides_extras" not in (folder / "pack.yaml").read_text()
+    assert "[" not in (folder / "fixtures" / "positive" / "requirements.before.txt").read_text()
+
+
+def test_the_extras_are_read_from_the_newer_release_and_only_from_a_wheel(
+    extras_home: Path,
+) -> None:
+    fetcher = Fetcher(index=os.environ["OBELIZE_INDEX_URL"])
+    project = index.project(fetcher, "acme-kit")
+    compared = libdiff.compare(fetcher, project, Version("1.0"), Version("2.0"))
+    assert compared.extras == ("cli", "dev-tools")
+    older = libdiff.compare(fetcher, project, Version("1.0"), Version("1.5"))
+    assert older.extras == ()

@@ -865,6 +865,45 @@ def test_a_pin_rule_declares_what_the_legacy_distribution_installed_only_if_one_
     assert loader.to_scan_spec(_loaded(build(minimal()))).declare_transitive is False
 
 
+def test_a_pin_rule_states_the_extras_the_new_release_provides_for_one_distribution_only() -> None:
+    document = _one_distribution("<1", ">=1")
+    document["changes"][1]["params"]["provides_extras"] = ["cli", "dev-tools"]
+    built = build(document)
+    change = built.changes[1]
+    assert isinstance(change, schema.ManifestDependencyChange)
+    assert change.params.provides_extras == ("cli", "dev-tools")
+    spec = loader.to_scan_spec(_loaded(built))
+    assert spec.new_extras == ("cli", "dev-tools")
+    plain = loader.to_scan_spec(_loaded(build(_one_distribution("<1", ">=1"))))
+    assert plain.new_extras == ()
+    assert loader.spec_digest(spec) != loader.spec_digest(plain)
+    assert loader.spec_digest(plain) == loader.spec_digest(
+        plain.model_copy(update={"new_extras": ()})
+    )
+    renamed = with_change(builder.MANIFEST_CHANGE, provides_extras=["cli"])
+    with pytest.raises(ValidationError, match="needs from_name and to_name to be one distribution"):
+        build(renamed)
+
+
+@pytest.mark.parametrize(
+    ("extras", "says"),
+    [
+        (["grpc", "cli"], "provides_extras must be sorted and de-duplicated"),
+        (["cli", "cli"], "provides_extras must be sorted and de-duplicated"),
+        (["Cli"], "expected a lower-case, hyphen-separated name, got 'Cli'"),
+        (["dev_tools"], "expected a lower-case, hyphen-separated name, got 'dev_tools'"),
+        ([""], "expected a lower-case, hyphen-separated name, got ''"),
+    ],
+)
+def test_the_extras_a_pin_rule_states_are_normal_names_in_order(
+    extras: list[str], says: str
+) -> None:
+    document = _one_distribution("<1", ">=1")
+    document["changes"][1]["params"]["provides_extras"] = extras
+    with pytest.raises(ValidationError, match=says):
+        build(document)
+
+
 def test_a_pin_on_one_distribution_must_still_name_that_distribution() -> None:
     """Two sides of one distribution do not make any other name this migration."""
     for field in ("from_name", "to_name"):
@@ -1207,8 +1246,10 @@ PROJECTED = {
 
 def test_the_projection_fills_every_field_of_the_scan_spec() -> None:
     """Across the packs: one fills what another has no use for (`shared`, the floor)."""
-    # `inventory` is set by `scan --library` on a spec no pack made, never by a pack.
-    assert set(ScanSpec.model_fields) == PROJECTED | {"inventory"}
+    # `inventory` is set by `scan --library` on a spec no pack made, never by a pack, and
+    # `new_extras` only by a pack that states the extras its release provides: no bundled one does
+    # (`test_a_pin_rule_states_the_extras_the_new_release_provides_for_one_distribution_only`).
+    assert set(ScanSpec.model_fields) == PROJECTED | {"inventory", "new_extras"}
     generic = (path.as_posix() for path in sorted(GENERIC.glob("*/*/pack.yaml")))
     specs = [
         loader.to_scan_spec(loader.load(identifier))

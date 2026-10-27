@@ -38,6 +38,8 @@ class Comparison:
     old_surface: Surface
     new_surface: Surface
     changes: tuple[api.ApiChange, ...]
+    # The extras the newer release lists as `Provides-Extra`, from its METADATA (ADR-077).
+    extras: tuple[str, ...] = ()
 
 
 def version(text: str) -> Version:
@@ -80,6 +82,7 @@ def compare(
             roots = [stack.enter_context(release.read(fetcher, file)).root for file in files]
             chosen = module or _shared(project.name, [surface.modules(root) for root in roots])
             before, after = (surface.read(root, chosen) for root in roots)
+            extras = release.provides_extras(roots[1])
             passed: list[Surface] = []
             left = {one.path for one in api.diff(before, after) if one.type != "unseen"}
             for file in _lines(project, old, new, python):
@@ -94,7 +97,13 @@ def compare(
     except (ArchiveError, release.ReleaseError, surface.SurfaceError) as error:
         raise LibraryError(str(error)) from error
     return Comparison(
-        files[0], files[1], chosen, before, after, api.diff(before, after, before=passed)
+        files[0],
+        files[1],
+        chosen,
+        before,
+        after,
+        api.diff(before, after, before=passed),
+        extras,
     )
 
 

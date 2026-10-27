@@ -68,7 +68,13 @@ What the made pack does is deliberately small:
 - A name that also left or moved, a deprecation that names no changed parameter, a function that
   changed kind, a class whose constructor comes from a base that changed, and every method, is still
   flagged wherever it is used.
-- The dependency line moves to the new release.
+- The dependency line moves to the new release. A requirement that names extras
+  (`mcp[cli]>=1.28.1`) keeps them if the newer release lists every one as `Provides-Extra` in its
+  wheel, which the pack records: only the version after the extras changes. With an extra the
+  release does not list, with no wheel to read it from, in a constraints file or a pip-tools input,
+  or in a form where the edit would be more than the version (a hash, a continued line, a Poetry
+  table with other keys), the line is left as it was and the summary and the commit name it, for
+  you to change ([why](adr/ADR-077-extras-on-a-pin.md)).
 
 A pack made this way says in its limitations that a change in what a function does is not in it.
 Your tests are what show that.

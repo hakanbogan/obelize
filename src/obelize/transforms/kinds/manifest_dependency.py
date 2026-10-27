@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, ClassVar, Final
 from packaging.utils import canonicalize_name
 
 from obelize.models import BailCode, Edit
-from obelize.scan.manifests import SHAPE_BAIL
+from obelize.scan.manifests import SHAPE_BAIL, editable_pin
 from obelize.transforms.base import BailError
 
 if TYPE_CHECKING:
@@ -48,6 +48,7 @@ class ManifestDependency:
         self._written = change.params.to_name
         self._spec = change.params.to_spec
         self._declares = change.params.declare_transitive
+        self._extras = frozenset(change.params.provides_extras)
 
     def claims(self, finding: Finding) -> bool:
         """Every manifest row about either side of this rule's migration, and about what it
@@ -90,11 +91,13 @@ class ManifestDependency:
         """Record the replacement or the insertion one eligible row asks for.
 
         A declaration without a plain pin (extras, a direct URL, a non-version table value) is
-        refused: none of those survives a change of distribution. So is a replacement that would
-        declare the new distribution a second time.
+        refused: none of those survives a change of distribution. Extras do survive a move of one
+        distribution to a release that provides them all, and only the version after them is
+        replaced. So is a replacement that would declare the new distribution a second time.
         """
         declaration = context.declaration(finding)
-        if declaration is None or declaration.pin is None:
+        pin = None if declaration is None else editable_pin(declaration, self._extras)
+        if declaration is None or pin is None:
             raise BailError(SHAPE)
         line = context.line(declaration.line)
         if _named(finding) not in {self._legacy, self._new}:
@@ -103,13 +106,13 @@ class ManifestDependency:
         if _named(finding) == self._legacy:
             if self._new != self._legacy and any(o.name == self._new for o in context.declarations):
                 raise BailError(SHAPE)
-            context.rewrites.splice(declaration.line, *declaration.pin, self._spec)
+            context.rewrites.splice(declaration.line, *pin, self._spec)
             context.rewrites.splice(
                 declaration.line, declaration.column, declaration.end, self._written
             )
             return
         self._check_the_line_carries_nothing_a_copy_would_duplicate(context, declaration, line)
-        context.rewrites.after(declaration.line, self._swapped(declaration, declaration.pin, line))
+        context.rewrites.after(declaration.line, self._swapped(declaration, pin, line))
 
     def _check_the_line_carries_nothing_a_copy_would_duplicate(
         self, context: ManifestContext, declaration: Declaration, line: str
