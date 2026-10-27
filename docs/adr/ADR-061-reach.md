@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-078.
 
 ## Decision
 
@@ -117,7 +117,9 @@ that repository text cannot end a workflow command, appends a summary, uploads t
 scanning if asked, and only then fails the job with the scan's exit code. Each input reaches the
 script as an environment variable and is checked against the shape it may have (a release, a pack
 id, a distribution, a module, a status) before it joins a command line. `.pre-commit-hooks.yaml`
-offers `obelize-scan` with the same default statuses. Neither writes a file of the repository.
+offers `obelize-scan` with the same default statuses. Neither writes a file of the repository. The
+action also has a second mode, which upgrades a dependency in a copy
+([ADR-078](ADR-078-the-upgrade-mode-of-the-action.md)).
 
 ## Consequences
 

@@ -129,6 +129,13 @@ and with `--offline`, `network.offline` or `OBELIZE_OFFLINE` it is kept to uv's 
 run the code of the repository. Nothing about the repository or its tests is sent
 anywhere by obelize. A trial happens only if you pass `--yes` or answer yes at a terminal.
 
+The GitHub Action's `mode: upgrade` does the same on a runner, and nothing leaves the runner but
+the index requests above and one artifact: for each dependency a bundle of the branch (your code
+with the move in it), a patch, the trial's evidence and a report, kept seven days in the
+repository's Actions storage and readable by whoever can read the repository's Actions. The second
+job of [the workflow](UPGRADING_IN_CI.md) downloads it, and pushes a branch and opens a pull request
+in your repository; it sends nothing anywhere else.
+
 ## What an agent run sends
 
 With `--agent claude_code` (or `agent.backend` in your own configuration), `upgrade --apply --branch`

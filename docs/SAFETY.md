@@ -18,7 +18,10 @@ without installing or running anything. `upgrade --apply` is the one command tha
 asks first, does it in a copy of the repository with environments outside it, and writes the move
 only if the tests agree. With `--agent`, the places a pack only flags are put to your own coding
 agent in that copy, as a text question with every tool of the program off; its answers pass the
-same guard as a model's, and they reach only a branch you read, never your working tree.
+same guard as a model's, and they reach only a branch you read, never your working tree. In CI, the
+action's `mode: upgrade` runs the trial in a job that holds no token and leaves a bundle, and a
+second job that runs none of your code checks the bundle before it pushes and opens a pull request
+([Upgrading in CI](UPGRADING_IN_CI.md)): a job that runs your tests never holds the right to write.
 
 ## Before you run it
 

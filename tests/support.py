@@ -5,7 +5,9 @@ Imported as `support`, like `platforms`.
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -15,9 +17,22 @@ from obelize.transforms import codemod
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from types import ModuleType
 
     from obelize.models import ScanSpec
     from obelize.packs.schema import PackDocument
+
+
+def load_script(path: Path, name: str) -> ModuleType:
+    """The module in a file outside the package (`action/upgrade.py`), as a script's own tests
+    need it."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def git(root: Path, *arguments: str) -> subprocess.CompletedProcess[bytes]:

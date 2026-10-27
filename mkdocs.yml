@@ -36,6 +36,7 @@ nav:
       - Getting started: GETTING_STARTED.md
       - After a run: AFTER_A_RUN.md
       - Upgrading a dependency: UPGRADING.md
+      - Upgrading in CI: UPGRADING_IN_CI.md
       - With a coding agent: WITH_A_CODING_AGENT.md
   - Reference:
       - Command line: CLI.md

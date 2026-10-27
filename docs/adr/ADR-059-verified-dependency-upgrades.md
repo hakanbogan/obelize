@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-078.
 
 ## Decision
 
@@ -34,7 +34,8 @@ its own release, described as planned until it ships, and written up in its own 
   named before the request and `--offline` always available.
 - More than one way to reach a model, including the user's own coding agent.
 - A pack registry, and packs the tool drafts, each marked with where it came from.
-- Commits on a branch the user asks for, and a pipeline that opens the pull request.
+- Commits on a branch the user asks for, and a pipeline that opens the pull request (the action's
+  upgrade mode and a documented second job, [ADR-078](ADR-078-the-upgrade-mode-of-the-action.md)).
 - Isolated environments for the old and the new release, so the tests run on both in one command.
 
 ### D3. What stays out

@@ -113,7 +113,8 @@ you tested, since any 0.x release can change the JSON ([CHANGELOG.md](../CHANGEL
 #### In GitHub Actions
 
 The repository's action runs that scan, prints one annotation per place on its file and line, adds a
-summary, uploads the findings to code scanning if you ask, and then fails the job:
+summary, uploads the findings to code scanning if you ask, and then fails the job. With
+`mode: upgrade` it upgrades dependencies instead ([below](#upgrading-in-github-actions)):
 
 ```yaml
 permissions:
@@ -137,13 +138,36 @@ steps:
 | `library`, `modules` | A distribution that has no pack and the modules it is imported as: [an inventory](#listing-a-library-with-no-pack). Not with `packs`. |
 | `fail-on` | The statuses that fail the job, separated by spaces. Default `eligible needs_review unsupported`; empty fails on none. The packs for the Python itself report `distutils`, `pkg_resources`, `utcnow()` and the like, so with the default a job over a repository that uses them fails: name `packs` to run only the ones you mean. |
 | `sarif` | `true` uploads the findings to code scanning. Default `false`. |
-| `working-directory` | The repository root to scan. Default `.`. |
+| `mode` | `scan` (the default) or `upgrade`. The inputs of the other mode are ignored. |
+| `working-directory` | The repository root to scan or upgrade. Default `.`. |
 
-The outputs are `exit-code` and `sarif-file`. GitHub shows the first ten annotations of each level;
+The outputs of a scan are `exit-code` and `sarif-file`. GitHub shows the first ten annotations of each level;
 code scanning shows all of them. The action checks each input against the shape it may have before
 it reaches a command line. Hold the action to a commit like any other, and never run it on
 `pull_request_target`: that event gives the job a token that can write, and a scan reads the pull
 request's files.
+
+#### Upgrading in GitHub Actions
+
+`mode: upgrade` runs `obelize upgrade <dependency> --apply --yes --branch` for each dependency in
+`distributions`, in the checkout, and uploads the result as an artifact: for each dependency a git
+bundle of the branch it made, a patch, the trial's evidence and a report. That runs your tests and
+the build scripts of what the trial installs, so give the job `contents: read` and no token, and
+never run it on `pull_request_target`; the action stops if `GH_TOKEN` or `GITHUB_TOKEN` is set or
+the event is that one. It pushes nothing. A second job, which holds the token and runs none of that
+code, checks the bundle and opens the pull request ([the workflow, and what the second job
+checks](UPGRADING_IN_CI.md)).
+
+| Input | Description |
+|---|---|
+| `distributions` | The dependencies to upgrade, separated by spaces. Each is upgraded on its own and gets a folder of the artifact. |
+| `from` | With one dependency: the release the code is written for, as `--from`. |
+| `fail-on-unproven` | `true` fails the job when the move was not proven (exit `3`, `4` or `6` of `upgrade`). Default `false`: the job passes and `exit-code` and `changed` say what happened. Any other exit code fails the job. |
+| `artifact-name` | The artifact the folders go to. Default `obelize-upgrade`. |
+
+The outputs of an upgrade are `exit-code` (`0`, or the code of the first upgrade that was not
+proven), `changed` (`true` if a branch was made), `bundle-file` and `report-file` (one path for each
+branch made, separated by spaces).
 
 #### With pre-commit
 

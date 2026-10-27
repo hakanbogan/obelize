@@ -1,0 +1,84 @@
+# Upgrade a dependency every week and open a pull request for it, in two jobs. The first runs your
+# tests and holds no token; the second holds one and runs none of your code (docs/UPGRADING_IN_CI.md).
+# Replace <commit> with the commit of the obelize release you pin, in both places that name it, and
+# X.Y.Z with that release.
+name: upgrade
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  upgrade:
+    name: upgrade (runs your tests, holds no token)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read # check the repository out, and nothing else
+    outputs:
+      changed: ${{ steps.obelize.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Upgrade
+        id: obelize
+        uses: hakanbogan/obelize@<commit> # vX.Y.Z
+        with:
+          version: X.Y.Z
+          mode: upgrade
+          distributions: pydantic
+
+  pull-request:
+    name: pull request (holds a token, runs none of your code)
+    needs: upgrade
+    if: needs.upgrade.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # push the branch the first job made
+      pull-requests: write # open the pull request for it
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repo
+          persist-credentials: false
+
+      - name: Checkout the script that checks the upgrade
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: hakanbogan/obelize
+          ref: <commit>
+          path: obelize
+          persist-credentials: false
+
+      - name: Download the upgrade
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: obelize-upgrade
+          path: ${{ runner.temp }}/obelize-upgrade
+
+      - name: Let git push with the workflow's token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh auth setup-git
+
+      - name: Check each branch and open its pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACTS: ${{ runner.temp }}/obelize-upgrade
+          BASE: ${{ github.sha }}
+          BASE_BRANCH: ${{ github.ref_name }}
+        run: >-
+          python3 obelize/action/upgrade.py publish --artifacts "$ARTIFACTS" --repo repo
+          --base "$BASE" --base-branch "$BASE_BRANCH"

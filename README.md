@@ -146,7 +146,8 @@ runs your tests in each, and writes the move only if no test that passed before 
 pack can only flag, and then the tests the move broke, to your own coding agent one at a time, with
 every tool of the agent turned off, and obelize checks each answer before it reaches the copy. The
 tests are the check: a weak suite proves little. [Upgrading a dependency](docs/UPGRADING.md) has the
-steps and the four runs on three public repositories.
+steps and the four runs on three public repositories, and [Upgrading in CI](docs/UPGRADING_IN_CI.md)
+runs it as a GitHub Action in one job and opens the pull request in another.
 
 ## With a coding agent
 

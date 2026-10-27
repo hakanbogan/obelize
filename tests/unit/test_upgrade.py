@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
+import subprocess
 import sys
 import sysconfig
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -23,11 +27,10 @@ from obelize.packtools import synth
 from obelize.providers import agent_cli, base
 from obelize.trial import copy
 from obelize.trial import run as trying
-from support import committed, git
+from support import committed, git, load_script
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
 
 runner = CliRunner()
 PYTHON = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -930,3 +933,66 @@ def test_a_declaration_that_stops_the_rules_is_said_when_the_trial_cannot_judge(
     )
     assert "test(s) passed before" not in result.output
     assert (root / "app.py").read_text() == HELLO
+
+
+# The action's upgrade mode over what a real trial makes.
+
+SHIM = """#!/bin/sh
+shift
+exec "{python}" -m obelize "$@" --python {version}
+"""
+GH = """#!/bin/sh
+printf '%s\\n' "$@" > "{record}"
+"""
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="the stand-ins for uvx and gh are shell scripts"
+)
+def test_the_branch_a_real_trial_makes_is_what_the_action_checks_pushes_and_opens(
+    trial: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The publishing job's rules are written for what the CLI makes, so this runs the CLI."""
+    action = load_script(
+        Path(__file__).resolve().parents[2] / "action" / "upgrade.py", "obelize_action_upgrade"
+    )
+    root = repo(trial, app__py=HELLO, test_app__py=TESTS, requirements__txt="acme-kit==1.0\n")
+    base = git(root, "rev-parse", "HEAD").stdout.decode().strip()
+    bare = trial / "origin.git"
+    subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+    git(root, "remote", "add", "origin", str(bare))
+    git(root, "push", "-q", "origin", "HEAD:refs/heads/work")
+    bin_dir = trial / "bin"
+    bin_dir.mkdir()
+    record = trial / "gh-args"
+    for name, text in (
+        ("uvx", SHIM.format(python=sys.executable, version=PYTHON)),
+        ("gh", GH.format(record=record)),
+    ):
+        (bin_dir / name).write_text(text, encoding="utf-8")
+        (bin_dir / name).chmod((bin_dir / name).stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    out = trial / "out"
+    env = {
+        **os.environ,
+        "OBELIZE_VERSION": "0.9.0",
+        "OBELIZE_DISTRIBUTIONS": "acme-kit",
+        "OBELIZE_WORKDIR": str(root),
+        "OBELIZE_OUT": str(out),
+    }
+    assert action.run(env) == 0
+    assert sorted(path.name for path in (out / "acme-kit").iterdir()) == [
+        "REPORT.md",
+        "new.txt",
+        "old.txt",
+        "trial.json",
+        "upgrade.bundle",
+        "upgrade.patch",
+    ]
+    assert action.publish(out, root, base, "work") == 0
+    name = "obelize/upgrade-acme-kit-2.0"
+    pushed = git(bare, "show", f"{name}:app.py").stdout.decode()
+    assert pushed.count("greet(") == 1
+    asked = record.read_text(encoding="utf-8").splitlines()
+    assert asked[:8] == ["pr", "create", "--head", name, "--base", "work", "--title", asked[7]]
+    assert asked[7] == "Upgrade acme-kit 1.0 to acme-kit==2.0"

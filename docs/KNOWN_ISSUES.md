@@ -360,6 +360,17 @@ lock file, and nothing checks them. The secret-scanning configuration only exclu
 pinned only by a tag through, so `tests/unit/test_workflows.py` refuses one; an image given as a
 job's `container:` or `services:` is not checked. No workflow uses either.
 
+The action's `mode: upgrade` runs the repository's tests with the runner's network and files, in a
+job that holds no token, and the second job of [its workflow](UPGRADING_IN_CI.md) checks what it
+publishes: one commit on the base, whose every path is one the trial names and a Python source or a
+manifest. A hostile dependency or test can still write code of its own into a file the trial names,
+and the pull request is where a person reads it. A pull request opened with the workflow's token
+starts no other workflow, so the tests do not run on it unless it is opened with another token. The
+example workflow's pins are not updated by Dependabot (`examples/` is not covered), and a test
+holds them to the commits the repository's own workflows pin. The action has no smoke test in a
+workflow, because it installs a published release and cannot run the tree
+([how a release is checked](RELEASING.md#release-checklist)).
+
 ## Code health
 
 There is an import cycle between `obelize.impact` and `obelize.scan`. `tests/unit/test_import_graph.py`

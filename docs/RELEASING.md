@@ -69,7 +69,13 @@ Run in order. A failed step stops the release.
 3. CLI contract. Check the real `--help` output of every command and the real exit codes
    against [CLI.md](CLI.md), and fix any difference, in the code or the page, before the
    release. Run the CI recipe in CLI.md and the commands in `skills/obelize/SKILL.md` against the
-   release candidate, and check that the recipe's `X.Y.Z` is still a placeholder.
+   release candidate, and check that the recipe's `X.Y.Z` is still a placeholder. The action has
+   no smoke test in `e2e.yml`, because it installs a published release and cannot run the tree:
+   put the candidate's commit and version into
+   [`examples/ci/upgrade-pull-request.yml`](../examples/ci/upgrade-pull-request.yml)
+   in a scratch repository, run it by hand, and check that the first job holds `contents: read`
+   only, that the second job pushes one branch and opens one pull request, and that a rerun leaves
+   the branch alone.
 4. Pre-flight. Run [Pre-flight](#pre-flight) from a clean tree.
 5. Changelog. Write this version's section as `## [0.x.y] - YYYY-MM-DD` in Keep a Changelog
    format, saying which formats changed, with the benchmark headline and its `n` and the

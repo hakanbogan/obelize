@@ -112,7 +112,8 @@ uvx obelize upgrade pydantic --apply --yes --branch
 The move is committed to a new branch, `obelize/upgrade-<the new release>` or the name you give with
 `--branch-name`, and your working tree is left as it is. The commit is built with git's plumbing:
 no checkout, no hook, no signature. obelize never pushes; open the pull request yourself, or let a
-workflow do it.
+workflow do it ([Upgrading in CI](UPGRADING_IN_CI.md): the action runs the trial in one job and a
+second job opens the pull request).
 
 ## What a guide adds
 

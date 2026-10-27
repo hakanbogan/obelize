@@ -85,7 +85,7 @@ Around the commands are the pieces a pipeline and a coding agent use. `scan --li
 use of a library that has no pack, `pack new` and `pack test` help write one, `scan --sarif` and
 `--fail-on` serve a CI step, `verify --current` checks a tree that someone else edited, and
 `obelize mcp`, `action.yml` and `.pre-commit-hooks.yaml` offer obelize to a coding agent and a
-pipeline.
+pipeline. The action also upgrades a dependency (`mode: upgrade`).
 
 ## Where it goes next
 
@@ -97,9 +97,9 @@ release, and an option I add defaults to today's behaviour.
 
 1. More places. Rewrite a dependency line that carries extras, use an agent program other than
    `claude` once one documents how to leave it no tool (`codex` does not yet:
-   [why](adr/ADR-076-no-backend-for-codex-yet.md)), let the GitHub Action open the pull request of
-   an upgrade, and let the kinds the bundled packs use cover more shapes. The command itself never
-   pushes.
+   [why](adr/ADR-076-no-backend-for-codex-yet.md)), and let the kinds the bundled packs use cover
+   more shapes. The command itself never pushes; the GitHub Action runs the trial in one job and a
+   second job opens the pull request ([Upgrading in CI](UPGRADING_IN_CI.md)).
 2. Ecosystem. A registry of packs, more existing fixers behind the same evidence (ruff's `NPY201`
    ships in `numpy/numpy-1-to-2`; the others need a target release a pack can state, [why](adr/ADR-074-external-fixer.md)), writing
    notebooks, and hand-checked packs for the libraries people ask about most.

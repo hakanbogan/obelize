@@ -101,23 +101,39 @@ def test_the_action_is_a_composite_that_names_what_it_takes_and_gives() -> None:
     assert action["runs"]["using"] == "composite"
     assert set(action["inputs"]) == {
         "version",
+        "mode",
         "packs",
         "library",
         "modules",
         "fail-on",
         "sarif",
+        "distributions",
+        "from",
+        "fail-on-unproven",
+        "artifact-name",
         "working-directory",
     }
     for name, one in action["inputs"].items():
         assert one["description"], name
     assert action["inputs"]["version"]["required"] is True
-    assert set(action["outputs"]) == {"exit-code", "sarif-file"}
+    assert action["inputs"]["mode"]["default"] == "scan"
+    # A step that did not run has an empty output, so the two are told apart by joining them.
+    assert action["outputs"]["exit-code"]["value"] == (
+        "${{ format('{0}{1}', steps.scan.outputs.exit-code, steps.upgrade.outputs.exit-code) }}"
+    )
+    assert set(action["outputs"]) == {
+        "exit-code",
+        "sarif-file",
+        "bundle-file",
+        "report-file",
+        "changed",
+    }
 
 
 def test_every_step_the_action_uses_is_held_to_a_commit() -> None:
     steps = _action()["runs"]["steps"]
     uses = [step["uses"] for step in steps if "uses" in step]
-    assert len(uses) == 2
+    assert len(uses) == 3
     for name in uses:
         assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", name), name
     text = ACTION.read_text(encoding="utf-8")
@@ -154,12 +170,16 @@ def test_the_job_fails_after_the_annotations_and_the_upload_not_before() -> None
     names = [step["name"] for step in _action()["runs"]["steps"]]
     assert names == [
         "Install uv",
+        "Check the mode",
         "Scan",
         "Annotate",
         "Upload to code scanning",
         "Fail on what was found",
+        "Upgrade",
+        "Upload the upgrade",
+        "Fail on an upgrade that was not proven",
     ]
-    upload = _action()["runs"]["steps"][3]
+    upload = _action()["runs"]["steps"][4]
     assert "inputs.sarif == 'true'" in upload["if"]
     assert "exit-code == '4'" in upload["if"]
 
@@ -384,3 +404,180 @@ def test_the_hook_manifest_is_valid_to_pre_commit() -> None:
 def test_the_command_the_hook_runs_is_one_the_package_installs() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert re.search(r'^obelize = "obelize\.cli:main"$', pyproject, re.MULTILINE)
+
+
+# The upgrade mode: the action's half, and the example of the other.
+
+EXAMPLE = ROOT / "examples" / "ci" / "upgrade-pull-request.yml"
+PIN = re.compile(r"[\w./-]+@[0-9a-f]{40}")
+
+
+def _example() -> dict[str, Any]:
+    loaded = yaml.safe_load(EXAMPLE.read_text(encoding="utf-8"))
+    assert isinstance(loaded, dict)
+    return loaded
+
+
+def _triggers(document: dict[str, Any]) -> dict[str, Any]:
+    """PyYAML reads the key `on` as a boolean."""
+    triggers: dict[str, Any] = document.get("on") or dict(document)[True]  # type: ignore[index]
+    return triggers
+
+
+def test_every_scan_step_waits_for_the_scan_mode_and_every_upgrade_step_for_the_other() -> None:
+    steps = {step["name"]: step for step in _action()["runs"]["steps"]}
+    for name in ("Scan", "Annotate", "Upload to code scanning", "Fail on what was found"):
+        assert "inputs.mode == 'scan'" in steps[name]["if"], name
+    for name in ("Upgrade", "Upload the upgrade", "Fail on an upgrade that was not proven"):
+        assert "inputs.mode == 'upgrade'" in steps[name]["if"], name
+    assert "Install uv" in steps
+    assert "if" not in steps["Install uv"]
+    assert "mode takes scan or upgrade" in steps["Check the mode"]["run"]
+
+
+def test_the_scan_mode_runs_the_script_it_always_ran() -> None:
+    scan = next(step for step in _action()["runs"]["steps"] if step["name"] == "Scan")
+    assert scan["run"] == '"$ACTION_PATH/action/scan.sh"'
+    assert set(scan["env"]) == {
+        "ACTION_PATH",
+        "OBELIZE_VERSION",
+        "OBELIZE_PACKS",
+        "OBELIZE_LIBRARY",
+        "OBELIZE_MODULES",
+        "OBELIZE_FAIL_ON",
+        "OBELIZE_WORKDIR",
+        "OBELIZE_SARIF_FILE",
+    }
+
+
+def test_the_upgrade_mode_holds_no_token_and_hands_each_input_over_in_the_environment() -> None:
+    steps = json.dumps(_action()["runs"]["steps"])
+    for token in ("secrets.", "github.token", "GITHUB_TOKEN", "GH_TOKEN", "pull_request_target"):
+        assert token not in steps, token
+    step = next(step for step in _action()["runs"]["steps"] if step["name"] == "Upgrade")
+    assert step["run"] == 'python3 "$ACTION_PATH/action/upgrade.py" run'
+    assert set(step["env"]) == {
+        "ACTION_PATH",
+        "OBELIZE_VERSION",
+        "OBELIZE_DISTRIBUTIONS",
+        "OBELIZE_FROM",
+        "OBELIZE_ARTIFACT_NAME",
+        "OBELIZE_WORKDIR",
+        "OBELIZE_OUT",
+    }
+
+
+def test_the_artifact_is_kept_a_week_and_holds_nothing_hidden() -> None:
+    step = next(s for s in _action()["runs"]["steps"] if s["name"] == "Upload the upgrade")
+    assert step["with"]["retention-days"] == 7
+    assert step["with"]["if-no-files-found"] == "error"
+    assert "include-hidden-files" not in step["with"]
+    assert step["with"]["name"] == "${{ inputs.artifact-name }}"
+    assert "${{ runner.temp }}" not in step["with"]["path"]
+
+
+def test_the_defaults_pass_a_move_nothing_proved_and_name_the_artifact_the_example_downloads() -> (
+    None
+):
+    inputs = _action()["inputs"]
+    assert inputs["fail-on-unproven"]["default"] == "false"
+    assert inputs["artifact-name"]["default"] == "obelize-upgrade"
+    downloads = [
+        step["with"]["name"]
+        for job in _example()["jobs"].values()
+        for step in job["steps"]
+        if step.get("uses", "").startswith("actions/download-artifact@")
+    ]
+    assert downloads == [inputs["artifact-name"]["default"]]
+
+
+def test_the_example_runs_the_tests_in_a_job_with_nothing_to_write_with() -> None:
+    document = _example()
+    assert document["permissions"] == {}
+    first, second = document["jobs"]["upgrade"], document["jobs"]["pull-request"]
+    assert first["permissions"] == {"contents": "read"}
+    assert second["permissions"] == {"contents": "write", "pull-requests": "write"}
+    assert second["needs"] == "upgrade"
+    assert second["if"] == "needs.upgrade.outputs.changed == 'true'"
+    assert first["outputs"] == {"changed": "${{ steps.obelize.outputs.changed }}"}
+    assert "env" not in first
+    assert not any("env" in step for step in first["steps"])
+    assert set(_triggers(document)) == {"schedule", "workflow_dispatch"}
+
+
+def test_the_job_that_writes_runs_none_of_the_repositorys_code() -> None:
+    steps = _example()["jobs"]["pull-request"]["steps"]
+    assert [step.get("run") for step in steps if "run" in step] == [
+        "gh auth setup-git",
+        'python3 obelize/action/upgrade.py publish --artifacts "$ARTIFACTS" --repo repo '
+        '--base "$BASE" --base-branch "$BASE_BRANCH"',
+    ]
+    assert not any(step.get("uses", "").startswith("hakanbogan/obelize@") for step in steps)
+    checkouts = [
+        step["with"] for step in steps if step.get("uses", "").startswith("actions/checkout@")
+    ]
+    assert [one["path"] for one in checkouts] == ["repo", "obelize"]
+    assert checkouts[1]["repository"] == "hakanbogan/obelize"
+
+
+def test_the_example_pins_every_action_to_a_commit_and_no_credential_is_kept() -> None:
+    placeholders = []
+    for job in _example()["jobs"].values():
+        for step in job["steps"]:
+            name = step.get("uses")
+            if name is None:
+                continue
+            if name.startswith("hakanbogan/obelize@"):
+                placeholders.append(name)
+            else:
+                assert PIN.fullmatch(name), name
+            if name.startswith("actions/checkout@"):
+                assert step["with"]["persist-credentials"] is False
+    text = EXAMPLE.read_text(encoding="utf-8")
+    assert placeholders == ["hakanbogan/obelize@<commit>"]
+    assert text.count("<commit>") == 3
+    assert "pull_request" not in text.replace("pull-requests", "").replace("pull-request", "")
+    assert "secrets." not in text
+    assert "${{" not in "".join(
+        step["run"] for job in _example()["jobs"].values() for step in job["steps"] if "run" in step
+    )
+
+
+def test_the_example_pins_are_the_commits_the_repository_pins_the_same_actions_to() -> None:
+    ours = ACTION.read_text(encoding="utf-8") + "".join(
+        path.read_text(encoding="utf-8") for path in (ROOT / ".github" / "workflows").glob("*.yml")
+    )
+    for job in _example()["jobs"].values():
+        for step in job["steps"]:
+            name = step.get("uses", "")
+            if PIN.fullmatch(name) and not name.startswith("actions/download-artifact@"):
+                assert name in ours, name
+
+
+def test_the_documentation_shows_the_example_it_ships() -> None:
+    page = (ROOT / "docs" / "UPGRADING_IN_CI.md").read_text(encoding="utf-8")
+    block = re.search(r"```yaml\n(.*?)```", page, re.DOTALL)
+    assert block is not None
+    assert block.group(1) == EXAMPLE.read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(
+    not (Path(sys.executable).parent / "zizmor").exists(), reason="zizmor is in the workflows group"
+)
+def test_the_example_passes_zizmor_with_a_commit_in_place_of_the_placeholder(
+    tmp_path: Path,
+) -> None:
+    folder = tmp_path / ".github" / "workflows"
+    folder.mkdir(parents=True)
+    text = EXAMPLE.read_text(encoding="utf-8").replace(
+        "<commit>", "0123456789abcdef" * 2 + "01234567"
+    )
+    (folder / "upgrade.yml").write_text(text, encoding="utf-8")
+    persona = ["--persona", "pedantic", str(tmp_path)]
+    done = subprocess.run(
+        [str(Path(sys.executable).parent / "zizmor"), "--offline", "--no-progress", *persona],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr

@@ -60,6 +60,18 @@ file, a hash, a continued line and the other forms where the edit would be more 
 leave the line as it was, named in the summary as before ([the forms](docs/adr/ADR-077-extras-on-a-pin.md)).
 The bundled packs list none, so what they write is what it was.
 
+The GitHub Action can upgrade a dependency. `mode: upgrade` with `distributions: pydantic` runs
+`obelize upgrade --apply --yes --branch` for each dependency in the checkout, with no token, and
+uploads for each a git bundle of the branch it made, a patch, the trial's evidence and a report
+(`bundle-file`, `report-file`, `changed` and `exit-code` are its outputs; `fail-on-unproven` fails
+the job on exit `3`, `4` or `6`, and any other code always fails it). It stops if `GH_TOKEN` or
+`GITHUB_TOKEN` is set or the event is `pull_request_target`. The pull request is opened by a second
+job that runs none of your code: `action/upgrade.py publish` checks that the bundle is one commit on
+the commit the workflow ran on, by the action's identity, changing only files the trial names that
+are Python sources or manifests (no `.github`, link, executable or deletion), and then pushes and
+opens it. `mode: scan` is what it was ([Upgrading in CI](docs/UPGRADING_IN_CI.md),
+[why](docs/adr/ADR-078-the-upgrade-mode-of-the-action.md)).
+
 `--agent` still takes `claude_code` only. A backend for `codex exec` was checked against its
 documentation on 2026-10-27 (CLI 0.164.0) and not built: it documents `features.shell_tool` and
 permission profiles, but no setting that leaves a model without tools, so a text-only run cannot be

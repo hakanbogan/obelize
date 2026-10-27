@@ -62,7 +62,8 @@ has made a breaking release.
   of a class, rewrite a call from the shape of its arguments, or hand a change to a plugin you
   install and allow.
 - A server that lets a coding agent call obelize, `obelize mcp`, and a GitHub Action and pre-commit
-  hook that run a scan.
+  hook that run a scan. The action also upgrades a dependency in one job, and a documented second
+  job opens the pull request.
 - An optional network step that reads a package index, with every host named first and `--offline`.
 - Two example repositories, `examples/gemini-legacy-app` and `examples/quickstart`.
 - The evidence run folder, the benchmark protocol and a published result file.

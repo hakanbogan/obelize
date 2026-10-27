@@ -1,5 +1,5 @@
 name: obelize
-description: Find what a dependency migration leaves in your code, annotate it and fail the job.
+description: Find what a dependency migration leaves in your code and fail the job, or upgrade a dependency in a copy and keep the move as a branch.
 author: Hakan Bogan
 branding:
   icon: search
@@ -11,6 +11,15 @@ inputs:
       The obelize release to run, such as 0.7.0. Pin it: any 0.x release can change what a scan
       reports.
     required: true
+  mode:
+    description: >-
+      scan (the default) finds what a migration leaves in the code, annotates it and fails the job.
+      upgrade moves each dependency in distributions to its newest release in a copy of the
+      repository, runs the repository's own tests before and after, and uploads the branch it made
+      as a git bundle with a patch and a report. That runs the repository's code, so the job must
+      hold no token and never be pull_request_target; a second job opens the pull request
+      (docs/UPGRADING_IN_CI.md). The inputs of the other mode are ignored.
+    default: scan
   packs:
     description: >-
       Pack ids to run, separated by spaces, such as py-pdf/pypdf2-to-pypdf. Default: every pack the
@@ -34,17 +43,49 @@ inputs:
       true to upload the findings to code scanning. The job needs the security-events: write
       permission. Never use this action on pull_request_target.
     default: "false"
+  distributions:
+    description: >-
+      upgrade mode: the dependencies to upgrade, separated by spaces, such as pydantic. Each is
+      upgraded on its own and gets a folder of the artifact.
+    default: ""
+  from:
+    description: >-
+      upgrade mode, with one distribution: the release the code is written for, such as 1.10.26,
+      where no manifest declares the dependency. Default: the one the manifests name.
+    default: ""
+  fail-on-unproven:
+    description: >-
+      upgrade mode: true to fail the job when the tests did not prove the move (exit 3, 4 or 6 of
+      obelize upgrade). Default false: the job passes, and exit-code and changed say what happened.
+      Any other exit code fails the job.
+    default: "false"
+  artifact-name:
+    description: upgrade mode, the name of the artifact the bundles, patches and reports go to.
+    default: obelize-upgrade
   working-directory:
-    description: The repository root to scan, relative to the workspace.
+    description: The repository root to scan or upgrade, relative to the workspace.
     default: "."
 
 outputs:
   exit-code:
-    description: The scan's exit code, 0 or 4 for a scan that ran (see docs/CLI.md).
-    value: ${{ steps.scan.outputs.exit-code }}
+    description: >-
+      The scan's exit code, 0 or 4 for a scan that ran; in upgrade mode, 0 or the exit code of the
+      first upgrade that was not proven (see docs/CLI.md).
+    value: ${{ format('{0}{1}', steps.scan.outputs.exit-code, steps.upgrade.outputs.exit-code) }}
   sarif-file:
     description: The SARIF document the scan printed.
     value: ${{ steps.scan.outputs.sarif-file }}
+  bundle-file:
+    description: >-
+      Upgrade mode: the git bundle of each branch that was made, separated by spaces.
+    value: ${{ steps.upgrade.outputs.bundle-file }}
+  report-file:
+    description: >-
+      Upgrade mode: the report of each branch that was made, separated by spaces.
+    value: ${{ steps.upgrade.outputs.report-file }}
+  changed:
+    description: Upgrade mode, true if at least one dependency was upgraded to a branch.
+    value: ${{ steps.upgrade.outputs.changed }}
 
 runs:
   using: composite
@@ -55,8 +96,18 @@ runs:
         enable-cache: false
         version: "0.12.15"
 
+    - name: Check the mode
+      if: ${{ inputs.mode != 'scan' && inputs.mode != 'upgrade' }}
+      shell: bash
+      env:
+        OBELIZE_MODE: ${{ inputs.mode }}
+      run: |
+        echo "::error::mode takes scan or upgrade, got '$OBELIZE_MODE'"
+        exit 2
+
     - name: Scan
       id: scan
+      if: ${{ inputs.mode == 'scan' }}
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
@@ -70,6 +121,7 @@ runs:
       run: '"$ACTION_PATH/action/scan.sh"'
 
     - name: Annotate
+      if: ${{ inputs.mode == 'scan' }}
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
@@ -77,7 +129,7 @@ runs:
       run: python3 "$ACTION_PATH/action/annotate.py" "$OBELIZE_SARIF_FILE"
 
     - name: Upload to code scanning
-      if: ${{ !cancelled() && inputs.sarif == 'true' && (steps.scan.outputs.exit-code == '0' || steps.scan.outputs.exit-code == '4') }}
+      if: ${{ !cancelled() && inputs.mode == 'scan' && inputs.sarif == 'true' && (steps.scan.outputs.exit-code == '0' || steps.scan.outputs.exit-code == '4') }}
       uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
       with:
         sarif_file: ${{ steps.scan.outputs.sarif-file }}
@@ -85,7 +137,40 @@ runs:
         wait-for-processing: "false"
 
     - name: Fail on what was found
+      if: ${{ inputs.mode == 'scan' }}
       shell: bash
       env:
         OBELIZE_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
       run: exit "${OBELIZE_EXIT_CODE:-1}"
+
+    - name: Upgrade
+      id: upgrade
+      if: ${{ inputs.mode == 'upgrade' }}
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        OBELIZE_VERSION: ${{ inputs.version }}
+        OBELIZE_DISTRIBUTIONS: ${{ inputs.distributions }}
+        OBELIZE_FROM: ${{ inputs.from }}
+        OBELIZE_ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        OBELIZE_WORKDIR: ${{ inputs.working-directory }}
+        OBELIZE_OUT: ${{ runner.temp }}/obelize-upgrade
+      run: python3 "$ACTION_PATH/action/upgrade.py" run
+
+    - name: Upload the upgrade
+      if: ${{ !cancelled() && inputs.mode == 'upgrade' && steps.upgrade.outputs.out-dir != '' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.upgrade.outputs.out-dir }}
+        if-no-files-found: error
+        retention-days: 7
+
+    - name: Fail on an upgrade that was not proven
+      if: ${{ !cancelled() && inputs.mode == 'upgrade' && steps.upgrade.outcome == 'success' }}
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        OBELIZE_EXIT_CODE: ${{ steps.upgrade.outputs.exit-code }}
+        OBELIZE_FAIL_ON_UNPROVEN: ${{ inputs.fail-on-unproven }}
+      run: python3 "$ACTION_PATH/action/upgrade.py" gate
