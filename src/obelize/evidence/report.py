@@ -216,6 +216,7 @@ def fixed(
     runs: Sequence[tuple[str, str, int]] = (),
     narrowed: Sequence[str] = (),
     apart: Sequence[str] = (),
+    again: str = "",
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
@@ -227,7 +228,8 @@ def fixed(
     `stated` are the releases `--from` gave, `narrowed` those of them a manifest declares;
     `imports` are the modules a pack's patterns may import; `runs` are the tools a pack's fixers
     ran, each as a pack id, a fixer and a number of files; `apart` are the files left as they were
-    for a place of their own while the others are written, which makes the move a part of one.
+    for a place of their own while the others are written, which makes the move a part of one;
+    `again` is the `upgrade` command that writes such a plan, which `fix` does not.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -270,7 +272,7 @@ def fixed(
             f"Next: regenerate each lock file with the tool that made it: {', '.join(locks)}. "
             f"obelize does not edit them, so they may still pin the old release."
         )
-    lines.extend(_next(record, plan, evidence, repo, packs, pins))
+    lines.extend(_next(record, plan, evidence, repo, packs, pins, again if apart else ""))
     return lines
 
 
@@ -359,11 +361,15 @@ def _next(
     repo: str,
     packs: Sequence[str],
     pins: bool,
+    again: str,
 ) -> list[str]:
     """The command after a run, by exit code; a dry run with nothing planned, `3` and `4` with
-    none left have none. A run of packs that move no dependency line has nothing to install."""
+    none left have none. A run of packs that move no dependency line has nothing to install.
+    `again` is the command that writes a plan made a file at a time, which `fix` would not."""
     fix = flags(repo, packs)
     if record.mode != "apply":
+        if again:
+            return [f"Next: {again} writes it once a trial in a copy of the repository passes."]
         return [f"Next: obelize fix --apply{fix} writes it."] if plan.files else []
     here = PurePath(repo) == PurePath(".")
     flag = "" if here else f" --repo {shell.quote(repo)}"

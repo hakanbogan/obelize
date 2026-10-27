@@ -109,19 +109,21 @@ Exit `3` means tests broke, with their names; exit `6` means the trial could not
 no result obelize can read, no test that passed before, tests that did not finish within
 `--timeout`, a move that changed no file, or environments that could not be made.
 
-A library that keeps its import name is one distribution for both APIs, and a place the pack can only
-flag used to hold every file back. Now the move is written a file at a time: a file that holds such a
-place is left as it was, the others are written, and the dependency line follows the files written.
-The trial runs your tests on that partial move, so a place left that your tests reach breaks them
-and nothing is written. Where they do not reach it the move passes, and it says so in three
-places: the summary and `REPORT.md` name the files left and the places in them, the commit message of
-`--branch` does, and `trial.json` lists them (`held`). A pass means the tests that passed before still
-pass, not that the rest has moved: the files left run on the new release until you move the places in
-them. A repository where no file can be written, or where the dependency line itself cannot be written
-(a requirement with extras the new release does not list, a notebook that calls the old API), is
-still left whole, and its trial is `inconclusive`. `fix` keeps the whole-repository rule, and so does
-`upgrade --agent`, which asks the agent about the places first. Without
-tests, write the migration with `obelize fix --apply` and check it another way.
+A library that keeps its import name is one distribution for both APIs, and a place the pack can
+only flag used to hold every file back. Now the move is written a file at a time: a file that holds
+such a place is left as it was, the others are written, and the dependency line follows the files
+written. The trial runs your tests on that partial move, so a place left that your tests reach
+breaks them and nothing is written. Where they do not reach it the move passes, and it says so in
+three places: the summary and `REPORT.md` name the files left and the places in them, the commit
+message of `--branch` does, and `trial.json` lists them (`held`). A pass means the tests that passed
+before still pass, not that the rest has moved: the files left run on the new release until you move
+the places in them. Without `--branch` the command ends `4` for such a move, as `fix --apply` does
+where places are left for you, and `0` where nothing is left, whether or not you set a verification
+command of your own. A repository where no file can be written, or where the dependency line itself
+cannot be written (a requirement with extras the new release does not list, a notebook that calls
+the old API), is still left whole, and its trial is `inconclusive`. `fix` keeps the whole-repository
+rule, and so does `upgrade --agent`, which asks the agent about the places first. Without tests,
+write the migration with `obelize fix --apply` and check it another way.
 
 ## 4. Keep it on a branch
 

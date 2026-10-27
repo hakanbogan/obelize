@@ -415,9 +415,13 @@ def _fix(
     as_json: bool,
     stated: tuple[str, str] | None = None,
     by_file: bool = False,
+    again: str = "",
+    trialed: bool = False,
 ) -> None:
-    """`fix`, to which `upgrade` adds the release it was told the code is written for and the rule
-    that a file is written without waiting for the others, which only a trial after it can judge."""
+    """`fix`, to which `upgrade` adds the release it was told the code is written for, the rule
+    that a file is written without waiting for the others, which only a trial after it can judge,
+    `again`, its own command that writes a plan `fix` would not, and `trialed`: the write follows
+    a trial, which stands in for the verification command it has none of."""
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
     from obelize.config import ConfigError
@@ -498,9 +502,14 @@ def _fix(
             apart=outcome.apart,
             imports=outcome.imports,
             runs=outcome.runs,
+            again=again,
         ),
     )
-    raise typer.Exit(outcome.exit_code)
+    code = outcome.exit_code
+    if trialed and code == _NO_VERDICT:
+        # What is left decides, as it does where a command of the person's own passed.
+        code = 4 if outcome.record.withheld else 0
+    raise typer.Exit(code)
 
 
 @app.command("verify")
@@ -1350,6 +1359,8 @@ def upgrade(
     from obelize import outdated as survey
     from obelize import upgrade as upgrading
     from obelize.config import ConfigError
+    from obelize.evidence import report
+    from obelize.native import shell
     from obelize.net import NetworkError
     from obelize.packtools import guide as page
     from obelize.packtools import synth
@@ -1458,28 +1469,33 @@ def upgrade(
         )
         if wants_branch:
             raise typer.Exit(0)
-    try:
-        _fix(
-            pack=[chosen.reference],
-            repo=repo,
-            apply_changes=apply_changes,
-            allow_dirty=False,
-            verify_commands=None,
-            timeout=None,
-            non_interactive=True,
-            trust_repo_config=False,
-            provider=None,
-            accept_model=False,
-            show_context=False,
-            as_json=False,
-            stated=stated,
-            by_file=by_file,
+    again = (
+        f"obelize upgrade {shell.quote(project.name)}"
+        + "".join(
+            f" --{flag} {shell.quote(value)}"
+            for flag, given in (("from", old), ("to", new), ("module", module), ("guide", guide))
+            for value in ([given] if isinstance(given, str) else given or ())
         )
-    except typer.Exit as done:
-        # An apply with no verification command of its own ends `6`; the trial was the verification.
-        if apply_changes and done.exit_code == _NO_VERDICT:
-            raise typer.Exit(0) from done
-        raise
+        + f"{report.flags(repo)} --apply"
+    )
+    _fix(
+        pack=[chosen.reference],
+        repo=repo,
+        apply_changes=apply_changes,
+        allow_dirty=False,
+        verify_commands=None,
+        timeout=None,
+        non_interactive=True,
+        trust_repo_config=False,
+        provider=None,
+        accept_model=False,
+        show_context=False,
+        as_json=False,
+        stated=stated,
+        by_file=by_file,
+        again=again,
+        trialed=apply_changes,
+    )
 
 
 def _agent(flag: str | None) -> tuple[str | None, str | None]:

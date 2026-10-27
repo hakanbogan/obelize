@@ -73,9 +73,15 @@ for the files written, `withheld` for the places left, each held file's ready ro
 `file_not_fully_migrated`), and gains nothing; `trial.json` records the files held beside the ones
 written (`held`); the commit message of `--branch` and the pull request text of the action name them,
 and say that a passing trial means the tests that passed before still pass, which does not show that
-the rest has moved. The exit codes keep their meaning: after a passing trial the write ends as
-`upgrade` always ended, `0`. The action's gate cannot tell a partial move from a whole one by the
-code, which is why the files are in the text; a distinct code for it would be a decision of its own.
+the rest has moved. The exit codes keep their meaning, and `4` is the one that says it: after a
+passing trial the write ends as `fix --apply` ends, `0` where nothing is left for you and `4` where
+places are, whether or not a verification command of the person's ran. The write has none of its
+own, which ends `6` and which `upgrade` maps to `0`: that mapping used to hide the places left, so a
+partial move ended `0` with no such command and `4` with one, and now ends `4` in both. A move to
+another distribution (`PyPDF2` to `pypdf`) that leaves places ends the same way, where 0.9.0 ended
+`0` without such a command. With `--branch` the command ends `0` after the commit, so the action's gate
+cannot tell a partial move from a whole one by the code, which is why the files are in the text; a
+distinct code for it would be a decision of its own.
 
 ### D6. The trial is not weakened
 

@@ -212,10 +212,11 @@ dependency's code that failed outright, so a crash in a later dependency is not 
 earlier `3`; if there is none, the first that was not proven.
 
 A move can be a part of one: where a library keeps its import name, a file that holds a place the
-pack can only flag is left as it was and the others are written. The exit code is `0` for it, as for
-a whole move, so it does not tell them apart. The files left are in `trial.json` (`held`), in
-`REPORT.md` and in the text of the commit and the pull request, which say that the tests that passed
-before still pass and that this does not show the rest has moved.
+pack can only flag is left as it was and the others are written. With `--branch`, as the action runs
+it, the exit code is `0` for it, as for a whole move, so it does not tell them apart (without
+`--branch`, `upgrade` ends `4` for it). The files left are in `trial.json` (`held`), in `REPORT.md`
+and in the text of the commit and the pull request, which say that the tests that passed before still
+pass and that this does not show the rest has moved.
 
 Each dependency that made a branch has a folder in the artifact: `upgrade.bundle`,
 `upgrade.patch`, `trial.json`, `old.txt` and `new.txt` (what each environment held) and

@@ -30,6 +30,7 @@ from obelize.providers import agent_cli, base
 from obelize.trial import copy
 from obelize.trial import run as trying
 from obelize.verify.runner import Mode
+from platforms import PYTHON as INTERPRETER
 from support import committed, git, load_script, snapshot
 
 if TYPE_CHECKING:
@@ -1255,7 +1256,7 @@ def test_a_move_that_passes_is_written_a_file_at_a_time_and_says_so_everywhere(
 ) -> None:
     root = partial(trial, test_app__py=TESTS)
     result = tried(root, "--yes")
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 4, result.output
     assert "Trial of acme-kit 1.0 to acme-kit==2.0: pass; 2 test(s) passed before" in result.output
     assert "The move is partial: 1 file(s) were left as they were" in result.output
     assert "which does not show the rest has moved" in result.output
@@ -1280,7 +1281,7 @@ def test_a_dry_run_and_a_trial_agree_on_the_files_written(trial: Path) -> None:
     root = partial(trial, test_app__py=TESTS)
     runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
     _record, planned, _report = run_documents(root)
-    assert tried(root, "--yes").exit_code == 0
+    assert tried(root, "--yes").exit_code == 4
     folder = next((root / ".obelize" / "trials").iterdir())
     said = json.loads((folder / "trial.json").read_text())
     assert said["written"] == [row["path"] for row in planned["files"]]
@@ -1353,7 +1354,7 @@ def test_a_pack_named_with_pack_still_writes_a_repository_whole_or_not_at_all(ho
 def test_running_the_move_again_edits_nothing_and_undo_puts_the_tree_back(trial: Path) -> None:
     root = partial(trial, test_app__py=TESTS)
     before = snapshot(root)
-    assert tried(root, "--yes").exit_code == 0
+    assert tried(root, "--yes").exit_code == 4
     record, _plan, _report = run_documents(root)
     pack = next((trial / "cache" / "obelize" / "packs").rglob("pack.yaml"))
     again = fixer.run(
@@ -1379,3 +1380,55 @@ def test_running_the_move_again_edits_nothing_and_undo_puts_the_tree_back(trial:
     assert {name: after[name] for name in before if not name.startswith(".obelize")} == {
         name: body for name, body in before.items() if not name.startswith(".obelize")
     }
+
+
+def _step(output: str) -> list[str]:
+    """The words of the command `Next:` names, up to the sentence that follows it."""
+    line = next(line for line in output.splitlines() if line.startswith("Next:"))
+    return line.removeprefix("Next: obelize ").split(" writes it")[0].split()
+
+
+@pytest.mark.parametrize("given", [[], ["--from", "1.0", "--to", "2.0"]], ids=["bare", "from-to"])
+def test_the_step_after_a_partial_dry_run_writes_the_plan_that_it_shows(
+    trial: Path, given: list[str]
+) -> None:
+    """`fix --apply` writes none of a plan made a file at a time: the step is the trial."""
+    root = partial(trial, test_app__py=TESTS)
+    dry = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), *given])
+    assert dry.exit_code == 0, dry.output
+    _record, planned, _report = run_documents(root)
+    step = _step(dry.output)
+    runner.invoke(app, [*step, "--python", PYTHON, "--yes"] if step[0] == "upgrade" else step)
+    changed = git(root, "diff", "--name-only").stdout.decode().split()
+    assert changed == [row["path"] for row in planned["files"]]
+    assert step == ["upgrade", "acme-kit", *given, "--repo", str(root), "--apply"]
+
+
+def test_the_step_after_a_dry_run_that_leaves_no_file_is_still_the_fix_that_writes_it(
+    home: Path,
+) -> None:
+    root = repo(home, app__py=HELLO, requirements__txt="acme-kit==1.0\n")
+    dry = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert _step(dry.output)[:3] == ["fix", "--apply", "--pack"]
+
+
+@pytest.mark.parametrize("checked", [False, True], ids=["no-verify-command", "verify-command"])
+@pytest.mark.parametrize(("left", "code"), [(True, 4), (False, 0)], ids=["partial", "whole"])
+def test_a_move_written_after_a_trial_ends_by_what_is_left_whatever_the_verification(
+    trial: Path, checked: bool, left: bool, code: int
+) -> None:
+    """`4` where a place is left for you and `0` where none is, with a command of your own or
+    without: the trial is the verification a write has no command for."""
+    command = f"{INTERPRETER} -c pass"
+    (trial / "config" / "obelize").mkdir(parents=True)
+    allowed = json.dumps({"verify": {"allow": [command]}})
+    (trial / "config" / "obelize" / "config.yml").write_bytes(allowed.encode())
+    files = {"app.py": HELLO, "test_app.py": TESTS, "requirements.txt": "acme-kit==1.0\n"}
+    if left:
+        files["gone.py"] = GONE
+    if checked:
+        files[".obelize.yml"] = json.dumps({"verify": {"commands": [command]}})
+    root = committed(trial / "repo", files)
+    result = tried(root, "--yes")
+    assert result.exit_code == code, result.output
+    assert "acme_kit.greet(name)" in (root / "app.py").read_text()

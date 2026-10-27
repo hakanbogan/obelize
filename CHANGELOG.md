@@ -26,15 +26,20 @@ in the release that makes it.
 - `obelize upgrade` writes a file at a time where the library keeps its import name (one
   distribution for both APIs: `pydantic`, `SQLAlchemy`, `openai`, `numpy`), in its dry run, in the
   trial's migration and in the write after a passing trial. A file that holds a place the pack can
-  only flag is left as it was, every other file is written, and the dependency line follows the files
-  written, where a single such place used to hold the whole repository back. The trial runs your
-  tests on the move as it would be written and writes nothing if one that passed before fails. The
-  summary, `REPORT.md` (a Held back section), the commit message of `--branch`, the pull request of
-  the action and `trial.json` (`held`) name the files left and say that a pass does not show that
-  the rest has moved; the exit codes are the same, `0` after a passing trial. The whole repository
-  is still held where no file can be written, where the dependency line cannot be written, and for
-  `fix`, `scan`, `--pack` and `upgrade --agent`. `upgrade numpy` and `upgrade openai` write the
-  files that hold no place where 0.9.0 wrote none ([the decision](docs/adr/ADR-079-a-file-at-a-time.md)).
+  only flag is left as it was, every other file is written, and the dependency line follows the
+  files written, where a single such place used to hold the whole repository back. The trial runs
+  your tests on the move as it would be written and writes nothing if one that passed before fails.
+  The summary, `REPORT.md` (a Held back section), the commit message of `--branch`, the pull request
+  of the action and `trial.json` (`held`) name the files left and say that a pass does not show that
+  the rest has moved. Without `--branch` the command ends `4` for such a move, as `fix --apply` does
+  where places are left for you, and `0` where none is, with a verification command of your own or
+  without one (a move to another distribution, `PyPDF2` to `pypdf`, that left places ended `0`
+  without one in 0.9.0 and ends `4` now). A dry run that plans part of a repository ends with the
+  `upgrade` command that writes it, not `fix --apply`, which would write none of it. The whole
+  repository is still held where no file can be written, where the dependency line cannot be
+  written, and for `fix`, `scan`, `--pack` and `upgrade --agent`. `upgrade numpy` and
+  `upgrade openai` write the files that hold no place where 0.9.0 wrote none
+  ([the decision](docs/adr/ADR-079-a-file-at-a-time.md)).
 
 ## [0.9.0] - 2026-10-27
 

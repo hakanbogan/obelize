@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted; amended by ADR-079 (Consequences: the last sentence no longer holds).
+Accepted; amended by ADR-079 (D3: the write ends `4` where places are left; Consequences: the last
+sentence no longer holds).
 
 ## Decision
 
@@ -39,9 +40,10 @@ The trial uses the migration the same code would write: `fix --apply` runs in th
 same pack and no model. When the verdict is `pass`, the real write is `fix --apply` in the
 repository, whose own guards apply (a clean tree is checked before the trial starts, since a trial
 takes minutes). That write has no verification command of its own and would end `6` ("patch applied,
-no verdict"); the trial was the verification, so the command ends `0`. The run folder of the real
-write does not record the trial; `.obelize/trials/<id>/` does, and holds the junit files and output,
-the freeze of each environment and the verdict.
+no verdict"); the trial was the verification, so the command ends `0` (ADR-079: or `4` where places
+are left for the person, as `fix --apply` ends). The run folder of the real write does not record
+the trial; `.obelize/trials/<id>/` does, and holds the junit files and output, the freeze of each
+environment and the verdict.
 
 ### D4. A trial needs a yes
 
