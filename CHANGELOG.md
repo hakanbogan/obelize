@@ -23,6 +23,18 @@ in the release that makes it.
   says so, including one that reached the pack's floor on its own, which `--from` was not asked
   about before. `fix`, `scan`, `--pack` and an `upgrade` without `--from` are gated as they were
   ([the decision](docs/adr/ADR-080-a-stated-release-a-declaration-admits.md)).
+- `obelize upgrade` writes a file at a time where the library keeps its import name (one
+  distribution for both APIs: `pydantic`, `SQLAlchemy`, `openai`, `numpy`), in its dry run, in the
+  trial's migration and in the write after a passing trial. A file that holds a place the pack can
+  only flag is left as it was, every other file is written, and the dependency line follows the files
+  written, where a single such place used to hold the whole repository back. The trial runs your
+  tests on the move as it would be written and writes nothing if one that passed before fails. The
+  summary, `REPORT.md` (a Held back section), the commit message of `--branch`, the pull request of
+  the action and `trial.json` (`held`) name the files left and say that a pass does not show that
+  the rest has moved; the exit codes are the same, `0` after a passing trial. The whole repository
+  is still held where no file can be written, where the dependency line cannot be written, and for
+  `fix`, `scan`, `--pack` and `upgrade --agent`. `upgrade numpy` and `upgrade openai` write the
+  files that hold no place where 0.9.0 wrote none ([the decision](docs/adr/ADR-079-a-file-at-a-time.md)).
 
 ## [0.9.0] - 2026-10-27
 

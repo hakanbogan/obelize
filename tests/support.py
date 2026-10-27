@@ -85,14 +85,19 @@ def snapshot(directory: Path) -> dict[str, bytes]:
 
 
 def migrate(
-    work: Path, spec: ScanSpec, pack: PackDocument, config: Config | None = None
+    work: Path,
+    spec: ScanSpec,
+    pack: PackDocument,
+    config: Config | None = None,
+    *,
+    by_file: bool = False,
 ) -> codemod.Run:
     """From the walk to the last manifest edit over `work`, writing nothing."""
     config = config or Config()
     scan = runner.scan(work, config, spec, jobs=1)
     wanted = {result.path for result in scan.results} | set(walker.walk(work, config).manifests)
     sources = {name: (work / name).read_bytes() for name in sorted(wanted)}
-    return codemod.run(scan, sources, pack, spec)
+    return codemod.run(scan, sources, pack, spec, by_file=by_file)
 
 
 def parsed(path: str, data: bytes) -> parse.Read:

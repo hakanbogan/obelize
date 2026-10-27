@@ -100,8 +100,9 @@ pipeline. The action also upgrades a dependency (`mode: upgrade`).
 obelize is meant to upgrade a dependency without a pack someone wrote for it, and to check the
 result with your tests in one command ([the decision](adr/ADR-059-verified-dependency-upgrades.md)).
 The commands above are that path for a library whose changes two releases show, and on the 80
-repositories measured so far it does not reach a written move: what stops it, and the choice I
-have not made, are in [the known issues](KNOWN_ISSUES.md#upgrading-a-dependency). This is the order I
+repositories measured so far it does not reach a written move. Since that measurement a declaration
+that admits `--from` counts and `upgrade` writes a file at a time, which has not been measured, and
+what stops it is in [the known issues](KNOWN_ISSUES.md#upgrading-a-dependency). This is the order I
 intend to build the rest in. Nothing below ships until the changelog says so, each step is its own
 release, and an option I add defaults to today's behaviour.
 

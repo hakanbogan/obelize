@@ -46,6 +46,9 @@ class Plan:
     resolve: Callable[[Path], resolving.Resolved] | None = None
     # Puts the tests that broke, by their tracebacks, to a model; none where no model was asked for.
     repair: Callable[[Path, Mapping[str, str], Collection[str]], resolving.Resolved] | None = None
+    # The files the last migration left as they were for a place of their own, which the evidence
+    # names beside the ones it wrote.
+    left: Callable[[], Sequence[str]] | None = None
     max_rounds: int = 3
     remove: str | None = None
     python: str | None = None
@@ -224,6 +227,7 @@ def _done(
         "fixed": list(verdict.fixed),
         "flaky": list(verdict.flaky),
         "written": list(written),
+        "held": [] if plan.left is None else list(plan.left()),
         "model": {
             "tokens_in": sum(one.tokens_in for _, one in rounds),
             "tokens_out": sum(one.tokens_out for _, one in rounds),

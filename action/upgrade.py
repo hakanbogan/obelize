@@ -273,6 +273,12 @@ def report(folder: Path, message: str) -> str:
             f"{said['compared']} test(s) passed before, {len(said['broken'])} broke, "
             f"{len(said['flaky'])} failed once and passed again.\n\nWritten: "
             + ", ".join(f"`{path}`" for path in said["written"])
+            + (
+                "\n\nLeft as they were, so the move is partial: "
+                + ", ".join(f"`{path}`" for path in said["held"])
+                if said.get("held")
+                else ""
+            )
         )
     except (OSError, ValueError, LookupError, TypeError):
         line = "The trial left no evidence this report could read."
@@ -352,6 +358,10 @@ def verified(folder: Path, repo: Path, base: str) -> Verified:
     if canonical(shown) != folder.name:
         raise RefusedError(f"the trial is about {shown}, not {folder.name}")
     written = set(_strings(document.get("written"), "written"))
+    # Files the rules left as they were for a place of their own; an older trial names none.
+    left = _strings(document.get("held", []), "held")
+    for path in left:
+        place(path)
     counts = (
         _count(document.get("compared"), "compared"),
         len(_strings(document.get("broken"), "broken")),
@@ -383,7 +393,8 @@ def verified(folder: Path, repo: Path, base: str) -> Verified:
     edits = changed(repo, base, tip, written)
     paths = tuple(sorted(path for _, _, path in edits))
     title = f"Upgrade {shown} {old} to {new}"
-    facts = prose(shown, old, new, counts, paths, git(repo, "log", "-1", "--format=%B", tip))
+    message = git(repo, "log", "-1", "--format=%B", tip)
+    facts = prose(shown, old, new, counts, paths, message, tuple(sorted(left)))
     tree = rebuilt(repo, base, edits)
     made = git(repo, "commit-tree", tree, "-p", base, "-m", f"{title}\n\n{facts}", env=identity())
     return Verified(branch, made.strip(), title, f"{facts}\n\n{CLOSING.format(base[:10])}")
@@ -514,10 +525,12 @@ def prose(
     counts: tuple[int, int, int],
     paths: tuple[str, ...],
     message: str,
+    unmoved: tuple[str, ...] = (),
 ) -> str:
     """What the commit and the pull request say of the move, made here from values that passed a
     shape: nothing of the artifact's own prose reaches either. The counts are the first job's
-    claim, and are said to be."""
+    claim, and are said to be. `unmoved` are the files the move did not write, so that a move of
+    some files does not read as all of it."""
     compared, broke, flaky = counts
     shown = "\n".join(f"- `{one}`" for one in paths[:LISTED])
     more = f"\n- and {len(paths) - LISTED} more" if len(paths) > LISTED else ""
@@ -529,12 +542,21 @@ def prose(
         if left
         else ""
     )
+    apart = (
+        "\n\nLeft as they were, for you to change: "
+        + ", ".join(f"`{one}`" for one in unmoved[:LISTED])
+        + (f", and {len(unmoved) - LISTED} more" if len(unmoved) > LISTED else "")
+        + ". A place in each is left for you, so this move is partial: the tests that passed "
+        "before still pass, which does not show that the rest has moved."
+        if unmoved
+        else ""
+    )
     return (
         f"The job that ran the tests reports that, in a copy of this repository, {compared} "
         f"test(s) passed before the move of `{name}` from {old} to {new} and that after it "
         f"{broke} broke and {flaky} failed once and passed again. These counts are that job's "
         f"claim: no test was run or checked by the job that pushed this.\n\n"
-        f"The move changes {len(paths)} file(s):\n\n{shown}{more}{unwritten}"
+        f"The move changes {len(paths)} file(s):\n\n{shown}{more}{unwritten}{apart}"
     )
 
 

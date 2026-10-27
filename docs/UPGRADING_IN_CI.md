@@ -202,14 +202,20 @@ runs a hook.
 
 `obelize upgrade` exits `0` when the move was proven and a branch was made, and `0` with a line
 saying so and no branch when the dependency is already on its newest release; `3` when tests that
-passed before broke; and `6` when the tests could not judge the move (no tests, a place left for a
-person, environments that could not be made) or the index could not be reached
+passed before broke; and `6` when the tests could not judge the move (no tests, no file that can be
+written, environments that could not be made) or the index could not be reached
 ([exit codes](CLI.md#exit-codes)). `fix` has a `4` too, which an upgrade that ends on a branch
 never gives. With `fail-on-unproven: false` a `3` or a `6` passes the job and `changed` says
 whether any branch was made; with `true` it fails the job. Any other code is a mistake or a crash,
 such as a dependency the manifests do not name, and fails the job. `exit-code` is the first
 dependency's code that failed outright, so a crash in a later dependency is not hidden behind an
 earlier `3`; if there is none, the first that was not proven.
+
+A move can be a part of one: where a library keeps its import name, a file that holds a place the
+pack can only flag is left as it was and the others are written. The exit code is `0` for it, as for
+a whole move, so it does not tell them apart. The files left are in `trial.json` (`held`), in
+`REPORT.md` and in the text of the commit and the pull request, which say that the tests that passed
+before still pass and that this does not show the rest has moved.
 
 Each dependency that made a branch has a folder in the artifact: `upgrade.bundle`,
 `upgrade.patch`, `trial.json`, `old.txt` and `new.txt` (what each environment held) and

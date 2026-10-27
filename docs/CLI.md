@@ -559,8 +559,23 @@ try. The write itself is `fix --apply`, whose exit code `upgrade` returns, excep
 verification command of its own, which the trial stood in for, is `0`. Otherwise nothing is written:
 exit `3` names the tests that broke, and exit `6` says the trial could not judge (no tests, no
 result obelize can read, no test that passed before, tests that did not finish, a move that changed
-no file, or a place left for a person). Exit `6` also ends a trial whose
+no file, or, with `--agent`, a place the agent left for a person). Exit `6` also ends a trial whose
 environments could not be made.
+
+Where the library keeps its import name, the move is written **a file at a time**: a file that holds
+a place the pack can only flag is left exactly as it was, every other file is written as the rules
+write it, and the dependency line follows the files written. The trial tests that partial move, so
+a place left that a test reaches fails it and nothing is written. When the tests pass, the summary
+says `Part of the move: N file(s) written, M left as they were`, `REPORT.md` has a Held back section
+that names each file and its places, `trial.json` lists them as `held`, and the commit message
+of `--branch` says that the move is partial and that the tests that passed before still passing
+does not show that the rest has moved. The exit code is the same as for a whole move, `0`. The whole
+repository is still held, and the trial is `inconclusive` (`6`), where no file can be written, where
+the dependency line cannot be written (extras the new release does not list, a URL, a hash, an
+editable requirement, a constraints file, a module only the old distribution installed that no
+manifest declares) or sits in a file that is left, and where a notebook or a file obelize cannot read
+may call the old API. `fix`, `scan` and `fix --pack` keep writing such a repository whole or not at
+all, and so does `upgrade --agent`, which asks the agent about the places first.
 
 With `--branch`, a passed trial is committed instead of written: one commit on a new branch of the
 name you gave (or the default), on top of `HEAD`, holding the files the move wrote, with the trial's
@@ -571,9 +586,10 @@ Review it with `git log -p -1 <branch>`.
 
 #### The places a pack only flags
 
-A library that keeps its import name across the move is one distribution for both APIs, so the
-rules write nothing while one flagged place is left, and a pack made from two releases flags most
-of what changed. `--agent claude_code` (with `--apply` and `--branch`) puts each flagged place to
+A library that keeps its import name across the move is one distribution for both APIs, and a pack
+made from two releases flags most of what changed. Without an agent the files that hold a flagged
+place are left and the rest is written; with one, the rules write nothing while one flagged place is
+left. `--agent claude_code` (with `--apply` and `--branch`) puts each flagged place to
 your own coding agent, in the trial's copy and before the rules run again, when the first run of
 the rules wrote nothing, which a library with one release for both APIs always does until every
 place has moved: the agent is the

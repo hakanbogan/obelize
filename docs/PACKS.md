@@ -50,7 +50,8 @@ report, changes nothing when run on its own output, and leaves none of the names
 float_` it leaves standing, so that file stays as it was). The names are those that were the same
 object or the same call on NumPy 1.26.4, so the rewritten code runs on both releases. Every other
 name of the main namespace that NumPy 1.26.4 has and 2.0.2 or 2.5.4 lacks (75) is reported, and
-any one such place holds the whole repository back, the dependency line included. The dependency
+any one such place holds the whole repository back, the dependency line included (`upgrade numpy`
+writes the files that hold none, a file at a time, where `fix --pack` writes none). The dependency
 line moves only when it excludes NumPy 2 (`numpy==1.26.4`, `numpy<2`) and is left alone when it
 admits it (`numpy>=1.22`); the other pins beside it (`pandas`, `scipy`) are not judged, and a name
 written as a string (`dtype='float_'`) is not found. Promotion, the default integer on Windows and the C API are not

@@ -4,7 +4,8 @@ Data for the benchmark of `obelize upgrade <distribution> --from A --to B` (docs
 scored offline by `bench/upgrade_score.py`. A frame is one migration's public repositories whose
 code still uses the old API, since a repository already on the new one says nothing. The pack is
 made once per migration from the two releases and every repository is planned with it. Nothing is
-written, tried or installed, and no file of a clone is run.
+written, tried or installed, and no file of a clone is run. `upgrade` plans a file at a time, so a
+repository with a place left is `partial` where it was `held` (the record's `unit` says which).
 
 Usage::
 
@@ -303,6 +304,9 @@ def provenance(frame: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any]:
         "to": frame["to"],
         "pack": pack["id"],
         "pack_sha256": pack["sha256"],
+        # What the plan is written by: `upgrade` writes a file at a time where one distribution
+        # holds both APIs. A record without it is of a release that wrote a repository whole.
+        "unit": "file",
         "synth_seconds": pack["seconds"],
         "synth_note": pack["note"],
         "python": platform.python_version(),

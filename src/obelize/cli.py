@@ -57,8 +57,9 @@ _UNJUDGED = {
     "no_junit": "The tests produced no result obelize can read, so nothing was compared.",
     "timeout": "The tests did not finish in time, so nothing was compared. Raise --timeout, or "
     "name the part that runs on its own with --test-command.",
-    "nothing_to_compare": "No test passed before the migration, or it changed no file, so "
-    "nothing was compared.",
+    "nothing_to_compare": "No test passed before the migration, or it changed no file (it writes "
+    "none while every file that uses the library holds a place left for you), so nothing was "
+    "compared.",
     "unresolved": "Places the pack flags are left, and the library has one release for both "
     "APIs, so the rules write nothing until each has moved. See the trial's evidence.",
     "tests_broke": "",
@@ -413,8 +414,10 @@ def _fix(
     show_context: bool,
     as_json: bool,
     stated: tuple[str, str] | None = None,
+    by_file: bool = False,
 ) -> None:
-    """`fix`, to which `upgrade` adds the release it was told the code is written for."""
+    """`fix`, to which `upgrade` adds the release it was told the code is written for and the rule
+    that a file is written without waiting for the others, which only a trial after it can judge."""
     from obelize.commands import CommandError
     from obelize.commands import fix as fixer
     from obelize.config import ConfigError
@@ -448,6 +451,7 @@ def _fix(
         model=model,
         model_flagged=provider is not None or accept_model,
         stated=stated,
+        by_file=by_file,
     )
     if show_context:
         try:
@@ -491,6 +495,7 @@ def _fix(
             outcome.pins,
             stated=outcome.stated,
             narrowed=outcome.narrowed,
+            apart=outcome.apart,
             imports=outcome.imports,
             runs=outcome.runs,
         ),
@@ -1421,6 +1426,10 @@ def upgrade(
         )
     stated = (project.name, str(now)) if old else None
     wants_branch = bool(branch or branch_name)
+    # A file at a time, but not beside the agent: it is asked about the places a pack flags only
+    # when the first run of the rules writes nothing, which a library that keeps its name does
+    # until each has moved.
+    by_file = agent_name is None
     if agent_name and not (apply_changes and wants_branch):
         typer.echo(
             "--agent puts code to a model, and what a model helped write is lines to review: "
@@ -1445,6 +1454,7 @@ def upgrade(
             max_rounds=max_rounds,
             offline=_offline(offline),
             stated=stated,
+            by_file=by_file,
         )
         if wants_branch:
             raise typer.Exit(0)
@@ -1463,6 +1473,7 @@ def upgrade(
             show_context=False,
             as_json=False,
             stated=stated,
+            by_file=by_file,
         )
     except typer.Exit as done:
         # An apply with no verification command of its own ends `6`; the trial was the verification.
@@ -1547,6 +1558,7 @@ def _commit_branch(
     install: str,
     named: str,
     held: Sequence[str],
+    apart: Sequence[str] = (),
 ) -> None:
     """The move a trial passed, as one commit on a new branch; the working tree is not touched."""
     from obelize import branch as branching
@@ -1574,6 +1586,13 @@ def _commit_branch(
             if held
             else ""
         )
+        + (
+            f"Left as they were, for you to change: {', '.join(apart)}. A place in each is left "
+            f"for you, so this move is partial: the tests that passed before still pass, which "
+            f"does not show that the rest has moved.\n"
+            if apart
+            else ""
+        )
         + f"\nObelize-Trial: {named}\n"
     )
     try:
@@ -1584,6 +1603,12 @@ def _commit_branch(
     if held:
         typer.echo(
             f"The dependency line at {', '.join(held)} could not be written: change it by hand.",
+            err=True,
+        )
+    if apart:
+        typer.echo(
+            f"{len(apart)} file(s) were left as they were: {', '.join(apart)}. The commit holds "
+            f"part of the move.",
             err=True,
         )
     typer.echo(
@@ -1609,6 +1634,7 @@ def _trial(
     max_rounds: int,
     offline: bool,
     stated: tuple[str, str] | None,
+    by_file: bool,
 ) -> None:
     """Try the move in a copy; return if the tests agree to it, else exit with why. With a branch
     name the move is committed there, and the caller ends. Offline, uv installs from its cache."""
@@ -1647,6 +1673,8 @@ def _trial(
     # last run planned nothing, if a declaration stopped it.
     held: list[str] = []
     stopped: list[str] = []
+    # The files the last run of the rules left as they were for a place of their own.
+    apart: list[str] = []
 
     def migrate(tree: Path, elsewhere: Collection[str]) -> list[str]:
         config, source = _settings(tree, _overrides(None, None, True))
@@ -1667,6 +1695,7 @@ def _trial(
                 model=ModelConfig(),
                 elsewhere=tuple(sorted(elsewhere)),
                 stated=stated,
+                by_file=by_file,
             )
         )
         stopped[:] = [report.why_blocked(one) for one in outcome.blocked]
@@ -1675,6 +1704,7 @@ def _trial(
             for row in outcome.manifest_plan.findings
             if row.scan_status == "needs_review"
         ]
+        apart[:] = outcome.apart
         return [row.path for row in outcome.record.file_edits]
 
     try:
@@ -1696,6 +1726,7 @@ def _trial(
                 max_rounds=max_rounds,
                 python=python,
                 test_command=test_command,
+                left=lambda: tuple(apart),
                 **({"timeout_s": timeout} if timeout else {}),
             )
         )
@@ -1730,9 +1761,25 @@ def _trial(
         for text in stopped:
             typer.echo(text, err=True)
         raise typer.Exit(6)
+    if apart:
+        typer.echo(
+            f"The move is partial: {len(apart)} file(s) were left as they were because a place in "
+            f"each is left for you ({', '.join(apart[:5])}{', ...' if len(apart) > 5 else ''}). "
+            f"The tests that passed before still pass, which does not show the rest has moved.",
+            err=True,
+        )
     if branch is not None:
         _commit_branch(
-            root, branch, done, loaded.pack.id, distribution, now, chosen.install, named, held
+            root,
+            branch,
+            done,
+            loaded.pack.id,
+            distribution,
+            now,
+            chosen.install,
+            named,
+            held,
+            apart,
         )
 
 

@@ -1111,3 +1111,18 @@ def test_a_warning_is_printed_for_an_edit_that_is_written_and_not_for_one_that_i
     assert report._check(plan, {"kept.py"}) == [
         f"Check kept.py:2: model_name_looks_prefixed: {meaning}"
     ]
+
+
+def test_a_move_of_some_files_names_the_files_left_up_to_five_and_counts_the_rest() -> None:
+    """The line that keeps a part of a move from reading as the whole of it."""
+    assert report._partial(2, (), True) == []
+    few = report._partial(2, ("a.py", "b.py"), True)
+    assert few[1] == (
+        "Part of the move: 2 file(s) written, 2 left as they were because a place in each is left "
+        "for you (a.py, b.py). The dependency line follows the files written, so the files left "
+        "meet the new release until those places are moved."
+    )
+    many = report._partial(3, tuple(f"f{index}.py" for index in range(7)), False)
+    assert "3 file(s) planned, 7 left as they were" in many[1]
+    assert "(f0.py, f1.py, f2.py, f3.py, f4.py and 2 more)" in many[1]
+    assert "follows the files planned" in many[1]

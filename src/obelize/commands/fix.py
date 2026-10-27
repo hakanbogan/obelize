@@ -83,6 +83,9 @@ class Request:
     elsewhere: tuple[str, ...] = ()
     # (distribution, release) the person gave with `upgrade --from`; never a repository's word.
     stated: tuple[str, str] | None = None
+    # `upgrade` writes a file at a time where one distribution holds both APIs: the trial that
+    # follows judges what is written, and `fix` has none.
+    by_file: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +117,8 @@ class Outcome:
     locks: tuple[str, ...] = ()
     # Files that use the legacy API and that no rule writes, and the cells of a notebook that do.
     unwritten: tuple[tuple[str, tuple[int, ...]], ...] = ()
+    # Files left as they were for a place of their own while the others were written, or would be.
+    apart: tuple[str, ...] = ()
     # Whether a pack of the run moves a dependency line; one whose new side is the Python does not.
     pins: bool = True
     # The paths a pack's patterns may import, by pack id, which a person reads before applying.
@@ -271,6 +276,7 @@ def run(request: Request) -> Outcome:
                 packs=documents,
                 fixture_dirs=chosen.fixture_dirs,
                 locks=locks,
+                apart=driven.apart,
             ),
             artefacts,
             journaled=journaled,
@@ -292,6 +298,7 @@ def run(request: Request) -> Outcome:
         notes=notes,
         guides=guides,
         manifest_plan=driven.manifest_plan,
+        apart=driven.apart,
         locks=locks,
         unwritten=scan.unwritten,
         pins=any(one.to.package for one in documents),
@@ -414,7 +421,7 @@ def _fold(request: Request, chosen: Chosen) -> list[_Pass]:
                 tree=current,
                 stated=_for(request.stated, spec),
             )
-        driven = _driven(current, scan, one.loaded, spec, request.elsewhere)
+        driven = _driven(current, scan, one.loaded, spec, request.elsewhere, request.by_file)
         if scan.blocked:
             driven = codemod.blocked(driven, scan.blocked[0].reason)
         passes.append(_Pass(one.loaded, scan, driven))
@@ -431,11 +438,12 @@ def _driven(
     loaded: LoadedPack,
     spec: ScanSpec,
     elsewhere: tuple[str, ...] = (),
+    by_file: bool = False,
 ) -> codemod.Run:
     """Every rule of one pack over the tree, as one value."""
     sources = {path: entry.data for path, entry in tree.entries.items() if entry.data is not None}
     try:
-        return codemod.run(scan, sources, loaded.pack, spec, elsewhere)
+        return codemod.run(scan, sources, loaded.pack, spec, elsewhere, by_file)
     except codemod.CodemodError as error:
         raise CommandError(f"the run could not be planned: {error}. Nothing was written.", 1) from (
             error

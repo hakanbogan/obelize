@@ -9,7 +9,7 @@ import subprocess
 import sys
 import sysconfig
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import typer
@@ -20,14 +20,17 @@ import fakeindex
 from obelize import cli, index, libdiff
 from obelize import upgrade as upgrading
 from obelize.cli import app
-from obelize.models import EditProposal
+from obelize.commands import fix as fixer
+from obelize.config import load as load_config
+from obelize.models import Config, EditProposal
 from obelize.net import Fetcher
 from obelize.packs import loader
 from obelize.packtools import synth
 from obelize.providers import agent_cli, base
 from obelize.trial import copy
 from obelize.trial import run as trying
-from support import committed, git, load_script
+from obelize.verify.runner import Mode
+from support import committed, git, load_script, snapshot
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -1206,3 +1209,173 @@ def test_a_pack_named_with_pack_is_gated_as_it_was_whatever_declaration_admits_a
     if command == "fix":
         assert _pack_record(root)["blocked"] == "legacy_version_unsupported"
         assert _pack_record(root)["stated"] is None
+
+
+# Writing a file at a time: one place the pack can only flag no longer holds the rest.
+
+TESTS_GONE = "import gone\n\n\ndef test_gone():\n    assert gone.gone(3) == 3\n"
+
+
+def partial(home: Path, **more: str) -> Path:
+    """`app.py` moves, `gone.py` calls a name 2.0 removed, and both are pinned to 1.0."""
+    files = {"app__py": HELLO, "gone__py": GONE, "requirements__txt": "acme-kit==1.0\n", **more}
+    return repo(home, **files)
+
+
+def run_documents(root: Path) -> tuple[dict[str, Any], dict[str, Any], str]:
+    folder = max(root.glob(".obelize/runs/*"), key=lambda path: path.stat().st_mtime_ns)
+    record = json.loads((folder / "run.json").read_text())
+    plan = json.loads((folder / "plan.json").read_text())
+    return record, plan, (folder / "REPORT.md").read_text()
+
+
+def test_a_dry_run_plans_the_clean_files_and_the_pin_and_says_a_file_is_left(home: Path) -> None:
+    root = partial(home)
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert result.exit_code == 0, result.output
+    assert (
+        "Part of the move: 2 file(s) planned, 1 left as they were because a place in each is "
+        "left for you (gone.py). The dependency line follows the files planned" in result.output
+    )
+    record, plan, report = run_documents(root)
+    assert [row["path"] for row in plan["files"]] == ["app.py", "requirements.txt"]
+    assert [(row["path"], row["bail"]) for row in record["withheld"]] == [
+        ("gone.py", "flag_only_surface")
+    ]
+    assert (
+        "## Held back\n\nThis run moves part of the migration: 2 file(s) planned and 1 left"
+        in report
+    )
+    assert "| `gone.py` | 1 | `flag_only_surface` |" in report
+    assert (root / "gone.py").read_text() == GONE
+
+
+def test_a_move_that_passes_is_written_a_file_at_a_time_and_says_so_everywhere(
+    trial: Path,
+) -> None:
+    root = partial(trial, test_app__py=TESTS)
+    result = tried(root, "--yes")
+    assert result.exit_code == 0, result.output
+    assert "Trial of acme-kit 1.0 to acme-kit==2.0: pass; 2 test(s) passed before" in result.output
+    assert "The move is partial: 1 file(s) were left as they were" in result.output
+    assert "which does not show the rest has moved" in result.output
+    assert "Part of the move: 2 file(s) written, 1 left as they were" in result.output
+    assert "acme_kit.greet(name)" in (root / "app.py").read_text()
+    assert (root / "requirements.txt").read_text() == "acme-kit>=2.0,<3\n"
+    assert (root / "gone.py").read_text() == GONE
+    record, _plan, report = run_documents(root)
+    assert sorted(row["path"] for row in record["file_edits"]) == ["app.py", "requirements.txt"]
+    assert [row["path"] for row in record["withheld"]] == ["gone.py"]
+    assert "## Held back" in report
+    folder = next((root / ".obelize" / "trials").iterdir())
+    said = json.loads((folder / "trial.json").read_text())
+    assert (said["status"], said["written"], said["held"]) == (
+        "pass",
+        ["app.py", "requirements.txt"],
+        ["gone.py"],
+    )
+
+
+def test_a_dry_run_and_a_trial_agree_on_the_files_written(trial: Path) -> None:
+    root = partial(trial, test_app__py=TESTS)
+    runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    _record, planned, _report = run_documents(root)
+    assert tried(root, "--yes").exit_code == 0
+    folder = next((root / ".obelize" / "trials").iterdir())
+    said = json.loads((folder / "trial.json").read_text())
+    assert said["written"] == [row["path"] for row in planned["files"]]
+    changed = git(root, "diff", "--name-only").stdout.decode().split()
+    assert changed == said["written"]
+
+
+def test_the_branch_of_a_partial_move_holds_the_files_written_and_names_the_ones_left(
+    trial: Path,
+) -> None:
+    root = partial(trial, test_app__py=TESTS)
+    result = tried(root, "--yes", "--branch")
+    assert result.exit_code == 0, result.output
+    assert "1 file(s) were left as they were: gone.py. The commit holds part of the move." in (
+        result.output
+    )
+    name = "obelize/upgrade-acme-kit-2.0"
+    said = git(root, "log", "-1", "--format=%B", name).stdout.decode()
+    assert (
+        "Left as they were, for you to change: gone.py. A place in each is left for you, so this "
+        "move is partial: the tests that passed before still pass, which does not show that the "
+        "rest has moved." in said
+    )
+    shown = git(root, "show", "--stat", "--format=", name).stdout.decode()
+    assert "app.py" in shown
+    assert "requirements.txt" in shown
+    assert "gone.py" not in shown
+    assert (root / "app.py").read_text() == HELLO
+
+
+def test_a_partial_move_that_breaks_a_test_is_not_written(trial: Path) -> None:
+    """The file left still calls what 2.0 removed, and a test that reaches it fails."""
+    root = partial(trial, test_app__py=TESTS, test_gone__py=TESTS_GONE)
+    result = tried(root, "--yes")
+    assert result.exit_code == 3, result.output
+    assert "broke: test_gone::test_gone" in result.output
+    assert "The move is partial" not in result.output
+    assert (root / "app.py").read_text() == HELLO
+    assert (root / "gone.py").read_text() == GONE
+    assert (root / "requirements.txt").read_text() == "acme-kit==1.0\n"
+
+
+def test_a_repository_where_every_file_holds_a_place_is_still_not_written(trial: Path) -> None:
+    root = repo(trial, gone__py=GONE, test_gone__py=TESTS_GONE, requirements__txt="acme-kit==1.0\n")
+    result = tried(root, "--yes")
+    assert result.exit_code == 6, result.output
+    assert "it changed no file" in result.output
+    assert (root / "gone.py").read_text() == GONE
+    assert (root / "requirements.txt").read_text() == "acme-kit==1.0\n"
+
+
+def test_a_pack_named_with_pack_still_writes_a_repository_whole_or_not_at_all(home: Path) -> None:
+    root = partial(home)
+    made = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root)])
+    assert made.exit_code == 0, made.output
+    pack = next((home / "cache" / "obelize" / "packs").rglob("pack.yaml"))
+    result = runner.invoke(app, ["fix", "--pack", str(pack), "--repo", str(root)])
+    assert result.exit_code == 0, result.output
+    assert "Part of the move" not in result.output
+    record, plan, report = run_documents(root)
+    assert plan["files"] == []
+    assert {row["bail"] for row in record["withheld"]} == {
+        "flag_only_surface",
+        "repo_not_fully_migrated",
+    }
+    assert "## Held back" not in report
+    assert "moves a whole repository or none of it" in result.output
+
+
+def test_running_the_move_again_edits_nothing_and_undo_puts_the_tree_back(trial: Path) -> None:
+    root = partial(trial, test_app__py=TESTS)
+    before = snapshot(root)
+    assert tried(root, "--yes").exit_code == 0
+    record, _plan, _report = run_documents(root)
+    pack = next((trial / "cache" / "obelize" / "packs").rglob("pack.yaml"))
+    again = fixer.run(
+        fixer.Request(
+            root=root,
+            packs=(loader.load(str(pack)),),
+            named=True,
+            config=Config(),
+            source=load_config(root).source,
+            cli_commands=(),
+            mode=Mode(),
+            config_dir=trial / "config",
+            environ={},
+            argv=("fix",),
+            by_file=True,
+        )
+    )
+    assert again.record.file_edits == ()
+    assert again.apart == ()
+    undone = runner.invoke(app, ["undo", "--run", record["run_id"], "--repo", str(root)])
+    assert undone.exit_code == 0, undone.output
+    after = snapshot(root)
+    assert {name: after[name] for name in before if not name.startswith(".obelize")} == {
+        name: body for name, body in before.items() if not name.startswith(".obelize")
+    }

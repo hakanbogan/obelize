@@ -60,8 +60,9 @@ has made a breaking release.
   library with no pack touches, and `pack synth` makes a pack from two releases of it.
 - `outdated` and `upgrade`, which try a move in a copy of the repository with two environments and
   your own tests, write it only if no test that passed now fails, and can commit it to a branch you
-  ask for, with your own `claude` program moving the places a pack can only flag. Their dry run
-  without a pack is measured and wrote no file for any of 80 public repositories
+  ask for, with your own `claude` program moving the places a pack can only flag. A library that keeps
+  its import name is written a file at a time, and the files left are named. Their dry run
+  without a pack was measured, as of 0.9.0, and wrote no file for any of 80 public repositories
   ([UPGRADING.md](UPGRADING.md#how-far-it-gets-without-a-pack)); the trial is not measured.
 - Tools for writing a pack, `pack new` and `pack test`, and kinds a pack can use to rename a member
   of a class, rewrite a call from the shape of its arguments, or hand a change to a plugin you

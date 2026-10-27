@@ -107,8 +107,20 @@ uncommitted changes to tracked files is refused before anything starts.
 
 Exit `3` means tests broke, with their names; exit `6` means the trial could not judge: no tests,
 no result obelize can read, no test that passed before, tests that did not finish within
-`--timeout`, a move that changed no file, a place left for a person, or environments that could
-not be made. Without
+`--timeout`, a move that changed no file, or environments that could not be made.
+
+A library that keeps its import name is one distribution for both APIs, and a place the pack can only
+flag used to hold every file back. Now the move is written a file at a time: a file that holds such a
+place is left as it was, the others are written, and the dependency line follows the files written.
+The trial runs your tests on that partial move, so a place left that your tests reach breaks them
+and nothing is written. Where they do not reach it the move passes, and it says so in three
+places: the summary and `REPORT.md` name the files left and the places in them, the commit message of
+`--branch` does, and `trial.json` lists them (`held`). A pass means the tests that passed before still
+pass, not that the rest has moved: the files left run on the new release until you move the places in
+them. A repository where no file can be written, or where the dependency line itself cannot be written
+(a requirement with extras the new release does not list, a notebook that calls the old API), is
+still left whole, and its trial is `inconclusive`. `fix` keeps the whole-repository rule, and so does
+`upgrade --agent`, which asks the agent about the places first. Without
 tests, write the migration with `obelize fix --apply` and check it another way.
 
 ## 4. Keep it on a branch
@@ -178,11 +190,11 @@ one line, reads and sends nothing, and the pack is made from the two releases al
 
 ## What it will not do
 
-- It writes a move to the whole repository or to none of it. A library that keeps its import name
-  across the move is one distribution for both APIs, so one place that obelize cannot migrate holds
-  every other file. A real repository often has such a place, and the trial then ends `6` until a
-  person or an agent has moved it. [With a coding agent](WITH_A_CODING_AGENT.md) hands those places
-  over and keeps the check.
+- It leaves a file as it was if a place in it is one obelize cannot migrate, and says which. A library
+  that keeps its import name across the move is one distribution for both APIs, so the files left
+  meet the new release once the dependency line moves with the files written, and the trial judges
+  that only as far as your tests reach. Where no file can be written the trial ends `6`.
+  [With a coding agent](WITH_A_CODING_AGENT.md) hands those places over and keeps the check.
 - It finds a method through a class of yours (`User(BaseModel)` and `user.dict()`) only where the
   file shows what `user` is: a call of the class, `self`, an annotated parameter. A value a function
   returned, or a field of another object, is not found.
@@ -206,9 +218,10 @@ reached any other way, through an object's attribute for one, is not among them.
 
 ## When places are left for a person
 
-A real move often leaves places that a pack made from two releases can only flag, and a library that
-keeps its import name has one release for both APIs, so the rules write nothing until every one has
-moved. With your own coding agent installed, obelize can put those places to it:
+A real move often leaves places that a pack made from two releases can only flag. Without an agent
+the files that hold one are left and the rest is written; with one, a library that keeps its import
+name is written whole, so the rules write nothing until every place has moved, and the agent is asked
+first. With your own coding agent installed, obelize can put those places to it:
 
 ```sh
 uvx obelize upgrade pydantic --apply --yes --branch --agent claude_code
@@ -286,11 +299,13 @@ from, or a pin under it) and 18 on a declared Python that the new release does n
 [described above](#2-plan-one-move), so not all of those 18 would stop now (a pin that rules the
 release out still does); I have not measured it again. Each of the 33 that are held has a place the
 pack cannot write: 32 have one it only flags, and one has a file the scan cannot parse. A
-repository's plan is written only when nothing in it is left, so one such place holds the rest of
-that repository.
+repository's plan was written only when nothing in it was left, so one such place held the rest of
+that repository. Since that measurement `upgrade` writes a file at a time
+([above](#3-try-it-before-it-is-written)), so a repository like that is `partial` where it was
+`held`; the numbers have not been taken again.
 
 What did work is the pack and the report: a pack from two releases in 8 to 79 s for four large
 libraries, and every place found is reported with its reason. No `--apply` was run on these
 repositories, so nothing was written wrongly, and none of this says whether a trial would pass their
-tests. [Known issues](KNOWN_ISSUES.md#upgrading-a-dependency) names what still stands between a pack
-made from two releases and a written move, and I have not decided it.
+tests. [Known issues](KNOWN_ISSUES.md#upgrading-a-dependency) says what a move written that way still
+leaves for you.

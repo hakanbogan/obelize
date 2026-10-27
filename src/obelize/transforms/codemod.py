@@ -2,7 +2,9 @@
 
 Order is a dependency: every `Rule` over every file, then the manifest survey, then every
 `ManifestRule`; within a file, the pack's declaration order (the import rule reserves the names
-the client and model rules spell against). A file with anything withheld comes back unchanged.
+the client and model rules spell against). A file with anything withheld comes back unchanged, and
+where one distribution holds both APIs so does every other file, unless the caller asks for a file
+at a time (`by_file`): then only a file with a place of its own left stays as it was.
 """
 
 from __future__ import annotations
@@ -86,6 +88,8 @@ class Run:
     limitations: tuple[parse.Limitation, ...] = ()
     # Each run of an external tool, in scan order, whether or not its output was kept.
     fixes: tuple[external_fixer.Fix, ...] = ()
+    # Files left as they were for a place of their own while the others are written (`by_file`).
+    apart: tuple[str, ...] = ()
 
     @property
     def outcomes(self) -> tuple[Outcome, ...]:
@@ -124,11 +128,14 @@ def run(
     pack: PackDocument,
     spec: ScanSpec,
     elsewhere: Collection[str] = (),
+    by_file: bool = False,
 ) -> Run:
     """Run `pack` over `sources` (scan path to bytes, manifests included) and re-grade.
 
     A scanned file missing from `sources` is left alone; one with an `eligible` row raises. Files
-    in `elsewhere` were migrated by someone else, and the pins follow them.
+    in `elsewhere` were migrated by someone else, and the pins follow them. With `by_file`, one
+    distribution for both APIs no longer holds the repository for one place: a file with a place
+    left stays as it was, the others are written, and the pins follow those.
     """
     results = {result.path: result for result in scan.results}
     _check(results, sources, scan.followed)
@@ -174,10 +181,18 @@ def run(
     if spec.client_symbol is not None and any(_relies(plan, spec) for plan in plans):
         files, plans = _elsewhere(files, plans, pack, spec)
     graded = _manifest_plan(scan, _edited(files, sources), plans, spec, elsewhere)
+    apart: tuple[str, ...] = ()
     if manifests.coupled(spec) and _unfinished(plans, graded, elsewhere):
-        waiting = _withholding(plans, graded, elsewhere)
-        files, plans = _together(files, plans)
-        graded = _pins_held(graded, waiting)
+        held = _apart(plans, elsewhere)
+        followed = (
+            _followed(scan, files, sources, plans, spec, elsewhere, held) if by_file else None
+        )
+        if followed is None:
+            waiting = _withholding(plans, graded, elsewhere)
+            files, plans = _together(files, plans)
+            graded = _pins_held(graded, waiting)
+        else:
+            graded, apart = followed, held
     read = _edited(files, sources)
     written = [_manifest(name, read[name], graded, pack) for name in _named(graded)]
     kept, declared = _joined(files, written)
@@ -188,6 +203,7 @@ def run(
         manifest_plan=_refused(graded, written),
         limitations=tuple(limitations),
         fixes=tuple(fixes),
+        apart=apart,
     )
 
 
@@ -264,6 +280,13 @@ def chained(passes: Sequence[tuple[str, Run]]) -> Run:
         plans=tuple(plan for _, run in passes for plan in run.plans),
         manifest_plan=manifests.merged([run.manifest_plan for _, run in passes]),
         limitations=tuple(row for _, run in passes for row in run.limitations),
+        apart=tuple(
+            sorted(
+                {path for _, run in passes for path in run.apart}
+                - {row.path for row in outcomes.values() if row.written},
+                key=os.fsencode,
+            )
+        ),
     )
 
 
@@ -551,6 +574,41 @@ def _unfinished(
     )
 
 
+def _apart(plans: Sequence[ImpactPlan], elsewhere: Collection[str]) -> tuple[str, ...]:
+    """The files that hold a withheld row of their own, which stay as they were whatever else is
+    written. A file someone else migrated holds none."""
+    return tuple(
+        sorted(
+            (
+                str(plan.path)
+                for plan in plans
+                if plan.path not in elsewhere
+                and any(row.scan_status in WITHHELD for row in plan.findings)
+            ),
+            key=os.fsencode,
+        )
+    )
+
+
+def _followed(
+    scan: Scan,
+    files: Sequence[Outcome],
+    sources: Mapping[str, bytes],
+    plans: Sequence[ImpactPlan],
+    spec: ScanSpec,
+    elsewhere: Collection[str],
+    held: Sequence[str],
+) -> ManifestPlan | None:
+    """The pin check where the files `held` hold no pin, or `None` where the repository has to move
+    whole or not at all: no file is written, a pin line cannot be written (a manifest row is
+    withheld), or sits in a file that stays as it was."""
+    if not any(outcome.written for outcome in files):
+        return None
+    graded = _manifest_plan(scan, _edited(files, sources), plans, spec, elsewhere, held)
+    stuck = any(row.scan_status in WITHHELD for row in graded.findings)
+    return None if stuck or set(_named(graded)) & set(held) else graded
+
+
 def _withholding(
     plans: Sequence[ImpactPlan], graded: ManifestPlan, elsewhere: Collection[str]
 ) -> tuple[str, ...]:
@@ -626,6 +684,7 @@ def _manifest_plan(
     plans: Sequence[ImpactPlan],
     spec: ScanSpec,
     elsewhere: Collection[str],
+    left: Sequence[str] = (),
 ) -> ManifestPlan:
     """The manifest pin check over what the rules leave, re-reading declarations from the
     bytes (one reader)."""
@@ -637,6 +696,7 @@ def _manifest_plan(
         paired=manifests.coupled(spec),
         modern=scan.modern,
         elsewhere=elsewhere,
+        left=left,
     )
     followed = dict(scan.followed)
     declared = [

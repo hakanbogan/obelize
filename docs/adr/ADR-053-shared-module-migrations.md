@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted; amended by [ADR-055](ADR-055-rename-setting.md), [ADR-057](ADR-057-rename-symbol.md) and
-[ADR-077](ADR-077-extras-on-a-pin.md).
+Accepted; amended by [ADR-055](ADR-055-rename-setting.md), [ADR-057](ADR-057-rename-symbol.md),
+[ADR-077](ADR-077-extras-on-a-pin.md) and [ADR-079](ADR-079-a-file-at-a-time.md) (D6, for `upgrade`:
+the files and the pin are no longer one unit where a trial follows).
 
 ## Decision
 

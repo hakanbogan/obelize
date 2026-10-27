@@ -215,6 +215,7 @@ def fixed(
     imports: Sequence[tuple[str, Sequence[str]]] = (),
     runs: Sequence[tuple[str, str, int]] = (),
     narrowed: Sequence[str] = (),
+    apart: Sequence[str] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
@@ -225,7 +226,8 @@ def fixed(
     is whether a pack of the run moves a dependency line, which the closing step says to install;
     `stated` are the releases `--from` gave, `narrowed` those of them a manifest declares;
     `imports` are the modules a pack's patterns may import; `runs` are the tools a pack's fixers
-    ran, each as a pack id, a fixer and a number of files.
+    ran, each as a pack id, a fixer and a number of files; `apart` are the files left as they were
+    for a place of their own while the others are written, which makes the move a part of one.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
@@ -243,6 +245,7 @@ def fixed(
     for row in plan.files:
         mark = "" if not applying else ("  written" if row.path in written else "  not written")
         lines.append(f"  {row.path}  ({row.hunks} hunk(s)){mark}")
+    lines.extend(_partial(len(written) if applying else len(plan.files), apart, applying))
     if not applying and patch:
         lines.extend(["", *diff(patch, evidence, environ)])
     lines.extend(_check(plan, written if applying else {row.path for row in plan.files}, applying))
@@ -609,6 +612,7 @@ def document(
     packs: Sequence[PackDocument] = (),
     fixture_dirs: Sequence[str] = (),
     locks: Sequence[str] = (),
+    apart: Sequence[str] = (),
 ) -> str:
     """`REPORT.md`: everything the run learned, in the order it learned it.
 
@@ -617,7 +621,8 @@ def document(
     `proposals` (from `model/`) are inlined because model hunks most need a human reader. `guides`
     and `packs` are the packs' own words: what a flagged change says, what a pack does not handle.
     `fixture_dirs` are the fixtures of the loaded packs inside the repository, which no scan enters;
-    `locks` are the lock files beside a manifest pin that was or would be written, or above it.
+    `locks` are the lock files beside a manifest pin that was or would be written, or above it;
+    `apart` are the files left as they were for a place of their own while the others are written.
     """
     _agree(record, run, plan)
     lines = _preamble(
@@ -641,6 +646,7 @@ def document(
             ]
         )
     if run is not None and plan is not None:
+        lines.extend(_held_section(record, plan, run, apart))
         lines.extend(_changes_section(record, plan))
         lines.extend(_edits_section(run))
         lines.extend(_refused_section(record))
@@ -717,6 +723,55 @@ def _mode(record: RunRecord, code: Callable[[str], str], *, planned: bool) -> st
         change = f"; {code('patch.diff')} holds the change it would make" if planned else ""
         return f"{code('plan')}: a dry run. Nothing in the repository was written{change}."
     return f"{code('apply')}: {len(record.file_edits)} file(s) written."
+
+
+def _partial(done: int, apart: Sequence[str], applying: bool) -> list[str]:
+    """The line that keeps a move of some files from reading as the whole of it."""
+    if not apart:
+        return []
+    named = ", ".join(apart[:ROOT_ROWS]) + (
+        f" and {len(apart) - ROOT_ROWS} more" if len(apart) > ROOT_ROWS else ""
+    )
+    return [
+        "",
+        f"Part of the move: {done} file(s) {'written' if applying else 'planned'}, "
+        f"{len(apart)} left as they were because a place in each is left for you ({named}). The "
+        f"dependency line follows the files {'written' if applying else 'planned'}, so the files "
+        f"left meet the new release until those places are moved.",
+    ]
+
+
+def _held_section(
+    record: RunRecord, plan: PlanDocument, run: Run, apart: Sequence[str]
+) -> list[str]:
+    """What the files left as they were hold, so a move of some files is not read as all of it."""
+    if not apart:
+        return []
+    atomic = {ATOMICITY_BAIL, REPO_ATOMICITY_BAIL}
+    places: dict[str, Counter[str]] = {path: Counter() for path in apart}
+    for row in run.findings:
+        if row.scan_status in WITHHELD and row.bail not in atomic and row.path in places:
+            places[str(row.path)][str(row.bail)] += 1
+    verb = "written" if record.mode == "apply" else "planned"
+    done = (
+        len({row.path for row in record.file_edits}) if record.mode == "apply" else len(plan.files)
+    )
+    lines = [
+        "## Held back",
+        "",
+        f"This run moves part of the migration: {done} file(s) {verb} and {len(apart)} left as "
+        f"they were, because a place in each is left for you. The dependency line follows the "
+        f"files {verb}, so the files left meet the new release until those places are moved. "
+        f"Tests that passed before passing again show that those tests still pass, not that the "
+        f"rest has moved.",
+        "",
+        "| File | Places left | Reasons |",
+        "|---|---:|---|",
+    ]
+    for path in apart:
+        reasons = ", ".join(f"`{code}`" for code in sorted(places[path])) or "--"
+        lines.append(f"| `{path}` | {sum(places[path].values())} | {reasons} |")
+    return [*lines, ""]
 
 
 def _changes_section(record: RunRecord, plan: PlanDocument) -> list[str]:

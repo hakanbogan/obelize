@@ -2,7 +2,9 @@
 
 What a pack made from two releases would write, and what it only flags, over a frame of
 repositories that still use the old API (bench/upgrade_collect.py), as the
-docs/BENCHMARK_RESULTS.md block. The tiers and the reasons are `dryrun_score`'s.
+docs/BENCHMARK_RESULTS.md block. The tiers and the reasons are `dryrun_score`'s, which read what a
+record holds: a file written and a row withheld. A record says what `upgrade` wrote by (`unit`): a
+`repository` whole, which every record made before `upgrade` wrote a file at a time is, or a `file`.
 """
 
 from __future__ import annotations
@@ -102,11 +104,13 @@ def _section(record: dict[str, Any], frame: dict[str, Any]) -> list[str]:
         for name, count, repositories in usages(scored)
     ]
     kept = sum(row["written"] for row in scored if row["files"])
-    lines += [
-        "",
-        f"{kept} of the {total} usages are in a file the dry run would write: it writes a "
-        f"repository's plan only when nothing in it is left (`complete` above).",
-    ]
+    rule = (
+        "it writes a file unless a place in it is left, and the pin follows the files written "
+        "(`partial` and `complete` above)."
+        if record.get("unit", "repository") == "file"
+        else "it writes a repository's plan only when nothing in it is left (`complete` above)."
+    )
+    lines += ["", f"{kept} of the {total} usages are in a file the dry run would write: {rule}"]
     blocked = Counter((row["blocked"], bool(row["manifests"])) for row in scored if row["blocked"])
     if blocked:
         lines += [

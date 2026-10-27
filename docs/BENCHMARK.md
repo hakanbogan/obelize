@@ -396,7 +396,11 @@ of its own. A record keeps what the scan read as a usage (a manifest row and a m
 are none), how many of those a rule rewrites by kind and how many the pack only flags, the files
 the plan would write, and every withheld row with its symbol and bail. `bench/upgrade_score.py`
 tables the outcomes with the tiers of the [fix dry run](#fix-dry-run), plus what became of each
-usage. `python -m bench.upgrade_collect run -m SLUG --only OWNER/REPO --out DIR` checks part of a
+usage. A record says what the plan is written by (`unit`): the records made with 0.9.0 name none and
+are of a plan written whole or not at all, so a repository with a place left is `held`; a record made
+after `upgrade` wrote a file at a time says `file`, and the same repository is `partial`. The scorer
+words what a record writes by it, and each record's page text is the one it was measured under.
+`python -m bench.upgrade_collect run -m SLUG --only OWNER/REPO --out DIR` checks part of a
 frame and needs `--out`, since a committed record of part of a frame would replace the whole.
 
 The frames are drawn like Gate 1's, in the same four size bands, with a term that only code written

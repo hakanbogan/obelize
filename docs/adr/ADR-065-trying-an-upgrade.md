@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted; amended by ADR-079 (Consequences: the last sentence no longer holds).
 
 ## Decision
 
@@ -55,4 +55,5 @@ end. What reaches the network is uv's own business with the index uv is configur
 The old promise that obelize never installs anything is now "obelize installs only in a trial, with
 a yes" (TM-6). A same-distribution move is still written only when nothing is left for a person in
 the whole repository, so a trial of a repository with flagged places ends `inconclusive` until those
-are resolved.
+are resolved. ADR-079 replaces this: `upgrade` writes a file at a time, the trial judges what is
+written, and it is `inconclusive` only where no file can be written.

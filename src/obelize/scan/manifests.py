@@ -307,10 +307,13 @@ def survey(
     paired: bool = False,
     modern: bool = False,
     elsewhere: Iterable[str] = (),
+    left: Iterable[str] = (),
 ) -> Migration:
     """The pin-edit conditions from the per-file plans, plus what no plan carries. `elsewhere` are
     files someone else has migrated, which move the pin as a file the rules wrote does and block it
-    by nothing left in them: the places that remain there were looked at.
+    by nothing left in them: the places that remain there were looked at. `left` are files that
+    stay as they were for a place of their own while the rest is written, and the pin does not wait
+    for them.
 
     A file migrated if any row is eligible; it blocks if a non-eligible row still loads the
     distribution (`IMPORTING` or a mock target). `unanalysed` files block like an import. Where
@@ -318,16 +321,21 @@ def survey(
     whether any file uses a name only the new API defines (`uses_new_names`).
     """
     done = set(elsewhere)
+    kept = set(left)
     migrated: set[str] = set(done)
     blocking: set[str] = set()
     for plan in plans:
         for row in plan.findings:
             if row.scan_status == "eligible":
                 migrated.add(plan.path)
-            elif plan.path not in done and (
-                row.kind in IMPORTING
-                or row.confidence_reason == _LIVE_MENTION
-                or (paired and row.scan_status != "not_a_usage")
+            elif (
+                plan.path not in done
+                and plan.path not in kept
+                and (
+                    row.kind in IMPORTING
+                    or row.confidence_reason == _LIVE_MENTION
+                    or (paired and row.scan_status != "not_a_usage")
+                )
             ):
                 blocking.add(plan.path)
     blocking.update(unanalysed)

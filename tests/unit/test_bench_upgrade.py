@@ -106,6 +106,44 @@ def test_the_section_reports_each_denominator() -> None:
     assert "| `lib.f` | `flag_only_surface` | 1 | 1 |" in text
 
 
+REPOSITORY_RULE = (
+    "it writes a repository's plan only when nothing in it is left (`complete` above)."
+)
+FILE_RULE = (
+    "it writes a file unless a place in it is left, and the pin follows the files written "
+    "(`partial` and `complete` above)."
+)
+
+
+def test_a_record_with_no_unit_is_of_the_release_that_wrote_a_repository_whole() -> None:
+    """The committed records of 0.9.0 name none, and their sentence stays true of them."""
+    text = upgrade_score.render([(synthetic(), FRAME)])
+    assert f"4 of the 11 usages are in a file the dry run would write: {REPOSITORY_RULE}" in text
+    assert FILE_RULE not in text
+
+
+def test_a_record_made_with_the_file_at_a_time_rule_says_what_that_rule_writes() -> None:
+    made = {**synthetic(), "unit": "file"}
+    made["upgrade"][2] = record(
+        5, 2, rules={"rename_member": 1}, flagged=3, written=2, withheld=[row("flag_only_surface")]
+    )
+    text = upgrade_score.render([(made, FRAME)])
+    assert f"6 of the 11 usages are in a file the dry run would write: {FILE_RULE}" in text
+    assert REPOSITORY_RULE not in text
+    assert "| `partial`: a file written, a row withheld | 1 | 25.0% | 33.3% |" in text
+    assert "| `held`: usages found, no file written | 0 | 0.0% | 0.0% |" in text
+
+
+def test_the_collector_writes_the_unit_a_record_is_scored_by() -> None:
+    from bench import upgrade_collect
+
+    source = Path(upgrade_collect.__file__).read_text(encoding="utf-8")
+    assert '"unit": "file"' in source
+    committed = [json.loads(path.read_text()) for path in upgrade_score.RECORDS.glob("*.json")]
+    assert committed
+    assert all("unit" not in one for one in committed)
+
+
 def test_a_frame_with_nothing_planned_prints_dashes_not_a_division_by_zero() -> None:
     empty = synthetic()
     empty["upgrade"] = [{"full_name": "o/e", "error": "RuntimeError: exit 6: no index"}]

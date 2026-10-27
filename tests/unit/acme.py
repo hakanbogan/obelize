@@ -440,10 +440,12 @@ def repository(
     spec: ScanSpec = SPEC,
     pack: PackDocument = PACK,
     sources: Mapping[str, bytes] | None = None,
+    by_file: bool = False,
 ) -> codemod.Run:
     """Write `files` under `root`, scan the tree the real way, and run the whole pack over it.
 
     `sources` overrides what the driver is handed, to test a caller that hands over the wrong set.
+    `by_file` is `upgrade`'s rule: a file with a place left stays, the others are written.
     """
     for name, text in files.items():
         path = root / name
@@ -452,7 +454,7 @@ def repository(
     scanned = runner.scan(root, Config(), spec, jobs=1)
     if sources is None:
         sources = {name: (root / name).read_bytes() for name in sorted(files)}
-    return codemod.run(scanned, sources, pack, spec)
+    return codemod.run(scanned, sources, pack, spec, by_file=by_file)
 
 
 def transform(

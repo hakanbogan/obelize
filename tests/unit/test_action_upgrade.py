@@ -312,6 +312,44 @@ def test_what_the_commit_says_was_not_written_reaches_the_text_only_as_places(wo
     assert "Not written" not in world.check("attrs").body
 
 
+def test_a_move_of_some_files_says_in_the_text_it_makes_which_files_were_left(world: World) -> None:
+    world.made(document=trial(held=["pkg/b.py", "a.py"]))
+    result = world.check()
+    line = (
+        "Left as they were, for you to change: `a.py`, `pkg/b.py`. A place in each is left for "
+        "you, so this move is partial: the tests that passed before still pass, which does not "
+        "show that the rest has moved."
+    )
+    assert line in result.body
+    assert line in pushed(world, result)
+    world.made(document=trial(distribution="attrs"), name="attrs")
+    assert "Left as they were" not in world.check("attrs").body
+
+
+def test_more_files_left_than_the_listing_shows_are_counted(world: World) -> None:
+    left = [f"left{index:03}.py" for index in range(upgrade.LISTED + 3)]
+    world.made(document=trial(held=left))
+    assert f"`left{upgrade.LISTED - 1:03}.py`, and 3 more. A place" in world.check().body
+
+
+@pytest.mark.parametrize(
+    ("held", "says"),
+    [
+        ("a.py", "held is not a list of strings"),
+        (["a.py", 3], "held is not a list of strings"),
+        (["x`y.py"], "not a path this action publishes"),
+        (["../a.py"], "not a path this action publishes"),
+        (["notes.md"], "obelize writes no file of this kind"),
+    ],
+)
+def test_a_file_the_trial_says_was_left_is_a_path_the_script_would_publish(
+    world: World, held: object, says: str
+) -> None:
+    world.made(document=trial(held=held))
+    with pytest.raises(upgrade.RefusedError, match=says):
+        world.check()
+
+
 def test_an_executable_a_move_edits_keeps_the_mode_it_had(world: World) -> None:
     edit: Changes = {"tool.py": ("100755", b"#!/usr/bin/env python\ny = 2\n")}
     world.made(edit, document=trial(written=["tool.py"]))
@@ -1279,6 +1317,17 @@ def test_the_step_may_run_with_no_output_or_summary_file(job: Job) -> None:
     del env["GITHUB_OUTPUT"], env["GITHUB_STEP_SUMMARY"]
     assert upgrade.run(env) == 0
     assert (job.out / "pydantic" / "upgrade.bundle").is_file()
+
+
+def test_a_report_names_the_files_the_trial_left_as_they_were(tmp_path: Path) -> None:
+    document = trial(held=["a.py", "b.py"])
+    (tmp_path / "trial.json").write_text(json.dumps(document), encoding="utf-8")
+    assert "Left as they were, so the move is partial: `a.py`, `b.py`" in upgrade.report(
+        tmp_path, "msg\n"
+    )
+    document["held"] = []
+    (tmp_path / "trial.json").write_text(json.dumps(document), encoding="utf-8")
+    assert "Left as they were" not in upgrade.report(tmp_path, "msg\n")
 
 
 def test_a_report_says_so_when_the_trial_left_nothing_it_could_read(tmp_path: Path) -> None:

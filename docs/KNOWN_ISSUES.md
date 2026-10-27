@@ -194,11 +194,13 @@ comes from another library is not read for what it defines.
 
 ## Upgrading a dependency
 
-[`obelize upgrade`](UPGRADING.md) writes a move to the whole repository or to none of it when the
-library keeps its import name, since the old and the new API are then one distribution. A real
-repository often has a place that a pack made from two releases can only flag, so the trial ends
-`6` until a person or `--agent` has moved it. Writing the places that are safe to write while the rest
-wait would leave a repository half migrated, which neither release installs.
+[`obelize upgrade`](UPGRADING.md) writes a move a file at a time when the library keeps its import
+name, since the old and the new API are then one distribution: a file with a place the pack can only
+flag is left as it was, the others are written, and the dependency line follows the files written.
+That leaves a repository half migrated, which neither release installs whole, and what covers it is
+the trial: it runs your tests on the move as it would be written, and writes nothing if one that
+passed before fails. `fix` and a pack named with `--pack` still write such a repository whole or not
+at all, and so does `upgrade --agent`, which asks the agent about the places first.
 
 Over the 80 public repositories of [the dry run](BENCHMARK_RESULTS.md#upgrade-dry-run), a pack made
 from two releases writes no file: 36 stop before planning, 33 are held and 11 have no usage of a
@@ -206,7 +208,7 @@ name the pack lists. It finds 944 usages: 78 are places a rule would rewrite if 
 left in the repository (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held
 for a cause of its own, and none is in a file the dry run would write. No `--apply` was run on them,
 so what a trial would do is not measured. Two things stood between a pack made from two releases and
-a written move, and I have decided the first:
+a written move, and I have decided both:
 
 - A manifest that declares the library loosely (`pydantic`, `pydantic<2`, `pydantic = "^1.9.1"`)
   stopped the run with `legacy_version_unsupported` even when the `--from` you pass lies in the
@@ -218,11 +220,18 @@ a written move, and I have decided the first:
   that rules the release out or that cannot be read still stops the run and says so. I have not
   measured it again, so how many of the 18 now pass is not known, and a plan that passes can still
   be held by the next point.
-- The pack writes a repository only when nothing in it is left, since the old and the new API are
+- The pack wrote a repository only when nothing in it was left, since the old and the new API are
   one distribution when the library keeps its import name, and all four libraries of the frames do.
-  One place it can only flag holds every other place of that repository, as the paragraph above
+  One place it can only flag held every other place of that repository, as the paragraph above
   says: 32 of the 33 held repositories had such a place, and the 78 places a rule would rewrite were
-  in repositories where nothing was written.
+  in repositories where nothing was written. Now `upgrade` writes a file at a time
+  ([the decision](adr/ADR-079-a-file-at-a-time.md)), so those 78 places are in files it would write
+  unless a place of its own is left in the file. I have not measured it again, so how many files
+  that is is not known. What a person still has to do is move the places that are left: the files
+  that hold them run on the new release until then, the summary, `REPORT.md`, the commit message and
+  the pull request name them, and a passing trial does not say they are done. A pin the rule cannot
+  write (a requirement with extras the new release does not list, a notebook that calls the old API)
+  still holds the whole repository, and the trial is then `inconclusive`.
 
 A trial installs packages and runs their build scripts, and your tests, as you, on your machine,
 with your network and your files in reach. The question it asks first is the only gate: nothing
@@ -284,8 +293,9 @@ word can be against the manifest's. A lock file that is not a requirements file,
 another package outside the files obelize reads can hold another release too.
 
 `--agent` is asked about the places a pack flags only when the first run of the rules wrote nothing,
-as it does for a library that keeps its import name. Where the rules did write some files, it sees
-only the places where tests then broke. A flagged place in a test file is asked about like any
+as it does for a library that keeps its import name, which is why `upgrade --agent` keeps the
+whole-repository rule for it: the clean files would otherwise be written, and the agent would not be
+asked. Where the rules did write some files, it sees only the places where tests then broke. A flagged place in a test file is asked about like any
 other, so the commit message, which names every file the agent edited, is where to look first.
 
 `claude_code` is the one agent backend. `codex exec` documents `features.shell_tool` and permission

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted; amended by ADR-026 (D2, D8, D10, D12) and ADR-050.
+Accepted; amended by ADR-026 (D2, D8, D10, D12), ADR-050 and ADR-079 (D1, for `upgrade`: a
+file is left only for a place of its own).
 
 ## Decision
 
