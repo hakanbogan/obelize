@@ -249,6 +249,18 @@ suggestion. `REPORT.md` has the same under Guidance, and lists every limitation 
 ran under Limitations and their verification suggestions under Verification. `--json` prints none
 of it.
 
+**A pack that runs a maintained tool** (`numpy/numpy-1-to-2` runs your ruff) says so ahead of the
+diff, a dry run included, since the tool only reads: `numpy/numpy-1-to-2 runs ruff (NPY201) on 3
+files.` The tool is found on your `PATH` and never installed, runs in an empty directory with a few
+environment variables, and is trusted for nothing but the bytes it prints: see
+[the proof](PACK_SPEC.md#rule-kind-registry). If it is missing, of a release obelize has not
+measured, fails, runs past 60 seconds or prints more than 4 MiB, the rows say which
+(`external_tool_missing` and its kin, [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md#external-tools)), the
+files stay as they were and the run carries on with the rest of the pack. `run.json` records the
+release the tool printed, how it was started and the hashes of what it was given and printed
+(`packs[].fixers`, [RUN_FOLDER.md](RUN_FOLDER.md#packs)). The privacy of it is in
+[PRIVACY.md](PRIVACY.md#what-a-maintained-tool-sees).
+
 **With a model configured**, one stderr line first names the provider, the host
 of `base_url` (never the URL, which can carry a credential) and the model. The
 run adds `run.json`'s `model` object and a `model/` directory with one file per
@@ -559,11 +571,13 @@ Validate a pack against [PACK_SPEC.md](PACK_SPEC.md): every field, vocabulary
 and [cross-field rule](PACK_SPEC.md#validation-errors), each error naming the
 key's path. Declared fixture paths are checked as paths, not for existence,
 since a local pack need not ship fixtures (the last output line says so).
-`source.url` is never requested.
+`source.url` is never requested. For a pack with an `external_fixer` change it prints what each
+fixer runs, the releases of the tool obelize accepts, and the command that installs one; it does
+not look for the tool.
 
 | Argument | Description |
 |---|---|
-| `<id\|path>` | A bundled pack id (`gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1`, `py-pdf/pypdf2-to-pypdf`, `python/datetime-utcnow`, `python/removed-stdlib-modules`, `setuptools/pkg-resources-to-importlib`) or a pack file path (`./pack.yaml`). An id wins over a path spelled the same; anything not shaped like an id is a path. |
+| `<id\|path>` | A bundled pack id (`gemini/google-generativeai-to-google-genai`, `numpy/numpy-1-to-2`, `openai/openai-0-to-1`, `py-pdf/pypdf2-to-pypdf`, `python/datetime-utcnow`, `python/removed-stdlib-modules`, `setuptools/pkg-resources-to-importlib`) or a pack file path (`./pack.yaml`). An id wins over a path spelled the same; anything not shaped like an id is a path. |
 
 Exit codes: `0` valid; `7` invalid YAML or schema; `2` nothing to read there;
 `1` a **bundled** pack is invalid (an obelize defect; the message links the
@@ -583,6 +597,9 @@ the test suite:
   (a shared module's negatives are scanned instead and must find nothing to migrate);
 - an answer key exists for exactly the fixtures a run migrates whole, and each is what the rules
   write into its fixture, the dependency fixture included;
+- the tools the pack's fixers run are installed at a release obelize accepts (the one check about
+  your machine and not the pack: it says what to install, and a bundled pack that fails only this
+  exits `7`, not `1`);
 - applying the pack twice writes what applying it once did, and two runs write the same bytes;
 - `SOURCES.md` has a section for every change, none for a change that does not exist, and names the
   source url and, if the pack records one, the hash of the page.

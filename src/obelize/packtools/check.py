@@ -25,10 +25,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class Check:
-    """One thing a pack must satisfy, and what is wrong when it does not."""
+    """One thing a pack must satisfy, and what is wrong when it does not. A `setup` check is about
+    the machine the pack is tested on and not about the pack."""
 
     name: str
     problems: tuple[str, ...] = ()
+    setup: bool = False
 
     @property
     def ok(self) -> bool:
@@ -43,13 +45,16 @@ def run(loaded: loader.LoadedPack) -> tuple[Check, ...]:
         ("every change has a positive and a negative fixture", _both_kinds),
         ("every Python fixture parses and compiles", _compiles),
         ("positive fixtures reach the scan, and negative ones do not", _prefilter),
+        ("the tools the pack's fixers run are installed at a release it accepts", _tools),
         ("an answer key exists for exactly the fixtures a run migrates whole", _keys_exist),
         ("every answer key is what the rules write into its fixture", _keys_agree),
         ("applying the pack twice writes what applying it once did", _idempotent),
         ("two runs over one input write the same bytes", _deterministic),
         ("SOURCES.md has a section for every change and cites the page", _sources),
     )
-    return tuple(Check(name, tuple(step(loaded, folder))) for name, step in steps)
+    return tuple(
+        Check(name, tuple(step(loaded, folder)), setup=step is _tools) for name, step in steps
+    )
 
 
 def _fixtures(folder: Path) -> list[Path]:
@@ -124,6 +129,13 @@ def _shared_negative(loaded: loader.LoadedPack, path: Path) -> list[str]:
         for row in found
         if row.scan_status != "not_a_usage"
     ]
+
+
+def _tools(loaded: loader.LoadedPack, folder: Path) -> list[str]:
+    from obelize.transforms import fixers
+
+    found = (fixers.problem(change.params.fixer) for change in loaded.pack.fixers())
+    return [problem for problem in found if problem is not None]
 
 
 def migrate(loaded: loader.LoadedPack, work: Path) -> codemod.Run:

@@ -33,6 +33,8 @@ from obelize.models import (
     PlanDocument,
     RunConfig,
     RunCounts,
+    RunFixer,
+    RunFixerFile,
     RunJournal,
     RunLimitation,
     RunPack,
@@ -47,7 +49,7 @@ from obelize.models import (
     VerifyRecord,
     Withheld,
 )
-from obelize.transforms import plugins
+from obelize.transforms import fixers, plugins
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -56,6 +58,7 @@ if TYPE_CHECKING:
     from obelize.gitutil import State
     from obelize.models import (
         Config,
+        FixerId,
         RefusalCode,
         RunMode,
         RunModel,
@@ -68,6 +71,7 @@ if TYPE_CHECKING:
     from obelize.scan.runner import Scan
     from obelize.scan.runtime import Blocked
     from obelize.transforms.codemod import Run
+    from obelize.transforms.kinds.external_fixer import Fix
 
 # Excluded from every scan before any user config, or a scan would report the last one's report.
 HOME = ".obelize"
@@ -796,12 +800,20 @@ class Used:
     assumed: str | None = None
     listed: ScanSpec | None = None
     stated: str | None = None
+    # Each run of an external tool the pack's `fix` made.
+    fixes: tuple[Fix, ...] = ()
 
     @classmethod
-    def of(cls, loaded: LoadedPack, scan: Scan) -> Used:
+    def of(cls, loaded: LoadedPack, scan: Scan, fixes: Sequence[Fix] = ()) -> Used:
         released = scan.assumed[0][1] if scan.assumed else None
         given = scan.stated[0][1] if scan.stated else None
-        return cls(loaded, scan.blocked[0] if scan.blocked else None, released, stated=given)
+        return cls(
+            loaded,
+            scan.blocked[0] if scan.blocked else None,
+            released,
+            stated=given,
+            fixes=tuple(fixes),
+        )
 
     @classmethod
     def inventory(cls, spec: ScanSpec) -> Used:
@@ -834,7 +846,33 @@ class Used:
                 )
                 for one in plugins.used(self.loaded.pack)
             ),
+            fixers=_fixers(self.fixes),
         )
+
+
+def _fixers(fixes: Sequence[Fix]) -> tuple[RunFixer, ...]:
+    """The tools that ran, a row for each fixer, over its files in scan order."""
+    ran: dict[FixerId, list[Fix]] = {}
+    for one in fixes:
+        ran.setdefault(one.fixer, []).append(one)
+    rows = []
+    for name, made in sorted(ran.items()):
+        spec = fixers.FIXERS[name]
+        files = tuple(
+            RunFixerFile(
+                path=one.path,
+                before_sha256=one.before_sha256,
+                after_sha256=one.after_sha256,
+                lines=one.lines,
+            )
+            for one in made
+        )
+        rows.append(
+            RunFixer(
+                fixer=name, tool=spec.tool, version=made[0].version, argv=spec.argv, files=files
+            )
+        )
+    return tuple(rows)
 
 
 def refs(packs: Sequence[LoadedPack]) -> tuple[PackRef, ...]:

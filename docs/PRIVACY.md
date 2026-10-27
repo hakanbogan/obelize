@@ -27,6 +27,17 @@ with exactly what it sends.
 commands print and, for `obelize_residue`, the code around each place left, redacted as a model's
 context is. Where that text goes next is the agent's, which you chose.
 
+## What a maintained tool sees
+
+A pack with an `external_fixer` change makes `fix` start a program of yours (ruff, for
+`numpy/numpy-1-to-2`) and give it one file at a time on its standard input. The program is found on
+your `PATH` and run on your machine, in an empty temporary directory, with `PATH`, `HOME`,
+`USERPROFILE`, `SYSTEMROOT`, `TMPDIR`, `TEMP`, `TMP`, `LANG` and `LC_ALL` and no other variable, so
+a token in your environment is not passed to it. obelize sends nothing anywhere for it: nothing is
+installed or downloaded, and what a tool does with its own network is the tool's. The run folder
+records the tool's name and release, how it was started, and the sha256 of what it was given and
+what it printed for each file, and never the file.
+
 ## What is written to `.obelize/`
 
 Every run writes `.obelize/runs/<run-id>/` in the migrated repository, on your disk; nothing

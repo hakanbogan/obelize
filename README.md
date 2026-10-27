@@ -2,9 +2,10 @@
 
 Verified codemods for breaking Python dependency upgrades. obelize rewrites the code it can prove
 safe to change, tells you why it left the rest, and runs your tests before and after. It ships
-migrations from `google-generativeai` to `google-genai`, `openai` 0.x to 1.x and `PyPDF2` to `pypdf`,
-three for the Python itself (`datetime.utcnow()`, `pkg_resources` of `setuptools`, and the modules
-Python 3.12 and 3.13 removed), and for another library it makes one from two of its releases.
+migrations from `google-generativeai` to `google-genai`, `numpy` 1.x to 2.x, `openai` 0.x to 1.x and
+`PyPDF2` to `pypdf`, three for the Python itself (`datetime.utcnow()`, `pkg_resources` of
+`setuptools`, and the modules Python 3.12 and 3.13 removed), and for another library it makes one
+from two of its releases.
 
 [![PyPI](https://img.shields.io/pypi/v/obelize)](https://pypi.org/project/obelize/)
 [![Python](https://img.shields.io/pypi/pyversions/obelize)](https://pypi.org/project/obelize/)
@@ -181,6 +182,7 @@ folder, may change in any 0.x release, and [CHANGELOG.md](CHANGELOG.md#stability
 | Pack | Rewrites | Leaves to you |
 |---|---|---|
 | `gemini/google-generativeai-to-google-genai` | The import, `configure`, the model object and its generation, chat and streaming calls, safety settings, file uploads and the dependency line. | Every tool declaration, since automatic function calling is on by default in `google-genai`. |
+| `numpy/numpy-1-to-2` | Twenty-three names NumPy 2 removed, as the name that also exists on NumPy 1 (`np.float_` as `np.float64`, `np.NaN` as `np.nan`, `np.cumproduct` as `np.cumprod`), by your own [ruff](https://docs.astral.sh/ruff/rules/numpy2-deprecation/) (`NPY201`), kept only if it changed no other line, and the dependency line. | Every other name NumPy 2 removed or moved, and what it changes besides names (promotion, the C API). |
 | `openai/openai-0-to-1` | Seven calls (`ChatCompletion.create` and six more) to the module client, the reads of their results, `api_base`, three exception classes and the dependency line. | Async and streamed calls, Azure, other resources, and any call whose arguments or result reads it has not checked. |
 | `py-pdf/pypdf2-to-pypdf` | The import, the names that exist unchanged on both sides, and the dependency line. | The names `PyPDF2` 3.0.0 removed and the ones `pypdf` dropped. |
 | `python/datetime-utcnow` | `datetime.utcnow()` and `utcfromtimestamp(x)`, written as `now(timezone.utc)` and `fromtimestamp(x, timezone.utc)` with the zone dropped again, so the value stays naive. | A reference that is not a call (`default=datetime.utcnow`), and a move to aware values. |

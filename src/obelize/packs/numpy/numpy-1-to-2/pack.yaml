@@ -1,0 +1,312 @@
+# Declarative: rules pick registry kinds and supply params; `source.url` is never fetched.
+# Measured on NumPy 1.26.4, 2.0.2, 2.3.5, 2.4.6 and 2.5.4 (SOURCES.md).
+id: numpy/numpy-1-to-2
+pack_version: 0.1.0
+provider: numpy
+language: python
+
+source:
+  type: official_guide
+  url: https://numpy.org/doc/stable/numpy_2_0_migration_guide.html
+  retrieved_at: 2026-10-27
+  sha256: "ef9b0ac609c4a8401594abfe20f77c5e8b21d48cb5974db7705b4a0c3ddc84e7"
+
+# One distribution on both sides. Every name the fixer writes exists in NumPy 1.x as well (the
+# measurement), so the rewritten code runs on both and `from` states no floor: nothing a pin
+# admits below 2 can make it wrong. NumPy 2.0 installs on Python 3.9 and later.
+from:
+  package: numpy
+  version: "<2"
+to:
+  package: numpy
+  version: ">=2"
+  requires_python: ">=3.9"
+
+match:
+  # The module keeps its name, so only what 1.26.4 defined and NumPy 2 dropped or moved is legacy.
+  imports:
+    - numpy
+  shared: true
+  symbols:
+    - numpy.DataSource
+    - numpy.Inf
+    - numpy.Infinity
+    - numpy.NAN
+    - numpy.NINF
+    - numpy.NZERO
+    - numpy.NaN
+    - numpy.PINF
+    - numpy.PZERO
+    - numpy.add_docstring
+    - numpy.add_newdoc
+    - numpy.add_newdoc_ufunc
+    - numpy.alltrue
+    - numpy.asfarray
+    - numpy.byte_bounds
+    - numpy.cast
+    - numpy.cfloat
+    - numpy.clongfloat
+    - numpy.compare_chararrays
+    - numpy.compat
+    - numpy.complex_
+    - numpy.cumproduct
+    - numpy.deprecate
+    - numpy.deprecate_with_doc
+    - numpy.disp
+    - numpy.fastCopyAndTranspose
+    - numpy.find_common_type
+    - numpy.float_
+    - numpy.format_parser
+    - numpy.get_array_wrap
+    - numpy.geterrobj
+    - numpy.in1d
+    - numpy.infty
+    - numpy.issctype
+    - numpy.issubclass_
+    - numpy.issubsctype
+    - numpy.longcomplex
+    - numpy.longfloat
+    - numpy.lookfor
+    - numpy.mat
+    - numpy.maximum_sctype
+    - numpy.nbytes
+    - numpy.obj2sctype
+    - numpy.product
+    - numpy.recfromcsv
+    - numpy.recfromtxt
+    - numpy.round_
+    - numpy.row_stack
+    - numpy.safe_eval
+    - numpy.sctype2char
+    - numpy.sctypes
+    - numpy.set_numeric_ops
+    - numpy.set_string_function
+    - numpy.seterrobj
+    - numpy.singlecomplex
+    - numpy.sometrue
+    - numpy.source
+    - numpy.string_
+    - numpy.tracemalloc_domain
+    - numpy.trapz
+    - numpy.unicode_
+    - numpy.who
+  # Each name is the last segment of a symbol, which is how a file that spells one is found.
+  prefilter_tokens:
+    - DataSource
+    - Inf
+    - Infinity
+    - NAN
+    - NINF
+    - NZERO
+    - NaN
+    - PINF
+    - PZERO
+    - add_docstring
+    - add_newdoc
+    - add_newdoc_ufunc
+    - alltrue
+    - asfarray
+    - byte_bounds
+    - cast
+    - cfloat
+    - clongfloat
+    - compare_chararrays
+    - compat
+    - complex_
+    - cumproduct
+    - deprecate
+    - deprecate_with_doc
+    - disp
+    - fastCopyAndTranspose
+    - find_common_type
+    - float_
+    - format_parser
+    - get_array_wrap
+    - geterrobj
+    - in1d
+    - infty
+    - issctype
+    - issubclass_
+    - issubsctype
+    - longcomplex
+    - longfloat
+    - lookfor
+    - mat
+    - maximum_sctype
+    - nbytes
+    - obj2sctype
+    - product
+    - recfromcsv
+    - recfromtxt
+    - round_
+    - row_stack
+    - safe_eval
+    - sctype2char
+    - sctypes
+    - set_numeric_ops
+    - set_string_function
+    - seterrobj
+    - singlecomplex
+    - sometrue
+    - source
+    - string_
+    - tracemalloc_domain
+    - trapz
+    - unicode_
+    - who
+
+changes:
+  - id: ruff-npy201
+    kind: external_fixer
+    citation: "NumPy 2.0 migration guide, 'Ruff plugin' and 'Main namespace': the table of removed members; ruff, NPY201"
+    params:
+      fixer: ruff:NPY201
+      symbols:
+        - numpy.Inf
+        - numpy.Infinity
+        - numpy.NAN
+        - numpy.NaN
+        - numpy.PINF
+        - numpy.alltrue
+        - numpy.cfloat
+        - numpy.clongfloat
+        - numpy.complex_
+        - numpy.cumproduct
+        - numpy.float_
+        - numpy.infty
+        - numpy.longcomplex
+        - numpy.longfloat
+        - numpy.mat
+        - numpy.product
+        - numpy.round_
+        - numpy.row_stack
+        - numpy.safe_eval
+        - numpy.singlecomplex
+        - numpy.sometrue
+        - numpy.string_
+        - numpy.unicode_
+    fixtures:
+      - fixtures/negative/already_numpy2.py
+      - fixtures/negative/not_numpy.py
+      - fixtures/positive/aliases.before.py
+      - fixtures/positive/constants.before.py
+      - fixtures/positive/from_import.before.py
+      - fixtures/positive/functions.before.py
+      - fixtures/positive/mixed.before.py
+      - fixtures/positive/safe_eval.before.py
+      - fixtures/positive/silenced.before.py
+
+  - id: flag-moved-names
+    kind: flag_only
+    citation: "NumPy 2.0 migration guide, 'Main namespace': members that are still available elsewhere"
+    params:
+      symbols:
+        - numpy.DataSource
+        - numpy.add_docstring
+        - numpy.add_newdoc
+        - numpy.byte_bounds
+        - numpy.compare_chararrays
+        - numpy.format_parser
+        - numpy.tracemalloc_domain
+      message: >-
+        NumPy 2.0 took this name out of the main namespace; the object is still
+        there, in a submodule.
+      suggestion: >-
+        The migration guide names where: np.lib for add_docstring, add_newdoc
+        and tracemalloc_domain, np.lib.array_utils for byte_bounds, np.char for
+        compare_chararrays, np.lib.npyio for DataSource and np.rec for
+        format_parser. Move the reference by hand.
+    fixtures:
+      - fixtures/negative/already_numpy2.py
+      - fixtures/positive/moved_names.before.py
+
+  - id: flag-removed-names
+    kind: flag_only
+    citation: "NumPy 2.0 migration guide, 'Main namespace': the tables of removed and deprecated members"
+    params:
+      symbols:
+        - numpy.add_newdoc_ufunc
+        - numpy.asfarray
+        - numpy.cast
+        - numpy.compat
+        - numpy.deprecate
+        - numpy.deprecate_with_doc
+        - numpy.disp
+        - numpy.fastCopyAndTranspose
+        - numpy.find_common_type
+        - numpy.get_array_wrap
+        - numpy.geterrobj
+        - numpy.in1d
+        - numpy.issctype
+        - numpy.issubclass_
+        - numpy.issubsctype
+        - numpy.lookfor
+        - numpy.maximum_sctype
+        - numpy.nbytes
+        - numpy.obj2sctype
+        - numpy.recfromcsv
+        - numpy.recfromtxt
+        - numpy.sctype2char
+        - numpy.sctypes
+        - numpy.set_numeric_ops
+        - numpy.set_string_function
+        - numpy.seterrobj
+        - numpy.source
+        - numpy.trapz
+        - numpy.who
+      message: >-
+        NumPy 2.0 removed this name, or deprecated it (np.in1d, np.trapz) and a
+        later release removed it, and what replaces it is not the same call.
+      suggestion: >-
+        Use the replacement the migration guide's tables give and check what it
+        returns: np.isin(...).ravel() for np.in1d, np.trapezoid for np.trapz
+        (NumPy 2 only), np.asarray with a float dtype for np.asfarray, the
+        inspect module for source. Port these call sites by hand.
+    fixtures:
+      - fixtures/negative/already_numpy2.py
+      - fixtures/positive/removed_names.before.py
+
+  - id: flag-signed-constants
+    kind: flag_only
+    citation: "NumPy 2.0 migration guide, 'Main namespace': NINF, NZERO and PZERO; ruff, NPY201"
+    params:
+      symbols:
+        - numpy.NINF
+        - numpy.NZERO
+        - numpy.PZERO
+      message: >-
+        NumPy 2.0 removed this constant. Its replacement is a signed literal
+        (-np.inf, -0.0, 0.0) that binds looser than the name did, so a tool's
+        textual rewrite changes `np.NINF ** 2` from inf to -inf.
+      suggestion: >-
+        Write -np.inf for NINF, -0.0 for NZERO and 0.0 for PZERO, inside
+        parentheses where an operator or an attribute follows.
+    fixtures:
+      - fixtures/negative/already_numpy2.py
+      - fixtures/positive/signed_constants.before.py
+
+  - id: dependency
+    kind: manifest_dependency
+    citation: "NumPy 2.0 migration guide, the introduction and 'Ruff plugin'"
+    params:
+      from_name: numpy
+      to_name: numpy
+      to_spec: ">=2"
+    fixtures:
+      - fixtures/negative/requirements_already_new.txt
+      - fixtures/positive/requirements.before.txt
+
+verification:
+  suggestions:
+    - "<project python> -W error::DeprecationWarning -m pytest -q"
+
+limitations:
+  - "Only the 23 names under the external_fixer change are rewritten, by ruff (NPY201), in a release from 0.6.2 to 0.17.2 that obelize finds on your PATH and never installs. With none, or another release, every place stays as it was and its row says external_tool_missing or external_tool_version_unsupported; obelize pack validate prints the command that installs one."
+  - "The tool runs on a file only when every place the scan found in it is one of those names, and its output is kept only if it changed no line the scan did not report, changes nothing when run again, and leaves none of the names. `from numpy import float_` is left standing (ruff adds the new name beside it), so such a file stays as it was; so does a line with `# noqa: NPY201`, which ruff honours (external_fix_incomplete)."
+  - "Names the guide lists and the pack does not rewrite are reported, and any one holds the whole repository back: those that moved to a submodule, and those whose replacement is not the same call (np.in1d keeps the shape of its input where np.isin(...).ravel() flattens it, np.trapezoid exists only on NumPy 2, np.source prints where inspect.getsource returns, np.issubclass_ does not raise for a non-class)."
+  - "NINF, NZERO and PZERO are reported too: their replacement is a signed literal, which ruff writes without the parentheses np.NINF ** 2 needs (-np.inf ** 2 is -inf). np.in1d and np.trapz still exist in NumPy 2.0 to 2.3 and were removed in 2.4, np.row_stack in 2.5."
+  - "Only names are looked at. NumPy 2 also changes how scalars and arrays are promoted (NEP 50: np.float32(3) + 3. is a float32), the default integer on Windows, the copy keyword of np.array, and the C API and ABI of every extension built against it. The tests are the check, and a package that links NumPy (pandas, SciPy, Matplotlib, your own extension) must ship a build for NumPy 2 before the pin can move."
+  - "A name reached other than as an attribute or an import of numpy (getattr(np, 'float_'), a string given to eval, a star import, numpy.core, a module that re-exports numpy) is not rewritten. A patch target or a stub of numpy in sys.modules is not seen at all."
+  - "The pin moves to numpy>=2 only when no place in the repository is withheld, as for any pack whose one distribution holds both APIs, and only in a requirement that is a name and a version. It raises the lower bound, so a library that still supports NumPy 1 keeps its own line, since the code the pack writes runs on both. A lock file is not edited and may still pin NumPy 1."
+  - "The rewritten names exist in NumPy 1.x as the old ones did (measured on 1.26.4), so the code runs on both and from.version states no floor. A repository that declares a Python below 3.9, which NumPy 2.0 does not install on, is blocked."
+  - "No Gate 1 measurement exists: how many repositories use these names, and for how many the pack writes every use, has not been counted."

@@ -276,6 +276,82 @@
       "title": "RunCounts",
       "type": "object"
     },
+    "RunFixer": {
+      "additionalProperties": false,
+      "description": "A maintained tool a pack's `external_fixer` ran: the release it printed, how it was started\n(`{name}` is the file's name) and the files it was run over, in scan order.",
+      "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Argv",
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/RunFixerFile"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "fixer": {
+          "const": "ruff:NPY201",
+          "title": "Fixer",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fixer",
+        "tool",
+        "version",
+        "argv",
+        "files"
+      ],
+      "title": "RunFixer",
+      "type": "object"
+    },
+    "RunFixerFile": {
+      "additionalProperties": false,
+      "description": "One file a fixer's tool was run over: the bytes it was given, the bytes it printed and the\nlines it changed, whether or not the proof kept them.",
+      "properties": {
+        "after_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "After Sha256",
+          "type": "string"
+        },
+        "before_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Before Sha256",
+          "type": "string"
+        },
+        "lines": {
+          "minimum": 0,
+          "title": "Lines",
+          "type": "integer"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "before_sha256",
+        "after_sha256",
+        "lines"
+      ],
+      "title": "RunFixerFile",
+      "type": "object"
+    },
     "RunLimitation": {
       "additionalProperties": false,
       "description": "One thing the run could not look at, so a small count never reads as a clean repository.",
@@ -408,6 +484,14 @@
           "default": null,
           "title": "Blocked"
         },
+        "fixers": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RunFixer"
+          },
+          "title": "Fixers",
+          "type": "array"
+        },
         "id": {
           "title": "Id",
           "type": "string"
@@ -459,7 +543,8 @@
         "blocked",
         "assumed",
         "stated",
-        "plugins"
+        "plugins",
+        "fixers"
       ],
       "title": "RunPack",
       "type": "object"
@@ -881,6 +966,14 @@
             "types_import_typing_only",
             "error_class_changed",
             "pattern_unmatched",
+            "external_tool_missing",
+            "external_tool_version_unsupported",
+            "external_tool_failed",
+            "external_tool_timeout",
+            "external_tool_size_limit",
+            "external_fix_out_of_scope",
+            "external_fix_incomplete",
+            "external_fix_not_idempotent",
             "usage_unmapped",
             "configure_consumed_elsewhere",
             "no_pack_for_usage"
@@ -946,6 +1039,14 @@
                   "types_import_typing_only",
                   "error_class_changed",
                   "pattern_unmatched",
+                  "external_tool_missing",
+                  "external_tool_version_unsupported",
+                  "external_tool_failed",
+                  "external_tool_timeout",
+                  "external_tool_size_limit",
+                  "external_fix_out_of_scope",
+                  "external_fix_incomplete",
+                  "external_fix_not_idempotent",
                   "usage_unmapped",
                   "configure_consumed_elsewhere",
                   "no_pack_for_usage"

@@ -249,6 +249,14 @@ def test_the_import_bail_list_is_a_pinned_subset_of_the_bail_codes() -> None:
         "runtime_unsupported",
         "legacy_version_unsupported",
         "new_version_unsupported",
+        "external_tool_missing",
+        "external_tool_version_unsupported",
+        "external_tool_failed",
+        "external_tool_timeout",
+        "external_tool_size_limit",
+        "external_fix_out_of_scope",
+        "external_fix_incomplete",
+        "external_fix_not_idempotent",
     } == IMPORT_BAILS
     assert {"import", "star_import"} == IMPORT_KINDS
     assert IMPORT_KINDS <= FINDING_KINDS

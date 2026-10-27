@@ -116,7 +116,11 @@ workflow do it.
   returned, or a field of another object, is not found.
 - It cannot see a name a library builds when it is imported. If a module makes names on demand, the
   command counts the names it could not judge instead of calling them removed.
-- It installs only from the index uv is configured for, and only in a trial.
+- It installs only from the index uv is configured for, and only in a trial. A pack that runs a
+  maintained tool (`numpy/numpy-1-to-2` runs ruff) runs the tool on your `PATH` over the copy,
+  installs nothing, and says on the rows why a file was left when the tool is missing or of a
+  release obelize has not measured; `obelize pack validate numpy/numpy-1-to-2` prints what to
+  install.
 - It does not run a pack for the Python itself. `obelize upgrade setuptools` from a release below 82
   says that the pack for `pkg_resources` moves what that release holds onto the Python, which is no
   release to try, and that `obelize fix --pack setuptools/pkg-resources-to-importlib` runs it. A

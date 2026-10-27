@@ -232,8 +232,8 @@ to:
 
 ## Rule kind registry
 
-The ten kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
-one. All ten are implemented: `registry.IMPLEMENTED`
+The kinds are closed in `src/obelize/packs/schema.py`; a pack cannot add
+one. All are implemented: `registry.IMPLEMENTED`
 (`src/obelize/transforms/registry.py`) equals the schema's set, and
 `tests/packs/test_all_packs.py` reads the registry. A method listed in
 `generative_model_calls.methods` but absent from `rewrites` is recognised, and
@@ -249,8 +249,42 @@ the group that calls it is withheld as `receiver_method_unmapped`.
 | `rename_symbol` | `symbols` (a legacy dotted path in a submodule to the name it takes in the package above it), `renamed` (a legacy dotted path to the name it takes in the same module), `calls` (`refused`, the default, or `allowed`), `now_caught_by` (what the new class derives from and the old one did not) |
 | `rename_member` | `members` (a legacy dotted path of a class and one of its members, to the name the member takes on that class), `takes` (for a member whose new spelling takes fewer keywords: the keywords it takes) |
 | `rewrite_pattern` | `before` and `after` (templates: Python expressions with `$name` for any expression), `where` (the class of the metavariable a member call is made on), `imports` (the importable paths `after` may spell names through) |
+| `external_fixer` | `fixer` (an id from the registry below, such as `ruff:NPY201`), `symbols` (the legacy names the tool rewrites where they are used, which `match` also lists) |
 | `flag_only` | `symbols` / `patterns` / `attributes`, `calls` (for a symbol: the calls it is flagged for, or that only its bases changed), `variables` (the environment variables the `environment_write` pattern reports a write of; both or neither), `message`, `suggestion` |
 | `manifest_dependency` | `from_name`, `to_name` (both may name one distribution), `to_spec`, `declare_transitive` (default `false`; needs `match.transitive`: the distributions of the modules only the legacy distribution installed, which a file imports and no manifest of its app declares, are written unpinned below the legacy requirement of a requirements file as the pin moves, where otherwise the pin waits for the user to declare them; any other layout still waits, [the dependency manifests decision](adr/ADR-021-dependency-manifests-verdict.md)) |
+
+**`external_fixer`** hands the files to a maintained tool and keeps what it prints only if it holds
+to the proof of a rule's own ([ADR-074](adr/ADR-074-external-fixer.md)). A pack names the tool by
+`fixer`, an id of a closed registry in `src/obelize/transforms/fixers.py` (the set is
+`FixerId` in `obelize.models`, and a test holds the two equal): `ruff:NPY201`, which runs
+`ruff check --isolated --select NPY201 --fix-only --stdin-filename={name} -` in a ruff release from
+0.6.2 to 0.17.2. The registry holds the program, the releases it accepts, the arguments and what
+installs it, and a pack carries none of them, so a pack can neither name a command nor widen the
+releases (`pack validate` prints what a pack runs). `symbols` are the names the tool is run for;
+the scan finds them as it finds any change's, so each is also under `match.imports` or
+`match.symbols`, and no other change of the pack may claim or report it. A pack names a fixer once:
+the tool rewrites every place it knows, so a second change would find the first's fixes outside its
+own lines. Choose the names the tool rewrites where they are used and to a name that means the same
+(the numpy pack's 23 were each measured), and `flag_only` the rest.
+
+The tool runs on a file after the pack's other rules have written it, only when every row of the
+file the scan graded is `eligible`, and what it prints is kept only if:
+
+- it changed no line but those of the rows `symbols` claim, mapped back to the file as the scan read
+  it, so none that a rule of the pack wrote; it added no line but an import (and blank lines and
+  comments), and wrote none wider than the pack's `layout.line_length` or the line it replaced;
+- run again on its own output, it changed nothing;
+- the scan of its output finds none of the names `symbols` claims, so a use it skipped or an
+  import of a removed name it left (ruff adds the new name beside the old one) keeps the file as
+  it was.
+
+A refusal withholds the rows the change claims with one of eight codes ([SCAN_VOCABULARY.md
+§4](SCAN_VOCABULARY.md#external-tools)), so by atomicity the file stays as it was. A tool that is
+missing, of another release, exits non-zero, runs past its deadline or prints more than 4 MiB leaves
+the same rows with the code that says which. obelize installs nothing: the code's action says to
+install the tool, and `pack validate` prints the command. A fixer is also a place to lose a
+guarantee, which the pack says in its `limitations`: obelize holds the tool's output to the lines it
+may change and to a scan, and not to what the tool means.
 
 **`legacy_error_modules`**: a rewritten call in a `try` whose handler names an
 exception from one of these modules is refused as `error_class_changed`; the
@@ -876,6 +910,11 @@ Per field:
   `attributes` entry that is under none of `match.imports` (it needs no `match.symbols` entry: the
   class may be one both sides define).
 - An unknown `changes[].kind`.
+- An `external_fixer` whose `fixer` is not an id of the registry (a rule the tool has not been run
+  for, or a command line), that carries a key of its own (`args`, `version`), that names no symbol
+  or names them out of order, or that names a symbol under nothing the pack matches.
+- A fixer named by two changes, and a symbol of an `external_fixer` that another change also
+  claims, a `flag_only` change reports, or sits under one a `flag_only` change reports.
 - A missing `source.url` or `source.retrieved_at`.
 - `language` other than `python`.
 - An empty `match.imports` or `match.prefilter_tokens`, or `match.shared` with no

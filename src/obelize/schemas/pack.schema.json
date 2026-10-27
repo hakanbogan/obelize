@@ -186,6 +186,73 @@
       "title": "ConfigureToClientParams",
       "type": "object"
     },
+    "ExternalFixerChange": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Citation",
+          "type": "string"
+        },
+        "fixtures": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^fixtures/[\\s\\S]*[^/]$",
+            "type": "string"
+          },
+          "title": "Fixtures",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "external_fixer",
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/ExternalFixerParams"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "fixtures",
+        "kind",
+        "params"
+      ],
+      "title": "ExternalFixerChange",
+      "type": "object"
+    },
+    "ExternalFixerParams": {
+      "additionalProperties": false,
+      "description": "A maintained tool's rewrite of a legacy surface, held to the proof of a rule's own.\n\n`symbols` are the legacy names the tool rewrites where they are used: the scan finds them as it\ndoes for any change, and only the lines it reports may change (ADR-074).",
+      "properties": {
+        "fixer": {
+          "const": "ruff:NPY201",
+          "title": "Fixer",
+          "type": "string"
+        },
+        "symbols": {
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Symbols",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fixer",
+        "symbols"
+      ],
+      "title": "ExternalFixerParams",
+      "type": "object"
+    },
     "FlagOnlyChange": {
       "additionalProperties": false,
       "properties": {
@@ -1978,6 +2045,7 @@
         "discriminator": {
           "mapping": {
             "configure_to_client": "#/$defs/ConfigureToClientChange",
+            "external_fixer": "#/$defs/ExternalFixerChange",
             "flag_only": "#/$defs/FlagOnlyChange",
             "generative_model_calls": "#/$defs/GenerativeModelCallsChange",
             "manifest_dependency": "#/$defs/ManifestDependencyChange",
@@ -2018,6 +2086,9 @@
           },
           {
             "$ref": "#/$defs/PluginChange"
+          },
+          {
+            "$ref": "#/$defs/ExternalFixerChange"
           },
           {
             "$ref": "#/$defs/FlagOnlyChange"

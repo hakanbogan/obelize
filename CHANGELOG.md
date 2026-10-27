@@ -22,13 +22,20 @@ cannot rewrite, so a repository that only has `from distutils.core import setup`
 exits `0` from `scan --fail-on eligible --fail-on needs_review --fail-on unsupported` in 0.8.0 and
 `4` now, `fix --apply` exits `4` where it said "No pack applies", and the GitHub Action, whose
 default `fail-on` is those three statuses, fails the job. The same holds for `pkg_resources`, `cgi`,
-`telnetlib`, `utcnow()` and the other surfaces the packs name. Pass `--pack` to run the packs you
-mean, or `fail-on` to the statuses you accept ([docs/CLI.md](docs/CLI.md), [UPGRADING](docs/UPGRADING.md)).
+`telnetlib`, `utcnow()` and the other surfaces the packs name, and for `np.float_`, `np.NaN` and the
+other names `numpy/numpy-1-to-2` names. Pass `--pack` to run the packs you mean, or `fail-on` to the
+statuses you accept ([docs/CLI.md](docs/CLI.md), [UPGRADING](docs/UPGRADING.md)).
+
+A pack can also hand its files to a maintained tool. `numpy/numpy-1-to-2` runs your own ruff
+(`NPY201`) over the files that use a name NumPy 2 removed, and keeps what it prints only when the
+tool changed nothing the scan did not report, changes nothing when run on its own output, and
+leaves none of the names. Without a ruff of a release obelize has measured, or with another, every
+place stays as it was and the rows say which; obelize installs nothing ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
 
 ### Unsupported patterns
 
-[docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has a new section on the packs for the Python itself.
-What it names:
+[docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has a new section on the packs for the Python itself
+and one on the tools a pack can run. What it names:
 
 - None of the three has been run over public repositories, so how often they write is not known.
 - `python/datetime-utcnow` rewrites calls only: `field(default_factory=datetime.utcnow)` and a
@@ -44,6 +51,13 @@ What it names:
   `utcfromtimestamp` for the datetime pack. Over a synthetic repository of 4,000 files a default
   scan took 2.3 s, against 2.5 s before the packs.
 - A comment inside a rewritten call moves above the statement that holds it.
+- `numpy/numpy-1-to-2` rewrites 23 names, reports the others the migration guide lists, and holds
+  the whole repository back for any one of those, the pin included. It does not see what NumPy 2
+  changes besides names (promotion, the default integer on Windows, the C API), and the pin it
+  writes, `numpy>=2`, is not one a library that still supports NumPy 1 should keep. It was run over
+  five public repositories and has no Gate 1 measurement. A fixer that moves an import, renames a
+  keyword or needs the target release a repository states (`ruff`'s `UP035` and `AIR301`,
+  `django-upgrade`, `pyupgrade`) is not registered ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
 - A name that a pack flags only at some calls is not listed where it is handed to another call
   (`map(pd.to_datetime, rows)`, a callback, `functools.partial`), whatever the code that receives it
   passes, and a deprecation of the whole name that happens to use the word of a changed parameter
@@ -57,10 +71,34 @@ new side is the Python, which names the pack, the prefilter rule (below) and `pa
 which describes them, a side as exactly one of a distribution or `python`. The reasons `alias_collision` and `local_import` are also
 given for a `rewrite_pattern` that cannot name a module it imports. `pack.yaml` also takes
 `flag_only.calls` (below), and a finding's `evidence`, which was always `null`, may carry the words
-of [SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md) section 14 (`findings.json` follows).
+of [SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md) section 14 (`findings.json` follows). `pack.yaml`
+takes `external_fixer` (`fixer`, `symbols`), `run.json` gains `packs[].fixers`, and eight codes
+join the bail vocabulary and the bails an import row may carry, which `findings.json`, `plan.json`,
+`proposal.json` and `run.json` list (`external_tool_missing`, `external_tool_version_unsupported`,
+`external_tool_failed`, `external_tool_timeout`, `external_tool_size_limit`,
+`external_fix_out_of_scope`, `external_fix_incomplete`, `external_fix_not_idempotent`).
 
 ### Added
 
+- A change of kind `external_fixer` runs a maintained tool over the files that use the names it
+  lists, named by an id obelize holds (`ruff:NPY201`) and never by a command, flag, path or release.
+  The tool is found among the absolute entries of your `PATH` and started with an argv list, a few
+  environment variables and an empty directory, under a 60-second deadline and 4 MiB each way, and
+  only in a release the registry lists (ruff 0.6.2 to 0.17.2, each run over the fixtures). It runs
+  after the pack's other rules, and what it prints is kept only if it changed no line the scan did
+  not report or a rule wrote, added nothing but imports, wrote no line wider than the pack's layout,
+  changes nothing run on its own output, and the scan of it finds none of the names it claims
+  (ruff leaves `from numpy import float_` standing, so such a file stays as it was). The run folder
+  records, per fixer, the release the tool printed, how it was started and the hashes of what it was
+  given and printed for each file (`packs[].fixers`); `fix` says `numpy/numpy-1-to-2 runs ruff
+  (NPY201) on 3 files.` ahead of the diff; `pack validate` prints what a fixer runs and the command
+  that installs it; `pack test` has a check for the tool, which a bundled pack that fails only it
+  reports as exit `7` and not as a defect of obelize.
+- A bundled pack, `numpy/numpy-1-to-2`: 23 names NumPy 2 removed, written by ruff as the name that
+  also exists on NumPy 1 (`np.float_` as `np.float64`, `np.NaN` as `np.nan`, `np.cumproduct` as
+  `np.cumprod`), 39 more reported, and the dependency line. Each rewrite was measured on NumPy
+  1.26.4 and 2.x, and a name whose replacement ruff writes in a way that changes the value
+  (`np.NINF ** 2`) is reported.
 - A `flag_only` change can say which calls it flags a symbol for. `calls` maps a symbol to a shape
   of `keywords`, `positional_from` and `omits`, and a call with a `*` or `**` argument is always
   one. In a pack that shares its module, a call that matches none is not listed, and neither is a
@@ -106,6 +144,7 @@ of [SCAN_VOCABULARY.md](docs/SCAN_VOCABULARY.md) section 14 (`findings.json` fol
 
 ### Changed
 
+- `obelize --help` names NumPy 1.x to 2.x among the supported migrations.
 - A template may contain `None`, `True` and `False`, which it could not before: they were read as
   names to import.
 - `obelize pack validate` prints a side that is the Python as `Python >=3.12`.

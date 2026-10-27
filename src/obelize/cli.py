@@ -69,9 +69,9 @@ _BUNDLED_DEFECT = (
 app = typer.Typer(
     name="obelize",
     help="Verified codemods for breaking Python dependency upgrades. "
-    "Supported migrations: google-generativeai to google-genai, openai 0.x to 1.x, "
-    "PyPDF2 to pypdf, and in the Python itself datetime.utcnow(), pkg_resources and the "
-    "modules Python 3.12 and 3.13 removed.",
+    "Supported migrations: google-generativeai to google-genai, numpy 1.x to 2.x, "
+    "openai 0.x to 1.x, PyPDF2 to pypdf, and in the Python itself datetime.utcnow(), "
+    "pkg_resources and the modules Python 3.12 and 3.13 removed.",
     no_args_is_help=True,
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -486,6 +486,7 @@ def _fix(
             outcome.pins,
             stated=outcome.stated,
             imports=outcome.imports,
+            runs=outcome.runs,
         ),
     )
     raise typer.Exit(outcome.exit_code)
@@ -906,6 +907,7 @@ def pack_validate(
     """
     from obelize.config import ConfigError
     from obelize.packs import loader
+    from obelize.transforms import fixers
 
     try:
         loaded = loader.load(reference, dirs=_pack_dirs())
@@ -927,6 +929,13 @@ def pack_validate(
         typer.echo(f"  imports      {', '.join(pack.to_modules())}")
     typer.echo(f"  changes      {len(pack.changes)}")
     typer.echo(f"  limitations  {len(pack.limitations)}")
+    for change in pack.fixers():
+        spec = fixers.FIXERS[change.params.fixer]
+        typer.echo(f"  fixer        {change.params.fixer} runs {spec.tool} {' '.join(spec.argv)}")
+        typer.echo(
+            f"               accepts {spec.tool} {spec.releases}; obelize installs nothing: "
+            f"uv tool install {spec.install}"
+        )
     if pack.requires_plugins:
         names = ", ".join(one.name for one in pack.requires_plugins)
         typer.echo(
@@ -976,12 +985,12 @@ def pack_test(
         typer.echo(f"  {'ok  ' if result.ok else 'FAIL'}  {result.name}")
         for problem in result.problems:
             typer.echo(f"          - {problem}")
-    failed = sum(1 for result in results if not result.ok)
+    failed = [result for result in results if not result.ok]
     if not failed:
         typer.echo(f"All {len(results)} checks passed.")
         return
-    typer.echo(f"{failed} of {len(results)} checks failed.", err=True)
-    if loaded.bundled:
+    typer.echo(f"{len(failed)} of {len(results)} checks failed.", err=True)
+    if loaded.bundled and not all(result.setup for result in failed):
         typer.echo(_BUNDLED_DEFECT, err=True)
         raise typer.Exit(1)
     raise typer.Exit(7)

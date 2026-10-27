@@ -28,6 +28,11 @@ because `openai` 0.x and 1.x are one distribution. What stays out: a client obje
 a result with a default, and a Gate 1 measurement, which neither of the two newer packs has. Another
 library that keeps its import name needs the same measurement before it gets a pack.
 
+`numpy/numpy-1-to-2` is the first pack to run a maintained tool: its 23 rewrites are ruff's
+`NPY201`, run from your `PATH` and kept only when the output holds to the proof of a rule's own
+([why](adr/ADR-074-external-fixer.md)). It reports the other names NumPy 2 removed, holds the whole
+repository back for any one of them, and has no Gate 1 measurement.
+
 Three packs are for the Python itself, where no distribution is on one side
 ([why](adr/ADR-071-runtime-packs.md)). `python/datetime-utcnow` rewrites `utcnow()` and
 `utcfromtimestamp(x)` to the spelling that keeps the value naive, importing `timezone` where the
@@ -88,7 +93,8 @@ release, and an option I add defaults to today's behaviour.
    line that carries extras, use an agent program other than `claude`, let the GitHub Action open
    the pull request of an upgrade, and let the kinds the bundled packs use cover more shapes.
    The command itself never pushes.
-2. Ecosystem. A registry of packs, existing fixers such as ruff behind the same evidence, writing
+2. Ecosystem. A registry of packs, more existing fixers behind the same evidence (ruff's `NPY201`
+   ships in `numpy/numpy-1-to-2`; the others need a target release a pack can state, [why](adr/ADR-074-external-fixer.md)), writing
    notebooks, and hand-checked packs for the libraries people ask about most.
 3. 1.0. Stable formats, with only additions after it, and a published benchmark of the pack-free
    mode.

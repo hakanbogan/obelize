@@ -102,6 +102,15 @@ BailCode = Literal[
     "types_import_typing_only",
     "error_class_changed",
     "pattern_unmatched",
+    # External tools
+    "external_tool_missing",
+    "external_tool_version_unsupported",
+    "external_tool_failed",
+    "external_tool_timeout",
+    "external_tool_size_limit",
+    "external_fix_out_of_scope",
+    "external_fix_incomplete",
+    "external_fix_not_idempotent",
     # The run
     "usage_unmapped",
     "configure_consumed_elsewhere",
@@ -273,6 +282,36 @@ BAIL_ACTIONS: dict[BailCode, str] = {
     "error_class_changed": (
         "Catch the exception class the new SDK raises in that handler, then run again."
     ),
+    "external_tool_missing": (
+        "Install the tool the pack's fixer runs, at a release `obelize pack validate` names, then "
+        "run again; obelize installs nothing."
+    ),
+    "external_tool_version_unsupported": (
+        "Install a release of the tool that `obelize pack validate` names, then run again."
+    ),
+    "external_tool_failed": (
+        "Migrate the file by hand; the tool did not run or failed on it, so the file was left "
+        "alone."
+    ),
+    "external_tool_timeout": (
+        "Migrate the file by hand; the tool did not finish in time, so the file was left alone."
+    ),
+    "external_tool_size_limit": (
+        "Migrate the file by hand; it or the tool's output is larger than obelize takes from a "
+        "tool."
+    ),
+    "external_fix_out_of_scope": (
+        "Migrate the file by hand; the tool changed more than the places the scan reported, so "
+        "its output was dropped."
+    ),
+    "external_fix_incomplete": (
+        "Migrate by hand what the tool left; its output still names the legacy surface, or it "
+        "changed nothing."
+    ),
+    "external_fix_not_idempotent": (
+        "Migrate the file by hand; the tool changed its own output when run again, so its output "
+        "was dropped."
+    ),
     "usage_unmapped": (
         "Migrate the usage by hand; no rewrite covers it, so the file was left alone."
     ),
@@ -359,6 +398,14 @@ IMPORT_BAILS: frozenset[BailCode] = frozenset(
         "runtime_unsupported",
         "legacy_version_unsupported",
         "new_version_unsupported",
+        "external_tool_missing",
+        "external_tool_version_unsupported",
+        "external_tool_failed",
+        "external_tool_timeout",
+        "external_tool_size_limit",
+        "external_fix_out_of_scope",
+        "external_fix_incomplete",
+        "external_fix_not_idempotent",
     }
 )
 
@@ -614,6 +661,12 @@ CONFIG_ORIGINS: frozenset[ConfigOrigin] = frozenset(get_args(ConfigOrigin))
 # the copy in the run folder identify the pack.
 PackOrigin = Literal["bundled", "file", "inventory"]
 
+# The maintained tools an `external_fixer` may run, each as `<tool>:<rule>`. How a tool is run, and
+# which releases of it, is in `transforms/fixers.py`, which holds the same set (tested): a pack
+# names a fixer and never a command (ADR-074).
+FixerId = Literal["ruff:NPY201"]
+FIXER_IDS: frozenset[FixerId] = frozenset(get_args(FixerId))
+
 # docs/CLI.md's exit codes, shared by every command (test_cli_surface.py checks both ways).
 ExitCode = Literal[0, 1, 2, 3, 4, 5, 6, 7]
 EXIT_CODES: frozenset[ExitCode] = frozenset(get_args(ExitCode))
@@ -634,6 +687,7 @@ __all__ = [
     "EDIT_STATUSES",
     "EXIT_CODES",
     "FINDING_KINDS",
+    "FIXER_IDS",
     "FIX_MODES",
     "FLAG_ONLY_PATTERNS",
     "GUARD_REFUSALS",
@@ -671,6 +725,7 @@ __all__ = [
     "EditStatus",
     "ExitCode",
     "FindingKind",
+    "FixerId",
     "FlagOnlyPattern",
     "GuardRefusal",
     "LimitationCode",

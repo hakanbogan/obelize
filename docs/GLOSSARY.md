@@ -9,7 +9,7 @@ A data file that describes one migration between two versions of a library: whic
 which [rule kind](#rule-kind) handles each, and what backs it: the official guide for a bundled
 pack, the public API of the two releases for one that `pack synth` made. A pack holds no code.
 obelize parses it with a closed schema and never executes it. The format is in
-[Pack format](PACK_SPEC.md), and the six that ship are in [Packs](PACKS.md).
+[Pack format](PACK_SPEC.md), and the seven that ship are in [Packs](PACKS.md).
 
 ## Runtime pack
 
@@ -23,6 +23,13 @@ dependency line, and it is gated by the Python a repository declares ([why](adr/
 One of the fixed ways obelize rewrites code, such as renaming an import or moving a call to a
 client object. A pack chooses a rule kind for each change it declares, and the rewrite itself lives
 in obelize, not in the pack. A [plugin](#plugin) can provide one more.
+
+## External fixer
+
+A change that hands the files to a maintained tool (ruff's `NPY201`) instead of rewriting them with
+a rule of obelize. The pack names the tool by an id obelize holds, never a command. obelize runs
+the tool on your machine, installs nothing, and keeps its output only if it holds to the proof of a
+rule's own ([why](adr/ADR-074-external-fixer.md)).
 
 ## Member
 

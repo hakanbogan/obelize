@@ -116,6 +116,8 @@ class Outcome:
     pins: bool = True
     # The paths a pack's patterns may import, by pack id, which a person reads before applying.
     imports: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    # The tools a pack's fixers ran, as a pack id, a fixer and the number of files it was run on.
+    runs: tuple[tuple[str, str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,7 +220,7 @@ def run(request: Request) -> Outcome:
     locks = _locks(chosen.tree, [row.path for row in pinned])
     code = _exit(phases, outstanding=bool(report.withheld_rows(driven.findings)), idle=not passes)
     recorded = _recorded(request, model, phases.applied)
-    used = [run_dir.Used.of(one.loaded, one.scan) for one in passes]
+    used = [run_dir.Used.of(one.loaded, one.scan, one.run.fixes) for one in passes]
     record = run_dir.compose_fix(
         run_id=run_id,
         scan=scan,
@@ -291,6 +293,9 @@ def run(request: Request) -> Outcome:
         unwritten=scan.unwritten,
         pins=any(one.to.package for one in documents),
         imports=tuple((one.id, one.to_modules()) for one in documents if one.pattern_imports()),
+        runs=tuple(
+            (row.id, fixer.fixer, len(fixer.files)) for row in record.packs for fixer in row.fixers
+        ),
     )
 
 

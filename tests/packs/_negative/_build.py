@@ -203,6 +203,15 @@ PATTERN_CHANGE: Document = {
     "params": {"before": "demo_legacy.old($a)", "after": "demo_legacy.new($a)"},
 }
 
+# A maintained tool's rewrite of a module's names.
+FIXER_CHANGE: Document = {
+    "id": "tool",
+    "kind": "external_fixer",
+    "citation": "Guide, Names",
+    "fixtures": ["fixtures/negative/none.py", "fixtures/positive/one.before.py"],
+    "params": {"fixer": "ruff:NPY201", "symbols": ["demo_legacy.old"]},
+}
+
 MANIFEST_CHANGE: Document = {
     "id": "manifest-dependency",
     "kind": "manifest_dependency",
@@ -356,6 +365,16 @@ def _pattern(
             shared=True, symbols=legacy or ["demo_legacy.configure", "demo_legacy.old"]
         )
         document["changes"][1]["params"] = {**PATTERN_CHANGE["params"], **params}
+        document["changes"].extend(more)
+
+    return mutate
+
+
+def _fixer(*, more: tuple[Document, ...] = (), **params: Any) -> Callable[[Document], None]:
+    """The fixer change's params with `params` over them, and `more` changes after it."""
+
+    def mutate(document: Document) -> None:
+        document["changes"][1]["params"].update(params)
         document["changes"].extend(more)
 
     return mutate
@@ -2479,6 +2498,120 @@ CASES: tuple[Case, ...] = (
                 },
             ),
         ),
+    ),
+    # external_fixer: a tool named by an id obelize holds, for the names it is run for.
+    Case(
+        name="a_fixer_the_registry_does_not_hold",
+        defect="a rule of the tool that obelize has not run over any fixture",
+        path=f"{EXTRA}.params.fixer",
+        says="Input should be 'ruff:NPY201'",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(fixer="ruff:E501"),
+    ),
+    Case(
+        name="a_fixer_named_by_a_command_line",
+        defect="a command line where the id of a fixer goes, which no pack may carry",
+        path=f"{EXTRA}.params.fixer",
+        says="Input should be 'ruff:NPY201'",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(fixer="ruff check --select NPY201 --unsafe-fixes ."),
+    ),
+    Case(
+        name="a_fixer_given_a_flag_of_its_own",
+        defect="a flag for the tool, which the registry alone decides",
+        path=f"{EXTRA}.params.args",
+        says="Extra inputs are not permitted",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(args=["--unsafe-fixes"]),
+    ),
+    Case(
+        name="a_fixer_given_a_release_to_run",
+        defect="a release of the tool, which the registry alone accepts",
+        path=f"{EXTRA}.params.version",
+        says="Extra inputs are not permitted",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(version="0.16.8"),
+    ),
+    Case(
+        name="a_fixer_with_no_symbol",
+        defect="a fixer run for no name, so no row of the scan is its",
+        path=f"{EXTRA}.params",
+        says="an external_fixer change must name a symbol",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(symbols=[]),
+    ),
+    Case(
+        name="a_fixer_whose_symbols_are_not_sorted",
+        defect="symbols out of order, which has more than one spelling",
+        path=f"{EXTRA}.params",
+        says="symbols must be sorted and de-duplicated",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(symbols=["demo_legacy.old", "demo_legacy.another"]),
+    ),
+    Case(
+        name="a_fixer_symbol_the_scan_never_looks_for",
+        defect="a name under no module the pack matches, which no resolution can produce",
+        path="",
+        says="which is under nothing in match.imports",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(symbols=["elsewhere.old"]),
+    ),
+    Case(
+        name="a_fixer_named_by_two_changes",
+        defect="one tool run twice, the second finding the first's fixes outside its own lines",
+        path="",
+        says="changes name the fixer ruff:NPY201 twice",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(
+            more=(
+                {
+                    **FIXER_CHANGE,
+                    "id": "again",
+                    "params": {"fixer": "ruff:NPY201", "symbols": ["demo_legacy.other"]},
+                },
+            ),
+        ),
+    ),
+    Case(
+        name="a_fixer_symbol_both_rewritten_and_refused",
+        defect="a name rewritten by a tool and reported by another rule",
+        path="",
+        says="is both rewritten and refused",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(
+            more=(
+                {
+                    **FLAG_CHANGE,
+                    "id": "flag-old",
+                    "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.old"]},
+                },
+            ),
+        ),
+    ),
+    Case(
+        name="a_fixer_symbol_under_a_refused_one",
+        defect="a name under one a flag_only rule reports, which the scan grades first",
+        path="",
+        says="is under a symbol a flag_only rule refuses",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(
+            symbols=["demo_legacy.Model.old"],
+            more=(
+                {
+                    **FLAG_CHANGE,
+                    "id": "flag-model",
+                    "params": {**FLAG_CHANGE["params"], "symbols": ["demo_legacy.Model"]},
+                },
+            ),
+        ),
+    ),
+    Case(
+        name="a_fixer_symbol_another_change_rewrites",
+        defect="a name a tool and a pattern both claim, so the order of the list would pick",
+        path="",
+        says="two changes claim 'demo_legacy.old'",
+        extra=FIXER_CHANGE,
+        mutate=_fixer(more=(PATTERN_CHANGE,)),
     ),
     # rewrite_call rooted on the module: where it is spelled, and what it reads of the result.
     Case(

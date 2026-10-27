@@ -18,7 +18,7 @@ import pytest
 from pydantic import ValidationError
 
 from obelize import _yaml
-from obelize.models import CallShape, ScanSpec
+from obelize.models import FIXER_IDS, CallShape, ScanSpec
 from obelize.packs import loader, schema
 from obelize.transforms.kinds import flag_only
 
@@ -120,6 +120,19 @@ def test_every_refusal_the_schema_hard_codes_is_named_in_pack_spec(
     for value in values:
         needle = value if quoted else value.lower()
         assert needle in haystack, f"{value} drives a refusal and PACK_SPEC.md does not name it"
+
+
+def test_pack_spec_names_every_fixer_the_registry_holds_and_the_range_it_runs() -> None:
+    """A pack names an id and nothing else, so what the id runs is read from the registry."""
+    from obelize.transforms import fixers
+
+    text = " ".join(PACK_SPEC.read_text(encoding="utf-8").split())
+    assert set(fixers.FIXERS) == FIXER_IDS
+    for name, fixer in fixers.FIXERS.items():
+        assert f"`{name}`" in text
+        assert f"`{fixer.tool} {' '.join(fixer.argv)}`" in text
+        low, _, high = fixer.releases.removeprefix(">=").partition(",<=")
+        assert f"{low} to {high}" in text
 
 
 def test_pack_spec_lists_the_modules_a_pattern_may_import_and_no_other() -> None:

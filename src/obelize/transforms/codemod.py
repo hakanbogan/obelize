@@ -28,6 +28,7 @@ from obelize.models import (
 from obelize.scan import manifests, parse, reach
 from obelize.transforms import base, registry
 from obelize.transforms import manifest as manifest_context
+from obelize.transforms.kinds import external_fixer
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping, Sequence
@@ -83,6 +84,8 @@ class Run:
     manifest_plan: ManifestPlan
     # One `internal_error` row per file a rule raised on, in scan order.
     limitations: tuple[parse.Limitation, ...] = ()
+    # Each run of an external tool, in scan order, whether or not its output was kept.
+    fixes: tuple[external_fixer.Fix, ...] = ()
 
     @property
     def outcomes(self) -> tuple[Outcome, ...]:
@@ -133,6 +136,7 @@ def run(
     files: list[Outcome] = []
     plans: list[ImpactPlan] = []
     limitations: list[parse.Limitation] = []
+    fixes: list[external_fixer.Fix] = []
     modules = tuple(sources)
 
     def contents(path: str) -> tuple[bytes | None, tuple[parse.Limitation, ...]]:
@@ -148,8 +152,9 @@ def run(
             files.append(Outcome(result.path, data, data, ()))
             plans.append(result.plan)
             continue
+        made: tuple[external_fixer.Fix, ...] = ()
         try:
-            outcome, plan = _file(
+            outcome, plan, made = _file(
                 result,
                 data,
                 pack,
@@ -164,6 +169,7 @@ def run(
             limitations.extend(parse.crashed(result.path, data, error).limitations)
         files.append(outcome)
         plans.append(plan)
+        fixes.extend(made)
 
     if spec.client_symbol is not None and any(_relies(plan, spec) for plan in plans):
         files, plans = _elsewhere(files, plans, pack, spec)
@@ -181,6 +187,7 @@ def run(
         plans=tuple(plans),
         manifest_plan=_refused(graded, written),
         limitations=tuple(limitations),
+        fixes=tuple(fixes),
     )
 
 
@@ -314,9 +321,9 @@ def _file(
     pack: PackDocument,
     spec: ScanSpec,
     imported_elsewhere: Callable[[str], bool],
-) -> tuple[Outcome, ImpactPlan]:
-    """Every rule over one file, then the atomicity check; rules are built fresh per file, as
-    the corpora do."""
+) -> tuple[Outcome, ImpactPlan, tuple[external_fixer.Fix, ...]]:
+    """Every rule over one file, then the tools of the pack's fixers over what they wrote, then the
+    atomicity check; rules are built fresh per file, as the corpora do."""
     rules = registry.rules(pack)
     module = cst.parse_module(data)
     context = base.RuleContext.build(
@@ -340,6 +347,21 @@ def _file(
     # A file that does not round-trip has no eligible row, but libcst's re-render still differs
     # from its bytes: writing `produced` would change a file the run decided not to change.
     faithful = module.bytes == data
+    fixing = [rule for rule in rules if isinstance(rule, external_fixer.ExternalFixer)]
+    made: tuple[external_fixer.Fix, ...] = ()
+    if fixing:
+        fixed = external_fixer.fix(
+            fixing,
+            result,
+            data,
+            produced,
+            spec,
+            pack.layout.line_length,
+            live=not withheld and faithful,
+        )
+        produced, made = fixed.after, fixed.ran
+        edits.extend(fixed.edits)
+        withheld.update(fixed.withheld)
     gate = (
         _gate(result.path, context.wrapper, produced)
         if not withheld and faithful and produced != data
@@ -356,12 +378,16 @@ def _file(
     rows = _ordered(edits)
     if withheld:
         rows = [_held(row, plan, gate) for row in rows]
-    return Outcome(
-        path=result.path,
-        before=data,
-        after=data if withheld or not faithful else produced,
-        edits=tuple(rows),
-    ), plan
+    return (
+        Outcome(
+            path=result.path,
+            before=data,
+            after=data if withheld or not faithful else produced,
+            edits=tuple(rows),
+        ),
+        plan,
+        made,
+    )
 
 
 def _abandoned(result: FileResult, data: bytes, code: BailCode) -> tuple[Outcome, ImpactPlan]:

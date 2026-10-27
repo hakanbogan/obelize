@@ -213,6 +213,7 @@ def fixed(
     pins: bool = True,
     stated: Sequence[tuple[str, str]] = (),
     imports: Sequence[tuple[str, Sequence[str]]] = (),
+    runs: Sequence[tuple[str, str, int]] = (),
 ) -> list[str]:
     """`obelize fix`'s non-JSON output; a written column on an apply, the diff on a dry run.
 
@@ -221,14 +222,16 @@ def fixed(
     files that hold a pin without a row; `locks` are the lock files beside a manifest pin written
     or above it; `unwritten` are the files that use the legacy API and that no rule writes; `pins`
     is whether a pack of the run moves a dependency line, which the closing step says to install;
-    `stated` are the releases `--from` gave; `imports` are the modules a pack's patterns may import.
+    `stated` are the releases `--from` gave; `imports` are the modules a pack's patterns may import;
+    `runs` are the tools a pack's fixers ran, each as a pack id, a fixer and a number of files.
     """
     applying = record.mode == "apply"
     written = {row.path for row in record.file_edits}
     mode = _mode(record, _bare, planned=bool(plan.files))
     lines = [f"obelize fix  {pack}", "", f"Mode {mode}", ""]
     lines.extend(f"{one} may import {', '.join(modules)}." for one, modules in imports)
-    lines.extend([""] if imports else [])
+    lines.extend(_runs(runs))
+    lines.extend([""] if imports or runs else [])
     for stopped in blocked:
         lines.extend([_blocked(stopped, _bare), ""])
     lines.extend(_assumed(assumed, _bare))
@@ -1084,6 +1087,15 @@ def _assumed(assumed: Sequence[tuple[str, str]], code: Callable[[str], str]) -> 
         for package, release in assumed
     ]
     return [*lines, ""] if lines else []
+
+
+def _runs(runs: Sequence[tuple[str, str, int]]) -> list[str]:
+    """What a pack's fixers ran, said ahead of the diff: `numpy/x runs ruff (NPY201) on 3 files.`"""
+    return [
+        f"{pack} runs {tool} ({rule}) on {count} file{'' if count == 1 else 's'}."
+        for pack, fixer, count in runs
+        for tool, _, rule in [fixer.partition(":")]
+    ]
 
 
 def _stated(stated: Sequence[tuple[str, str]], code: Callable[[str], str]) -> list[str]:

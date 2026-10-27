@@ -123,6 +123,41 @@ whether or not that pack finds anything; for every known pack (none named) a pac
 not allowed is left out and said so. The interface is `obelize.plugin`, and it is not stable through
 0.x beyond a line in the changelog; libcst's range is part of it.
 
+## External tools
+
+An `external_fixer` change starts a program of the user's: ruff, for `numpy/numpy-1-to-2`. It runs
+with the user's rights, and obelize does not sandbox it: it contains what it prints and what it
+may read (an empty directory, nine environment variables, no repository configuration), not what
+the program does besides. The tool is found among the absolute entries of the user's `PATH` by
+name, so a program of that name anywhere on it runs, and the registry trusts the release it prints
+about itself. [ADR-074](adr/ADR-074-external-fixer.md) records the rules.
+
+- The release is the one a tool prints for `--version`. A build that prints another number than it
+  is, or an installer's shim that starts another program, is not told apart. A tool with no
+  `--version` (`pyupgrade`) cannot be registered.
+- Only a release that was run over the bundled pack's fixtures is accepted, so a ruff newer than the
+  range in `transforms/fixers.py` (0.17.2 at 0.9.0) is refused until a release of obelize lists it;
+  `uv tool install ruff==0.17.2` installs one that is accepted. `obelize pack test` says so, and
+  does not call it a defect of the pack.
+- obelize hands the tool one file at a time, in memory, and starts it twice for each file it keeps
+  (a second run proves it changes nothing). A repository of thousands of such files pays two
+  starts of ruff, about 30 ms, for each.
+- The proof works on lines. A tool may change a line the scan reported and nothing else, so a
+  fix that spans lines, or that rewrites a use on a line the scan reported at its start, may be
+  dropped (`external_fix_out_of_scope`) when the tool changes a continuation line. A tool that
+  re-encodes or reflows a file changes every line and is always dropped.
+- The scan of the output decides whether a name is gone, as the scan of the input found it: a name
+  reached by `getattr`, a string or a star import is neither found nor fixed, and ruff skips a file
+  with `# ruff: noqa` or a line with `# noqa: NPY201`, which leaves its rows `external_fix_incomplete`.
+- A fixer that moves an import and leaves the names bound by it (ruff's `UP035`) passes the proof,
+  since the scan of the output finds none of the old names, but none is registered: its output
+  depends on the Python a repository targets, which the registry has no way to state yet. Neither
+  is a rule that renames a keyword (`AIR301`'s `schedule_interval`), which names no symbol, or one
+  with no safe fix (`AIR302`), or `django-upgrade`, which needs the Django release it targets.
+- `numpy/numpy-1-to-2` is measured against NumPy 1.26.4, 2.0.2, 2.3.5, 2.4.6 and 2.5.4 and the
+  guide's tables, and has not been run over public repositories as the three first packs were
+  (ADR-074 D6 has what was counted). What it does not see is in its `limitations`.
+
 ## Members of a class
 
 A pack that renames the member of a class (`rename_member`) renames it only where the scan can tell

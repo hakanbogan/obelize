@@ -1038,6 +1038,7 @@ def test_only_the_pack_that_names_a_newest_release_takes_one() -> None:
     }
     assert named == {
         "gemini/google-generativeai-to-google-genai": (None, ()),
+        "numpy/numpy-1-to-2": (None, ()),
         "openai/openai-0-to-1": (None, ()),
         "python/datetime-utcnow": (None, ()),
         "python/removed-stdlib-modules": (None, ()),

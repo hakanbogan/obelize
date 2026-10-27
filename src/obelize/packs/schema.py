@@ -35,6 +35,7 @@ from obelize.models import (
     ConfidenceReason,
     DisplayText,
     DistributionName,
+    FixerId,
     FlagOnlyPattern,
     PlainName,
     PrefilterToken,
@@ -59,6 +60,7 @@ ChangeKind = Literal[
     "rename_member",
     "rewrite_pattern",
     "plugin",
+    "external_fixer",
     "flag_only",
     "manifest_dependency",
 ]
@@ -1505,6 +1507,24 @@ class ManifestDependencyParams(_Closed):
     declare_transitive: StrictBool = False
 
 
+class ExternalFixerParams(_Closed):
+    """A maintained tool's rewrite of a legacy surface, held to the proof of a rule's own.
+
+    `symbols` are the legacy names the tool rewrites where they are used: the scan finds them as it
+    does for any change, and only the lines it reports may change (ADR-074).
+    """
+
+    fixer: FixerId
+    symbols: tuple[QualifiedName, ...]
+
+    @model_validator(mode="after")
+    def _check(self) -> ExternalFixerParams:
+        if not self.symbols:
+            raise ValueError("an external_fixer change must name a symbol")
+        sorted_unique(self.symbols, "symbols")
+        return self
+
+
 class _ChangeBase(_Closed):
     id: Slug
     citation: DisplayText
@@ -1576,6 +1596,11 @@ class RewritePatternChange(_ChangeBase):
     params: RewritePatternParams
 
 
+class ExternalFixerChange(_ChangeBase):
+    kind: Literal["external_fixer"]
+    params: ExternalFixerParams
+
+
 class FlagOnlyChange(_ChangeBase):
     kind: Literal["flag_only"]
     params: FlagOnlyParams
@@ -1599,6 +1624,7 @@ Change = Annotated[
         RenameMemberChange,
         RewritePatternChange,
         PluginChange,
+        ExternalFixerChange,
         FlagOnlyChange,
         ManifestDependencyChange,
     ],
@@ -1678,6 +1704,7 @@ class PackDocument(_Closed):
         self._check_a_transitive_module_has_a_distribution_that_installed_it()
         self._check_what_is_declared_for_a_transitive_module_is_listed()
         self._check_the_plugins_a_pack_names_are_the_ones_it_requires()
+        self._check_a_fixer_is_named_once()
         return self
 
     def to_modules(self) -> tuple[str, ...]:
@@ -1707,6 +1734,19 @@ class PackDocument(_Closed):
                 }
             )
         )
+
+    def fixers(self) -> tuple[ExternalFixerChange, ...]:
+        """The changes that run a maintained tool, which `pack validate` and `fix` name."""
+        return tuple(change for change in self.changes if isinstance(change, ExternalFixerChange))
+
+    def _check_a_fixer_is_named_once(self) -> None:
+        """A second change with one fixer would find the first's fixes outside its own lines."""
+        names = [change.params.fixer for change in self.fixers()]
+        if repeated := sorted({name for name in names if names.count(name) > 1}):
+            raise ValueError(
+                f"changes name the fixer {repeated[0]} twice; the tool rewrites every place it "
+                f"knows, so one change lists all the symbols it is run for"
+            )
 
     def _check_the_plugins_a_pack_names_are_the_ones_it_requires(self) -> None:
         """A requirement no change uses asks the user to trust code for nothing, and a change that
@@ -1773,6 +1813,8 @@ class PackDocument(_Closed):
                 claimed = tuple(change.params.members)
             elif isinstance(change, RewritePatternChange):
                 claimed = (change.params.anchor().symbol,)
+            elif isinstance(change, ExternalFixerChange):
+                claimed = change.params.symbols
             else:
                 continue
             for symbol in claimed:
@@ -1906,6 +1948,8 @@ class PackDocument(_Closed):
                 field, keys = "members", tuple(change.params.members)
             elif isinstance(change, RewritePatternChange):
                 field, keys = "before", (change.params.anchor().symbol,)
+            elif isinstance(change, ExternalFixerChange):
+                field, keys = "symbols", change.params.symbols
             else:
                 continue
             for key in keys:
@@ -2141,6 +2185,8 @@ class PackDocument(_Closed):
                 symbols.update(change.params.members)
             elif isinstance(change, RewritePatternChange):
                 symbols.add(change.params.anchor().symbol)
+            elif isinstance(change, ExternalFixerChange):
+                symbols.update(change.params.symbols)
         return frozenset(symbols)
 
     @staticmethod
@@ -2177,6 +2223,8 @@ class PackDocument(_Closed):
             return tuple(("members", key) for key in change.params.members)
         if isinstance(change, RewritePatternChange):
             return (("before", change.params.anchor().symbol),)
+        if isinstance(change, ExternalFixerChange):
+            return tuple(("symbols", symbol) for symbol in change.params.symbols)
         if isinstance(change, FlagOnlyChange):
             return (
                 *(("symbols", symbol) for symbol in change.params.symbols),

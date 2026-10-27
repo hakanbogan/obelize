@@ -25,6 +25,7 @@ from obelize.models.vocabulary import (
     ConfigOrigin,
     ConsultSkip,
     ExitCode,
+    FixerId,
     GuardRefusal,
     LimitationCode,
     PackOrigin,
@@ -151,6 +152,27 @@ class RunPlugin(_Frozen):
     record_sha256: Sha256 | None = None
 
 
+class RunFixerFile(_Frozen):
+    """One file a fixer's tool was run over: the bytes it was given, the bytes it printed and the
+    lines it changed, whether or not the proof kept them."""
+
+    path: RelativePath
+    before_sha256: Sha256
+    after_sha256: Sha256
+    lines: int = Field(ge=0)
+
+
+class RunFixer(_Frozen):
+    """A maintained tool a pack's `external_fixer` ran: the release it printed, how it was started
+    (`{name}` is the file's name) and the files it was run over, in scan order."""
+
+    fixer: FixerId
+    tool: str
+    version: str
+    argv: tuple[str, ...]
+    files: tuple[RunFixerFile, ...]
+
+
 class RunPack(_Frozen):
     """The pack a run used: which one, its own version, and its exact bytes."""
 
@@ -167,6 +189,8 @@ class RunPack(_Frozen):
     stated: str | None = None
     # The plugins the pack required, which were loaded in this process.
     plugins: tuple[RunPlugin, ...] = ()
+    # The tools the pack's fixers ran, one row each, in id order.
+    fixers: tuple[RunFixer, ...] = ()
 
 
 class RunConfig(_Frozen):
@@ -623,6 +647,8 @@ __all__ = [
     "ProposalRecord",
     "RunConfig",
     "RunCounts",
+    "RunFixer",
+    "RunFixerFile",
     "RunId",
     "RunJournal",
     "RunLimitation",

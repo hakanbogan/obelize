@@ -77,7 +77,7 @@ not add a module without an ADR.
 | `scan/` | Path selection, the input gates, name and binding resolution, cross-module reach, dependency manifests, the worker pool and its total order, and the declared Python floor |
 | `packs/` | The pack schema, the loader, and the bundled packs |
 | `impact/` | The escape rule and the bail ladder that turn a file's analysis into an `ImpactPlan` |
-| `transforms/` | The `Rule` protocol, the registry (`IMPLEMENTED` says which kinds run), the import manager, one module per kind in `kinds/`, and `codemod.py`, the driver, which writes nothing |
+| `transforms/` | The `Rule` protocol, the registry (`IMPLEMENTED` says which kinds run), the import manager, one module per kind in `kinds/`, `fixers.py`, which starts the maintained tools an `external_fixer` names ([ADR-074](docs/adr/ADR-074-external-fixer.md)), and `codemod.py`, the driver, which writes nothing |
 | `providers/` | Which flagged findings a model is asked about, the guard on its answer, the one adapter (stdlib `urllib`) and the pass joining them |
 | `verify/` | The command trust ladder and runner, the status-to-exit table, the one redactor, and the compile check of every changed file |
 | `commands/` | What `fix`, `verify` and `undo` do; nothing here prints or exits. The model is asked only after the tree gate, so an apply the tree refused sends nothing |

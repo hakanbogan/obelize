@@ -2,13 +2,14 @@
 
 A [migration pack](GLOSSARY.md#migration-pack) is a data file that describes one migration: the
 symbols to find, the rule kind that rewrites each, and the official guide that backs it. obelize
-ships six, and runs every pack your repository uses, or the ones `--pack` names. Your own packs
+ships seven, and runs every pack your repository uses, or the ones `--pack` names. Your own packs
 can sit in a directory your `~/.config/obelize/config.yml` lists as `pack_dirs`; a repository's
 `.obelize.yml` may not name one. [Pack format](PACK_SPEC.md) is the specification.
 
 | Pack | Rewrites | Reports and leaves to you |
 |---|---|---|
 | `gemini/google-generativeai-to-google-genai` | The import, `configure`, the model object and its generation, chat and streaming calls, safety settings, file uploads and the dependency line. | Every tool declaration, since automatic function calling is on by default in `google-genai`. |
+| `numpy/numpy-1-to-2` | Twenty-three names NumPy 2 removed, by ruff's `NPY201` and only with the proof of [numpy](#numpy), and the dependency line. | The other names NumPy 2 removed or moved, and what it changes besides names. |
 | `openai/openai-0-to-1` | `openai.ChatCompletion.create`, `Completion.create`, `Embedding.create`, `Image.create`, `Moderation.create`, `Audio.transcribe` and `Audio.translate`, to the same calls on the module client (`openai.chat.completions.create`), the reads of their results by string keys, the assignment of `openai.api_base` as `openai.base_url`, the exception classes `RateLimitError`, `PermissionError` and `Timeout` as `RateLimitError`, `PermissionDeniedError` and `APITimeoutError`, and the dependency line. | Async and streamed calls, Azure, the other resources, the other module settings, which the new releases ignore, the other exception classes, and any call whose arguments or reads of its result it has not checked. |
 | `py-pdf/pypdf2-to-pypdf` | The import, the names that exist unchanged on both sides, and the dependency line. | The camelCase classes PyPDF2 3.0.0 removed, the modules only PyPDF2 1 ships and the names pypdf dropped. |
 | `python/datetime-utcnow` | `datetime.utcnow()` as `datetime.now(timezone.utc).replace(tzinfo=None)` and `utcfromtimestamp(x)` as `fromtimestamp(x, timezone.utc).replace(tzinfo=None)`, with the import of `timezone` they need. | A reference that is not a call, such as `field(default_factory=datetime.utcnow)`, and the choice to move to aware datetimes. |
@@ -37,6 +38,20 @@ and leave the rest.
 OpenAI's own `openai migrate` command is gone (removed in `openai` 2.35.0). For `openai` 0.x,
 `uvx obelize scan --pack openai/openai-0-to-1` lists every use it can resolve with the reason it
 would leave it, and [KNOWN_ISSUES.md](KNOWN_ISSUES.md#the-openai-pack) says what it cannot see.
+
+## numpy
+
+The `numpy` pack carries no rewrite of its own. For the 23 names NumPy 2 removed that have a
+replacement of the same meaning, the rewrite is ruff's `NPY201`, which obelize starts from your
+`PATH` ([why](adr/ADR-074-external-fixer.md)). It installs nothing, and runs only a release it has
+measured, 0.6.2 to 0.17.2; `obelize pack validate numpy/numpy-1-to-2` prints the command that
+installs one. What the tool wrote is kept for a file only if it changed no line the scan did not
+report, changes nothing when run on its own output, and leaves none of the names (`from numpy import
+float_` it leaves standing, so that file stays as it was). The names are those that were the same
+object or the same call on NumPy 1.26.4, so the rewritten code runs on both releases. Every other
+name the migration guide lists is reported, and any one such place holds the whole repository back,
+the dependency line included. Promotion, the default integer on Windows and the C API are not
+names, and the tests are the check ([KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists what it does not see).
 
 ## pypdf
 

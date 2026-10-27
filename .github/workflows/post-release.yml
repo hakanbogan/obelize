@@ -110,6 +110,7 @@ jobs:
           fi
           obelize --help > /dev/null
           obelize pack validate gemini/google-generativeai-to-google-genai
+          obelize pack validate numpy/numpy-1-to-2
           obelize pack validate openai/openai-0-to-1
           obelize pack validate py-pdf/pypdf2-to-pypdf
           obelize pack validate python/datetime-utcnow

@@ -26,7 +26,7 @@ from obelize.models import Config, bounds
 from obelize.packs import loader, schema
 from obelize.scan import manifests
 from obelize.scan import runner as scanner
-from obelize.transforms import codemod, registry
+from obelize.transforms import codemod, fixers, registry
 from obelize.transforms import manifest as manifest_rules
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,6 +35,7 @@ GENERIC = Path(__file__).resolve().parent / "generic"
 BUILDER = NEGATIVE / "_build.py"
 GEMINI_ID = "gemini/google-generativeai-to-google-genai"
 OPENAI_ID = "openai/openai-0-to-1"
+NUMPY_ID = "numpy/numpy-1-to-2"
 PYPDF_ID = "py-pdf/pypdf2-to-pypdf"
 DATETIME_ID = "python/datetime-utcnow"
 REMOVED_ID = "python/removed-stdlib-modules"
@@ -42,6 +43,7 @@ PKG_RESOURCES_ID = "setuptools/pkg-resources-to-importlib"
 BUNDLED_IDS = loader.bundled_ids()
 
 runner = CliRunner()
+pytestmark = pytest.mark.usefixtures("tools_on_the_path")
 
 
 def _load_builder() -> Any:
@@ -65,6 +67,12 @@ builder = _load_builder()
 IMPLEMENTED_KINDS: frozenset[str] = registry.IMPLEMENTED
 
 
+def test_the_ruff_the_suite_runs_is_one_the_registry_accepts() -> None:
+    """A bump of the lock past the range stops here, and not in a fixture that reads as withheld."""
+    for fixer in fixers.FIXERS:
+        assert fixers.problem(fixer) is None
+
+
 @pytest.fixture(scope="module", params=BUNDLED_IDS)
 def bundled(request: pytest.FixtureRequest) -> loader.LoadedPack:
     return loader.load(request.param)
@@ -77,6 +85,7 @@ def pack_dir(bundled: loader.LoadedPack) -> Path:
 def test_the_bundled_packs_are_the_ones_this_release_ships() -> None:
     assert BUNDLED_IDS == (
         GEMINI_ID,
+        NUMPY_ID,
         OPENAI_ID,
         PYPDF_ID,
         DATETIME_ID,
@@ -190,6 +199,25 @@ def test_every_answer_key_is_what_the_rules_write_into_its_fixture(
         source = key.name.replace(".after.", ".before.")
         _whole, produced = migratable[source]
         assert produced.decode("utf-8") == key.read_text(encoding="utf-8"), key.name
+
+
+def test_every_name_a_fixer_rewrites_is_used_by_a_fixture_a_run_migrates_whole(
+    bundled: loader.LoadedPack, migratable: dict[str, tuple[bool, bytes]]
+) -> None:
+    """A tool is trusted for what a fixture shows it do, so each name it is run for needs one."""
+    changes = bundled.pack.fixers()
+    if not changes:
+        pytest.skip("this pack runs no maintained tool")
+    folder = pack_dir(bundled) / "fixtures" / "positive"
+    shown = "\n".join(
+        (folder / name).read_text(encoding="utf-8")
+        for name, (whole, _) in migratable.items()
+        if whole
+    )
+    for change in changes:
+        for symbol in change.params.symbols:
+            module, _, name = symbol.rpartition(".")
+            assert re.search(rf"\b(?:np|{module})\.{name}\b", shown), symbol
 
 
 def test_the_manifest_answer_key_is_what_the_rule_writes(bundled: loader.LoadedPack) -> None:

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Final
 
 from obelize.packs.schema import Change, ChangeKind
 from obelize.transforms.kinds.configure_to_client import ConfigureToClient
+from obelize.transforms.kinds.external_fixer import ExternalFixer
 from obelize.transforms.kinds.flag_only import FlagOnly
 from obelize.transforms.kinds.generative_model_calls import GenerativeModelCalls
 from obelize.transforms.kinds.manifest_dependency import ManifestDependency
@@ -38,6 +39,7 @@ RULES: Final[dict[ChangeKind, type[Rule]]] = {
     RenameMember.kind: RenameMember,
     RewritePattern.kind: RewritePattern,
     Plugin.kind: Plugin,
+    ExternalFixer.kind: ExternalFixer,
     FlagOnly.kind: FlagOnly,
 }
 

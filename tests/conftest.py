@@ -7,6 +7,8 @@ and an empty git configuration keeps the machine's `core.autocrlf` out of every 
 
 from __future__ import annotations
 
+import os
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -30,3 +32,11 @@ def _pinned_environment(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Pa
         for forcing in COLOUR_FORCING:
             patch.delenv(forcing, raising=False)
         yield home
+
+
+@pytest.fixture(scope="module")
+def tools_on_the_path() -> Iterator[None]:
+    """The interpreter's folder on the `PATH`, where the ruff of the development environment is."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("PATH", f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}")
+        yield

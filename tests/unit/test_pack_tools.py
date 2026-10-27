@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 runner = CliRunner()
+pytestmark = pytest.mark.usefixtures("tools_on_the_path")
 
 BUNDLED = loader.bundled_ids()
 PYPDF = "py-pdf/pypdf2-to-pypdf"
@@ -48,7 +49,7 @@ def _problems(folder: Path) -> dict[str, tuple[str, ...]]:
 @pytest.mark.parametrize("reference", BUNDLED)
 def test_every_bundled_pack_passes_every_check(reference: str) -> None:
     results = check.run(loader.load(reference))
-    assert len(results) == 9
+    assert len(results) == 10
     assert [(one.name, one.problems) for one in results if not one.ok] == []
 
 
@@ -307,7 +308,7 @@ def test_pack_test_passes_a_bundled_pack_by_id() -> None:
     result = runner.invoke(app, ["pack", "test", PYPDF])
     assert result.exit_code == 0, result.output
     assert result.stdout.startswith(f"{PYPDF} 0.")
-    assert "All 9 checks passed." in result.stdout
+    assert "All 10 checks passed." in result.stdout
     assert "FAIL" not in result.stdout
 
 
@@ -324,7 +325,7 @@ def test_pack_test_names_what_failed_and_exits_seven(tmp_path: Path) -> None:
     assert result.exit_code == 7, result.output
     assert "  FAIL  SOURCES.md has a section for every change" in result.stdout
     assert "          - SOURCES.md is missing" in result.stdout
-    assert "1 of 9 checks failed." in result.stderr
+    assert "1 of 10 checks failed." in result.stderr
 
 
 def test_pack_test_exits_two_when_there_is_no_pack(tmp_path: Path) -> None:

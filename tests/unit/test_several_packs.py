@@ -27,6 +27,7 @@ runner = CliRunner()
 
 GEMINI = "gemini/google-generativeai-to-google-genai"
 OPENAI = "openai/openai-0-to-1"
+NUMPY = "numpy/numpy-1-to-2"
 PYPDF = "py-pdf/pypdf2-to-pypdf"
 
 # Both libraries in one file, so what the second pack sees depends on what the first wrote.
@@ -154,7 +155,7 @@ def test_a_repository_no_pack_applies_to_says_so_and_exits_zero(tmp_path: Path) 
     assert result.exit_code == 0, result.output
     checked = ", ".join(loader.bundled_ids())
     assert f"No pack applies. Checked: {checked}." in result.output
-    assert checked.startswith(f"{GEMINI}, {OPENAI}, {PYPDF}, ")
+    assert checked.startswith(f"{GEMINI}, {NUMPY}, {OPENAI}, {PYPDF}, ")
     assert document(tree, "findings.json")["packs"] == []
     assert document(tree, "run.json")["packs"] == []
     fixed = run(tree, "fix")

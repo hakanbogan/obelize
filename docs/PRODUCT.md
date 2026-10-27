@@ -49,8 +49,8 @@ has made a breaking release.
 ## What ships today
 
 - The commands in [CLI.md](CLI.md#surface); `fix` is dry-run unless given `--apply`.
-- Six bundled packs, `gemini/google-generativeai-to-google-genai`, `openai/openai-0-to-1` and
-  `py-pdf/pypdf2-to-pypdf` for libraries, `python/datetime-utcnow`,
+- Seven bundled packs, `gemini/google-generativeai-to-google-genai`, `numpy/numpy-1-to-2`,
+  `openai/openai-0-to-1` and `py-pdf/pypdf2-to-pypdf` for libraries, `python/datetime-utcnow`,
   `setuptools/pkg-resources-to-importlib` and `python/removed-stdlib-modules` for the Python
   itself, and packs of your own from directories your config lists, several to a run.
 - Finding a library's breaking changes without a bundled pack: `scan --library` lists the places a
@@ -74,7 +74,8 @@ the changelog says so, and the README describes only what ships.
 
 - Reading a migration guide to draft rules, and a pipeline that opens the pull request of an
   upgrade.
-- A registry to share a pack, and existing fixers such as ruff behind the same evidence.
+- A registry to share a pack, and more fixers such as ruff behind the same evidence
+  ([the first one ships](adr/ADR-074-external-fixer.md)).
 
 ## Not planned
 

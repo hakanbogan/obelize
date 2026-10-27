@@ -151,6 +151,25 @@ summary and `REPORT.md` print for a code, and a test keeps it equal to `BAIL_ACT
 | `error_class_changed` | A rewritten call is in a `try` whose handler, in the same function, names an exception from the change's `legacy_error_modules` (`google.api_core.exceptions`). The new SDK raises `google.genai.errors`, so the handler would never run; for `rename_symbol`, a class that is called, raised or derived from, or a renamed class whose handler follows one in the same `try` that may now catch it (a class the change's `now_caught_by` lists, or one the rule cannot tell). | Catch the exception class the new SDK raises in that handler, then run again. |
 | `types_import_typing_only` | The rewrite needs a submodule (Gemini's `types`) at run time and the file imports it only under `if TYPE_CHECKING:`, with no replaced statement that runs to anchor a fresh import. | Import the module at run time, outside TYPE_CHECKING, or migrate the file by hand. |
 
+### External tools
+
+The codes of an `external_fixer` change ([ADR-074](adr/ADR-074-external-fixer.md)), raised at fix
+time on a row the scan graded `eligible`. The first five are about the tool, and name no row's own
+defect; the last three are the proof an `external_fixer` holds the tool's output to. A tool is
+started from the absolute entries of your `PATH`, in an empty directory and with a few environment
+variables, and never installed.
+
+| Code | Raised when | What to do |
+|---|---|---|
+| `external_tool_missing` | The tool the fixer runs is on no absolute entry of `PATH`. | Install the tool the pack's fixer runs, at a release `obelize pack validate` names, then run again; obelize installs nothing. |
+| `external_tool_version_unsupported` | The tool prints a release the registry does not list. What a rule fixes changes between releases, so only a release that was run over the pack's fixtures is trusted. | Install a release of the tool that `obelize pack validate` names, then run again. |
+| `external_tool_failed` | The tool could not be started, printed no release, or exited with a status other than `0`. | Migrate the file by hand; the tool did not run or failed on it, so the file was left alone. |
+| `external_tool_timeout` | The tool did not finish within 60 seconds. | Migrate the file by hand; the tool did not finish in time, so the file was left alone. |
+| `external_tool_size_limit` | The file, or what the tool printed, is larger than 4 MiB. | Migrate the file by hand; it or the tool's output is larger than obelize takes from a tool. |
+| `external_fix_out_of_scope` | The tool changed a line of the file as the scan read it that no row of the fixer claims, or one another rule of the pack wrote; or it added a line that is not an import; or it wrote a line wider than the pack's `layout.line_length` and the line it replaced. Its whole output is dropped. | Migrate the file by hand; the tool changed more than the places the scan reported, so its output was dropped. |
+| `external_fix_incomplete` | The tool changed nothing, or the scan of what it printed still finds a name the fixer claims: it skipped a use, left the import of a removed name, or was silenced with `# noqa`. | Migrate by hand what the tool left; its output still names the legacy surface, or it changed nothing. |
+| `external_fix_not_idempotent` | The tool, run on its own output, changed it again. Its output is dropped. | Migrate the file by hand; the tool changed its own output when run again, so its output was dropped. |
+
 ### The run
 
 The codemod driver's own codes, and the one an inventory gives every place.
@@ -214,6 +233,12 @@ Outside `LADDER`, since nothing on their row competes:
   `configure_consumed_elsewhere`): fix-time, only on an `eligible` row. A pack
   that is its own target gets `repo_not_fully_migrated` on its source rows the
   same way ([the codemod driver decision](adr/ADR-031-codemod-driver.md)).
+- `transforms/kinds/external_fixer.py`'s eight (`external_tool_missing`,
+  `external_tool_version_unsupported`, `external_tool_failed`, `external_tool_timeout`,
+  `external_tool_size_limit`, `external_fix_out_of_scope`, `external_fix_incomplete`,
+  `external_fix_not_idempotent`): fix-time, only on an `eligible` row the fixer claims, and every row
+  it claims in the file takes the code (or, for `external_fix_incomplete`, each whose symbol is
+  left). The tool is not run on a file another rule withholds.
 - Call-rewrite bails: fix-time, one per group.
   `transforms/kinds/generative_model_calls.py` declares its order: the client,
   then the group's shape, then the constructor.
@@ -252,6 +277,14 @@ other.
 | `repo_not_fully_migrated` | Atomicity of a pack whose one distribution holds both APIs: the import is one the pack would rewrite, and a row elsewhere in the repository is withheld. |
 | `usage_unmapped` | No rule of the pack rewrites this statement. |
 | `no_pack_for_usage` | The scan is an inventory of a library no pack covers. |
+| `external_tool_missing` | An `external_fixer` change claims the imported name, and its tool is not installed. |
+| `external_tool_version_unsupported` | As above, and the tool is a release the registry does not list. |
+| `external_tool_failed` | As above, and the tool did not run or failed on the file. |
+| `external_tool_timeout` | As above, and the tool did not finish in time. |
+| `external_tool_size_limit` | As above, and the file or the tool's output is larger than obelize takes from a tool. |
+| `external_fix_out_of_scope` | As above, and the tool changed a line it may not, so its output was dropped. |
+| `external_fix_incomplete` | As above, and the tool left the name: the import of a removed name is the place a tool most often leaves. |
+| `external_fix_not_idempotent` | As above, and the tool changed its own output when run again. |
 | `runtime_unsupported` | A `fix` run withheld every row of a pack the repository's declared Python rules out. |
 | `legacy_version_unsupported` | A `fix` run withheld every row of a pack the repository's legacy pin rules out. |
 | `new_version_unsupported` | A `fix` run withheld every row of a pack the repository's pin of the new distribution rules out. |
