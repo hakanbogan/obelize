@@ -122,6 +122,16 @@ more than that (pandas between 1.5 and 2.2, for one) `pack synth` stops and says
 `obelize upgrade` does the same for the repository it is run on. Such a pack is a different pack,
 so its id ends with a digest of those names, and it is not reused for another repository.
 
+With `--guide <url|file>` the model you have set up in your own configuration reads a migration
+guide too and drafts claims, such as "`parse_obj_as(T, v)` is now `TypeAdapter(T).validate_python(v)`"
+(`pydantic.dev` says it in prose). A claim is kept only if its quote is in the guide, its names are in
+both releases and the API diff does not contradict it, and it becomes a report that quotes the guide:
+a rewrite only where the diff itself shows the old name removed or deprecated and the new one able to
+take its place. The guide's text and nothing of your code goes to the model, and a model that is not
+set up means the guide is skipped with one line ([what is sent](PRIVACY.md#what-a-guide-sends),
+[the checks](PACK_SPEC.md#changes-taken-from-a-guide)). Pydantic 1.10.26 to 2.12.5 with its migration
+guide gave 47 claims, of which 31 became changes and one a rewrite ([the run](UPGRADING.md#what-a-guide-adds)).
+
 What two surfaces cannot show is what a function does. A pack made this way says so in its
 limitations, cites the file of the newer release with its hash, and is never bundled: the
 tests of your repository are what show whether a migration holds. A library that builds its exports

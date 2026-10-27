@@ -113,6 +113,29 @@ def test_the_name_a_pattern_is_found_by_is_a_written_name_or_a_member_of_a_class
 
 
 @pytest.mark.parametrize(
+    ("text", "receiver"),
+    [
+        ("$m.f($a)", "m"),
+        ("lib.f($a)", None),
+        ("lib.f", None),
+        ("$m.sub.f($a)", None),
+        ("$m($a)", None),
+    ],
+)
+def test_the_variable_a_member_call_is_made_on_is_the_receiver(
+    text: str, receiver: str | None
+) -> None:
+    assert pattern.receiver(pattern.parse(text)) == receiver
+
+
+def test_a_metavariable_is_known_by_its_name_and_nothing_else_is() -> None:
+    template = pattern.parse("$m.f(lib.g, 1)")
+    assert pattern.metavariable(template.tree.func.value) == "m"  # type: ignore[attr-defined]
+    assert pattern.metavariable(template.tree.func) is None  # type: ignore[attr-defined]
+    assert pattern.metavariable(template.tree.args[1].value) is None  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
     ("text", "where", "says"),
     [
         ("lib.f", {}, "is no call"),

@@ -525,3 +525,30 @@ def test_an_answer_that_is_json_and_not_an_object_is_prose(
 ) -> None:
     """Not the envelope, and it has no braces for the object search to find."""
     assert _refusal(monkeypatch, _completion("[1, 2]")).failure == "answer_not_json"
+
+
+def test_any_question_is_put_in_the_two_messages_it_is_and_answered_in_words(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    body = json.dumps(
+        {
+            "choices": [{"message": {"content": "the words"}}],
+            "usage": {"prompt_tokens": 12, "completion_tokens": 3},
+        }
+    ).encode()
+    made, stub = _adapter(monkeypatch, body)
+    done = made.complete("The system.", "The user.")
+    assert (done.text, done.tokens_in, done.tokens_out) == ("the words", 12, 3)
+    sent = json.loads(stub.seen[-1].data)  # type: ignore[arg-type]
+    assert sent["messages"] == [
+        {"role": "system", "content": "The system."},
+        {"role": "user", "content": "The user."},
+    ]
+    assert (sent["model"], sent["temperature"], sent["stream"]) == ("a-model", 0, False)
+
+
+def test_a_question_whose_answer_is_no_completion_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    made, _ = _adapter(monkeypatch, json.dumps({"choices": []}).encode())
+    with pytest.raises(base.ProviderError) as raised:
+        made.complete("s", "u")
+    assert raised.value.failure == "response_not_a_completion"

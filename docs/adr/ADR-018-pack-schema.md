@@ -3,7 +3,7 @@
 ## Status
 
 Accepted; amended by [ADR-019](ADR-019-resolution-detection-rules.md) (D8) and
-[ADR-025](ADR-025-rule-protocol-import-manager.md) (D6), ADR-050, ADR-051, ADR-053, ADR-071 and ADR-073.
+[ADR-025](ADR-025-rule-protocol-import-manager.md) (D6), ADR-050, ADR-051, ADR-053, ADR-071, ADR-073 and ADR-075.
 
 ## Decision
 
@@ -76,7 +76,8 @@ validated as a command.
 ### D7. One primary source, a per-claim `SOURCES.md`, and the measurement outranks the page
 
 `source` is one mapping whose `type` is `official_guide`, `sdk_reference` or, for a
-pack made from two releases, `api_diff` (ADR-063); its `sha256` is optional, as a fabricated hash is worse than none. `SOURCES.md`
+pack made from two releases, `api_diff` (ADR-063); a change taken from a guide carries a source of
+its own, whose type may also be `guide` (ADR-075); its `sha256` is optional, as a fabricated hash is worse than none. `SOURCES.md`
 has one section per `changes[].id`, asserted both ways. What moved is cited to
 the guide, which exact names are legal to a measurement; where they disagree,
 the pack carries the measurement and `SOURCES.md` says so.

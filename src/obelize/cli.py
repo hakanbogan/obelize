@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from obelize.outdated import Dependency
     from obelize.packs.loader import LoadedPack
     from obelize.packs.schema import PackDocument
+    from obelize.packtools import guided
     from obelize.resolve import Resolved
     from obelize.scan.runner import Scan, Tree
     from obelize.transforms.kinds.flag_only import Guide
@@ -1315,6 +1316,13 @@ def upgrade(
         metavar="<n>",
         help="The most rounds --agent is put the tests that broke after the move. 0 asks none.",
     ),
+    guide: list[str] | None = typer.Option(
+        None,
+        "--guide",
+        metavar="<url|file>",
+        help="A migration guide for the pack made from the two releases to take claims from: an "
+        "https address or a file. Repeatable. The model in your configuration reads its text.",
+    ),
 ) -> None:
     """Show what moving one dependency to a newer release would change.
 
@@ -1335,6 +1343,7 @@ def upgrade(
     from obelize import upgrade as upgrading
     from obelize.config import ConfigError
     from obelize.net import NetworkError
+    from obelize.packtools import guide as page
     from obelize.packtools import synth
 
     root = Path(repo)
@@ -1378,8 +1387,10 @@ def upgrade(
             known=known,
             kept=net.Cache.home(os.environ).directory / "packs" / __version__,
             root=root,
+            guides=_guides(guide or [], None, fetcher, project.name, target),
+            say=_say,
         )
-    except (ConfigError, libdiff.LibraryError, synth.SynthError) as error:
+    except (ConfigError, libdiff.LibraryError, synth.SynthError, page.GuideError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1 if isinstance(error, synth.SynthDefectError) else 2) from error
     except NetworkError as error:
@@ -1387,6 +1398,8 @@ def upgrade(
         raise typer.Exit(2 if error.reason == "not_found" else 6) from error
     goal = chosen.install if chosen.remove else target
     typer.echo(f"Moving {project.name} {now} to {goal}. {chosen.note}", err=True)
+    if chosen.claims is not None:
+        typer.echo(_told(chosen.claims), err=True)
     if (moves := upgrading.moves_off(known, project.name, now)) is not None:
         typer.echo(
             f"The pack {moves} moves what {project.name} {now} holds onto the Python itself, which "
@@ -1751,6 +1764,21 @@ def pack_synth(
         "--offline",
         help="Reach no host: read only what an earlier run kept in the cache.",
     ),
+    guide: list[str] | None = typer.Option(
+        None,
+        "--guide",
+        metavar="<url|file>",
+        help="A migration guide to take claims from: an https address or a file. Repeatable, at "
+        "most three. The model in your configuration reads its text and nothing of your code, "
+        "and the pack keeps only the claims that code checks.",
+    ),
+    guide_replay: str | None = typer.Option(
+        None,
+        "--guide-replay",
+        metavar="<file>",
+        help="Take the answers from the guide.json an earlier run kept beside its pack, and ask "
+        "no model.",
+    ),
 ) -> None:
     """Make a migration pack from what two releases of a library offer.
 
@@ -1767,13 +1795,15 @@ def pack_synth(
     from obelize import index, libdiff
     from obelize.config import ConfigError
     from obelize.net import NetworkError
-    from obelize.packtools import synth, uses
+    from obelize.packtools import guide as page
+    from obelize.packtools import guided, synth, uses
 
     try:
         fetcher = _fetcher(offline)
         project = index.project(fetcher, distribution)
         before = libdiff.version(old)
         after = libdiff.version(new) if new else libdiff.newest(project)
+        guides = _guides(guide or [], guide_replay, fetcher, project.name, after)
         compared = libdiff.compare(fetcher, project, before, after, module=module)
         scope = uses.names(Path(used_by), compared.module) if used_by else None
         if used_by and scope is None:
@@ -1783,11 +1813,19 @@ def pack_synth(
                 err=True,
             )
             raise typer.Exit(2)
-        asked = synth.request(project.name, before, after, compared, scope)
-        made = synth.make(
-            Path(directory), asked, compared.old_surface, compared.changes, compared.new_surface
+        asked = synth.request(
+            project.name, before, after, compared, scope, guides.digest if guides else None
         )
-    except (ConfigError, libdiff.LibraryError, synth.SynthError) as error:
+        told = guided.Names(project.name, str(before), str(after), compared.module)
+        made = synth.make(
+            Path(directory),
+            asked,
+            compared.old_surface,
+            compared.changes,
+            compared.new_surface,
+            guides.draft(told, _say) if guides else None,
+        )
+    except (ConfigError, libdiff.LibraryError, synth.SynthError, page.GuideError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1 if isinstance(error, synth.SynthDefectError) else 2) from error
     except NetworkError as error:
@@ -1797,12 +1835,88 @@ def pack_synth(
     typer.echo(f"Made {made.pack_id} in {shown}:")
     for change, count in made.covered.items():
         typer.echo(f"  {change}: {count} name(s)")
+    if made.guided is not None:
+        typer.echo(_told(made.guided) + f" Record: {shown / guided.RECORD}")
     if made.unseen:
         typer.echo(
             f"{made.unseen} name(s) could not be judged: the newer release makes its exports "
             f"when it is imported, so a name not seen may still be there."
         )
     typer.echo(f"Next: obelize pack test {shown}, then obelize scan --pack {shown}/pack.yaml")
+
+
+def _guides(
+    refs: list[str], replay: str | None, fetcher: Fetcher, distribution: str, version: Version
+) -> guided.Source | None:
+    """The guides `--guide` names, read, with the model that will draft claims from them or the
+    answers an earlier run kept; `None`, with a line saying why, when there is no model."""
+    from obelize.packtools import guide as page
+    from obelize.packtools import guided
+
+    if not refs:
+        if replay is not None:
+            typer.echo("--guide-replay needs the --guide it answered.", err=True)
+            raise typer.Exit(2)
+        return None
+    if len(refs) > page.MAX_GUIDES:
+        typer.echo(f"--guide is given at most {page.MAX_GUIDES} times.", err=True)
+        raise typer.Exit(2)
+    drafter = None if replay is not None else _drafter()
+    if replay is None and drafter is None:
+        typer.echo(
+            "--guide asks a model to read the guide, and none is set up: set model.provider or "
+            "agent.backend in your own configuration file. Nothing was read or sent, and the pack "
+            "is made from the two releases alone.",
+            err=True,
+        )
+        return None
+    kept = guided.replies_kept(Path(replay)) if replay is not None else {}
+    texts = tuple(page.read(ref, fetcher) for ref in refs)
+    for text in texts:
+        said = (
+            f"its text ({len(text.text)} characters) will go to {drafter.where} in "
+            f"{len(text.chunks)} part(s), one at a time; nothing of your code goes with it"
+            if drafter
+            else f"its answers are the ones kept in {Path(replay or '').name}; no model is asked"
+        )
+        typer.echo(f"--guide {text.ref}: {said}.", err=True)
+    project = guided.links(fetcher, distribution, str(version))
+    official = tuple(guided.official(text.url, project) for text in texts)
+    return guided.Source(texts, official, drafter, kept)
+
+
+def _drafter() -> guided.Drafter | None:
+    """The model a guide is put to, from the person's own configuration: the endpoint in `model`,
+    else the coding agent in `agent`."""
+    from obelize.packtools import guided
+    from obelize.providers import agent_cli, base, openai_compat
+    from obelize.verify.runner import user_config
+
+    config = user_config(_config_dir())
+    endpoint = openai_compat.build(config.model, os.environ)
+    if endpoint is not None:
+        where = f"{config.model.host}, the endpoint you set up"
+        return guided.Drafter(endpoint, "openai_compat", config.model.model, where)
+    if config.agent.backend == "none":
+        return None
+    try:
+        agent = agent_cli.build(config.agent.backend, config.agent.model, os.environ)
+    except base.ProviderError as error:
+        typer.echo(error.detail, err=True)
+        return None
+    where = f"{agent.program}, which sends it where your own login does"
+    return guided.Drafter(agent, config.agent.backend, config.agent.model, where)
+
+
+def _told(outcome: guided.Outcome) -> str:
+    """What became of the claims, and what asking for them cost."""
+    drafted = outcome.drafted
+    cost = (
+        f" Tokens: {drafted.tokens_in} in, {drafted.tokens_out} out."
+        if drafted.provider != "replay"
+        else ""
+    )
+    return f"Guide: {outcome.line()}{cost}"
 
 
 def _offline(flag: bool) -> bool:

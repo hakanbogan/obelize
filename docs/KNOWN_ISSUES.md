@@ -206,8 +206,9 @@ sandboxes the installs or the tests, so run it only on a repository whose depend
 you would run anyway.
 
 A pack made by `pack synth` reads a method through a class of yours only where the library's
-message says plainly which method replaces it and a call can move to it; the others, such as
-`copy`, are flagged where they are read off a receiver the scan can type, and not found where it
+message says plainly which method replaces it and a call can move to it (or, with `--guide`, a
+guide says it and the diff shows the old one going); the others, such as `copy` without a guide,
+are flagged where they are read off a receiver the scan can type, and not found where it
 cannot ([members of a class](#members-of-a-class)). A method that is deprecated and still works is
 therefore noticed only if a test breaks when it is read off a receiver nothing types, and the repair
 rounds can put it to the agent only then.
@@ -270,6 +271,49 @@ The pack made for a very large library (pandas) can repeat a name under each mod
 it, so the file is large. `claude` is the one agent program obelize can use, and only the trial can
 install anything, with uv. The agent is started the same way on Windows, but its tests stand in for
 it with an executable script and run on Linux and macOS only.
+
+## Migration guides
+
+`pack synth --guide` and `upgrade --guide` ([why](adr/ADR-075-claims-from-a-guide.md)) are new, and
+have been run once on a public guide, pydantic 1 to 2: 47 claims, 31 kept. How often the claims of
+other guides, or of another model, pass the checks is not known, and nothing measures it over
+public repositories. What is open:
+
+- Recall is the model's. The first prompt returned 13 claims from the same guide, and the second 41 and 47 in two runs,
+  so what a guide says and no claim carries is not in the pack, and a better model or a longer prompt
+  may find more. Run it with the model you trust, read the report, and use `--guide-replay` to see
+  the same claims again.
+- A claim is about one name of the module compared. A change to a name in another distribution
+  (`pydantic.BaseSettings` is now `pydantic_settings.BaseSettings`) is kept as a report with the
+  guide's words and no more, and what a guide says about configuration written as a class body
+  (`class Config`), a decorator's arguments or the behaviour of a function has no name to hold to.
+- A table is read as one line for each of its lines, with `|` between the cells, and a table cut
+  between two parts loses its header. A code block is kept with its line breaks. Images, diagrams, text in an image
+  and a page that a script builds in the browser are not read: a guide that is built that way is
+  refused as empty. A PDF is refused, and so is text that is not UTF-8.
+- The text is judged as fetched. A guide at `latest` changes under the same address; the hash of the
+  text the model saw is recorded, and a pack made from it is not made again unless the text, and so
+  its digest, differs.
+- A guide is the vendor's own only where its address is on the host of an address the project
+  lists for itself, and below its path. Documentation that moved (`docs.pydantic.dev` is now
+  `pydantic.dev`) or is on another host is `guide`, and a file never is: those changes are never
+  bundled. An address with a query or a character a pack cannot cite, or `http` to this machine, is
+  cited by the quote and its host and has no `source` of its own.
+- A rewrite rests on the diff, not on the guide: the old name is removed or deprecated, the new
+  one is there and not itself deprecated, and every call the pattern writes fits the new signature.
+  That shows a call is valid, not that it means what the old one did. Your tests decide that, as for
+  every pack made from two releases, and a pack that passes `pack test` is not thereby right.
+- A claim about a name the diff already reports is dropped, even where the guide's words would have
+  said more than the library's, so the report keeps the library's.
+- A page can make a model say something that is true to the page and misleads (a quote that is
+  in the guide, about names that exist, with advice that is wrong for you). The check is that the
+  words are the guide's: a report starts "The migration guide says". It cannot make a rewrite the
+  diff does not support.
+- The answers kept in `guide.json` are for the text and the parts they were given: a release that
+  cuts the text another way finds no answers for it and says so.
+- At most three guides of at most 400,000 characters each, in parts of about 20,000 characters, one
+  request a part, and at most 60 claims kept in a pack. A long guide costs requests; the first run
+  above was three requests, about 21,000 tokens in and 7,000 out.
 
 ## Data files and formats
 

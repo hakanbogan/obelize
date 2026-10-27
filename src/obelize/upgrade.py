@@ -15,10 +15,10 @@ from packaging.utils import canonicalize_name
 
 from obelize import libdiff
 from obelize.packs import loader
-from obelize.packtools import synth, uses
+from obelize.packtools import guided, synth, uses
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
     from packaging.version import Version
@@ -36,6 +36,8 @@ class Chosen:
     note: str
     install: str
     remove: str | None = None
+    # What became of the claims a guide gave, when the pack was made with one in this run.
+    claims: guided.Outcome | None = None
 
 
 def choose(
@@ -49,10 +51,13 @@ def choose(
     known: Sequence[loader.LoadedPack],
     kept: Path,
     root: Path | None = None,
+    guides: guided.Source | None = None,
+    say: Callable[[str], None] = lambda _line: None,
 ) -> Chosen:
     """A known pack that migrates `project` from `now` (and to `target`, if the person named one),
     else the pack made from the two releases, which is kept in `kept`. A library that changed too
-    much to flag name by name gets a pack for the names the code under `root` uses."""
+    much to flag name by name gets a pack for the names the code under `root` uses. A pack made
+    here takes the claims a model drafts from `guides`, which are asked for once and only then."""
     for loaded in known:
         pack = loaded.pack
         old, new = pack.from_, pack.to
@@ -68,21 +73,25 @@ def choose(
         ):
             return Chosen(
                 pack.id,
-                f"Using the pack {pack.id}.",
+                f"Using the pack {pack.id}." + (" --guide adds nothing to it." if guides else ""),
                 *_installs(new.package, new.version, project, target, targeted),
             )
-    folder = kept / synth.pack_id(project.name, now, target)
+    digest = guides.digest if guides is not None else None
+    folder = kept / synth.pack_id(project.name, now, target, guide=digest)
     if (folder / loader.PACK_FILENAME).is_file():
         return Chosen(
             str(folder / loader.PACK_FILENAME),
-            "Using the pack made from these two releases before.",
+            "Using the pack made from these two releases"
+            f"{' and the guide' if guides else ''} before.",
             f"{project.name}=={target}",
         )
     big = folder.with_name(f"{folder.name}.too-large")
     if root is not None and big.is_file():
         used = uses.names(root, big.read_text(encoding="utf-8").strip())
         if used is not None:
-            again = kept / synth.pack_id(project.name, now, target, used) / loader.PACK_FILENAME
+            again = (
+                kept / synth.pack_id(project.name, now, target, used, digest) / loader.PACK_FILENAME
+            )
             if again.is_file():
                 return Chosen(
                     str(again),
@@ -92,11 +101,20 @@ def choose(
     compared = libdiff.compare(fetcher, project, now, target, module=module)
     scope: frozenset[str] | None = None
     scoped = ""
+    drafted: guided.Drafted | None = None
     while True:
-        wanted = synth.request(project.name, now, target, compared, scope)
+        wanted = synth.request(project.name, now, target, compared, scope, digest)
+        if guides is not None and drafted is None:
+            told = guided.Names(project.name, str(now), str(target), compared.module)
+            drafted = guides.draft(told, say)
         try:
             made = synth.make(
-                kept, wanted, compared.old_surface, compared.changes, compared.new_surface
+                kept,
+                wanted,
+                compared.old_surface,
+                compared.changes,
+                compared.new_surface,
+                drafted,
             )
         except synth.SynthTooLargeError as error:
             big.parent.mkdir(parents=True, exist_ok=True)
@@ -118,6 +136,7 @@ def choose(
         f"Made a pack from the public API of {project.name} {now} and {target}: {names} name(s)."
         f"{scoped}",
         f"{project.name}=={target}",
+        claims=made.guided,
     )
 
 

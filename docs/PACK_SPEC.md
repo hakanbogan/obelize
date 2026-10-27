@@ -64,11 +64,14 @@ source:
 
 - `url` (**https**, with a host, no credential and no whitespace, control character or
   Markdown or HTML character, since it goes into the report) and `retrieved_at` are
-  required. The URL is never requested.
+  required. A pack never requests it, and neither does loading one; `pack synth --guide` and
+  `upgrade --guide` fetch a guide only at an address you give them.
 - `type` is `official_guide` or `sdk_reference`, the sources pack review
   admits, or `api_diff`, a pack that `obelize pack synth` made from the public API of two
   releases, whose `url` is the file of the newer one and whose `sha256` is that file's. A
-  bundled pack is never `api_diff`.
+  bundled pack is never `api_diff`. A change taken from a guide carries a source of its own
+  ([below](#changes-taken-from-a-guide)), whose type may also be `guide`; a bundled pack has none
+  of that type either.
 - `sha256`, optional, hashes the page as retrieved so a reviewer can see it
   change. An absent hash beats a fabricated one.
 - The pack's `SOURCES.md` has **one section per `changes[].id`** (both
@@ -237,6 +240,70 @@ to:
 | `params` | mapping | yes | That kind's parameters, validated per kind with `extra="forbid"`. |
 | `citation` | string | yes | The source guide section. |
 | `fixtures` | list of paths | yes | See [Fixtures](#fixtures). |
+| `source` | mapping | no | Where this change alone was read, when it was not where the pack's `source` was. The same fields as the pack's. See [Changes taken from a guide](#changes-taken-from-a-guide). |
+
+#### Changes taken from a guide
+
+`obelize pack synth --guide` and `obelize upgrade --guide` read a migration guide and ask the model
+you set up to draft claims from it. A claim is kept only after code has checked it against the guide
+and the two releases, and a kept claim is an ordinary change of a pack of the type `api_diff`, whose
+`pack test` and every later step are the same. Its `citation` is the address of the guide and the
+words quoted, and its `source` is the guide when the guide has an address a pack may hold (https):
+
+- `official_guide` when the guide is the vendor's own: its address is on the host of one of the
+  addresses the distribution lists for itself on the index (`Homepage`, `Documentation` and the
+  like), and below that address's path. A guide on `github.com` is the vendor's only below the
+  repository the project lists. A file has no address and is never the vendor's.
+- `guide` when it is not, or it cannot be shown to be. A pack with a change of this type is never
+  bundled; a change of either type is checked by `tests/packs/test_all_packs.py` to be absent from
+  every bundled pack.
+
+`retrieved_at` is the day of the run and `sha256` is the hash of the text the model was given,
+which `SOURCES.md` records beside the address. A change from a guide is named `guide-...` and has a
+section like any other.
+
+The model's claims have one of four kinds, and are in this closed shape: `kind`, `legacy` (the dotted
+name in the old release), `new` (in the new one, or null), `keywords` (for a `flag`, the keyword
+arguments that changed), `before` and `after` (the two templates of a `rewrite_pattern`) and
+`quote`, a passage copied from the guide. A claim is a `rename_symbol` (a function or class of the
+module now spelled another way, in the same place), a `rename_member` (a method of a class now spelled
+another way on the same class), a `rewrite_pattern` or a `flag`. What becomes of it:
+
+- Every kept claim is at least a `flag_only` change that reports the name with the guide's words.
+- It is a rewrite instead only where the API diff shows the old name removed or deprecated, says no
+  more about it than that, and the new name is there to take its place: for a rename, in the same
+  place with the same kind and not itself deprecated (a function whose signature takes every call
+  of the old one has its calls rewritten too, any other only its references); for a member, the same
+  on the same class, with the keywords the new method takes where it takes fewer; for a pattern, the
+  call each template makes is one the new release takes, and the templates are what a
+  [`rewrite_pattern`](#rule-kind-registry) may hold. A claim's own example matching its own pattern
+  is no evidence.
+- A claim about a name the diff already renames, moves or reports is dropped, and one that pairs it
+  with another name than the diff does is rejected.
+
+A claim not kept is counted under one of these reasons, written to `guide.json` beside the pack with
+the answers, the counts and what became of each claim:
+
+| Reason | A claim is rejected because |
+|---|---|
+| `malformed` | its fields do not fit its kind, or are not the closed shape |
+| `quote_missing` | its quote is not in the guide, whitespace aside |
+| `quote_weak` | its quote is under 30 characters, or does not name both names |
+| `quote_reused` | more than three claims rest on its quote |
+| `legacy_unknown` | `legacy` is not in the old release, or not below the module compared |
+| `new_unknown` | `new`, or a name `after` spells or calls, is not in the new release |
+| `keyword_unknown` | a keyword is not a parameter of the old name |
+| `out_of_scope` | `--used-by` is given and the code does not reach the name |
+| `pattern_refused` | a template is one a pack would refuse, is not a call of `legacy`, or writes a name the pack looks for |
+| `params_refused` | the change it would become fails the pack's schema |
+| `contradicts_diff` | the diff pairs the name with another |
+| `in_the_diff` | the diff already makes, reports or contains this change |
+| `repeated` | an earlier claim is about the name or one around it |
+| `too_many` | the pack already keeps 60 claims |
+| `pack_failed` | the pack made with the claims failed its own checks, so none is kept |
+
+An answer that is not one JSON object with a `claims` list is refused whole and counted apart, as is a
+part the model did not answer.
 
 ## Rule kind registry
 

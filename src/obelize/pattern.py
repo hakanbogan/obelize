@@ -188,6 +188,9 @@ def _meta(node: cst.CSTNode) -> str | None:
     return None
 
 
+metavariable = _meta
+
+
 class _Forms(cst.CSTVisitor):
     def __init__(self) -> None:
         self.uses: Counter[str] = Counter()
@@ -258,6 +261,13 @@ class Anchor:
     receiver: str | None
 
 
+def receiver(before: Template) -> str | None:
+    """The metavariable a `before` template's call is a member of (`$m.member(...)`), if any."""
+    call = before.tree
+    func = call.func if isinstance(call, cst.Call) else None
+    return _meta(func.value) if isinstance(func, cst.Attribute) else None
+
+
 def anchor(before: Template, where: Mapping[str, str]) -> Anchor:
     """The qualified name a `before` template's call is of: a dotted name as written
     (`pydantic.parse_obj_as(...)`), or `$m.member(...)` with `where` naming the class of `$m`."""
@@ -265,10 +275,10 @@ def anchor(before: Template, where: Mapping[str, str]) -> Anchor:
     if not isinstance(call, cst.Call):
         raise TemplateError("is no call; a pattern is a call of a name")
     func = call.func
-    if isinstance(func, cst.Attribute) and (receiver := _meta(func.value)) is not None:
-        if receiver not in where:
-            raise TemplateError(f"calls a member of ${receiver}, whose class `where` does not name")
-        return Anchor(f"{where[receiver]}.{func.attr.value}", receiver)
+    if (held := receiver(before)) is not None:
+        if held not in where:
+            raise TemplateError(f"calls a member of ${held}, whose class `where` does not name")
+        return Anchor(f"{where[held]}.{cast('cst.Attribute', func).attr.value}", held)
     name = dotted(func)
     if name.count(".") < 1 or any(part.startswith(_PREFIX) for part in name.split(".")):
         raise TemplateError("calls something that is not a qualified name such as `lib.name`")
@@ -556,9 +566,11 @@ __all__ = [
     "dotted",
     "importable",
     "match",
+    "metavariable",
     "new_names",
     "parse",
     "place",
     "pure",
+    "receiver",
     "tight",
 ]

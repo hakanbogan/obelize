@@ -275,7 +275,7 @@ def _deprecation(
     target, new = named[0]
     if accepts(old, new):
         return ApiChange("deprecated", path, new_path=target, message=message, same_signature=True)
-    return ApiChange("deprecated", path, new_path=target, message=message, takes=_takes(old, new))
+    return ApiChange("deprecated", path, new_path=target, message=message, takes=takes(old, new))
 
 
 def _positions(old: Obj, new: Obj) -> bool:
@@ -311,7 +311,7 @@ def _carries(old: Param, new: Param) -> bool:
     )
 
 
-def _takes(old: Obj, new: Obj) -> tuple[str, ...] | None:
+def takes(old: Obj, new: Obj) -> tuple[str, ...] | None:
     """The keywords `new` takes, if a call of `old` that passes only those means the same to it.
 
     The positional parameters keep their places, nothing new is required, and every parameter that
@@ -462,4 +462,5 @@ __all__ = [
     "diff",
     "names_only",
     "successors",
+    "takes",
 ]

@@ -7,7 +7,8 @@ links to it.
 
 A data file that describes one migration between two versions of a library: which symbols to find,
 which [rule kind](#rule-kind) handles each, and what backs it: the official guide for a bundled
-pack, the public API of the two releases for one that `pack synth` made. A pack holds no code.
+pack, the public API of the two releases for one that `pack synth` made, and for its changes taken
+from a guide, that guide. A pack holds no code.
 obelize parses it with a closed schema and never executes it. The format is in
 [Pack format](PACK_SPEC.md), and the seven that ship are in [Packs](PACKS.md).
 
@@ -36,6 +37,14 @@ rule's own ([why](adr/ADR-074-external-fixer.md)).
 A method or attribute of a class, such as `dict` of pydantic's `BaseModel`. A `rename_member` change
 renames it where your code reads it off an instance of the class, or of a class of yours that
 derives from it, and the file shows what the receiver is ([why](adr/ADR-068-rename-member.md)).
+
+## Claim
+
+A statement drafted by a model from a migration guide: a name that was renamed, a method that was
+renamed, a call that is written another way, or a name that needs a person, with the passage of the
+guide it rests on. A claim is kept only after code finds the passage in the guide and the names in
+both releases and sees that the API diff does not contradict it, and it becomes a report unless the
+diff itself supports a rewrite ([why](adr/ADR-075-claims-from-a-guide.md)).
 
 ## Pattern
 

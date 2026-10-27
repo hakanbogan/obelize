@@ -4,8 +4,9 @@
 
 - No network call unless you ask for one: by configuring the model adapter (below), by running a
   command that reads a package index (`pack synth`, `outdated` or `upgrade`, below), or with
-  `upgrade --apply`, which installs packages with uv, and `upgrade --agent`, which starts your own
-  `claude` program. There is no update check, no pack download and no crash report. `scan`,
+  `upgrade --apply`, which installs packages with uv, `upgrade --agent`, which starts your own
+  `claude` program, and `--guide`, which fetches a page you name and puts its text to a model you
+  set up. There is no update check, no pack download and no crash report. `scan`,
   `verify`, `undo` and `mcp` never reach a network, and `fix` reaches only a model endpoint you
   configured.
 - No telemetry code at all: no usage counters, no identifiers, no ping.
@@ -90,6 +91,30 @@ your manifests declare, so they ask a package index:
   host and uses only what is kept. Delete the directory to forget them.
 - A proxy named in your environment is honoured, as for any tool of yours: this is your network, not
   a model's.
+
+## What a guide sends
+
+`pack synth --guide` and `upgrade --guide` read a migration guide, at an https address or in a file
+you name, and ask a model to draft claims from its text:
+
+- The page is fetched as the index is (above): one host, printed first, your proxy honoured, a
+  redirect to another host refused, a size and a time limit, kept in the cache for an hour and read
+  from it under `--offline`. Its query and fragment, which can carry a token, are not kept anywhere.
+  A file is read where it is; only its name is ever recorded, never its path.
+- The model is the one in your own configuration: the endpoint in `model` (the rules of
+  [the model adapter](#what-changes-with-the-model-adapter) hold), else the coding agent in `agent`,
+  started as for `--agent` ([what that sends](#what-an-agent-run-sends)). A repository's
+  `.obelize.yml` can set neither. With neither set up, `--guide` says so, reads the guide and sends
+  nothing.
+- What goes to it is a fixed system prompt, the names of the library, its two releases and the
+  module compared, the address of the guide (or the name of the file), and the text of the guide in
+  parts of about 5,000 tokens, one request each. Nothing of your repository, your manifests or your
+  machine goes with it. The text is not redacted, since it is not yours: if you name a guide that is
+  private, its text goes to your model.
+- `guide.json`, beside the pack that `pack synth` makes (in the cache for `upgrade`), keeps the
+  address or file name, the hash of the text, the model's answers as it gave them, the counts, the
+  tokens and what became of each claim. It holds nothing from your repository.
+- `--guide-replay` takes the answers from that file and sends nothing.
 
 ## What `obelize upgrade --apply` installs
 

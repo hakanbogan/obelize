@@ -35,6 +35,27 @@ tool changed nothing the scan did not report, changes nothing when run on its ow
 leaves none of the names. Without a ruff of a release obelize has measured, or with another, every
 place stays as it was and the rows say which; obelize installs nothing ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
 
+A pack made from two releases can now take what the library's authors say in prose. `pack synth` and
+`upgrade` take `--guide <url|file>` (up to three), and a model you set up in your own configuration (the
+endpoint in `model`, else the agent in `agent`) reads the guide and drafts claims: a name renamed, a
+method renamed, a call written another way, a name that needs a person. Code keeps a claim only if
+its quote is in the guide, its names are in both releases, its pattern is one a pack may hold and the
+API diff does not contradict it, and it becomes a report that quotes the guide unless the diff itself
+shows the old name removed or deprecated and the new one able to take its place. Only the text of the
+guide goes to the model, in parts, with the names of the library and its releases; nothing of your
+code does, the host or program is printed first, and with no model set up the option is skipped with
+one line. The pack's folder gets a `guide.json` with the model's answers, the counts and what became
+of each claim, and `pack synth --guide-replay` makes the same pack again from it with no model. On
+pydantic 1.10.26 to 2.12.5 and its migration guide the model drafted 47 claims, 31 were kept and one
+of them, `BaseModel.copy` to `model_copy`, is a rewrite ([the run](docs/UPGRADING.md#what-a-guide-adds),
+[why](docs/adr/ADR-075-claims-from-a-guide.md)). A guide is fetched as the index is, so a page that
+moved to another host is refused and the message names the host.
+
+The formats that changed are `pack.yaml` (a change may carry a `source` of its own, whose type may be
+`guide`, which is never bundled), `pack.schema.json` which describes them, the id of a pack made with
+a guide (it ends with `-with-` and a digest of the guide's text) and `guide.json`, the new record
+beside such a pack.
+
 ### Unsupported patterns
 
 [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) has a new section on the packs for the Python itself
@@ -63,6 +84,12 @@ and one on the tools a pack can run. What it names:
   Gate 1 measurement. A fixer that moves an import, renames a
   keyword or needs the target release a repository states (`ruff`'s `UP035` and `AIR301`,
   `django-upgrade`, `pyupgrade`) is not registered ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
+- `--guide` has been run once on a public guide (pydantic 1 to 2) and measured nowhere else. What the
+  model drafts is its recall, not obelize's: a first prompt gave 13 claims from the guide and the
+  second 41 and 47 in two runs. A change in another distribution, a class body (`class Config`) and what a function
+  does have no name to hold a claim to, a table or a page built in the browser may not be read, and
+  a rewrite rests on the API diff and not on the guide, so your tests decide whether it means what
+  the old call did (the section on migration guides in KNOWN_ISSUES.md).
 - A name that a pack flags only at some calls is not listed where it is handed to another call
   (`map(pd.to_datetime, rows)`, a callback), whatever positional arguments the code that receives it
   passes, and a deprecation of the whole name that happens to use the word of a changed parameter

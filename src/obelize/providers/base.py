@@ -111,6 +111,23 @@ class Reply:
     unchanged: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class Completion:
+    """A model's words to a question that is no place in a file, and the tokens it cost."""
+
+    text: str
+    tokens_in: int = 0
+    tokens_out: int = 0
+
+
+class TextModel(Protocol):
+    """Any question in, the words out, through the same adapters and the same limits."""
+
+    def complete(self, system: str, user: str) -> Completion:
+        """Answer one question, or raise `ProviderError`."""
+        ...  # pragma: no cover - a protocol body is never executed
+
+
 class ModelProvider(Protocol):
     """One question in, one answer out, no state; a Protocol so a test double inherits nothing."""
 
@@ -372,6 +389,7 @@ __all__ = [
     "LINE_BREAK",
     "NOT_CONSULTED",
     "Answered",
+    "Completion",
     "Consultation",
     "Consulted",
     "Context",
@@ -379,6 +397,7 @@ __all__ = [
     "ProviderError",
     "Reply",
     "Skipped",
+    "TextModel",
     "consult",
     "excerpt",
     "questions",

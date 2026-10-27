@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; amended by ADR-073.
+Accepted; amended by ADR-073 and ADR-075.
 
 ## Decision
 
@@ -34,6 +34,8 @@ call it cannot show takes the arguments it took. A changed signature of a functi
 flagged only for the calls it can break, with a shape written from its parameter changes (ADR-073
 D3); a name with any other change, and a method, is flagged wherever it is used. The dependency line moves from the old release to
 `>=<to>,<next major>` with `manifest_dependency`. The pack is `shared`, since it is one distribution.
+With `--guide` it also holds the claims code kept from a migration guide, each a change of its own
+that reports unless the diff supports a rewrite (ADR-075).
 
 A name under a flagged class is reported as the class, because two changes may not flag one
 surface and the class's constructor is the usage the scan finds. A rename that would land on a name

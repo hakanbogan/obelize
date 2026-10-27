@@ -120,6 +120,17 @@
         },
         "params": {
           "$ref": "#/$defs/ConfigureToClientParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -216,6 +227,17 @@
         },
         "params": {
           "$ref": "#/$defs/ExternalFixerParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -283,6 +305,17 @@
         },
         "params": {
           "$ref": "#/$defs/FlagOnlyParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -400,6 +433,17 @@
         },
         "params": {
           "$ref": "#/$defs/GenerativeModelCallsParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -762,6 +806,17 @@
         },
         "params": {
           "$ref": "#/$defs/ManifestDependencyParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1003,7 +1058,8 @@
           "enum": [
             "official_guide",
             "sdk_reference",
-            "api_diff"
+            "api_diff",
+            "guide"
           ],
           "title": "Type",
           "type": "string"
@@ -1059,6 +1115,17 @@
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Plugin",
           "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1122,6 +1189,17 @@
         },
         "params": {
           "$ref": "#/$defs/RenameImportParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1224,6 +1302,17 @@
         },
         "params": {
           "$ref": "#/$defs/RenameMemberParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1302,6 +1391,17 @@
         },
         "params": {
           "$ref": "#/$defs/RenameSettingParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1379,6 +1479,17 @@
         },
         "params": {
           "$ref": "#/$defs/RenameSymbolParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1469,6 +1580,17 @@
         },
         "params": {
           "$ref": "#/$defs/RewriteCallParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1738,6 +1860,17 @@
         },
         "params": {
           "$ref": "#/$defs/RewritePatternParams"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

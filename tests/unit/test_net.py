@@ -179,6 +179,45 @@ def test_an_answer_that_takes_too_long_is_a_timeout(site: Site) -> None:
     assert raised.value.reason == "timeout"
 
 
+def test_a_type_of_page_that_was_not_asked_for_is_refused_before_it_is_read_or_kept(
+    site: Site, tmp_path: Path
+) -> None:
+    url = site.serve("/page", b"%PDF", Content_Type="application/pdf")
+    kept = Cache(tmp_path / "cache")
+    fetcher = _fetcher(site, cache=kept)
+    with pytest.raises(NetworkError, match="application/pdf") as raised:
+        fetcher.get(url, types=("text/html", "text/plain"))
+    assert raised.value.reason == "refused"
+    assert kept.get(Cache.key(url, "*/*"), ttl_s=None) is None
+    assert fetcher.get(url) == b"%PDF"
+
+
+def test_a_page_of_a_type_asked_for_is_read_whatever_its_charset(site: Site) -> None:
+    url = site.serve("/page", b"words", Content_Type="text/PLAIN; charset=utf-8")
+    assert _fetcher(site).get(url, types=("text/plain",)) == b"words"
+
+
+@pytest.mark.parametrize(
+    ("location", "said"),
+    [
+        ("https://docs.example.org/new", "to docs.example.org"),
+        ("https://docs.\u00e9xample.org/new", "to another host"),
+        ("", "to another host"),
+    ],
+)
+def test_a_redirect_refused_says_the_host_it_was_for_where_a_terminal_may_show_it(
+    site: Site, location: str, said: str
+) -> None:
+    url = (
+        site.serve("/old", status=301, Location=location)
+        if location
+        else site.serve("/old", status=301)
+    )
+    with pytest.raises(NetworkError) as raised:
+        _fetcher(site).get(url)
+    assert raised.value.detail.endswith(said)
+
+
 def test_an_answer_over_the_limit_is_refused(site: Site) -> None:
     url = site.serve("/big", b"x" * 5000)
     with pytest.raises(NetworkError) as raised:

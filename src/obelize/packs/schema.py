@@ -67,8 +67,9 @@ ChangeKind = Literal[
 CHANGE_KINDS: frozenset[ChangeKind] = frozenset(get_args(ChangeKind))
 
 # Closed: pack review admits only the vendor's own migration guide or API reference. `api_diff` is
-# a pack that `obelize pack synth` made from two releases; it is never bundled (tested).
-SourceType = Literal["official_guide", "sdk_reference", "api_diff"]
+# a pack that `obelize pack synth` made from two releases, and `guide` a change it took from a guide
+# that is not shown to be the vendor's own; neither is ever bundled (tested).
+SourceType = Literal["official_guide", "sdk_reference", "api_diff", "guide"]
 
 # SDK facts that drive refusals live in code: a pack may carry nothing that drives behaviour.
 # PACK_SPEC must name each value (tested).
@@ -1529,6 +1530,8 @@ class _ChangeBase(_Closed):
     id: Slug
     citation: DisplayText
     fixtures: tuple[FixturePath, ...]
+    # Where this change alone was read, when it was not where the pack's `source` was.
+    source: PackSource | None = None
 
     @model_validator(mode="after")
     def _check_base(self) -> _ChangeBase:

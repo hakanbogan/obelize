@@ -20,13 +20,14 @@ obelize outdated [--repo .] [--all] [--json] [--offline]
 obelize upgrade [<distribution>] [--from <version>] [--to <version>] [--module <module>] [--repo .]
             [--offline] [--apply] [--yes] [--python <version>] [--test-command "<cmd>"]
             [--timeout <seconds>] [--branch] [--branch-name <name>] [--agent <backend>]
-            [--max-asks <n>] [--max-rounds <n>]
+            [--max-asks <n>] [--max-rounds <n>] [--guide <url|file>]...
 obelize pack validate <id|path>
 obelize pack test     <id|path>
 obelize pack new      <id> --from "<requirement>" --to "<requirement>" --guide <url>
             [--module <module>] [--to-module <module>] [--requires-python <range>] [--dir <path>]
 obelize pack synth    <distribution> --from <version> [--to <version>] [--module <module>]
-            [--used-by <path>] [--dir <path>] [--offline]
+            [--used-by <path>] [--dir <path>] [--offline] [--guide <url|file>]...
+            [--guide-replay <file>]
 ```
 
 `python -m obelize` runs the same commands where the `obelize` script is not
@@ -487,6 +488,7 @@ that suits the move.
 | `--agent <backend>` | With `--apply` and `--branch`, put the places the pack only flags to your own coding agent, in the trial's copy (`claude_code`). Overrides `agent.backend`. |
 | `--max-asks <n>` | The most places `--agent` is asked about in one round (at least 1). Default `50`. |
 | `--max-rounds <n>` | The most rounds `--agent` is put the tests that broke after the move (at least 0). Default `3`; `0` asks none. |
+| `--guide <url\|file>` | A migration guide for the pack made from the two releases to take claims from, as for [`pack synth`](#obelize-pack-synth). Repeatable, at most three. Used only when obelize makes the pack; a pack that ships, or one made before from the same guide, is used as it is. |
 
 The pack is, in this order: a known one (a bundled pack, or one in a directory of your own) that
 migrates the dependency from that release and, if you named `--to`, to that one; else the pack
@@ -666,19 +668,50 @@ comparison and its `.after` files from the rules, as `pack new` does, and the pa
 | `--used-by <path>` | Flag only the names the Python code in this folder reaches through its imports, for a library that changed more names than a pack can hold (pandas, for one): the command says so and exits `2` without it. A star import of the library leaves no telling which names are used, and is refused. The pack's id ends with a digest of the names. |
 | `--dir <path>` | Where to make the pack's folder, `<provider>/<from>-to-<to>`. Default: the current directory. |
 | `--offline` | Reach no host: read only what an earlier run kept in the cache. |
+| `--guide <url\|file>` | A migration guide to take claims from: an https address, or a file of HTML, Markdown or text. Repeatable, at most three. See [A guide](#a-guide). |
+| `--guide-replay <file>` | Take the model's answers from the `guide.json` an earlier run kept beside its pack, and ask no model. Needs the same `--guide`. |
 
 A name is renamed or moved only on evidence the two surfaces carry: it kept its name and signature
 and has a body, or the library's message names one name beside it. Everything else that left the API
 is flagged, never rewritten, and a pack made from two releases says in its limitations that a change
 in what a function does is not in it. The tests of the repository show that.
 
+### A guide
+
+What two releases cannot show, a library's authors may say in prose: `parse_obj_as(T, v)` is now
+`TypeAdapter(T).validate_python(v)`. With `--guide`, a model you have set up reads the guide and
+drafts claims, and code keeps only those it can check; the model decides nothing. The guide is
+fetched through the same rules as the index (https, or http to this machine; a redirect to another
+host is refused and names the host; your proxy; the host printed first; `--offline` reads only the
+cache), up to 4 MiB, and its query and fragment are not kept. A file is read as bytes. HTML is turned
+into lines (a script, a style and the navigation are left out; a code block is kept with its line
+breaks); Markdown and plain text are taken as they are; any other type is refused. A guide of
+more than 400,000 characters is refused and not cut.
+
+The model is the one in your own configuration: the endpoint in `model` (`provider: openai_compat`)
+if you set one up, else the coding agent in `agent` (`backend: claude_code`); with neither, `--guide`
+says so in one line, reads and sends nothing, and the pack is made from the two releases alone.
+Only the text of the guide goes to it, in parts of about 5,000 tokens, with the names of the
+library and its releases: nothing of your code or your repository. The host or program it goes to is
+printed first ([what is sent](PRIVACY.md#what-a-guide-sends)). The reply must be one JSON object
+of claims; each claim is held to the checks of [the pack format](PACK_SPEC.md#changes-taken-from-a-guide),
+and the command prints how many were drafted, kept and rejected, and why.
+
+The pack gains the kept claims as changes named `guide-...`, each citing the guide and the words
+quoted, and `guide.json` beside it holds the answers, the counts, the tokens and what became of every
+claim. The pack's id ends with a digest of the guides' text, so the same releases with another guide
+are another pack. `--guide-replay` makes the same pack again from those answers, with no model.
+
 It never writes into a folder that exists, and removes the one it made if the pack fails its own
-checks. Which index it asks, and whether it may ask at all, are in
+checks (one that fails only with the claims in it is made without them, and says so). Which index it
+asks, and whether it may ask at all, are in
 [your own configuration file](#the-user-files-configobelize), never in a repository's. Exit codes:
 `0` made; `2` the request is wrong (a version or a library the index does not have, a module to
-choose, nothing that changed, a folder that exists, a release that cannot be read); `6` the index
-could not be reached or answered, or `--offline` found nothing kept; `1` a pack obelize made fails
-its own checks.
+choose, nothing that changed, a folder that exists, a release that cannot be read, a guide that is
+no page of text or HTML, is too large or cannot be opened, more than three guides, answers kept for
+another text); `6` the index or a guide could not be reached or answered (a guide that moved to
+another host included), or `--offline` found nothing kept; `1` a pack obelize made fails its own
+checks.
 
 ## Exit codes
 
@@ -946,7 +979,8 @@ absolute path to an existing directory (`~` is expanded), and a pack in one is v
 any other file (exit `7`), never trusted more. A repository's `.obelize.yml` may not set it. A
 directory inside a repository you scan is scanned too, so list it in `exclude`.
 
-The `model` keys are acted on by `obelize fix`. A value of another type is refused, not converted
+The `model` keys are acted on by `obelize fix`, and by `--guide` of `pack synth` and `upgrade`, which put
+the text of a guide to that model before they use the `agent` block. A value of another type is refused, not converted
 (`log_prompts: 'yes'`, a number for `model`).
 
 | Key | Type | Default | Description |
@@ -958,14 +992,14 @@ The `model` keys are acted on by `obelize fix`. A value of another type is refus
 | `model.api_key_env` | string | `OBELIZE_MODEL_API_KEY` | Environment variable holding the key; the key never reaches configuration, logs or evidence. |
 | `model.log_prompts` | boolean | `false` | Keep raw prompts, which contain source, in the run folder. |
 
-The `agent` keys are acted on by `obelize upgrade --apply --branch`; `network` by `pack synth`,
+The `agent` keys are acted on by `obelize upgrade --apply --branch`, and by `--guide` where `model` is not set up; `network` by `pack synth`,
 `outdated` and `upgrade`.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `network.index` | string | `https://pypi.org` | The package index `pack synth` asks, as a Simple API address (`/simple` is added if it is missing). `OBELIZE_INDEX_URL` replaces it for one run; `OBELIZE_INDEX_AUTHORIZATION` is the value of an `Authorization` header, sent to this host and to none other. |
 | `network.offline` | boolean | `false` | Read releases only from the cache and keep a trial's installs to uv's own cache, as `--offline` does; `OBELIZE_OFFLINE` set to anything does too. |
-| `agent.backend` | `none` \| `claude_code` | `none` | The coding agent `upgrade --apply --branch` puts flagged places to, as `--agent` does. `none` asks no one. |
+| `agent.backend` | `none` \| `claude_code` | `none` | The coding agent `upgrade --apply --branch` puts flagged places to, as `--agent` does, and that `--guide` puts the text of a guide to when `model.provider` is `none`. `none` asks no one. |
 | `agent.model` | string | unset | Passed to the program as its own model name or alias. |
 
 An allowlist entry matches a command that splits into the same arguments. An

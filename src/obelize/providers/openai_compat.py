@@ -13,6 +13,7 @@ import re
 import time
 import urllib.error
 import urllib.request
+from dataclasses import astuple
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
@@ -178,6 +179,10 @@ def question(consultation: base.Consultation) -> str:
 
 
 def payload(consultation: base.Consultation, *, model: str) -> dict[str, Any]:
+    return body(SYSTEM_PROMPT, question(consultation), model=model)
+
+
+def body(system: str, user: str, *, model: str) -> dict[str, Any]:
     """The whole request body. `temperature` 0 keeps runs as repeatable as the endpoint allows.
 
     `max_tokens` is deliberately absent: either of its two spellings makes some endpoint refuse,
@@ -186,8 +191,8 @@ def payload(consultation: base.Consultation, *, model: str) -> dict[str, Any]:
     return {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": question(consultation)},
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ],
         "temperature": 0,
         "stream": False,
@@ -251,14 +256,23 @@ class OpenAICompat:
         """The exact bytes `propose` sends; it calls this so the hash is of what was sent."""
         return encode(payload(consultation, model=self.model))
 
-    def propose(self, consultation: base.Consultation) -> base.Reply:
-        """Ask once, and answer with a proposal, with nothing, or by raising."""
-        data = self._post(self.request(consultation))
+    def complete(self, system: str, user: str) -> base.Completion:
+        """Ask once, with any question: the words that came back, or a raise."""
+        return self._complete(encode(body(system, user, model=self.model)))
+
+    def _complete(self, request: bytes) -> base.Completion:
+        data = self._post(request)
         content = _content(data)
         if content is None:
             raise self._failure("response_not_a_completion", _shown(data))
-        tokens_in = _count(data.get("usage"), "prompt_tokens")
-        tokens_out = _count(data.get("usage"), "completion_tokens")
+        return base.Completion(
+            content, _count(data.get("usage"), "prompt_tokens"),
+            _count(data.get("usage"), "completion_tokens"),
+        )  # fmt: skip
+
+    def propose(self, consultation: base.Consultation) -> base.Reply:
+        """Ask once, and answer with a proposal, with nothing, or by raising."""
+        content, tokens_in, tokens_out = astuple(self._complete(self.request(consultation)))
         answer = _object(content)
         if answer is None:
             raise self._failure("answer_not_json", content)
@@ -430,6 +444,7 @@ __all__ = [
     "SYSTEM_PROMPT",
     "USER_AGENT",
     "OpenAICompat",
+    "body",
     "build",
     "encode",
     "endpoint",

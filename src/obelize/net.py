@@ -189,11 +189,13 @@ class Fetcher:
         max_bytes: int = DEFAULT_MAX_BYTES,
         ttl_s: float | None = INDEX_TTL_S,
         key: str | None = None,
+        types: tuple[str, ...] | None = None,
     ) -> bytes:
         """The body of `url`, from the cache while it is fresh, else from the network.
 
         `key` names the answer in the cache when the url is not what identifies it (a file is
-        known by its hash). Raises `NetworkError`.
+        known by its hash). `types` are the media types accepted: any other is refused before
+        the body is read, so only an accepted answer is kept. Raises `NetworkError`.
         """
         named = key or Cache.key(url, accept)
         cache = self.cache if self.cache is not None and self.cache.usable() else None
@@ -201,12 +203,12 @@ class Fetcher:
             return kept
         if self.offline:
             raise NetworkError("offline", f"{urlsplit(url).hostname}: {url} is not in the cache")
-        body = self._fetch(url, accept, max_bytes)
+        body = self._fetch(url, accept, max_bytes, types)
         if cache is not None:
             cache.put(named, body)
         return body
 
-    def _fetch(self, url: str, accept: str, max_bytes: int) -> bytes:
+    def _fetch(self, url: str, accept: str, max_bytes: int, types: tuple[str, ...] | None) -> bytes:
         parts = urlsplit(url)
         host = parts.hostname or ""
         if parts.scheme != "https" and not (parts.scheme == "http" and loopback(host)):
@@ -228,12 +230,16 @@ class Fetcher:
         deadline = time.monotonic() + self.timeout_s
         try:
             with opener.open(request, timeout=self.timeout_s) as response:
+                kind = response.headers.get_content_type()
+                if types is not None and kind not in types:
+                    raise NetworkError("refused", f"{host}: {kind} is not a type of page asked for")
                 return _read(response, max_bytes, deadline, host)
         except urllib.error.HTTPError as error:
             moved = 300 <= error.code < 400
+            there = f", to {_where(error)}" if moved else ""
             raise NetworkError(
                 "redirected" if moved else "not_found" if error.code == 404 else "refused",
-                f"{host}: HTTP {error.code} {error.reason}",
+                f"{host}: HTTP {error.code} {error.reason}{there}",
             ) from error
         except TimeoutError as error:
             raise NetworkError(
@@ -247,6 +253,12 @@ class Fetcher:
             self.hosts.append(host)
             if self.say is not None:
                 self.say(f"obelize contacts {host}")
+
+
+def _where(error: urllib.error.HTTPError) -> str:
+    """The host a refused redirect pointed at, if it is one a terminal may show."""
+    host = urlsplit(error.headers.get("Location") or "").hostname or ""
+    return host if host.isascii() and host.isprintable() and host else "another host"
 
 
 def _read(

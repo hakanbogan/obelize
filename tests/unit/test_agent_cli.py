@@ -209,3 +209,22 @@ def test_a_program_that_is_not_there_or_lacks_a_restriction_is_not_used(
 def test_a_program_whose_help_does_not_run_offers_nothing() -> None:
     agent_cli.unsupported.cache_clear()
     assert agent_cli.unsupported("/no/such/claude", ()) == agent_cli.RESTRICTIONS
+
+
+def test_any_question_is_put_as_it_is_under_the_system_prompt_it_comes_with(
+    tmp_path: Path,
+) -> None:
+    environ = fake(tmp_path, answer={"claims": []})
+    done = agent(environ).complete("The system prompt.", "A question, with ünicode.")
+    assert (done.text, done.tokens_in, done.tokens_out) == ('{"claims": []}', 110, 9)
+    seen = json.loads((tmp_path / "record.json").read_text())
+    argv = seen["argv"]
+    assert argv[argv.index("--system-prompt") + 1] == "The system prompt."
+    assert argv[argv.index("--tools") + 1] == ""
+    assert seen["stdin"] == "A question, with ünicode."
+
+
+def test_a_question_that_gets_no_answer_raises_as_a_consultation_does(tmp_path: Path) -> None:
+    with pytest.raises(base.ProviderError) as raised:
+        agent(fake(tmp_path, raw="not json")).complete("s", "u")
+    assert raised.value.failure == "response_not_json"

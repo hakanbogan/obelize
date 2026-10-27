@@ -108,6 +108,52 @@ The move is committed to a new branch, `obelize/upgrade-<the new release>` or th
 no checkout, no hook, no signature. obelize never pushes; open the pull request yourself, or let a
 workflow do it.
 
+## What a guide adds
+
+Two releases show what a library renamed or removed, not what its authors say in prose: "`copy()` is
+now `model_copy()`". A migration guide says it. With `--guide`, a model you have set up reads the
+guide and drafts claims, and code keeps only those it can check against the guide and the two
+releases. You set the model up once, in your own `~/.config/obelize/config.yml`, as the endpoint in
+`model:` or, as here, your coding agent:
+
+```yaml
+agent:
+  backend: claude_code
+```
+
+```sh
+uvx obelize pack synth pydantic --from 1.10.26 --to 2.12.5 \
+  --guide https://pydantic.dev/docs/validation/latest/get-started/migration/
+```
+
+```text
+--guide https://pydantic.dev/docs/validation/latest/get-started/migration/: its text (43949 characters) will go to /opt/homebrew/bin/claude, which sends it where your own login does, in 3 part(s), one at a time; nothing of your code goes with it.
+...
+Guide: 47 claim(s) drafted, 31 kept (1 as a rewrite, 30 to report); rejected: quote_weak 5, legacy_unknown 1, in_the_diff 10. Tokens: 21171 in, 7980 out. Record: .../guide.json
+```
+
+10 of the 47 were changes the API diff had already made or reports, and were dropped; 5 had a quote
+too short to carry a claim ("min_items (use min_length instead)"), and one named a method that
+pydantic 1 does not have (`BaseSettings.parse_env_var`). Of the 31 kept, 30 are reports that quote
+the guide, among them `pydantic.validate_arguments` (renamed to
+`validate_call`), `pydantic.utils.GetterDict` (moved to `pydantic.v1.utils`) and
+`pydantic.generics.GenericModel` (removed), names the diff did not report, since pydantic 2 makes
+many of them when they are imported. One is a rewrite: the diff shows `BaseModel.copy` deprecated and
+`model_copy` there to take its place, so `user.copy(update=...)` is rewritten where the file shows
+what `user` is, and a call that passes `include` or `exclude`, which `model_copy` lacks, is left for
+you. A claim becomes a rewrite only on that evidence; the others stay reports that say "The migration
+guide says: ..." with the passage, however sure the model was.
+
+`guide.json` beside the pack keeps the answers and what became of each claim, and `--guide-replay`
+makes the same pack again from it without asking a model. `upgrade --guide` does the same inside a
+move, once, and only when obelize makes the pack: a pack that ships is used as it is, and one made
+before from the same guide is used again. The guide is fetched like the index is, so a page that
+moved to another host is refused and the message names the host: `docs.pydantic.dev/latest/migration/`
+is now at `pydantic.dev`, and the address above is where it went. If no model is set up, `--guide`
+says so in one line, reads and sends nothing, and the pack is made from the two releases alone.
+[What is sent](PRIVACY.md#what-a-guide-sends), [the checks](PACK_SPEC.md#changes-taken-from-a-guide) and
+[what a guide cannot give](KNOWN_ISSUES.md#migration-guides) are on their own pages.
+
 ## What it will not do
 
 - It writes a move to the whole repository or to none of it. A library that keeps its import name

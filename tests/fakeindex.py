@@ -63,12 +63,16 @@ class Project:
 
 @dataclass
 class FakeIndex:
-    """`url` is the index as a person types it; `asked` is every path requested, in order."""
+    """`url` is the index as a person types it; `asked` is every path requested, in order. `pages`
+    are other things it serves (a path to a media type and the body), `moved` paths it sends
+    elsewhere."""
 
     origin: str = ""
     projects: dict[str, Project] = field(default_factory=dict)
     asked: list[str] = field(default_factory=list)
     corrupt: set[str] = field(default_factory=set)
+    pages: dict[str, tuple[str, bytes]] = field(default_factory=dict)
+    moved: dict[str, str] = field(default_factory=dict)
 
     @property
     def url(self) -> str:
@@ -125,6 +129,12 @@ class FakeIndex:
 
             def _answer(self, *, body: bool) -> None:
                 index.asked.append(self.path)
+                if self.path in index.moved:
+                    self.send_response(301)
+                    self.send_header("Location", index.moved[self.path])
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
                 status, kind, content = index._answer(self.path)
                 if status == 200 and body is False:
                     index.asked.pop()
@@ -149,6 +159,8 @@ class FakeIndex:
             server.server_close()
 
     def _answer(self, path: str) -> tuple[int, str, bytes]:
+        if path in self.pages:
+            return 200, *self.pages[path]
         parts = [part for part in path.split("/") if part]
         if len(parts) == 2 and parts[0] == "simple" and parts[1] in self.projects:
             return 200, "application/vnd.pypi.simple.v1+json", self._page(self.projects[parts[1]])

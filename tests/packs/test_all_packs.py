@@ -103,6 +103,8 @@ def test_a_bundled_pack_cites_a_guide_or_a_reference_and_never_a_comparison(
     bundled: loader.LoadedPack,
 ) -> None:
     assert bundled.pack.source.type in ("official_guide", "sdk_reference")
+    for change in bundled.pack.changes:
+        assert change.source is None or change.source.type in ("official_guide", "sdk_reference")
 
 
 def test_every_bundled_pack_is_named_where_a_reader_or_a_workflow_looks(

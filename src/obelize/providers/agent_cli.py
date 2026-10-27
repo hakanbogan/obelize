@@ -15,6 +15,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+from dataclasses import astuple
 from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import ValidationError
@@ -78,7 +79,7 @@ class ClaudeCode:
     def request(self, consultation: base.Consultation) -> bytes:
         return adapter.question(consultation).encode("utf-8")
 
-    def argv(self) -> list[str]:
+    def argv(self, system: str = adapter.SYSTEM_PROMPT) -> list[str]:
         return [
             self.program,
             "--print",
@@ -89,17 +90,20 @@ class ClaudeCode:
             "--disable-slash-commands",
             "--setting-sources", "",
             "--permission-mode", "dontAsk",
-            "--system-prompt", adapter.SYSTEM_PROMPT,
+            "--system-prompt", system,
             *(["--model", self.model] if self.model else []),
         ]  # fmt: skip
 
-    def propose(self, consultation: base.Consultation) -> base.Reply:
-        """Ask once; answer with a proposal, with nothing, or by raising."""
+    def complete(self, system: str, user: str) -> base.Completion:
+        """Ask once, with any question: the words that came back, or a raise."""
+        return self._ask(system, user.encode("utf-8"))
+
+    def _ask(self, system: str, question: bytes) -> base.Completion:
         with tempfile.TemporaryDirectory(prefix="obelize-agent-") as empty:
             try:
                 done = subprocess.run(
-                    self.argv(),
-                    input=self.request(consultation),
+                    self.argv(system),
+                    input=question,
                     capture_output=True,
                     cwd=empty,
                     env=environment(self.environ),
@@ -127,7 +131,13 @@ class ClaudeCode:
         usage = data["usage"] if isinstance(data.get("usage"), dict) else {}
         tokens_in = _count(usage, "input_tokens") + _count(usage, "cache_creation_input_tokens")
         tokens_in += _count(usage, "cache_read_input_tokens")
-        tokens_out = _count(usage, "output_tokens")
+        return base.Completion(content, tokens_in, _count(usage, "output_tokens"))
+
+    def propose(self, consultation: base.Consultation) -> base.Reply:
+        """Ask once; answer with a proposal, with nothing, or by raising."""
+        content, tokens_in, tokens_out = astuple(
+            self._ask(adapter.SYSTEM_PROMPT, self.request(consultation))
+        )
         answer = adapter._object(content)
         if answer is None:
             raise self._failure("answer_not_json", content)

@@ -75,6 +75,12 @@ write one](PLUGINS.md)). `pack synth` writes the first for the methods a library
 replaces: pydantic 1 to 2 gives `parse_obj`, `construct`, `schema`, `dict`, `json` and
 `update_forward_refs`.
 
+What the authors of a library say only in prose can come in through `--guide`: a model you have set
+up reads a migration guide and drafts claims, and a claim becomes part of the pack made from two
+releases only if code finds its quote in the guide, its names in both releases and nothing in the API
+diff against it. It becomes a report that quotes the guide, and a rewrite only where the diff shows
+the old name going and the new one able to take its place ([why](adr/ADR-075-claims-from-a-guide.md)).
+
 Around the commands are the pieces a pipeline and a coding agent use. `scan --library` lists every
 use of a library that has no pack, `pack new` and `pack test` help write one, `scan --sarif` and
 `--fail-on` serve a CI step, `verify --current` checks a tree that someone else edited, and
@@ -89,8 +95,7 @@ The commands above do that for a library whose changes two releases show. This i
 intend to build the rest in. Nothing below ships until the changelog says so, each step is its own
 release, and an option I add defaults to today's behaviour.
 
-1. Guides and more places. Read a migration guide and draft a rule from it, rewrite a dependency
-   line that carries extras, use an agent program other than `claude`, let the GitHub Action open
+1. More places. Rewrite a dependency line that carries extras, use an agent program other than `claude`, let the GitHub Action open
    the pull request of an upgrade, and let the kinds the bundled packs use cover more shapes.
    The command itself never pushes.
 2. Ecosystem. A registry of packs, more existing fixers behind the same evidence (ruff's `NPY201`

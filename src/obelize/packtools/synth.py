@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import itertools
 import json
 import re
 import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
@@ -25,13 +26,14 @@ import yaml
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
+from obelize import pattern
 from obelize.apidiff.diff import ApiChange, Successors, accepts, names_only
 from obelize.apidiff.surface import Obj
 from obelize.models import CallShape
 from obelize.models.fields import DISPLAY_TEXT_LIMIT, printable
 from obelize.packs import loader
 from obelize.packs.schema import under_any
-from obelize.packtools import check
+from obelize.packtools import check, guided
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping, Sequence
@@ -60,12 +62,14 @@ _GENERIC: Final = {
     "moved": "Moved in {label}.",
     "signature": "Its signature changed in {label}.",
     "deprecated": "Deprecated in {label}.",
+    "guide": "The migration guide says it changed in {label}.",
 }
 _SUGGESTED: Final = {
     "removed": "Find what replaces it in the release notes.",
     "moved": "Use its new place.",
     "signature": "Read the new signature.",
     "deprecated": "Replace it before it is removed.",
+    "guide": "Follow the guide.",
 }
 _LIMITATIONS: Final = (
     "Made from the public API of two releases: a change in what a function does, not in what it "
@@ -85,6 +89,20 @@ _CLASS_NOTE: Final = (
     "A name under a class whose parameters changed is reported as that class, and a class flagged "
     "only for its bases or its kind is left to the members flagged under it."
 )
+_GUIDE_NOTE: Final = (
+    "Some changes were drafted from a migration guide by a model and kept only after code checked "
+    "each against the guide's text and the API of both releases. A change from a guide reports "
+    "unless the API diff itself shows the old name going and the new one able to take its place; "
+    "what a guide says a function does is not checked."
+)
+
+
+class _Plain(yaml.SafeDumper):
+    """A pack is edited by hand, so a value that repeats (the day) is written out and never as an
+    alias."""
+
+    def ignore_aliases(self, data: Any) -> bool:
+        return True
 
 
 class SynthError(ValueError):
@@ -115,10 +133,12 @@ class Request:
     # The paths below the module that a repository uses: only changes to these, to what is under
     # them and to what they are under are in the pack. `None` is every change.
     scope: frozenset[str] | None = None
+    # A digest of the guides the pack takes claims from: another guide is another pack.
+    guide: str | None = None
 
     @property
     def pack_id(self) -> str:
-        return pack_id(self.distribution, self.old, self.new, self.scope)
+        return pack_id(self.distribution, self.old, self.new, self.scope, self.guide)
 
     @property
     def label(self) -> str:
@@ -138,6 +158,7 @@ class Made:
     pack_id: str
     covered: Mapping[str, int]
     unseen: int
+    guided: guided.Outcome | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,13 +183,20 @@ class _Flag:
 
 
 def pack_id(
-    distribution: str, old: Version, new: Version, scope: frozenset[str] | None = None
+    distribution: str,
+    old: Version,
+    new: Version,
+    scope: frozenset[str] | None = None,
+    guide: str | None = None,
 ) -> str:
     """`<distribution>/<old>-to-<new>`, in the characters a pack id may have; a pack for the names a
-    repository uses ends with a digest of them, so it is not mistaken for the whole."""
+    repository uses ends with a digest of them, so it is not mistaken for the whole, and one with
+    claims from guides with a digest of those."""
     slug = re.sub(r"[^a-z0-9]+", "-", f"{old}-to-{new}".lower()).strip("-")
     if scope is not None:
         slug += "-for-" + hashlib.sha256("\n".join(sorted(scope)).encode()).hexdigest()[:8]
+    if guide is not None:
+        slug += f"-with-{guide}"
     return f"{canonicalize_name(distribution)}/{slug}"
 
 
@@ -178,16 +206,39 @@ def make(
     old: Surface,
     changes: Sequence[ApiChange],
     new: Surface | None = None,
+    drafted: guided.Drafted | None = None,
 ) -> Made:
     """Make `<directory>/<provider>/<slug>/`, load it and check it; a folder that exists is never
     written into, and one that does not pass `pack test` is removed. With the newer surface, the
-    names a removed one may have become are written beside the pack (`HINTS`)."""
+    names a removed one may have become are written beside the pack (`HINTS`). With what a model
+    drafted from a guide, the claims that pass `guided.accept` are in the pack, and what became of
+    each is written beside it (`guided.RECORD`); if the pack with them fails its own checks, it is
+    made without them."""
     folder = directory / request.pack_id
     if folder.exists():
         raise SynthError(
             f"{folder} exists already; pack synth makes a folder and never writes into one."
         )
     plan = _Plan.build(request, old, changes, new)
+    if drafted is None or new is None:
+        return _write(folder, request, plan, old, new)
+    outcome = guided.accept(drafted, plan.view(new, changes))
+    try:
+        made = _write(
+            folder, request, _Plan.build(request, old, changes, new, outcome.accepted), old, new
+        )
+    except SynthError as error:
+        if not outcome.accepted:
+            raise
+        outcome = guided.reject_all(outcome, str(error).splitlines()[0])
+        made = _write(folder, request, plan, old, new)
+    (folder / guided.RECORD).write_text(
+        json.dumps(outcome.document(), indent=2) + "\n", encoding="utf-8"
+    )
+    return replace(made, guided=outcome)
+
+
+def _write(folder: Path, request: Request, plan: _Plan, old: Surface, new: Surface | None) -> Made:
     if not plan.symbols:
         hidden = (
             f" {plan.unseen} name(s) could not be judged, since the newer release makes its "
@@ -271,6 +322,7 @@ def request(
     new: Version,
     compared: libdiff.Comparison,
     scope: frozenset[str] | None = None,
+    guide: str | None = None,
 ) -> Request:
     """The request for two releases that were compared: the newer file is what the pack cites."""
     file = compared.new
@@ -290,6 +342,7 @@ def request(
         sha256=file.sha256,
         retrieved=dt.datetime.now(dt.UTC).date(),
         scope=scope,
+        guide=guide,
     )
 
 
@@ -595,14 +648,41 @@ class _Plan:
     dropped: tuple[str, ...]
     olds: Mapping[str, Obj]
     unseen: int
+    # What was taken from a guide: where each such name was read, and the calls it asks to rewrite.
+    cited: Mapping[str, guided.Cite] = field(default_factory=dict)
+    patterns: tuple[guided.Accepted, ...] = ()
+
+    @property
+    def names(self) -> frozenset[str]:
+        """What the scan looks for, below the module: the names, and the submodules the exports
+        leave, whose imports are rewritten with them."""
+        names = {*self.with_calls, *self.references, *self.exports, *self.members, *self.flags}
+        names |= {_parent(path) for path in self.exports} | {one.path for one in self.patterns}
+        return frozenset(names)
 
     @property
     def symbols(self) -> tuple[str, ...]:
-        """What the scan looks for: the names, and the submodules the exports leave, whose
-        imports are rewritten with them."""
-        names = {*self.with_calls, *self.references, *self.exports, *self.members, *self.flags}
-        names |= {_parent(path) for path in self.exports}
-        return tuple(sorted(f"{self.request.module}.{name}" for name in names))
+        return tuple(sorted(f"{self.request.module}.{name}" for name in self.names))
+
+    def view(self, new: Surface, changes: Sequence[ApiChange]) -> guided.View:
+        """What a claim from a guide is held against: this plan, the diff and the two releases."""
+        made = {**self.with_calls, **self.references, **self.exports}
+        made |= {path: f"{_parent(path)}.{one.new}" for path, one in self.members.items()}
+        plain = {
+            path
+            for path, one in self.flags.items()
+            if one.category in ("removed", "deprecated") and not one.params and one.shape is None
+        }
+        return guided.View(
+            self.request.module,
+            self.olds,
+            new.relative(),
+            changes,
+            self.names,
+            made,
+            frozenset(plain),
+            lambda path: _in_scope(path, self.request.scope),
+        )
 
     @classmethod
     def build(
@@ -611,6 +691,7 @@ class _Plan:
         old: Surface,
         changes: Sequence[ApiChange],
         new: Surface | None = None,
+        claims: Sequence[guided.Accepted] = (),
     ) -> _Plan:
         olds = old.relative()
         built = None if new is None else (_Built(olds), _Built(new.relative()))
@@ -672,6 +753,22 @@ class _Plan:
                 text = _signature_text(label, change)
                 shape = _piece(change, olds, built)
                 flag(path, "signature", text, _SUGGESTED["signature"], params=changed, shape=shape)
+        cited: dict[str, guided.Cite] = {}
+        patterns: list[guided.Accepted] = []
+        for got in claims:
+            # What a claim becomes stands for the diff's report of the name, which it replaces.
+            parts.pop(got.path, None)
+            cited[got.path] = got.cite
+            target = got.target or ""
+            match got.route:
+                case "rename":
+                    (with_calls if got.calls else references)[got.path] = target
+                case "member":
+                    members[got.path] = _Member(_leaf(target), got.takes, "")
+                case "pattern":
+                    patterns.append(got)
+                case _:
+                    flag(got.path, "guide", *got.words(), shape=got.shape)
         flags = {path: _merge(entries) for path, entries in parts.items()}
         # A new name must not be one the pack looks for, or the rewritten file is a finding again.
         flagged = tuple(f"{request.module}.{path}" for path in flags)
@@ -710,7 +807,17 @@ class _Plan:
                 del members[path]
         kept, dropped = _outermost(flags)
         unseen = sum(1 for change in changes if change.type == "unseen")
-        return cls(request, with_calls, references, exports, members, kept, dropped, olds, unseen)
+        # A rename turned into a plain report by the checks above has no words of the guide's.
+        rewritten = {*with_calls, *references, *members, *(one.path for one in patterns)}
+        cited = {
+            path: cite
+            for path, cite in cited.items()
+            if path in rewritten or (path in kept and kept[path].category == "guide")
+        }
+        return cls(
+            request, with_calls, references, exports, members, kept, dropped, olds, unseen, cited,
+            tuple(patterns),
+        )  # fmt: skip
 
     def covered(self) -> dict[str, int]:
         return {change["id"]: len(_names(change)) for change in self.changes()}
@@ -741,63 +848,85 @@ class _Plan:
     def changes(self) -> list[dict[str, Any]]:
         request = self.request
         out: list[dict[str, Any]] = []
+        numbers = itertools.count(1)
         for name, calls, table, label in (
             ("rename-with-calls", "allowed", self.with_calls, "with_calls"),
             ("rename-references", "refused", self.references, "references"),
             ("move-up", "allowed", self.exports, "exports"),
         ):
-            if not table:
-                continue
             key = "symbols" if label == "exports" else "renamed"
-            out.append(
-                {
-                    "id": name,
-                    "kind": "rename_symbol",
-                    "citation": _text(
-                        f"{request.distribution} {request.old} and {request.new}, public API: "
-                        f"{_RENAME_CITATION[label]}"
-                    ),
-                    "params": {
-                        "calls": calls,
-                        key: {
-                            f"{request.module}.{path}": _leaf(landed)
-                            for path, landed in sorted(table.items())
+            for ids, cite, names in self._split(name, table):
+                found = {f"{request.module}.{path}": _leaf(table[path]) for path in sorted(names)}
+                out.append(
+                    self._cited(
+                        {
+                            "id": ids if cite is None else f"guide-rename-{next(numbers)}",
+                            "kind": "rename_symbol",
+                            "citation": _text(
+                                f"{request.distribution} {request.old} and {request.new}, public "
+                                f"API: {_RENAME_CITATION[label]}"
+                            ),
+                            "params": {"calls": calls, key: found},
+                            "fixtures": [
+                                "fixtures/negative/already_new.py",
+                                f"fixtures/positive/{_FIXTURES[label]}",
+                            ],
                         },
-                    },
-                    "fixtures": [
-                        "fixtures/negative/already_new.py",
-                        f"fixtures/positive/{_FIXTURES[label]}",
-                    ],
-                }
-            )
-        if self.members:
-            module = request.module
+                        cite,
+                    )
+                )
+        module = request.module
+        numbers = itertools.count(1)
+        for ids, cite, names in self._split("rename-members", self.members):
             params: dict[str, Any] = {
-                "members": {
-                    f"{module}.{path}": one.new for path, one in sorted(self.members.items())
-                }
+                "members": {f"{module}.{path}": self.members[path].new for path in sorted(names)}
             }
             takes = {
-                f"{module}.{path}": list(one.takes)
-                for path, one in sorted(self.members.items())
-                if one.takes is not None
+                f"{module}.{path}": list(taken)
+                for path in sorted(names)
+                if (taken := self.members[path].takes) is not None
             }
             if takes:
                 params["takes"] = takes
             out.append(
-                {
-                    "id": "rename-members",
-                    "kind": "rename_member",
-                    "citation": _text(
-                        f"{request.distribution} {request.old} and {request.new}, public API: "
-                        f"a method the library's deprecation message replaces"
-                    ),
-                    "params": params,
-                    "fixtures": [
-                        "fixtures/negative/already_new.py",
-                        f"fixtures/positive/{_MEMBERS_FIXTURE}",
-                    ],
-                }
+                self._cited(
+                    {
+                        "id": ids if cite is None else f"guide-member-{next(numbers)}",
+                        "kind": "rename_member",
+                        "citation": _text(
+                            f"{request.distribution} {request.old} and {request.new}, public API: "
+                            f"a method the library's deprecation message replaces"
+                        ),
+                        "params": params,
+                        "fixtures": [
+                            "fixtures/negative/already_new.py",
+                            f"fixtures/positive/{_MEMBERS_FIXTURE}",
+                        ],
+                    },
+                    cite,
+                )
+            )
+        for number, one in enumerate(self.patterns, 1):
+            claim = one.claim
+            out.append(
+                self._cited(
+                    {
+                        "id": f"guide-pattern-{number}",
+                        "kind": "rewrite_pattern",
+                        "citation": one.cite.text,
+                        "params": {
+                            "before": claim.before,
+                            "after": claim.after,
+                            **({"where": dict(one.where)} if one.where else {}),
+                            **({"imports": list(one.imports)} if one.imports else {}),
+                        },
+                        "fixtures": [
+                            "fixtures/negative/already_new.py",
+                            f"fixtures/positive/{_PATTERNS_FIXTURE}",
+                        ],
+                    },
+                    one.cite,
+                )
             )
         grouped: dict[str, dict[tuple[str, str], list[str]]] = {}
         for path, flag in self.flags.items():
@@ -813,23 +942,27 @@ class _Plan:
                     if (shape := self.flags[path].shape) is not None
                 }
                 out.append(
-                    {
-                        "id": f"{category}-{number}",
-                        "kind": "flag_only",
-                        "citation": _text(
-                            f"{request.distribution} {request.old} and {request.new}, public API"
-                        ),
-                        "params": {
-                            "message": message,
-                            "suggestion": suggestion,
-                            "symbols": sorted(f"{request.module}.{path}" for path in paths),
-                            **({"calls": shapes} if shapes else {}),
+                    self._cited(
+                        {
+                            "id": f"{category}-{number}",
+                            "kind": "flag_only",
+                            "citation": _text(
+                                f"{request.distribution} {request.old} and {request.new}, public "
+                                f"API"
+                            ),
+                            "params": {
+                                "message": message,
+                                "suggestion": suggestion,
+                                "symbols": sorted(f"{request.module}.{path}" for path in paths),
+                                **({"calls": shapes} if shapes else {}),
+                            },
+                            "fixtures": [
+                                "fixtures/negative/already_new.py",
+                                "fixtures/positive/flagged.before.py",
+                            ],
                         },
-                        "fixtures": [
-                            "fixtures/negative/already_new.py",
-                            "fixtures/positive/flagged.before.py",
-                        ],
-                    }
+                        self.cited.get(sorted(paths)[0]) if category == "guide" else None,
+                    )
                 )
         out.append(
             {
@@ -848,6 +981,25 @@ class _Plan:
             }
         )
         return out
+
+    def _split(
+        self, name: str, table: Mapping[str, Any]
+    ) -> list[tuple[str, guided.Cite | None, list[str]]]:
+        """The names of a table of renames the library's own words give, as one change under `name`,
+        and each name a guide gave as a change of its own."""
+        own = [path for path in table if path not in self.cited]
+        return [
+            *([(name, None, own)] if own else []),
+            *((name, self.cited[path], [path]) for path in table if path in self.cited),
+        ]
+
+    def _cited(self, change: dict[str, Any], cite: guided.Cite | None) -> dict[str, Any]:
+        """A change from a guide: cited by the quote, and by the guide where it has an address."""
+        if cite is None:
+            return change
+        source = cite.source(self.request.retrieved)
+        change = {**change, "citation": cite.text}
+        return {**change, "source": source.model_dump()} if source is not None else change
 
     def files(self) -> dict[str, str]:
         return {
@@ -877,6 +1029,8 @@ class _Plan:
                 found[f"fixtures/positive/{_FIXTURES[label]}"] = _program(_DOCS[label], uses)
         if self.members:
             found[f"fixtures/positive/{_MEMBERS_FIXTURE}"] = self._members_program(renamed=False)
+        if self.patterns:
+            found[f"fixtures/positive/{_PATTERNS_FIXTURE}"] = self._patterns_program()
         if self.flags:
             names = sorted(self.flags)[:FIXTURE_NAMES]
             uses = [self._use(path, True, n) for n, path in enumerate(names)]
@@ -924,6 +1078,34 @@ class _Plan:
             for path in chosen
         )
         return f'"""{_DOCS["members"]}"""\n\n{head}\n\n\n{bases}\n\n\ndef uses():\n{calls}\n'
+
+    def _patterns_program(self) -> str:
+        """A call of each name a guide's pattern rewrites, written as its `before` says, with a
+        class derived from the library's as the receiver of a method."""
+        chosen = self.patterns[:FIXTURE_NAMES]
+        classes = sorted({cls for one in chosen for cls in one.where.values()})
+        head = sorted({self._home(one.path) for one in chosen})
+        calls = []
+        for one in chosen:
+            receiver = pattern.receiver(pattern.parse(one.claim.before or ""))
+            number = classes.index(one.where[receiver]) if receiver else 0
+
+            def fill(
+                found: re.Match[str], number: int = number, held: str | None = receiver
+            ) -> str:
+                return f"Derived{number}()" if found[1] == held else "0"
+
+            calls.append(f"    {_META.sub(fill, one.claim.before or '')}")
+        bases = "\n\n\n".join(
+            f"class Derived{number}({cls}):\n    pass" for number, cls in enumerate(classes)
+        )
+        imports = "\n".join(f"import {name}" for name in head)
+        body = (bases + "\n\n\n") if bases else ""
+        return (
+            f'"""{_DOCS["patterns"]}"""\n\n{imports}\n\n\n{body}def uses():\n'
+            + "\n".join(calls)
+            + "\n"
+        )
 
     def _home(self, path: str) -> str:
         """The module a name is imported from: the nearest one above it, or the package."""
@@ -979,11 +1161,30 @@ class _Plan:
                 *_LIMITATIONS,
                 *([_CALL_NOTE] if any(one.shape for one in self.flags.values()) else []),
                 *([_CLASS_NOTE] if self.dropped else []),
+                *([_GUIDE_NOTE] if self.cited else []),
             ],
         }
-        body = yaml.safe_dump(doc, sort_keys=False, default_flow_style=False, width=100)
+        body = yaml.dump(doc, Dumper=_Plain, sort_keys=False, default_flow_style=False, width=100)
         header = _HEADER.format(name=request.distribution, old=request.old, new=request.new)
         return header + body
+
+    def _guides(self) -> str:
+        """The guides some changes were drafted from, and whether each is the vendor's own."""
+        found = {(one.ref, one.url, one.sha256, one.official) for one in self.cited.values()}
+        if not found:
+            return ""
+        rows = "\n".join(
+            f"| {f'<{url}>' if url else ref} | {self.request.retrieved.isoformat()} | `{sha}` | "
+            f"{'yes' if official else 'not shown'} |"
+            for ref, url, sha, official in sorted(found, key=lambda one: (one[0], one[2]))
+        )
+        return (
+            "\n## The guides\n\n"
+            "A model drafted the changes named `guide-...` from these, and code kept only those it "
+            "could check. The hash is of the text the model was given.\n\n"
+            "| Guide | `retrieved_at` | sha256 of its text | The vendor's own |\n"
+            f"|---|---|---|---|\n{rows}\n"
+        )
 
     def _sources(self) -> str:
         request = self.request
@@ -993,7 +1194,7 @@ class _Plan:
             shown = ", ".join(f"`{name}`" for name in names[:_LISTED])
             more = f", and {len(names) - _LISTED} more" if len(names) > _LISTED else ""
             sections.append(
-                f"## {change['id']}\n\n{change['citation']}.\n\nNames: {shown}{more}.\n"
+                f"## {change['id']}\n\n{change['citation'].rstrip('.')}.\n\nNames: {shown}{more}.\n"
             )
         dropped = ", ".join(f"`{name}`" for name in self.dropped[:_LISTED])
         left = f"\nLeft out, as a class above them stands for them: {dropped}.\n" if dropped else ""
@@ -1012,7 +1213,7 @@ before you trust it.
 | The release's file | <{request.url}> | {request.retrieved.isoformat()} |
 
 The file's sha256 is `{request.sha256}`.
-
+{self._guides()}
 ---
 
 """
@@ -1026,13 +1227,16 @@ _FIXTURES: Final = {
     "references": "renamed_references.before.py",
     "exports": "moved_up.before.py",
 }
+_META: Final = re.compile(r"\$([A-Za-z_]\w*)")
 _MEMBERS_FIXTURE: Final = "renamed_members.before.py"
+_PATTERNS_FIXTURE: Final = "guided_patterns.before.py"
 _DOCS: Final = {
     "members": "Methods the library deprecated for another, called on a class derived from theirs.",
     "with_calls": "Names the library renamed, which obelize reads and calls the old way.",
     "references": "Names the library renamed, which obelize reads and never calls.",
     "exports": "Names the library moved out of a submodule into its package.",
     "flagged": "Names that need a person: obelize reports them and writes nothing.",
+    "patterns": "Calls a migration guide says to write another way, written the old way.",
     "new": "Code on the new release already, which the pack must leave alone.",
 }
 _RENAME_CITATION: Final = {
@@ -1064,6 +1268,8 @@ def _names(change: Mapping[str, Any]) -> list[str]:
     params = change["params"]
     if change["kind"] == "manifest_dependency":
         return [params["to_name"]]
+    if change["kind"] == "rewrite_pattern":
+        return [params["before"]]
     return sorted(params.get("symbols") or params.get("renamed") or params.get("members") or ())
 
 

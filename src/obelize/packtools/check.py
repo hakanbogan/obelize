@@ -299,6 +299,10 @@ def _sources(loaded: loader.LoadedPack, folder: Path) -> list[str]:
         problems.append(f"SOURCES.md does not name the source url {source.url}")
     if source.sha256 is not None and source.sha256 not in text:
         problems.append("SOURCES.md does not record the sha256 of the page the pack cites")
+    for change in loaded.pack.changes:
+        page = change.source
+        if page is not None and (page.url not in text or (page.sha256 or "") not in text):
+            problems.append(f"SOURCES.md does not name the page {change.id} cites, or its sha256")
     return problems
 
 
