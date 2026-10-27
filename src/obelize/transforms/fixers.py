@@ -179,23 +179,23 @@ def _drain(process: subprocess.Popen[bytes]) -> tuple[int, bytes]:
     deadline = time.monotonic() + TIMEOUT_S
     printed = bytearray()
     exited: float | None = None
-    while len(printed) <= LIMIT:
-        now = time.monotonic()
-        if exited is None and process.poll() is not None:
-            exited = now
-        if now >= deadline:
-            raise BailError("external_tool_timeout")
-        if exited is not None and now >= exited + DRAIN_S:
-            break
-        chunk = processes.read(stream, _CHUNK, min(deadline - now, _POLL_S))
-        if chunk is None:
-            continue
-        if not chunk:
-            break
-        printed += chunk
-    if len(printed) > LIMIT:
-        raise BailError("external_tool_size_limit")
     try:
+        while len(printed) <= LIMIT:
+            now = time.monotonic()
+            if exited is None and process.poll() is not None:
+                exited = now
+            if now >= deadline:
+                raise subprocess.TimeoutExpired(process.args, TIMEOUT_S)
+            if exited is not None and now >= exited + DRAIN_S:
+                break
+            chunk = processes.read(stream, _CHUNK, min(deadline - now, _POLL_S))
+            if chunk is None:
+                continue
+            if not chunk:
+                break
+            printed += chunk
+        if len(printed) > LIMIT:
+            raise BailError("external_tool_size_limit")
         status = process.wait(timeout=max(0.0, deadline - time.monotonic()))
     except subprocess.TimeoutExpired as error:
         raise BailError("external_tool_timeout") from error

@@ -134,8 +134,12 @@ def test_a_page_has_a_couple_of_seconds_and_a_few_more_for_each_megabyte_up_to_a
         guide.to_text("<p>x</p>", html=True, clock=ticking(3.0))
 
 
+# The ids are short: pytest puts the id in an environment variable, and Windows takes none over
+# 32767 characters.
 @pytest.mark.parametrize(
-    "hostile", ["<a" * 40000, "<p>x</p><!--" + "x" * 80000, "<a href='" * 9000]
+    "hostile",
+    ["<a" * 40000, "<p>x</p><!--" + "x" * 80000, "<a href='" * 9000],
+    ids=["tags", "comment", "attribute"],
 )
 def test_a_page_that_ends_in_a_tag_that_never_closes_is_refused_at_once(hostile: str) -> None:
     started = time.monotonic()

@@ -1933,8 +1933,10 @@ def _drafter() -> guided.Drafter | None:
     except base.ProviderError as error:
         typer.echo(error.detail, err=True)
         return None
-    where = f"{agent.program}, which sends it where your own login does"
-    return guided.Drafter(agent, config.agent.backend, config.agent.model, where)
+    where = f"{agent.program}, which sends it where your own login does"  # pragma: posix-only
+    return guided.Drafter(  # pragma: posix-only
+        agent, config.agent.backend, config.agent.model, where
+    )
 
 
 def _told(outcome: guided.Outcome) -> str:

@@ -370,7 +370,7 @@ NO_SUCH_FILE = "writes no file of this kind"
         (".githooks/pre-push.py", NOT_PUBLISHED),
         (".obelize/trials/x/trial.json", NOT_PUBLISHED),
         ("a`b.py", NOT_PUBLISHED),
-        ("x.py:stream.py", NOT_PUBLISHED),
+        pytest.param("x.py:stream.py", NOT_PUBLISHED, marks=NOT_ON_WINDOWS),
         ("GITHUB~1/workflows/x.py", NOT_PUBLISHED),
         ("a\u0085b.py", NOT_PUBLISHED),
         ("a\u2028b.py", NOT_PUBLISHED),

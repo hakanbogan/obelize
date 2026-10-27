@@ -108,12 +108,12 @@ def test_a_rewrite_that_raises_where_the_original_ran_is_not_written(
     tool(monkeypatch, made(SAFE_EVAL))
     stub = tmp_path / "stub"
     stub.mkdir()
-    (stub / "numpy.py").write_text(STUB)
+    (stub / "numpy.py").write_bytes(STUB.encode())
     work = tmp_path / "work"
     work.mkdir()
     shadowed = name in SHADOWED
     source = HEAD + (SHADOWED if shadowed else SERVED)[name]
-    (work / "app.py").write_text(source)
+    (work / "app.py").write_bytes(source.encode())
     before = outcome(work / "app.py", stub)
     done = migrate(work, NUMPY_SPEC, LOADED.pack)
     if shadowed:
@@ -382,7 +382,7 @@ FLOAT = "out = data.replace(b'np.float_', b'np.float64')"
 def pinned(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, files: dict[str, str]) -> codemod.Run:
     tool(monkeypatch, made(FLOAT))
     for name, text in files.items():
-        (tmp_path / name).write_text(text)
+        (tmp_path / name).write_bytes(text.encode())
     return migrate(tmp_path, NUMPY_SPEC, LOADED.pack)
 
 
