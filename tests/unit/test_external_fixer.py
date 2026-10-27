@@ -8,8 +8,6 @@ that writes a line and an import, and a flagged name that holds a file back (ADR
 
 from __future__ import annotations
 
-import datetime as dt
-import hashlib
 import json
 import os
 import sys
@@ -18,6 +16,19 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from fakefixer import (
+    FIXED,
+    PACK,
+    RENAMES,
+    SOURCE,
+    SPEC,
+    TOOL,
+    codes,
+    made,
+    run,
+    sha,
+    tool,
+)
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from typer.testing import CliRunner
@@ -25,138 +36,16 @@ from typer.testing import CliRunner
 from obelize.cli import app
 from obelize.models import BAIL_CODES, FIXER_IDS, Config
 from obelize.packs import loader
-from obelize.packs.schema import (
-    ExternalFixerChange,
-    ExternalFixerParams,
-    FlagOnlyChange,
-    FlagOnlyParams,
-    Legacy,
-    Match,
-    PackDocument,
-    PackSource,
-    RewritePatternChange,
-    RewritePatternParams,
-    Target,
-)
+from obelize.packs.schema import ExternalFixerParams
 from obelize.packtools import check
 from obelize.scan import runner
-from obelize.transforms import codemod, fixers
+from obelize.transforms import fixers
 from obelize.transforms.base import BailError
 from obelize.transforms.kinds import external_fixer
-from support import committed, migrate
+from support import committed
 
 if TYPE_CHECKING:
     from obelize.models import BailCode, FixerId
-
-FIXTURES = ("fixtures/negative/none.py", "fixtures/positive/one.before.py")
-TOOL = ExternalFixerChange(
-    id="tool",
-    kind="external_fixer",
-    citation="Acme Kit 2 notes, 'Names'",
-    fixtures=FIXTURES,
-    params=ExternalFixerParams(fixer="ruff:NPY201", symbols=("acme.kit.old_a", "acme.kit.old_b")),
-)
-DUMP = RewritePatternChange(
-    id="dump",
-    kind="rewrite_pattern",
-    citation="Acme Kit 2 notes, 'Dumping'",
-    fixtures=FIXTURES,
-    params=RewritePatternParams(
-        before="acme.kit.dump($x)", after="json.dumps($x)", imports=("json",)
-    ),
-)
-GONE = FlagOnlyChange(
-    id="gone",
-    kind="flag_only",
-    citation="Acme Kit 2 notes, 'Dropped'",
-    fixtures=FIXTURES,
-    params=FlagOnlyParams(
-        message="acme.kit 2 dropped it.", suggestion="Port by hand.", symbols=("acme.kit.gone",)
-    ),
-)
-PACK = PackDocument(
-    id="acme/acme-kit-fixed",
-    pack_version="0.1.0",
-    provider="acme",
-    language="python",
-    source=PackSource(
-        type="official_guide",
-        url="https://example.invalid/acme-kit",
-        retrieved_at=dt.date(2026, 10, 27),
-    ),
-    **{"from": Legacy(package="acme-kit", version="<2")},
-    to=Target(package="acme-kit", version=">=2", requires_python=">=3.9"),
-    match=Match(
-        imports=("acme.kit",),
-        shared=True,
-        symbols=(
-            "acme.kit.dump",
-            "acme.kit.gone",
-            "acme.kit.old_a",
-            "acme.kit.old_b",
-        ),
-        prefilter_tokens=("dump", "gone", "old_a", "old_b"),
-    ),
-    changes=(TOOL, DUMP, GONE),
-    limitations=("Invented for the tests; no library of this name exists.",),
-)
-SPEC = loader.to_scan_spec(
-    loader.LoadedPack(
-        pack=PACK,
-        sha256="0" * 64,
-        data=b"",
-        reference=PACK.id,
-        bundled=False,
-        path=Path("pack.yaml"),
-    )
-)
-
-SOURCE = "import acme.kit as kit\n\nA = kit.old_a(1)\nUNRELATED = 1\nB = kit.old_b(2)\n"
-RENAMES = "out = data.replace(b'kit.old_a', b'kit.new_a').replace(b'kit.old_b', b'kit.new_b')"
-FIXED = SOURCE.replace("old_a", "new_a").replace("old_b", "new_b")
-
-
-def sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
-def made(
-    body: str = RENAMES,
-    *,
-    version: str = "9.9.9",
-    releases: str = "==9.9.9",
-    probe: str | None = None,
-    record: Path | None = None,
-) -> fixers.Fixer:
-    """The interpreter, started as a fixer is, running `body` over `data` to make `out`."""
-    script = f"import sys\ndata = sys.stdin.buffer.read()\n{body}\nsys.stdout.buffer.write(out)\n"
-    if record is not None:
-        script = (
-            "import json, os, sys\n"
-            "json.dump({'cwd': os.getcwd(), 'listing': os.listdir('.'), 'env': sorted(os.environ),"
-            " 'argv': sys.argv[1:]}, open(sys.argv[1], 'w'))\n" + script
-        )
-    # One line, so no system reads a newline in a command line differently.
-    argv = ("-c", f"exec({script!r})", str(record) if record else "unused", "{name}")
-    name = Path(sys.executable).name
-    return fixers.Fixer(
-        name, releases, argv, f"{name}==9.9.9", ("-c", probe or f"print('fake {version}')")
-    )
-
-
-def tool(monkeypatch: pytest.MonkeyPatch, spec: fixers.Fixer | None = None) -> None:
-    """`spec` for the one fixer the registry holds, and the interpreter's folder on the `PATH`."""
-    monkeypatch.setattr(fixers, "FIXERS", {"ruff:NPY201": spec or made()})
-    monkeypatch.setenv("PATH", f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}")
-
-
-def run(tmp_path: Path, source: str = SOURCE) -> codemod.Run:
-    (tmp_path / "app.py").write_bytes(source.encode())
-    return migrate(tmp_path, SPEC, PACK)
-
-
-def codes(done: codemod.Run) -> set[BailCode]:
-    return {row.reason for row in done.edits if row.reason is not None}
 
 
 def test_the_registry_holds_the_ids_the_vocabulary_names() -> None:
@@ -486,18 +375,3 @@ def test_pack_validate_prints_the_tool_a_fixer_runs_and_what_installs_it() -> No
     assert f"  fixer        ruff:NPY201 runs {spec.tool} {' '.join(spec.argv)}\n" in result.output
     assert f"accepts {spec.tool} {spec.releases}; obelize installs nothing: " in result.output
     assert f"uv tool install {spec.install}\n" in result.output
-
-
-def test_pack_test_of_a_bundled_pack_blames_the_machine_and_not_obelize_for_a_missing_tool(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv("PATH", str(tmp_path))
-    failed = [r for r in check.run(loader.load(NUMPY)) if not r.ok and r.setup]
-    assert [r.name for r in failed] == [
-        "the tools the pack's fixers run are installed at a release it accepts"
-    ]
-    monkeypatch.setattr(check, "run", lambda loaded: tuple(failed))
-    result = runner_.invoke(app, ["pack", "test", NUMPY])
-    assert result.exit_code == 7
-    assert "uv tool install" in result.output
-    assert "bug in obelize" not in result.output

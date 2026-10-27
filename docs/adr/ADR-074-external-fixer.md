@@ -44,7 +44,11 @@ none registered needs it.
 ### D2. One run of a tool
 
 The tool is started as the agent of ADR-003 is: an argv list and no shell, a cleaned environment,
-an empty directory, a deadline and a size on both ends, standard output only.
+an empty directory, a deadline and a size on both ends, standard output only. It is started through
+`native/processes` as a verification command is, in a session of its own (a job on Windows) that
+`close` ends however the run did: a first version used `subprocess.run(capture_output=True)`, which
+read a flood into memory before any limit applied (1.5 GiB printed reached 2.5 GB resident) and on a
+deadline killed only the tool, leaving what it started.
 
 - **Where it is.** Among the absolute entries of the user's `PATH` (`processes.locate` on those),
   never the working directory or a relative entry, so a repository cannot stand in for it. It is
@@ -56,12 +60,18 @@ an empty directory, a deadline and a size on both ends, standard output only.
 - **What it reads.** Its standard input and nothing of the repository: the directory is empty, and
   `--isolated` makes ruff read no configuration file, which a repository's `pyproject.toml` could
   have used to widen what `--fix-only` fixes. The file's name is given for rules that depend on it.
-- **Its limits.** 60 seconds, 4 MiB in and 4 MiB out, exit status `0`. A tool that cannot start,
-  prints no release or exits otherwise is `external_tool_failed`; the others are
-  `external_tool_timeout` and `external_tool_size_limit`.
-- **Its release.** `ruff --version` is read once for each program and environment, and only a
-  release the registry lists runs (`external_tool_version_unsupported`), because what a rule fixes
-  changes between releases (D8).
+- **Its limits.** 60 seconds, 4 MiB in and 4 MiB out, exit status `0`. The file is its standard
+  input as an unnamed temporary file, so there is no pipe to feed, its standard error is dropped,
+  and no more than 4 MiB and a chunk of its output is ever read, so a tool that prints without end
+  is stopped at the limit and not at the deadline. A tool that exits leaving a child on its pipe is
+  read for one second more and the group is ended; one that closes its output and runs on is past its
+  deadline. A tool that cannot start, prints no release or exits otherwise is `external_tool_failed`;
+  the others are `external_tool_timeout` and `external_tool_size_limit`. The temporary directory is
+  removed whatever the tool left in it, and a failure to remove it is not a reason.
+- **Its release.** `ruff --version` is read for each program, environment and file time and size (a
+  tool that was replaced is asked again), and only a release the registry lists runs, written
+  `major.minor.patch` and nothing else (`ruff 0.16.8+dirty`, `v0.16.8`, `0.17.2rc1` and `0.16.8-dev`
+  are `external_tool_version_unsupported`), because what a rule fixes changes between releases (D8).
 
 ### D3. The order: the pack's other rules first, the tool last, over their output
 
@@ -84,12 +94,22 @@ What the tool printed for a file is kept only if:
 
 1. **Every line it changed lies in a claimed row.** The lines of the output that replace or delete
    a line must map back to a line the scan reported, as a row `eligible` and claimed by this
-   fixer. A line it adds must be an import statement, or blank or a comment (`ruff` writes
-   `from ast import literal_eval` for `safe_eval`); and no line it writes may be wider than the
-   pack's `layout.line_length` or the line it replaced. Otherwise the whole output is dropped:
+   fixer. A block that grows past the lines it replaces adds, at its start or its end, only
+   import statements, blank lines and comments (`ruff` writes `from ast import literal_eval` for
+   `safe_eval`, and next to the import above a claimed line the block is a replacement and not an
+   insertion, which a first version let grow by any line: `print("injected")` was written). No line
+   it writes may be wider than the pack's `layout.line_length`, counted in characters, unless a
+   line it replaces already was. Otherwise the whole output is dropped:
    `external_fix_out_of_scope`.
 2. **A second run changes nothing.** `external_fix_not_idempotent`.
-3. **The scan of the output finds none of the claimed names**, and the output passes the driver's
+3. **No name an import it added binds is a local of a function, class or comprehension of the
+   file** (`symtable`): the call it wrote would read the local, and a call above the binding raises
+   `UnboundLocalError`. ruff writes `from ast import literal_eval` at module level for
+   `np.safe_eval`, and does not see a `literal_eval = 5` further down the same function; run
+   before and after under NumPy 1.26.4, seven of twenty-six programs differed, and each is now
+   `external_fix_out_of_scope`. The output parses and names nothing unbound, so no other part of
+   the proof can see it.
+4. **The scan of the output finds none of the claimed names**, and the output passes the driver's
    gates as any rule's does: it parses and compiles (`output_does_not_parse`) and reads no name
    the input did not (`output_names_unresolved`), and the file is written whole or not at all.
    The obvious test, that a row whose line the tool did not change stays withheld, is the wrong
@@ -116,9 +136,10 @@ of the operating systems and architectures, each release), and an installer woul
 and run a build or a hook, which THREAT_MODEL TM-6 and the offline default of `fix` say obelize does
 not do. A missing tool is a reason on the rows (`external_tool_missing`, `external_tool_version_unsupported`), the
 other rows of the pack are written as they would be, and the way to install one is printed where a
-person looks: `obelize pack validate` prints the command (`uv tool install ruff==0.17.2`), and
-`obelize pack test` has a check for it that is about the machine and not the pack, so a bundled pack
-that fails only it exits `7` and does not blame obelize. Whether to build an installer is for the
+person looks: `obelize pack validate` prints the command (`uv tool install ruff==0.17.3`), `scan`
+says on stderr that what it found cannot be written for want of the tool, and `obelize pack test`
+has a check for it that is about the machine and not the pack: the checks that run the pack are
+then "not run" and a bundled pack that fails only those exits `7` and does not blame obelize. Whether to build an installer is for the
 user to decide later; the registry already holds what one would need to say (the release and the
 command).
 
@@ -155,14 +176,18 @@ with their own measurement.
 
 ### D8. The releases of ruff the registry accepts
 
-0.6.2 to 0.17.2, the PEP 440 range `>=0.6.2,<=0.17.2`. The five fixtures of the numpy pack that
-name the rewritten names were run under every one of the 115 releases in it (0.12.6, yanked on
-PyPI, included) and wrote the same bytes; twenty of them also went through the driver and its
-answer keys. The output differs in 0.5.0 to 0.6.1, so they are refused, and so is a release newer
-than 0.17.2 until it is run the same way. Between 0.15.16 and 0.16.3 the output for names the pack
-does not claim changed twice (`np.in1d` stopped being rewritten to `np.isin`, which is not the same
-call; `compare_chararrays` changed how it is imported), which is why a range is checked and not
-assumed.
+0.6.2 to 0.17.3, the PEP 440 range `>=0.6.2,<=0.17.3`. The six fixtures of the numpy pack that name
+the rewritten names were run under every one of the 116 releases in it (0.12.6, yanked on PyPI,
+included) and wrote the same bytes; twenty-one of them also went through the driver and its answer
+keys. The output differs in 0.5.0 to 0.6.1, so they are refused, and so is a release newer than
+0.17.3 until it is run the same way (0.17.3 was the newest release when it was measured). Between
+0.15.16 and 0.16.3 the output for names the pack does not claim changed twice (`np.in1d` stopped
+being rewritten to `np.isin`, which is not the same call; `compare_chararrays` changed how it is
+imported), which is why a range is checked and not assumed. Written on a line of its own each, the names of NumPy 1.26.4 were changed by the 23 releases
+installed for the driver check (44 names under 0.6.0 to 0.15.12, 43 under 0.16.0 to 0.17.3): the 23
+the pack rewrites, 18 it reports and two, `np.DTypePromotionError` and `np.INF`, that NumPy 1.26.4
+does not define. A file that uses a reported or an unknown one beside a rewritten name stays as it
+was (`external_fix_out_of_scope`).
 
 The lock holds ruff 0.16.8. A dependabot bump past the range fails `test_the_ruff_the_suite_runs_is_one_the_registry_accepts`
 instead of skipping the fixtures, so widening the range and measuring are one change.
@@ -188,6 +213,40 @@ withhold. One real `--apply` and `undo` ran over a copy of ckmeans: the file was
 tool's output and put back byte for byte. The centrosome case shows the pin line: `numpy>=1.18.2`
 becomes `numpy>=2` in `install_requires`, which a library that supports NumPy 1 would not want, and
 the pack's `limitations` say so. Nothing was added to BENCHMARK_RESULTS.md.
+
+### D10. What the numpy pack covers, and what its pin does
+
+**Names.** Every public name of `dir(numpy)` on 1.26.4 that 2.0.2 or 2.5.4 lacks (93, looked up with
+`hasattr`), and the five exceptions `dir` hides there (`AxisError`, `ComplexWarning`,
+`ModuleDeprecationWarning`, `TooHardError`, `VisibleDeprecationWarning`), is rewritten (23) or
+reported (75): 98. The first list was the guide's tables, 39 names, and the tables are not the list:
+`msort`, `RankWarning`, `numarray`, `oldnumeric`, 26 internal constants (the guide lists fifteen, the
+2.0.0 release notes add `ERR_*` and `SHIFT_*`) and the five exceptions (the release notes name two of
+them) were in none, and `chararray` is gone only on 2.5. A name written as a string
+(`dtype='float_'`) is not a name: the scan reads names, sixteen strings that worked on 1.26.4 raise
+on 2.0, and the limitation says what to search for. The five exceptions are reported and not
+rewritten, though ruff rewrites them (to an import from `numpy.exceptions`, which 1.25 added): the
+pack states no floor.
+
+**The prefilter.** The token is `numpy`. A file that uses one of the pack's names imports the
+module by that spelling, whatever it binds it as, so a file without the word cannot have a row. The
+62 last segments of the names that were the tokens at first (`source`, `cast`, `product`) are
+common words, and made the default scan of a repository that never uses NumPy parse more files
+(the Gemini example: 8 files parsed with them, 7 with `numpy`); with `numpy` only a file that
+mentions the module is parsed for this pack.
+
+**The pin.** A pack whose `from.version` states no floor writes code that runs on every release it
+moves from, so a requirement that already admits the new range has nothing to move: `numpy>=1.22`,
+`numpy>=1.22,<3` and `numpy` stay as written, where the floor of the migration would have raised
+the first and dropped the `<3` of the second. A requirement with an environment marker
+(`numpy<1.22; python_version < '3.9'`, which became `numpy>=2; python_version < '3.9'`, for a
+Python NumPy 2 has no release for) or a version nobody can read is reported
+(`manifest_pin_shape_unsupported`) and holds the repository back, as a pin with extras does. The
+other pins of the file are not judged: `pandas==1.5.3` has no build for NumPy 2 and the pack cannot
+know which packages link NumPy, so the limitation says to install the result, which
+`obelize upgrade numpy --apply` does in a copy, and writes only if the tests agree. The rule is
+scoped to a pack that states no floor, which is only this one, so the three older packs read a pin
+as they did.
 
 ## Consequences
 

@@ -256,7 +256,9 @@ environment variables, and is trusted for nothing but the bytes it prints: see
 [the proof](PACK_SPEC.md#rule-kind-registry). If it is missing, of a release obelize has not
 measured, fails, runs past 60 seconds or prints more than 4 MiB, the rows say which
 (`external_tool_missing` and its kin, [SCAN_VOCABULARY.md](SCAN_VOCABULARY.md#external-tools)), the
-files stay as they were and the run carries on with the rest of the pack. `run.json` records the
+files stay as they were and the run carries on with the rest of the pack. `scan` says on stderr, in
+one line, when a selected pack found what it can write only with a tool that cannot run here and
+names why. `run.json` records the
 release the tool printed, how it was started and the hashes of what it was given and printed
 (`packs[].fixers`, [RUN_FOLDER.md](RUN_FOLDER.md#packs)). The privacy of it is in
 [PRIVACY.md](PRIVACY.md#what-a-maintained-tool-sees).

@@ -555,7 +555,7 @@ def _legacy(
         )
         yield _row(declaration, spec.legacy_distribution, code, absent=code is None)
         return
-    if spec.new_range is not None and declaration.pin is None:
+    if spec.new_range is not None and (declaration.pin is None or _unjudged(declaration, spec)):
         yield _row(declaration, spec.legacy_distribution, SHAPE_BAIL)
         return
     if not migration.blocking and (not needed or placed is not None):
@@ -591,13 +591,26 @@ def _legacy_only(declaration: Declaration, spec: ScanSpec) -> bool:
 def _arrived(declaration: Declaration, spec: ScanSpec) -> bool:
     """Whether a declaration of the one distribution already pins the new range: no edit of it.
 
-    The first version it admits decides, so `>=2` is on the new side and `>=0.28,<3` is not.
+    The first version it admits decides, so `>=2` is on the new side and `>=0.28,<3` is not. A pack
+    that states no floor for the old side writes code that runs on every release it moves from, so
+    a declaration that admits the new range at all has nothing to move: `numpy>=1.22` stays.
     """
+    if spec.new_range is None:
+        return False
+    if spec.legacy_floor is None:
+        found = None if declaration.spec is None else alternatives(declaration.spec)
+        return found is not None and meets(found, SpecifierSet(spec.new_range))
     floor = lowest(declaration.spec)
-    return (
-        spec.new_range is not None
-        and floor is not None
-        and SpecifierSet(spec.new_range).contains(floor, prereleases=True)
+    return floor is not None and SpecifierSet(spec.new_range).contains(floor, prereleases=True)
+
+
+def _unjudged(declaration: Declaration, spec: ScanSpec) -> bool:
+    """Whether a pack that states no floor for the old side cannot say what a declaration becomes:
+    an environment marker may keep the new release from installing where the line applies, and a
+    version nobody can read is not judged."""
+    return spec.legacy_floor is None and (
+        declaration.marked
+        or (declaration.spec is not None and alternatives(declaration.spec) is None)
     )
 
 

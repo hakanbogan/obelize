@@ -21,10 +21,11 @@ import typer
 from obelize import __version__
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection
+    from collections.abc import Callable, Collection, Sequence
 
     from packaging.version import Version
 
+    from obelize.commands.fix import Scanned
     from obelize.config import LoadedConfig, Overrides
     from obelize.models import Config, ConfigOrigin, ExitCode, ModelConfig, ScanSpec
     from obelize.net import Fetcher
@@ -243,6 +244,9 @@ def scan(
     scan_ms = int((time.monotonic() - began) * 1000)
     held = sum(1 for row in result.findings if row.scan_status in failing)
     code: ExitCode = 4 if held else 0
+    if not library:
+        for note in _tool_notes(chosen.packs):
+            typer.echo(note, err=True)
 
     document = FindingsDocument(
         obelize_version=__version__,
@@ -716,6 +720,21 @@ def _recorded_argv() -> tuple[str, ...]:
     from obelize.verify import redact
 
     return tuple(redact.redact(argument, os.environ) for argument in sys.argv[1:])
+
+
+def _tool_notes(packs: Sequence[Scanned]) -> list[str]:
+    """What a scan says of a tool a pack needs and this machine lacks: its rows are `eligible`, and
+    `fix` cannot write them without it."""
+    from obelize.transforms import fixers
+
+    return [
+        f"{one.loaded.pack.id} found what it can write only with a tool that cannot run here: "
+        f"{problem}"
+        for one in packs
+        if any(row.scan_status == "eligible" for row in one.scan.findings)
+        for change in one.loaded.pack.fixers()
+        if (problem := fixers.problem(change.params.fixer)) is not None
+    ]
 
 
 def _under(repo: str, relative: str) -> str:

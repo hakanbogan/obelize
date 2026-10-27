@@ -19,14 +19,22 @@ assert sys.platform != "win32"  # noqa: S101 - `mypy --platform win32` reads no 
 WORKER_LIMIT: int | None = None
 
 
-def spawn(argv: Sequence[str], cwd: Path, env: Mapping[str, str]) -> subprocess.Popen[bytes]:
-    """One pipe carries stdout and stderr, stdin is at EOF, and `stop` reaches all it starts."""
+def spawn(
+    argv: Sequence[str],
+    cwd: Path,
+    env: Mapping[str, str],
+    *,
+    stdin: int | IO[bytes] = subprocess.DEVNULL,
+    stderr: int = subprocess.STDOUT,
+) -> subprocess.Popen[bytes]:
+    """One pipe carries stdout and, unless `stderr` says otherwise, stderr; stdin is at EOF unless
+    given a file; and `stop` reaches all it starts."""
     return subprocess.Popen(
         argv,
         cwd=cwd,
-        stdin=subprocess.DEVNULL,
+        stdin=stdin,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=stderr,
         start_new_session=True,
         env=env,
     )

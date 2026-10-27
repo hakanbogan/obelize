@@ -136,16 +136,28 @@ about itself. [ADR-074](adr/ADR-074-external-fixer.md) records the rules.
   is, or an installer's shim that starts another program, is not told apart. A tool with no
   `--version` (`pyupgrade`) cannot be registered.
 - Only a release that was run over the bundled pack's fixtures is accepted, so a ruff newer than the
-  range in `transforms/fixers.py` (0.17.2 at 0.9.0) is refused until a release of obelize lists it;
-  `uv tool install ruff==0.17.2` installs one that is accepted. `obelize pack test` says so, and
-  does not call it a defect of the pack.
+  range in `transforms/fixers.py` (0.17.3 at 0.9.0) is refused until a release of obelize lists it;
+  `uv tool install ruff==0.17.3` installs one that is accepted. `obelize pack test` says so (the
+  checks that need the tool do not run, and it exits `7`), and does not call it a defect of the
+  pack; `scan` says it on stderr when a selected pack found what only the tool can write. The
+  release is read once more whenever the file of the tool changes, and must be `major.minor.patch`
+  (`0.16.8+dirty`, `v0.16.8` and `0.17.2rc1` are refused).
+- A program of that name that is not an executable file (a `ruff.cmd` or `ruff.bat` shim on
+  Windows, a script an installer wrote without the executable bit) is `external_tool_missing`, by
+  design: it would start a shell. Install ruff as an executable (`uv tool install`, `pipx`).
+- The tool runs in a session of its own that is ended whatever happens (a job on Windows, so a
+  grandchild goes with it), its output is read to the limit and no further, and its standard error
+  is dropped. It can still do what the user can: write outside the directory it is given, or reach
+  the network. A grandchild that leaves the session or the job is not followed.
 - obelize hands the tool one file at a time, in memory, and starts it twice for each file it keeps
   (a second run proves it changes nothing). A repository of thousands of such files pays two
   starts of ruff, about 30 ms, for each.
 - The proof works on lines. A tool may change a line the scan reported and nothing else, so a
   fix that spans lines, or that rewrites a use on a line the scan reported at its start, may be
   dropped (`external_fix_out_of_scope`) when the tool changes a continuation line. A tool that
-  re-encodes or reflows a file changes every line and is always dropped.
+  re-encodes or reflows a file changes every line and is always dropped. A file that ends its
+  lines with a lone `\r` is numbered differently by the scan and by the proof, which can only
+  drop a fix that would have been kept.
 - The scan of the output decides whether a name is gone, as the scan of the input found it: a name
   reached by `getattr`, a string or a star import is neither found nor fixed, and ruff skips a file
   with `# ruff: noqa` or a line with `# noqa: NPY201`, which leaves its rows `external_fix_incomplete`.
@@ -155,8 +167,14 @@ about itself. [ADR-074](adr/ADR-074-external-fixer.md) records the rules.
   is a rule that renames a keyword (`AIR301`'s `schedule_interval`), which names no symbol, or one
   with no safe fix (`AIR302`), or `django-upgrade`, which needs the Django release it targets.
 - `numpy/numpy-1-to-2` is measured against NumPy 1.26.4, 2.0.2, 2.3.5, 2.4.6 and 2.5.4 and the
-  guide's tables, and has not been run over public repositories as the three first packs were
-  (ADR-074 D6 has what was counted). What it does not see is in its `limitations`.
+  guide's tables. It was dry-run over five public repositories (ADR-074 D9 has what was counted),
+  and no Gate 1 count says how often it writes. What it does not see is in its `limitations`; the
+  ones that cost a repository most: a name written as a string (`dtype='float_'`, `'complex_'`,
+  `'string_'`, `'unicode_'`, `'longfloat'`, `'cfloat'` and ten more spellings of `np.sctypeDict`
+  work on NumPy 1.26.4 and raise `TypeError` on 2.0; search for the quoted names), and the pins
+  beside numpy: `numpy==1.26.4` moves to `numpy>=2` and `pandas==1.5.3` or `scipy==1.10.1` do
+  not, so install the result. A requirement that admits NumPy 2 (`numpy>=1.22`) is left alone, and
+  one with an environment marker, or that cannot be read, is reported and holds the repository.
 
 ## Members of a class
 

@@ -32,19 +32,45 @@ is an `AttributeError` there, except `row_stack`, which 2.0.2 and 2.4.6 still ha
 wrapper and 2.5.0 removed. The code the pack writes therefore runs on 1.x and on 2.x alike, which is
 why `from.version` states no floor.
 
-`numpy.in1d` and `numpy.trapz` exist on 1.26.4, 2.0.2 and 2.3.5 and on neither 2.4.0 nor later. The
-pack flags them, because a repository moving to a release of `>=2` cannot keep them, and rewrites
-`row_stack`, which the guide gives a drop-in for.
+Every public name of `dir(numpy)` on 1.26.4 (553) and the five that `dir` hides there but `hasattr`
+finds (`AxisError`, `ComplexWarning`, `ModuleDeprecationWarning`, `TooHardError`,
+`VisibleDeprecationWarning`) was looked up with `hasattr` on 2.0.2 and 2.5.4. 93 of the 553 and all
+five are gone by 2.0.2 or 2.5.4 (`in1d`, `row_stack`, `trapz` and `chararray` go only with 2.5): 98.
+The pack rewrites 23 and reports the other 75, so none of the 98 is silent. (`dir` is no test on the
+other side either: on 2.0.2 it omits `numpy.version` and `numpy.chararray`, which `hasattr` finds.)
+`numpy.in1d` and `numpy.trapz` exist on 1.26.4, 2.0.2 and 2.3.5 and on neither 2.4.0 nor later,
+`numpy.row_stack` exists through 2.4.6 and not on 2.5.0, and `numpy.chararray` exists on 1.26.4 and
+2.0.2 and not on 2.5.4. The pack flags `in1d`, `trapz` and `chararray`, because a repository moving
+to a release of `>=2` cannot keep them, and rewrites `row_stack`, which the guide gives a drop-in
+for. The five hidden names are `numpy.exceptions.X` on 1.26.4 as well (a module NumPy 1.25 added),
+which is why they are reported with that suggestion and not rewritten: the pack states no floor.
 
-**ruff.** The pack's five fixtures that name the rewritten names (`aliases`, `constants`,
-`functions`, `mixed`, `safe_eval`) were run as `ruff check --isolated --select NPY201 --fix-only
---stdin-filename=a.py -` under **every release from 0.6.2 to 0.17.2**: 115 releases, among them
-0.12.6, which PyPI marks as yanked. Every one wrote the same bytes and exited 0. Twenty of them
-(0.6.2, 0.7.4, 0.9.10, 0.11.13, 0.12.6, 0.13.3, 0.14.10, 0.15.12, 0.16.0 and each from 0.16.3 to
-0.17.2) were also started by the driver itself, and its output compared byte for byte with the
+A name written as a string is a second route to the same break. `numpy.dtype(key)` accepts all 108
+string keys of `numpy.sctypeDict` on 1.26.4 and raises on 2.0.2 for sixteen (`bool8`, `bytes0`,
+`cfloat`, `clongfloat`, `complex_`, `float_`, `int0`, `longcomplex`, `longfloat`, `object0`,
+`singlecomplex`, `str0`, `string_`, `uint0`, `unicode_`, `void0`) and on 2.5.4 for `a` as well. The
+scan reads names and not strings, so these are a limitation and not a row.
+
+**ruff.** The pack's six fixtures that name the rewritten names (`aliases`, `constants`,
+`functions`, `mixed`, `safe_eval`, `strings`) were run as `ruff check --isolated --select NPY201
+--fix-only --stdin-filename=a.py -` under **every release from 0.6.2 to 0.17.3**: 116 releases, among
+them 0.12.6, which PyPI marks as yanked. Every one wrote the same bytes and exited 0. Twenty-one of
+them (0.6.2, 0.7.4, 0.9.10, 0.11.13, 0.12.6, 0.13.3, 0.14.10, 0.15.12, 0.16.0 and each from 0.16.3
+to 0.17.3) were also started by the driver itself, and its output compared byte for byte with the
 answer keys. Under 0.5.0 to 0.6.1 the output differs. `tests/packs/test_all_packs.py` runs the
 fixtures under the ruff of the development environment; `transforms/fixers.py` names the range,
-and a newer release is refused until it is run the same way.
+and a newer release is refused until it is run the same way. 0.17.3 was the newest release when it
+was measured.
+
+Which names ruff rewrites was found by writing every name above on a line of its own and running
+the same command under the 23 releases installed for the driver check (these 21 and 0.6.0 and
+0.6.1): 44 lines change under 0.6.0 to 0.15.12 and 43 under 0.16.0 to 0.17.3, the difference being
+`np.in1d`. All 23 names the pack rewrites are among them. Eighteen of the rest are names the pack
+reports (the moved names, the five exceptions, `NINF`, `NZERO`, `PZERO`, `source`, `issubclass_`
+and `issubsctype`), and two, `np.DTypePromotionError` and `np.INF`, are defined by no NumPy 1.26.4
+main namespace. For the five exceptions ruff writes `from numpy.exceptions import AxisError` and
+uses the bare name, which exists on NumPy 1.25 and later and not before. `np.RankWarning` is an
+unsafe fix, which `--fix-only` does not apply.
 
 The same run showed what `--fix-only` leaves alone, which the pack therefore does not claim:
 `np.in1d`, `np.trapz`, `np.asfarray`, `np.cast`, `np.find_common_type` and the rest of the
@@ -90,8 +116,16 @@ reported and not claimed.
   it's available under np.lib.array_utils.byte_bounds", "compare_chararrays: It's still available as
   np.char.compare_chararrays", "DataSource: It's still available as np.lib.npyio.DataSource",
   "format_parser: It's still available as np.rec.format_parser", "tracemalloc_domain: It's now
-  available from np.lib".
-- Measured: each exists on 1.26.4 and on neither 2.0.2 nor later.
+  available from np.lib". The guide's "charrarray: It's still available as np.char.chararray" is a
+  misspelling of `chararray`.
+- NumPy 2.0.0 release notes: "Warnings and exceptions present in numpy.exceptions (e.g,
+  ComplexWarning, VisibleDeprecationWarning) are no longer exposed in the main namespace." The
+  guide's tables do not list them.
+- Measured: each of those exists on 1.26.4 and on neither 2.0.2 nor later, except `chararray`, which
+  is defined on 1.26.4 and 2.0.2 and gone on 2.5.4, with `numpy.char.chararray` on all three.
+  `numpy.RankWarning` is gone on 2.0.2 and later, and `numpy.exceptions.RankWarning` exists on
+  2.0.2 and 2.5.4 and not on 1.26.4. The other five exceptions are in `numpy.exceptions` on all
+  three, and in the main namespace on 1.26.4 only.
 
 ## flag-removed-names
 
@@ -101,9 +135,26 @@ reported and not claimed.
 - NumPy 2.4.0 release notes: "Removed numpy.in1d: numpy.in1d has been deprecated since NumPy 2.0
   and is now removed in favor of numpy.isin", and "numpy.trapz: deprecated since NumPy 2.0. Use
   numpy.trapezoid or scipy.integrate functions instead."
+- NumPy 2.0.0 release notes: "np.numarray, np.oldnumeric" among the "expired members and functions"
+  removed from the main namespace.
 - Measured: `in1d` and `trapz` exist on 1.26.4, 2.0.2 and 2.3.5 and not on 2.4.0 or later. The rest
-  exist on 1.26.4 and not on 2.0.2. The guide's `charrarray` is a misspelling of `chararray`, which
-  2.0.2 still defines in the main namespace, and is left out.
+  exist on 1.26.4 and not on 2.0.2. `numpy.msort` is none of the guide's tables; NumPy 1.26.4's own
+  warning says "msort is deprecated, use np.sort(a, axis=0) instead", and the two gave equal arrays
+  for the one tried, so the suggestion is that. `numpy.numarray` and `numpy.oldnumeric` are the
+  string `'removed'` on 1.26.4.
+
+## flag-internal-constants
+
+- NumPy 2.0 migration guide, *Main namespace*: "Finally, a set of internal enums has been removed.
+  As they weren't used in downstream libraries we don't provide any information on how to replace
+  them": FLOATING_POINT_SUPPORT, FPE_DIVIDEBYZERO, FPE_INVALID, FPE_OVERFLOW, FPE_UNDERFLOW,
+  UFUNC_BUFSIZE_DEFAULT, UFUNC_PYVALS_NAME, CLIP, WRAP, RAISE, BUFSIZE, ALLOW_THREADS, MAXDIMS,
+  MAY_SHARE_EXACT, MAY_SHARE_BOUNDS.
+- NumPy 2.0.0 release notes: "Multiple niche enums, expired members and functions have been removed
+  from the main namespace, such as: ERR_*, SHIFT_*, np.fastCopyAndTranspose, ...".
+- Measured: all 26 (the fifteen, the seven `ERR_*` and the four `SHIFT_*`) exist on 1.26.4 and on
+  neither 2.0.2 nor 2.5.4. The release notes say np.geterrobj and np.seterrobj are replaced by
+  np.errstate, which is all the suggestion claims.
 
 ## flag-signed-constants
 
@@ -120,3 +171,8 @@ reported and not claimed.
   in the repository has moved.
 - Measured: `Requires-Python` of numpy 2.0.0 on PyPI is `>=3.9`; 2.1 and 2.2 ask for `>=3.10`, 2.3
   and 2.4 for `>=3.11`, so `to.requires_python` is the set a release of `>=2` installs on.
+- Which requirement moves: only one that excludes NumPy 2 (`numpy==1.26.4`, `numpy<2`,
+  `numpy~=1.22`), to `numpy>=2`. The code the pack writes runs on 1.26.4 and on 2.x (measured above),
+  so a requirement that admits NumPy 2 (`numpy>=1.22`, `numpy>=1.22,<3`, `numpy`) has nothing to
+  move, and its floor is not raised. A requirement with an environment marker is reported: NumPy
+  2.0 has no release for Python 3.8, so `numpy>=2; python_version < '3.9'` could not be installed.

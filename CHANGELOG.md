@@ -15,7 +15,10 @@ in the release that makes it.
 A pack can now be about the Python itself. A side of a migration is a distribution or the Pythons
 it runs on, so `datetime.utcnow()`, `pkg_resources` and the modules Python 3.12 and 3.13 removed
 have packs, though no distribution is installed to move to. Everything new is reached by a pack that
-uses it, and what the three bundled packs for a library write is what it was.
+uses it. What the three bundled packs for a library write is what it was: an explicit `--pack` run
+gives the same bytes and their pack hashes are unchanged. What a default scan parses is not
+quite: `numpy/numpy-1-to-2` joins the union with the one token `numpy`, so a file that spells the
+word is parsed once more, and no other.
 
 What does change for every repository is what a default run finds. The three packs report what they
 cannot rewrite, so a repository that only has `from distutils.core import setup` in its `setup.py`
@@ -53,9 +56,11 @@ and one on the tools a pack can run. What it names:
 - A comment inside a rewritten call moves above the statement that holds it.
 - `numpy/numpy-1-to-2` rewrites 23 names, reports the others the migration guide lists, and holds
   the whole repository back for any one of those, the pin included. It does not see what NumPy 2
-  changes besides names (promotion, the default integer on Windows, the C API), and the pin it
-  writes, `numpy>=2`, is not one a library that still supports NumPy 1 should keep. It was run over
-  five public repositories and has no Gate 1 measurement. A fixer that moves an import, renames a
+  changes besides names (promotion, the default integer on Windows, the C API), nor strings. It moves
+  a requirement that excludes NumPy 2 (`numpy==1.26.4`, `numpy<2`) to `numpy>=2` and leaves one that
+  admits it (`numpy>=1.22`) as written, but it does not judge the other pins beside it (a
+  `pandas==1.5.3`), so install the result. It was run over five public repositories and has no
+  Gate 1 measurement. A fixer that moves an import, renames a
   keyword or needs the target release a repository states (`ruff`'s `UP035` and `AIR301`,
   `django-upgrade`, `pyupgrade`) is not registered ([ADR-074](docs/adr/ADR-074-external-fixer.md)).
 - A name that a pack flags only at some calls is not listed where it is handed to another call
@@ -84,21 +89,28 @@ join the bail vocabulary and the bails an import row may carry, which `findings.
   lists, named by an id obelize holds (`ruff:NPY201`) and never by a command, flag, path or release.
   The tool is found among the absolute entries of your `PATH` and started with an argv list, a few
   environment variables and an empty directory, under a 60-second deadline and 4 MiB each way, and
-  only in a release the registry lists (ruff 0.6.2 to 0.17.2, each run over the fixtures). It runs
-  after the pack's other rules, and what it prints is kept only if it changed no line the scan did
-  not report or a rule wrote, added nothing but imports, wrote no line wider than the pack's layout,
-  changes nothing run on its own output, and the scan of it finds none of the names it claims
+  only in a release the registry lists (ruff 0.6.2 to 0.17.3, each run over the fixtures; its
+  release is read as `major.minor.patch` and nothing else, again whenever the file is replaced). It
+  runs after the pack's other rules, in a session that is ended whatever happens, with its output
+  read no further than the limit, and what it prints is kept only if it changed no line the scan did
+  not report or a rule wrote, added only imports, blank lines and comments beside a replaced line,
+  none of whose names a function, class or comprehension of the file binds itself (the call would
+  read the local: `UnboundLocalError`), wrote no line wider than the pack's layout, changes nothing
+  run on its own output, and the scan of it finds none of the names it claims
   (ruff leaves `from numpy import float_` standing, so such a file stays as it was). The run folder
   records, per fixer, the release the tool printed, how it was started and the hashes of what it was
   given and printed for each file (`packs[].fixers`); `fix` says `numpy/numpy-1-to-2 runs ruff
   (NPY201) on 3 files.` ahead of the diff; `pack validate` prints what a fixer runs and the command
-  that installs it; `pack test` has a check for the tool, which a bundled pack that fails only it
-  reports as exit `7` and not as a defect of obelize.
+  that installs it; `scan` says on stderr when what it found cannot be written for want of the tool;
+  `pack test` has a check for the tool, and the checks that need it do not run, so a bundled pack
+  that fails only those exits `7` and is not reported as a defect of obelize.
 - A bundled pack, `numpy/numpy-1-to-2`: 23 names NumPy 2 removed, written by ruff as the name that
   also exists on NumPy 1 (`np.float_` as `np.float64`, `np.NaN` as `np.nan`, `np.cumproduct` as
-  `np.cumprod`), 39 more reported, and the dependency line. Each rewrite was measured on NumPy
-  1.26.4 and 2.x, and a name whose replacement ruff writes in a way that changes the value
-  (`np.NINF ** 2`) is reported.
+  `np.cumprod`), 75 more reported (every name of the main namespace that NumPy 1.26.4 has and 2.0.2
+  or 2.5.4 lacks is one or the other, 98 in all, among them `msort`, 26 internal constants and the
+  exceptions that moved to `numpy.exceptions`), and the dependency line. Each rewrite was measured
+  on NumPy 1.26.4 and 2.x, and a name whose replacement ruff writes in a way that changes the value
+  (`np.NINF ** 2`) is reported. A name written as a string (`dtype='float_'`) is not found.
 - A `flag_only` change can say which calls it flags a symbol for. `calls` maps a symbol to a shape
   of `keywords`, `positional_from` and `omits`, and a call with a `*` argument that could pass a
   position the shape lists, or a `**` argument that could pass a keyword or a name, is one. In a

@@ -34,7 +34,14 @@ EMPTIED_S = 5.0
 _JOBS: dict[int, int] = {}
 
 
-def spawn(argv: Sequence[str], cwd: Path, env: Mapping[str, str]) -> subprocess.Popen[bytes]:
+def spawn(
+    argv: Sequence[str],
+    cwd: Path,
+    env: Mapping[str, str],
+    *,
+    stdin: int | IO[bytes] = subprocess.DEVNULL,
+    stderr: int = subprocess.STDOUT,
+) -> subprocess.Popen[bytes]:
     """As on POSIX, but the command starts suspended and runs only once its job holds it, so
     whatever it starts is in the job too. If that fails or is interrupted it is killed before
     it ran."""
@@ -45,9 +52,9 @@ def spawn(argv: Sequence[str], cwd: Path, env: Mapping[str, str]) -> subprocess.
             argv,
             executable=executable,
             cwd=cwd,
-            stdin=subprocess.DEVNULL,
+            stdin=stdin,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stderr=stderr,
             env=env,
             creationflags=_win32.CREATE_NEW_PROCESS_GROUP | _win32.CREATE_SUSPENDED,
         )

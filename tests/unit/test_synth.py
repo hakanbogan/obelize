@@ -797,7 +797,7 @@ AFTER = old_surface(
         "Swap": cls(built=False, bases=("Root",), inherited=INIT),
     }
 )
-del AFTER.objects[f"{MODULE}.Gone"]
+del AFTER.objects[f"{MODULE}.Gone"]  # type: ignore[attr-defined]  # the dict old_surface built
 CLASSES = (
     "Own",
     "Plain",

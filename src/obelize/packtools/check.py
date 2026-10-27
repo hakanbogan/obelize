@@ -52,9 +52,16 @@ def run(loaded: loader.LoadedPack) -> tuple[Check, ...]:
         ("two runs over one input write the same bytes", _deterministic),
         ("SOURCES.md has a section for every change and cites the page", _sources),
     )
-    return tuple(
-        Check(name, tuple(step(loaded, folder)), setup=step is _tools) for name, step in steps
-    )
+    tools = _tools(loaded, folder)
+
+    def one(name: str, step: Callable[[loader.LoadedPack, Path], list[str]]) -> Check:
+        if step is _tools:
+            return Check(name, tuple(tools), setup=True)
+        if tools and step in _RUN:
+            return Check(name, ("not run: it needs the tool above",), setup=True)
+        return Check(name, tuple(step(loaded, folder)))
+
+    return tuple(one(name, step) for name, step in steps)
 
 
 def _fixtures(folder: Path) -> list[Path]:
@@ -267,6 +274,10 @@ def _deterministic(loaded: loader.LoadedPack, folder: Path) -> list[str]:
     ] or first.edits != second.edits:
         return ["two runs over the same files wrote different bytes"]
     return []
+
+
+# The checks that run the pack, and so need the tools its fixers run.
+_RUN = (_keys_exist, _keys_agree, _idempotent, _deterministic)
 
 
 def _sources(loaded: loader.LoadedPack, folder: Path) -> list[str]:

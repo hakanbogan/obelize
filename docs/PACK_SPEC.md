@@ -162,6 +162,14 @@ that it admits no release `to.version` allows (`pypdf==3.0.0`, `pypdf<6`): the r
 it on code whose names that release lacks. That block is `new_version_unsupported`. A declaration
 nobody can read is not judged, and `to.version` is a gate like the floor: `spec_digest` ignores it.
 
+A pack whose one distribution holds both sides and whose `from.version` has no floor (`numpy`:
+`<2`, `>=2`) writes code that runs on every release it moves from, so a declaration that already
+admits `to.version` (`numpy>=1.22`, `numpy>=1.22,<3`) is left as written, its floor not raised and
+its upper bound not dropped; one that excludes it (`numpy==1.26.4`, `numpy<2`) moves to `to.version`.
+A declaration that carries an environment marker, or whose version nobody can read, is not judged
+either way, and it is reported as `manifest_pin_shape_unsupported` and holds the repository back.
+The other pins of the file are not judged.
+
 - `newest` is a final release in PEP 440's normal spelling (`3.0.1`, not `3.00.1` or `v3.0.1`), which
   `from.version` admits. It is the pack's claim about what an unversioned install resolves to, so a
   pack names one only where the distribution's index has no later release, and the weekly
@@ -258,7 +266,7 @@ to the proof of a rule's own ([ADR-074](adr/ADR-074-external-fixer.md)). A pack 
 `fixer`, an id of a closed registry in `src/obelize/transforms/fixers.py` (the set is
 `FixerId` in `obelize.models`, and a test holds the two equal): `ruff:NPY201`, which runs
 `ruff check --isolated --select NPY201 --fix-only --stdin-filename={name} -` in a ruff release from
-0.6.2 to 0.17.2. The registry holds the program, the releases it accepts, the arguments and what
+0.6.2 to 0.17.3. The registry holds the program, the releases it accepts, the arguments and what
 installs it, and a pack carries none of them, so a pack can neither name a command nor widen the
 releases (`pack validate` prints what a pack runs). `symbols` are the names the tool is run for;
 the scan finds them as it finds any change's, so each is also under `match.imports` or
@@ -271,8 +279,11 @@ The tool runs on a file after the pack's other rules have written it, only when 
 file the scan graded is `eligible`, and what it prints is kept only if:
 
 - it changed no line but those of the rows `symbols` claim, mapped back to the file as the scan read
-  it, so none that a rule of the pack wrote; it added no line but an import (and blank lines and
-  comments), and wrote none wider than the pack's `layout.line_length` or the line it replaced;
+  it, so none that a rule of the pack wrote; where it replaced a line by several it added, at their
+  start or end, only imports, blank lines and comments, none of whose names an added import binds
+  that a function, class or comprehension of the file binds itself (the call would read the local);
+  it wrote no line wider than the pack's `layout.line_length` in characters, unless a line it
+  replaced already was;
 - run again on its own output, it changed nothing;
 - the scan of its output finds none of the names `symbols` claims, so a use it skipped or an
   import of a removed name it left (ruff adds the new name beside the old one) keeps the file as

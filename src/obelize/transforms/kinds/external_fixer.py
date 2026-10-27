@@ -5,8 +5,10 @@ what it prints is kept only when all of this holds (ADR-074):
 
 - it changed no line but those of the rows the pack's symbols claim, mapped back to the file as
   the scan read it, so it changed none a rule of the pack wrote; it added only imports, and wrote no
-  line wider than the pack's layout or the line it replaced;
+  line wider than the pack's layout (a line already that wide is let by);
 - run again on its own output it changed nothing;
+- no name an import it added binds is a local of a function, class or comprehension of the file,
+  where the call it wrote would read the local and not the import;
 - the scan of its output finds none of the claimed symbols: a tool that leaves an import of a
   removed name, or skips a use, has not migrated the file.
 
@@ -19,7 +21,9 @@ from __future__ import annotations
 import ast
 import hashlib
 import re
+import symtable
 import textwrap
+from collections import Counter
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import PurePosixPath
@@ -178,23 +182,16 @@ def _proof(
 ) -> tuple[dict[int, BailCode], int]:
     """The rows the output does not hold for, and the lines it changed."""
     old, new = _lines(current), _lines(made.output)
-    allowed = {row.line for row in mine}
-    changed = 0
-    for tag, first, last, other_first, other_last in _matcher(old, new).get_opcodes():
-        if tag == "equal":
-            continue
-        changed += max(last - first, other_last - other_first)
-        wide = max([width, *(_width(line) for line in old[first:last])])
-        if (
-            any(_width(line) > wide for line in new[other_first:other_last])
-            or (tag == "insert" and not _imports(new[other_first:other_last]))
-            or (tag != "insert" and not all(one in allowed for one in origin[first:last]))
-        ):
-            return _all(mine, "external_fix_out_of_scope"), changed
+    changed, legal = _hunks(old, new, origin, {row.line for row in mine}, width)
+    if not legal:
+        return _all(mine, "external_fix_out_of_scope"), changed
     if made.output == current:
         return _all(mine, "external_fix_incomplete"), 0
     if fixers.run(rule.fixer, PurePosixPath(path).name, made.output).output != made.output:
         return _all(mine, "external_fix_not_idempotent"), changed
+    added = Counter(_imported(made.output)) - Counter(_imported(current))
+    if added and _shadowed(made.output, set(added)):
+        return _all(mine, "external_fix_out_of_scope"), changed
     candidate = scanner.Candidate(path, _hash(made.output), made.output)
     left = {
         row.symbol
@@ -205,6 +202,32 @@ def _proof(
         return {}, changed
     stuck = [row for row in mine if row.symbol in left] or list(mine)
     return _all(stuck, "external_fix_incomplete"), changed
+
+
+def _hunks(
+    old: list[bytes], new: list[bytes], origin: list[int | None], allowed: set[int], width: int
+) -> tuple[int, bool]:
+    """The lines `new` changes of `old`, and whether it changes only lines it may.
+
+    A line it replaces or deletes must be one the scan reported (`allowed`) and no rule wrote. A
+    block that grows past the lines it replaces adds, at its start or its end, only imports, blank
+    lines and comments. A line it writes is no wider than `width`, unless a line it replaces
+    already was.
+    """
+    changed, legal = 0, True
+    for tag, first, last, other_first, other_last in _matcher(old, new).get_opcodes():
+        if tag == "equal":
+            continue
+        added = new[other_first:other_last]
+        replaced = old[first:last]
+        extra = len(added) - len(replaced)
+        changed += max(len(replaced), len(added))
+        legal = legal and (
+            all(one in allowed for one in origin[first:last])
+            and (extra <= 0 or _imports(added[:extra]) or _imports(added[-extra:]))
+            and (any(_width(line) >= width for line in replaced) or _fits(added, width))
+        )
+    return changed, legal
 
 
 def _all(rows: Sequence[Finding], code: BailCode) -> dict[int, BailCode]:
@@ -240,8 +263,46 @@ def _imports(added: Sequence[bytes]) -> bool:
     return all(isinstance(node, ast.Import | ast.ImportFrom) for node in body)
 
 
+def _imported(data: bytes) -> list[str]:
+    """The names the import statements of a file bind, anywhere in it; none if it does not parse."""
+    try:
+        tree = ast.parse(data)
+    except (SyntaxError, ValueError):
+        return []
+    return [
+        (alias.asname or alias.name).partition(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        for alias in node.names
+    ]
+
+
+def _shadowed(data: bytes, names: set[str]) -> bool:
+    """Whether one of `names` is a local of some function, class or comprehension of the file: a
+    read there is not a read of the import, and where the name is bound further down the scope, a
+    call above it raises `UnboundLocalError`."""
+    try:
+        table = symtable.symtable(data.decode("utf-8"), "<output>", "exec")
+    except (SyntaxError, ValueError):
+        return False
+    return any(
+        (symbol := scope.lookup(name)).is_local() or symbol.is_assigned()
+        for scope in _scopes(table)
+        for name in names & set(scope.get_identifiers())
+    )
+
+
+def _scopes(table: symtable.SymbolTable) -> list[symtable.SymbolTable]:
+    return [inner for child in table.get_children() for inner in (child, *_scopes(child))]
+
+
+def _fits(lines: Sequence[bytes], width: int) -> bool:
+    return all(_width(line) <= width for line in lines)
+
+
 def _width(line: bytes) -> int:
-    return len(line.rstrip(b"\r\n"))
+    """Characters, not bytes: a line of `é` is as wide as one of `e`."""
+    return len(line.rstrip(b"\r\n").decode("utf-8", "replace"))
 
 
 def _hash(data: bytes) -> str:

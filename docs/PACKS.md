@@ -44,13 +44,16 @@ would leave it, and [KNOWN_ISSUES.md](KNOWN_ISSUES.md#the-openai-pack) says what
 The `numpy` pack carries no rewrite of its own. For the 23 names NumPy 2 removed that have a
 replacement of the same meaning, the rewrite is ruff's `NPY201`, which obelize starts from your
 `PATH` ([why](adr/ADR-074-external-fixer.md)). It installs nothing, and runs only a release it has
-measured, 0.6.2 to 0.17.2; `obelize pack validate numpy/numpy-1-to-2` prints the command that
+measured, 0.6.2 to 0.17.3; `obelize pack validate numpy/numpy-1-to-2` prints the command that
 installs one. What the tool wrote is kept for a file only if it changed no line the scan did not
 report, changes nothing when run on its own output, and leaves none of the names (`from numpy import
 float_` it leaves standing, so that file stays as it was). The names are those that were the same
 object or the same call on NumPy 1.26.4, so the rewritten code runs on both releases. Every other
-name the migration guide lists is reported, and any one such place holds the whole repository back,
-the dependency line included. Promotion, the default integer on Windows and the C API are not
+name of the main namespace that NumPy 1.26.4 has and 2.0.2 or 2.5.4 lacks (75) is reported, and
+any one such place holds the whole repository back, the dependency line included. The dependency
+line moves only when it excludes NumPy 2 (`numpy==1.26.4`, `numpy<2`) and is left alone when it
+admits it (`numpy>=1.22`); the other pins beside it (`pandas`, `scipy`) are not judged, and a name
+written as a string (`dtype='float_'`) is not found. Promotion, the default integer on Windows and the C API are not
 names, and the tests are the check ([KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists what it does not see).
 
 ## pypdf
