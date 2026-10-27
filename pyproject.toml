@@ -204,7 +204,8 @@ markers = ["e2e: the whole flow over the bundled example application"]
 source = ["src/obelize", "bench"]
 branch = true
 # `crossover.py`: a timing sweep; timing assertions on a shared runner are flaky.
-# The four `*_collect.py` below clone repositories; covering them would test a network mock.
+# The `*_collect.py` below clone repositories or drive Docker; covering them would test a mock.
+# `trial/probe.py` only observes a container from inside it: `trial_box.py` judges what it prints.
 # `errors_collect.py` stays covered: it only reads a directory; its stale-tree guards need tests.
 # `comparison_collect.py` stays covered: it reaches the network through injected seams.
 omit = [
@@ -213,6 +214,8 @@ omit = [
   "bench/candidates_collect.py",
   "bench/cases_collect.py",
   "bench/upgrade_collect.py",
+  "bench/trial_collect.py",
+  "bench/trial/probe.py",
   "bench/work/*",
   # Repositories the harness migrates, run by subprocess from a copy in a temporary directory.
   "bench/fixtures/*",

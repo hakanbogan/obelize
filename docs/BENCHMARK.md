@@ -425,6 +425,103 @@ more:
   that it is right, and the tests of a repository are not run, so whether a move passes them is not
   measured here.
 
+## How the trial is measured
+
+The [trial](CLI.md#a-trial) of `obelize upgrade <distribution> --apply --yes` installs the
+dependencies of a repository, which runs the build scripts of whatever it installs, and runs that
+repository's tests. I measure it only in a box that reaches nothing but the package index, and the
+harness will not start a run until a self-test has shown, in that run, that it does.
+`python -m bench.trial_collect run -m SLUG --work DIR` tries the repositories of a frame whose
+dry-run record says the plan writes at least one file, whichever rule wrote that plan, each in a
+container of its own, and writes `bench/results/trial/<slug>.json`. `python -m bench.trial_score`
+tables the records, and the section stays out of
+[BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) until there are records to table. `smoke` tries one
+repository I made myself, for the box and not for a number.
+
+### The box
+
+The image is `python:3.12-slim` held to a digest, with git, a compiler, uv 0.12.15, the Pythons 3.9
+to 3.14 that uv installed (never downloaded at run time) and the wheel under test, which is built
+with `uv build` from a `git archive` of `HEAD` and never from the working tree. A container is made
+only by `bench/trial_box.py`, whose parameters cannot express a privilege, a mount or a port, and
+whose result is checked once more against a list of the flags it may hold. Its tests assert each
+forbidden flag cannot be produced.
+
+| What | How it is held back |
+|---|---|
+| Network | An internal Docker network with no route out and no name service for the outside. The only way out is a proxy in a container of its own: it carries `CONNECT` to `pypi.org:443` and `files.pythonhosted.org:443` and answers 403 to everything else. `HTTP_PROXY` and `HTTPS_PROXY` point at it, and `localhost` is kept off it so a test can reach its own server. |
+| Privilege | No capability, `no-new-privileges`, a user that has no name on the host (uid 10001), no device, no host process or IPC namespace, no `--privileged`. |
+| Files | Nothing of the machine is mounted and there is no Docker socket. The clone is copied in as it is, owned by that user, and one small file, `trial.json`, is copied out. No home directory, key or credential is given. |
+| Environment | Only the two proxy variables and their lower-case forms, `NO_PROXY` and uv's timeout, each with the value the harness gives, and `CI`, which the harness may give and does not. No variable of the machine is passed. |
+| Resources | 2 GiB of memory and no swap, two CPUs, 1,024 processes and, by default, 90 minutes of wall clock, after which the container is killed. The disk is looked at every 20 s and a container over 8 GiB is killed: that is a watch, so a write that ends between two looks is not caught. |
+| Output | Docker keeps none. The harness keeps the first 128 KiB and the last 256 KiB. |
+
+At most `--jobs` containers run at once (two by default, and the harness refuses a number that
+does not fit in the memory of the Docker VM). Each repository is fetched at its pinned commit by
+the machinery of the dry-run collector into a directory under `--work`, which must be outside this
+repository, copied into a fresh container and deleted afterwards. Every name the harness makes
+starts with `obelize-trial-`, and `python -m bench.trial_collect cleanup` removes only what carries
+that prefix and its label.
+
+### The self-test
+
+`python -m bench.trial_collect selftest`, and the first step of `run` and `smoke`, makes a container
+with the function that makes a trial's and asks it what it can reach and hold. It fails, with exit
+`1`, and nothing is run, if any of these is not so:
+
+- the user is 10001 with no other group, no capability is held, `no-new-privileges` is set and the
+  container's process namespace is its own;
+- no mount but the container's own file system, the kernel's and the init program is there, no host
+  path (`/Users`, `/Volumes`, `/host_mnt`) exists, no Docker socket is there and no variable but
+  those of the image and the allowlist is set;
+- memory, swap, processes and CPUs are capped as asked, in the cgroup the container sees and in
+  what the daemon reports for it;
+- the network is internal, and a direct connection to three public addresses, to an IPv6 address
+  and to the default gateway where the network has one, and a name lookup of `example.com`,
+  `pypi.org`, `files.pythonhosted.org` and `host.docker.internal`, all fail;
+- the proxy answers 403 to a `CONNECT` to `example.com`, `github.com`, an IP address, a port other
+  than 443 on an index host, the host, itself and loopback, and to a plain request, and carries both
+  index hosts through TLS.
+
+The probe observes and `bench/trial_box.py` judges: a property the probe could not read is a
+failure. The record keeps the result, the number of attempts, and what the proxy carried and
+refused during the run, by host.
+
+### What it does not protect
+
+- A repository's tests can still reach the two index hosts and use the container's CPU for their
+  limited time. The proxy does not read the TLS inside its tunnels, so it cannot tell a request
+  for a package from another request to the same host. Nothing can be uploaded without a
+  credential, and none exists in the box.
+- The container shares the kernel of the Docker VM. A flaw in the kernel or the container runtime is
+  outside what this protects against.
+- The disk limit is a watch, as above. Containers that run at the same time are on one internal
+  network and can reach each other, which `--jobs 1` avoids. The networks and the proxy have fixed
+  names, so only one run at a time can use them.
+- The box protects the machine, not the measurement. A hostile test can write the lines and the
+  file the harness reads a verdict from, so a result is read as what the repository's own tests
+  reported, never as proof about the repository.
+- Nothing is pushed, published or sent anywhere, and the clones are deleted. The fetch itself runs
+  on the machine with `git`, as the dry-run collector's does, and runs no file of a clone.
+
+### What a record holds
+
+The obelize version, the commit the wheel was built from, the wheel's sha256, the image id, the uv
+and Docker versions, the date, the limits, the allowlist, the self-test's result and the proxy's
+counts by host; and for each repository its commit, the Python it was given, the status and reason,
+the tests compared and broken (the names, up to 20), the files written and left, the places left
+for a person, the exit code, the seconds and, for an `error` or a `timeout`, the end of the output
+with this machine's paths written as `<work>/`.
+
+A repository gets the newest of Python 3.9 to 3.13 that the `requires-python` in its
+`pyproject.toml` admits, else the Python its `.python-version` names if the image holds it, else
+3.12. A trial is classified by its own `Trial of ...` line and its `trial.json`, and the exit code
+only checks them: `pass` (exit `0`, or `4` where places are left, which the record calls `partial`),
+`fail` (`3`), `inconclusive` with the reason the engine gives (`6`), `timeout` where the container
+was killed for its time, and `error` for a run that reached no verdict, with the cause the output
+gives (the dependencies could not be installed, the container ran out of memory or disk, the
+harness could not run it) or one the harness does not know.
+
 ## Error analysis
 
 After each round, every key row the round did not migrate is read and becomes a
