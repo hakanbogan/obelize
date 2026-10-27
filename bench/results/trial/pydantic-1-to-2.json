@@ -1,0 +1,171 @@
+{
+  "obelize_version": "0.10.0",
+  "obelize_commit": "b11a34cc4df1219fd7eff2aa3242522c6ce880a1",
+  "wheel_sha256": "3a7e58ac3981bba669b66de81f5d649e0915e7fd0eef0355bb389551a6396260",
+  "image": "sha256:7cc5c5580b6b87ade3063e313a803c43fd2b1a7105b4756d49c6250704e913cb",
+  "docker": "29.8.2",
+  "uv": "uv 0.12.15 (aarch64-unknown-linux-gnu)",
+  "pythons": {
+    "3.10": "3.10.21",
+    "3.9": "3.9.25",
+    "3.11": "3.11.16",
+    "3.12": "3.12.14",
+    "3.13": "3.13.15",
+    "3.14": "3.14.7"
+  },
+  "machine": "aarch64",
+  "date": "2026-10-27T18:45:03Z",
+  "limits": {
+    "memory_gb": 2,
+    "cpus": 2,
+    "pids": 1024,
+    "wall_s": 5400,
+    "disk_gb": 8,
+    "http_s": 120
+  },
+  "allowlist": [
+    "pypi.org:443",
+    "files.pythonhosted.org:443"
+  ],
+  "frame": "bench/upgrade/pydantic-1-to-2/sample.yaml",
+  "distribution": "pydantic",
+  "from": "1.10.26",
+  "to": "2.12.5",
+  "dry_run": {
+    "obelize_version": "0.10.0",
+    "unit": "file"
+  },
+  "selftest": {
+    "passed": true,
+    "failures": [],
+    "at": "2026-10-27T18:45:03Z",
+    "attempts": {
+      "direct": 8,
+      "denied": 12,
+      "allowed": 2
+    }
+  },
+  "proxy": {
+    "allow": {
+      "pypi.org:443": 73,
+      "files.pythonhosted.org:443": 150
+    },
+    "deny": {
+      "api.github.com:443": 4,
+      "github.com:443": 1
+    },
+    "error": {}
+  },
+  "trial": [
+    {
+      "full_name": "cvlab-columbia/zero123",
+      "sha": "f426883b1a7353d91ddc34a551dd91b6223e4ce8",
+      "band": "size:1000..4000",
+      "distribution": "pydantic",
+      "from": "1.10.26",
+      "python": "3.12",
+      "status": "error",
+      "reason": "environment",
+      "compared": 0,
+      "broken": [],
+      "broken_count": 0,
+      "flaky": 0,
+      "written": 0,
+      "held": 0,
+      "places": 0,
+      "partial": null,
+      "exit_code": 6,
+      "oom": false,
+      "seconds": 17.3,
+      "tail": "obelize contacts pypi.org\nobelize contacts files.pythonhosted.org\nMoving pydantic 1.10.26 to 2.12.5. Made a pack from the public API of pydantic 1.10.26 and 2.12.5: 722 name(s).\nCopying the repository into 20261027T184526Z-16537693\nno way to install the dependencies was found: no uv.lock or pyproject.toml with a [project] table, and no requirements*.txt at the top of the repository"
+    },
+    {
+      "full_name": "apptension/onetimepass",
+      "sha": "541c827da5765efef43ad352aa277a0d79ecc949",
+      "band": "size:4000..16000",
+      "distribution": "pydantic",
+      "from": "1.10.26",
+      "python": "3.13",
+      "status": "pass",
+      "reason": null,
+      "compared": 3,
+      "broken": [],
+      "broken_count": 0,
+      "flaky": 0,
+      "written": 2,
+      "held": 4,
+      "places": 20,
+      "partial": true,
+      "exit_code": 4,
+      "oom": false,
+      "seconds": 27.7,
+      "tail": null
+    },
+    {
+      "full_name": "aiondemand/AIOD-rest-api",
+      "sha": "71604a64484ff19c1e8498fc3f9627cd66aa3145",
+      "band": "size:4000..16000",
+      "distribution": "pydantic",
+      "from": "1.10.26",
+      "python": "3.13",
+      "status": "error",
+      "reason": "environment",
+      "compared": 0,
+      "broken": [],
+      "broken_count": 0,
+      "flaky": 0,
+      "written": 0,
+      "held": 0,
+      "places": 0,
+      "partial": null,
+      "exit_code": 6,
+      "oom": false,
+      "seconds": 25.3,
+      "tail": "obelize contacts pypi.org\nobelize contacts files.pythonhosted.org\nMoving pydantic 1.10.26 to 2.12.5. Made a pack from the public API of pydantic 1.10.26 and 2.12.5: 722 name(s).\nCopying the repository into 20261027T184549Z-23999cc1\nInstalling the dependencies of the repository (project) into old\nuv sync failed: packages/setuptools/build_meta.py\", line 333, in get_requires_for_build_wheel\n             return self._get_build_requires(config_settings, requirements=[])\n                    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n           File \"<home>/.cache/uv/builds-v0/.tmp377Gyz/lib/python3.13/site-packages/setuptools/build_meta.py\", line 301, in _get_build_requires\n             self.run_setup()\n             ~~~~~~~~~~~~~~^^\n           File \"<home>/.cache/uv/builds-v0/.tmp377Gyz/lib/python3.13/site-packages/setuptools/build_meta.py\", line 317, in run_setup\n             exec(code, locals())  # noqa: S102 # exec is intentional here\n             ~~~~^^^^^^^^^^^^^^^^\n           File \"<string>\", line 155, in <module>\n           File \"<string>\", line 49, in get_config_posix\n           File \"<string>\", line 28, in find_package_name\n         Exception: Can not find valid pkg-config name.\n         Specify MYSQLCLIENT_CFLAGS and MYSQLCLIENT_LDFLAGS env vars manually\n\nhint: `mysqlclient` (v2.2.4) was included because `aiod-metadata-catalogue` (v2.0.20251113) depends on `mysqlclient`\n\nhint: Build failures usually indicate a problem with the package or the build environment"
+    },
+    {
+      "full_name": "zzyss-marker/newinno",
+      "sha": "eeef8eaeae533623e173172391f2b5ac12980f68",
+      "band": "size:4000..16000",
+      "distribution": "pydantic",
+      "from": "1.10.26",
+      "python": "3.12",
+      "status": "inconclusive",
+      "reason": "no_junit",
+      "compared": 0,
+      "broken": [],
+      "broken_count": 0,
+      "flaky": 0,
+      "written": 2,
+      "held": 1,
+      "places": 0,
+      "partial": null,
+      "exit_code": 6,
+      "oom": false,
+      "seconds": 33.4,
+      "tail": "obelize contacts pypi.org\nobelize contacts files.pythonhosted.org\nMoving pydantic 1.10.26 to 2.12.5. Made a pack from the public API of pydantic 1.10.26 and 2.12.5: 722 name(s).\nCopying the repository into 20261027T184556Z-ffbbecbb\nInstalling the dependencies of the repository (requirements) into old\nInstalling the dependencies of the repository (requirements) into new\nInstalling pydantic==2.12.5 over it\nRunning the tests on the release in use\nRunning the tests on pydantic==2.12.5, with the migration written\nTrial of pydantic 1.10.26 to pydantic==2.12.5: inconclusive (no_junit). Evidence: <repo>/.obelize/trials/20261027T184556Z-ffbbecbb\nThe tests produced no result obelize can read, so nothing was compared."
+    },
+    {
+      "full_name": "MadMehx/3DMLGPU",
+      "sha": "d0d9dccdeeb4bdbdaac576278cd442e577eb5b63",
+      "band": "size:4000..16000",
+      "distribution": "pydantic",
+      "from": "1.10.26",
+      "python": "3.12",
+      "status": "error",
+      "reason": "environment",
+      "compared": 0,
+      "broken": [],
+      "broken_count": 0,
+      "flaky": 0,
+      "written": 0,
+      "held": 0,
+      "places": 0,
+      "partial": null,
+      "exit_code": 6,
+      "oom": false,
+      "seconds": 27.2,
+      "tail": "obelize contacts pypi.org\nobelize contacts files.pythonhosted.org\nMoving pydantic 1.10.26 to 2.12.5. Made a pack from the public API of pydantic 1.10.26 and 2.12.5: 722 name(s).\nCopying the repository into 20261027T184613Z-f5914c91\nInstalling the dependencies of the repository (requirements) into old\nuv pip failed: Using Python 3.12.14 environment at: <home>/.cache/obelize/trials/20261027T184613Z-f5914c91/old\n   Updating https://github.com/openai/CLIP.git (HEAD)\nerror: Git operation failed\n  cause: failed to clone into: <home>/.cache/uv/git-v0/db/f27064681d02c101\n  cause: process didn't exit successfully: `/usr/bin/git fetch --force --update-head-ok 'https://github.com/openai/CLIP.git' '+HEAD:refs/remotes/origin/HEAD'` (exit status: 128)\n         --- stderr\n         fatal: unable to access 'https://github.com/openai/CLIP.git/': CONNECT tunnel failed, response 403"
+    }
+  ]
+}

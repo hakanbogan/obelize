@@ -12,7 +12,8 @@ person's word only for a library no manifest names, and left the other case "unt
 asks for it". The measurement did: of the 80 repositories of the 0.9.0 dry run, 18 stopped with
 `legacy_version_unsupported` on a manifest that declares the library loosely (`pydantic`,
 `pydantic<2`, `^1.9.1`, `pydantic>=1.8`) though the `--from` they were given lay inside the pack's
-range.
+range. Taken again with 0.10.0 on 2026-10-27, the dry run stops 14 of the 80 on it: 12 of the 18 no
+longer stop on it, and 8 that were held now do.
 
 ### D1. What stands
 

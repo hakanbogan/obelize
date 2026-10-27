@@ -18,7 +18,9 @@ person which half they have. `upgrade --apply` has: the trial installs both rele
 if no test that passed before fails after (ADR-065), so a half that breaks what the tests cover is
 caught where it is made. The 0.9.0 measurement is why now: of 33 repositories held over 80, 32 were
 held by a place the pack could only flag, and the 78 places a rule would have rewritten were all in
-repositories where nothing was written.
+repositories where nothing was written. Taken again with 0.10.0 on 2026-10-27, the same dry run
+writes a file for 5 of the 80, all pydantic, and 14 of the 78 places are in a file it writes; 4 of
+the 5 had stopped on `legacy_version_unsupported` with 0.9.0, which ADR-080 changed.
 
 ### D1. Scope
 
@@ -109,5 +111,7 @@ code the tests do not reach works on the new release, or that a dry run's plan i
 - `bench/upgrade_collect.py` records the unit a plan is written by, and `bench/upgrade_score.py`
   says which rule a record is of. The 0.9.0 records name none and are read as whole-repository
   records, so they and the page that publishes them are unchanged; a new measurement would call a
-  repository with a file written and a place left `partial`, where 0.9.0 called it `held`.
+  repository with a file written and a place left `partial`, where 0.9.0 called it `held`. On
+  2026-10-27 the records were taken again with 0.10.0 and name `file`; the 0.9.0 ones stay in git
+  at the tag `v0.9.0`.
 - Applying the rule where a pack has no trial to follow it is a decision of its own: `fix` has none.

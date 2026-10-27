@@ -4,7 +4,7 @@ obelize can plan the move of a dependency to a newer release when no one has wri
 and try it with your own tests. It reads two releases of the library, writes a pack from what
 changed, plans the move, tries it with your own tests and, if they agree, keeps it. This page is the
 whole path, and [how far it gets](#how-far-it-gets-without-a-pack) on public repositories is measured
-only as far as the plan: over 80 of them it wrote no file. A command that reads the package index
+for the plan over 80 of them, which wrote a file for 5, and for the trial over those 5. A command that reads the package index
 says which host it will contact first, and none of them needs an account; `--agent` uses the login
 of your own `claude`.
 
@@ -294,25 +294,35 @@ tries nothing, is also measured over four frames of twenty public repositories e
 still use the old API of pydantic 1.10.26, SQLAlchemy 1.4.54, urllib3 1.26.20 and pandas 2.3.3, each
 planned with a pack made from the two releases ([the numbers](BENCHMARK_RESULTS.md#upgrade-dry-run),
 [the method](BENCHMARK.md#upgrade-dry-run)). Over those 80 repositories the dry run of `upgrade` with
-no pack writes no file: 36 stop before planning, 33 are held and 11 have no usage of a name the pack
-lists. It finds 944 usages: 78 are places a rule would rewrite if nothing else were left in the
-repository (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held for a cause of
-its own, and none is in a file the dry run would write.
+no pack writes a file for 5 and none for the other 75: 32 stop before planning, 32 are held and 11
+have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule would rewrite (all
+in pydantic, `rename_member`), the pack only flags 810 and 56 are held for a cause of its own, and 14
+are in a file the dry run would write.
 
-Of the 36 that stop, 18 stop on a manifest that declares the library in a way the pack does not take
+Of the 32 that stop, 14 stop on a manifest that declares the library in a way the pack does not take
 (`legacy_version_unsupported`: no version, a range that reaches below the release the pack was made
 from, or a pin under it) and 18 on a declared Python that the new release does not run on
-(`runtime_unsupported`). Since that measurement `--from` counts where a declaration admits it, as
-[described above](#2-plan-one-move), so not all of those 18 would stop now (a pin that rules the
-release out still does); I have not measured it again. Each of the 33 that are held has a place the
-pack cannot write: 32 have one it only flags, and one has a file the scan cannot parse. A
-repository's plan was written only when nothing in it was left, so one such place held the rest of
-that repository. Since that measurement `upgrade` writes a file at a time
-([above](#3-try-it-before-it-is-written)), so a repository like that is `partial` where it was
-`held`; the numbers have not been taken again.
+(`runtime_unsupported`). `--from` counts where every declaration of the library admits it, as
+[described above](#2-plan-one-move); 0.9.0 stopped 18 on this, 12 of those do not stop now and 4
+of the 5 that write needed it. Each of the 32 that are held has a place the pack cannot write: 30
+have one it only flags, and 2 have a file the scan cannot parse. Since `upgrade` writes a file at a
+time ([above](#3-try-it-before-it-is-written)), a file with a place a rule would rewrite and none
+the pack only flags is written, and 5 repositories, all pydantic, have one. The pack for the other
+three libraries has no such place in these repositories: every usage there is a place it only flags
+or one held for a cause of its own. That is what limits the number now: 810 of the 944 usages (85.8%)
+are places the pack only flags and never rewrites.
+
+The trial was run on the 5 whose plan writes a file, in a box that reaches only the package index
+and nothing else ([the method](BENCHMARK.md#how-the-trial-is-measured),
+[the numbers](BENCHMARK_RESULTS.md#upgrade-trial)). It passed for 1 (with 20 places left for a person
+and 3 tests compared), could not install the dependencies of 3 and got no test result from 1. That is
+one repository and not a rate. A `pass` says that the tests that passed before still pass, 3 of them
+here: it says nothing about the 20 places left for a person, which run on the new release until
+someone moves them, or about code no test reaches. The sample is drawn by code search of
+repositories that import the old API, and the box is arm64 Linux with no GitHub and without system
+libraries, so a repository that needs one ends as an error whether or not the move is sound.
 
 What did work is the pack and the report: a pack from two releases in 8 to 79 s for four large
-libraries, and every place found is reported with its reason. No `--apply` was run on these
-repositories, so nothing was written wrongly, and none of this says whether a trial would pass their
-tests. [Known issues](KNOWN_ISSUES.md#upgrading-a-dependency) says what a move written that way still
-leaves for you.
+libraries, and every place found is reported with its reason. [Known
+issues](KNOWN_ISSUES.md#upgrading-a-dependency) says what a move written that way still leaves for
+you.

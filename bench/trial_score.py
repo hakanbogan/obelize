@@ -12,6 +12,7 @@ import json
 import statistics
 import sys
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +81,23 @@ def load() -> list[tuple[dict[str, Any], dict[str, Any]]]:
     return loaded
 
 
+# A frame no record of the trial covers: its title, the repositories drawn and how many of them
+# have a plan that writes a file.
+Untried = tuple[str, int, int]
+
+
+def untried(records: list[tuple[dict[str, Any], dict[str, Any]]]) -> list[Untried]:
+    """The frames of the dry-run measurement that have no trial record, so the document says why."""
+    tried = {Path(record["frame"]).parent.name for record, _ in records}
+    found = []
+    for path in sorted((ROOT / "bench" / "results" / "upgrade").glob("*.json")):
+        if path.stem not in tried:
+            dry_run = json.loads(path.read_text(encoding="utf-8"))
+            title = f"`{dry_run['distribution']}` {dry_run['from']} to {dry_run['to']}"
+            found.append((title, len(dry_run["upgrade"]), len(trial_box.select(dry_run))))
+    return found
+
+
 def _rows(status: str, reasons: Counter[tuple[str, str | None]]) -> list[tuple[str | None, int]]:
     """The table rows of one status: one per reason it has, or a single row of none."""
     found = [(reason, count) for (kind, reason), count in reasons.items() if kind == status]
@@ -109,18 +127,24 @@ def _outcomes(rows: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def _many(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
 def _sums(rows: list[dict[str, Any]]) -> str:
     passed = [row for row in rows if row["status"] == "pass"]
-    compared = [row for row in rows if row["compared"]]
+    tests = sum(row["compared"] for row in rows)
+    trials = sum(bool(row["compared"]) for row in rows)
+    wrote, held, places = (sum(row[key] for row in passed) for key in ("written", "held", "places"))
     seconds = sorted(row["seconds"] for row in rows)
     return (
-        f"{sum(row['compared'] for row in rows)} tests that passed before were compared in "
-        f"{len(compared)} trials; {sum(row['broken_count'] for row in rows)} broke and "
-        f"{sum(row['flaky'] for row in rows)} failed once and passed again. The {len(passed)} "
-        f"passing trials wrote {sum(row['written'] for row in passed)} files and left "
-        f"{sum(row['held'] for row in passed)} files and {sum(row['places'] for row in passed)} "
-        f"places for a person. A repository took {statistics.median(seconds):g} s at the median "
-        f"and {seconds[-1]:g} s at the longest, {sum(seconds):g} s in all."
+        f"{_many(tests, 'test')} that passed before {'was' if tests == 1 else 'were'} compared in "
+        f"{_many(trials, 'trial')}; {sum(row['broken_count'] for row in rows)} broke and "
+        f"{sum(row['flaky'] for row in rows)} failed once and passed again. The "
+        f"{_many(len(passed), 'passing trial')} wrote {_many(wrote, 'file')} and left "
+        f"{_many(held, 'file')} and {_many(places, 'place')} for a person. A repository took "
+        f"{statistics.median(seconds):g} s at the median and {seconds[-1]:g} s at the longest, "
+        f"{sum(seconds):g} s in all."
     )
 
 
@@ -159,11 +183,28 @@ def _provenance(record: dict[str, Any]) -> list[str]:
     ]
 
 
-def biases(records: list[tuple[dict[str, Any], dict[str, Any]]]) -> str:
+def _untried(frames: Sequence[Untried]) -> list[str]:
+    lines = ["### Frames with no trial", ""]
+    for title, drawn, writing in frames:
+        plans = (
+            f"{writing} of its {drawn} repositories {'has' if writing == 1 else 'have'} a plan "
+            "that writes a file"
+        )
+        lines.append(f"- {title}: {plans}, {'and' if writing else 'so'} none was tried.")
+    return lines
+
+
+def biases(
+    records: list[tuple[dict[str, Any], dict[str, Any]]], frames: Sequence[Untried] = ()
+) -> str:
     """The reasons these numbers are not a rate over repositories, from what the records hold."""
     tried = sum(len(record["trial"]) for record, _ in records)
-    drawn = sum(len(frame["repositories"]) for _, frame in records)
+    drawn = sum(len(frame["repositories"]) for _, frame in records) + sum(
+        count for _, count, _ in frames
+    )
+    ones = "only some of the ones" if any(writing for _, _, writing in frames) else "the ones"
     rows = [row for record, _ in records for row in record["trial"]]
+    passes = sum(row["status"] == "pass" for row in rows)
     partial = sum(bool(row["partial"]) for row in rows)
     machines = sorted({str(record["machine"]) for record, _ in records})
     pythons = sorted(
@@ -172,23 +213,25 @@ def biases(records: list[tuple[dict[str, Any], dict[str, Any]]]) -> str:
     )
     unit = sorted({str(record["dry_run"]["unit"] or "repository") for record, _ in records})
     return (
-        f"These {tried} repositories are the ones of the {drawn} drawn whose dry run writes a file "
+        f"These {tried} repositories are {ones} of the {drawn} drawn whose dry run writes a file "
         f"(a plan written by the {' and '.join(unit)} rule), so a repository the plan could not "
         "write is not here. The frames were drawn by code search of public repositories that "
         "import the old API, which favours small single-purpose projects. The trial installs "
         "what the repository's own recipe names and runs pytest, since no test command is known; "
         "a repository with another way of testing is `inconclusive`. A `pass` means the tests "
         "that existed and passed before still pass: it says nothing about code no test reaches, "
-        f"and {partial} of the passes left places for a person. The box is a Linux container "
-        f"({', '.join(machines)}) with a fixed uv, Pythons {', '.join(pythons)} (one chosen per "
-        "repository by its `requires-python`) and the packages the index held on the day, so a "
-        "repository that needs a service, a secret, a system library the image lacks or more "
-        "memory, time or disk than the limits above ends as `error`, `inconclusive` or "
+        f"and {partial} of the {passes} that passed left places for a person. The box is a Linux "
+        f"container ({', '.join(machines)}) with a fixed uv, Pythons {', '.join(pythons)} (one "
+        "chosen per repository by its `requires-python`) and the packages the index held on the "
+        "day, so a repository that needs a service, a secret, a system library the image lacks "
+        "or more memory, time or disk than the limits above ends as `error`, `inconclusive` or "
         "`timeout`, and the passes lean towards self-contained suites."
     )
 
 
-def render(records: list[tuple[dict[str, Any], dict[str, Any]]]) -> str:
+def render(
+    records: list[tuple[dict[str, Any], dict[str, Any]]], frames: Sequence[Untried] = ()
+) -> str:
     """The generated block; none where there is no record."""
     if not records:
         return ""
@@ -199,7 +242,9 @@ def render(records: list[tuple[dict[str, Any], dict[str, Any]]]) -> str:
     if len(records) > 1:
         every = [row for record, _ in records for row in record["trial"]]
         lines += [*_section("All frames", every), ""]
-    lines += ["### What these numbers are not", "", biases(records)]
+    if frames:
+        lines += [*_untried(frames), ""]
+    lines += ["### What these numbers are not", "", biases(records, frames)]
     return "\n".join(lines)
 
 
@@ -228,7 +273,8 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--check", action="store_true", help="fail when the document is stale")
     mode.add_argument("--write", action="store_true", help="put the block into the document")
     arguments = parser.parse_args(argv)
-    generated = render(load())
+    records = load()
+    generated = render(records, untried(records))
     if not (arguments.check or arguments.write):
         print(generated)
         return 0

@@ -65,12 +65,16 @@ answers, and with `--offline` reads only the cache and keeps the trial's install
 Four runs on three public repositories passed their own tests before and after the move
 ([the runs](UPGRADING.md#runs-on-real-repositories)). That shows the steps join up, not how often a
 move passes. The dry run without a pack is measured over 80 public repositories that use the old API
-of pydantic 1, SQLAlchemy 1.4, urllib3 1 and pandas 2, and it writes no file: 36 stop before planning,
-33 are held and 11 have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule
-would rewrite if nothing else were left in the repository (all in pydantic, `rename_member`), the pack
-only flags 810 and 56 are held for a cause of its own, and none is in a file the dry run would write
-([the numbers](BENCHMARK_RESULTS.md#upgrade-dry-run)). The benchmark of the trial itself, which
-installs packages and runs the tests, is still to come.
+of pydantic 1, SQLAlchemy 1.4, urllib3 1 and pandas 2, and it writes a file for 5 and none for the
+other 75: 32 stop before planning, 32 are held and 11 have no usage of a name the pack lists. It
+finds 944 usages: 78 are places a rule would rewrite (all in pydantic, `rename_member`), the pack only
+flags 810 and 56 are held for a cause of its own, and 14 are in a file the dry run would write
+([the numbers](BENCHMARK_RESULTS.md#upgrade-dry-run)). The trial, which installs packages and runs
+the tests, was run on the 5 whose plan writes a file, in a box that reaches only the package index:
+it passed for 1 (with 20 places left for a person and 3 tests compared), could not install the
+dependencies of 3 and got no test result from 1 ([the numbers](BENCHMARK_RESULTS.md#upgrade-trial)).
+That is a small sample, and what limits it now is that a pack made from two releases mostly flags:
+810 of the 944 usages (85.8%) are places it only flags and never rewrites.
 
 A pack can say more than it could. `rename_member` renames a method or attribute of a library
 class wherever the file shows what a receiver is, in a class of yours or in another file of the
@@ -100,9 +104,9 @@ pipeline. The action also upgrades a dependency (`mode: upgrade`).
 obelize is meant to upgrade a dependency without a pack someone wrote for it, and to check the
 result with your tests in one command ([the decision](adr/ADR-059-verified-dependency-upgrades.md)).
 The commands above are that path for a library whose changes two releases show, and on the 80
-repositories measured so far it does not reach a written move. Since that measurement a declaration
-that admits `--from` counts and `upgrade` writes a file at a time, which has not been measured, and
-what stops it is in [the known issues](KNOWN_ISSUES.md#upgrading-a-dependency). This is the order I
+repositories measured so far it reaches a written plan for 5 and a move that passed the tests of
+one. A declaration that admits `--from` counts and `upgrade` writes a file at a time since 0.10.0,
+and what stops it now is in [the known issues](KNOWN_ISSUES.md#upgrading-a-dependency). This is the order I
 intend to build the rest in. Nothing below ships until the changelog says so, each step is its own
 release, and an option I add defaults to today's behaviour.
 
@@ -114,7 +118,7 @@ release, and an option I add defaults to today's behaviour.
    ships in `numpy/numpy-1-to-2`; the others need a target release a pack can state, [why](adr/ADR-074-external-fixer.md)), writing
    notebooks, and hand-checked packs for the libraries people ask about most.
 3. 1.0. Stable formats, with only additions after it, and a published benchmark of the pack-free
-   mode that includes the trial, which only its dry run has so far.
+   mode that includes the trial, which has 5 repositories so far.
 
 TypeScript is a separate plan.
 

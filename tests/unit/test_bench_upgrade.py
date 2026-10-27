@@ -116,7 +116,7 @@ FILE_RULE = (
 
 
 def test_a_record_with_no_unit_is_of_the_release_that_wrote_a_repository_whole() -> None:
-    """The committed records of 0.9.0 name none, and their sentence stays true of them."""
+    """A record of 0.9.0, which wrote a repository whole, names no unit; its sentence holds."""
     text = upgrade_score.render([(synthetic(), FRAME)])
     assert f"4 of the 11 usages are in a file the dry run would write: {REPOSITORY_RULE}" in text
     assert FILE_RULE not in text
@@ -141,7 +141,7 @@ def test_the_collector_writes_the_unit_a_record_is_scored_by() -> None:
     assert '"unit": "file"' in source
     committed = [json.loads(path.read_text()) for path in upgrade_score.RECORDS.glob("*.json")]
     assert committed
-    assert all("unit" not in one for one in committed)
+    assert all(one["unit"] == "file" for one in committed)
 
 
 def test_a_frame_with_nothing_planned_prints_dashes_not_a_division_by_zero() -> None:
@@ -258,16 +258,20 @@ def measured() -> dict[str, Any]:
         "planned": len(rows),
         "errored": sum(len(record["upgrade"]) for record, _ in loaded) - len(rows),
         "files": sum(row["files"] for row in rows),
+        "writing": [row for row in rows if row["files"]],
         "tiers": tiers,
         "used": sum(row["used"] for row in rows),
         "rules": sum(sum(row["rules"].values()) for row in rows),
         "kinds": kinds,
         "flagged": sum(row["flagged"] for row in rows),
+        "inwritten": sum(row["written"] for row in rows if row["files"]),
         "legacy": sum(row["blocked"] == "legacy_version_unsupported" for row in rows),
         "runtime": sum(row["blocked"] == "runtime_unsupported" for row in rows),
         "held_flagged": sum(
             any(held_row["bail"] == FLAGGED for held_row in row["withheld"]) for row in held
         ),
+        "held_rows": held,
+        "held_no_rule": sum(not any(row["rules"].values()) for row in held),
         "seconds": f"{round(min(seconds))} to {round(max(seconds))} s",
     }
 
@@ -278,25 +282,37 @@ def says(page: str, sentence: str) -> bool:
     return " ".join(sentence.split()) in " ".join(text.split())
 
 
-def test_the_measurement_wrote_no_file_and_planned_the_eighty_repositories() -> None:
+def test_the_measurement_wrote_a_file_for_five_pydantic_repositories_of_the_eighty() -> None:
     sums = measured()
-    assert (sums["planned"], sums["errored"], sums["files"]) == (80, 0, 0)
-    assert sums["tiers"]["partial"] == sums["tiers"]["complete"] == 0
+    tiers = sums["tiers"]
+    assert (sums["planned"], sums["errored"]) == (80, 0)
+    assert (tiers["partial"], tiers["complete"]) == (5, 0)
+    assert len(sums["writing"]) == 5
     assert sums["kinds"] == {"rename_member"}
+    for record, _ in upgrade_score.load():
+        in_pydantic = record["distribution"] == "pydantic"
+        assert any(row["files"] for row in record["upgrade"]) == in_pydantic
+        assert any(row["rules"] for row in record["upgrade"]) == in_pydantic
 
 
 def test_the_pages_state_the_totals_of_the_records() -> None:
     sums = measured()
     tiers = sums["tiers"]
+    written = tiers["partial"] + tiers["complete"]
     outcome = (
-        f"writes no file: {tiers['blocked']} stop before planning, {tiers['held']} are held and "
-        f"{tiers['none']} have no usage of a name the pack lists"
+        f"writes a file for {written} and none for the other {sums['planned'] - written}: "
+        f"{tiers['blocked']} stop before planning, {tiers['held']} are held and {tiers['none']} "
+        "have no usage of a name the pack lists"
     )
     usages = (
-        f"{sums['used']} usages: {sums['rules']} are places a rule would rewrite if nothing else "
-        "were left in the repository (all in pydantic, `rename_member`), the pack only flags "
-        f"{sums['flagged']} and {sums['used'] - sums['rules'] - sums['flagged']} are held for a "
-        "cause of its own, and none is in a file the dry run would write"
+        f"{sums['used']} usages: {sums['rules']} are places a rule would rewrite (all in pydantic, "
+        f"`rename_member`), the pack only flags {sums['flagged']} and "
+        f"{sums['used'] - sums['rules'] - sums['flagged']} are held for a cause of its own, and "
+        f"{sums['inwritten']} are in a file the dry run would write"
+    )
+    mostly = (
+        f"{sums['flagged']} of the {sums['used']} usages "
+        f"({100 * sums['flagged'] / sums['used']:.1f}%) are places"
     )
     for page in (
         "README.md",
@@ -317,6 +333,15 @@ def test_the_pages_state_the_totals_of_the_records() -> None:
         "docs/UPGRADING.md",
     ):
         assert says(page, usages), page
+    for page in (
+        "README.md",
+        "CHANGELOG.md",
+        "docs/BENCHMARK_RESULTS.md",
+        "docs/KNOWN_ISSUES.md",
+        "docs/ROADMAP.md",
+        "docs/UPGRADING.md",
+    ):
+        assert says(page, mostly), page
 
 
 def test_the_pages_state_why_the_repositories_stopped_and_were_held() -> None:
@@ -330,21 +355,27 @@ def test_the_pages_state_why_the_repositories_stopped_and_were_held() -> None:
             f"library in a way the pack does not take (`legacy_version_unsupported`",
         ), page
         assert says(page, f"{sums['runtime']} on a declared Python that the new release does"), page
-    assert held - sums["held_flagged"] == 1
-    assert says(
-        "docs/UPGRADING.md",
-        f"Each of the {held} that are held has a place the pack cannot write: "
-        f"{sums['held_flagged']} have one it only flags, and one has a file the scan cannot parse",
+    unread = held - sums["held_flagged"]
+    assert all(
+        any(held_row["bail"] == "input_does_not_parse" for held_row in row["withheld"])
+        for row in sums["held_rows"]
+        if not any(held_row["bail"] == FLAGGED for held_row in row["withheld"])
     )
-    assert says(
-        "docs/KNOWN_ISSUES.md",
-        f"{sums['legacy']} of the {sums['planned']} stopped on this",
-    )
-    assert says(
-        "docs/KNOWN_ISSUES.md",
-        f"{sums['held_flagged']} of the {held} held repositories had such a place",
-    )
+    for page, lead in (
+        ("docs/UPGRADING.md", f"Each of the {held} that are held"),
+        ("docs/BENCHMARK_RESULTS.md", f"Of the {held} that are held, each"),
+    ):
+        assert says(
+            page,
+            f"{lead} has a place the pack cannot write: {sums['held_flagged']} have one it only "
+            f"flags, and {unread} have a file the scan cannot parse",
+        ), page
+    assert says("docs/KNOWN_ISSUES.md", f"{sums['legacy']} of the {sums['planned']} stop on this")
     assert says("CHANGELOG.md", f"{sums['held_flagged']} of the {held} held")
+    assert says(
+        "docs/KNOWN_ISSUES.md",
+        f"{sums['held_no_rule']} of the {held} held repositories",
+    )
     assert says("docs/UPGRADING.md", f"a pack from two releases in {sums['seconds']} for four")
     assert says(
         "docs/BENCHMARK_RESULTS.md", f"A pack from two releases was made in {sums['seconds']} for"

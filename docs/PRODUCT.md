@@ -11,9 +11,9 @@ reason, and checks the result against your own tests. Today it ships four migrat
 `PyPDF2` to `pypdf`, three for the Python itself (`datetime.utcnow()`, `pkg_resources` and the
 modules Python 3.12 and 3.13 removed), and it makes a pack for another library from two of its
 releases; they are examples of the method, and the [roadmap](ROADMAP.md) says where it goes next.
-A pack made from two releases is measured over 80 public repositories, where its dry run writes no
-file: 36 stop before planning, 33 are held and 11 have no usage of a name the pack lists
-([the numbers](BENCHMARK_RESULTS.md#upgrade-dry-run)). The chain:
+A pack made from two releases is measured over 80 public repositories, where its dry run writes a
+file for 5 and none for the other 75: 32 stop before planning, 32 are held and 11 have no usage of a
+name the pack lists ([the numbers](BENCHMARK_RESULTS.md#upgrade-dry-run)). The chain:
 
 ```
 change source (a migration pack: a bundled one cites an official guide, one made from two releases cites them)
@@ -62,8 +62,8 @@ has made a breaking release.
   your own tests, write it only if no test that passed now fails, and can commit it to a branch you
   ask for, with your own `claude` program moving the places a pack can only flag. A library that keeps
   its import name is written a file at a time, and the files left are named. Their dry run
-  without a pack was measured, as of 0.9.0, and wrote no file for any of 80 public repositories
-  ([UPGRADING.md](UPGRADING.md#how-far-it-gets-without-a-pack)); the trial is not measured.
+  without a pack was measured, as of 0.10.0, and wrote a file for 5 of 80 public repositories, and
+  the trial of those 5 passed for 1 ([UPGRADING.md](UPGRADING.md#how-far-it-gets-without-a-pack)).
 - Tools for writing a pack, `pack new` and `pack test`, and kinds a pack can use to rename a member
   of a class, rewrite a call from the shape of its arguments, or hand a change to a plugin you
   install and allow.

@@ -204,31 +204,35 @@ at all, and so does `upgrade` where an agent is set up (`--agent`, or `agent.bac
 run too, which asks the agent about the places first.
 
 Over the 80 public repositories of [the dry run](BENCHMARK_RESULTS.md#upgrade-dry-run), a pack made
-from two releases writes no file: 36 stop before planning, 33 are held and 11 have no usage of a
-name the pack lists. It finds 944 usages: 78 are places a rule would rewrite if nothing else were
-left in the repository (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held
-for a cause of its own, and none is in a file the dry run would write. No `--apply` was run on them,
-so what a trial would do is not measured. Two things stood between a pack made from two releases and
-a written move, and I have decided both:
+from two releases writes a file for 5 and none for the other 75: 32 stop before planning, 32 are
+held and 11 have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule would
+rewrite (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held for a cause of
+its own, and 14 are in a file the dry run would write. The trial of the 5 whose plan writes a file,
+run in a box that reaches only the package index ([the numbers](BENCHMARK_RESULTS.md#upgrade-trial)),
+passed for 1 (with 20 places left for a person and 3 tests compared), could not install the
+dependencies of 3 and got no test result from 1; that is one repository, and a pass is the tests
+that passed before still passing. Two things stood between a pack made from two releases and a
+written move, and I have decided both; a third is what limits it now, and I have not:
 
 - A manifest that declares the library loosely (`pydantic`, `pydantic<2`, `pydantic = "^1.9.1"`)
   stopped the run with `legacy_version_unsupported` even when the `--from` you pass lies in the
   pack's range, since a declaration decided and `--from` counted only where none existed. 18 of the
-  80 stopped on this, every one with a manifest that declares the library, and some pin a release
-  below the one the pack was made from (`SQLAlchemy==0.8.0`). Now `--from` counts where every
-  declaration admits it ([the decision](adr/ADR-080-a-stated-release-a-declaration-admits.md)): the
-  plan goes with your word against the manifest's, which a dry run does not check, and a declaration
-  that rules the release out or that cannot be read still stops the run and says so. I have not
-  measured it again, so how many of the 18 now pass is not known, and a plan that passes can still
-  be held by the next point.
+  80 stopped on this in the 0.9.0 dry run, every one with a manifest that declares the library, and
+  some pin a release below the one the pack was made from (`SQLAlchemy==0.8.0`). Now `--from` counts
+  where every declaration admits it ([the decision](adr/ADR-080-a-stated-release-a-declaration-admits.md)):
+  the plan goes with your word against the manifest's, which a dry run does not check, and a
+  declaration that rules the release out or that cannot be read still stops the run and says so,
+  including one the pack's floor let through before. 14 of the 80 stop on this in the 0.10.0 dry
+  run: 12 of the 18 no longer do (4 of them write a file now, 8 are held), and 8 that were held do.
 - The pack wrote a repository only when nothing in it was left, since the old and the new API are
   one distribution when the library keeps its import name, and all four libraries of the frames do.
-  One place it can only flag held every other place of that repository, as the paragraph above
-  says: 32 of the 33 held repositories had such a place, and the 78 places a rule would rewrite were
-  in repositories where nothing was written. Now `upgrade` writes a file at a time
-  ([the decision](adr/ADR-079-a-file-at-a-time.md)), so those 78 places are in files it would write
-  unless a place of its own is left in the file. I have not measured it again, so how many files
-  that is is not known. What a person still has to do is move the places that are left: the files
+  One place it can only flag held every other place of that repository: 32 of the 33 held
+  repositories of the 0.9.0 dry run had such a place, and the 78 places a rule would rewrite were in
+  repositories where nothing was written. Now `upgrade` writes a file at a time
+  ([the decision](adr/ADR-079-a-file-at-a-time.md)), and 14 of those 78 places are in a file the
+  dry run writes, for 5 repositories. The other 64 are not: 9 are in a file of those 5 that holds a
+  place the pack only flags, 54 in repositories the pack stops on before it plans, and 1 in a held
+  repository. What a person still has to do is move the places that are left: the files
   that hold them run on the new release until then, the summary, `REPORT.md`, the commit message and
   the pull request name them, and a passing trial does not say they are done. A pin the rule cannot
   write (a requirement with extras the new release does not list) still holds the whole repository,
@@ -236,6 +240,14 @@ a written move, and I have decided both:
   (a notebook, a stub, a `.pyw` script, a file obelize could not open or one over `max_file_bytes`);
   the trial is then `inconclusive` and says which it was. A `.py` file that does not parse is an
   ordinary file left, and where no manifest declares the library nothing holds the repository.
+- A pack made from two releases mostly flags. 810 of the 944 usages (85.8%) are places it only
+  flags and never rewrites; in pandas, SQLAlchemy and urllib3 none of the 663 usages is a place a
+  rule would rewrite, and a repository with no such place writes nothing, which is 31 of the 32 held
+  repositories. `pack synth` rewrites a name that the library's own message says to replace with a
+  name that exists in the newer release, and a name that left a submodule for its package, and
+  reports the rest: a name removed, a parameter renamed or made required, a changed default. That is
+  what limits how many repositories a plan writes for, and what the next work on it is about
+  ([the roadmap](ROADMAP.md)).
 
 A trial installs packages and runs their build scripts, and your tests, as you, on your machine,
 with your network and your files in reach. The question it asks first is the only gate: nothing

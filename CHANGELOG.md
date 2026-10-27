@@ -12,6 +12,62 @@ in the release that makes it.
 
 ## [Unreleased]
 
+### Benchmark
+
+I took the dry run of `obelize upgrade` again with this release, over the same 80 public
+repositories at the same commits (twenty each that still use the old API of pydantic 1, SQLAlchemy
+1.4, urllib3 1 and pandas 2), so its records read `obelize 0.10.0`. With no pack it writes a file for
+5 and none for the other 75: 32 stop before planning, 32 are held and 11 have no usage of a name the
+pack lists. The 0.9.0 dry run wrote no file for any (36 stopped, 33 were held and 11 had no usage).
+The 5 are all pydantic. It finds 944 usages: 78 are places a rule would rewrite (all in pydantic,
+`rename_member`), the pack only flags 810 and 56 are held for a cause of its own, and 14 are in a
+file the dry run would write; 0.9.0 found the same 944, none of them in a file it would write. Of the
+32 that stop, 14 stop on a manifest that declares the
+library in a way the pack does not take (`legacy_version_unsupported`; 18 with 0.9.0, of which 12 do
+not stop now, and 8 that were held do) and 18 on a declared Python that the new release does not run
+on. 4 of the 5 that write had stopped on `legacy_version_unsupported` with 0.9.0, and 1 was held by a
+place left.
+
+The trial, which installs the dependencies of a repository and runs its tests, is measured for the
+first time, in a box that reaches only the package index, over the 5 whose plan writes a file ([the
+results](docs/BENCHMARK_RESULTS.md#upgrade-trial)). It passed for 1 (with 20 places left for a person
+and 3 tests compared), could not install the dependencies of 3 and got no test result from 1. The 3
+have three causes: no recipe uv knows, a package that builds against a system library the image
+lacks, and a requirement on a GitHub URL, which the box does not reach. That is one repository and
+not a rate: n is 5 of 80, drawn by code search of repositories that import the old API, and a `pass`
+means that the tests that passed before still pass, 3 of them here. It says nothing about the 20
+places left for a person or about code no test reaches. The box is arm64 Linux, has no GitHub and
+lacks system libraries.
+
+What limits the number now is the pack. A pack made from two releases mostly flags: 810 of the 944
+usages (85.8%) are places it only flags and never rewrites, and in pandas, SQLAlchemy and urllib3
+none of the 663 is a place a rule would rewrite, so those three frames write nothing.
+
+`scan` and `fix` with the bundled packs gave the same output as 0.9.0 on the repositories of the test
+suite and the examples, and the fixtures of the packs are unchanged and pass, so Gate 1's scan and
+the three fix dry runs are the records 0.9.0 made and read `obelize 0.9.0`; they were not taken
+again.
+
+### Unsupported patterns
+
+What the 0.9.0 list says still holds, except its two bullets about `upgrade` with no pack, which this
+release changes:
+
+- A pack made from two releases rewrites a name that the library's own message says to replace with
+  a name that exists in the newer release, and a name that left a submodule for its package, and
+  reports the rest. A rule wrote in these frames for pydantic only (`rename_member`).
+- A file with a place the pack only flags is left as it was, so a written move is partial where one
+  exists: the files that hold such places run on the new release until someone moves them, and a
+  passing trial does not say they are done. 30 of the 32 held repositories have such a place, and 2
+  have a file the scan cannot parse. A dependency line the rule cannot write (a requirement with
+  extras the new release does not list), a notebook, a stub, a `.pyw` script and a file obelize
+  could not open still hold the whole repository, and so do `fix`, `scan`, `--pack` and an `upgrade`
+  with an agent set up.
+- A declaration of the library that rules out the release `--from` names, or that obelize cannot
+  read, stops the plan: 14 of the 80 stop on `legacy_version_unsupported`.
+- The trial is measured over 5 repositories, of which 1 passed. A repository whose dependencies need
+  a system library the box lacks, or a requirement on GitHub, ends as an error there.
+
 ### Changed
 
 - `obelize upgrade --from <release>` takes that release for the one in use where every dependency

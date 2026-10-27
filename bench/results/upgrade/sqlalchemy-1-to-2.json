@@ -1,11 +1,12 @@
 {
-  "obelize_version": "0.9.0",
+  "obelize_version": "0.10.0",
   "distribution": "sqlalchemy",
   "from": "1.4.54",
   "to": "2.0.55",
   "pack": "sqlalchemy/1-4-54-to-2-0-55",
   "pack_sha256": "8f34a0ab5a91690ce92434a3116befea2f552830f70ac3ea71303a54736fe156",
-  "synth_seconds": 66.14,
+  "unit": "file",
+  "synth_seconds": 64.65,
   "synth_note": "Moving sqlalchemy 1.4.54 to 2.0.55. Made a pack from the public API of sqlalchemy 1.4.54 and 2.0.55: 2862 name(s).",
   "python": "3.12.9",
   "machine": "arm64",
@@ -16,7 +17,7 @@
       "full_name": "mmautner/simple_api",
       "sha": "17067fe3113a746e0a5044af88f5777d6e50c999",
       "band": "size:<1000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 1,
       "rules": {},
@@ -39,8 +40,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.18,
-      "seconds": 3.57
+      "plan_seconds": 0.17,
+      "seconds": 3.71
     },
     {
       "full_name": "veryacademy/YT_FastAPI_Beginner_Fast-Track",
@@ -76,8 +77,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.28,
-      "seconds": 4.09
+      "plan_seconds": 0.26,
+      "seconds": 3.67
     },
     {
       "full_name": "meet-projects/y2s18-d3-final",
@@ -113,14 +114,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.55,
-      "seconds": 4.34
+      "plan_seconds": 0.3,
+      "seconds": 4.02
     },
     {
       "full_name": "MickaelBergem/unfollower",
       "sha": "f2b8131d5df3e4f33b34579f301f06f100e43ab8",
       "band": "size:<1000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 1,
       "rules": {},
@@ -143,8 +144,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.18,
-      "seconds": 5.51
+      "plan_seconds": 0.17,
+      "seconds": 4.23
     },
     {
       "full_name": "Abdur-rahmaanJ/PyQt5_CRUD",
@@ -158,8 +159,8 @@
       "written": 0,
       "files": 0,
       "withheld": [],
-      "plan_seconds": 0.17,
-      "seconds": 3.68
+      "plan_seconds": 0.23,
+      "seconds": 3.73
     },
     {
       "full_name": "sergio12S/real-estate-ml",
@@ -173,8 +174,8 @@
       "written": 0,
       "files": 0,
       "withheld": [],
-      "plan_seconds": 0.16,
-      "seconds": 3.61
+      "plan_seconds": 0.23,
+      "seconds": 4.07
     },
     {
       "full_name": "srujanaparupudi/BVRITH-WISE7-Team4",
@@ -203,8 +204,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.2,
-      "seconds": 3.63
+      "plan_seconds": 0.22,
+      "seconds": 3.7
     },
     {
       "full_name": "learn-co-students/sqlalchemy-intro-to-relationships-lab-nyc-career-ds-102218",
@@ -234,13 +235,13 @@
         }
       ],
       "plan_seconds": 0.23,
-      "seconds": 3.57
+      "seconds": 3.81
     },
     {
       "full_name": "benchling/sqlalchemy_batch_inserts",
       "sha": "38959338b062f1c67b0dbc44700940b283e5a981",
       "band": "size:1000..4000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 4,
       "rules": {},
@@ -284,8 +285,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.39,
-      "seconds": 3.83
+      "plan_seconds": 0.41,
+      "seconds": 3.8
     },
     {
       "full_name": "huntreslogan/ThisWeekend",
@@ -335,8 +336,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.24,
-      "seconds": 4.73
+      "plan_seconds": 0.25,
+      "seconds": 4.26
     },
     {
       "full_name": "j-nguyen/FractalBot",
@@ -400,8 +401,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.6,
-      "seconds": 4.05
+      "plan_seconds": 0.98,
+      "seconds": 5.15
     },
     {
       "full_name": "int32bit/cinder-quota-sync",
@@ -682,8 +683,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.56,
-      "seconds": 5.42
+      "plan_seconds": 0.62,
+      "seconds": 4.3
     },
     {
       "full_name": "mapgears/scribeui",
@@ -740,8 +741,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.74,
-      "seconds": 5.51
+      "plan_seconds": 1.75,
+      "seconds": 8.7
     },
     {
       "full_name": "KOSASIH/Pi-CryptoConnect",
@@ -770,14 +771,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.74,
-      "seconds": 6.28
+      "plan_seconds": 0.5,
+      "seconds": 5.71
     },
     {
       "full_name": "Coding-Crashkurse/LangChain-in-Production-with-Langfuse",
       "sha": "e8a97ad2f4f196189ae64cf9d1dc1a147975a957",
       "band": "size:4000..16000",
-      "blocked": null,
+      "blocked": "legacy_version_unsupported",
       "manifests": 1,
       "used": 1,
       "rules": {},
@@ -800,8 +801,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.33,
-      "seconds": 4.8
+      "plan_seconds": 1.12,
+      "seconds": 6.33
     },
     {
       "full_name": "EremeykinS/StoreBot",
@@ -837,8 +838,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 2.16,
-      "seconds": 6.0
+      "plan_seconds": 2.56,
+      "seconds": 8.88
     },
     {
       "full_name": "korean-word-game/crawling",
@@ -930,8 +931,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.71,
-      "seconds": 6.0
+      "plan_seconds": 0.53,
+      "seconds": 5.53
     },
     {
       "full_name": "dropbox/sqlalchemy-stubs",
@@ -945,8 +946,8 @@
       "written": 0,
       "files": 0,
       "withheld": [],
-      "plan_seconds": 1.12,
-      "seconds": 6.16
+      "plan_seconds": 0.81,
+      "seconds": 5.81
     },
     {
       "full_name": "old-bibigon/parse-cik",
@@ -975,14 +976,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.27,
-      "seconds": 5.43
+      "plan_seconds": 0.2,
+      "seconds": 3.52
     },
     {
       "full_name": "interactivetech/csm-streaming-tts",
       "sha": "d6e86684533ba7b15fb6c77b0bb1749d966739d5",
       "band": "size:>16000",
-      "blocked": null,
+      "blocked": "legacy_version_unsupported",
       "manifests": 1,
       "used": 4,
       "rules": {},
@@ -1026,8 +1027,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 1.47,
-      "seconds": 6.28
+      "plan_seconds": 1.02,
+      "seconds": 5.61
     }
   ]
 }

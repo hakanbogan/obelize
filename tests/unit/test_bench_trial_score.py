@@ -31,11 +31,11 @@ obelize 0.10.0 from commit `cccccccccc` (wheel sha256 `bbbbbbbbbbbb`), image `dd
 | `error`, `environment`: the dependencies could not be installed | 1 | 20.0% |
 | `timeout`: the container ran past its time limit | 0 | 0.0% |
 
-62 tests that passed before were compared in 3 trials; 2 broke and 1 failed once and passed again. The 2 passing trials wrote 5 files and left 1 files and 3 places for a person. A repository took 40 s at the median and 300 s at the longest, 413.5 s in all.
+62 tests that passed before were compared in 3 trials; 2 broke and 1 failed once and passed again. The 2 passing trials wrote 5 files and left 1 file and 3 places for a person. A repository took 40 s at the median and 300 s at the longest, 413.5 s in all.
 
 ### What these numbers are not
 
-These 5 repositories are the ones of the 20 drawn whose dry run writes a file (a plan written by the file rule), so a repository the plan could not write is not here. The frames were drawn by code search of public repositories that import the old API, which favours small single-purpose projects. The trial installs what the repository's own recipe names and runs pytest, since no test command is known; a repository with another way of testing is `inconclusive`. A `pass` means the tests that existed and passed before still pass: it says nothing about code no test reaches, and 1 of the passes left places for a person. The box is a Linux container (aarch64) with a fixed uv, Pythons 3.9, 3.12, 3.13 (one chosen per repository by its `requires-python`) and the packages the index held on the day, so a repository that needs a service, a secret, a system library the image lacks or more memory, time or disk than the limits above ends as `error`, `inconclusive` or `timeout`, and the passes lean towards self-contained suites."""  # noqa: E501 - the block is one line per paragraph
+These 5 repositories are the ones of the 20 drawn whose dry run writes a file (a plan written by the file rule), so a repository the plan could not write is not here. The frames were drawn by code search of public repositories that import the old API, which favours small single-purpose projects. The trial installs what the repository's own recipe names and runs pytest, since no test command is known; a repository with another way of testing is `inconclusive`. A `pass` means the tests that existed and passed before still pass: it says nothing about code no test reaches, and 1 of the 2 that passed left places for a person. The box is a Linux container (aarch64) with a fixed uv, Pythons 3.9, 3.12, 3.13 (one chosen per repository by its `requires-python`) and the packages the index held on the day, so a repository that needs a service, a secret, a system library the image lacks or more memory, time or disk than the limits above ends as `error`, `inconclusive` or `timeout`, and the passes lean towards self-contained suites."""  # noqa: E501 - the block is one line per paragraph
 
 
 def test_a_synthetic_record_renders_to_the_expected_block() -> None:
@@ -66,6 +66,91 @@ def test_two_frames_each_have_a_section_and_the_frames_have_one_together() -> No
     assert "7 repositories were tried." in text
     assert "| `timeout`, `wall_clock`: the container ran past its time limit | 1 | 14.3% |" in text
     assert "These 7 repositories are the ones of the 40 drawn" in text
+
+
+def test_one_of_a_thing_is_not_plural() -> None:
+    one = records.row("pass", written=1, held=1, places=1, compared=1, partial=True)
+    text = trial_score.render([(records.record([one]), records.FRAME)])
+    assert (
+        "1 test that passed before was compared in 1 trial; 0 broke and 0 failed once and passed "
+        "again. The 1 passing trial wrote 1 file and left 1 file and 1 place for a person."
+    ) in text
+    assert "and 1 of the 1 that passed left places for a person." in text
+
+
+def test_a_frame_with_no_record_says_how_many_of_its_repositories_a_trial_could_try() -> None:
+    frames = [
+        ("`other` 3.0 to 4.0", 20, 0),
+        ("`third` 5.0 to 6.0", 20, 1),
+        ("`fourth` 7.0 to 8.0", 15, 3),
+    ]
+    text = trial_score.render([(records.record(), records.FRAME)], frames)
+    assert [line for line in text.splitlines() if line.startswith("### ")] == [
+        "### `lib` 1.0.0 to 2.0.0",
+        "### Frames with no trial",
+        "### What these numbers are not",
+    ]
+    assert (
+        "- `other` 3.0 to 4.0: 0 of its 20 repositories have a plan that writes a file, so none "
+        "was tried.\n"
+        "- `third` 5.0 to 6.0: 1 of its 20 repositories has a plan that writes a file, and none "
+        "was tried.\n"
+        "- `fourth` 7.0 to 8.0: 3 of its 15 repositories have a plan that writes a file, and none "
+        "was tried.\n"
+    ) in text
+    assert "These 5 repositories are only some of the ones of the 75 drawn" in text
+
+
+def test_where_no_other_frame_has_a_plan_that_writes_a_file_the_tried_are_the_ones() -> None:
+    text = trial_score.render([(records.record(), records.FRAME)], [("`other` 3.0 to 4.0", 20, 0)])
+    assert "These 5 repositories are the ones of the 40 drawn whose dry run writes a file" in text
+
+
+def dry_run(slug: str, files: list[int], **kept: Any) -> dict[str, Any]:
+    """A dry-run record whose repositories have a plan of that many files each, and one error."""
+    return {
+        "distribution": slug,
+        "from": "3.0",
+        "to": "4.0",
+        **kept,
+        "upgrade": [
+            *({"full_name": f"o/r{number}", "files": count} for number, count in enumerate(files)),
+            {"full_name": "o/e", "error": "RuntimeError: exit 2"},
+        ],
+    }
+
+
+def test_the_frames_with_no_trial_record_are_read_from_the_dry_run_records(folder: Path) -> None:
+    put(folder)
+    results = folder / "bench" / "results" / "upgrade"
+    results.mkdir(parents=True)
+    for slug, files in (("lib", [1, 1]), ("other", [0, 0, 2]), ("third", [0]), ("fourth", [3, 1])):
+        (results / f"{slug}.json").write_text(json.dumps(dry_run(slug, files)), encoding="utf-8")
+    assert trial_score.untried(trial_score.load()) == [
+        ("`fourth` 3.0 to 4.0", 3, 2),
+        ("`other` 3.0 to 4.0", 4, 1),
+        ("`third` 3.0 to 4.0", 2, 0),
+    ]
+
+
+def test_the_document_the_scorer_writes_names_the_frames_it_did_not_try(
+    folder: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    put(folder)
+    results = folder / "bench" / "results" / "upgrade"
+    results.mkdir(parents=True)
+    (results / "other.json").write_text(json.dumps(dry_run("other", [0, 0])), encoding="utf-8")
+    trial_score.DOCUMENT.write_text(SKELETON)
+    assert trial_score.main(["--write"]) == 0
+    assert trial_score.main(["--check"]) == 0
+    assert (
+        "- `other` 3.0 to 4.0: 0 of its 3 repositories have a plan that writes a file, so none "
+        "was tried."
+    ) in trial_score.DOCUMENT.read_text()
+    (results / "third.json").write_text(json.dumps(dry_run("third", [2])), encoding="utf-8")
+    assert trial_score.main(["--check"]) == 1
+    assert trial_score.main([]) == 0
+    assert "- `third` 3.0 to 4.0: 1 of its 2 repositories has a plan" in capsys.readouterr().out
 
 
 def counts(text: str) -> dict[str, int]:
@@ -259,7 +344,8 @@ def test_the_flags_are_exclusive(folder: Path) -> None:
 
 def test_the_committed_document_has_the_block_the_committed_records_render() -> None:
     """With no record committed there is no section; with records, the block is theirs."""
-    generated = trial_score.render(trial_score.load())
+    loaded = trial_score.load()
+    generated = trial_score.render(loaded, trial_score.untried(loaded))
     published = trial_score.block(trial_score.DOCUMENT.read_text(encoding="utf-8"))
     assert published == (generated or None)
 
@@ -269,3 +355,75 @@ def test_every_committed_record_is_well_formed_and_names_its_frame() -> None:
         record = json.loads(path.read_text(encoding="utf-8"))
         assert trial_box.validate_record(record) == [], path.name
         assert (trial_score.ROOT / record["frame"]).parent.name == path.stem
+
+
+def test_every_frame_of_the_dry_run_has_a_trial_record_or_a_line_saying_why_it_has_none() -> None:
+    """The line is what the dry-run record holds: the repositories whose plan writes a file."""
+    text = trial_score.block(trial_score.DOCUMENT.read_text(encoding="utf-8")) or ""
+    tried = {path.stem for path in trial_score.RECORDS.glob("*.json")}
+    for path in sorted((trial_score.ROOT / "bench" / "results" / "upgrade").glob("*.json")):
+        dry = json.loads(path.read_text(encoding="utf-8"))
+        writing = sum("error" not in one and one["files"] >= 1 for one in dry["upgrade"])
+        if path.stem in tried:
+            continue
+        verb = "has" if writing == 1 else "have"
+        assert (
+            f"- `{dry['distribution']}` {dry['from']} to {dry['to']}: {writing} of its "
+            f"{len(dry['upgrade'])} repositories {verb} a plan that writes a file, "
+            f"{'and' if writing else 'so'} none was tried."
+        ) in text, path.stem
+
+
+def says(page: str, sentence: str) -> bool:
+    """Whether the page prints `sentence`, wherever its lines wrap."""
+    text = (trial_score.ROOT / page).read_text(encoding="utf-8")
+    return " ".join(sentence.split()) in " ".join(text.split())
+
+
+def trial_sums() -> dict[str, int]:
+    """The sums the pages quote about the trial, taken from the committed records."""
+    rows = [row for record, _ in trial_score.load() for row in record["trial"]]
+    passed = [row for row in rows if row["status"] == "pass"]
+    return {
+        "tried": len(rows),
+        "passed": len(passed),
+        "partial": sum(bool(row["partial"]) for row in passed),
+        "compared": sum(row["compared"] for row in rows),
+        "broken": sum(row["broken_count"] for row in rows),
+        "wrote": sum(row["written"] for row in passed),
+        "held": sum(row["held"] for row in passed),
+        "places": sum(row["places"] for row in passed),
+        "environment": sum(row["reason"] == "environment" for row in rows),
+        "no_junit": sum(row["reason"] == "no_junit" for row in rows),
+    }
+
+
+def test_the_pages_state_the_totals_of_the_trial_records() -> None:
+    sums = trial_sums()
+    assert sums["partial"] == sums["passed"]
+    assert not sums["broken"]
+    assert sums["tried"] == sums["passed"] + sums["environment"] + sums["no_junit"]
+    summary = (
+        f"passed for {sums['passed']} (with {sums['places']} places left for a person and "
+        f"{sums['compared']} tests compared), could not install the dependencies of "
+        f"{sums['environment']} and got no test result from {sums['no_junit']}"
+    )
+    for page in (
+        "README.md",
+        "CHANGELOG.md",
+        "docs/KNOWN_ISSUES.md",
+        "docs/ROADMAP.md",
+        "docs/UPGRADING.md",
+    ):
+        assert says(page, summary), page
+    assert says(
+        "docs/BENCHMARK_RESULTS.md",
+        f"The trial passed in {sums['passed']} of the {sums['tried']} repositories tried, and the "
+        f"pass is `partial`: it wrote {sums['wrote']} files, left {sums['held']} files and "
+        f"{sums['places']} places for a person, and compared {sums['compared']} tests that "
+        "passed before, none of which broke. Of the other "
+        f"{sums['tried'] - sums['passed']}, {sums['environment']} could not install the "
+        "dependencies of the repository in the box",
+    )
+    for page in ("docs/PRODUCT.md", "docs/UPGRADING_IN_CI.md", "docs/LIMITS.md"):
+        assert says(page, f"passed for {sums['passed']}"), page

@@ -142,5 +142,5 @@ command counts them instead of calling them removed. `pack synth` prints every h
 what an earlier run kept.
 
 What such a pack writes for a repository is measured for four migrations: over 80 public
-repositories that use the old API, the dry run of `upgrade` wrote no file
+repositories that use the old API, the dry run of `upgrade` wrote a file for 5, all of them pydantic
 ([how far it gets](UPGRADING.md#how-far-it-gets-without-a-pack)).

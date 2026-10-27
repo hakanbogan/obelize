@@ -150,14 +150,20 @@ tests are the check: a weak suite proves little. [Upgrading a dependency](docs/U
 steps and the four runs on three public repositories, and [Upgrading in CI](docs/UPGRADING_IN_CI.md)
 runs it as a GitHub Action in one job and opens the pull request in another.
 
-How far a pack made from two releases gets on real repositories is measured for the dry run only.
-Over 80 public repositories that use the old API of pydantic 1, SQLAlchemy 1.4, urllib3 1 and pandas
-2, the dry run of `upgrade` with no pack writes no file: 36 stop before planning, 33 are held and 11
-have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule would rewrite if
-nothing else were left in the repository (all in pydantic, `rename_member`), the pack only flags 810
-and 56 are held for a cause of its own, and none is in a file the dry run would write. No `--apply`
-was run on these repositories, so nothing here says how often a move passes their tests ([the
-numbers](docs/BENCHMARK_RESULTS.md#upgrade-dry-run)).
+How far a pack made from two releases gets on real repositories is measured for the dry run, over
+80 repositories, and for the trial, over the 5 of them whose plan writes a file. Over 80 public
+repositories that use the old API of pydantic 1, SQLAlchemy 1.4, urllib3 1 and pandas 2, the dry run
+of `upgrade` with no pack writes a file for 5 and none for the other 75: 32 stop before planning, 32
+are held and 11 have no usage of a name the pack lists. It finds 944 usages: 78 are places a rule
+would rewrite (all in pydantic, `rename_member`), the pack only flags 810 and 56 are held for a cause
+of its own, and 14 are in a file the dry run would write. The trial of the 5 whose plan writes a
+file, run in a box that reaches only the package index, passed for 1 (with 20 places left for a
+person and 3 tests compared), could not install the dependencies of 3 and got no test result from 1.
+That is one repository and not a rate: the sample is drawn by code search of repositories that
+import the old API, and a pass means the tests that passed before still pass ([the
+numbers](docs/BENCHMARK_RESULTS.md#upgrade-dry-run), [the trial](docs/BENCHMARK_RESULTS.md#upgrade-trial)).
+What limits the dry run now is that a pack made from two releases mostly flags: 810 of the 944
+usages (85.8%) are places it only flags and never rewrites.
 
 ## With a coding agent
 
@@ -247,8 +253,11 @@ Gemini pack: I measured the migration with obelize 0.1.0 and the scan again on a
 the same result. The `openai` and `PyPDF2` packs have no accuracy figure; a
 [dry run](docs/BENCHMARK_RESULTS.md#fix-dry-run) over 80 repositories each shows how many get a
 written plan. The `numpy` pack and the three for the Python have no benchmark, and the dry run of
-`upgrade` with no pack, over 80 repositories, is [described above](#upgrading-a-dependency) and
-[published](docs/BENCHMARK_RESULTS.md#upgrade-dry-run).
+`upgrade` with no pack, over 80 repositories and, for the trial, 5, is [described
+above](#upgrading-a-dependency) and [published](docs/BENCHMARK_RESULTS.md#upgrade-dry-run). `scan`
+and `fix` with the bundled packs gave the same output in 0.10.0 as in 0.9.0 on the repositories of
+the test suite and the examples, so the records of Gate 1 and of the three fix dry runs are those of
+0.9.0 and were not taken again.
 
 | Measure | obelize | n |
 |---|---|---|

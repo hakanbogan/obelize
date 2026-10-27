@@ -383,6 +383,11 @@ means the plan wrote something, not that what it wrote is right; the rounds meas
 The Gemini frame holds some of the round-1 cases its rules were written against, so its row is a
 comparator and not a holdout.
 
+Gate 1's scan and these three dry runs were taken with 0.9.0 and not again for 0.10.0, which changed
+what `upgrade` writes. `scan` and `fix` with the bundled packs gave the same output in 0.10.0 as in
+0.9.0 on the repositories of the test suite and the examples (findings, plans, diffs and reports
+compared), and the fixtures of the packs are unchanged and pass, so their records say `obelize 0.9.0`.
+
 ## Upgrade dry run
 
 What `obelize upgrade <distribution> --from A --to B` would write for a library that has no pack,
@@ -396,10 +401,11 @@ of its own. A record keeps what the scan read as a usage (a manifest row and a m
 are none), how many of those a rule rewrites by kind and how many the pack only flags, the files
 the plan would write, and every withheld row with its symbol and bail. `bench/upgrade_score.py`
 tables the outcomes with the tiers of the [fix dry run](#fix-dry-run), plus what became of each
-usage. A record says what the plan is written by (`unit`): the records made with 0.9.0 name none and
-are of a plan written whole or not at all, so a repository with a place left is `held`; a record made
-after `upgrade` wrote a file at a time says `file`, and the same repository is `partial`. The scorer
-words what a record writes by it, and each record's page text is the one it was measured under.
+usage. A record says what the plan is written by (`unit`): a record made with 0.9.0 names none and is
+of a plan written whole or not at all, so a repository with a place left is `held`; a record made
+after `upgrade` wrote a file at a time says `file`, and the same repository is `partial`. The
+committed records are of 0.10.0 and say `file`; the scorer still words a record with no unit as the
+one it is, and the 0.9.0 records are in the repository at the tag `v0.9.0`.
 `python -m bench.upgrade_collect run -m SLUG --only OWNER/REPO --out DIR` checks part of a
 frame and needs `--out`, since a committed record of part of a frame would replace the whole.
 
@@ -421,9 +427,9 @@ more:
 - **The pack comes from the live index.** It is made from the two releases the frame names, read
   from the package index on the day of the run, so a later run can make another pack (an index that
   changed, a release withdrawn) and is not compared with this one except by a person.
-- **No answer key and no trial.** A `complete` repository would mean the plan wrote something, not
-  that it is right, and the tests of a repository are not run, so whether a move passes them is not
-  measured here.
+- **No answer key, and no trial here.** A `complete` repository would mean the plan wrote something,
+  not that it is right, and the tests of a repository are not run in the dry run. The trial of the
+  repositories whose plan writes a file is [measured apart](#how-the-trial-is-measured).
 
 ## How the trial is measured
 
@@ -434,8 +440,9 @@ harness will not start a run until a self-test has shown, in that run, that it d
 `python -m bench.trial_collect run -m SLUG --work DIR` tries the repositories of a frame whose
 dry-run record says the plan writes at least one file, whichever rule wrote that plan, each in a
 container of its own, and writes `bench/results/trial/<slug>.json`. `python -m bench.trial_score`
-tables the records, and the section stays out of
-[BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) until there are records to table. `smoke` tries one
+tables the records in [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md#upgrade-trial), and says for each
+frame with no record how many of its repositories have a plan that writes a file, so a frame with no
+trial is shown with why. With no record at all the section is not there. `smoke` tries one
 repository I made myself, for the box and not for a number.
 
 ### The box
@@ -510,8 +517,8 @@ The obelize version, the commit the wheel was built from, the wheel's sha256, th
 and Docker versions, the date, the limits, the allowlist, the self-test's result and the proxy's
 counts by host; and for each repository its commit, the Python it was given, the status and reason,
 the tests compared and broken (the names, up to 20), the files written and left, the places left
-for a person, the exit code, the seconds and, for an `error` or a `timeout`, the end of the output
-with this machine's paths written as `<work>/`.
+for a person, the exit code, the seconds and, for an `error`, a `timeout` or an `inconclusive`, the
+end of the output with this machine's paths written as `<work>/`.
 
 A repository gets the newest of Python 3.9 to 3.13 that the `requires-python` in its
 `pyproject.toml` admits, else the Python its `.python-version` names if the image holds it, else

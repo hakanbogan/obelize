@@ -1,11 +1,12 @@
 {
-  "obelize_version": "0.9.0",
+  "obelize_version": "0.10.0",
   "distribution": "pandas",
   "from": "2.3.3",
   "to": "3.1.0",
   "pack": "pandas/2-3-3-to-3-1-0",
   "pack_sha256": "f10ac11c465661a9f5382d8f53df1e22db95823131f69c9c822ed89c515767a6",
-  "synth_seconds": 78.75,
+  "unit": "file",
+  "synth_seconds": 79.03,
   "synth_note": "Moving pandas 2.3.3 to 3.1.0. Made a pack from the public API of pandas 2.3.3 and 3.1.0: 6114 name(s).",
   "python": "3.12.9",
   "machine": "arm64",
@@ -24,8 +25,8 @@
       "written": 0,
       "files": 0,
       "withheld": [],
-      "plan_seconds": 0.23,
-      "seconds": 11.31
+      "plan_seconds": 0.25,
+      "seconds": 10.14
     },
     {
       "full_name": "openoakland/lovely-rita",
@@ -47,8 +48,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.81,
-      "seconds": 10.56
+      "plan_seconds": 0.91,
+      "seconds": 10.65
     },
     {
       "full_name": "aspromatis/zipline_bundle",
@@ -77,8 +78,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.55,
-      "seconds": 10.53
+      "plan_seconds": 0.54,
+      "seconds": 11.27
     },
     {
       "full_name": "modin-project/modin",
@@ -3180,8 +3181,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 55.06,
-      "seconds": 77.52
+      "plan_seconds": 54.41,
+      "seconds": 70.03
     },
     {
       "full_name": "MaartenGr/BERTopic",
@@ -3210,14 +3211,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 6.98,
-      "seconds": 17.4
+      "plan_seconds": 6.82,
+      "seconds": 16.65
     },
     {
       "full_name": "datactive/bigbang",
       "sha": "cdf9b06b9e0414b544eda62044cb69f59c1fd174",
       "band": "size:>16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 7,
       "rules": {},
@@ -3282,14 +3283,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 9.83,
-      "seconds": 21.29
+      "plan_seconds": 9.39,
+      "seconds": 20.44
     },
     {
       "full_name": "data-exchange/dxchange",
       "sha": "93c0f11ce1f63cd4bbbca6275d0c3634a1cac5f4",
       "band": "size:>16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 1,
       "rules": {},
@@ -3312,8 +3313,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 1.26,
-      "seconds": 11.49
+      "plan_seconds": 1.22,
+      "seconds": 10.73
     },
     {
       "full_name": "exasol/pyexasol",
@@ -3377,8 +3378,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 2.94,
-      "seconds": 12.98
+      "plan_seconds": 2.66,
+      "seconds": 12.88
     },
     {
       "full_name": "dask/dask-expr",
@@ -3596,8 +3597,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 13.88,
-      "seconds": 23.9
+      "plan_seconds": 12.74,
+      "seconds": 22.05
     },
     {
       "full_name": "vuthede/zalo-hit-song-prediction",
@@ -3619,8 +3620,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 1.45,
-      "seconds": 13.8
+      "plan_seconds": 1.35,
+      "seconds": 13.08
     },
     {
       "full_name": "augerai/a2ml",
@@ -3663,8 +3664,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 6.18,
-      "seconds": 16.87
+      "plan_seconds": 5.59,
+      "seconds": 15.12
     },
     {
       "full_name": "IAGA-DVI-DataStandards/mth5",
@@ -3693,8 +3694,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 6.04,
-      "seconds": 18.85
+      "plan_seconds": 5.57,
+      "seconds": 16.8
     },
     {
       "full_name": "rustychris/stompy",
@@ -3758,14 +3759,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 13.29,
-      "seconds": 23.61
+      "plan_seconds": 12.52,
+      "seconds": 23.05
     },
     {
       "full_name": "raulduk3/half-time-draw-predictor",
       "sha": "f3aa38022229be2fbfc709914c0ed1bfc3915d71",
       "band": "size:>16000",
-      "blocked": null,
+      "blocked": "legacy_version_unsupported",
       "manifests": 1,
       "used": 25,
       "rules": {},
@@ -3956,8 +3957,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 10.56,
-      "seconds": 23.94
+      "plan_seconds": 9.83,
+      "seconds": 21.23
     },
     {
       "full_name": "FoamoftheSea/mod5project",
@@ -4021,14 +4022,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 4.29,
-      "seconds": 18.06
+      "plan_seconds": 4.0,
+      "seconds": 15.96
     },
     {
       "full_name": "SINTEF/scengen-data-select",
       "sha": "3a507519f639bbc48cd4a78cce57dc51c6b249b8",
       "band": "size:>16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 4,
       "rules": {},
@@ -4072,8 +4073,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 2.67,
-      "seconds": 12.27
+      "plan_seconds": 2.45,
+      "seconds": 11.82
     },
     {
       "full_name": "TochusC/windpower-forecast-system",
@@ -4116,8 +4117,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 3.25,
-      "seconds": 15.99
+      "plan_seconds": 3.06,
+      "seconds": 14.11
     },
     {
       "full_name": "UVAdMIST/swmm_wq_rl",
@@ -4251,8 +4252,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 3.4,
-      "seconds": 16.33
+      "plan_seconds": 3.02,
+      "seconds": 14.58
     },
     {
       "full_name": "Mazen72/Twitter_Sentiment_Analysis_Dashboard",
@@ -4274,8 +4275,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 1.19,
-      "seconds": 11.31
+      "plan_seconds": 1.04,
+      "seconds": 10.58
     },
     {
       "full_name": "elephaint/pedpf",
@@ -4304,8 +4305,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 3.03,
-      "seconds": 13.48
+      "plan_seconds": 2.87,
+      "seconds": 12.41
     }
   ]
 }

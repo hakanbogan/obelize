@@ -14,10 +14,10 @@ What obelize does not do today, so you can judge a result before you trust it.
 - On Windows, the test suite on GitHub's runner is all that has run. A real console, a OneDrive
   folder and a path longer than 260 characters are untried.
 - It handles the migrations its bundled packs describe. For another library it makes a pack from two
-  releases, which wrote no file for any of 80 public repositories in a dry run
-  ([how far it gets](UPGRADING.md#how-far-it-gets-without-a-pack)). There is no pack registry, hosted
-  service, dashboard or GitHub App, and no command opens a pull request: the second job of the
-  workflow in [Upgrading in CI](UPGRADING_IN_CI.md) does.
+  releases, which in a dry run wrote a file for 5 of 80 public repositories, and whose trial passed for
+  1 of those 5 ([how far it gets](UPGRADING.md#how-far-it-gets-without-a-pack)). There is no pack
+  registry, hosted service, dashboard or GitHub App, and no command opens a pull request: the second
+  job of the workflow in [Upgrading in CI](UPGRADING_IN_CI.md) does.
 - For `openai` it rewrites seven calls and no other. A repository that uses the module in a way the
   pack lists is left as it was, with each place in the report;
   [KNOWN_ISSUES.md](KNOWN_ISSUES.md#the-openai-pack) says which ways it does not see.

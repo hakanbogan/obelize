@@ -1,11 +1,12 @@
 {
-  "obelize_version": "0.9.0",
+  "obelize_version": "0.10.0",
   "distribution": "pydantic",
   "from": "1.10.26",
   "to": "2.12.5",
   "pack": "pydantic/1-10-26-to-2-12-5",
   "pack_sha256": "b5fe85ff824798a2b6dc98f099b53cb2efd2987b8076f0ba622e6c12e24db011",
-  "synth_seconds": 14.86,
+  "unit": "file",
+  "synth_seconds": 13.7,
   "synth_note": "Moving pydantic 1.10.26 to 2.12.5. Made a pack from the public API of pydantic 1.10.26 and 2.12.5: 722 name(s).",
   "python": "3.12.9",
   "machine": "arm64",
@@ -263,8 +264,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 1.29,
-      "seconds": 4.13
+      "plan_seconds": 1.31,
+      "seconds": 3.93
     },
     {
       "full_name": "Eirsteir/kaffepause-api-v2",
@@ -321,44 +322,23 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.3,
-      "seconds": 2.42
+      "plan_seconds": 0.31,
+      "seconds": 2.37
     },
     {
       "full_name": "cvlab-columbia/zero123",
       "sha": "f426883b1a7353d91ddc34a551dd91b6223e4ce8",
       "band": "size:1000..4000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 7,
       "rules": {
         "rename_member": 5
       },
       "flagged": 2,
-      "written": 0,
-      "files": 0,
+      "written": 2,
+      "files": 3,
       "withheld": [
-        {
-          "path": "3drec/pose.py",
-          "line": 133,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "3drec/requirements.txt",
-          "line": 1,
-          "symbol": "pydantic",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "3drec/run_img_sampling.py",
-          "line": 24,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
         {
           "path": "3drec/run_nerf.py",
           "line": 23,
@@ -401,8 +381,8 @@
           ]
         }
       ],
-      "plan_seconds": 2.29,
-      "seconds": 7.77
+      "plan_seconds": 2.25,
+      "seconds": 6.41
     },
     {
       "full_name": "ynput/ayon-substance-painter",
@@ -424,8 +404,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.2,
-      "seconds": 2.27
+      "plan_seconds": 0.18,
+      "seconds": 2.2
     },
     {
       "full_name": "Kludex/fastapi-health",
@@ -447,14 +427,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 0.5,
-      "seconds": 2.4
+      "plan_seconds": 0.51,
+      "seconds": 2.41
     },
     {
       "full_name": "vlievin/medical-reasoning",
       "sha": "bb0e7f6934c455797f46837395c25e6af2be3c0b",
       "band": "size:4000..16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 10,
       "rules": {},
@@ -540,8 +520,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 1.8,
-      "seconds": 5.06
+      "plan_seconds": 1.82,
+      "seconds": 5.01
     },
     {
       "full_name": "alibaba/easydispatch",
@@ -568,14 +548,14 @@
           "path": "requirements-base-py39.txt",
           "line": 87,
           "symbol": "pydantic",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "requirements-base.txt",
           "line": 87,
           "symbol": "pydantic",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
@@ -628,14 +608,14 @@
           "path": "src/dispatch/auth/views.py",
           "line": 173,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "src/dispatch/auth/views.py",
           "line": 273,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
@@ -759,7 +739,7 @@
           "path": "src/dispatch/job/views.py",
           "line": 130,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
@@ -782,21 +762,21 @@
           "path": "src/dispatch/logs/service.py",
           "line": 9,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "src/dispatch/org/service.py",
           "line": 95,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "src/dispatch/org/views.py",
           "line": 105,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
@@ -951,47 +931,47 @@
           "path": "src/dispatch/team/service.py",
           "line": 60,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "src/dispatch/team/service.py",
           "line": 87,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "src/dispatch/worker/service.py",
           "line": 121,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "src/dispatch/worker/service.py",
           "line": 142,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         }
       ],
-      "plan_seconds": 9.82,
-      "seconds": 12.63
+      "plan_seconds": 8.98,
+      "seconds": 11.46
     },
     {
       "full_name": "apptension/onetimepass",
       "sha": "541c827da5765efef43ad352aa277a0d79ecc949",
       "band": "size:4000..16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 21,
       "rules": {
         "rename_member": 2
       },
       "flagged": 19,
-      "written": 0,
-      "files": 0,
+      "written": 1,
+      "files": 2,
       "withheld": [
         {
           "path": "onetimepass/base_model.py",
@@ -1005,13 +985,6 @@
           "line": 5,
           "symbol": "pydantic.Extra.forbid",
           "bail": "flag_only_surface",
-          "caused_by": null
-        },
-        {
-          "path": "onetimepass/db/json_encrypted.py",
-          "line": 41,
-          "symbol": "pydantic.BaseModel.json",
-          "bail": "repo_not_fully_migrated",
           "caused_by": null
         },
         {
@@ -1141,39 +1114,25 @@
           "caused_by": [
             "flag_only_surface"
           ]
-        },
-        {
-          "path": "pyproject.toml",
-          "line": 10,
-          "symbol": "pydantic",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
         }
       ],
-      "plan_seconds": 0.89,
-      "seconds": 3.36
+      "plan_seconds": 0.86,
+      "seconds": 3.51
     },
     {
       "full_name": "aiondemand/AIOD-rest-api",
       "sha": "71604a64484ff19c1e8498fc3f9627cd66aa3145",
       "band": "size:4000..16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 33,
       "rules": {
         "rename_member": 1
       },
       "flagged": 32,
-      "written": 0,
-      "files": 0,
+      "written": 1,
+      "files": 2,
       "withheld": [
-        {
-          "path": "pyproject.toml",
-          "line": 26,
-          "symbol": "pydantic",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
         {
           "path": "src/converters/schema/dcat.py",
           "line": 15,
@@ -1385,13 +1344,6 @@
           "caused_by": null
         },
         {
-          "path": "src/error_handling/error_handling.py",
-          "line": 54,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
           "path": "src/routers/user_router.py",
           "line": 36,
           "symbol": "pydantic.create_model",
@@ -1406,8 +1358,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 3.32,
-      "seconds": 6.33
+      "plan_seconds": 3.73,
+      "seconds": 6.18
     },
     {
       "full_name": "zzyss-marker/newinno",
@@ -1420,30 +1372,9 @@
         "rename_member": 3
       },
       "flagged": 11,
-      "written": 0,
-      "files": 0,
+      "written": 3,
+      "files": 2,
       "withheld": [
-        {
-          "path": "app/routers/admin.py",
-          "line": 1350,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "app/routers/admin.py",
-          "line": 1369,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "app/routers/management.py",
-          "line": 30,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
         {
           "path": "app/schemas/schemas.py",
           "line": 43,
@@ -1522,14 +1453,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 5.65,
-      "seconds": 7.99
+      "plan_seconds": 6.14,
+      "seconds": 8.7
     },
     {
       "full_name": "jsstevenson/oxley",
       "sha": "a2ccaa459cd9490a4923af2e26aec2e79f2cccc2",
       "band": "size:4000..16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 14,
       "rules": {
@@ -1647,79 +1578,23 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 1.3,
-      "seconds": 3.24
+      "plan_seconds": 1.23,
+      "seconds": 3.09
     },
     {
       "full_name": "MadMehx/3DMLGPU",
       "sha": "d0d9dccdeeb4bdbdaac576278cd442e577eb5b63",
       "band": "size:4000..16000",
-      "blocked": "legacy_version_unsupported",
+      "blocked": null,
       "manifests": 1,
       "used": 16,
       "rules": {
         "rename_member": 12
       },
       "flagged": 4,
-      "written": 0,
-      "files": 0,
+      "written": 7,
+      "files": 3,
       "withheld": [
-        {
-          "path": "pose.py",
-          "line": 88,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "requirements.txt",
-          "line": 1,
-          "symbol": "pydantic",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "run_img_sampling.py",
-          "line": 24,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "run_img_sampling.py",
-          "line": 38,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "run_img_sampling.py",
-          "line": 45,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "run_img_sampling.py",
-          "line": 52,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "run_img_sampling.py",
-          "line": 73,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
-        {
-          "path": "run_img_sampling.py",
-          "line": 138,
-          "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
-          "caused_by": null
-        },
         {
           "path": "run_nerf.py",
           "line": 23,
@@ -1794,14 +1669,14 @@
           ]
         }
       ],
-      "plan_seconds": 3.27,
-      "seconds": 5.62
+      "plan_seconds": 3.03,
+      "seconds": 5.0
     },
     {
       "full_name": "LirSkara/Res",
       "sha": "2a1da5a281b8a51294fd6b59c760735dd22ffcfb",
       "band": "size:4000..16000",
-      "blocked": null,
+      "blocked": "legacy_version_unsupported",
       "manifests": 2,
       "used": 6,
       "rules": {},
@@ -1866,14 +1741,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 3.07,
-      "seconds": 5.17
+      "plan_seconds": 2.21,
+      "seconds": 4.23
     },
     {
       "full_name": "tranvananhanhanh/Intelligent-Quantitative-Trading-System",
       "sha": "dd2c79a8c3d667141fa32d9d8c2d217812e6a20b",
       "band": "size:4000..16000",
-      "blocked": null,
+      "blocked": "legacy_version_unsupported",
       "manifests": 1,
       "used": 1,
       "rules": {},
@@ -1896,14 +1771,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 5.43,
-      "seconds": 11.81
+      "plan_seconds": 5.94,
+      "seconds": 11.4
     },
     {
       "full_name": "Jellyfrist/EasyEcon",
       "sha": "14dc7f495bbebfab9deee4d32c00de95ae6749f2",
       "band": "size:4000..16000",
-      "blocked": null,
+      "blocked": "legacy_version_unsupported",
       "manifests": 1,
       "used": 2,
       "rules": {},
@@ -1933,8 +1808,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 2.37,
-      "seconds": 5.96
+      "plan_seconds": 2.38,
+      "seconds": 5.36
     },
     {
       "full_name": "Netflix/repokid",
@@ -1954,14 +1829,14 @@
           "path": "repokid/cli/dispatcher_cli.py",
           "line": 85,
           "symbol": "pydantic.main.BaseModel.parse_obj",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "repokid/commands/repo.py",
           "line": 128,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
@@ -2057,47 +1932,47 @@
           "path": "requirements.txt",
           "line": 80,
           "symbol": "pydantic",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "tests/test_commands.py",
           "line": 363,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "tests/test_commands.py",
           "line": 441,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "tests/test_commands.py",
           "line": 450,
           "symbol": "pydantic.BaseModel.dict",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "tests/test_dispatcher_cli.py",
           "line": 45,
           "symbol": "pydantic.main.BaseModel.parse_obj",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         },
         {
           "path": "tests/test_dispatcher_cli.py",
           "line": 56,
           "symbol": "pydantic.main.BaseModel.parse_obj",
-          "bail": "repo_not_fully_migrated",
+          "bail": "runtime_unsupported",
           "caused_by": null
         }
       ],
-      "plan_seconds": 4.8,
-      "seconds": 7.2
+      "plan_seconds": 4.9,
+      "seconds": 7.0
     },
     {
       "full_name": "ReaLLMASIC/gLayout",
@@ -2133,8 +2008,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 4.39,
-      "seconds": 7.43
+      "plan_seconds": 4.34,
+      "seconds": 7.56
     },
     {
       "full_name": "LPSim/backend",
@@ -2388,14 +2263,14 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 16.55,
-      "seconds": 19.47
+      "plan_seconds": 18.11,
+      "seconds": 20.6
     },
     {
       "full_name": "canonical/jenkins-k8s-operator",
       "sha": "3874e639b701e2ce2c16d06b2868586b93c54db7",
       "band": "size:>16000",
-      "blocked": null,
+      "blocked": "legacy_version_unsupported",
       "manifests": 0,
       "used": 7,
       "rules": {
@@ -2461,8 +2336,8 @@
           ]
         }
       ],
-      "plan_seconds": 9.37,
-      "seconds": 12.53
+      "plan_seconds": 11.35,
+      "seconds": 15.74
     },
     {
       "full_name": "SeoChangHee/DeTAILS",
@@ -2575,8 +2450,8 @@
           "caused_by": null
         }
       ],
-      "plan_seconds": 6.22,
-      "seconds": 10.11
+      "plan_seconds": 5.65,
+      "seconds": 8.59
     }
   ]
 }

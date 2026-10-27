@@ -6,8 +6,9 @@ before and after, and commits the move to a new branch only if no test that pass
 and leaves the branch as a git bundle, a patch and a report in an artifact. A second job, which may
 write to the repository, checks the bundle and opens the pull request. A job that passes may have
 made no branch, since a move that was not proven leaves the job green unless `fail-on-unproven` is
-set, so read `changed` and `exit-code`. How often a trial proves a move is not measured: only the
-dry run is, and over 80 public repositories it wrote no file for a library with no pack ([how far it
+set, so read `changed` and `exit-code`. How often a trial proves a move is measured over 5
+repositories only: of 80 public repositories, the dry run planned a file for 5 for a library with no
+pack, and the trial passed for 1 ([how far it
 gets](UPGRADING.md#how-far-it-gets-without-a-pack)). The two jobs are separate because the first
 runs your tests, and a job that runs your tests must not hold a credential that writes.
 

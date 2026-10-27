@@ -20,8 +20,8 @@ Python itself.
 - [After a run](AFTER_A_RUN.md) explains the exit codes and what to do with the places it left.
 - [Upgrading a dependency](UPGRADING.md) finds what is behind, makes a pack for a library that has
   none, tries the move with your tests in a copy and keeps it if they agree, on a branch if you ask.
-  [How far it gets](UPGRADING.md#how-far-it-gets-without-a-pack) without a pack is measured only as
-  far as the plan, which wrote no file for any of 80 public repositories.
+  [How far it gets](UPGRADING.md#how-far-it-gets-without-a-pack) without a pack is measured as far
+  as the plan, which wrote a file for 5 of 80 public repositories, and the trial of those 5.
 - [With a coding agent](WITH_A_CODING_AGENT.md) hands those places to an agent and keeps the check.
 
 ## How it earns trust
