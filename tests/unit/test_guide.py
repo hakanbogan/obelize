@@ -145,9 +145,13 @@ def test_a_page_that_ends_in_a_tag_that_never_closes_is_refused_at_once(hostile:
     assert time.monotonic() - started < 2.0
 
 
-def test_a_comment_or_a_tag_that_is_open_for_a_little_is_no_matter() -> None:
-    assert guide.to_text("<p>x</p><!-- a note", html=True) == "x\n<!-- a note"
-    assert guide.to_text("<p>x</p><a href=", html=True) == "x\n<a href="
+@pytest.mark.parametrize("open_end", ["<!-- a note", "<a href=", "</p", "<!DOCTYPE", "<![CDATA[y"])
+def test_a_comment_or_a_tag_that_is_open_at_the_end_is_not_text(open_end: str) -> None:
+    assert guide.to_text("<p>x</p>" + open_end, html=True) == "x"
+
+
+def test_a_lone_angle_bracket_at_the_end_is_text() -> None:
+    assert guide.to_text("<p>x <", html=True) == "x <"
 
 
 # Where it is read from.

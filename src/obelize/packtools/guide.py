@@ -219,6 +219,8 @@ def _page(raw: str, clock: Callable[[], float]) -> str:
         page.feed(raw[start : start + _SLICE])
     if len(page.rawdata) > _PENDING:
         raise GuideError("unparsable", "the page ends in a tag or a comment that never closes")
+    if page.rawdata.startswith("<") and len(page.rawdata) > 1:
+        page.rawdata = ""  # open at the end is not text; older parsers would flush it as text
     page.close()
     return page.text()
 
