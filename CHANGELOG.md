@@ -12,6 +12,24 @@ in the release that makes it.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-27
+
+`obelize upgrade` now writes part of a repository where the library keeps its import name, which it
+wrote whole or not at all, and takes `--from` where a manifest declares the library, which it took
+only where none did. With 0.9.0 its dry run wrote a file for none of 80 public repositories; with
+this release it writes one for 5 of them, and a trial of those 5 passed for 1 (the benchmark below
+says how small that is).
+
+A move can be partial now. A file that holds a place the pack can only flag is left as it was, the
+others are written, and the summary, `REPORT.md`, the commit message of `--branch`, the pull request
+of the action and `trial.json` name the files left and say that a passing trial does not show the
+rest has moved. Without `--branch` such a move ends `4`, as `fix --apply` does where places are left
+for you. A pin that rules out the release `--from` names (`pydantic==2.5.0` with `--from 1.10.26`)
+stops the plan, where the pack's floor let it through in 0.9.0. Everything else is reached as it
+was: `fix`, `scan`, `--pack` and an `upgrade` with an agent set up (`--agent`, or `agent.backend` in
+your own file) keep the rule of one repository whole or not at all, and `scan` and `fix` with the
+bundled packs gave the same output as 0.9.0 on the repositories of the test suite and the examples.
+
 ### Benchmark
 
 I took the dry run of `obelize upgrade` again with this release, over the same 80 public
@@ -22,11 +40,10 @@ pack lists. The 0.9.0 dry run wrote no file for any (36 stopped, 33 were held an
 The 5 are all pydantic. It finds 944 usages: 78 are places a rule would rewrite (all in pydantic,
 `rename_member`), the pack only flags 810 and 56 are held for a cause of its own, and 14 are in a
 file the dry run would write; 0.9.0 found the same 944, none of them in a file it would write. Of the
-32 that stop, 14 stop on a manifest that declares the
-library in a way the pack does not take (`legacy_version_unsupported`; 18 with 0.9.0, of which 12 do
-not stop now, and 8 that were held do) and 18 on a declared Python that the new release does not run
-on. 4 of the 5 that write had stopped on `legacy_version_unsupported` with 0.9.0, and 1 was held by a
-place left.
+32 that stop, 14 stop on a manifest that declares the library in a way the pack does not take
+(`legacy_version_unsupported`; 18 with 0.9.0, of which 12 do not stop now, and 8 that were held do)
+and 18 on a declared Python that the new release does not run on. 4 of the 5 that write had stopped
+on `legacy_version_unsupported` with 0.9.0, and 1 was held by a place left.
 
 The trial, which installs the dependencies of a repository and runs its tests, is measured for the
 first time, in a box that reaches only the package index, over the 5 whose plan writes a file ([the
@@ -50,12 +67,13 @@ again.
 
 ### Unsupported patterns
 
-What the 0.9.0 list says still holds, except its two bullets about `upgrade` with no pack, which this
-release changes:
+What the 0.9.0 list says still holds, except what it says of `upgrade` with no pack: that `--from`
+counts only where no manifest declares the library, and that a repository is written only when
+nothing in it is left. This release changes both, and what is unsupported now is:
 
 - A pack made from two releases rewrites a name that the library's own message says to replace with
   a name that exists in the newer release, and a name that left a submodule for its package, and
-  reports the rest. A rule wrote in these frames for pydantic only (`rename_member`).
+  reports the rest. In these frames a rule rewrites something for pydantic only (`rename_member`).
 - A file with a place the pack only flags is left as it was, so a written move is partial where one
   exists: the files that hold such places run on the new release until someone moves them, and a
   passing trial does not say they are done. 30 of the 32 held repositories have such a place, and 2
@@ -68,6 +86,22 @@ release changes:
 - The trial is measured over 5 repositories, of which 1 passed. A repository whose dependencies need
   a system library the box lacks, or a requirement on GitHub, ends as an error there.
 
+The formats that changed: none of the JSON Schemas, and not the pack format. `trial.json`, which has
+no schema, gains `held`, the files the move left as they were. In `run.json`, `packs[].stated` is
+also set where every declaration of the library admits the release `--from` names and is never set
+together with `assumed`, and `blocked` is `legacy_version_unsupported` also for a declaration that
+rules that release out, which the pack's floor passed on its own in 0.9.0. The exit code of
+`upgrade --apply` is `4` where a passing trial left places for you; a move to another distribution
+that left places (`PyPDF2` to `pypdf`) ended `0` in 0.9.0 when no verification command of your own
+ran.
+
+### Added
+
+- The harness that measures the trial (`bench/trial_box.py`, `bench/trial_collect.py`,
+  `bench/trial_score.py` and `bench/trial/`) is a tool of the repository, in neither the wheel nor
+  the source distribution: installing obelize adds no Docker code and no way to run another
+  repository's tests. The trial of `upgrade --apply` that you run is unchanged by it.
+
 ### Changed
 
 - `obelize upgrade --from <release>` takes that release for the one in use where every dependency
@@ -75,8 +109,8 @@ release changes:
   `pydantic<2`, `pydantic>=1.8` and `pydantic = "^1.9.1"` all admit `--from 1.10.26`. The plan goes
   with your word against the file's, says so in its summary and in `REPORT.md`, and a dry run does
   not check it; `--apply` does, with your tests. A declaration that rules the release out
-  (`pydantic==2.5.0`, `pydantic>=2`, `pydantic<1.5`), or that obelize cannot read, stops the plan and
-  says so, including one that reached the pack's floor on its own, which `--from` was not asked
+  (`pydantic==2.5.0`, `pydantic>=2`, `pydantic<1.5`), or that obelize cannot read, stops the plan
+  and says so, including one that reached the pack's floor on its own, which `--from` was not asked
   about before. Where the pack would take a release of its own for such a declaration (its newest,
   for `pydantic>=1.8`), your `--from` is the release the plan takes and says, and `run.json`
   records it as `stated` and not as `assumed`. `fix`, `scan`, `--pack` and an `upgrade` without
@@ -91,32 +125,23 @@ release changes:
   The summary, `REPORT.md` (a Held back section), the commit message of `--branch`, the pull request
   of the action and `trial.json` (`held`) name the files left and say that a pass does not show that
   the rest has moved. Without `--branch` the command ends `4` for such a move, as `fix --apply` does
-  where places are left for you, and `0` where none is, with a verification command of your own or
-  without one (a move to another distribution, `PyPDF2` to `pypdf`, that left places ended `0`
-  without one in 0.9.0 and ends `4` now). A dry run that plans part of a repository ends with the
-  `upgrade` command that writes it, not `fix --apply`, which would write none of it. The whole
-  repository is still held where no file can be written, where the dependency line cannot be
-  written, and for `fix`, `scan`, `--pack` and an `upgrade` with an agent set up. `upgrade numpy` and
+  where places are left for you, and `0` where none is, whether a verification command of your own
+  ran or not; with `--branch` it ends `0` after the commit either way, so read the text. A dry run
+  that plans part of a repository ends with the `upgrade` command that writes it, not `fix --apply`,
+  which would write none of it. The whole repository is still held where no file can be written,
+  where the dependency line cannot be written, and for `fix`, `scan` and `--pack`, and for an
+  `upgrade` with an agent set up (`--agent`, or `agent.backend` in your own file), whose dry run,
+  trial and write all keep that rule, since the agent is asked about the places only when a first
+  run of the rules writes nothing, and whose dry run says the agent is why. `upgrade numpy` and
   `upgrade openai` write the files that hold no place where 0.9.0 wrote none
   ([the decision](docs/adr/ADR-079-a-file-at-a-time.md)).
-- With `agent.backend` set in your own file, `obelize upgrade` moves a library that keeps its import
-  name whole or not at all in its dry run too, as the trial and the write do, and its dry run says
-  that the agent is why. The dry run used to plan a file at a time while `--apply --branch`, which
-  asks the agent, did not, so it was not a preview of it. `--apply` without `--branch`, which cannot
-  ask the agent, follows the same rule and writes nothing where a place is left; it wrote a file at
-  a time before.
-
-### Fixed
-
-- The trial of `obelize upgrade` that wrote no file says what held the repository: a place left in
-  a file, a dependency line it cannot write, or a notebook, a stub or a file it could not open that
-  may call the library. It said, for every such move, that every file held a place left for you.
-- The dry run of `upgrade` with a model set up no longer says that the model was not asked because
-  the pack moves a whole repository above a plan that moves part of one, and where no manifest
-  declares the library it no longer says that the dependency line follows the files.
-- The upgrade mode of the action publishes a move whose files left as they were have names it would
-  not write (`tools/run:all.py`, a decomposed Unicode name): they are only named in the pull
-  request, so they are checked as text, and no longer refuse a branch that was written whole.
+- The upgrade mode of the action names the files a partial move left in the commit message and in
+  the pull request ("Left as they were, for you to change"), and a name of such a file that the
+  action would not write itself (`tools/run:all.py`, a decomposed Unicode name) is only shown as
+  text, so it does not refuse a branch that was written whole.
+- A trial of `obelize upgrade` that changed no file says what held the repository: a place left in a
+  file, a dependency line it cannot write, or a notebook, a stub or a file it could not open that
+  may call the library. 0.9.0 said only that it changed no file.
 
 ## [0.9.0] - 2026-10-27
 

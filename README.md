@@ -146,9 +146,13 @@ runs your tests in each, and writes the move only if no test that passed before 
 `--branch` commits it to a new branch and leaves your working tree alone. `--agent` puts the places a
 pack can only flag, and then the tests the move broke, to your own coding agent one at a time, with
 every tool of the agent turned off, and obelize checks each answer before it reaches the copy. The
-tests are the check: a weak suite proves little. [Upgrading a dependency](docs/UPGRADING.md) has the
-steps and the four runs on three public repositories, and [Upgrading in CI](docs/UPGRADING_IN_CI.md)
-runs it as a GitHub Action in one job and opens the pull request in another.
+tests are the check: a weak suite proves little. Where the library keeps its import name (`pydantic`,
+`SQLAlchemy`), `upgrade` writes a file at a time: a file that holds a place the pack can only flag is
+left as it was and named, the others are written, and the move ends `4` without `--branch`. A pass
+then says that the tests that passed before still pass, not that the rest has moved.
+[Upgrading a dependency](docs/UPGRADING.md) has the steps and the four runs on three public
+repositories, and [Upgrading in CI](docs/UPGRADING_IN_CI.md) runs it as a GitHub Action in one job
+and opens the pull request in another.
 
 How far a pack made from two releases gets on real repositories is measured for the dry run, over
 80 repositories, and for the trial, over the 5 of them whose plan writes a file. Over 80 public
