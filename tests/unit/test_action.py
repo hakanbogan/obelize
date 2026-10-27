@@ -510,7 +510,7 @@ def test_the_job_that_writes_runs_none_of_the_repositorys_code() -> None:
     assert [step.get("run") for step in steps if "run" in step] == [
         "gh auth setup-git",
         'python3 obelize/action/upgrade.py publish --artifacts "$ARTIFACTS" --repo repo '
-        '--base "$BASE" --base-branch "$BASE_BRANCH"',
+        '--base "$BASE" --base-branch "$BASE_BRANCH" --distributions "$NAMES"',
     ]
     assert not any(step.get("uses", "").startswith("hakanbogan/obelize@") for step in steps)
     checkouts = [
@@ -518,6 +518,16 @@ def test_the_job_that_writes_runs_none_of_the_repositorys_code() -> None:
     ]
     assert [one["path"] for one in checkouts] == ["repo", "obelize"]
     assert checkouts[1]["repository"] == "hakanbogan/obelize"
+
+
+def test_the_dependencies_to_upgrade_are_listed_once_and_both_jobs_read_that_list() -> None:
+    document = _example()
+    assert set(document["env"]) == {"DISTRIBUTIONS"}
+    steps = document["jobs"]["upgrade"]["steps"]
+    action = next(step for step in steps if step.get("uses", "").startswith("hakanbogan/obelize@"))
+    assert action["with"]["distributions"] == "${{ env.DISTRIBUTIONS }}"
+    publish = document["jobs"]["pull-request"]["steps"][-1]
+    assert publish["env"]["NAMES"] == "${{ env.DISTRIBUTIONS }}"
 
 
 def test_the_example_pins_every_action_to_a_commit_and_no_credential_is_kept() -> None:

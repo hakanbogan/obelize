@@ -19,9 +19,11 @@ asks first, does it in a copy of the repository with environments outside it, an
 only if the tests agree. With `--agent`, the places a pack only flags are put to your own coding
 agent in that copy, as a text question with every tool of the program off; its answers pass the
 same guard as a model's, and they reach only a branch you read, never your working tree. In CI, the
-action's `mode: upgrade` runs the trial in a job that holds no token and leaves a bundle, and a
-second job that runs none of your code checks the bundle before it pushes and opens a pull request
-([Upgrading in CI](UPGRADING_IN_CI.md)): a job that runs your tests never holds the right to write.
+action's `mode: upgrade` runs the trial in a job that has no credential that writes and leaves a
+bundle, and a second job that runs none of your code checks the bundle, makes the commit itself and
+opens a pull request ([Upgrading in CI](UPGRADING_IN_CI.md)). That holds only if the checkout keeps
+no credential (`persist-credentials: false`, which the action checks for); the first job still has
+the read-only `GITHUB_TOKEN` that `contents: read` gives, and a person reads the diff.
 
 ## Before you run it
 

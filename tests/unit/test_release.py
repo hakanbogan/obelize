@@ -90,3 +90,17 @@ def test_a_header_block_past_the_read_limit_is_cut_where_the_limit_falls(tmp_pat
     head = filler * (release.METADATA_BYTES // len(filler) + 1)
     metadata = "Provides-Extra: before\n" + head + "Provides-Extra: after\n"
     assert release.provides_extras(unpacked(tmp_path, metadata)) == ("before",)
+
+
+@pytest.mark.parametrize("separator", [chr(0x0C), chr(0x85), chr(0x2028), chr(0x2029)])
+def test_a_separator_inside_a_value_does_not_start_a_header(tmp_path: Path, separator: str) -> None:
+    """`str.splitlines` ends a line at these; a header does not."""
+    metadata = f"Name: kit\nSummary: a{separator}Provides-Extra: evil\nProvides-Extra: cli\n\n"
+    assert release.provides_extras(unpacked(tmp_path, metadata)) == ("cli",)
+
+
+def test_a_header_block_ending_in_carriage_returns_is_read_all_the_same(tmp_path: Path) -> None:
+    metadata = (
+        "Name: kit\r\nProvides-Extra: cli\r\nProvides-Extra: grpc\r\n\r\nProvides-Extra: no\r\n"
+    )
+    assert release.provides_extras(unpacked(tmp_path, metadata)) == ("cli", "grpc")

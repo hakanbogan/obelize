@@ -1,5 +1,6 @@
 # Upgrade a dependency every week and open a pull request for it, in two jobs. The first runs your
-# tests and holds no token; the second holds one and runs none of your code (docs/UPGRADING_IN_CI.md).
+# tests and can only read; the second holds a token that writes and runs none of your code
+# (docs/UPGRADING_IN_CI.md).
 # Replace <commit> with the commit of the obelize release you pin, in both places that name it, and
 # X.Y.Z with that release.
 name: upgrade
@@ -11,13 +12,18 @@ on:
 
 permissions: {}
 
+env:
+  # The dependencies to upgrade, separated by spaces. Both jobs read this one list: the second takes
+  # only these folders from the artifact, whatever the first job uploaded.
+  DISTRIBUTIONS: pydantic
+
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
 jobs:
   upgrade:
-    name: upgrade (runs your tests, holds no token)
+    name: upgrade (runs your tests, can only read)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -36,7 +42,7 @@ jobs:
         with:
           version: X.Y.Z
           mode: upgrade
-          distributions: pydantic
+          distributions: ${{ env.DISTRIBUTIONS }}
 
   pull-request:
     name: pull request (holds a token, runs none of your code)
@@ -79,6 +85,7 @@ jobs:
           ARTIFACTS: ${{ runner.temp }}/obelize-upgrade
           BASE: ${{ github.sha }}
           BASE_BRANCH: ${{ github.ref_name }}
+          NAMES: ${{ env.DISTRIBUTIONS }}
         run: >-
           python3 obelize/action/upgrade.py publish --artifacts "$ARTIFACTS" --repo repo
-          --base "$BASE" --base-branch "$BASE_BRANCH"
+          --base "$BASE" --base-branch "$BASE_BRANCH" --distributions "$NAMES"

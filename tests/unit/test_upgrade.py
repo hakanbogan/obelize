@@ -78,6 +78,36 @@ def repo(home: Path, **files: str) -> Path:
     return committed(home / "repo", {name.replace("__", "."): body for name, body in files.items()})
 
 
+@pytest.mark.parametrize("extra", [[], ["--apply", "--yes"], ["--apply", "--yes", "--branch"]])
+def test_a_dependency_already_on_the_newest_release_has_nothing_to_upgrade_and_exits_zero(
+    home: Path, extra: list[str]
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt="acme-kit==2.0\n")
+    result = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), *extra])
+    assert result.exit_code == 0, result.output
+    assert "acme-kit 2.0 is the newest release: nothing to upgrade." in result.output
+    assert "Moving" not in result.output
+    assert (root / "app.py").read_text() == APP
+    assert git(root, "branch", "--list", "obelize/*").stdout.decode().strip() == ""
+    assert git(root, "status", "--porcelain").stdout.decode().strip() == ""
+
+
+def test_a_release_stated_as_the_newest_or_beyond_it_is_the_same_and_a_target_named_is_not(
+    home: Path,
+) -> None:
+    root = repo(home, app__py=APP, requirements__txt="pytest\n")
+    stated = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "2.0"])
+    assert stated.exit_code == 0, stated.output
+    assert "acme-kit 2.0 is the newest release" in stated.output
+    beyond = runner.invoke(app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "3.0"])
+    assert beyond.exit_code == 0, beyond.output
+    assert "acme-kit 3.0 is ahead of the newest, 2.0: nothing to upgrade." in beyond.output
+    named = runner.invoke(
+        app, ["upgrade", "acme-kit", "--repo", str(root), "--from", "2.0", "--to", "2.0"]
+    )
+    assert named.exit_code == 2, named.output
+
+
 def test_a_library_with_no_pack_is_planned_with_a_pack_made_from_its_two_releases(
     home: Path,
 ) -> None:
@@ -989,10 +1019,22 @@ def test_the_branch_a_real_trial_makes_is_what_the_action_checks_pushes_and_open
         "upgrade.bundle",
         "upgrade.patch",
     ]
-    assert action.publish(out, root, base, "work") == 0
+    # The second job has a depth-1 checkout of the base and none of the first job's objects.
+    second = trial / "second"
+    subprocess.run(
+        ["git", "clone", "-q", "--no-local", "--depth", "1", f"file://{root}", str(second)],
+        check=True,
+    )
+    git(second, "remote", "set-url", "origin", str(bare))
+    assert action.publish(out, second, base, "work", ["acme-kit"]) == 0
     name = "obelize/upgrade-acme-kit-2.0"
     pushed = git(bare, "show", f"{name}:app.py").stdout.decode()
     assert pushed.count("greet(") == 1
+    commit = git(bare, "log", "-1", "--format=%an <%ae>|%s", name).stdout.decode().strip()
+    assert (
+        commit == "obelize <obelize@users.noreply.github.com>|Upgrade acme-kit 1.0 to acme-kit==2.0"
+    )
+    assert git(bare, "rev-parse", f"{name}^").stdout.decode().strip() == base
     asked = record.read_text(encoding="utf-8").splitlines()
     assert asked[:8] == ["pr", "create", "--head", name, "--base", "work", "--title", asked[7]]
     assert asked[7] == "Upgrade acme-kit 1.0 to acme-kit==2.0"

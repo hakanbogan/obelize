@@ -28,7 +28,9 @@ uvx obelize upgrade pydantic
 that suits the move. If obelize has none, it reads the two releases (and the newest of each minor
 line between them, at most six, since a library warns before it removes) and writes one, as
 [`pack synth`](CLI.md#obelize-pack-synth) does. Then it plans the migration like `fix` and prints
-the diff. No file of your code is written; its run folder goes under `.obelize/`.
+the diff. No file of your code is written; its run folder goes under `.obelize/`. A dependency that is
+already on the newest release (no `--to` names another, and no pack moves it to another
+distribution) has nothing to move: `upgrade` says so and exits `0`.
 
 `--from` names the release your code is written for. Where no dependency file declares the library,
 the plan takes it as that release, says so in its summary and in `REPORT.md`, and records it as

@@ -23,8 +23,8 @@ if TYPE_CHECKING:
 
 # The most a wheel or source distribution may hold: the large scientific wheels are under it.
 FILE_BYTES: Final = 128 << 20
-# How much of a wheel's METADATA is read for its headers, and how many extras are kept: more of
-# either is not a release a pack states extras for.
+# How much of a wheel's METADATA is read for its headers, and how many extras are kept: the first
+# MiB, and the first 128 names in order. An extra left out makes a line that names it wait.
 METADATA_BYTES: Final = 1 << 20
 MAX_EXTRAS: Final = 128
 _EXTRA: Final = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -61,7 +61,7 @@ def read(fetcher: Fetcher, file: File) -> Iterator[Unpacked]:
 
 def provides_extras(root: Path) -> tuple[str, ...]:
     """The extras a wheel unpacked at `root` lists as `Provides-Extra`, each in its PEP 685 form,
-    sorted; none if it holds no single METADATA, or if a name is not a valid extra (ADR-077).
+    sorted, a name that is no extra left out; none if it holds no single METADATA (ADR-077).
 
     Only the header block is read, up to its first blank line: the description that follows may be
     any text.
@@ -72,10 +72,11 @@ def provides_extras(root: Path) -> tuple[str, ...]:
     with found[0].open("rb") as handle:
         head = handle.read(METADATA_BYTES).decode("utf-8", "replace")
     names: set[str] = set()
-    for line in head.splitlines():
+    # Lines end at a line feed only: a form feed or a separator inside a value is not a header.
+    for line in head.split("\n"):
         if not line.strip():
             break
-        key, _, value = line.partition(":")
+        key, _, value = line.removesuffix("\r").partition(":")
         if key.lower() == "provides-extra":
             name = canonicalize_name(value.strip())
             if _EXTRA.fullmatch(name):

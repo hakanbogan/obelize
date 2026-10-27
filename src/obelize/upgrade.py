@@ -40,6 +40,32 @@ class Chosen:
     claims: guided.Outcome | None = None
 
 
+def known_pack(
+    known: Sequence[loader.LoadedPack],
+    name: str,
+    now: Version,
+    target: Version,
+    *,
+    targeted: bool,
+) -> loader.LoadedPack | None:
+    """The known pack that migrates the distribution `name` from `now` (and to `target`, if the
+    person named one), if there is one. A side that is the Python moves no dependency, so a pack of
+    one is run by name."""
+    for loaded in known:
+        old, new = loaded.pack.from_, loaded.pack.to
+        if (
+            old.package
+            and old.version
+            and new.package
+            and new.version
+            and canonicalize_name(old.package) == name
+            and now in SpecifierSet(old.version)
+            and (not targeted or target in SpecifierSet(new.version))
+        ):
+            return loaded
+    return None
+
+
 def choose(
     fetcher: Fetcher,
     project: index.Project,
@@ -59,25 +85,16 @@ def choose(
     much to flag name by name gets a pack for the names the code under `root` uses. A pack made
     here takes the claims a model drafts from the guides `guides` reads, which are read, and asked
     about, once and only when no pack is known."""
-    for loaded in known:
+    if (loaded := known_pack(known, project.name, now, target, targeted=targeted)) is not None:
         pack = loaded.pack
-        old, new = pack.from_, pack.to
-        # A side that is the Python moves no dependency, so a pack of one is run by name.
-        if (
-            old.package
-            and old.version
-            and new.package
-            and new.version
-            and canonicalize_name(old.package) == project.name
-            and now in SpecifierSet(old.version)
-            and (not targeted or target in SpecifierSet(new.version))
-        ):
-            return Chosen(
-                pack.id,
-                f"Using the pack {pack.id}."
-                + (" The pack is already known; --guide is not used." if guides else ""),
-                *_installs(new.package, new.version, project, target, targeted),
-            )
+        assert pack.to.package is not None  # noqa: S101 - known_pack asked for both sides
+        assert pack.to.version is not None  # noqa: S101
+        return Chosen(
+            pack.id,
+            f"Using the pack {pack.id}."
+            + (" The pack is already known; --guide is not used." if guides else ""),
+            *_installs(pack.to.package, pack.to.version, project, target, targeted),
+        )
     source = guides() if guides is not None else None
     digest = source.digest if source is not None else None
     folder = kept / synth.pack_id(project.name, now, target, guide=digest)

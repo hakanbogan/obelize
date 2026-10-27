@@ -1334,7 +1334,9 @@ def upgrade(
     fails after, and --branch commits it to a new branch instead of the working tree.
     Exit codes: as fix, plus 2 for a dependency the manifests do not name and no --from,
     or an --apply without --yes where no one can be asked, 3 for tests that broke, and 6
-    for an index that could not be reached or a trial the tests could not judge.
+    for an index that could not be reached or a trial the tests could not judge. A
+    dependency already on the newest release, with no --to and no pack that moves it to
+    another (PyPDF2 to pypdf), has nothing to move: it is said and the exit is 0.
     """
     from packaging.utils import canonicalize_name
 
@@ -1377,6 +1379,16 @@ def upgrade(
             raise libdiff.LibraryError(
                 f"{project.name} is not declared with a release in {repo}: pass --from."
             )
+        if (
+            new is None
+            and now >= target
+            and not upgrading.known_pack(known, project.name, now, target, targeted=False)
+        ):
+            where = (
+                "is the newest release" if now == target else f"is ahead of the newest, {target}"
+            )
+            typer.echo(f"{project.name} {now} {where}: nothing to upgrade.")
+            raise typer.Exit(0)
         chosen = upgrading.choose(
             fetcher,
             project,

@@ -152,9 +152,11 @@ request's files.
 `mode: upgrade` runs `obelize upgrade <dependency> --apply --yes --branch` for each dependency in
 `distributions`, in the checkout, and uploads the result as an artifact: for each dependency a git
 bundle of the branch it made, a patch, the trial's evidence and a report. That runs your tests and
-the build scripts of what the trial installs, so give the job `contents: read` and no token, and
-never run it on `pull_request_target`; the action stops if `GH_TOKEN` or `GITHUB_TOKEN` is set or
-the event is that one. It pushes nothing. A second job, which holds the token and runs none of that
+the build scripts of what the trial installs, so give the job `contents: read` and no credential
+that writes (check out with `persist-credentials: false`), and never run it on `pull_request_target`,
+`workflow_run` or `issue_comment`. The action stops if the event is one of those, if `GH_TOKEN`,
+`GITHUB_TOKEN` or `ACTIONS_ID_TOKEN_REQUEST_TOKEN` is set, or if the checkout kept a credential in
+its git configuration. It pushes nothing. A second job, which holds the token and runs none of that
 code, checks the bundle and opens the pull request ([the workflow, and what the second job
 checks](UPGRADING_IN_CI.md)).
 
@@ -162,12 +164,13 @@ checks](UPGRADING_IN_CI.md)).
 |---|---|
 | `distributions` | The dependencies to upgrade, separated by spaces. Each is upgraded on its own and gets a folder of the artifact. |
 | `from` | With one dependency: the release the code is written for, as `--from`. |
-| `fail-on-unproven` | `true` fails the job when the move was not proven (exit `3`, `4` or `6` of `upgrade`). Default `false`: the job passes and `exit-code` and `changed` say what happened. Any other exit code fails the job. |
+| `fail-on-unproven` | `true` fails the job when the move was not proven (exit `3` or `6` of `upgrade`). Default `false`: the job passes and `exit-code` and `changed` say what happened. Any other exit code fails the job. |
 | `artifact-name` | The artifact the folders go to. Default `obelize-upgrade`. |
 
-The outputs of an upgrade are `exit-code` (`0`, or the code of the first upgrade that was not
-proven), `changed` (`true` if a branch was made), `bundle-file` and `report-file` (one path for each
-branch made, separated by spaces).
+The outputs of an upgrade are `exit-code` (the code of the first dependency whose upgrade failed
+outright, else of the first that was not proven, else `0`), `changed` (`true` if a branch was made),
+`bundle-file` and `report-file` (one path for each branch made, separated by spaces). A dependency
+already on its newest release gives `0` and no branch.
 
 #### With pre-commit
 
@@ -523,8 +526,11 @@ never the pack chosen, and a module such a pack matches that the manifests do no
 (`pkg_resources`) is refused with exit `2` that names the pack to run with `fix --pack`. Exit codes
 are `fix`'s, plus `2` for a dependency the manifests do not
 name when `--from` is missing, a version or a library the index does not have, and nothing that
-changed between the releases, `6` for an index that could not be reached, and `1` for a pack
-obelize made that fails its own checks.
+changed between the two releases you named, `6` for an index that could not be reached, and `1` for
+a pack obelize made that fails its own checks. A dependency already on the newest release, with no
+`--to` and no pack that moves it to another distribution (`PyPDF2` to `pypdf`), has nothing to move:
+`upgrade` says so in one line, writes nothing (with `--apply` and `--branch` too, which then make no
+branch) and exits `0`.
 
 ### A trial
 

@@ -17,8 +17,9 @@ inputs:
       upgrade moves each dependency in distributions to its newest release in a copy of the
       repository, runs the repository's own tests before and after, and uploads the branch it made
       as a git bundle with a patch and a report. That runs the repository's code, so the job must
-      hold no token and never be pull_request_target; a second job opens the pull request
-      (docs/UPGRADING_IN_CI.md). The inputs of the other mode are ignored.
+      have no credential that writes (check out with persist-credentials: false) and never run on
+      pull_request_target, workflow_run or issue_comment; the action stops if it does. A second job
+      opens the pull request (docs/UPGRADING_IN_CI.md). The inputs of the other mode are ignored.
     default: scan
   packs:
     description: >-
@@ -46,7 +47,8 @@ inputs:
   distributions:
     description: >-
       upgrade mode: the dependencies to upgrade, separated by spaces, such as pydantic. Each is
-      upgraded on its own and gets a folder of the artifact.
+      upgraded on its own and gets a folder of the artifact. The second job must be given this same
+      list, from the workflow and not from the artifact.
     default: ""
   from:
     description: >-
@@ -55,7 +57,7 @@ inputs:
     default: ""
   fail-on-unproven:
     description: >-
-      upgrade mode: true to fail the job when the tests did not prove the move (exit 3, 4 or 6 of
+      upgrade mode: true to fail the job when the tests did not prove the move (exit 3 or 6 of
       obelize upgrade). Default false: the job passes, and exit-code and changed say what happened.
       Any other exit code fails the job.
     default: "false"
@@ -69,8 +71,8 @@ inputs:
 outputs:
   exit-code:
     description: >-
-      The scan's exit code, 0 or 4 for a scan that ran; in upgrade mode, 0 or the exit code of the
-      first upgrade that was not proven (see docs/CLI.md).
+      The scan's exit code, 0 or 4 for a scan that ran; in upgrade mode, the code of the first
+      upgrade that failed outright, else of the first that was not proven, else 0 (see docs/CLI.md).
     value: ${{ format('{0}{1}', steps.scan.outputs.exit-code, steps.upgrade.outputs.exit-code) }}
   sarif-file:
     description: The SARIF document the scan printed.

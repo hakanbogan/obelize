@@ -69,16 +69,23 @@ leave the line as it was, named in the summary as before ([the forms](docs/adr/A
 The bundled packs list none, so what they write is what it was.
 
 The GitHub Action can upgrade a dependency. `mode: upgrade` with `distributions: pydantic` runs
-`obelize upgrade --apply --yes --branch` for each dependency in the checkout, with no token, and
-uploads for each a git bundle of the branch it made, a patch, the trial's evidence and a report
-(`bundle-file`, `report-file`, `changed` and `exit-code` are its outputs; `fail-on-unproven` fails
-the job on exit `3`, `4` or `6`, and any other code always fails it). It stops if `GH_TOKEN` or
-`GITHUB_TOKEN` is set or the event is `pull_request_target`. The pull request is opened by a second
-job that runs none of your code: `action/upgrade.py publish` checks that the bundle is one commit on
-the commit the workflow ran on, by the action's identity, changing only files the trial names that
-are Python sources or manifests (no `.github`, link, executable or deletion), and then pushes and
-opens it. `mode: scan` is what it was ([Upgrading in CI](docs/UPGRADING_IN_CI.md),
+`obelize upgrade --apply --yes --branch` for each dependency in the checkout, with no credential
+that writes, and uploads for each a git bundle of the branch it made, a patch, the trial's evidence
+and a report (`bundle-file`, `report-file`, `changed` and `exit-code` are its outputs, the last the
+code of the first dependency that failed outright, else of the first not proven; `fail-on-unproven`
+fails the job on exit `3` or `6`, and any other code always fails it). It stops if the event is
+`pull_request_target`, `workflow_run` or `issue_comment`, if `GH_TOKEN`, `GITHUB_TOKEN` or
+`ACTIONS_ID_TOKEN_REQUEST_TOKEN` is set, or if the checkout kept a credential. The pull request is
+opened by a second job that runs none of your code: `action/upgrade.py publish` takes only the
+dependencies the workflow lists, checks that the bundle is one commit on the commit the workflow
+ran on, editing only files the base has that are Python sources or manifests (no `.github`, link,
+executable, deletion or new file), and then pushes a commit it makes itself from that tree and
+opens the pull request. `mode: scan` is what it was ([Upgrading in CI](docs/UPGRADING_IN_CI.md),
 [why](docs/adr/ADR-078-the-upgrade-mode-of-the-action.md)).
+
+`obelize upgrade` for a dependency that is already on the newest release, with no `--to` and no pack
+that moves it to another distribution, now says so and exits `0` with nothing written, where it
+exited `2` ("nothing to synthesize").
 
 `--agent` still takes `claude_code` only. A backend for `codex exec` was checked against its
 documentation on 2026-10-27 (CLI 0.164.0) and not built: it documents `features.shell_tool` and

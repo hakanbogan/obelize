@@ -66,8 +66,9 @@ its own tests and its own ADR.
 
 ## Consequences
 
-Nothing in the code changes. `--agent codex` and `agent.backend: codex` are refused as any name
-outside `BACKENDS` is, with the message that `--agent` takes one of the backends listed. A person who
+Nothing in the code changes. `--agent codex` is refused with "--agent takes one of claude_code, not
+'codex'." (exit `2`), and `agent.backend: codex` in the configuration file with "agent.backend:
+Input should be 'none' or 'claude_code'", since the setting is a closed list. A person who
 uses Codex can still use it beside obelize, outside it, with obelize as the check
 ([With a coding agent](../WITH_A_CODING_AGENT.md)), or set a `model` endpoint for `fix` and
 `--guide` (ADR-038). `docs/KNOWN_ISSUES.md` lists the gap, and `docs/CLI.md`, `docs/PRIVACY.md`

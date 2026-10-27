@@ -1,13 +1,15 @@
 """The upgrade mode of the action: the job that runs the repository's code, and the job that may
 write to the repository, which does not (ADR-078).
 
-`run` is the unprivileged job. It upgrades each dependency named, in the checkout, with
-`obelize upgrade --apply --yes --branch`, which tries the move in a copy and commits it to a new
-branch only if the tests agree, and leaves for each, in a folder, a bundle of that branch, a patch,
-the trial's evidence and a report. It holds no token and pushes nothing. `gate` is the job's
-verdict on the exit codes. `publish` is the privileged job: it reads the folders as data from a
-stranger, refuses a folder unless every rule of `verified` holds, and only then pushes its one
-commit and opens the pull request. It runs none of the repository's code.
+`run` is the job that runs the repository's tests. It upgrades each dependency named, in the
+checkout, with `obelize upgrade --apply --yes --branch`, which tries the move in a copy and commits
+it to a new branch only if the tests agree, and leaves for each, in a folder, a bundle of that
+branch, a patch, the trial's evidence and a report. It refuses to start where a credential that
+writes is in reach, and pushes nothing. `gate` is the job's verdict on the exit codes. `publish` is
+the job that may write: it reads the folders as data from a stranger, takes only those of the
+dependencies the workflow asked for, refuses a folder unless every rule of `verified` holds, and
+only then pushes a commit it made itself from the verified tree and opens the pull request. It
+runs none of the repository's code.
 
 Every value reaches this file through the environment or the command line and is checked against
 the shape it may have before it joins a command line; nothing is expanded into a shell.
@@ -23,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -34,19 +37,27 @@ FOLDER = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 BRANCH = re.compile(r"^obelize/upgrade-[a-z0-9][a-z0-9.-]{0,120}$")
 # A release as the trial prints it: a version, or the specifier it installed.
 RELEASE = re.compile(r"^[A-Za-z0-9._+!<>=~,*-]{1,100}$")
-SUBJECT = re.compile(r"^Upgrade (?P<name>\S+) (?P<old>\S+) to (?P<new>\S+)$")
 HELD = re.compile(r"^Not written, for you to change: the dependency line at (?P<where>.+)\.$", re.M)
 PLACE = re.compile(r"^[^\x00-\x1f`\\]{1,200}:[0-9]{1,7}$")
+# What Windows shows a long name as (`GITHUB~1` for `.github`): a name this action never publishes.
+SHORT = re.compile(r"^[^.]{1,6}~[0-9]+(\..*)?$")
+# What a checkout leaves in the repository's own git configuration to push with.
+CREDENTIALS = r"extraheader|^includeif\.|^credential\."
 TRAILER = re.compile(r"^Obelize-Trial: (?P<id>[A-Za-z0-9._-]{1,80})$", re.M)
 SHA = re.compile(r"^[0-9a-f]{40}$")
 # The manifests obelize reads and writes (`scan/manifests.py` NAMES and REQUIREMENTS_GLOB).
 MANIFESTS = frozenset({"Pipfile", "pyproject.toml", "setup.cfg", "setup.py"})
 # A commit needs an identity, and this is the one the publishing job looks for.
 IDENTITY = ("obelize", "obelize@users.noreply.github.com")
-# The exit codes of `obelize upgrade` for a move the tests did not prove: they broke (3), a place is
-# left for a person (4), no verdict (6). Any other code is a mistake or a crash.
-UNPROVEN = frozenset({3, 4, 6})
-TOKENS = ("GH_TOKEN", "GITHUB_TOKEN")
+# The exit codes of `obelize upgrade --apply --branch` for a move the tests did not prove: they
+# broke (3), or there is no verdict (6). Any other code is a mistake or a crash: `fix` has a 4
+# (nothing applied, a place to review), which a trial that ends on a branch never gives.
+UNPROVEN = frozenset({3, 6})
+# A job that runs the repository's tests must not run where one of these exists. The runner sets
+# `ACTIONS_RUNTIME_TOKEN` itself, for the artifact and cache services; it is not refused.
+TOKENS = ("GH_TOKEN", "GITHUB_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+# Events that give a job that reads someone else's files a token, or run it on their account.
+EVENTS = ("pull_request_target", "workflow_run", "issue_comment")
 MAX_DISTRIBUTIONS = 20
 MAX_FILES = 2000
 MAX_BLOB = 8 << 20
@@ -81,8 +92,15 @@ def canonical(name: str) -> str:
 
 def shown(text: str) -> str:
     """`text` as one line of a workflow log: a value or a message that came from the artifact, or
-    from git about it, cannot end the command and start another."""
-    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    from git about it, cannot end the command and start another, or fail to print."""
+    escaped = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return escaped.encode("utf-8", "backslashreplace").decode("utf-8")
+
+
+def lines(text: str) -> list[str]:
+    """The lines of `text` that git ended with a line feed: `str.splitlines` also splits at a form
+    feed, a separator and a next-line character, which a name or a value may hold."""
+    return [one.removesuffix("\r") for one in text.split("\n") if one]
 
 
 def fail(message: str) -> int:
@@ -90,40 +108,83 @@ def fail(message: str) -> int:
     return 2
 
 
-def git(root: Path, *arguments: str, check: bool = True) -> str:
-    """One git command in `root`, with no hook, filter command or maintenance run for it."""
+def identity() -> dict[str, str]:
+    """What git reads to know who commits: a runner has none, and the publishing job gives the
+    commit it makes the same one."""
+    name, email = IDENTITY
+    return {
+        "GIT_AUTHOR_NAME": name,
+        "GIT_AUTHOR_EMAIL": email,
+        "GIT_COMMITTER_NAME": name,
+        "GIT_COMMITTER_EMAIL": email,
+    }
+
+
+def git(
+    root: Path,
+    *arguments: str,
+    check: bool = True,
+    env: dict[str, str] | None = None,
+    data: bytes | None = None,
+) -> str:
+    """One git command in `root`, with no hook, filter command, signing or maintenance run."""
     quiet = ["-c", f"core.hooksPath={os.devnull}", "-c", "core.fsmonitor=", "-c", "gc.auto=0"]
+    quiet += ["-c", "commit.gpgsign=false"]
     done = subprocess.run(
-        ["git", *quiet, "-C", str(root), *arguments], capture_output=True, check=False
+        ["git", *quiet, "-C", str(root), *arguments],
+        input=data,
+        capture_output=True,
+        check=False,
+        env={**os.environ, **env} if env else None,
     )
     if check and done.returncode:
         said = done.stderr.decode("utf-8", "replace").strip()
-        raise RefusedError(f"git {arguments[0]} failed: {said}")
+        # The command, not the `-c name=value` before it.
+        word = next(
+            one
+            for i, one in enumerate(arguments)
+            if one != "-c" and arguments[max(i - 1, 0)] != "-c"
+        )
+        raise RefusedError(f"git {word} failed: {said}")
     return done.stdout.decode("utf-8", "surrogateescape")
 
 
 # The unprivileged job.
 
 
+def named(text: str) -> tuple[list[str], list[str]]:
+    """The dependencies a workflow asks for and the folder each gets; else `RefusedError`."""
+    names = text.split()
+    if not names or len(names) > MAX_DISTRIBUTIONS:
+        raise RefusedError("distributions takes the dependencies to upgrade, such as pydantic")
+    for name in names:
+        if not DISTRIBUTION.fullmatch(name):
+            raise RefusedError(
+                f"distributions takes distribution names such as pydantic, got '{name}'"
+            )
+    folders = [canonical(name) for name in names]
+    if len(set(folders)) != len(folders):
+        raise RefusedError("distributions names one dependency twice")
+    return names, folders
+
+
 def run(environ: dict[str, str]) -> int:
-    """Upgrade each dependency; the exit code of the first that was not proven goes to the output,
-    and this returns 0 so that the artifact is uploaded before the job is failed (`gate`)."""
-    if environ.get("GITHUB_EVENT_NAME") == "pull_request_target":
-        return fail("mode: upgrade runs the repository's tests: never on pull_request_target")
-    if held := [name for name in TOKENS if environ.get(name)]:
-        return fail(f"{held[0]} is set: the job that runs the repository's tests holds no token")
+    """Upgrade each dependency. The exit code of the first upgrade that failed outright, else of the
+    first that was not proven, goes to the output, and this returns 0 so that the artifact is
+    uploaded before the job is failed (`gate`)."""
+    if (event := environ.get("GITHUB_EVENT_NAME")) in EVENTS:
+        return fail(f"mode: upgrade runs the repository's tests: never on {event}")
+    if unsafe := [name for name in TOKENS if environ.get(name)]:
+        return fail(
+            f"{unsafe[0]} is set: the job that runs the repository's tests must not hold it"
+        )
     version = environ.get("OBELIZE_VERSION", "")
     if not VERSION.fullmatch(version):
         return fail(f"version takes a release such as 0.7.0, got '{version}'")
-    names = environ.get("OBELIZE_DISTRIBUTIONS", "").split()
-    if not names or len(names) > MAX_DISTRIBUTIONS:
-        return fail("distributions takes the dependencies to upgrade, such as pydantic")
-    for name in names:
-        if not DISTRIBUTION.fullmatch(name):
-            return fail(f"distributions takes distribution names such as pydantic, got '{name}'")
-    folders = [canonical(name) for name in names]
-    if len(set(folders)) != len(folders):
-        return fail("distributions names one dependency twice")
+    try:
+        names, folders = named(environ.get("OBELIZE_DISTRIBUTIONS", ""))
+    except RefusedError as error:
+        return fail(str(error))
     stated = environ.get("OBELIZE_FROM", "")
     if stated and not VERSION.fullmatch(stated):
         return fail(f"from takes a release such as 1.10.26, got '{stated}'")
@@ -143,26 +204,34 @@ def run(environ: dict[str, str]) -> int:
         base = git(root, "rev-parse", "--verify", "HEAD^{commit}").strip()
     except RefusedError:
         return fail(f"working-directory '{work}' is not a git checkout with a commit")
-    committer = {
-        **environ,
-        "GIT_AUTHOR_NAME": IDENTITY[0],
-        "GIT_COMMITTER_NAME": IDENTITY[0],
-        "GIT_AUTHOR_EMAIL": IDENTITY[1],
-        "GIT_COMMITTER_EMAIL": IDENTITY[1],
-    }
+    # The names of what is set, never a value: a credential is read by whatever the tests run.
+    kept = [
+        one.split(None, 1)[0]
+        for one in lines(git(root, "config", "--local", "--get-regexp", CREDENTIALS, check=False))
+    ]
+    if kept:
+        return fail(
+            f"the checkout keeps a credential ({', '.join(kept[:3])}): check out with "
+            f"persist-credentials: false"
+        )
     outcomes = []
     for name, folder in zip(names, folders, strict=True):
         before = branches(root)
         command = ["uvx", f"obelize=={version}", "upgrade", name, "--apply", "--yes", "--branch"]
         if stated:
             command += ["--from", stated]
-        code = subprocess.run(command, cwd=root, env=committer, check=False).returncode
+        env = {**environ, **identity()}
+        code = subprocess.run(command, cwd=root, env=env, check=False).returncode
         made = [one for one in branches(root) if one not in before]
         branch = None
         if code == 0 and len(made) == 1 and BRANCH.fullmatch(made[0]):
             branch = made[0] if collect(root, base, made[0], out / folder) else None
-        if code == 0 and branch is None:
-            print(f"::error::obelize upgrade {name} exited 0 and left no one branch to publish")
+        # An upgrade that exits 0 and makes no branch had nothing to move; one that makes a branch
+        # this script cannot publish, or two, is a failure.
+        if code == 0 and (made and branch is None):
+            print(
+                f"::error::obelize upgrade {shown(name)} exited 0 and left no one branch to publish"
+            )
             code = 1
         outcomes.append(Outcome(name, folder, code, branch))
     published(outcomes, out, environ)
@@ -170,8 +239,7 @@ def run(environ: dict[str, str]) -> int:
 
 
 def branches(root: Path) -> list[str]:
-    listed = git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads/obelize/")
-    return listed.split()
+    return lines(git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads/obelize/"))
 
 
 def collect(root: Path, base: str, branch: str, folder: Path) -> bool:
@@ -214,8 +282,10 @@ def report(folder: Path, message: str) -> str:
 def published(outcomes: list[Outcome], out: Path, environ: dict[str, str]) -> None:
     """The step's outputs and summary."""
     made = [one for one in outcomes if one.branch]
+    failed = [one.code for one in outcomes if one.code and one.code not in UNPROVEN]
+    unproven = [one.code for one in outcomes if one.code in UNPROVEN]
     values = {
-        "exit-code": str(next((one.code for one in outcomes if one.code), 0)),
+        "exit-code": str((failed or unproven or [0])[0]),
         "changed": "true" if made else "false",
         "bundle-file": " ".join(str(out / one.folder / "upgrade.bundle") for one in made),
         "report-file": " ".join(str(out / one.folder / "REPORT.md") for one in made),
@@ -254,18 +324,22 @@ def gate(environ: dict[str, str]) -> int:
     return code
 
 
-# The privileged job.
+# The job that may write.
 
 
 def verified(folder: Path, repo: Path, base: str) -> Verified:
-    """The one commit of `folder`'s bundle, if every rule holds; else `RefusedError`, saying which.
+    """The commit to push for `folder`, made from its bundle's tree if every rule holds; else
+    `RefusedError`, saying which.
 
     The bundle, the trial and everything else in the folder come from a job that ran the
     repository's code and its dependencies' build scripts, so each is taken to be forged. The
-    bundle must hold one branch, named as the CLI names one, of one commit on `base` by the identity
-    `run` sets, whose subject names the upgrade the trial describes and says passed. Every path the
-    commit changes must be one the trial names, a Python source or a manifest (`place`), a regular
-    file that is not executable and had the mode it has. Nothing else of the folder is looked at.
+    bundle must hold one branch, named as the CLI names one, of one commit whose parent is `base`.
+    Only the edits of its tree are used: the commit that is pushed is made here, on `base`, with a
+    tree written here from `base` and those edits, by the action's identity, with a message made
+    from the values below, so nothing else of the forged commit (its message, its headers, its
+    dates, the encoding of its tree) is published. The edits must be to files that exist, each a
+    Python source or a manifest (`place`), regular, not changed in mode. The trial's list of paths
+    is a consistency check, not a control: it is as forged as the rest.
     """
     if not FOLDER.fullmatch(folder.name):
         raise RefusedError(f"'{folder.name}' is not a folder this action makes")
@@ -286,8 +360,9 @@ def verified(folder: Path, repo: Path, base: str) -> Verified:
     bundle = folder / "upgrade.bundle"
     if bundle.is_symlink() or not bundle.is_file() or bundle.stat().st_size > MAX_BUNDLE:
         raise RefusedError("upgrade.bundle is missing, is not a file or is too big")
-    listed = git(repo, "bundle", "list-heads", str(bundle)).splitlines()
-    heads = [line.partition(" ")[2] for line in listed]
+    heads = [
+        line.partition(" ")[2] for line in lines(git(repo, "bundle", "list-heads", str(bundle)))
+    ]
     branch = heads[0].removeprefix("refs/heads/") if len(heads) == 1 else ""
     if not (BRANCH.fullmatch(branch) and heads == [f"refs/heads/{branch}"]) or not git(
         repo, "check-ref-format", "--branch", branch, check=False
@@ -305,19 +380,13 @@ def verified(folder: Path, repo: Path, base: str) -> Verified:
     tip = git(repo, "rev-parse", "--verify", f"{private}^{{commit}}").strip()
     if git(repo, "rev-list", "--parents", "-n", "1", tip).split() != [tip, base]:
         raise RefusedError("the branch must be one commit on the commit the job ran on")
-    if git(repo, "log", "-1", "--format=%an%n%ae%n%cn%n%ce", tip).splitlines() != [*IDENTITY] * 2:
-        raise RefusedError("the commit is not by the identity the action gives it")
-    message = git(repo, "log", "-1", "--format=%B", tip)
-    subject = SUBJECT.fullmatch(message.splitlines()[0] if message else "")
-    if not subject or (canonical(subject["name"]), subject["old"], subject["new"]) != (
-        folder.name,
-        old,
-        new,
-    ):
-        raise RefusedError("the commit's subject does not name the upgrade the trial describes")
-    paths = changed(repo, base, tip, written)
-    text = prose(shown, old, new, counts, paths, message, base)
-    return Verified(branch, tip, f"Upgrade {shown} {old} to {new}", text)
+    edits = changed(repo, base, tip, written)
+    paths = tuple(sorted(path for _, _, path in edits))
+    title = f"Upgrade {shown} {old} to {new}"
+    facts = prose(shown, old, new, counts, paths, git(repo, "log", "-1", "--format=%B", tip))
+    tree = rebuilt(repo, base, edits)
+    made = git(repo, "commit-tree", tree, "-p", base, "-m", f"{title}\n\n{facts}", env=identity())
+    return Verified(branch, made.strip(), title, f"{facts}\n\n{CLOSING.format(base[:10])}")
 
 
 def loaded(path: Path) -> dict[str, Any]:
@@ -350,9 +419,11 @@ def _count(value: object, what: str) -> int:
     return value
 
 
-def changed(repo: Path, base: str, tip: str, named: set[str]) -> tuple[str, ...]:
-    """The paths `tip` changes from `base`, if each is a regular file of a kind obelize writes that
-    the trial names; else `RefusedError`."""
+def changed(repo: Path, base: str, tip: str, named: set[str]) -> list[tuple[str, str, str]]:
+    """The edits `tip` makes to `base` as (mode, blob, path), if each is the edit of a regular file
+    that exists, of a kind obelize writes, that the trial names; else `RefusedError`. An upgrade
+    edits files in place (every change it makes carries the bytes the file had), so an added file
+    is never one."""
     raw = git(repo, "diff-tree", "-r", "-z", "--raw", "--no-renames", "--no-abbrev", base, tip)
     fields = raw.split("\0")
     if fields and fields[-1] == "":
@@ -362,48 +433,71 @@ def changed(repo: Path, base: str, tip: str, named: set[str]) -> tuple[str, ...]
     found = []
     for meta, path in zip(fields[::2], fields[1::2], strict=True):
         before, after, _, blob, status = meta.removeprefix(":").split(" ")
-        if status not in {"A", "M"}:
-            raise RefusedError(f"{path}: a change of kind {status}; obelize adds and edits files")
-        if after not in {"100644", "100755"} or (status == "A" and after != "100644"):
-            raise RefusedError(
-                f"{path}: mode {after}; a link, a submodule or an executable is refused"
-            )
-        if status == "M" and before != after:
-            raise RefusedError(f"{path}: its mode changes from {before} to {after}")
         place(path)
+        if status != "M":
+            raise RefusedError(
+                f"{path!r}: a change of kind {status}; an upgrade edits files that exist"
+            )
+        if before != after or after not in {"100644", "100755"}:
+            raise RefusedError(
+                f"{path!r}: mode {before} to {after}; a link, a submodule and a change of mode "
+                f"are refused"
+            )
         if path not in named:
-            raise RefusedError(f"{path}: the trial does not name it")
+            raise RefusedError(f"{path!r}: the trial does not name it")
         if int(git(repo, "cat-file", "-s", blob).strip()) > MAX_BLOB:
-            raise RefusedError(f"{path}: more than {MAX_BLOB} bytes")
-        found.append(path)
+            raise RefusedError(f"{path!r}: more than {MAX_BLOB} bytes")
+        found.append((after, blob, path))
     if not 0 < len(found) <= MAX_FILES:
         raise RefusedError(
             f"the commit changes {len(found)} files; it must change 1 to {MAX_FILES}"
         )
-    return tuple(sorted(found))
+    return found
+
+
+def rebuilt(repo: Path, base: str, edits: list[tuple[str, str, str]]) -> str:
+    """The tree of `base` with `edits` and nothing else, written here: the bundle's own tree is not
+    pushed, because a mode such as 100664 reads as 100644 to a diff and stays in the object."""
+    with tempfile.TemporaryDirectory(prefix="obelize-index-") as scratch:
+        env = {"GIT_INDEX_FILE": str(Path(scratch) / "index")}
+        git(repo, "read-tree", base, env=env)
+        listing = "".join(f"{mode} {blob}\t{path}\0" for mode, blob, path in edits)
+        git(repo, "update-index", "-z", "--index-info", env=env, data=listing.encode())
+        return git(repo, "write-tree", env=env).strip()
 
 
 def place(path: str) -> None:
     """A path obelize writes: a Python source or a manifest, in the repository and outside what git
     or GitHub reads as configuration (`.git*`, `.github`, in whatever case a file system folds
-    them), with no character that could end a line of the pull request."""
+    them), that UTF-8 holds, with no character that could end a line, hide another or name a file
+    some other way on a system that folds names (a control or format character, a separator, a
+    colon, a name NFKC changes, a short name such as `GITHUB~1`)."""
+    try:
+        path.encode("utf-8")
+    except UnicodeEncodeError:
+        raise RefusedError(f"{path!r}: not a path this action publishes") from None
     parts = path.split("/")
     if (
         "\\" in path
-        or re.search(r"[\x00-\x1f\x7f`]", path)
+        or "`" in path
+        or ":" in path
+        or any(unicodedata.category(one) in {"Cc", "Cf", "Zl", "Zp"} for one in path)
+        or unicodedata.normalize("NFKC", path) != path
         or any(
-            part in {"", ".", ".."} or part.casefold().startswith((".git", ".obelize"))
+            part in {"", ".", ".."}
+            or part.casefold().startswith((".git", ".obelize"))
+            or SHORT.fullmatch(part)
             for part in parts
         )
     ):
-        raise RefusedError(f"{path}: not a path this action publishes")
+        raise RefusedError(f"{path!r}: not a path this action publishes")
     leaf = parts[-1]
     if not (
         leaf.endswith((".py", ".pyi"))
         or leaf in MANIFESTS
         or (leaf.endswith(".txt") and ("requirement" in leaf or parts[-2:-1] == ["requirements"]))
     ):
-        raise RefusedError(f"{path}: obelize writes no file of this kind")
+        raise RefusedError(f"{path!r}: obelize writes no file of this kind")
 
 
 def held(message: str) -> list[str]:
@@ -420,10 +514,10 @@ def prose(
     counts: tuple[int, int, int],
     paths: tuple[str, ...],
     message: str,
-    base: str,
 ) -> str:
-    """The pull request's text, made here from values that passed a shape: nothing of the
-    artifact's own prose reaches it."""
+    """What the commit and the pull request say of the move, made here from values that passed a
+    shape: nothing of the artifact's own prose reaches either. The counts are the first job's
+    claim, and are said to be."""
     compared, broke, flaky = counts
     shown = "\n".join(f"- `{one}`" for one in paths[:LISTED])
     more = f"\n- and {len(paths) - LISTED} more" if len(paths) > LISTED else ""
@@ -436,36 +530,58 @@ def prose(
         else ""
     )
     return (
-        f"obelize moved `{name}` from {old} to {new} in a copy of this repository and ran its "
-        f"tests before and after the move: {compared} test(s) passed before, {broke} broke, "
-        f"{flaky} failed once and passed again.\n\n"
-        f"The move changes {len(paths)} file(s):\n\n{shown}{more}{unwritten}\n\n"
-        f"The tests ran in the first job of the workflow, which held no token. This pull request "
-        f"was opened by a second job that ran none of the repository's code: it checked that the "
-        f"branch holds one commit on `{base[:10]}`, that every path in it is one the trial names, "
-        f"and that none is a workflow, a link or an executable. Read the diff all the same.\n"
+        f"The job that ran the tests reports that, in a copy of this repository, {compared} "
+        f"test(s) passed before the move of `{name}` from {old} to {new} and that after it "
+        f"{broke} broke and {flaky} failed once and passed again. These counts are that job's "
+        f"claim: no test was run or checked by the job that pushed this.\n\n"
+        f"The move changes {len(paths)} file(s):\n\n{shown}{more}{unwritten}"
     )
 
 
+CLOSING = (
+    "This pull request was opened by a second job that ran none of the repository's code. It "
+    "checked that the branch is `{}` and edits to files that exist, each a Python source or a "
+    "manifest, none a workflow, a link or an executable, and made the commit itself. It did not "
+    "check what the edits do: read the diff, and read any file that runs later, such as a "
+    "`setup.py` or a `conftest.py`, with particular care."
+)
+
+
 def publish(
-    artifacts: Path, repo: Path, base: str, base_branch: str, remote: str = "origin"
+    artifacts: Path,
+    repo: Path,
+    base: str,
+    base_branch: str,
+    names: list[str],
+    remote: str = "origin",
 ) -> int:
-    """Verify each folder of the artifact, push the branch of each that passes and open its pull
-    request. A folder that fails is said, and the others go on."""
+    """Verify each folder of the artifact that a dependency in `names` asked for, push the branch of
+    each that passes and open its pull request. A folder that fails is said, and the others go on.
+    `names` is what the workflow asked for, read from the workflow and not from the artifact."""
     if not SHA.fullmatch(base):
         return fail(f"base takes a commit, got '{base}'")
     if not git(repo, "check-ref-format", "--branch", base_branch, check=False):
         return fail(f"base-branch takes a branch name, got '{base_branch}'")
     folders = sorted(one for one in artifacts.iterdir() if one.is_dir() and not one.is_symlink())
+    if len(folders) > MAX_DISTRIBUTIONS:
+        return fail(
+            f"the artifact holds {len(folders)} folders; at most {MAX_DISTRIBUTIONS} are asked for"
+        )
     if not folders:
         print("::notice::the artifact holds no upgrade")
         return 0
+    asked = {canonical(one) for one in names}
     failed = 0
     for folder in folders:
         try:
+            if folder.name not in asked:
+                raise RefusedError("not a dependency this workflow asked for")
             opened(verified(folder, repo, base), repo, base_branch, remote)
         except RefusedError as error:
             print(f"::error::{shown(f'{folder.name}: {error}')}")
+            failed += 1
+        except Exception as error:  # one folder's crash must not stop the next
+            print(f"::error::{shown(folder.name)}: {type(error).__name__}; nothing more was done")
             failed += 1
         finally:
             git(repo, "update-ref", "-d", f"refs/obelize-verify/{folder.name}", check=False)
@@ -473,13 +589,14 @@ def publish(
 
 
 def opened(result: Verified, repo: Path, base_branch: str, remote: str) -> None:
-    if git(repo, "ls-remote", "--heads", remote, f"refs/heads/{result.branch}").strip():
-        print(f"::notice::{result.branch} exists on {remote} already, so it was not touched")
-        return
-    git(repo, "push", "--no-verify", remote, f"{result.tip}:refs/heads/{result.branch}")
     with tempfile.TemporaryDirectory(prefix="obelize-pr-") as scratch:
+        # Before the push: a body that cannot be written leaves no branch without a pull request.
         body = Path(scratch) / "body.md"
         body.write_text(result.body, encoding="utf-8")
+        if git(repo, "ls-remote", "--heads", remote, f"refs/heads/{result.branch}").strip():
+            print(f"::notice::{result.branch} exists on {remote} already, so it was not touched")
+            return
+        git(repo, "push", "--no-verify", remote, f"{result.tip}:refs/heads/{result.branch}")
         command = ["gh", "pr", "create", "--head", result.branch, "--base", base_branch]
         command += ["--title", result.title, "--body-file", str(body)]
         done = subprocess.run(command, cwd=repo, check=False)
@@ -498,12 +615,17 @@ def main(argv: list[str]) -> int:
     one.add_argument("--repo", type=Path, required=True)
     one.add_argument("--base", required=True)
     one.add_argument("--base-branch", required=True)
+    one.add_argument("--distributions", required=True)
     given = parser.parse_args(argv)
     if given.command == "run":
         return run(dict(os.environ))
     if given.command == "gate":
         return gate(dict(os.environ))
-    return publish(given.artifacts, given.repo, given.base, given.base_branch)
+    try:
+        names, _ = named(given.distributions)
+    except RefusedError as error:
+        return fail(str(error))
+    return publish(given.artifacts, given.repo, given.base, given.base_branch, names)
 
 
 if __name__ == "__main__":
