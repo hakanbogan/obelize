@@ -273,14 +273,14 @@ def test_the_collector_names_no_flag_the_builder_cannot_make() -> None:
 
 
 @pytest.mark.parametrize(
-    ("old", "timeout"),
-    [("1.10.26", None), (None, None), ("2.0", 60)],
-    ids=["from", "no-from", "timeout"],
+    ("old", "timeout", "new"),
+    [("1.10.26", None, "2.12.5"), (None, None, None), ("2.0", 60, None), ("1.0", None, None)],
+    ids=["from-to", "no-from", "timeout", "no-to"],
 )
 def test_the_trial_command_is_obelizes_with_the_python_and_without_a_prompt(
-    old: str | None, timeout: int | None
+    old: str | None, timeout: int | None, new: str | None
 ) -> None:
-    command = box.run_command("pydantic", old, "3.11", timeout)
+    command = box.run_command("pydantic", old, "3.11", timeout, new)
     assert command[:5] == ["sh", "-c", command[2], "sh", "obelize"]
     assert "cp /work/repo/.obelize/trials/*/trial.json /work/out/" in command[2]
     assert command[2].startswith('"$@"; code=$?;')
@@ -289,6 +289,7 @@ def test_the_trial_command_is_obelizes_with_the_python_and_without_a_prompt(
         "upgrade",
         "pydantic",
         *(["--from", old] if old else []),
+        *(["--to", new] if new else []),
         "--apply",
         "--yes",
         "--repo",
@@ -300,18 +301,21 @@ def test_the_trial_command_is_obelizes_with_the_python_and_without_a_prompt(
 
 
 @pytest.mark.parametrize(
-    ("distribution", "old", "python"),
+    ("distribution", "old", "python", "new"),
     [
-        ("x; id", "1.0", "3.12"),
-        ("$(id)", "1.0", "3.12"),
-        ("pydantic", "1.0; id", "3.12"),
-        ("p", "1", "3"),
+        ("x; id", "1.0", "3.12", None),
+        ("$(id)", "1.0", "3.12", None),
+        ("pydantic", "1.0; id", "3.12", None),
+        ("pydantic", "1.0", "3.12", "2.0 && id"),
+        ("p", "1", "3", None),
     ],
-    ids=["semicolon", "substitution", "release", "python"],
+    ids=["semicolon", "substitution", "release", "target", "python"],
 )
-def test_a_word_a_shell_could_read_is_refused(distribution: str, old: str, python: str) -> None:
+def test_a_word_a_shell_could_read_is_refused(
+    distribution: str, old: str, python: str, new: str | None
+) -> None:
     with pytest.raises(box.UnsafeError):
-        box.run_command(distribution, old, python)
+        box.run_command(distribution, old, python, new=new)
 
 
 # Which Python.

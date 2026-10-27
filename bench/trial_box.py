@@ -266,12 +266,20 @@ _RELEASE = re.compile(r"[0-9][A-Za-z0-9.+!_-]*")
 
 
 def run_command(
-    distribution: str, old: str | None, python: str, test_timeout_s: int | None = None
+    distribution: str,
+    old: str | None,
+    python: str,
+    test_timeout_s: int | None = None,
+    new: str | None = None,
 ) -> list[str]:
-    """The trial as the container runs it. The shell only copies `trial.json` to a fixed place
-    afterwards and keeps obelize's exit code; the repository's files are never given to it."""
-    if not _SAFE.fullmatch(distribution) or not (old is None or _RELEASE.fullmatch(old)):
-        raise UnsafeError(f"{distribution} {old} is not a distribution and a release")
+    """The trial as the container runs it, to the release the dry run was made for: without `new`
+    it would move to the newest and be another pack. The shell only copies `trial.json` to a fixed
+    place afterwards and keeps obelize's exit code; the repository's files are never given to it."""
+    releases = (old, new)
+    if not _SAFE.fullmatch(distribution) or not all(
+        release is None or _RELEASE.fullmatch(release) for release in releases
+    ):
+        raise UnsafeError(f"{distribution} {old} {new} is not a distribution and two releases")
     if not re.fullmatch(r"3\.[0-9]{1,2}", python):
         raise UnsafeError(f"{python} is not a Python of the box")
     wrapper = (
@@ -287,6 +295,7 @@ def run_command(
         "upgrade",
         distribution,
         *(["--from", old] if old else []),
+        *(["--to", new] if new else []),
         "--apply",
         "--yes",
         "--repo",

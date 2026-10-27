@@ -394,7 +394,9 @@ def try_repository(
     """One repository's record, whatever happens to it."""
     python = python_for(directory, installed)
     try:
-        command = trial_box.run_command(frame["distribution"], frame["from"], python, test_timeout)
+        command = trial_box.run_command(
+            frame["distribution"], frame["from"], python, test_timeout, frame["to"]
+        )
         outcome, seconds = run_container(name, box.image, command, box.limits, repository=directory)
     except (SystemExit, subprocess.SubprocessError, OSError) as error:
         outcome, seconds = Outcome(None, False, False, False, str(error), None), 0.0
