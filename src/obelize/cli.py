@@ -1292,7 +1292,8 @@ def upgrade(
         "--from",
         metavar="<version>",
         help="The release the code is written for. Default: the one the manifests name. Where no "
-        "manifest declares the dependency, it is the release the run takes it to be.",
+        "manifest declares the dependency, or every declaration admits it, it is the release the "
+        "run takes it to be; a declaration that rules it out stops the run.",
     ),
     new: str | None = typer.Option(
         None,
